@@ -396,13 +396,17 @@ private fun CategoryChooser(
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        categories.chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        categories.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 row.forEach { item ->
                     FilterChip(
                         selected = selected == item,
                         onClick = { onSelected(item) },
                         label = { Text(item.prettyName()) },
+                        modifier = Modifier.weight(1f),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
