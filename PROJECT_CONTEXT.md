@@ -30,9 +30,9 @@ Signature concepts planned:
 - Minimum SDK: 24.
 - Target SDK: 36.
 - Compile SDK: 36.
-- Compose BOM: 2026.09.00.
+- Compose BOM: 2026.04.01 (Compose 1.11 generation, chosen for stable API 36 compatibility).
 - Material 3 stable.
-- Room and WorkManager are dependencies; database/background ingestion wiring is still pending.
+- Room and WorkManager are planned for the next phase and will be added when their persistence/background code is introduced.
 - Source of truth must remain deterministic local data, not AI.
 - Any future AI should explain already-derived facts, never invent transaction truth.
 
