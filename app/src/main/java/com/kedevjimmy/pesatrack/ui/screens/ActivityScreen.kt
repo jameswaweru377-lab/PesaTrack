@@ -1,6 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,12 +21,18 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CallReceived
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.DirectionsBus
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.HelpOutline
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalAtm
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Paid
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Restaurant
-import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.ShoppingCart
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.Wifi
@@ -41,57 +46,56 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
+import com.kedevjimmy.pesatrack.data.local.StoredTransaction
+import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
+import com.kedevjimmy.pesatrack.domain.model.ReviewState
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
-import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
-import com.kedevjimmy.pesatrack.ui.theme.MintSoft
-import com.kedevjimmy.pesatrack.ui.theme.RoseSoft
-import com.kedevjimmy.pesatrack.ui.theme.SkySoft
-import com.kedevjimmy.pesatrack.ui.theme.VioletSoft
-
-private data class ActivityItem(
-    val name: String,
-    val time: String,
-    val category: String,
-    val amount: String,
-    val positive: Boolean,
-    val icon: ImageVector,
-    val tone: String
-)
+import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun ActivityScreen(
     scaffoldPadding: PaddingValues,
-    onTransactionClick: () -> Unit = {}
+    onTransactionClick: (Long) -> Unit = {}
 ) {
-    val today = listOf(
-        ActivityItem("Family Wings", "18:24", "Rent", "- KES 6,000", false, Icons.Rounded.AccountBalance, "amber"),
-        ActivityItem("Elizabeth", "13:15", "Food & Dining", "- KES 2,900", false, Icons.Rounded.Restaurant, "green"),
-        ActivityItem("Planet Internet", "09:32", "Internet", "- KES 1,500", false, Icons.Rounded.Wifi, "blue"),
-        ActivityItem("M-Pesa Transaction Fee", "08:17", "Fees", "- KES 28", false, Icons.Rounded.ReceiptLong, "neutral")
-    )
-    val yesterday = listOf(
-        ActivityItem("Joseph", "19:46", "Shopping", "- KES 3,200", false, Icons.Rounded.ShoppingCart, "violet"),
-        ActivityItem("KPLC", "14:20", "Electricity", "- KES 1,200", false, Icons.Rounded.Bolt, "amber"),
-        ActivityItem("Safaricom Airtime", "11:08", "Phone & Data", "- KES 500", false, Icons.Rounded.PhoneAndroid, "blue"),
-        ActivityItem("Salary - ABC Ltd", "08:05", "Income", "+ KES 45,000", true, Icons.Rounded.CallReceived, "green")
-    )
-    val earlier = listOf(
-        ActivityItem("Transfer to KCB", "18 Sep, 21:14", "Transfer", "- KES 10,000", false, Icons.Rounded.AccountBalance, "neutral"),
-        ActivityItem("Cash Withdrawal", "18 Sep, 16:30", "Cash", "- KES 5,000", false, Icons.Rounded.LocalAtm, "green"),
-        ActivityItem("M-Pesa Reversal", "18 Sep, 11:12", "Other", "+ KES 428", true, Icons.Rounded.SyncAlt, "green")
-    )
+    val context = LocalContext.current
+    val store = remember { TransactionStore.get(context) }
+    var snapshot by remember { mutableStateOf(store.activitySnapshot()) }
+    var selectedFilter by remember { mutableStateOf("All") }
+
+    fun refresh() {
+        snapshot = store.activitySnapshot()
+    }
+
+    val filtered = snapshot.transactions.filter { item ->
+        when (selectedFilter) {
+            "Expenses" -> item.direction == MoneyDirection.EXPENSE.name
+            "Income" -> item.direction == MoneyDirection.INCOME.name
+            "Transfers" -> item.direction == MoneyDirection.TRANSFER.name
+            "Needs review" -> item.reviewState == ReviewState.NEEDS_REVIEW.name
+            else -> true
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -105,7 +109,7 @@ fun ActivityScreen(
                 Column(Modifier.weight(1f)) {
                     Text("Activity", style = MaterialTheme.typography.headlineLarge)
                     Text(
-                        "All your money in one place.",
+                        "Your captured money activity.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -115,8 +119,8 @@ fun ActivityScreen(
                     color = MaterialTheme.colorScheme.surface,
                     shadowElevation = 2.dp
                 ) {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Rounded.Search, contentDescription = "Search")
+                    IconButton(onClick = ::refresh) {
+                        Icon(Icons.Rounded.Refresh, contentDescription = "Refresh")
                     }
                 }
             }
@@ -124,11 +128,11 @@ fun ActivityScreen(
 
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("All", "Expenses", "Income", "Transfers", "Fees", "Uncategorized").forEachIndexed { index, label ->
+                listOf("All", "Expenses", "Income", "Transfers", "Needs review").forEach { label ->
                     item {
                         FilterChip(
-                            selected = index == 0,
-                            onClick = {},
+                            selected = selectedFilter == label,
+                            onClick = { selectedFilter = label },
                             label = { Text(label) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
@@ -141,66 +145,126 @@ fun ActivityScreen(
         }
 
         item {
-            PesaCard {
-                Column(Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("September", style = MaterialTheme.typography.titleLarge)
-                            Text(
-                                "KES 16,200 spent • KES 45,000 income",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        MiniTrend()
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("+12%", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                            Text("vs Aug", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    ResponsiveActivityMetrics()
+            ActivitySummaryCard(snapshot)
+        }
+
+        if (filtered.isEmpty()) {
+            item {
+                EmptyActivityState(
+                    selectedFilter = selectedFilter,
+                    capturedCount = snapshot.transactions.size
+                )
+            }
+        } else {
+            item {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        if (selectedFilter == "All") "Recent activity" else selectedFilter,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "${filtered.size} transaction${if (filtered.size == 1) "" else "s"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-        }
 
-        item { ActivityGroupHeader("Today", "21 September 2024", "KES 4,800") }
-        items(today.size) { index ->
-            ActivityRow(today[index], onTransactionClick)
-        }
-
-        item { ActivityGroupHeader("Yesterday", "20 September 2024", "KES 7,350") }
-        items(yesterday.size) { index ->
-            ActivityRow(yesterday[index], onTransactionClick)
-        }
-
-        item { ActivityGroupHeader("Earlier this week", "18 September 2024", "KES 5,428") }
-        items(earlier.size) { index ->
-            ActivityRow(earlier[index], onTransactionClick)
+            items(filtered.size) { index ->
+                ActivityRow(
+                    item = filtered[index],
+                    onClick = { onTransactionClick(filtered[index].id) }
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun ResponsiveActivityMetrics() {
+private fun ActivitySummaryCard(snapshot: ActivityLedgerSnapshot) {
+    val summary = snapshot.summary
+    PesaCard {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        currentMonthLabel(),
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        "${formatMoney(summary.spentMinor)} spent • ${formatMoney(summary.incomeMinor)} income",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (summary.needsReviewCount > 0) {
+                    SmallStatusPill(
+                        "${summary.needsReviewCount} need review",
+                        "amber"
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            ResponsiveActivityMetrics(snapshot)
+        }
+    }
+}
+
+@Composable
+private fun ResponsiveActivityMetrics(snapshot: ActivityLedgerSnapshot) {
+    val summary = snapshot.summary
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val compact = maxWidth < 600.dp
         if (compact) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ActivityMetric("Spent", "KES 16,200", "↑ 12%", Icons.Rounded.Paid, "red", Modifier.weight(1f))
-                    ActivityMetric("Income", "KES 45,000", "↑ 8%", Icons.Rounded.CallReceived, "green", Modifier.weight(1f))
+                    ActivityMetric(
+                        "Spent",
+                        formatMoney(summary.spentMinor),
+                        "This month",
+                        Icons.Rounded.Paid,
+                        "red",
+                        Modifier.weight(1f)
+                    )
+                    ActivityMetric(
+                        "Income",
+                        formatMoney(summary.incomeMinor),
+                        "This month",
+                        Icons.Rounded.CallReceived,
+                        "green",
+                        Modifier.weight(1f)
+                    )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ActivityMetric("Fees", "KES 428", "↓ 20%", Icons.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
-                    ActivityMetric("Net", "KES 28,372", "↑ 15%", Icons.Rounded.Paid, "blue", Modifier.weight(1f))
+                    ActivityMetric(
+                        "Fees",
+                        formatMoney(summary.feesMinor),
+                        "M-Pesa fees",
+                        Icons.Rounded.ReceiptLong,
+                        "amber",
+                        Modifier.weight(1f)
+                    )
+                    ActivityMetric(
+                        "Net",
+                        formatSignedMoney(summary.netMinor),
+                        "Cash flow",
+                        Icons.Rounded.AccountBalance,
+                        "blue",
+                        Modifier.weight(1f)
+                    )
                 }
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ActivityMetric("Spent", "KES 16,200", "↑ 12%", Icons.Rounded.Paid, "red", Modifier.weight(1f))
-                ActivityMetric("Income", "KES 45,000", "↑ 8%", Icons.Rounded.CallReceived, "green", Modifier.weight(1f))
-                ActivityMetric("Fees", "KES 428", "↓ 20%", Icons.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
-                ActivityMetric("Net", "KES 28,372", "↑ 15%", Icons.Rounded.Paid, "blue", Modifier.weight(1f))
+                ActivityMetric("Spent", formatMoney(summary.spentMinor), "This month", Icons.Rounded.Paid, "red", Modifier.weight(1f))
+                ActivityMetric("Income", formatMoney(summary.incomeMinor), "This month", Icons.Rounded.CallReceived, "green", Modifier.weight(1f))
+                ActivityMetric("Fees", formatMoney(summary.feesMinor), "M-Pesa fees", Icons.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
+                ActivityMetric("Net", formatSignedMoney(summary.netMinor), "Cash flow", Icons.Rounded.AccountBalance, "blue", Modifier.weight(1f))
             }
         }
     }
@@ -210,7 +274,7 @@ private fun ResponsiveActivityMetrics() {
 private fun ActivityMetric(
     label: String,
     value: String,
-    trend: String,
+    helper: String,
     icon: ImageVector,
     tone: String,
     modifier: Modifier
@@ -223,34 +287,89 @@ private fun ActivityMetric(
             tint = pesaToneContent(tone)
         )
         Spacer(Modifier.height(6.dp))
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-        Spacer(Modifier.height(4.dp))
-        SmallStatusPill(trend)
-    }
-}
-
-@Composable
-private fun ActivityGroupHeader(title: String, date: String, total: String) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(title, style = MaterialTheme.typography.titleLarge)
         Text(
-            "  •  $date",
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
+            label,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Text(total, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            helper,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 @Composable
-private fun ActivityRow(item: ActivityItem, onClick: () -> Unit) {
+private fun EmptyActivityState(
+    selectedFilter: String,
+    capturedCount: Int
+) {
+    PesaCard {
+        Column(
+            Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            IconBubble(
+                if (selectedFilter == "Needs review") Icons.Rounded.HelpOutline else Icons.Rounded.ReceiptLong,
+                size = 52.dp,
+                background = pesaToneContainer(if (selectedFilter == "Needs review") "amber" else "green"),
+                tint = pesaToneContent(if (selectedFilter == "Needs review") "amber" else "green")
+            )
+            Text(
+                if (capturedCount == 0) {
+                    "Waiting for your first captured transaction"
+                } else {
+                    "Nothing in $selectedFilter"
+                },
+                modifier = Modifier.padding(top = 12.dp),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                if (capturedCount == 0) {
+                    "Once Notification Access is enabled, new M-Pesa confirmations and configured money alerts will appear here."
+                } else if (selectedFilter == "Needs review") {
+                    "Good — every captured transaction currently has a classification."
+                } else {
+                    "Try another filter to see your captured activity."
+                },
+                modifier = Modifier.padding(top = 5.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActivityRow(
+    item: StoredTransaction,
+    onClick: () -> Unit
+) {
+    val category = runCatching {
+        TransactionCategory.valueOf(item.category)
+    }.getOrDefault(TransactionCategory.UNCATEGORIZED)
+    val needsReview = item.reviewState == ReviewState.NEEDS_REVIEW.name
+    val direction = runCatching {
+        MoneyDirection.valueOf(item.direction)
+    }.getOrDefault(MoneyDirection.NEUTRAL)
+
+    val tone = when {
+        needsReview -> "amber"
+        direction == MoneyDirection.INCOME -> "green"
+        direction == MoneyDirection.TRANSFER -> "blue"
+        category == TransactionCategory.SHOPPING -> "violet"
+        category == TransactionCategory.ELECTRICITY || category == TransactionCategory.RENT -> "amber"
+        else -> "green"
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -263,31 +382,26 @@ private fun ActivityRow(item: ActivityItem, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconBubble(
-                item.icon,
+                iconFor(category, item.type),
                 size = 40.dp,
-                background = if (item.tone == "neutral") {
-                    MaterialTheme.colorScheme.surfaceVariant
-                } else {
-                    pesaToneContainer(item.tone)
-                },
-                tint = if (item.tone == "neutral") {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    pesaToneContent(item.tone)
-                }
+                background = pesaToneContainer(tone),
+                tint = pesaToneContent(tone)
             )
             Column(
                 Modifier
                     .weight(1f)
                     .padding(horizontal = 11.dp)
             ) {
-                Text(item.name, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    item.counterparty ?: humanize(item.type),
+                    style = MaterialTheme.typography.titleMedium
+                )
                 Row(
                     modifier = Modifier.padding(top = 3.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        item.time,
+                        formatTime(item.receivedAtEpochMs),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -297,22 +411,24 @@ private fun ActivityRow(item: ActivityItem, onClick: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        item.category,
+                        if (needsReview) "Needs review" else category.prettyName(),
                         style = MaterialTheme.typography.bodySmall,
-                        color = pesaToneContent(
-                            when (item.tone) {
-                                "neutral" -> "blue"
-                                else -> item.tone
-                            }
-                        )
+                        color = pesaToneContent(tone)
                     )
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    item.amount,
+                    amountLabel(item, direction),
                     style = MaterialTheme.typography.titleSmall,
-                    color = if (item.positive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    color = if (
+                        direction == MoneyDirection.INCOME ||
+                        item.type == MpesaTransactionType.REVERSAL.name
+                    ) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
                 )
                 Icon(
                     Icons.Rounded.ChevronRight,
@@ -327,25 +443,62 @@ private fun ActivityRow(item: ActivityItem, onClick: () -> Unit) {
     }
 }
 
-@Composable
-private fun MiniTrend() {
-    val primary = MaterialTheme.colorScheme.primary
-    Canvas(
-        Modifier
-            .size(width = 96.dp, height = 45.dp)
-            .padding(horizontal = 6.dp)
-    ) {
-        val points = listOf(
-            Offset(0f, size.height * .75f),
-            Offset(size.width * .22f, size.height * .58f),
-            Offset(size.width * .43f, size.height * .62f),
-            Offset(size.width * .64f, size.height * .40f),
-            Offset(size.width * .82f, size.height * .30f),
-            Offset(size.width, size.height * .12f)
-        )
-        points.zipWithNext().forEach { (a, b) ->
-            drawLine(primary, a, b, strokeWidth = 4f, cap = StrokeCap.Round)
-        }
-        drawCircle(primary, radius = 5f, center = points.last())
+private fun iconFor(
+    category: TransactionCategory,
+    type: String
+): ImageVector = when (category) {
+    TransactionCategory.RENT -> Icons.Rounded.Home
+    TransactionCategory.LUNCH -> Icons.Rounded.Restaurant
+    TransactionCategory.ELECTRICITY -> Icons.Rounded.Bolt
+    TransactionCategory.INTERNET -> Icons.Rounded.Wifi
+    TransactionCategory.TRANSPORT -> Icons.Rounded.DirectionsBus
+    TransactionCategory.SHOPPING -> Icons.Rounded.ShoppingCart
+    TransactionCategory.FAMILY -> Icons.Rounded.Groups
+    TransactionCategory.FEES -> Icons.Rounded.ReceiptLong
+    TransactionCategory.PHONE_AND_DATA -> Icons.Rounded.PhoneAndroid
+    TransactionCategory.INCOME -> Icons.Rounded.CallReceived
+    TransactionCategory.TRANSFER -> Icons.Rounded.SyncAlt
+    TransactionCategory.CASH -> Icons.Rounded.LocalAtm
+    TransactionCategory.SAVINGS -> Icons.Rounded.Savings
+    TransactionCategory.OTHER -> Icons.Rounded.MoreHoriz
+    TransactionCategory.UNCATEGORIZED -> if (type == MpesaTransactionType.REVERSAL.name) {
+        Icons.Rounded.SyncAlt
+    } else {
+        Icons.Rounded.HelpOutline
     }
 }
+
+private fun amountLabel(
+    item: StoredTransaction,
+    direction: MoneyDirection
+): String {
+    val sign = when {
+        direction == MoneyDirection.INCOME -> "+"
+        item.type == MpesaTransactionType.REVERSAL.name -> "+"
+        direction == MoneyDirection.EXPENSE -> "-"
+        else -> ""
+    }
+    return "$sign ${formatMoney(item.amountMinor)}".trim()
+}
+
+private fun formatMoney(minor: Long): String =
+    "KES ${NumberFormat.getNumberInstance(Locale.US).format(minor / 100.0)}"
+
+private fun formatSignedMoney(minor: Long): String =
+    if (minor < 0) "- ${formatMoney(-minor)}" else formatMoney(minor)
+
+private fun formatTime(epochMs: Long): String =
+    SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(Date(epochMs))
+
+private fun currentMonthLabel(): String =
+    SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date())
+
+private fun humanize(value: String): String =
+    value.lowercase()
+        .replace('_', ' ')
+        .replaceFirstChar { it.uppercase() }
+
+private fun TransactionCategory.prettyName(): String =
+    name.lowercase()
+        .replace('_', ' ')
+        .replaceFirstChar { it.uppercase() }
