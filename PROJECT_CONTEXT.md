@@ -169,6 +169,42 @@ Tests added/expanded:
 
 The final implementation state passed Android CI run #23 before the documentation update.
 
+## Historical SMS backfill and canonical dates
+
+PesaTrack now separates the date when money actually moved from the time the app learned about the transaction.
+
+Implemented:
+
+- Database schema v3 adds `occurred_at_epoch_ms`.
+- Existing ledger rows migrate safely by using their previous received timestamp as the initial occurrence timestamp.
+- New M-Pesa notifications resolve the transaction date embedded in the confirmation when the format is recognized.
+- If the embedded date cannot be parsed, PesaTrack safely falls back to the source notification/SMS timestamp.
+- Activity monthly calculations now use `occurred_at_epoch_ms`, not import/observation time.
+- Activity and Transaction Details display the true transaction date.
+- Historical SMS Import is available from Settings with:
+  - This month
+  - Last 30 days
+  - Last 90 days
+- Historical import queries the phone SMS provider only after explicit `READ_SMS` permission is granted.
+- Imported M-Pesa messages flow through the same deterministic parser, Smart Rules, Needs Review, reversal and duplicate handling as live notifications.
+- Configured bank/salary SMS messages can also be imported when they match a saved notification smart rule.
+- Imported messages keep their original SMS/transaction date and do not become transactions dated on the day of import.
+- Re-importing the same history is safe because transaction-code/fingerprint deduplication remains active.
+- Raw SMS bodies are processed in memory and are not stored in the local ledger.
+- If Android or the installer refuses the hard-restricted SMS permission, the importer reports that limitation and does not attempt to bypass Android security; real-time Notification Access remains usable.
+- Salary planning wording is now `Month it arrives` versus `Following month` to distinguish transaction date from budget-cycle assignment.
+
+Date semantics:
+
+1. `occurred_at_epoch_ms` = when the financial transaction actually happened.
+2. `received_at_epoch_ms` = when the phone/source received or posted the message.
+3. `created_at_epoch_ms` = when PesaTrack stored/imported the structured record.
+4. `planning_month` = which budget cycle the transaction, especially income, is assigned to.
+
+Home and Plan must use these semantics and must never group historical imports by import time.
+
+The implementation passed Android CI run #26 before the documentation update.
+
 ## Current implementation
 
 Baseline: `main` after the verified reference UI merge
@@ -194,7 +230,7 @@ Bootstrap scope:
 - Android CI.
 - debug APK artifact upload on successful CI.
 
-The UI uses preview/demo numbers only. It is not yet connected to real SMS or persistent transactions.
+Activity and Transaction Details are connected to the persistent local ledger. Home, Plan and Goals still contain preview values and are the next sections to connect to real ledger-derived data.
 
 ## Build rule
 
@@ -208,17 +244,17 @@ For every implementation phase:
 4. Fix the actual cause before continuing.
 5. Only mark the implementation complete when the relevant check passes.
 
-## Immediate next phase after smart-money rules merge
+## Immediate next phase after historical import/date merge
 
-1. Install the latest debug APK on the Redmi Note 14 and grant PesaTrack Notification Access.
-2. Validate at least one real outgoing M-Pesa transaction and one real incoming/configured money notification against Activity and Transaction Details.
-3. Verify the captured counterparty name, amount, transaction code, fee, last-known balance and review/classification behavior on-device.
-4. Collect only anonymized examples for any real notification format the deterministic parsers miss; never commit private raw financial messages.
-5. Connect Home totals and last-known-balance semantics to the real ledger, clearly distinguishing observed balance from continuously live balance.
-6. Connect Plan to real categorized transactions and use transaction `planning_month` for salary-funded monthly plans.
-7. Connect Goals to deliberate goal allocations/savings transfers instead of treating unspent money as automatically saved.
-8. Add threshold/forecast notifications only after the real ledger and Plan calculations are proven correct.
-9. Prototype historical SMS import only if the Redmi/installer can legitimately grant the restricted SMS permissions.
+1. Install the latest debug APK on the Redmi Note 14.
+2. Test Historical Import -> This month. If Android grants SMS access, verify older M-Pesa messages appear in Activity on their original dates.
+3. If SMS access is refused by HyperOS/installer policy, keep the real-time Notification Access path and add a statement/history-file fallback instead of bypassing Android security.
+4. Validate at least one imported or live outgoing transaction, one incoming transaction and one configured salary/bank message.
+5. Connect Home totals to the real ledger and last-known-balance semantics.
+6. Connect Plan to real categorized transactions using `planning_month`; salary can occur in September while funding October.
+7. Add month selection/history to Activity and Plan so imported prior months can be reviewed directly.
+8. Connect Goals only to deliberate goal allocations/savings transfers; unspent money is not automatically saved.
+9. Add budget pace/forecast notifications after Home and Plan calculations are proven against real data.
 10. Add biometric/PIN protection before exposing larger volumes of sensitive historical financial detail.
 
 ## Important constraints
