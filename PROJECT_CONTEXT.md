@@ -205,6 +205,67 @@ Home and Plan must use these semantics and must never group historical imports b
 
 The implementation passed Android CI run #26 before the documentation update.
 
+## Salary-driven pay cycles, My Accounts and simplified setup
+
+PesaTrack now uses salary events to define budgeting cycles instead of assuming a fixed calendar payday.
+
+Implemented:
+
+- Added persistent My Accounts with default M-Pesa and Cash accounts.
+- Users can add their own bank, savings, wallet or other accounts; no bank/employer is hardcoded.
+- Smart Rule creation is preset-first to reduce complexity:
+  - Monthly salary
+  - Rent
+  - Internet
+  - Electricity
+  - Food / lunch
+  - Transport
+  - Family support
+  - Savings
+  - My own transfer
+  - Other recurring
+  - Custom
+- Presets automatically choose the normal category/direction behavior. The user only provides the recognition text, optional custom label, account(s), and an optional planned amount.
+- Rules can recognize either an M-Pesa counterparty name or a configured notification sender/message phrase.
+- Salary rules start pay cycles. A fixed payday is not required.
+- Salary rules can optionally define a usual pay window, including a cross-month window such as 24th -> 1st. The window is a confidence check, not the salary identifier.
+- The first recognized salary starts a pay cycle.
+- The next accepted salary closes the prior cycle and starts the next one, regardless of whether it arrives on the 24th, 31st, 1st, or another normal date.
+- Tracked remainder from the closed cycle becomes carryover into the next cycle.
+- Salary-like credits less than 14 days after the current cycle start are held for confirmation instead of silently opening another cycle.
+- Salary-like credits outside an optional usual pay window are also held for confirmation.
+- A pending salary can be confirmed as:
+  - Start new cycle
+  - Extra income in the current cycle
+- This supports unusual December pay dates without hardcoding December behavior.
+- Pay-cycle timing policy is unit-tested for 24th/31st/1st ranges, early December salary, no-fixed-window salary, and duplicate-like credits.
+- Transactions now store their primary account, optional linked account, pay-cycle ID and salary-cycle review state.
+- Existing M-Pesa transactions migrate to the M-Pesa account; withdrawals link M-Pesa -> Cash.
+- Cash withdrawal remains a transfer, not spending.
+- Own-account movements remain transfers and do not increase income or spending totals.
+- Historical M-Pesa transactions are assigned to M-Pesa even though their ingestion source is historical SMS.
+- Existing income rules migrate into salary/pay-cycle rules and stop relying on the old calendar-month offset.
+- Historical imports rebuild pay cycles once at the end of the batch.
+- Recurring fixed commitments are protected immediately when a pay cycle starts.
+- Flexible rules such as food/transport only become protected commitments when the user explicitly enters a planned amount.
+- Planned savings can also reserve money until the savings transfer happens.
+- Home is now backed by the real pay-cycle ledger:
+  - Available to Live
+  - salary + carryover starting funds
+  - commitments
+  - deliberate savings
+  - spending + fees
+  - last-known M-Pesa balance with observation time
+  - Needs Review count
+  - salary confirmation card
+- Plan is now backed by the same real pay-cycle ledger and shows protected commitments, paid progress and pay-cycle accounting.
+- Safe Today is shown only after PesaTrack has at least one completed cycle from which to estimate cycle length; otherwise it says Learning.
+- Calendar-month Activity remains separate from pay-cycle planning.
+- The old Historical Import wording is now more explicit:
+  - Settings -> Import M-Pesa SMS history -> Request SMS access
+
+The first full implementation build reached green unit tests and debug APK assembly on Android CI run #32 before the final wording/context update.
+
 ## Current implementation
 
 Baseline: `main` after the verified reference UI merge
@@ -230,7 +291,7 @@ Bootstrap scope:
 - Android CI.
 - debug APK artifact upload on successful CI.
 
-Activity and Transaction Details are connected to the persistent local ledger. Home, Plan and Goals still contain preview values and are the next sections to connect to real ledger-derived data.
+Activity, Transaction Details, Home and Plan are connected to the persistent local ledger. Goals still contain preview values and must only be connected to deliberate goal allocations/savings transfers; unspent money must never be treated as automatically saved.
 
 ## Build rule
 
@@ -244,18 +305,18 @@ For every implementation phase:
 4. Fix the actual cause before continuing.
 5. Only mark the implementation complete when the relevant check passes.
 
-## Immediate next phase after historical import/date merge
+## Immediate next phase after pay-cycle merge
 
 1. Install the latest debug APK on the Redmi Note 14.
-2. Test Historical Import -> This month. If Android grants SMS access, verify older M-Pesa messages appear in Activity on their original dates.
-3. If SMS access is refused by HyperOS/installer policy, keep the real-time Notification Access path and add a statement/history-file fallback instead of bypassing Android security.
-4. Validate at least one imported or live outgoing transaction, one incoming transaction and one configured salary/bank message.
-5. Connect Home totals to the real ledger and last-known-balance semantics.
-6. Connect Plan to real categorized transactions using `planning_month`; salary can occur in September while funding October.
-7. Add month selection/history to Activity and Plan so imported prior months can be reviewed directly.
-8. Connect Goals only to deliberate goal allocations/savings transfers; unspent money is not automatically saved.
-9. Add budget pace/forecast notifications after Home and Plan calculations are proven against real data.
-10. Add biometric/PIN protection before exposing larger volumes of sensitive historical financial detail.
+2. Go to Settings -> Import M-Pesa SMS history -> Request SMS access and test This month first.
+3. If Android grants SMS access, verify older M-Pesa messages appear in Activity on their original transaction dates; then optionally test 30/90 days.
+4. If SMS access is refused by HyperOS/installer policy, keep real-time Notification Access and add a statement/history-file fallback instead of bypassing Android security.
+5. Add the user's real bank account under My Accounts, then create a Salary preset using the actual bank notification sender/message pattern.
+6. Validate that a recognized salary starts a pay cycle, recurring commitments are protected immediately, and the next accepted salary closes the prior cycle with carryover.
+7. Test an unusual/early salary-like credit and confirm both Start new cycle and Extra income paths.
+8. Validate Equity/bank -> M-Pesa own-account transfer rules so movement between owned accounts never becomes duplicate income/spending.
+9. Add month/pay-cycle history selection to Activity and Plan after the live cycle is proven.
+10. Connect Goals only to deliberate savings/goal allocations and then add biometric/PIN protection before broader historical use.
 
 ## Important constraints
 
