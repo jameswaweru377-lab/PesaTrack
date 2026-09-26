@@ -159,13 +159,19 @@ fun OnboardingScreen(onContinue: () -> Unit) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                color = MintSoft
+                color = pesaToneContainer("green"),
+                contentColor = MaterialTheme.colorScheme.onSurface
             ) {
                 Row(
                     Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconBubble(Icons.Rounded.Shield, size = 48.dp, background = Color.White.copy(alpha = .72f))
+                    IconBubble(
+                        Icons.Rounded.Shield,
+                        size = 48.dp,
+                        background = MaterialTheme.colorScheme.surfaceVariant,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                     Column(
                         Modifier
                             .weight(1f)
