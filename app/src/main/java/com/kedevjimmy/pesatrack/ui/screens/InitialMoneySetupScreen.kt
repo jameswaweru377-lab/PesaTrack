@@ -258,7 +258,6 @@ fun InitialMoneySetupScreen(
             }
         }
 
-        finishing = true
         onDone()
     }
 
@@ -321,6 +320,7 @@ fun InitialMoneySetupScreen(
                             onClick = { incomeSource = choice }
                         )
                     }
+                }
             }
 
             1 -> item {
@@ -451,25 +451,31 @@ fun InitialMoneySetupScreen(
                 }
             } else {
                 Button(
-                        onClick = {
-                            if (!finishing) {
-                                setupScope.launch { finishSetup() }
+                    onClick = {
+                        if (!finishing) {
+                            setupScope.launch {
+                                finishing = true
+                                try {
+                                    finishSetup()
+                                } finally {
+                                    finishing = false
+                                }
                             }
-                        },
-                        enabled = !finishing,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 56.dp),
-                        shape = RoundedCornerShape(18.dp)
-                    ) {
-                        if (finishing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(end = 8.dp),
-                                strokeWidth = 2.dp
-                            )
                         }
-                        Text("Finish setup")
+                    },
+                    enabled = !finishing,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    if (finishing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.padding(end = 8.dp),
+                            strokeWidth = 2.dp
+                        )
                     }
+                    Text("Finish setup")
                 }
             }
         }
