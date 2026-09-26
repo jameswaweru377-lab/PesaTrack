@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
+import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
@@ -34,6 +35,48 @@ class SmartRuleEngineTest {
         )
 
         assertEquals(TransactionCategory.LUNCH, result)
+    }
+
+    @Test
+    fun matchesConfiguredSalaryNotification() {
+        val rule = SmartRule(
+            id = "salary",
+            counterpartyContains = "",
+            category = TransactionCategory.INCOME,
+            name = "Monthly salary",
+            notificationTitleContains = "equity",
+            messageContains = "braeburn schools",
+            direction = MoneyDirection.INCOME,
+            planningMonthOffset = 1
+        )
+
+        val matched = SmartRuleEngine.matchNotification(
+            title = "Equity Mobile",
+            body = "KES 60,000 credited from BRAEBURN SCHOOLS",
+            rules = listOf(rule)
+        )
+
+        assertEquals(rule, matched)
+    }
+
+    @Test
+    fun configuredNotificationRequiresAllProvidedMatchers() {
+        val rule = SmartRule(
+            id = "salary",
+            counterpartyContains = "",
+            category = TransactionCategory.INCOME,
+            notificationTitleContains = "equity",
+            messageContains = "braeburn schools",
+            direction = MoneyDirection.INCOME
+        )
+
+        val matched = SmartRuleEngine.matchNotification(
+            title = "Equity Mobile",
+            body = "KES 60,000 credited from another source",
+            rules = listOf(rule)
+        )
+
+        assertEquals(null, matched)
     }
 
     @Test
