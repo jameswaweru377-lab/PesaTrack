@@ -30,7 +30,7 @@ enum class MainTab(
 
 @Composable
 fun AppScaffold(
-    currentTab: MainTab,
+    currentTab: MainTab?,
     onTabSelected: (MainTab) -> Unit,
     content: @Composable (PaddingValues) -> Unit
 ) {
