@@ -190,26 +190,25 @@ fun InitialMoneySetupScreen(
             .putString("primary_income_arrival", arrivalMethod.name)
             .apply()
 
+        val account = when (arrivalMethod) {
+            ArrivalChoice.BANK -> {
+                val bankName = selectedBank?.name ?: customBank.trim()
+                accountStore.findOrCreate(bankName, AccountType.BANK)
+            }
+            ArrivalChoice.MPESA ->
+                accountStore.listAccounts().first { it.id == AccountStore.DEFAULT_MPESA_ID }
+            ArrivalChoice.CASH ->
+                accountStore.listAccounts().first { it.id == AccountStore.DEFAULT_CASH_ID }
+        }
+
         if (source == IncomeSourceChoice.SALARY) {
-            val salaryIdentifier = selectedCandidate?.originator
-                ?.takeIf { it.isNotBlank() }
-                ?: employer.trim().takeIf { it.isNotBlank() }
+            val salaryIdentifier = employer.trim().takeIf { it.isNotBlank() }
+                ?: selectedCandidate?.originator?.takeIf { it.isNotBlank() }
 
             if (arrivalMethod != ArrivalChoice.CASH && salaryIdentifier == null) {
                 error = "Tell PesaTrack who pays you so future salary payments can be recognized safely."
                 finishing = false
                 return
-            }
-
-            val account = when (arrivalMethod) {
-                ArrivalChoice.BANK -> {
-                    val bankName = selectedBank?.name ?: customBank.trim()
-                    accountStore.findOrCreate(bankName, AccountType.BANK)
-                }
-                ArrivalChoice.MPESA ->
-                    accountStore.listAccounts().first { it.id == AccountStore.DEFAULT_MPESA_ID }
-                ArrivalChoice.CASH ->
-                    accountStore.listAccounts().first { it.id == AccountStore.DEFAULT_CASH_ID }
             }
 
             if (arrivalMethod != ArrivalChoice.CASH) {
