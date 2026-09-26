@@ -193,6 +193,17 @@ class TransactionStore private constructor(context: Context) {
         val now = Calendar.getInstance(timeZone).apply { timeInMillis = nowEpochMs }
         val currentYear = now.get(Calendar.YEAR)
         val currentMonth = now.get(Calendar.MONTH)
+        val monthStart = Calendar.getInstance(timeZone).apply {
+            timeInMillis = nowEpochMs
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val nextMonthStart = (monthStart.clone() as Calendar).apply {
+            add(Calendar.MONTH, 1)
+        }
         val transactions = recent(200)
         val reversedCodes = reversedTransactionCodes()
 
@@ -224,9 +235,11 @@ class TransactionStore private constructor(context: Context) {
             .filter { it.direction == MoneyDirection.TRANSFER.name }
             .sumOf { it.amountMinor }
 
-        val fees = effective.sumOf {
-            it.feeMinor + it.fulizaAccessFeeMinor
-        }
+        val fees = effective.sumOf { it.feeMinor } +
+            FulizaStore.get(appContext).sumAccessFeesBetween(
+                startEpochMs = monthStart.timeInMillis,
+                endEpochMsExclusive = nextMonthStart.timeInMillis
+            )
 
         return ActivityLedgerSnapshot(
             transactions = transactions,
