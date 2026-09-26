@@ -1,0 +1,262 @@
+package com.kedevjimmy.pesatrack.ui.components
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.R
+import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
+import com.kedevjimmy.pesatrack.ui.theme.MintSoft
+import com.kedevjimmy.pesatrack.ui.theme.SkySoft
+import com.kedevjimmy.pesatrack.ui.theme.VioletSoft
+
+@Composable
+fun PesaLogoMark(modifier: Modifier = Modifier, size: Dp = 42.dp) {
+    Surface(
+        modifier = modifier.size(size),
+        shape = RoundedCornerShape(size * 0.28f),
+        color = Color.Transparent
+    ) {
+        androidx.compose.foundation.Image(
+            painter = painterResource(R.drawable.ic_pesatrack_logo),
+            contentDescription = "PesaTrack",
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun BrandWordmark(
+    modifier: Modifier = Modifier,
+    compact: Boolean = false
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        PesaLogoMark(size = if (compact) 36.dp else 44.dp)
+        Column {
+            Text(
+                "PesaTrack",
+                style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (!compact) {
+                Text(
+                    "Your money. A calmer tomorrow.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PesaCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        content()
+    }
+}
+
+@Composable
+fun SectionHeader(
+    title: String,
+    action: String? = null,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+        if (action != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(action, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Icon(
+                    Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun IconBubble(
+    icon: ImageVector,
+    tint: Color = MaterialTheme.colorScheme.primary,
+    background: Color = MaterialTheme.colorScheme.primaryContainer,
+    size: Dp = 42.dp
+) {
+    Surface(
+        modifier = Modifier.size(size),
+        shape = CircleShape,
+        color = background
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size * 0.48f))
+        }
+    }
+}
+
+@Composable
+fun SmallStatusPill(
+    text: String,
+    tone: String = "green"
+) {
+    val bg = when (tone) {
+        "amber" -> AmberSoft
+        "blue" -> SkySoft
+        "violet" -> VioletSoft
+        else -> MintSoft
+    }
+    val fg = when (tone) {
+        "amber" -> Color(0xFF9B650C)
+        "blue" -> Color(0xFF176A99)
+        "violet" -> Color(0xFF60459F)
+        else -> MaterialTheme.colorScheme.primary
+    }
+    Surface(shape = RoundedCornerShape(50), color = bg) {
+        Text(
+            text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = fg
+        )
+    }
+}
+
+@Composable
+fun LandscapeBackdrop(
+    modifier: Modifier = Modifier,
+    dark: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    val base = if (dark) Color(0xFF073C34) else Color(0xFFE6F5EE)
+    val hill1 = if (dark) Color(0xFF0B5E4C) else Color(0xFFC8EADD)
+    val hill2 = if (dark) Color(0xFF0D7459) else Color(0xFFA9DDC8)
+    val hill3 = if (dark) Color(0xFF0A4B40) else Color(0xFF82C8AF)
+    val sun = if (dark) Color(0xFFB7D56D).copy(alpha = .45f) else Color(0xFFFFE9B6)
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(28.dp))
+            .background(base)
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(
+                color = sun,
+                radius = size.minDimension * .17f,
+                center = Offset(size.width * .80f, size.height * .20f)
+            )
+            val p1 = Path().apply {
+                moveTo(0f, size.height * .70f)
+                cubicTo(size.width * .22f, size.height * .42f, size.width * .44f, size.height * .62f, size.width * .62f, size.height * .44f)
+                cubicTo(size.width * .78f, size.height * .28f, size.width * .90f, size.height * .42f, size.width, size.height * .34f)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            val p2 = Path().apply {
+                moveTo(0f, size.height * .78f)
+                cubicTo(size.width * .18f, size.height * .55f, size.width * .36f, size.height * .73f, size.width * .52f, size.height * .57f)
+                cubicTo(size.width * .70f, size.height * .39f, size.width * .85f, size.height * .63f, size.width, size.height * .47f)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            val p3 = Path().apply {
+                moveTo(size.width * .56f, size.height)
+                cubicTo(size.width * .72f, size.height * .68f, size.width * .84f, size.height * .61f, size.width, size.height * .44f)
+                lineTo(size.width, size.height)
+                close()
+            }
+            drawPath(p1, hill1)
+            drawPath(p2, hill2)
+            drawPath(p3, hill3)
+            drawCircle(hill3, size.minDimension * .08f, Offset(size.width * .91f, size.height * .69f))
+            drawCircle(hill2, size.minDimension * .055f, Offset(size.width * .84f, size.height * .79f))
+        }
+        content()
+    }
+}
+
+@Composable
+fun MetricRow(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        content = content
+    )
+}
+
+@Composable
+fun MetricCell(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    tone: String = "green"
+) {
+    Column(modifier = modifier.padding(vertical = 4.dp)) {
+        IconBubble(
+            icon = icon,
+            size = 34.dp,
+            background = when (tone) {
+                "amber" -> AmberSoft
+                "blue" -> SkySoft
+                "violet" -> VioletSoft
+                else -> MintSoft
+            }
+        )
+        Spacer(Modifier.height(7.dp))
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    }
+}
