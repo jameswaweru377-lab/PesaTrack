@@ -224,6 +224,20 @@ class TransactionStore private constructor(context: Context) {
         database.writableDatabase.update("transactions", values, "id = ?", arrayOf(id.toString()))
     }
 
+    @Synchronized
+    fun excludeFromBudget(id: Long) {
+        val values = ContentValues().apply {
+            put("review_state", ReviewState.EXCLUDED.name)
+        }
+        database.writableDatabase.update(
+            "transactions",
+            values,
+            "id = ?",
+            arrayOf(id.toString())
+        )
+    }
+
+
     private fun reversedTransactionCodes(): Set<String> =
         database.readableDatabase.rawQuery(
             "SELECT reversal_of_code FROM transactions WHERE reversal_of_code IS NOT NULL",
