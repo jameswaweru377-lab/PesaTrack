@@ -340,7 +340,7 @@ class PayCycleStore private constructor(context: Context) {
 
         return database.readableDatabase.rawQuery(
             """
-            SELECT id, amount_minor, fee_minor, direction, category
+            SELECT id, amount_minor, fee_minor, fuliza_access_fee_minor, direction, category
             FROM transactions
             WHERE $selection
             """.trimIndent(),
@@ -355,10 +355,11 @@ class PayCycleStore private constructor(context: Context) {
                 val id = cursor.getLong(0)
                 val amount = cursor.getLong(1)
                 val fee = cursor.getLong(2)
-                val direction = cursor.getString(3)
-                val category = cursor.getString(4)
+                val fulizaAccessFee = cursor.getLong(3)
+                val direction = cursor.getString(4)
+                val category = cursor.getString(5)
 
-                fees += fee
+                fees += fee + fulizaAccessFee
 
                 when {
                     id != startTransactionId && direction == MoneyDirection.INCOME.name ->
