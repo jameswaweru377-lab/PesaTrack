@@ -56,6 +56,7 @@ class TransactionStore private constructor(context: Context) {
             put("fee_minor", parsed.feeMinor)
             if (parsed.balanceMinor != null) put("balance_minor", parsed.balanceMinor) else putNull("balance_minor")
             put("counterparty", displayCounterparty)
+            if (parsed.counterpartyPhone != null) put("counterparty_phone", parsed.counterpartyPhone) else putNull("counterparty_phone")
             put("occurred_at_text", parsed.occurredAtText)
             put("occurred_at_epoch_ms", occurredAtEpochMs)
             put("received_at_epoch_ms", receivedAtEpochMs)
@@ -216,6 +217,7 @@ class TransactionStore private constructor(context: Context) {
                 type = type,
                 amountMinor = stored.amountMinor,
                 counterparty = stored.counterparty,
+                counterpartyPhone = stored.counterpartyPhone,
                 feeMinor = stored.feeMinor,
                 balanceMinor = stored.balanceMinor,
                 occurredAtText = stored.occurredAtText,
@@ -239,6 +241,57 @@ class TransactionStore private constructor(context: Context) {
             }
         }
         PayCycleStore.get(appContext).rebuild()
+    }
+
+    @Synchronized
+    fun matchingPendingCount(
+        rule: SmartRule,
+        excludingId: Long? = null
+    ): Int =
+        recent(500).count { stored ->
+            stored.reviewState == ReviewState.NEEDS_REVIEW.name &&
+                stored.id != excludingId &&
+                SmartRuleEngine.matchTransaction(
+                    stored.toParsedTransaction(),
+                    listOf(rule)
+                ) != null
+        }
+
+    @Synchronized
+    fun reapplyRule(rule: SmartRule): Int {
+        val db = database.writableDatabase
+        var changed = 0
+
+        recent(500).forEach { stored ->
+            if (stored.reviewState != ReviewState.NEEDS_REVIEW.name) return@forEach
+            val parsed = stored.toParsedTransaction()
+            if (SmartRuleEngine.matchTransaction(parsed, listOf(rule)) == null) return@forEach
+
+            val classification = classify(parsed, rule, stored.occurredAtEpochMs)
+            val values = ContentValues().apply {
+                put("direction", classification.direction.name)
+                put("category", classification.category.name)
+                put("review_state", ReviewState.AUTO_CLASSIFIED.name)
+                put("rule_id", rule.id)
+                put("planning_month", classification.planningMonth)
+                if (rule.accountId != null) put("account_id", rule.accountId)
+                if (rule.linkedAccountId != null) put("linked_account_id", rule.linkedAccountId)
+                rule.displayLabel?.takeIf { it.isNotBlank() }?.let {
+                    put("counterparty", it)
+                }
+            }
+            changed += db.update(
+                "transactions",
+                values,
+                "id = ?",
+                arrayOf(stored.id.toString())
+            )
+        }
+
+        if (changed > 0) {
+            PayCycleStore.get(appContext).rebuild()
+        }
+        return changed
     }
 
     @Synchronized
@@ -357,10 +410,11 @@ class TransactionStore private constructor(context: Context) {
     companion object {
         private const val BASE_SELECT = """
             SELECT id, transaction_code, fingerprint, type, amount_minor, fee_minor,
-                   balance_minor, counterparty, occurred_at_text, occurred_at_epoch_ms,
-                   received_at_epoch_ms, source_package, source_kind, direction, category,
-                   review_state, rule_id, planning_month, reversal_of_code, account_id,
-                   linked_account_id, pay_cycle_id, cycle_candidate_reason, cycle_override
+                   balance_minor, counterparty, counterparty_phone, occurred_at_text,
+                   occurred_at_epoch_ms, received_at_epoch_ms, source_package, source_kind,
+                   direction, category, review_state, rule_id, planning_month, reversal_of_code,
+                   account_id, linked_account_id, pay_cycle_id, cycle_candidate_reason,
+                   cycle_override
             FROM transactions
         """
 
@@ -384,22 +438,23 @@ private fun android.database.Cursor.toStoredTransaction(): StoredTransaction =
         feeMinor = getLong(5),
         balanceMinor = getLongOrNull(6),
         counterparty = getStringOrNull(7),
-        occurredAtText = getStringOrNull(8),
-        occurredAtEpochMs = getLong(9),
-        receivedAtEpochMs = getLong(10),
-        sourcePackage = getStringOrNull(11),
-        sourceKind = getString(12),
-        direction = getString(13),
-        category = getString(14),
-        reviewState = getString(15),
-        ruleId = getStringOrNull(16),
-        planningMonth = getStringOrNull(17),
-        reversalOfCode = getStringOrNull(18),
-        accountId = getStringOrNull(19),
-        linkedAccountId = getStringOrNull(20),
-        payCycleId = getStringOrNull(21),
-        cycleCandidateReason = getStringOrNull(22),
-        cycleOverride = getStringOrNull(23)
+        counterpartyPhone = getStringOrNull(8),
+        occurredAtText = getStringOrNull(9),
+        occurredAtEpochMs = getLong(10),
+        receivedAtEpochMs = getLong(11),
+        sourcePackage = getStringOrNull(12),
+        sourceKind = getString(13),
+        direction = getString(14),
+        category = getString(15),
+        reviewState = getString(16),
+        ruleId = getStringOrNull(17),
+        planningMonth = getStringOrNull(18),
+        reversalOfCode = getStringOrNull(19),
+        accountId = getStringOrNull(20),
+        linkedAccountId = getStringOrNull(21),
+        payCycleId = getStringOrNull(22),
+        cycleCandidateReason = getStringOrNull(23),
+        cycleOverride = getStringOrNull(24)
     )
 
 private fun android.database.Cursor.getStringOrNull(index: Int): String? =
@@ -407,3 +462,18 @@ private fun android.database.Cursor.getStringOrNull(index: Int): String? =
 
 private fun android.database.Cursor.getLongOrNull(index: Int): Long? =
     if (isNull(index)) null else getLong(index)
+
+private fun StoredTransaction.toParsedTransaction(): ParsedMpesaTransaction =
+    ParsedMpesaTransaction(
+        transactionCode = transactionCode,
+        type = runCatching { MpesaTransactionType.valueOf(type) }
+            .getOrDefault(MpesaTransactionType.OTHER),
+        amountMinor = amountMinor,
+        counterparty = counterparty,
+        counterpartyPhone = counterpartyPhone,
+        feeMinor = feeMinor,
+        balanceMinor = balanceMinor,
+        occurredAtText = occurredAtText,
+        rawMessage = "",
+        reversalOfCode = reversalOfCode
+    )
