@@ -24,10 +24,11 @@ class TransactionStore private constructor(context: Context) {
         sourcePackage: String?,
         sourceKind: String,
         receivedAtEpochMs: Long,
+        occurredAtEpochMs: Long = receivedAtEpochMs,
         matchedRule: SmartRule? = null
     ): Boolean {
         val fingerprint = TransactionFingerprint.of(parsed)
-        val classification = classify(parsed, matchedRule, receivedAtEpochMs)
+        val classification = classify(parsed, matchedRule, occurredAtEpochMs)
         val displayCounterparty = parsed.counterparty
             ?: matchedRule?.displayLabel?.takeIf { it.isNotBlank() }
             ?: matchedRule?.name?.takeIf { it.isNotBlank() }
@@ -41,6 +42,7 @@ class TransactionStore private constructor(context: Context) {
             if (parsed.balanceMinor != null) put("balance_minor", parsed.balanceMinor) else putNull("balance_minor")
             put("counterparty", displayCounterparty)
             put("occurred_at_text", parsed.occurredAtText)
+            put("occurred_at_epoch_ms", occurredAtEpochMs)
             put("received_at_epoch_ms", receivedAtEpochMs)
             put("source_package", sourcePackage)
             put("source_kind", sourceKind)
@@ -70,7 +72,7 @@ class TransactionStore private constructor(context: Context) {
         }
 
         val latest = db.rawQuery(
-            BASE_SELECT + " ORDER BY received_at_epoch_ms DESC, id DESC LIMIT 1",
+            BASE_SELECT + " ORDER BY occurred_at_epoch_ms DESC, id DESC LIMIT 1",
             null
         ).use { cursor ->
             if (!cursor.moveToFirst()) null else cursor.toStoredTransaction()
@@ -78,10 +80,10 @@ class TransactionStore private constructor(context: Context) {
 
         val balance = db.rawQuery(
             """
-            SELECT balance_minor, received_at_epoch_ms
+            SELECT balance_minor, occurred_at_epoch_ms
             FROM transactions
             WHERE balance_minor IS NOT NULL
-            ORDER BY received_at_epoch_ms DESC, id DESC
+            ORDER BY occurred_at_epoch_ms DESC, id DESC
             LIMIT 1
             """.trimIndent(),
             null
@@ -100,7 +102,7 @@ class TransactionStore private constructor(context: Context) {
     @Synchronized
     fun getById(id: Long): StoredTransaction? =
         database.readableDatabase.rawQuery(
-            "${BASE_SELECT} WHERE id = ? LIMIT 1",
+            BASE_SELECT + " WHERE id = ? LIMIT 1",
             arrayOf(id.toString())
         ).use { cursor ->
             if (cursor.moveToFirst()) cursor.toStoredTransaction() else null
@@ -109,7 +111,7 @@ class TransactionStore private constructor(context: Context) {
     @Synchronized
     fun recent(limit: Int = 100): List<StoredTransaction> =
         database.readableDatabase.rawQuery(
-            BASE_SELECT + " ORDER BY received_at_epoch_ms DESC, id DESC LIMIT ?",
+            BASE_SELECT + " ORDER BY occurred_at_epoch_ms DESC, id DESC LIMIT ?",
             arrayOf(limit.coerceIn(1, 500).toString())
         ).use { cursor ->
             buildList {
@@ -129,11 +131,11 @@ class TransactionStore private constructor(context: Context) {
         val reversedCodes = reversedTransactionCodes()
 
         val monthTransactions = transactions.filter { item ->
-            val observed = Calendar.getInstance(timeZone).apply {
-                timeInMillis = item.receivedAtEpochMs
+            val occurred = Calendar.getInstance(timeZone).apply {
+                timeInMillis = item.occurredAtEpochMs
             }
-            observed.get(Calendar.YEAR) == currentYear &&
-                observed.get(Calendar.MONTH) == currentMonth
+            occurred.get(Calendar.YEAR) == currentYear &&
+                occurred.get(Calendar.MONTH) == currentMonth
         }
 
         val effective = monthTransactions.filter { item ->
@@ -192,7 +194,7 @@ class TransactionStore private constructor(context: Context) {
                 reversalOfCode = stored.reversalOfCode
             )
             val rule = SmartRuleEngine.matchTransaction(parsed, rules) ?: return@forEach
-            val classification = classify(parsed, rule, stored.receivedAtEpochMs)
+            val classification = classify(parsed, rule, stored.occurredAtEpochMs)
 
             ContentValues().apply {
                 put("direction", classification.direction.name)
@@ -237,7 +239,6 @@ class TransactionStore private constructor(context: Context) {
         )
     }
 
-
     private fun reversedTransactionCodes(): Set<String> =
         database.readableDatabase.rawQuery(
             "SELECT reversal_of_code FROM transactions WHERE reversal_of_code IS NOT NULL",
@@ -251,7 +252,7 @@ class TransactionStore private constructor(context: Context) {
     private fun classify(
         parsed: ParsedMpesaTransaction,
         matchedRule: SmartRule?,
-        observedAtEpochMs: Long
+        occurredAtEpochMs: Long
     ): Classification {
         if (matchedRule != null) {
             return Classification(
@@ -260,7 +261,7 @@ class TransactionStore private constructor(context: Context) {
                 reviewState = ReviewState.AUTO_CLASSIFIED,
                 ruleId = matchedRule.id,
                 planningMonth = PlanningPeriodResolver.resolve(
-                    observedAtEpochMs = observedAtEpochMs,
+                    observedAtEpochMs = occurredAtEpochMs,
                     monthOffset = matchedRule.planningMonthOffset
                 )
             )
@@ -280,11 +281,7 @@ class TransactionStore private constructor(context: Context) {
             MpesaTransactionType.REVERSAL -> Triple(
                 MoneyDirection.NEUTRAL,
                 TransactionCategory.OTHER,
-                if (parsed.reversalOfCode != null) {
-                    ReviewState.AUTO_CLASSIFIED
-                } else {
-                    ReviewState.NEEDS_REVIEW
-                }
+                if (parsed.reversalOfCode != null) ReviewState.AUTO_CLASSIFIED else ReviewState.NEEDS_REVIEW
             )
             MpesaTransactionType.RECEIVED,
             MpesaTransactionType.DEPOSIT -> Triple(
@@ -311,7 +308,7 @@ class TransactionStore private constructor(context: Context) {
             category = fallback.second,
             reviewState = fallback.third,
             ruleId = null,
-            planningMonth = PlanningPeriodResolver.resolve(observedAtEpochMs, 0)
+            planningMonth = PlanningPeriodResolver.resolve(occurredAtEpochMs, 0)
         )
     }
 
@@ -326,9 +323,9 @@ class TransactionStore private constructor(context: Context) {
     companion object {
         private const val BASE_SELECT = """
             SELECT id, transaction_code, fingerprint, type, amount_minor, fee_minor,
-                   balance_minor, counterparty, occurred_at_text, received_at_epoch_ms,
-                   source_package, source_kind, direction, category, review_state,
-                   rule_id, planning_month, reversal_of_code
+                   balance_minor, counterparty, occurred_at_text, occurred_at_epoch_ms,
+                   received_at_epoch_ms, source_package, source_kind, direction, category,
+                   review_state, rule_id, planning_month, reversal_of_code
             FROM transactions
         """
 
@@ -353,15 +350,16 @@ private fun android.database.Cursor.toStoredTransaction(): StoredTransaction =
         balanceMinor = getLongOrNull(6),
         counterparty = getStringOrNull(7),
         occurredAtText = getStringOrNull(8),
-        receivedAtEpochMs = getLong(9),
-        sourcePackage = getStringOrNull(10),
-        sourceKind = getString(11),
-        direction = getString(12),
-        category = getString(13),
-        reviewState = getString(14),
-        ruleId = getStringOrNull(15),
-        planningMonth = getStringOrNull(16),
-        reversalOfCode = getStringOrNull(17)
+        occurredAtEpochMs = getLong(9),
+        receivedAtEpochMs = getLong(10),
+        sourcePackage = getStringOrNull(11),
+        sourceKind = getString(12),
+        direction = getString(13),
+        category = getString(14),
+        reviewState = getString(15),
+        ruleId = getStringOrNull(16),
+        planningMonth = getStringOrNull(17),
+        reversalOfCode = getStringOrNull(18)
     )
 
 private fun android.database.Cursor.getStringOrNull(index: Int): String? =
