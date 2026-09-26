@@ -94,14 +94,63 @@ class SmartRuleEngineTest {
         )
     }
 
+
+    @Test
+    fun exactFullNameRuleDoesNotMatchFirstNameOnly() {
+        val rule = SmartRule(
+            id = "shopping-joseph",
+            counterpartyContains = "",
+            counterpartyExact = "Joseph Mwango",
+            category = TransactionCategory.SHOPPING
+        )
+
+        assertEquals(
+            TransactionCategory.SHOPPING,
+            SmartRuleEngine.categorize(
+                sample(counterparty = "JOSEPH   MWANGO"),
+                listOf(rule)
+            )
+        )
+
+        assertEquals(
+            TransactionCategory.UNCATEGORIZED,
+            SmartRuleEngine.categorize(
+                sample(counterparty = "Joseph Kasongo"),
+                listOf(rule)
+            )
+        )
+    }
+
+    @Test
+    fun phoneIdentityWinsWhenAvailable() {
+        val rule = SmartRule(
+            id = "phone-shopping",
+            counterpartyContains = "",
+            counterpartyPhoneEquals = "+254712345678",
+            category = TransactionCategory.SHOPPING
+        )
+
+        val transaction = sample(
+            counterparty = "Joseph Mwango",
+            counterpartyPhone = "0712345678"
+        )
+
+        assertEquals(
+            TransactionCategory.SHOPPING,
+            SmartRuleEngine.categorize(transaction, listOf(rule))
+        )
+    }
+
     private fun sample(
         counterparty: String,
-        amountMinor: Long = 150_000L
+        amountMinor: Long = 150_000L,
+        counterpartyPhone: String? = null
     ) = ParsedMpesaTransaction(
         transactionCode = "TQK12ABC34",
         type = MpesaTransactionType.BUY_GOODS,
         amountMinor = amountMinor,
         counterparty = counterparty,
+        counterpartyPhone = counterpartyPhone,
         feeMinor = 0L,
         balanceMinor = null,
         occurredAtText = null,
