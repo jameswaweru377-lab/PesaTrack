@@ -61,7 +61,8 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 """
                 UPDATE smart_rules
                 SET preset = 'SALARY',
-                    starts_pay_cycle = 1
+                    starts_pay_cycle = 1,
+                    planning_month_offset = 0
                 WHERE category = 'INCOME'
                   AND direction = 'INCOME'
                 """.trimIndent()
