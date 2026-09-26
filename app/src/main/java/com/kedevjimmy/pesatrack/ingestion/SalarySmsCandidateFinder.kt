@@ -47,6 +47,7 @@ class SalarySmsCandidateFinder(
             while (cursor.moveToNext() && candidates.size < limit) {
                 val address = cursor.getString(addressIndex)?.trim().orEmpty()
                 val normalizedAddress = normalizeSender(address)
+                if (normalizedAddress.isBlank()) continue
                 if (senderHints.none { hint ->
                         normalizedAddress.contains(hint) || hint.contains(normalizedAddress)
                     }
