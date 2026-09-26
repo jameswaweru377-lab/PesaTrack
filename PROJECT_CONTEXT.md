@@ -76,6 +76,27 @@ Reference-aligned scope:
 
 All financial values in these screens remain preview data until the local data layer is connected. The reference UI passed Android CI on the PR branch and again on merged `main` (run #11).
 
+## Redmi responsiveness and appearance correction
+
+A second visual pass was implemented from real Redmi Note 14 screenshots after the first reference-UI build exposed narrow-screen and dark-mode problems.
+
+Implemented on this pass:
+
+- phone-width metric areas switch from four squeezed columns to 2x2 layouts where appropriate
+- Home summary cards use vertical content hierarchy so values and status pills do not collide
+- Activity transaction rows prioritize recipient + amount and move category/time into a secondary line
+- Plan budget rows use full-width progress bars instead of three competing horizontal columns
+- Transaction Details uses a 2x2 metadata grid on phone widths and removes the decorative sun behind the amount
+- Goal Details stacks its actions on narrow phones
+- semantic green/amber/blue/violet/red containers now have dedicated dark-mode surfaces and foregrounds
+- hero landscape artwork automatically follows the active theme
+- added Profile screen
+- added Settings screen
+- added persistent System / Light / Dark theme preference stored locally on-device
+- Profile/Settings remain inner pages and do not pretend to be one of the four primary money tabs
+
+The correction was validated with Android unit tests and debug APK assembly on CI before merge.
+
 ## Current implementation
 
 Baseline: `main` after the verified reference UI merge
