@@ -33,13 +33,13 @@ object BankCreditCandidateParser {
     fun parse(body: String): ParsedBankCreditCandidate? {
         val normalized = body.replace(Regex("""\s+"""), " ").trim()
         val lower = normalized.lowercase()
-        if (incomingWords.none(lower::contains)) return null
+        if (incomingWords.none { word -> lower.contains(word) }) return null
 
         val amount = amountRegex.find(normalized)?.groupValues?.get(1) ?: return null
         val originator = originatorRegexes
             .asSequence()
             .mapNotNull { regex -> regex.find(normalized)?.groupValues?.get(1) }
-            .map(String::trim)
+            .map { it.trim() }
             .map { it.trimEnd('.', ',', ';') }
             .firstOrNull { it.length >= 3 }
 
