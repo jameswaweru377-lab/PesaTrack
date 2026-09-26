@@ -5,6 +5,7 @@
         android:roundIcon="@drawable/ic_pesatrack_logo"
         android:label="@string/app_name"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="false"
         android:theme="@style/Theme.PesaTrack">
         <service
             android:name=".ingestion.MpesaNotificationListenerService"
