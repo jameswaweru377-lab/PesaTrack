@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.kedevjimmy.pesatrack"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.kedevjimmy.pesatrack"
