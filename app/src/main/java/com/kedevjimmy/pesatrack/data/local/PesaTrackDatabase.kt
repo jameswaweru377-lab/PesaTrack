@@ -59,6 +59,22 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             db.execSQL("ALTER TABLE smart_rules ADD COLUMN pay_window_end_day INTEGER")
             db.execSQL(
                 """
+                UPDATE transactions
+                SET account_id = 'account-mpesa'
+                WHERE account_id IS NULL
+                  AND type != 'OTHER'
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE transactions
+                SET linked_account_id = 'account-cash'
+                WHERE type = 'WITHDRAWAL'
+                  AND linked_account_id IS NULL
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
                 UPDATE smart_rules
                 SET preset = 'SALARY',
                     starts_pay_cycle = 1,
