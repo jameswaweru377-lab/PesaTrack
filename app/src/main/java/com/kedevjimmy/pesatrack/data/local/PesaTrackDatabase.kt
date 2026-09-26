@@ -13,6 +13,9 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
     override fun onCreate(db: SQLiteDatabase) {
         createTransactionsTable(db)
         createRulesTable(db)
+        createAccountsTable(db)
+        createPayCyclesTable(db)
+        seedDefaultAccounts(db)
         createIndexes(db)
     }
 
@@ -25,13 +28,8 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             db.execSQL("ALTER TABLE transactions ADD COLUMN planning_month TEXT")
             db.execSQL("ALTER TABLE transactions ADD COLUMN reversal_of_code TEXT")
             createRulesTable(db)
-            db.execSQL(
-                "CREATE INDEX IF NOT EXISTS idx_transactions_planning_month ON transactions(planning_month)"
-            )
-            db.execSQL(
-                "CREATE INDEX IF NOT EXISTS idx_transactions_review_state ON transactions(review_state)"
-            )
         }
+
         if (oldVersion < 3) {
             db.execSQL(
                 "ALTER TABLE transactions ADD COLUMN occurred_at_epoch_ms INTEGER NOT NULL DEFAULT 0"
@@ -39,10 +37,55 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             db.execSQL(
                 "UPDATE transactions SET occurred_at_epoch_ms = received_at_epoch_ms WHERE occurred_at_epoch_ms = 0"
             )
+        }
+
+        if (oldVersion < 4) {
+            createAccountsTable(db)
+            createPayCyclesTable(db)
+            seedDefaultAccounts(db)
+
+            db.execSQL("ALTER TABLE transactions ADD COLUMN account_id TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN linked_account_id TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN pay_cycle_id TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN cycle_candidate_reason TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN cycle_override TEXT")
+
+            db.execSQL("ALTER TABLE smart_rules ADD COLUMN preset TEXT NOT NULL DEFAULT 'CUSTOM'")
+            db.execSQL("ALTER TABLE smart_rules ADD COLUMN planned_amount_minor INTEGER")
+            db.execSQL("ALTER TABLE smart_rules ADD COLUMN starts_pay_cycle INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE smart_rules ADD COLUMN account_id TEXT")
+            db.execSQL("ALTER TABLE smart_rules ADD COLUMN linked_account_id TEXT")
+            db.execSQL("ALTER TABLE smart_rules ADD COLUMN pay_window_start_day INTEGER")
+            db.execSQL("ALTER TABLE smart_rules ADD COLUMN pay_window_end_day INTEGER")
             db.execSQL(
-                "CREATE INDEX IF NOT EXISTS idx_transactions_occurred_at ON transactions(occurred_at_epoch_ms DESC)"
+                """
+                UPDATE transactions
+                SET account_id = 'account-mpesa'
+                WHERE account_id IS NULL
+                  AND type != 'OTHER'
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE transactions
+                SET linked_account_id = 'account-cash'
+                WHERE type = 'WITHDRAWAL'
+                  AND linked_account_id IS NULL
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE smart_rules
+                SET preset = 'SALARY',
+                    starts_pay_cycle = 1,
+                    planning_month_offset = 0
+                WHERE category = 'INCOME'
+                  AND direction = 'INCOME'
+                """.trimIndent()
             )
         }
+
+        createIndexes(db)
     }
 
     private fun createTransactionsTable(db: SQLiteDatabase) {
@@ -68,7 +111,12 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 review_state TEXT NOT NULL DEFAULT 'NEEDS_REVIEW',
                 rule_id TEXT,
                 planning_month TEXT,
-                reversal_of_code TEXT
+                reversal_of_code TEXT,
+                account_id TEXT,
+                linked_account_id TEXT,
+                pay_cycle_id TEXT,
+                cycle_candidate_reason TEXT,
+                cycle_override TEXT
             )
             """.trimIndent()
         )
@@ -89,6 +137,13 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 planning_month_offset INTEGER NOT NULL DEFAULT 0,
                 display_label TEXT,
                 enabled INTEGER NOT NULL DEFAULT 1,
+                preset TEXT NOT NULL DEFAULT 'CUSTOM',
+                planned_amount_minor INTEGER,
+                starts_pay_cycle INTEGER NOT NULL DEFAULT 0,
+                account_id TEXT,
+                linked_account_id TEXT,
+                pay_window_start_day INTEGER,
+                pay_window_end_day INTEGER,
                 created_at_epoch_ms INTEGER NOT NULL,
                 updated_at_epoch_ms INTEGER NOT NULL
             )
@@ -96,29 +151,87 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createAccountsTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS money_accounts (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                type TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
+    private fun createPayCyclesTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS pay_cycles (
+                id TEXT PRIMARY KEY,
+                start_transaction_id INTEGER NOT NULL UNIQUE,
+                start_epoch_ms INTEGER NOT NULL,
+                end_epoch_ms INTEGER,
+                opening_income_minor INTEGER NOT NULL,
+                carryover_minor INTEGER NOT NULL DEFAULT 0,
+                ending_tracked_minor INTEGER,
+                state TEXT NOT NULL,
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
+    private fun seedDefaultAccounts(db: SQLiteDatabase) {
+        val now = System.currentTimeMillis()
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO money_accounts(
+                id, name, type, enabled, created_at_epoch_ms, updated_at_epoch_ms
+            ) VALUES('account-mpesa', 'M-Pesa', 'MOBILE_WALLET', 1, $now, $now)
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO money_accounts(
+                id, name, type, enabled, created_at_epoch_ms, updated_at_epoch_ms
+            ) VALUES('account-cash', 'Cash', 'CASH', 1, $now, $now)
+            """.trimIndent()
+        )
+    }
+
     private fun createIndexes(db: SQLiteDatabase) {
         db.execSQL(
-            "CREATE UNIQUE INDEX idx_transactions_code ON transactions(transaction_code) WHERE transaction_code IS NOT NULL"
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_code ON transactions(transaction_code) WHERE transaction_code IS NOT NULL"
         )
         db.execSQL(
-            "CREATE INDEX idx_transactions_received_at ON transactions(received_at_epoch_ms DESC)"
+            "CREATE INDEX IF NOT EXISTS idx_transactions_received_at ON transactions(received_at_epoch_ms DESC)"
         )
         db.execSQL(
-            "CREATE INDEX idx_transactions_occurred_at ON transactions(occurred_at_epoch_ms DESC)"
+            "CREATE INDEX IF NOT EXISTS idx_transactions_occurred_at ON transactions(occurred_at_epoch_ms DESC)"
         )
         db.execSQL(
-            "CREATE INDEX idx_transactions_balance ON transactions(balance_minor) WHERE balance_minor IS NOT NULL"
+            "CREATE INDEX IF NOT EXISTS idx_transactions_balance ON transactions(balance_minor) WHERE balance_minor IS NOT NULL"
         )
         db.execSQL(
-            "CREATE INDEX idx_transactions_planning_month ON transactions(planning_month)"
+            "CREATE INDEX IF NOT EXISTS idx_transactions_planning_month ON transactions(planning_month)"
         )
         db.execSQL(
-            "CREATE INDEX idx_transactions_review_state ON transactions(review_state)"
+            "CREATE INDEX IF NOT EXISTS idx_transactions_review_state ON transactions(review_state)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_transactions_pay_cycle ON transactions(pay_cycle_id)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_pay_cycles_start ON pay_cycles(start_epoch_ms DESC)"
         )
     }
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 3
+        private const val DATABASE_VERSION = 4
     }
 }

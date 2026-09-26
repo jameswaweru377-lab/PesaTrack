@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.ContentValues
 import android.content.Context
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.RulePreset
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import java.util.UUID
@@ -17,7 +18,9 @@ class RuleStore private constructor(context: Context) {
             """
             SELECT id, name, counterparty_contains, notification_title_contains,
                    message_contains, category, direction, maximum_amount_minor,
-                   planning_month_offset, display_label, enabled
+                   planning_month_offset, display_label, enabled, preset,
+                   planned_amount_minor, starts_pay_cycle, account_id,
+                   linked_account_id, pay_window_start_day, pay_window_end_day
             FROM smart_rules
             $where
             ORDER BY updated_at_epoch_ms DESC
@@ -31,14 +34,23 @@ class RuleStore private constructor(context: Context) {
                             id = cursor.getString(0),
                             counterpartyContains = cursor.getString(2),
                             category = TransactionCategory.valueOf(cursor.getString(5)),
-                            maximumAmountMinor = if (cursor.isNull(7)) null else cursor.getLong(7),
+                            maximumAmountMinor = cursor.getLongOrNull(7),
                             name = cursor.getString(1),
                             notificationTitleContains = cursor.getString(3),
                             messageContains = cursor.getString(4),
                             direction = MoneyDirection.valueOf(cursor.getString(6)),
                             planningMonthOffset = cursor.getInt(8),
-                            displayLabel = if (cursor.isNull(9)) null else cursor.getString(9),
-                            enabled = cursor.getInt(10) == 1
+                            displayLabel = cursor.getStringOrNull(9),
+                            enabled = cursor.getInt(10) == 1,
+                            preset = runCatching {
+                                RulePreset.valueOf(cursor.getString(11))
+                            }.getOrDefault(RulePreset.CUSTOM),
+                            plannedAmountMinor = cursor.getLongOrNull(12),
+                            startsPayCycle = cursor.getInt(13) == 1,
+                            accountId = cursor.getStringOrNull(14),
+                            linkedAccountId = cursor.getStringOrNull(15),
+                            payWindowStartDay = cursor.getIntOrNull(16),
+                            payWindowEndDay = cursor.getIntOrNull(17)
                         )
                     )
                 }
@@ -58,6 +70,13 @@ class RuleStore private constructor(context: Context) {
         displayLabel: String? = null,
         maximumAmountMinor: Long? = null,
         enabled: Boolean = true,
+        preset: RulePreset = RulePreset.CUSTOM,
+        plannedAmountMinor: Long? = null,
+        startsPayCycle: Boolean = false,
+        accountId: String? = null,
+        linkedAccountId: String? = null,
+        payWindowStartDay: Int? = null,
+        payWindowEndDay: Int? = null,
         id: String = UUID.randomUUID().toString()
     ): SmartRule {
         require(
@@ -67,6 +86,13 @@ class RuleStore private constructor(context: Context) {
         ) { "A smart rule needs at least one match condition." }
 
         val now = System.currentTimeMillis()
+        val existingCreatedAt = database.readableDatabase.rawQuery(
+            "SELECT created_at_epoch_ms FROM smart_rules WHERE id = ? LIMIT 1",
+            arrayOf(id)
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getLong(0) else now
+        }
+
         val values = ContentValues().apply {
             put("id", id)
             put("name", name.trim())
@@ -79,8 +105,15 @@ class RuleStore private constructor(context: Context) {
             put("planning_month_offset", planningMonthOffset)
             if (displayLabel.isNullOrBlank()) putNull("display_label") else put("display_label", displayLabel.trim())
             put("enabled", if (enabled) 1 else 0)
+            put("preset", preset.name)
+            if (plannedAmountMinor != null) put("planned_amount_minor", plannedAmountMinor) else putNull("planned_amount_minor")
+            put("starts_pay_cycle", if (startsPayCycle) 1 else 0)
+            if (accountId != null) put("account_id", accountId) else putNull("account_id")
+            if (linkedAccountId != null) put("linked_account_id", linkedAccountId) else putNull("linked_account_id")
+            if (payWindowStartDay != null) put("pay_window_start_day", payWindowStartDay) else putNull("pay_window_start_day")
+            if (payWindowEndDay != null) put("pay_window_end_day", payWindowEndDay) else putNull("pay_window_end_day")
             put("updated_at_epoch_ms", now)
-            put("created_at_epoch_ms", now)
+            put("created_at_epoch_ms", existingCreatedAt)
         }
 
         database.writableDatabase.insertWithOnConflict(
@@ -101,7 +134,14 @@ class RuleStore private constructor(context: Context) {
             direction = direction,
             planningMonthOffset = planningMonthOffset,
             displayLabel = displayLabel?.trim()?.takeIf { it.isNotBlank() },
-            enabled = enabled
+            enabled = enabled,
+            preset = preset,
+            plannedAmountMinor = plannedAmountMinor,
+            startsPayCycle = startsPayCycle,
+            accountId = accountId,
+            linkedAccountId = linkedAccountId,
+            payWindowStartDay = payWindowStartDay,
+            payWindowEndDay = payWindowEndDay
         )
     }
 
@@ -120,3 +160,12 @@ class RuleStore private constructor(context: Context) {
             }
     }
 }
+
+private fun android.database.Cursor.getStringOrNull(index: Int): String? =
+    if (isNull(index)) null else getString(index)
+
+private fun android.database.Cursor.getLongOrNull(index: Int): Long? =
+    if (isNull(index)) null else getLong(index)
+
+private fun android.database.Cursor.getIntOrNull(index: Int): Int? =
+    if (isNull(index)) null else getInt(index)

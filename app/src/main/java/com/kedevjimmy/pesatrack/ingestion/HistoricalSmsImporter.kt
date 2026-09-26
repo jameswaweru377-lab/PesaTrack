@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.ingestion
 
 import android.content.Context
 import android.provider.Telephony
+import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
@@ -78,7 +79,8 @@ class HistoricalSmsImporter(
                             occurredAtText = parsed.occurredAtText,
                             fallbackEpochMs = smsDate
                         ),
-                        matchedRule = rule
+                        matchedRule = rule,
+                        rebuildPayCycles = false
                     )
 
                     matched += 1
@@ -114,13 +116,16 @@ class HistoricalSmsImporter(
                     sourceKind = SOURCE_HISTORICAL_SMS,
                     receivedAtEpochMs = smsDate,
                     occurredAtEpochMs = smsDate,
-                    matchedRule = configuredRule
+                    matchedRule = configuredRule,
+                    rebuildPayCycles = false
                 )
 
                 matched += 1
                 if (didInsert) inserted += 1 else duplicates += 1
             }
         }
+
+        PayCycleStore.get(context).rebuild()
 
         return HistoricalImportResult(
             scanned = scanned,

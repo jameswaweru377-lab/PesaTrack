@@ -16,7 +16,8 @@ import java.util.Calendar
 import java.util.TimeZone
 
 class TransactionStore private constructor(context: Context) {
-    private val database = PesaTrackDatabase(context)
+    private val appContext = context.applicationContext
+    private val database = PesaTrackDatabase(appContext)
 
     @Synchronized
     fun insertIfNew(
@@ -25,13 +26,27 @@ class TransactionStore private constructor(context: Context) {
         sourceKind: String,
         receivedAtEpochMs: Long,
         occurredAtEpochMs: Long = receivedAtEpochMs,
-        matchedRule: SmartRule? = null
+        matchedRule: SmartRule? = null,
+        rebuildPayCycles: Boolean = true
     ): Boolean {
         val fingerprint = TransactionFingerprint.of(parsed)
         val classification = classify(parsed, matchedRule, occurredAtEpochMs)
         val displayCounterparty = parsed.counterparty
             ?: matchedRule?.displayLabel?.takeIf { it.isNotBlank() }
             ?: matchedRule?.name?.takeIf { it.isNotBlank() }
+
+        val defaultMpesa =
+            sourceKind.contains("mpesa", ignoreCase = true) ||
+                parsed.type != MpesaTransactionType.OTHER
+        val accountId = matchedRule?.accountId ?: when {
+            parsed.type == MpesaTransactionType.WITHDRAWAL -> AccountStore.DEFAULT_MPESA_ID
+            defaultMpesa -> AccountStore.DEFAULT_MPESA_ID
+            else -> null
+        }
+        val linkedAccountId = matchedRule?.linkedAccountId ?: when (parsed.type) {
+            MpesaTransactionType.WITHDRAWAL -> AccountStore.DEFAULT_CASH_ID
+            else -> null
+        }
 
         val values = ContentValues().apply {
             put("transaction_code", parsed.transactionCode)
@@ -53,14 +68,25 @@ class TransactionStore private constructor(context: Context) {
             if (classification.ruleId != null) put("rule_id", classification.ruleId) else putNull("rule_id")
             put("planning_month", classification.planningMonth)
             if (parsed.reversalOfCode != null) put("reversal_of_code", parsed.reversalOfCode) else putNull("reversal_of_code")
+            if (accountId != null) put("account_id", accountId) else putNull("account_id")
+            if (linkedAccountId != null) put("linked_account_id", linkedAccountId) else putNull("linked_account_id")
+            putNull("pay_cycle_id")
+            putNull("cycle_candidate_reason")
+            putNull("cycle_override")
         }
 
-        return database.writableDatabase.insertWithOnConflict(
+        val rowId = database.writableDatabase.insertWithOnConflict(
             "transactions",
             null,
             values,
             SQLiteDatabase.CONFLICT_IGNORE
-        ) != -1L
+        )
+
+        val inserted = rowId != -1L
+        if (inserted && rebuildPayCycles) {
+            PayCycleStore.get(appContext).rebuild()
+        }
+        return inserted
     }
 
     @Synchronized
@@ -141,7 +167,9 @@ class TransactionStore private constructor(context: Context) {
         val effective = monthTransactions.filter { item ->
             item.transactionCode !in reversedCodes &&
                 item.type != MpesaTransactionType.REVERSAL.name &&
-                item.reviewState != ReviewState.EXCLUDED.name
+                item.reviewState != ReviewState.EXCLUDED.name &&
+                item.reviewState != ReviewState.NEEDS_REVIEW.name &&
+                item.cycleCandidateReason == null
         }
 
         val income = effective
@@ -167,7 +195,8 @@ class TransactionStore private constructor(context: Context) {
                 transferMinor = transfers,
                 netMinor = income - spent - fees,
                 needsReviewCount = transactions.count {
-                    it.reviewState == ReviewState.NEEDS_REVIEW.name
+                    it.reviewState == ReviewState.NEEDS_REVIEW.name ||
+                        it.cycleCandidateReason != null
                 }
             )
         )
@@ -202,11 +231,14 @@ class TransactionStore private constructor(context: Context) {
                 put("review_state", ReviewState.AUTO_CLASSIFIED.name)
                 put("rule_id", rule.id)
                 put("planning_month", classification.planningMonth)
+                if (rule.accountId != null) put("account_id", rule.accountId)
+                if (rule.linkedAccountId != null) put("linked_account_id", rule.linkedAccountId)
                 rule.displayLabel?.takeIf { it.isNotBlank() }?.let { put("counterparty", it) }
             }.also { values ->
                 db.update("transactions", values, "id = ?", arrayOf(stored.id.toString()))
             }
         }
+        PayCycleStore.get(appContext).rebuild()
     }
 
     @Synchronized
@@ -224,6 +256,7 @@ class TransactionStore private constructor(context: Context) {
             if (planningMonth != null) put("planning_month", planningMonth)
         }
         database.writableDatabase.update("transactions", values, "id = ?", arrayOf(id.toString()))
+        PayCycleStore.get(appContext).rebuild()
     }
 
     @Synchronized
@@ -237,6 +270,7 @@ class TransactionStore private constructor(context: Context) {
             "id = ?",
             arrayOf(id.toString())
         )
+        PayCycleStore.get(appContext).rebuild()
     }
 
     private fun reversedTransactionCodes(): Set<String> =
@@ -325,7 +359,8 @@ class TransactionStore private constructor(context: Context) {
             SELECT id, transaction_code, fingerprint, type, amount_minor, fee_minor,
                    balance_minor, counterparty, occurred_at_text, occurred_at_epoch_ms,
                    received_at_epoch_ms, source_package, source_kind, direction, category,
-                   review_state, rule_id, planning_month, reversal_of_code
+                   review_state, rule_id, planning_month, reversal_of_code, account_id,
+                   linked_account_id, pay_cycle_id, cycle_candidate_reason, cycle_override
             FROM transactions
         """
 
@@ -359,7 +394,12 @@ private fun android.database.Cursor.toStoredTransaction(): StoredTransaction =
         reviewState = getString(15),
         ruleId = getStringOrNull(16),
         planningMonth = getStringOrNull(17),
-        reversalOfCode = getStringOrNull(18)
+        reversalOfCode = getStringOrNull(18),
+        accountId = getStringOrNull(19),
+        linkedAccountId = getStringOrNull(20),
+        payCycleId = getStringOrNull(21),
+        cycleCandidateReason = getStringOrNull(22),
+        cycleOverride = getStringOrNull(23)
     )
 
 private fun android.database.Cursor.getStringOrNull(index: Int): String? =

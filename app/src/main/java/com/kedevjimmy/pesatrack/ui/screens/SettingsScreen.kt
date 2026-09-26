@@ -190,8 +190,8 @@ fun SettingsScreen(
                     )
                     SettingsRow(
                         Icons.Rounded.Storage,
-                        "Historical import",
-                        "Backfill this month or up to 90 days from SMS",
+                        "Import M-Pesa SMS history",
+                        "Grant SMS access and backfill this month or up to 90 days",
                         onClick = onHistoricalImportClick
                     )
                 }

@@ -44,6 +44,35 @@ enum class MpesaTransactionType {
     OTHER
 }
 
+enum class AccountType {
+    MOBILE_WALLET,
+    BANK,
+    CASH,
+    SAVINGS,
+    OTHER
+}
+
+enum class RulePreset {
+    SALARY,
+    RENT,
+    INTERNET,
+    ELECTRICITY,
+    FOOD,
+    TRANSPORT,
+    FAMILY_SUPPORT,
+    SAVINGS,
+    OWN_TRANSFER,
+    OTHER_RECURRING,
+    CUSTOM
+}
+
+data class MoneyAccount(
+    val id: String,
+    val name: String,
+    val type: AccountType,
+    val enabled: Boolean = true
+)
+
 data class ParsedMpesaTransaction(
     val transactionCode: String?,
     val type: MpesaTransactionType,
@@ -67,5 +96,12 @@ data class SmartRule(
     val direction: MoneyDirection = MoneyDirection.EXPENSE,
     val planningMonthOffset: Int = 0,
     val displayLabel: String? = null,
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    val preset: RulePreset = RulePreset.CUSTOM,
+    val plannedAmountMinor: Long? = null,
+    val startsPayCycle: Boolean = false,
+    val accountId: String? = null,
+    val linkedAccountId: String? = null,
+    val payWindowStartDay: Int? = null,
+    val payWindowEndDay: Int? = null
 )

@@ -124,9 +124,9 @@ fun HistoricalImportScreen(
                     Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Column {
-                    Text("Historical import", style = MaterialTheme.typography.headlineMedium)
+                    Text("Import M-Pesa history", style = MaterialTheme.typography.headlineMedium)
                     Text(
-                        "Backfill older M-Pesa and configured money messages.",
+                        "Read older M-Pesa and configured money SMS already on this phone.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

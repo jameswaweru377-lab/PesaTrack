@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,8 @@ import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -37,20 +40,38 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.RulePreset
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
+import java.math.RoundingMode
 
-private enum class RuleKind {
-    SALARY,
-    RECURRING_EXPENSE,
-    OWN_TRANSFER
+private enum class MatcherMode {
+    MPESA_NAME,
+    NOTIFICATION
 }
+
+private enum class PayWindowChoice {
+    ANY_DAY,
+    MONTH_END,
+    CUSTOM
+}
+
+private data class PresetConfig(
+    val label: String,
+    val category: TransactionCategory,
+    val direction: MoneyDirection,
+    val startsPayCycle: Boolean = false
+)
 
 @Composable
 fun MoneySetupScreen(
@@ -61,85 +82,166 @@ fun MoneySetupScreen(
 ) {
     val context = LocalContext.current
     val ruleStore = remember { RuleStore.get(context) }
+    val accountStore = remember { AccountStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
+    val payCycleStore = remember { PayCycleStore.get(context) }
 
     var rules by remember { mutableStateOf(ruleStore.listRules()) }
-    var kind by remember { mutableStateOf(RuleKind.SALARY) }
-    var ruleName by remember { mutableStateOf("") }
+    var accounts by remember { mutableStateOf(accountStore.listAccounts()) }
+
+    var preset by remember { mutableStateOf(RulePreset.SALARY) }
+    var matcherMode by remember { mutableStateOf(MatcherMode.NOTIFICATION) }
+    var customLabel by remember { mutableStateOf("") }
     var counterparty by remember { mutableStateOf("") }
     var notificationTitle by remember { mutableStateOf("") }
     var messagePhrase by remember { mutableStateOf("") }
-    var displayLabel by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(TransactionCategory.RENT) }
-    var nextMonth by remember { mutableStateOf(true) }
+    var plannedAmount by remember { mutableStateOf("") }
+    var selectedAccountId by remember { mutableStateOf(accounts.firstOrNull { it.type == AccountType.BANK }?.id) }
+    var linkedAccountId by remember { mutableStateOf<String?>(null) }
+    var customCategory by remember { mutableStateOf(TransactionCategory.OTHER) }
+    var customDirection by remember { mutableStateOf(MoneyDirection.EXPENSE) }
+    var payWindow by remember { mutableStateOf(PayWindowChoice.ANY_DAY) }
+    var customWindowStart by remember { mutableStateOf("24") }
+    var customWindowEnd by remember { mutableStateOf("1") }
     var error by remember { mutableStateOf<String?>(null) }
 
-    fun reloadRules() {
+    var showAddAccount by remember { mutableStateOf(false) }
+    var newAccountName by remember { mutableStateOf("") }
+    var newAccountType by remember { mutableStateOf(AccountType.BANK) }
+
+    fun config(): PresetConfig = presetConfig(
+        preset = preset,
+        customCategory = customCategory,
+        customDirection = customDirection
+    )
+
+    fun reload() {
         rules = ruleStore.listRules()
+        accounts = accountStore.listAccounts()
+    }
+
+    fun choosePreset(newPreset: RulePreset) {
+        preset = newPreset
+        matcherMode = if (newPreset == RulePreset.SALARY) {
+            MatcherMode.NOTIFICATION
+        } else {
+            MatcherMode.MPESA_NAME
+        }
+
+        selectedAccountId = when (newPreset) {
+            RulePreset.SALARY ->
+                accounts.firstOrNull { it.type == AccountType.BANK }?.id
+            else ->
+                accounts.firstOrNull { it.id == AccountStore.DEFAULT_MPESA_ID }?.id
+        }
+
+        linkedAccountId = if (newPreset == RulePreset.OWN_TRANSFER) {
+            accounts.firstOrNull {
+                it.id != selectedAccountId && it.type != AccountType.CASH
+            }?.id
+        } else {
+            null
+        }
+
+        plannedAmount = ""
+        customLabel = ""
+        error = null
     }
 
     fun saveRule() {
         error = null
-        val rule = runCatching {
-            when (kind) {
-                RuleKind.SALARY -> {
-                    require(notificationTitle.isNotBlank() || messagePhrase.isNotBlank()) {
-                        "Add the notification sender/title or a phrase that identifies the salary alert."
-                    }
-                    ruleStore.save(
-                        name = ruleName.ifBlank { "Salary source" },
-                        counterpartyContains = "",
-                        notificationTitleContains = notificationTitle,
-                        messageContains = messagePhrase,
-                        category = TransactionCategory.INCOME,
-                        direction = MoneyDirection.INCOME,
-                        planningMonthOffset = if (nextMonth) 1 else 0,
-                        displayLabel = displayLabel.ifBlank { ruleName.ifBlank { "Salary" } }
-                    )
-                }
+        val ruleConfig = config()
 
-                RuleKind.RECURRING_EXPENSE -> {
-                    require(counterparty.isNotBlank()) {
-                        "Enter the M-Pesa name or merchant text to recognize."
-                    }
-                    ruleStore.save(
-                        name = ruleName.ifBlank { counterparty },
-                        counterpartyContains = counterparty,
-                        category = category,
-                        direction = MoneyDirection.EXPENSE,
-                        displayLabel = displayLabel.ifBlank { null }
-                    )
-                }
-
-                RuleKind.OWN_TRANSFER -> {
-                    require(counterparty.isNotBlank()) {
-                        "Enter the destination name or account label to recognize."
-                    }
-                    ruleStore.save(
-                        name = ruleName.ifBlank { "Own-account transfer" },
-                        counterpartyContains = counterparty,
-                        category = TransactionCategory.TRANSFER,
-                        direction = MoneyDirection.TRANSFER,
-                        displayLabel = displayLabel.ifBlank { null }
-                    )
-                }
+        val amountMinor = plannedAmount
+            .trim()
+            .takeIf { it.isNotBlank() }
+            ?.let { value ->
+                runCatching {
+                    value.replace(",", "")
+                        .toBigDecimal()
+                        .movePointRight(2)
+                        .setScale(0, RoundingMode.HALF_UP)
+                        .longValueExact()
+                }.getOrNull()
             }
-        }.getOrElse {
-            error = it.message ?: "Could not save this rule."
+
+        if (plannedAmount.isNotBlank() && amountMinor == null) {
+            error = "Enter the expected amount as a number."
             return
         }
 
-        transactionStore.reapplyCounterpartyRules(ruleStore.listRules(enabledOnly = true))
-        reloadRules()
+        val conditionsValid = when (matcherMode) {
+            MatcherMode.MPESA_NAME -> counterparty.isNotBlank()
+            MatcherMode.NOTIFICATION ->
+                notificationTitle.isNotBlank() || messagePhrase.isNotBlank()
+        }
 
-        ruleName = ""
+        if (!conditionsValid) {
+            error = if (matcherMode == MatcherMode.MPESA_NAME) {
+                "Enter the M-Pesa name or merchant text to recognize."
+            } else {
+                "Enter the notification sender/title or a phrase inside the message."
+            }
+            return
+        }
+
+        if (preset == RulePreset.OWN_TRANSFER) {
+            if (selectedAccountId == null || linkedAccountId == null) {
+                error = "Choose both accounts for this transfer."
+                return
+            }
+            if (selectedAccountId == linkedAccountId) {
+                error = "The transfer needs two different accounts."
+                return
+            }
+        }
+
+        val window = when (payWindow) {
+            PayWindowChoice.ANY_DAY -> null to null
+            PayWindowChoice.MONTH_END -> 24 to 1
+            PayWindowChoice.CUSTOM -> {
+                val start = customWindowStart.toIntOrNull()
+                val end = customWindowEnd.toIntOrNull()
+                if (start == null || end == null || start !in 1..31 || end !in 1..31) {
+                    error = "Pay-window days must be between 1 and 31."
+                    return
+                }
+                start to end
+            }
+        }
+
+        val display = customLabel.trim().takeIf { it.isNotBlank() }
+            ?: ruleConfig.label
+
+        ruleStore.save(
+            name = display,
+            counterpartyContains = if (matcherMode == MatcherMode.MPESA_NAME) counterparty else "",
+            notificationTitleContains = if (matcherMode == MatcherMode.NOTIFICATION) notificationTitle else "",
+            messageContains = if (matcherMode == MatcherMode.NOTIFICATION) messagePhrase else "",
+            category = ruleConfig.category,
+            direction = ruleConfig.direction,
+            planningMonthOffset = 0,
+            displayLabel = display,
+            preset = preset,
+            plannedAmountMinor = amountMinor,
+            startsPayCycle = ruleConfig.startsPayCycle,
+            accountId = selectedAccountId,
+            linkedAccountId = linkedAccountId,
+            payWindowStartDay = if (ruleConfig.startsPayCycle) window.first else null,
+            payWindowEndDay = if (ruleConfig.startsPayCycle) window.second else null
+        )
+
+        transactionStore.reapplyCounterpartyRules(
+            ruleStore.listRules(enabledOnly = true)
+        )
+        payCycleStore.rebuild()
+        reload()
+
         counterparty = ""
         notificationTitle = ""
         messagePhrase = ""
-        displayLabel = ""
-        if (rule.category == TransactionCategory.INCOME) {
-            nextMonth = true
-        }
+        plannedAmount = ""
+        customLabel = ""
     }
 
     LazyColumn(
@@ -162,11 +264,7 @@ fun MoneySetupScreen(
                         style = MaterialTheme.typography.headlineMedium
                     )
                     Text(
-                        if (initialSetup) {
-                            "Teach PesaTrack what should be recognized automatically."
-                        } else {
-                            "Manage what PesaTrack should recognize automatically."
-                        },
+                        "Choose what something is first. Only type the details PesaTrack cannot know.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -174,69 +272,126 @@ fun MoneySetupScreen(
         }
 
         item {
+            SectionHeader("My accounts")
+            Spacer(Modifier.height(6.dp))
             PesaCard {
-                Column(Modifier.padding(16.dp)) {
-                    Text(
-                        "What are you teaching PesaTrack?",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = kind == RuleKind.SALARY,
-                            onClick = { kind = RuleKind.SALARY },
-                            label = { Text("Salary") },
-                            leadingIcon = { Icon(Icons.Rounded.Payments, null) },
-                            modifier = Modifier.weight(1f)
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    accounts.forEach { account ->
+                        AccountRow(account)
+                    }
+
+                    if (showAddAccount) {
+                        OutlinedTextField(
+                            value = newAccountName,
+                            onValueChange = { newAccountName = it },
+                            label = { Text("Account name") },
+                            placeholder = { Text("Example: Equity") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
                         )
-                        FilterChip(
-                            selected = kind == RuleKind.RECURRING_EXPENSE,
-                            onClick = { kind = RuleKind.RECURRING_EXPENSE },
-                            label = { Text("Expense") },
-                            leadingIcon = { Icon(Icons.Rounded.ReceiptLong, null) },
-                            modifier = Modifier.weight(1f)
+                        SelectionField(
+                            label = "Account type",
+                            selectedLabel = accountTypeLabel(newAccountType),
+                            options = AccountType.entries.map { it to accountTypeLabel(it) },
+                            onSelected = { newAccountType = it }
                         )
-                        FilterChip(
-                            selected = kind == RuleKind.OWN_TRANSFER,
-                            onClick = { kind = RuleKind.OWN_TRANSFER },
-                            label = { Text("Transfer") },
-                            leadingIcon = { Icon(Icons.Rounded.SwapHoriz, null) },
-                            modifier = Modifier.weight(1f)
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    showAddAccount = false
+                                    newAccountName = ""
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Cancel")
+                            }
+                            Button(
+                                onClick = {
+                                    runCatching {
+                                        accountStore.save(newAccountName, newAccountType)
+                                    }.onSuccess {
+                                        showAddAccount = false
+                                        newAccountName = ""
+                                        reload()
+                                    }.onFailure {
+                                        error = it.message
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Add account")
+                            }
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { showAddAccount = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Rounded.Add, contentDescription = null)
+                            Text("Add bank or wallet", modifier = Modifier.padding(start = 8.dp))
+                        }
                     }
                 }
             }
         }
 
         item {
+            SectionHeader("Teach PesaTrack")
+            Spacer(Modifier.height(6.dp))
             PesaCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SelectionField(
+                        label = "What is this?",
+                        selectedLabel = presetConfig(preset, customCategory, customDirection).label,
+                        options = rulePresetOptions(),
+                        onSelected = ::choosePreset
+                    )
+
                     OutlinedTextField(
-                        value = ruleName,
-                        onValueChange = { ruleName = it },
-                        label = { Text("Rule name") },
+                        value = customLabel,
+                        onValueChange = { customLabel = it },
+                        label = { Text("Custom name (optional)") },
                         placeholder = {
-                            Text(
-                                when (kind) {
-                                    RuleKind.SALARY -> "Monthly salary"
-                                    RuleKind.RECURRING_EXPENSE -> "Home internet"
-                                    RuleKind.OWN_TRANSFER -> "Transfer to savings"
-                                }
-                            )
+                            Text("Default: " + presetConfig(preset, customCategory, customDirection).label)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
 
-                    if (kind == RuleKind.SALARY) {
+                    Text(
+                        "How should PesaTrack recognize it?",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = matcherMode == MatcherMode.MPESA_NAME,
+                            onClick = { matcherMode = MatcherMode.MPESA_NAME },
+                            label = { Text("M-Pesa name") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = matcherMode == MatcherMode.NOTIFICATION,
+                            onClick = { matcherMode = MatcherMode.NOTIFICATION },
+                            label = { Text("Notification") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    if (matcherMode == MatcherMode.MPESA_NAME) {
+                        OutlinedTextField(
+                            value = counterparty,
+                            onValueChange = { counterparty = it },
+                            label = { Text("Name contains") },
+                            placeholder = { Text("Recipient or merchant name") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    } else {
                         OutlinedTextField(
                             value = notificationTitle,
                             onValueChange = { notificationTitle = it },
-                            label = { Text("Notification sender/title contains") },
+                            label = { Text("Sender/title contains") },
                             placeholder = { Text("Example: your bank name") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
@@ -245,72 +400,99 @@ fun MoneySetupScreen(
                             value = messagePhrase,
                             onValueChange = { messagePhrase = it },
                             label = { Text("Message contains") },
-                            placeholder = { Text("Example: employer or salary phrase") },
+                            placeholder = { Text("Example: employer or transfer phrase") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
-                        OutlinedTextField(
-                            value = displayLabel,
-                            onValueChange = { displayLabel = it },
-                            label = { Text("Display as") },
-                            placeholder = { Text("Salary") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
+                    }
 
-                        Text(
-                            "Which plan should this income fund?",
-                            style = MaterialTheme.typography.titleSmall
+                    if (preset == RulePreset.CUSTOM) {
+                        Text("Custom behavior", style = MaterialTheme.typography.titleSmall)
+                        CategoryChooser(
+                            selected = customCategory,
+                            onSelected = { customCategory = it }
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = !nextMonth,
-                                onClick = { nextMonth = false },
-                                label = { Text("Month it arrives") },
-                                modifier = Modifier.weight(1f)
-                            )
-                            FilterChip(
-                                selected = nextMonth,
-                                onClick = { nextMonth = true },
-                                label = { Text("Following month") },
-                                modifier = Modifier.weight(1f)
-                            )
+                            listOf(
+                                MoneyDirection.EXPENSE to "Expense",
+                                MoneyDirection.INCOME to "Income",
+                                MoneyDirection.TRANSFER to "Transfer"
+                            ).forEach { option ->
+                                FilterChip(
+                                    selected = customDirection == option.first,
+                                    onClick = { customDirection = option.first },
+                                    label = { Text(option.second) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
+                    }
+
+                    AccountFields(
+                        preset = preset,
+                        accounts = accounts,
+                        selectedAccountId = selectedAccountId,
+                        linkedAccountId = linkedAccountId,
+                        onAccountSelected = { selectedAccountId = it },
+                        onLinkedAccountSelected = { linkedAccountId = it }
+                    )
+
+                    val config = config()
+                    if (config.direction == MoneyDirection.EXPENSE ||
+                        preset == RulePreset.SAVINGS
+                    ) {
+                        OutlinedTextField(
+                            value = plannedAmount,
+                            onValueChange = { plannedAmount = it },
+                            label = { Text("Expected amount (optional)") },
+                            placeholder = { Text("Used to reserve this money in your plan") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
+
+                    if (config.startsPayCycle) {
                         Text(
-                            "If salary arrives near month-end but pays for the following month, choose Following month.",
+                            "Usual payday window (optional)",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            "The salary message identifies the salary. This window only helps PesaTrack spot unusual timing.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    } else {
-                        OutlinedTextField(
-                            value = counterparty,
-                            onValueChange = { counterparty = it },
-                            label = { Text("M-Pesa name contains") },
-                            placeholder = { Text("Recipient or merchant name") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = displayLabel,
-                            onValueChange = { displayLabel = it },
-                            label = { Text("Display as (optional)") },
-                            placeholder = { Text("Friendly name") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                        SelectionField(
+                            label = "Pay window",
+                            selectedLabel = when (payWindow) {
+                                PayWindowChoice.ANY_DAY -> "No fixed day"
+                                PayWindowChoice.MONTH_END -> "Usually 24th to 1st"
+                                PayWindowChoice.CUSTOM -> "Custom range"
+                            },
+                            options = listOf(
+                                PayWindowChoice.ANY_DAY to "No fixed day",
+                                PayWindowChoice.MONTH_END to "Usually 24th to 1st",
+                                PayWindowChoice.CUSTOM to "Custom range"
+                            ),
+                            onSelected = { payWindow = it }
                         )
 
-                        if (kind == RuleKind.RECURRING_EXPENSE) {
-                            Text("Category", style = MaterialTheme.typography.titleSmall)
-                            CategoryChooser(
-                                selected = category,
-                                onSelected = { category = it }
-                            )
-                        } else {
-                            Text(
-                                "Transfers to your own account are tracked but excluded from spending.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        if (payWindow == PayWindowChoice.CUSTOM) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = customWindowStart,
+                                    onValueChange = { customWindowStart = it },
+                                    label = { Text("From day") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true
+                                )
+                                OutlinedTextField(
+                                    value = customWindowEnd,
+                                    onValueChange = { customWindowEnd = it },
+                                    label = { Text("To day") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true
+                                )
+                            }
                         }
                     }
 
@@ -324,7 +506,7 @@ fun MoneySetupScreen(
                         shape = RoundedCornerShape(18.dp)
                     ) {
                         Icon(Icons.Rounded.Add, contentDescription = null)
-                        Text("Save smart rule", modifier = Modifier.padding(start = 8.dp))
+                        Text("Save rule", modifier = Modifier.padding(start = 8.dp))
                     }
                 }
             }
@@ -347,15 +529,16 @@ fun MoneySetupScreen(
         items(rules.size) { index ->
             RuleRow(
                 rule = rules[index],
+                accounts = accounts,
                 onDelete = {
                     ruleStore.delete(rules[index].id)
-                    reloadRules()
+                    payCycleStore.rebuild()
+                    reload()
                 }
             )
         }
 
         item {
-            Spacer(Modifier.height(4.dp))
             Button(
                 onClick = onDone,
                 modifier = Modifier.fillMaxWidth(),
@@ -372,6 +555,120 @@ fun MoneySetupScreen(
                     shape = RoundedCornerShape(18.dp)
                 ) {
                     Text("Set up more rules later")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountRow(account: MoneyAccount) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconBubble(
+            if (account.type == AccountType.BANK) {
+                Icons.Rounded.AccountBalance
+            } else {
+                Icons.Rounded.Payments
+            },
+            size = 38.dp
+        )
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(start = 10.dp)
+        ) {
+            Text(account.name, style = MaterialTheme.typography.titleMedium)
+            Text(
+                accountTypeLabel(account.type),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun AccountFields(
+    preset: RulePreset,
+    accounts: List<MoneyAccount>,
+    selectedAccountId: String?,
+    linkedAccountId: String?,
+    onAccountSelected: (String?) -> Unit,
+    onLinkedAccountSelected: (String?) -> Unit
+) {
+    if (accounts.isEmpty()) return
+
+    val primaryLabel = when (preset) {
+        RulePreset.SALARY -> "Salary arrives in"
+        RulePreset.OWN_TRANSFER -> "Move money from"
+        else -> "Usually paid from"
+    }
+
+    SelectionField(
+        label = primaryLabel,
+        selectedLabel = accounts.firstOrNull { it.id == selectedAccountId }?.name ?: "Choose account",
+        options = accounts.map { it.id to it.name },
+        onSelected = onAccountSelected
+    )
+
+    if (preset == RulePreset.OWN_TRANSFER) {
+        SelectionField(
+            label = "Move money to",
+            selectedLabel = accounts.firstOrNull { it.id == linkedAccountId }?.name ?: "Choose account",
+            options = accounts
+                .filter { it.id != selectedAccountId }
+                .map { it.id to it.name },
+            onSelected = onLinkedAccountSelected
+        )
+        Text(
+            "Moving money between your own accounts is tracked, but it is not income or spending.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun <T> SelectionField(
+    label: String,
+    selectedLabel: String,
+    options: List<Pair<T, String>>,
+    onSelected: (T) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Box(Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text(
+                    selectedLabel,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.second) },
+                        onClick = {
+                            expanded = false
+                            onSelected(option.first)
+                        }
+                    )
                 }
             }
         }
@@ -413,6 +710,9 @@ private fun CategoryChooser(
                         )
                     )
                 }
+                if (row.size == 1) {
+                    Spacer(Modifier.weight(1f))
+                }
             }
         }
     }
@@ -421,6 +721,7 @@ private fun CategoryChooser(
 @Composable
 private fun RuleRow(
     rule: SmartRule,
+    accounts: List<MoneyAccount>,
     onDelete: () -> Unit
 ) {
     PesaCard {
@@ -446,20 +747,18 @@ private fun RuleRow(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    buildString {
-                        if (rule.counterpartyContains.isNotBlank()) {
-                            append("Name contains “")
-                            append(rule.counterpartyContains)
-                            append("”")
-                        } else {
+                    if (rule.counterpartyContains.isNotBlank()) {
+                        "M-Pesa name contains “" + rule.counterpartyContains + "”"
+                    } else {
+                        buildString {
                             if (rule.notificationTitleContains.isNotBlank()) {
-                                append("Sender contains “")
+                                append("Sender “")
                                 append(rule.notificationTitleContains)
                                 append("”")
                             }
                             if (rule.messageContains.isNotBlank()) {
                                 if (isNotEmpty()) append(" • ")
-                                append("Message contains “")
+                                append("Message “")
                                 append(rule.messageContains)
                                 append("”")
                             }
@@ -468,11 +767,21 @@ private fun RuleRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                val account = accounts.firstOrNull { it.id == rule.accountId }?.name
+                val linked = accounts.firstOrNull { it.id == rule.linkedAccountId }?.name
                 Text(
                     buildString {
-                        append(rule.category.prettyName())
-                        if (rule.direction == MoneyDirection.INCOME && rule.planningMonthOffset == 1) {
-                            append(" • funds next month")
+                        append(rule.preset.prettyName())
+                        if (account != null) {
+                            append(" • ")
+                            append(account)
+                        }
+                        if (linked != null) {
+                            append(" → ")
+                            append(linked)
+                        }
+                        if (rule.startsPayCycle) {
+                            append(" • starts pay cycle")
                         }
                     },
                     style = MaterialTheme.typography.labelMedium,
@@ -490,7 +799,58 @@ private fun RuleRow(
     }
 }
 
+private fun presetConfig(
+    preset: RulePreset,
+    customCategory: TransactionCategory,
+    customDirection: MoneyDirection
+): PresetConfig =
+    when (preset) {
+        RulePreset.SALARY -> PresetConfig(
+            "Monthly salary",
+            TransactionCategory.INCOME,
+            MoneyDirection.INCOME,
+            startsPayCycle = true
+        )
+        RulePreset.RENT -> PresetConfig("Rent", TransactionCategory.RENT, MoneyDirection.EXPENSE)
+        RulePreset.INTERNET -> PresetConfig("Internet", TransactionCategory.INTERNET, MoneyDirection.EXPENSE)
+        RulePreset.ELECTRICITY -> PresetConfig("Electricity", TransactionCategory.ELECTRICITY, MoneyDirection.EXPENSE)
+        RulePreset.FOOD -> PresetConfig("Food / lunch", TransactionCategory.LUNCH, MoneyDirection.EXPENSE)
+        RulePreset.TRANSPORT -> PresetConfig("Transport", TransactionCategory.TRANSPORT, MoneyDirection.EXPENSE)
+        RulePreset.FAMILY_SUPPORT -> PresetConfig("Family support", TransactionCategory.FAMILY, MoneyDirection.EXPENSE)
+        RulePreset.SAVINGS -> PresetConfig("Savings", TransactionCategory.SAVINGS, MoneyDirection.TRANSFER)
+        RulePreset.OWN_TRANSFER -> PresetConfig("My own transfer", TransactionCategory.TRANSFER, MoneyDirection.TRANSFER)
+        RulePreset.OTHER_RECURRING -> PresetConfig("Other recurring", TransactionCategory.OTHER, MoneyDirection.EXPENSE)
+        RulePreset.CUSTOM -> PresetConfig("Custom", customCategory, customDirection)
+    }
+
+private fun rulePresetOptions(): List<Pair<RulePreset, String>> =
+    listOf(
+        RulePreset.SALARY,
+        RulePreset.RENT,
+        RulePreset.INTERNET,
+        RulePreset.ELECTRICITY,
+        RulePreset.FOOD,
+        RulePreset.TRANSPORT,
+        RulePreset.FAMILY_SUPPORT,
+        RulePreset.SAVINGS,
+        RulePreset.OWN_TRANSFER,
+        RulePreset.OTHER_RECURRING,
+        RulePreset.CUSTOM
+    ).map { it to presetConfig(it, TransactionCategory.OTHER, MoneyDirection.EXPENSE).label }
+
+private fun RulePreset.prettyName(): String =
+    presetConfig(this, TransactionCategory.OTHER, MoneyDirection.EXPENSE).label
+
 private fun TransactionCategory.prettyName(): String =
     name.lowercase()
         .replace('_', ' ')
         .replaceFirstChar { it.uppercase() }
+
+private fun accountTypeLabel(type: AccountType): String =
+    when (type) {
+        AccountType.MOBILE_WALLET -> "Mobile wallet"
+        AccountType.BANK -> "Bank account"
+        AccountType.CASH -> "Cash"
+        AccountType.SAVINGS -> "Savings account"
+        AccountType.OTHER -> "Other"
+    }
