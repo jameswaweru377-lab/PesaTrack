@@ -5,6 +5,7 @@ import android.content.Context
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
+import com.kedevjimmy.pesatrack.domain.rules.PayCyclePolicy
 import kotlin.math.max
 import java.util.Calendar
 import java.util.TimeZone
@@ -44,7 +45,12 @@ class PayCycleStore private constructor(context: Context) {
                 val reason = if (event.override == OVERRIDE_FORCE_START) {
                     null
                 } else {
-                    cycleCandidateReason(previousAccepted, event)
+                    PayCyclePolicy.candidateReason(
+                        previousCycleStartEpochMs = previousAccepted?.occurredAtEpochMs,
+                        currentSalaryEpochMs = event.occurredAtEpochMs,
+                        payWindowStartDay = event.payWindowStartDay,
+                        payWindowEndDay = event.payWindowEndDay
+                    )
                 }
 
                 if (reason != null) {
@@ -281,46 +287,6 @@ class PayCycleStore private constructor(context: Context) {
                     )
                 }
             }
-        }
-
-    private fun cycleCandidateReason(
-        previous: SalaryEvent?,
-        current: SalaryEvent
-    ): String? {
-        if (previous == null) return null
-
-        val days = TimeUnit.MILLISECONDS.toDays(
-            current.occurredAtEpochMs - previous.occurredAtEpochMs
-        )
-
-        if (days in 0 until MIN_CYCLE_DAYS.toLong()) {
-            return "Another salary-like credit arrived only $days days after the current pay cycle started."
-        }
-
-        val startDay = current.payWindowStartDay
-        val endDay = current.payWindowEndDay
-        if (startDay != null && endDay != null) {
-            val calendar = Calendar.getInstance().apply {
-                timeInMillis = current.occurredAtEpochMs
-            }
-            val day = calendar.get(Calendar.DAY_OF_MONTH)
-            if (!dayInWindow(day, startDay, endDay)) {
-                return "This salary arrived outside your usual pay window."
-            }
-        }
-
-        return null
-    }
-
-    private fun dayInWindow(
-        day: Int,
-        startDay: Int,
-        endDay: Int
-    ): Boolean =
-        if (startDay <= endDay) {
-            day in startDay..endDay
-        } else {
-            day >= startDay || day <= endDay
         }
 
     private fun trackedRemainder(
@@ -573,7 +539,6 @@ class PayCycleStore private constructor(context: Context) {
 
         private const val STATE_ACTIVE = "ACTIVE"
         private const val STATE_CLOSED = "CLOSED"
-        private const val MIN_CYCLE_DAYS = 14
 
         @Volatile
         private var instance: PayCycleStore? = null
