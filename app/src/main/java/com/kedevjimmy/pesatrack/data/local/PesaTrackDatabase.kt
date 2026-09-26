@@ -57,6 +57,15 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             db.execSQL("ALTER TABLE smart_rules ADD COLUMN linked_account_id TEXT")
             db.execSQL("ALTER TABLE smart_rules ADD COLUMN pay_window_start_day INTEGER")
             db.execSQL("ALTER TABLE smart_rules ADD COLUMN pay_window_end_day INTEGER")
+            db.execSQL(
+                """
+                UPDATE smart_rules
+                SET preset = 'SALARY',
+                    starts_pay_cycle = 1
+                WHERE category = 'INCOME'
+                  AND direction = 'INCOME'
+                """.trimIndent()
+            )
         }
 
         createIndexes(db)
