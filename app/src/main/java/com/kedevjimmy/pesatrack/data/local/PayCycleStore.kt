@@ -37,7 +37,7 @@ class PayCycleStore private constructor(context: Context) {
                 if (event.override == OVERRIDE_ADDITIONAL_INCOME) {
                     db.execSQL(
                         "UPDATE transactions SET review_state = ? WHERE id = ?",
-                        arrayOf(ReviewState.USER_CLASSIFIED.name, event.transactionId)
+                        arrayOf<Any?>(ReviewState.USER_CLASSIFIED.name, event.transactionId)
                     )
                     return@forEach
                 }
@@ -61,7 +61,7 @@ class PayCycleStore private constructor(context: Context) {
                             review_state = ?
                         WHERE id = ?
                         """.trimIndent(),
-                        arrayOf(reason, ReviewState.NEEDS_REVIEW.name, event.transactionId)
+                        arrayOf<Any?>(reason, ReviewState.NEEDS_REVIEW.name, event.transactionId)
                     )
                 } else {
                     accepted += event
@@ -76,7 +76,7 @@ class PayCycleStore private constructor(context: Context) {
                             END
                         WHERE id = ?
                         """.trimIndent(),
-                        arrayOf(
+                        arrayOf<Any?>(
                             ReviewState.NEEDS_REVIEW.name,
                             ReviewState.AUTO_CLASSIFIED.name,
                             event.transactionId
