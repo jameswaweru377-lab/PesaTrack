@@ -14,6 +14,7 @@ import com.kedevjimmy.pesatrack.ui.screens.GoalDetailScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
+import com.kedevjimmy.pesatrack.ui.screens.InitialMoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
@@ -66,9 +67,8 @@ fun PesaTrackApp(
         }
 
         composable("money-setup-initial") {
-            MoneySetupScreen(
+            InitialMoneySetupScreen(
                 scaffoldPadding = PaddingValues(),
-                initialSetup = true,
                 onDone = ::finishSetup
             )
         }
