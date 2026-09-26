@@ -91,6 +91,38 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun insertManualIncome(
+        amountMinor: Long,
+        occurredAtEpochMs: Long,
+        label: String,
+        matchedRule: SmartRule
+    ): Boolean {
+        require(amountMinor > 0L) { "Income amount must be greater than zero." }
+
+        val parsed = ParsedMpesaTransaction(
+            transactionCode = null,
+            type = MpesaTransactionType.OTHER,
+            amountMinor = amountMinor,
+            counterparty = label.trim().ifBlank { matchedRule.displayLabel ?: matchedRule.name },
+            counterpartyPhone = null,
+            feeMinor = 0L,
+            balanceMinor = null,
+            occurredAtText = null,
+            rawMessage = "manual-income|" + matchedRule.id + "|" + occurredAtEpochMs,
+            reversalOfCode = null
+        )
+
+        return insertIfNew(
+            parsed = parsed,
+            sourcePackage = null,
+            sourceKind = "manual_setup",
+            receivedAtEpochMs = System.currentTimeMillis(),
+            occurredAtEpochMs = occurredAtEpochMs,
+            matchedRule = matchedRule
+        )
+    }
+
+    @Synchronized
     fun snapshot(): LedgerSnapshot {
         val db = database.readableDatabase
 
