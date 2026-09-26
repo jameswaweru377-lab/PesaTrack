@@ -340,7 +340,7 @@ class PayCycleStore private constructor(context: Context) {
 
         return database.readableDatabase.rawQuery(
             """
-            SELECT id, amount_minor, fee_minor, fuliza_access_fee_minor, direction, category
+            SELECT id, amount_minor, fee_minor, direction, category
             FROM transactions
             WHERE $selection
             """.trimIndent(),
@@ -355,11 +355,10 @@ class PayCycleStore private constructor(context: Context) {
                 val id = cursor.getLong(0)
                 val amount = cursor.getLong(1)
                 val fee = cursor.getLong(2)
-                val fulizaAccessFee = cursor.getLong(3)
-                val direction = cursor.getString(4)
-                val category = cursor.getString(5)
+                val direction = cursor.getString(3)
+                val category = cursor.getString(4)
 
-                fees += fee + fulizaAccessFee
+                fees += fee
 
                 when {
                     id != startTransactionId && direction == MoneyDirection.INCOME.name ->
@@ -372,12 +371,32 @@ class PayCycleStore private constructor(context: Context) {
                 }
             }
 
+            fees += fulizaAccessFeesForRange(startEpochMs, endEpochMs)
+
             CycleTotals(
                 additionalIncomeMinor = additionalIncome,
                 spentMinor = spent,
                 feesMinor = fees,
                 savingsMinor = savings
             )
+        }
+    }
+
+    private fun fulizaAccessFeesForRange(
+        startEpochMs: Long,
+        endEpochMs: Long?
+    ): Long {
+        val endExclusive = endEpochMs ?: Long.MAX_VALUE
+        return database.readableDatabase.rawQuery(
+            """
+            SELECT COALESCE(SUM(access_fee_minor), 0)
+            FROM fuliza_events
+            WHERE occurred_at_epoch_ms >= ?
+              AND occurred_at_epoch_ms < ?
+            """.trimIndent(),
+            arrayOf(startEpochMs.toString(), endExclusive.toString())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getLong(0) else 0L
         }
     }
 
