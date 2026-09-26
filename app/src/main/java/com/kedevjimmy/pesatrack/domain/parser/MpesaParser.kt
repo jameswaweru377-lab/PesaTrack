@@ -34,6 +34,10 @@ object MpesaParser {
     private val trailingPhoneRegex = Regex(
         """\s+(?:(?:\+?254|0)?[0-9xX*\-\s]{7,})$"""
     )
+    private val reversalOfCodeRegex = Regex(
+        """(?:transaction|for\s+transaction)\s+([A-Z0-9]{10})\b""",
+        RegexOption.IGNORE_CASE
+    )
 
     fun parse(message: String): ParsedMpesaTransaction? {
         val normalized = message.replace(Regex("""\s+"""), " ").trim()
@@ -54,7 +58,12 @@ object MpesaParser {
             feeMinor = feeRegex.find(normalized)?.groupValues?.get(1)?.let(::amountToMinor) ?: 0L,
             balanceMinor = balanceRegex.find(normalized)?.groupValues?.get(1)?.let(::amountToMinor),
             occurredAtText = occurredAtRegex.find(normalized)?.groupValues?.get(1),
-            rawMessage = message
+            rawMessage = message,
+            reversalOfCode = if (type == MpesaTransactionType.REVERSAL) {
+                reversalOfCodeRegex.find(normalized)?.groupValues?.get(1)?.uppercase()
+            } else {
+                null
+            }
         )
     }
 
