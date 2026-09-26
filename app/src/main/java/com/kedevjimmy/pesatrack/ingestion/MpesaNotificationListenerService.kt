@@ -3,11 +3,14 @@ package com.kedevjimmy.pesatrack.ingestion
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.kedevjimmy.pesatrack.data.local.FulizaStore
+import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
 import com.kedevjimmy.pesatrack.domain.parser.ConfiguredMoneyParser
+import com.kedevjimmy.pesatrack.domain.parser.FulizaParser
 import com.kedevjimmy.pesatrack.domain.parser.MpesaParser
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import java.util.concurrent.Executors
@@ -31,6 +34,20 @@ class MpesaNotificationListenerService : NotificationListenerService() {
             val store = TransactionStore.get(applicationContext)
 
             if (MpesaMessageDetector.isLikelyMpesa(title, body)) {
+                val fuliza = FulizaParser.parse(body)
+                if (fuliza != null) {
+                    val result = FulizaStore.get(applicationContext).insertOrUpdate(
+                        parsed = fuliza,
+                        sourcePackage = packageName,
+                        sourceKind = SOURCE_FULIZA_NOTIFICATION,
+                        occurredAtEpochMs = receivedAt
+                    )
+                    if (result.linkedTransactionId != null) {
+                        PayCycleStore.get(applicationContext).rebuild()
+                    }
+                    return@execute
+                }
+
                 val parsed = MpesaParser.parse(body) ?: return@execute
                 val matchedRule = SmartRuleEngine.matchTransaction(parsed, rules)
 
@@ -102,6 +119,7 @@ class MpesaNotificationListenerService : NotificationListenerService() {
 
     companion object {
         const val SOURCE_MPESA_NOTIFICATION = "mpesa_notification"
+        const val SOURCE_FULIZA_NOTIFICATION = "fuliza_notification"
         const val SOURCE_CONFIGURED_NOTIFICATION = "configured_notification"
     }
 }
