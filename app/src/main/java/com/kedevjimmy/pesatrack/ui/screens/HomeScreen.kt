@@ -475,7 +475,8 @@ private fun UpcomingRow(
         IconBubble(
             icon,
             size = 38.dp,
-            background = if (tone == "blue") SkySoft else AmberSoft
+            background = pesaToneContainer(tone),
+            tint = pesaToneContent(tone)
         )
         Column(
             Modifier
