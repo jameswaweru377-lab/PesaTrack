@@ -10,6 +10,7 @@ import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalDetailScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
+import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
 import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
 import com.kedevjimmy.pesatrack.ui.screens.ProfileScreen
@@ -141,7 +142,20 @@ fun PesaTrackApp(
                     themeMode = themeMode,
                     onThemeModeChange = onThemeModeChange,
                     onBack = { navController.popBackStack() },
-                    onProfileClick = { navController.navigate("profile") }
+                    onProfileClick = { navController.navigate("profile") },
+                    onMpesaConnectionClick = { navController.navigate("mpesa-connection") }
+                )
+            }
+        }
+
+        composable("mpesa-connection") {
+            AppScaffold(
+                currentTab = null,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                MpesaConnectionScreen(
+                    scaffoldPadding = padding,
+                    onBack = { navController.popBackStack() }
                 )
             }
         }
