@@ -6,12 +6,13 @@ import java.util.Calendar
 import java.util.TimeZone
 
 class PlanningPeriodResolverTest {
+    private val utc = TimeZone.getTimeZone("UTC")
+
     @Test
     fun monthEndSalaryCanFundFollowingMonth() {
-        val zone = TimeZone.getTimeZone("Africa/Nairobi")
-        val calendar = Calendar.getInstance(zone).apply {
-            set(2026, Calendar.SEPTEMBER, 28, 18, 0, 0)
-            set(Calendar.MILLISECOND, 0)
+        val calendar = Calendar.getInstance(utc).apply {
+            clear()
+            set(2026, Calendar.SEPTEMBER, 29, 18, 0, 0)
         }
 
         assertEquals(
@@ -19,17 +20,16 @@ class PlanningPeriodResolverTest {
             PlanningPeriodResolver.resolve(
                 observedAtEpochMs = calendar.timeInMillis,
                 monthOffset = 1,
-                timeZone = zone
+                timeZone = utc
             )
         )
     }
 
     @Test
-    fun sameMonthRuleKeepsObservedMonth() {
-        val zone = TimeZone.getTimeZone("Africa/Nairobi")
-        val calendar = Calendar.getInstance(zone).apply {
-            set(2026, Calendar.SEPTEMBER, 28, 18, 0, 0)
-            set(Calendar.MILLISECOND, 0)
+    fun sameMonthIncomeStaysInObservedMonth() {
+        val calendar = Calendar.getInstance(utc).apply {
+            clear()
+            set(2026, Calendar.SEPTEMBER, 29, 18, 0, 0)
         }
 
         assertEquals(
@@ -37,7 +37,7 @@ class PlanningPeriodResolverTest {
             PlanningPeriodResolver.resolve(
                 observedAtEpochMs = calendar.timeInMillis,
                 monthOffset = 0,
-                timeZone = zone
+                timeZone = utc
             )
         )
     }
