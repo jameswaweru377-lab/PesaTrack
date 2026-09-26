@@ -2,7 +2,6 @@ package com.kedevjimmy.pesatrack.data.local
 
 import android.content.ContentValues
 import android.content.Context
-import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import com.kedevjimmy.pesatrack.domain.parser.ParsedFulizaEvent
@@ -150,19 +149,10 @@ class FulizaStore private constructor(context: Context) {
             }
         }
 
-        val candidate = FulizaPaymentCandidate(
-            transactionId = transactionId,
-            occurredAtEpochMs = occurredAtEpochMs,
-            amountMinor = parsed.amountMinor,
-            mpesaFeeMinor = parsed.feeMinor
-        )
-
+        val exactRequiredMinor = parsed.amountMinor + parsed.feeMinor
         val match = pending.firstOrNull { event ->
-            FulizaPairingPolicy.chooseCandidate(
-                fulizaFinancedMinor = event.financedAmountMinor,
-                fulizaOccurredAtEpochMs = event.occurredAtEpochMs,
-                candidates = listOf(candidate)
-            ) == transactionId
+            event.financedAmountMinor == exactRequiredMinor &&
+                abs(event.occurredAtEpochMs - occurredAtEpochMs) <= PAIRING_WINDOW_MS
         } ?: return
 
         attach(match.id, transactionId)
