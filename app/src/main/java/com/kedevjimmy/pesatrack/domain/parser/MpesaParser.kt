@@ -31,6 +31,9 @@ object MpesaParser {
         """\bon\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+at\s+\d{1,2}:\d{2}\s*(?:AM|PM)?)""",
         RegexOption.IGNORE_CASE
     )
+    private val trailingPhoneRegex = Regex(
+        """\s+(?:(?:\+?254|0)?[0-9xX*\-\s]{7,})$"""
+    )
 
     fun parse(message: String): ParsedMpesaTransaction? {
         val normalized = message.replace(Regex("""\s+"""), " ").trim()
@@ -78,7 +81,19 @@ object MpesaParser {
             MpesaTransactionType.RECEIVED -> receivedFromRegex.find(message)?.groupValues?.get(1)
             else -> null
         }
-        return raw?.trim()?.trimEnd('.', ',')?.takeIf { it.isNotBlank() }
+        val cleaned = raw
+            ?.trim()
+            ?.let { value ->
+                if (type == MpesaTransactionType.SENT_MONEY || type == MpesaTransactionType.RECEIVED) {
+                    value.replace(trailingPhoneRegex, "").trim()
+                } else {
+                    value
+                }
+            }
+            ?.trimEnd('.', ',')
+            ?.trim()
+
+        return cleaned?.takeIf { it.isNotBlank() }
     }
 
     private fun amountToMinor(raw: String): Long =

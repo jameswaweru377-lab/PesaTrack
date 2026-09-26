@@ -36,6 +36,27 @@ class MpesaParserTest {
     }
 
     @Test
+    fun stripsMaskedPhoneFromPersonCounterparty() {
+        val message = "TQK12DEF56 Confirmed. Ksh900.00 sent to JANE NJERI 2547****321 on 22/9/26 at 8:10 AM. New M-PESA balance is Ksh11,950.00."
+
+        val parsed = MpesaParser.parse(message)
+
+        assertNotNull(parsed)
+        assertEquals("JANE NJERI", parsed?.counterparty)
+        assertEquals(1_195_000L, parsed?.balanceMinor)
+    }
+
+    @Test
+    fun keepsMerchantNameWithoutTryingToTreatItAsAPhone() {
+        val message = "TQK55ABC77 Confirmed. Ksh1,500.00 paid to PLANET INTERNET 5G on 22/9/26 at 9:32 AM. New M-PESA balance is Ksh10,450.00."
+
+        val parsed = MpesaParser.parse(message)
+
+        assertNotNull(parsed)
+        assertEquals("PLANET INTERNET 5G", parsed?.counterparty)
+    }
+
+    @Test
     fun ignoresNonMpesaText() {
         assertEquals(null, MpesaParser.parse("Your parcel has been delivered."))
     }
