@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -44,6 +45,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,6 +76,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private enum class IncomeSourceChoice(val label: String, val helper: String) {
@@ -116,6 +119,7 @@ fun InitialMoneySetupScreen(
     var smsGranted by remember {
         mutableStateOf(hasSmsPermission(context))
     }
+    val setupScope = rememberCoroutineScope()
 
     val smsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -187,6 +191,7 @@ fun InitialMoneySetupScreen(
 
             if (arrivalMethod != ArrivalChoice.CASH && salaryIdentifier == null) {
                 error = "Tell PesaTrack who pays you so future salary payments can be recognized safely."
+                finishing = false
                 return
             }
 
@@ -253,6 +258,7 @@ fun InitialMoneySetupScreen(
             }
         }
 
+        finishing = true
         onDone()
     }
 
@@ -315,7 +321,6 @@ fun InitialMoneySetupScreen(
                             onClick = { incomeSource = choice }
                         )
                     }
-                }
             }
 
             1 -> item {
@@ -445,10 +450,11 @@ fun InitialMoneySetupScreen(
                     )
                 }
             } else {
-                androidx.compose.runtime.rememberCoroutineScope().let { scope ->
-                    Button(
+                Button(
                         onClick = {
-                            scope.launch { finishSetup() }
+                            if (!finishing) {
+                                setupScope.launch { finishSetup() }
+                            }
                         },
                         enabled = !finishing,
                         modifier = Modifier
@@ -630,7 +636,7 @@ private fun SalaryIdentificationStep(
 private fun SetupQuestion(
     title: String,
     body: String,
-    content: @Composable Column.() -> Unit
+    content: @Composable ColumnScope.() -> Unit
 ) {
     PesaCard {
         Column(
