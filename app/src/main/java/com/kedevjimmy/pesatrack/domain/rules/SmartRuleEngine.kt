@@ -24,9 +24,15 @@ object SmartRuleEngine {
             .filter(SmartRule::enabled)
             .filter { rule ->
                 when {
-                    rule.counterpartyPhoneEquals.isNotBlank() ->
-                        phone.isNotBlank() &&
-                            phone == normalizePhone(rule.counterpartyPhoneEquals)
+                    rule.counterpartyPhoneEquals.isNotBlank() -> {
+                        val expectedPhone = normalizePhone(rule.counterpartyPhoneEquals)
+                        if (phone.isNotBlank()) {
+                            phone == expectedPhone
+                        } else {
+                            rule.counterpartyExact.isNotBlank() &&
+                                counterparty == rule.counterpartyExact.normalizeName()
+                        }
+                    }
 
                     rule.counterpartyExact.isNotBlank() ->
                         counterparty != null &&
