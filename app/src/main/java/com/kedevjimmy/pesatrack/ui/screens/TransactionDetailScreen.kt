@@ -215,7 +215,10 @@ fun TransactionDetailScreen(
                     DetailRow(Icons.Rounded.AccountCircle, "Name", current.counterparty ?: "Not identified")
                     DetailRow(Icons.Rounded.ReceiptLong, "Type", pretty(current.type))
                     DetailRow(Icons.Rounded.ReceiptLong, "M-Pesa code", current.transactionCode ?: "Not provided")
-                    DetailRow(Icons.Rounded.CalendarMonth, "Observed", formatDateTime(current.receivedAtEpochMs))
+                    DetailRow(Icons.Rounded.CalendarMonth, "Transaction date", formatDateTime(current.occurredAtEpochMs))
+                    if (current.receivedAtEpochMs != current.occurredAtEpochMs) {
+                        DetailRow(Icons.Rounded.CalendarMonth, "Message received", formatDateTime(current.receivedAtEpochMs))
+                    }
                     DetailRow(Icons.Rounded.Paid, "Fee", formatMoney(current.feeMinor))
                     current.planningMonth?.let {
                         DetailRow(Icons.Rounded.CalendarMonth, "Planning month", it)
@@ -320,8 +323,8 @@ private fun TransactionHero(item: StoredTransaction) {
                         Modifier.weight(1f)
                     )
                     HeroMetric(
-                        "Observed",
-                        SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(item.receivedAtEpochMs)),
+                        "Transaction date",
+                        SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(item.occurredAtEpochMs)),
                         Icons.Rounded.CalendarMonth,
                         Modifier.weight(1f)
                     )
