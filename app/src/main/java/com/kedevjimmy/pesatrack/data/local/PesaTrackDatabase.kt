@@ -16,12 +16,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createAccountsTable(db)
         createPayCyclesTable(db)
         seedDefaultAccounts(db)
-        if (oldVersion < 5) {
-            db.execSQL("ALTER TABLE transactions ADD COLUMN counterparty_phone TEXT")
-            db.execSQL("ALTER TABLE smart_rules ADD COLUMN counterparty_exact TEXT NOT NULL DEFAULT ''")
-            db.execSQL("ALTER TABLE smart_rules ADD COLUMN counterparty_phone_equals TEXT NOT NULL DEFAULT ''")
-        }
-
         createIndexes(db)
     }
 
@@ -89,6 +83,12 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                   AND direction = 'INCOME'
                 """.trimIndent()
             )
+        }
+
+        if (oldVersion < 5) {
+            db.execSQL("ALTER TABLE transactions ADD COLUMN counterparty_phone TEXT")
+            db.execSQL("ALTER TABLE smart_rules ADD COLUMN counterparty_exact TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE smart_rules ADD COLUMN counterparty_phone_equals TEXT NOT NULL DEFAULT ''")
         }
 
         createIndexes(db)
