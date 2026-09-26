@@ -81,7 +81,12 @@ fun TransactionDetailScreen(
 
     fun applyCategory(category: TransactionCategory) {
         val current = transaction ?: return
-        val direction = directionForCategory(category)
+        val direction = directionForCategory(
+            category = category,
+            existingDirection = runCatching {
+                MoneyDirection.valueOf(current.direction)
+            }.getOrDefault(MoneyDirection.NEUTRAL)
+        )
         store.classifyManually(
             id = current.id,
             category = category,
@@ -520,11 +525,16 @@ private fun ActionRow(
     }
 }
 
-private fun directionForCategory(category: TransactionCategory): MoneyDirection =
-    when (category) {
-        TransactionCategory.INCOME -> MoneyDirection.INCOME
-        TransactionCategory.TRANSFER,
-        TransactionCategory.CASH -> MoneyDirection.TRANSFER
+private fun directionForCategory(
+    category: TransactionCategory,
+    existingDirection: MoneyDirection
+): MoneyDirection =
+    when {
+        category == TransactionCategory.INCOME -> MoneyDirection.INCOME
+        category == TransactionCategory.TRANSFER ||
+            category == TransactionCategory.CASH ||
+            category == TransactionCategory.SAVINGS -> MoneyDirection.TRANSFER
+        existingDirection == MoneyDirection.INCOME -> MoneyDirection.INCOME
         else -> MoneyDirection.EXPENSE
     }
 
