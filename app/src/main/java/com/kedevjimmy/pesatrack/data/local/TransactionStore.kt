@@ -35,7 +35,9 @@ class TransactionStore private constructor(context: Context) {
             ?: matchedRule?.displayLabel?.takeIf { it.isNotBlank() }
             ?: matchedRule?.name?.takeIf { it.isNotBlank() }
 
-        val defaultMpesa = sourceKind.contains("mpesa", ignoreCase = true)
+        val defaultMpesa =
+            sourceKind.contains("mpesa", ignoreCase = true) ||
+                parsed.type != MpesaTransactionType.OTHER
         val accountId = matchedRule?.accountId ?: when {
             parsed.type == MpesaTransactionType.WITHDRAWAL -> AccountStore.DEFAULT_MPESA_ID
             defaultMpesa -> AccountStore.DEFAULT_MPESA_ID
