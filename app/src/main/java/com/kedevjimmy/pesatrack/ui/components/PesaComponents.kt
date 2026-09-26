@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -37,6 +38,16 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
+import com.kedevjimmy.pesatrack.ui.theme.NightAmberSurface
+import com.kedevjimmy.pesatrack.ui.theme.NightAmberText
+import com.kedevjimmy.pesatrack.ui.theme.NightBlueSurface
+import com.kedevjimmy.pesatrack.ui.theme.NightBlueText
+import com.kedevjimmy.pesatrack.ui.theme.NightMintSurface
+import com.kedevjimmy.pesatrack.ui.theme.NightMintText
+import com.kedevjimmy.pesatrack.ui.theme.NightRoseSurface
+import com.kedevjimmy.pesatrack.ui.theme.NightRoseText
+import com.kedevjimmy.pesatrack.ui.theme.NightVioletSurface
+import com.kedevjimmy.pesatrack.ui.theme.NightVioletText
 import com.kedevjimmy.pesatrack.ui.theme.MintSoft
 import com.kedevjimmy.pesatrack.ui.theme.SkySoft
 import com.kedevjimmy.pesatrack.ui.theme.VioletSoft
@@ -147,18 +158,8 @@ fun SmallStatusPill(
     text: String,
     tone: String = "green"
 ) {
-    val bg = when (tone) {
-        "amber" -> AmberSoft
-        "blue" -> SkySoft
-        "violet" -> VioletSoft
-        else -> MintSoft
-    }
-    val fg = when (tone) {
-        "amber" -> Color(0xFF9B650C)
-        "blue" -> Color(0xFF176A99)
-        "violet" -> Color(0xFF60459F)
-        else -> MaterialTheme.colorScheme.primary
-    }
+    val bg = pesaToneContainer(tone)
+    val fg = pesaToneContent(tone)
     Surface(shape = RoundedCornerShape(50), color = bg) {
         Text(
             text,
@@ -172,14 +173,16 @@ fun SmallStatusPill(
 @Composable
 fun LandscapeBackdrop(
     modifier: Modifier = Modifier,
-    dark: Boolean = false,
+    dark: Boolean? = null,
+    showSun: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val base = if (dark) Color(0xFF073C34) else Color(0xFFE6F5EE)
-    val hill1 = if (dark) Color(0xFF0B5E4C) else Color(0xFFC8EADD)
-    val hill2 = if (dark) Color(0xFF0D7459) else Color(0xFFA9DDC8)
-    val hill3 = if (dark) Color(0xFF0A4B40) else Color(0xFF82C8AF)
-    val sun = if (dark) Color(0xFFB7D56D).copy(alpha = .45f) else Color(0xFFFFE9B6)
+    val useDark = dark ?: isPesaDarkTheme()
+    val base = if (useDark) Color(0xFF073C34) else Color(0xFFE6F5EE)
+    val hill1 = if (useDark) Color(0xFF0B5E4C) else Color(0xFFC8EADD)
+    val hill2 = if (useDark) Color(0xFF0D7459) else Color(0xFFA9DDC8)
+    val hill3 = if (useDark) Color(0xFF0A4B40) else Color(0xFF82C8AF)
+    val sun = if (useDark) Color(0xFFB7D56D).copy(alpha = .24f) else Color(0xFFFFE9B6)
 
     Box(
         modifier = modifier
@@ -187,11 +190,13 @@ fun LandscapeBackdrop(
             .background(base)
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            drawCircle(
-                color = sun,
-                radius = size.minDimension * .17f,
-                center = Offset(size.width * .80f, size.height * .20f)
-            )
+            if (showSun) {
+                drawCircle(
+                    color = sun,
+                    radius = size.minDimension * .17f,
+                    center = Offset(size.width * .80f, size.height * .20f)
+                )
+            }
             val p1 = Path().apply {
                 moveTo(0f, size.height * .70f)
                 cubicTo(size.width * .22f, size.height * .42f, size.width * .44f, size.height * .62f, size.width * .62f, size.height * .44f)
@@ -258,5 +263,54 @@ fun MetricCell(
         Spacer(Modifier.height(7.dp))
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    }
+}
+
+
+@Composable
+fun isPesaDarkTheme(): Boolean =
+    MaterialTheme.colorScheme.background.luminance() < 0.35f
+
+@Composable
+fun pesaToneContainer(tone: String): Color {
+    val dark = isPesaDarkTheme()
+    return if (dark) {
+        when (tone) {
+            "amber" -> NightAmberSurface
+            "blue" -> NightBlueSurface
+            "violet" -> NightVioletSurface
+            "red" -> NightRoseSurface
+            else -> NightMintSurface
+        }
+    } else {
+        when (tone) {
+            "amber" -> AmberSoft
+            "blue" -> SkySoft
+            "violet" -> VioletSoft
+            "red" -> com.kedevjimmy.pesatrack.ui.theme.RoseSoft
+            else -> MintSoft
+        }
+    }
+}
+
+@Composable
+fun pesaToneContent(tone: String): Color {
+    val dark = isPesaDarkTheme()
+    return if (dark) {
+        when (tone) {
+            "amber" -> NightAmberText
+            "blue" -> NightBlueText
+            "violet" -> NightVioletText
+            "red" -> NightRoseText
+            else -> NightMintText
+        }
+    } else {
+        when (tone) {
+            "amber" -> Color(0xFF9B650C)
+            "blue" -> Color(0xFF176A99)
+            "violet" -> Color(0xFF60459F)
+            "red" -> Color(0xFFB33B49)
+            else -> MaterialTheme.colorScheme.primary
+        }
     }
 }
