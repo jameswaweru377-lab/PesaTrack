@@ -15,6 +15,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createRulesTable(db)
         createAccountsTable(db)
         createPayCyclesTable(db)
+        createFulizaEventsTable(db)
         seedDefaultAccounts(db)
         createIndexes(db)
     }
@@ -91,6 +92,14 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             db.execSQL("ALTER TABLE smart_rules ADD COLUMN counterparty_phone_equals TEXT NOT NULL DEFAULT ''")
         }
 
+        if (oldVersion < 6) {
+            db.execSQL("ALTER TABLE transactions ADD COLUMN fuliza_financed_minor INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN fuliza_access_fee_minor INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN fuliza_outstanding_minor INTEGER")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN fuliza_event_code TEXT")
+            createFulizaEventsTable(db)
+        }
+
         createIndexes(db)
     }
 
@@ -123,7 +132,11 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 linked_account_id TEXT,
                 pay_cycle_id TEXT,
                 cycle_candidate_reason TEXT,
-                cycle_override TEXT
+                cycle_override TEXT,
+                fuliza_financed_minor INTEGER NOT NULL DEFAULT 0,
+                fuliza_access_fee_minor INTEGER NOT NULL DEFAULT 0,
+                fuliza_outstanding_minor INTEGER,
+                fuliza_event_code TEXT
             )
             """.trimIndent()
         )
@@ -194,6 +207,27 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createFulizaEventsTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS fuliza_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_key TEXT NOT NULL UNIQUE,
+                transaction_code TEXT,
+                financed_amount_minor INTEGER NOT NULL,
+                access_fee_minor INTEGER NOT NULL,
+                outstanding_amount_minor INTEGER,
+                available_limit_minor INTEGER,
+                occurred_at_epoch_ms INTEGER NOT NULL,
+                source_package TEXT,
+                source_kind TEXT NOT NULL,
+                linked_transaction_id INTEGER,
+                created_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun seedDefaultAccounts(db: SQLiteDatabase) {
         val now = System.currentTimeMillis()
         db.execSQL(
@@ -237,10 +271,16 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_pay_cycles_start ON pay_cycles(start_epoch_ms DESC)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_fuliza_occurred_at ON fuliza_events(occurred_at_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_fuliza_linked_transaction ON fuliza_events(linked_transaction_id)"
+        )
     }
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 5
+        private const val DATABASE_VERSION = 6
     }
 }

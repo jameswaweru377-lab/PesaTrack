@@ -371,12 +371,32 @@ class PayCycleStore private constructor(context: Context) {
                 }
             }
 
+            fees += fulizaAccessFeesForRange(startEpochMs, endEpochMs)
+
             CycleTotals(
                 additionalIncomeMinor = additionalIncome,
                 spentMinor = spent,
                 feesMinor = fees,
                 savingsMinor = savings
             )
+        }
+    }
+
+    private fun fulizaAccessFeesForRange(
+        startEpochMs: Long,
+        endEpochMs: Long?
+    ): Long {
+        val endExclusive = endEpochMs ?: Long.MAX_VALUE
+        return database.readableDatabase.rawQuery(
+            """
+            SELECT COALESCE(SUM(access_fee_minor), 0)
+            FROM fuliza_events
+            WHERE occurred_at_epoch_ms >= ?
+              AND occurred_at_epoch_ms < ?
+            """.trimIndent(),
+            arrayOf(startEpochMs.toString(), endExclusive.toString())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getLong(0) else 0L
         }
     }
 

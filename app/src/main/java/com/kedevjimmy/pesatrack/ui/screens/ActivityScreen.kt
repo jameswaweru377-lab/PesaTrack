@@ -244,7 +244,7 @@ private fun ResponsiveActivityMetrics(snapshot: ActivityLedgerSnapshot) {
                     ActivityMetric(
                         "Fees",
                         formatMoney(summary.feesMinor),
-                        "M-Pesa fees",
+                        "M-Pesa + Fuliza",
                         Icons.Rounded.ReceiptLong,
                         "amber",
                         Modifier.weight(1f)
@@ -414,6 +414,19 @@ private fun ActivityRow(
                         if (needsReview) "Needs review" else category.prettyName(),
                         style = MaterialTheme.typography.bodySmall,
                         color = pesaToneContent(tone)
+                    )
+                }
+                if (item.fulizaFinancedMinor > 0L) {
+                    Text(
+                        "Fuliza financed " + formatMoney(item.fulizaFinancedMinor) +
+                            if (item.fulizaAccessFeeMinor > 0L) {
+                                " • access fee " + formatMoney(item.fulizaAccessFeeMinor)
+                            } else {
+                                ""
+                            },
+                        modifier = Modifier.padding(top = 3.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

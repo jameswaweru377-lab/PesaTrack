@@ -25,7 +25,11 @@ data class StoredTransaction(
     val linkedAccountId: String?,
     val payCycleId: String?,
     val cycleCandidateReason: String?,
-    val cycleOverride: String?
+    val cycleOverride: String?,
+    val fulizaFinancedMinor: Long = 0L,
+    val fulizaAccessFeeMinor: Long = 0L,
+    val fulizaOutstandingMinor: Long? = null,
+    val fulizaEventCode: String? = null
 )
 
 data class LedgerSnapshot(
