@@ -12,6 +12,7 @@ import com.kedevjimmy.pesatrack.ui.components.MainTab
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalDetailScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
+import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
@@ -177,7 +178,8 @@ fun PesaTrackApp(
                     onBack = { navController.popBackStack() },
                     onProfileClick = { navController.navigate("profile") },
                     onMpesaConnectionClick = { navController.navigate("mpesa-connection") },
-                    onSmartRulesClick = { navController.navigate("smart-rules") }
+                    onSmartRulesClick = { navController.navigate("smart-rules") },
+                    onHistoricalImportClick = { navController.navigate("historical-import") }
                 )
             }
         }
@@ -202,6 +204,18 @@ fun PesaTrackApp(
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 MpesaConnectionScreen(
+                    scaffoldPadding = padding,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable("historical-import") {
+            AppScaffold(
+                currentTab = null,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                HistoricalImportScreen(
                     scaffoldPadding = padding,
                     onBack = { navController.popBackStack() }
                 )
