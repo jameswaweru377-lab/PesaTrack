@@ -323,6 +323,58 @@ Tests added/expanded:
 
 The implementation passed Android CI run #42 before the final bank-order/context update.
 
+## Optional history import and multi-income first-run refinement
+
+The progressive onboarding was simplified further so the user controls whether any historical SMS is read at all.
+
+Implemented:
+
+- First-run income selection is now **multi-select** rather than a single "main income" choice.
+- Available sources:
+  - Salary
+  - Business income
+  - Freelance / side income
+  - Other regular income
+- The previous separate "Multiple income sources" option was removed because selecting multiple sources directly is clearer.
+- Only selected income sources receive follow-up questions.
+- Each selected income source is configured independently, one at a time, so Salary can arrive in a bank while Business income can arrive in M-Pesa or Cash.
+- Bank selection remains searchable with a manual fallback and reuses an existing My Account rather than creating duplicates.
+- Historical SMS import during onboarding is explicitly optional.
+- The user chooses exactly one of:
+  - Don't import messages
+  - Import 1 month
+  - Import 2 months
+  - Import 3 months
+- Three calendar months is the maximum onboarding look-back.
+- Month labels are generated from the phone's current date, not hardcoded. For example, when the device is in September, three months means September, August and July.
+- The import boundary is the first day of the oldest selected calendar month, not an arbitrary 30/60/90-day approximation.
+- Selecting "Don't import messages" does not request SMS permission.
+- Selecting 1-3 months explains why message access is useful before requesting permission.
+- SMS access remains optional; denial does not block setup.
+- The onboarding permission screen includes an App Settings shortcut and explains that Android may require the user to enable "Allow restricted settings" themselves. PesaTrack never attempts to bypass or silently enable restricted settings.
+- If SMS access is granted and Salary -> Bank is configured, PesaTrack searches only the user-selected history window for likely incoming credits from the chosen bank.
+- If a salary candidate is found, the user can select the real example and PesaTrack uses its stable payer/originator signal rather than amount or payday.
+- If no matching salary message is found, SMS access is skipped/blocked, Salary arrives through M-Pesa/Cash, or the user explicitly chooses manual history, PesaTrack shows manual salary cards only for the selected months.
+- Manual history fields contain:
+  - salary amount
+  - actual day salary arrived
+- A selected month may be left blank when salary had not arrived yet or the user does not want to add it.
+- Manual salary dates are validated against the real calendar month; impossible dates are rejected.
+- Manual salary history is inserted as structured local income using the saved salary rule and real occurrence timestamp so reconstructed pay cycles start on the correct date.
+- Manual salary entries do not persist a raw SMS body.
+- Setup persists the chosen set of income sources, arrival route for each source, chosen bank names, and requested history depth.
+- Non-salary sources are saved without inventing transaction-recognition rules; they can be taught later from real transactions.
+- Existing teach-once review behavior from the previous phase remains intact: exact full-name/phone learning can immediately classify matching pending history.
+
+Tests added:
+
+- 1-month window uses only the current calendar month.
+- 3-month window produces current month + previous two months.
+- 0-month selection means no history import.
+- manual salary dates reject impossible days for a selected month.
+
+The implementation passed Android CI run #46 before the documentation update.
+
 ## Current implementation
 
 Baseline: `main` after the verified reference UI merge
@@ -362,18 +414,18 @@ For every implementation phase:
 4. Fix the actual cause before continuing.
 5. Only mark the implementation complete when the relevant check passes.
 
-## Immediate next phase after progressive onboarding merge
+## Immediate next phase after optional-history onboarding merge
 
-1. Install the latest debug APK on the Redmi Note 14 and test first-run setup from a clean app state.
-2. Choose Salary -> Bank account -> the real bank and verify SMS permission/candidate discovery on-device.
-3. Confirm the selected salary example creates a salary rule without asking for amount or fixed payday.
-4. Verify the 90-day backfill recognizes historical salary events and reconstructs pay cycles when the real bank SMS format contains a stable employer/originator phrase.
-5. If the bank SMS format does not expose a stable company/originator, capture an anonymized example and improve the deterministic bank parser rather than broadening the rule unsafely.
-6. Review one Needs Review M-Pesa transaction with a full person name/phone, choose Remember, and verify matching pending history is classified immediately.
-7. Verify a different person sharing the same first name remains Needs Review.
-8. Validate bank -> M-Pesa own-account transfer rules so movement between owned accounts never becomes duplicate income/spending.
-9. Add month/pay-cycle history selection to Activity and Plan after the real historical cycles are proven.
-10. Connect Goals only to deliberate savings/goal allocations and then add biometric/PIN protection before broader historical use.
+1. Install the latest debug APK on the Redmi Note 14 and clear app data so the real first-run flow can be tested from scratch.
+2. Test a single-source path: Salary -> Bank -> real Kenyan bank -> Don't import messages, and verify setup completes without any SMS permission request.
+3. Clear app data again and test Salary -> Bank -> Import 1/2/3 months; verify the month labels follow the current device month and never exceed three months.
+4. If Android blocks SMS access, test the App Settings / restricted-settings guidance and confirm setup still continues manually.
+5. With SMS access allowed, verify salary candidate discovery uses only the chosen history window and the actual bank sender on-device.
+6. If no candidate is found, enter one or more manual salary months with amount + actual arrival day and verify Home/Plan reconstruct pay-cycle boundaries correctly.
+7. Test a multi-income path such as Salary -> Bank plus Business income -> M-Pesa and confirm no irrelevant fields appear for either source.
+8. Review one Needs Review transaction, choose Remember, and verify exact-name/phone matching cleans up the rest of the pending history without first-name collisions.
+9. Validate bank -> M-Pesa own-account transfers so movement between owned accounts never becomes duplicate income/spending.
+10. After these real-device flows are stable, add month/pay-cycle history selection to Activity/Plan and connect Goals only to deliberate savings allocations.
 
 ## Important constraints
 
