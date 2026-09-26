@@ -52,7 +52,10 @@ import com.kedevjimmy.pesatrack.ui.theme.MintSoft
 import com.kedevjimmy.pesatrack.ui.theme.SkySoft
 
 @Composable
-fun OnboardingScreen(onContinue: () -> Unit) {
+fun OnboardingScreen(
+    onContinue: () -> Unit,
+    onSkip: () -> Unit
+) {
     LazyColumn(
         modifier = Modifier.background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp),
@@ -235,7 +238,7 @@ fun OnboardingScreen(onContinue: () -> Unit) {
 
         item {
             OutlinedButton(
-                onClick = onContinue,
+                onClick = onSkip,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),

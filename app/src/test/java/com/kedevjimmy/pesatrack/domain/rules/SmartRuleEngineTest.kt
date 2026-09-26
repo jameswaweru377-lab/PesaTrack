@@ -1,66 +1,110 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
+import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class SmartRuleEngineTest {
-
     @Test
-    fun appliesRecipientRuleCaseInsensitively() {
-        val transaction = ParsedMpesaTransaction(
-            transactionCode = "TQK12ABC34",
-            type = MpesaTransactionType.SENT_MONEY,
-            amountMinor = 45_000,
-            counterparty = "Elizabeth W.",
-            feeMinor = 0,
-            balanceMinor = null,
-            occurredAtText = null,
-            rawMessage = "test"
+    fun categorizesMatchingCounterparty() {
+        val transaction = sample(counterparty = "PLANET INTERNET LTD")
+        val rule = SmartRule(
+            id = "internet",
+            counterpartyContains = "planet internet",
+            category = TransactionCategory.INTERNET
         )
 
-        val result = SmartRuleEngine.categorize(
-            transaction,
-            listOf(
-                SmartRule(
-                    id = "lunch-rule",
-                    counterpartyContains = "elizabeth",
-                    category = TransactionCategory.LUNCH
-                )
-            )
+        assertEquals(
+            TransactionCategory.INTERNET,
+            SmartRuleEngine.categorize(transaction, listOf(rule))
         )
-
-        assertEquals(TransactionCategory.LUNCH, result)
     }
 
     @Test
-    fun respectsOptionalMaximumAmount() {
-        val transaction = ParsedMpesaTransaction(
-            transactionCode = null,
-            type = MpesaTransactionType.SENT_MONEY,
-            amountMinor = 250_000,
-            counterparty = "Sample Merchant",
-            feeMinor = 0,
-            balanceMinor = null,
-            occurredAtText = null,
-            rawMessage = "test"
+    fun amountCapPreventsOverBroadPersonRule() {
+        val transaction = sample(
+            counterparty = "ELIZABETH W",
+            amountMinor = 250_000L
+        )
+        val rule = SmartRule(
+            id = "lunch",
+            counterpartyContains = "elizabeth",
+            category = TransactionCategory.LUNCH,
+            maximumAmountMinor = 100_000L
         )
 
-        val result = SmartRuleEngine.categorize(
-            transaction,
-            listOf(
-                SmartRule(
-                    id = "small-purchases",
-                    counterpartyContains = "sample merchant",
-                    category = TransactionCategory.LUNCH,
-                    maximumAmountMinor = 100_000
-                )
+        assertEquals(
+            TransactionCategory.UNCATEGORIZED,
+            SmartRuleEngine.categorize(transaction, listOf(rule))
+        )
+    }
+
+    @Test
+    fun salaryNotificationRequiresConfiguredSenderAndPhrase() {
+        val salaryRule = SmartRule(
+            id = "salary",
+            name = "Monthly salary",
+            counterpartyContains = "",
+            notificationTitleContains = "equity",
+            messageContains = "braeburn schools",
+            category = TransactionCategory.INCOME,
+            direction = MoneyDirection.INCOME,
+            planningMonthOffset = 1
+        )
+
+        val match = SmartRuleEngine.matchNotification(
+            title = "Equity Mobile",
+            body = "KES 60,000 received from Braeburn Schools.",
+            rules = listOf(salaryRule)
+        )
+
+        assertEquals("salary", match?.id)
+
+        val wrongMessage = SmartRuleEngine.matchNotification(
+            title = "Equity Mobile",
+            body = "Your card payment was successful.",
+            rules = listOf(salaryRule)
+        )
+        assertNull(wrongMessage)
+    }
+
+    @Test
+    fun disabledNotificationRuleDoesNotMatch() {
+        val rule = SmartRule(
+            id = "disabled",
+            counterpartyContains = "",
+            notificationTitleContains = "equity",
+            messageContains = "salary",
+            category = TransactionCategory.INCOME,
+            direction = MoneyDirection.INCOME,
+            enabled = false
+        )
+
+        assertNull(
+            SmartRuleEngine.matchNotification(
+                title = "Equity",
+                body = "Salary received KES 50,000",
+                rules = listOf(rule)
             )
         )
-
-        assertEquals(TransactionCategory.UNCATEGORIZED, result)
     }
+
+    private fun sample(
+        counterparty: String,
+        amountMinor: Long = 150_000L
+    ) = ParsedMpesaTransaction(
+        transactionCode = "TQK12ABC34",
+        type = MpesaTransactionType.BUY_GOODS,
+        amountMinor = amountMinor,
+        counterparty = counterparty,
+        feeMinor = 0L,
+        balanceMinor = null,
+        occurredAtText = null,
+        rawMessage = "sample"
+    )
 }

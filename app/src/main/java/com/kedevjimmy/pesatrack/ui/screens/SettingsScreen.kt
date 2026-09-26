@@ -50,7 +50,8 @@ fun SettingsScreen(
     onThemeModeChange: (ThemeMode) -> Unit,
     onBack: () -> Unit,
     onProfileClick: () -> Unit,
-    onMpesaConnectionClick: () -> Unit
+    onMpesaConnectionClick: () -> Unit,
+    onSmartRulesClick: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -162,7 +163,12 @@ fun SettingsScreen(
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
                     SettingsRow(Icons.Rounded.AccountBalanceWallet, "Income & plan", "Salary, budgets, categories")
-                    SettingsRow(Icons.Rounded.Tune, "Smart rules", "Automatic categorization")
+                    SettingsRow(
+                        Icons.Rounded.Tune,
+                        "Smart rules",
+                        "Salary sources, recurring expenses and transfers",
+                        onClick = onSmartRulesClick
+                    )
                     SettingsRow(Icons.Rounded.Notifications, "Notifications", "Alerts and reminders")
                 }
             }

@@ -12,7 +12,13 @@ data class StoredTransaction(
     val occurredAtText: String?,
     val receivedAtEpochMs: Long,
     val sourcePackage: String?,
-    val sourceKind: String
+    val sourceKind: String,
+    val direction: String,
+    val category: String,
+    val reviewState: String,
+    val ruleId: String?,
+    val planningMonth: String?,
+    val reversalOfCode: String?
 )
 
 data class LedgerSnapshot(
@@ -20,4 +26,18 @@ data class LedgerSnapshot(
     val latestTransaction: StoredTransaction?,
     val latestBalanceMinor: Long?,
     val latestBalanceObservedAtEpochMs: Long?
+)
+
+data class ActivitySummary(
+    val incomeMinor: Long,
+    val spentMinor: Long,
+    val feesMinor: Long,
+    val transferMinor: Long,
+    val netMinor: Long,
+    val needsReviewCount: Int
+)
+
+data class ActivityLedgerSnapshot(
+    val transactions: List<StoredTransaction>,
+    val summary: ActivitySummary
 )
