@@ -70,6 +70,39 @@ class AccountStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun findOrCreate(
+        name: String,
+        type: AccountType
+    ): MoneyAccount {
+        val normalized = name.trim()
+        require(normalized.isNotBlank()) { "Give this account a name." }
+
+        val existing = database.readableDatabase.rawQuery(
+            """
+            SELECT id, name, type, enabled
+            FROM money_accounts
+            WHERE LOWER(name) = LOWER(?)
+              AND type = ?
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(normalized, type.name)
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) {
+                null
+            } else {
+                MoneyAccount(
+                    id = cursor.getString(0),
+                    name = cursor.getString(1),
+                    type = AccountType.valueOf(cursor.getString(2)),
+                    enabled = cursor.getInt(3) == 1
+                )
+            }
+        }
+
+        return existing ?: save(normalized, type)
+    }
+
+    @Synchronized
     fun setEnabled(id: String, enabled: Boolean) {
         val values = ContentValues().apply {
             put("enabled", if (enabled) 1 else 0)
