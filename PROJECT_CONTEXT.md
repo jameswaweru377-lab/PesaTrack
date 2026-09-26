@@ -55,6 +55,27 @@ Primary tabs:
 
 Insights are intentionally embedded where they matter instead of becoming a fifth analytics dump.
 
+## Reference UI implementation
+
+A full visual alignment pass based on the approved PesaTrack concept screens is being implemented on branch `design/reference-ui`.
+
+Reference-aligned scope:
+
+- refined light/dark palette and typography hierarchy
+- custom PesaTrack shield/track app icon and in-app brand mark
+- reusable landscape hero treatment and premium card language
+- redesigned onboarding
+- redesigned Home
+- redesigned Activity
+- redesigned Plan
+- redesigned Goals
+- Transaction Details inner page
+- Goal Details inner page
+- Activity -> Transaction Details navigation
+- Goals -> Goal Details navigation
+
+All financial values in these screens remain preview data until the local data layer is connected. The design pass must pass Android CI before merge.
+
 ## Current implementation
 
 Branch: `bootstrap/android-foundation`
