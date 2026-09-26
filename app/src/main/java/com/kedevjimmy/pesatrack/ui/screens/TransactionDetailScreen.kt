@@ -269,6 +269,12 @@ fun TransactionDetailScreen(
             TransactionHero(current)
         }
 
+        if (current.fulizaFinancedMinor > 0L) {
+            item {
+                FulizaFundingCard(current)
+            }
+        }
+
         item {
             SectionHeader("Classification")
             Spacer(Modifier.height(8.dp))
@@ -324,7 +330,21 @@ fun TransactionDetailScreen(
                     if (current.receivedAtEpochMs != current.occurredAtEpochMs) {
                         DetailRow(Icons.Rounded.CalendarMonth, "Message received", formatDateTime(current.receivedAtEpochMs))
                     }
-                    DetailRow(Icons.Rounded.Paid, "Fee", formatMoney(current.feeMinor))
+                    DetailRow(Icons.Rounded.Paid, "M-Pesa fee", formatMoney(current.feeMinor))
+                    if (current.fulizaAccessFeeMinor > 0L) {
+                        DetailRow(
+                            Icons.Rounded.Paid,
+                            "Fuliza access fee",
+                            formatMoney(current.fulizaAccessFeeMinor)
+                        )
+                    }
+                    current.fulizaOutstandingMinor?.let { outstanding ->
+                        DetailRow(
+                            Icons.Rounded.Paid,
+                            "Fuliza outstanding after",
+                            formatMoney(outstanding)
+                        )
+                    }
                     current.planningMonth?.let {
                         DetailRow(Icons.Rounded.CalendarMonth, "Planning month", it)
                     }
@@ -422,8 +442,8 @@ private fun TransactionHero(item: StoredTransaction) {
                         Modifier.weight(1f)
                     )
                     HeroMetric(
-                        "Fee",
-                        formatMoney(item.feeMinor),
+                        "Fees",
+                        formatMoney(item.feeMinor + item.fulizaAccessFeeMinor),
                         Icons.Rounded.Paid,
                         Modifier.weight(1f)
                     )
@@ -460,6 +480,66 @@ private fun HeroMetric(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(value, style = MaterialTheme.typography.titleSmall, maxLines = 2)
+    }
+}
+
+@Composable
+private fun FulizaFundingCard(item: StoredTransaction) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = pesaToneContainer("amber")
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBubble(
+                    Icons.Rounded.Paid,
+                    size = 44.dp,
+                    background = MaterialTheme.colorScheme.surface.copy(alpha = .7f),
+                    tint = pesaToneContent("amber")
+                )
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .padding(start = 11.dp)
+                ) {
+                    Text(
+                        "Paid partly with Fuliza",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        "The payment is counted once. Fuliza is financing, not another purchase.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                HeroMetric(
+                    "Financed",
+                    formatMoney(item.fulizaFinancedMinor),
+                    Icons.Rounded.Paid,
+                    Modifier.weight(1f)
+                )
+                HeroMetric(
+                    "Access fee",
+                    formatMoney(item.fulizaAccessFeeMinor),
+                    Icons.Rounded.ReceiptLong,
+                    Modifier.weight(1f)
+                )
+                HeroMetric(
+                    "Outstanding",
+                    item.fulizaOutstandingMinor?.let(::formatMoney) ?: "—",
+                    Icons.Rounded.AccountCircle,
+                    Modifier.weight(1f)
+                )
+            }
+        }
     }
 }
 
