@@ -12,130 +12,316 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Restaurant
-import androidx.compose.material.icons.rounded.ShoppingCart
+import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.rounded.ShoppingBag
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Wifi
-import androidx.compose.material3.Card
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.ui.components.IconBubble
+import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
+import com.kedevjimmy.pesatrack.ui.components.PesaCard
+import com.kedevjimmy.pesatrack.ui.components.SectionHeader
+import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
+import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
+import com.kedevjimmy.pesatrack.ui.theme.MintSoft
+import com.kedevjimmy.pesatrack.ui.theme.RoseSoft
+import com.kedevjimmy.pesatrack.ui.theme.SkySoft
 
-private data class BudgetLine(
+private data class PlanBudget(
     val name: String,
-    val spent: String,
-    val fraction: Float,
     val type: String,
-    val icon: ImageVector
+    val amount: String,
+    val percent: String,
+    val progress: Float,
+    val icon: ImageVector,
+    val tone: String
+)
+
+private data class RecurringBill(
+    val title: String,
+    val due: String,
+    val amount: String,
+    val icon: ImageVector,
+    val tone: String
 )
 
 @Composable
 fun PlanScreen(scaffoldPadding: PaddingValues) {
     val budgets = listOf(
-        BudgetLine("Rent", "KES 6,000 / 6,000", 1f, "Fixed", Icons.Rounded.Home),
-        BudgetLine("Lunch", "KES 2,900 / 4,000", .725f, "Flexible", Icons.Rounded.Restaurant),
-        BudgetLine("Electricity", "KES 1,200 / 2,000", .60f, "Fixed", Icons.Rounded.Bolt),
-        BudgetLine("Internet", "KES 1,500 / 2,000", .75f, "Fixed", Icons.Rounded.Wifi),
-        BudgetLine("Shopping", "KES 1,400 / 4,000", .35f, "Flexible", Icons.Rounded.ShoppingCart)
+        PlanBudget("Rent", "Fixed", "KES 6,000 / 6,000", "100%", 1f, Icons.Rounded.Home, "amber"),
+        PlanBudget("Lunch", "Flexible", "KES 2,900 / 4,000", "73%", .73f, Icons.Rounded.Restaurant, "green"),
+        PlanBudget("Electricity", "Fixed", "KES 1,200 / 2,000", "60%", .60f, Icons.Rounded.Bolt, "amber"),
+        PlanBudget("Internet", "Fixed", "KES 1,500 / 2,000", "75%", .75f, Icons.Rounded.Wifi, "blue"),
+        PlanBudget("Transport", "Flexible", "KES 1,800 / 3,000", "60%", .60f, Icons.Rounded.AccountBalanceWallet, "green"),
+        PlanBudget("Shopping", "Flexible", "KES 1,400 / 4,000", "35%", .35f, Icons.Rounded.ShoppingBag, "red"),
+        PlanBudget("Family", "Flexible", "KES 1,000 / 2,000", "50%", .50f, Icons.Rounded.Groups, "blue")
+    )
+
+    val bills = listOf(
+        RecurringBill("Rent", "Due in 5 days · 25 Sep", "KES 6,000", Icons.Rounded.Home, "amber"),
+        RecurringBill("Planet Internet", "Due in 8 days · 28 Sep", "KES 1,500", Icons.Rounded.Wifi, "blue"),
+        RecurringBill("KPLC Electricity", "Due in 12 days · 2 Oct", "KES 1,200", Icons.Rounded.Bolt, "amber")
     )
 
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Text("Plan", style = MaterialTheme.typography.headlineMedium)
-            Text("Protect commitments before spending the rest.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        item {
-            Card(shape = RoundedCornerShape(26.dp)) {
-                Column(Modifier.padding(20.dp)) {
-                    Text("Monthly plan", style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.height(14.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        PlanMetric("Income", "KES 28K", Modifier.weight(1f))
-                        PlanMetric("Planned", "KES 13.8K", Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        PlanMetric("Savings", "KES 12.2K", Modifier.weight(1f))
-                        PlanMetric("Unallocated", "KES 2K", Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-
-        item {
-            Text("Budget categories", style = MaterialTheme.typography.titleLarge)
-        }
-
-        items(budgets.size) { index ->
-            BudgetRow(budgets[index])
-        }
-
-        item {
-            Card(
-                shape = RoundedCornerShape(22.dp),
-                colors = androidx.compose.material3.CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            ) {
-                Column(Modifier.padding(18.dp)) {
-                    Text("On pace", style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Plan", style = MaterialTheme.typography.headlineLarge)
                     Text(
-                        "This card will eventually compare your current pace with the days remaining in your income cycle.",
+                        "Budget. Bills. A brighter tomorrow.",
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                OutlinedButton(
+                    onClick = {},
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Icon(Icons.Rounded.CalendarMonth, null, modifier = Modifier.padding(end = 6.dp))
+                    Text("September")
+                }
             }
         }
-    }
-}
 
-@Composable
-private fun PlanMetric(label: String, value: String, modifier: Modifier) {
-    Card(modifier = modifier, shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.padding(14.dp)) {
-            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleMedium)
-        }
-    }
-}
-
-@Composable
-private fun BudgetRow(item: BudgetLine) {
-    Card(shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(item.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        item {
+            LandscapeBackdrop(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(222.dp)
+            ) {
                 Column(
                     Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp)
+                        .fillMaxWidth()
+                        .padding(16.dp)
                 ) {
-                    Text(item.name, style = MaterialTheme.typography.titleMedium)
-                    Text(item.type, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Monthly plan",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Surface(
+                        shape = RoundedCornerShape(22.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = .94f)
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            PlanTopMetric("Monthly income", "KES 28,000", "↑ 0%", Icons.Rounded.AccountBalanceWallet, Modifier.weight(1f), "green")
+                            PlanTopMetric("Planned spending", "KES 13,800", "↑ 5%", Icons.Rounded.ShoppingBag, Modifier.weight(1f), "red")
+                            PlanTopMetric("Planned savings", "KES 12,200", "↑ 8%", Icons.Rounded.Savings, Modifier.weight(1f), "green")
+                            PlanTopMetric("Unallocated", "KES 2,000", "7% of income", Icons.Rounded.TrendingUp, Modifier.weight(1f), "blue")
+                        }
+                    }
                 }
-                Text(item.spent)
             }
-            Spacer(Modifier.height(10.dp))
-            LinearProgressIndicator(
-                progress = { item.fraction },
+        }
+
+        item {
+            PesaCard {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Budget categories", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                        OutlinedButton(
+                            onClick = {},
+                            shape = RoundedCornerShape(50),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Rounded.Add, null, modifier = Modifier.padding(end = 4.dp))
+                            Text("Add category")
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    budgets.forEach { BudgetRow(it) }
+                }
+            }
+        }
+
+        item {
+            SectionHeader("Recurring bills", "See all")
+            Spacer(Modifier.height(8.dp))
+            PesaCard {
+                Column(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
+                    bills.forEach { bill ->
+                        RecurringBillRow(bill)
+                    }
+                }
+            }
+        }
+
+        item {
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+                color = MintSoft,
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Row(
+                    Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconBubble(Icons.Rounded.TrendingUp, size = 40.dp, background = MintSoft)
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .padding(start = 10.dp)
+                    ) {
+                        Text(
+                            "You are on pace to save KES 12,200 this month.",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            "You're 8% ahead of your savings goal.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Button(
+                onClick = {},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Icon(Icons.Rounded.Edit, null, modifier = Modifier.padding(end = 8.dp))
+                Text("Edit plan")
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlanTopMetric(
+    label: String,
+    value: String,
+    trend: String,
+    icon: ImageVector,
+    modifier: Modifier,
+    tone: String
+) {
+    Column(modifier) {
+        IconBubble(
+            icon,
+            size = 34.dp,
+            background = when (tone) {
+                "red" -> RoseSoft
+                "blue" -> SkySoft
+                else -> MintSoft
+            }
+        )
+        Spacer(Modifier.height(7.dp))
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(5.dp))
+        SmallStatusPill(trend, if (tone == "red") "amber" else if (tone == "blue") "blue" else "green")
+    }
+}
+
+@Composable
+private fun BudgetRow(item: PlanBudget) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconBubble(
+            item.icon,
+            size = 38.dp,
+            background = when (item.tone) {
+                "amber" -> AmberSoft
+                "blue" -> SkySoft
+                "red" -> RoseSoft
+                else -> MintSoft
+            }
+        )
+        Column(
+            Modifier
+                .padding(start = 10.dp)
+                .weight(.33f)
+        ) {
+            Text(item.name, style = MaterialTheme.typography.titleMedium)
+            SmallStatusPill(item.type, if (item.type == "Fixed") "blue" else "green")
+        }
+        LinearProgressIndicator(
+            progress = { item.progress },
+            modifier = Modifier
+                .weight(.34f)
+                .height(8.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            strokeCap = StrokeCap.Round
+        )
+        Column(
+            modifier = Modifier
+                .padding(start = 10.dp)
+                .weight(.33f),
+            horizontalAlignment = Alignment.End
+        ) {
+            Text(item.amount, style = MaterialTheme.typography.bodySmall)
+            Text(item.percent, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun RecurringBillRow(item: RecurringBill) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconBubble(
+            item.icon,
+            size = 40.dp,
+            background = if (item.tone == "blue") SkySoft else AmberSoft
+        )
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(start = 10.dp)
+        ) {
+            Text(item.title, style = MaterialTheme.typography.titleMedium)
+            Text(item.due, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(item.amount, style = MaterialTheme.typography.titleMedium)
+            SmallStatusPill("Monthly", "blue")
         }
     }
 }
