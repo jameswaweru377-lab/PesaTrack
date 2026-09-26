@@ -31,6 +31,10 @@ class MainActivity : ComponentActivity() {
                     }.getOrDefault(ThemeMode.SYSTEM)
                 )
             }
+            var setupComplete by remember {
+                mutableStateOf(preferences.getBoolean("setup_complete", false))
+            }
+
             val systemDark = isSystemInDarkTheme()
             val useDark = when (themeMode) {
                 ThemeMode.SYSTEM -> systemDark
@@ -44,6 +48,11 @@ class MainActivity : ComponentActivity() {
                     onThemeModeChange = { newMode ->
                         themeMode = newMode
                         preferences.edit().putString("theme_mode", newMode.name).apply()
+                    },
+                    setupComplete = setupComplete,
+                    onSetupComplete = {
+                        setupComplete = true
+                        preferences.edit().putBoolean("setup_complete", true).apply()
                     }
                 )
             }
