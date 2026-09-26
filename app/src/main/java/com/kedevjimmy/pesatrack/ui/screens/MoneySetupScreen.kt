@@ -266,18 +266,18 @@ fun MoneySetupScreen(
                             FilterChip(
                                 selected = !nextMonth,
                                 onClick = { nextMonth = false },
-                                label = { Text("Same month") },
+                                label = { Text("Month it arrives") },
                                 modifier = Modifier.weight(1f)
                             )
                             FilterChip(
                                 selected = nextMonth,
                                 onClick = { nextMonth = true },
-                                label = { Text("Next month") },
+                                label = { Text("Following month") },
                                 modifier = Modifier.weight(1f)
                             )
                         }
                         Text(
-                            "If salary arrives near month-end but pays for the following month, choose Next month.",
+                            "If salary arrives near month-end but pays for the following month, choose Following month.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

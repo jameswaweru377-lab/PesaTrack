@@ -51,7 +51,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onProfileClick: () -> Unit,
     onMpesaConnectionClick: () -> Unit,
-    onSmartRulesClick: () -> Unit
+    onSmartRulesClick: () -> Unit,
+    onHistoricalImportClick: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -186,6 +187,12 @@ fun SettingsScreen(
                         "M-Pesa connection",
                         "Notification access and capture status",
                         onClick = onMpesaConnectionClick
+                    )
+                    SettingsRow(
+                        Icons.Rounded.Storage,
+                        "Historical import",
+                        "Backfill this month or up to 90 days from SMS",
+                        onClick = onHistoricalImportClick
                     )
                 }
             }

@@ -401,7 +401,7 @@ private fun ActivityRow(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        formatTime(item.receivedAtEpochMs),
+                        formatTime(item.occurredAtEpochMs),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -6,6 +6,7 @@ import android.service.notification.StatusBarNotification
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
+import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
 import com.kedevjimmy.pesatrack.domain.parser.ConfiguredMoneyParser
 import com.kedevjimmy.pesatrack.domain.parser.MpesaParser
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
@@ -38,6 +39,10 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                     sourcePackage = packageName,
                     sourceKind = SOURCE_MPESA_NOTIFICATION,
                     receivedAtEpochMs = receivedAt,
+                    occurredAtEpochMs = TransactionDateResolver.resolve(
+                        occurredAtText = parsed.occurredAtText,
+                        fallbackEpochMs = receivedAt
+                    ),
                     matchedRule = matchedRule
                 )
                 return@execute
@@ -60,6 +65,7 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                 sourcePackage = packageName,
                 sourceKind = SOURCE_CONFIGURED_NOTIFICATION,
                 receivedAtEpochMs = receivedAt,
+                occurredAtEpochMs = receivedAt,
                 matchedRule = configuredRule
             )
         }
