@@ -18,6 +18,7 @@ class MpesaParserTest {
         assertEquals(MpesaTransactionType.SENT_MONEY, parsed?.type)
         assertEquals(45_000L, parsed?.amountMinor)
         assertEquals("ELIZABETH W", parsed?.counterparty)
+        assertEquals("+254712345678", parsed?.counterpartyPhone)
         assertEquals(0L, parsed?.feeMinor)
         assertEquals(1_285_000L, parsed?.balanceMinor)
     }
@@ -54,6 +55,18 @@ class MpesaParserTest {
 
         assertNotNull(parsed)
         assertEquals("PLANET INTERNET 5G", parsed?.counterparty)
+    }
+
+
+    @Test
+    fun normalizesReceivedMoneyPhoneIdentity() {
+        val message = "TQK66ABC88 Confirmed. You have received Ksh2,000.00 from JOSEPH MWANGO 0711223344 on 23/9/26 at 7:45 PM. New M-PESA balance is Ksh14,000.00."
+
+        val parsed = MpesaParser.parse(message)
+
+        assertNotNull(parsed)
+        assertEquals("JOSEPH MWANGO", parsed?.counterparty)
+        assertEquals("+254711223344", parsed?.counterpartyPhone)
     }
 
     @Test

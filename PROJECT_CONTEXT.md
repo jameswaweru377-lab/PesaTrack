@@ -266,6 +266,63 @@ Implemented:
 
 The first full implementation build reached green unit tests and debug APK assembly on Android CI run #32 before the final wording/context update.
 
+## Progressive onboarding and teach-once learning
+
+The first-run experience is now intentionally simpler than the advanced Smart Rules manager.
+
+Implemented:
+
+- First-time users are detected through the existing persistent setup-complete state.
+- The original dense onboarding/setup flow is replaced by:
+  1. What usually funds your month?
+  2. Where does that money arrive?
+  3. Identify the salary/source.
+- Main source choices include Salary, Business income, Freelance/side income, Multiple income sources and Other.
+- Arrival choices include Bank account, M-Pesa and Cash.
+- Bank selection is searchable and backed by an independent offline Kenyan-bank catalogue with a manual-name fallback.
+- Common banks are surfaced first on a narrow phone layout; the catalogue does not control financial logic and can be updated independently.
+- The bank catalogue is informed by CBK-regulated commercial-bank directories, while manual fallback prevents setup from depending on catalogue completeness.
+- Choosing a bank no longer exposes technical fields such as notification title, direction, planning month or rule internals.
+- With SMS permission, the salary step scans recent SMS from the selected bank for likely incoming credits and presents a small set of candidates.
+- Candidate detection uses incoming-credit language plus KES/Ksh amounts; salary amount and payday are not used as the persistent salary identifier.
+- When a likely employer/originator can be extracted, it is prefilled as "Who pays you?" and the user may correct it.
+- A user correction takes precedence over the inferred originator.
+- The confirmed salary example creates the persistent salary rule automatically; no redundant "auto-identify future salary?" question is shown.
+- After salary teaching, up to roughly 100 days of SMS history can be imported immediately through the existing local historical importer when permission is available.
+- Historical matching salary events can therefore rebuild earlier pay cycles automatically.
+- Cash salary is not guessed from phone data; the app explicitly states that cash cannot be auto-detected.
+- Income-source and arrival choices are persisted locally even when the source is not Salary.
+- First-run controls use a single-column Redmi Note 14 baseline, existing Material typography, and minimum interaction heights at or above Android's 48dp accessibility recommendation.
+
+Teach-once transaction review:
+
+- M-Pesa parsing now captures a full Kenyan counterparty phone number when one is present and unmasked.
+- Database schema v5 stores transaction counterparty phone, exact counterparty rules, and exact phone rules.
+- New learned rules can use:
+  - exact normalized full name
+  - exact normalized phone number
+- Loose first-name learning is intentionally avoided.
+- If both phone and exact name are known, phone is strongest; exact name is used as a fallback only when a future message lacks a phone.
+- The first manual review of a strong identity now asks:
+  - Only this one
+  - Remember
+- "Remember" saves the rule and immediately reclassifies matching existing Needs Review transactions.
+- The personally reviewed transaction remains USER_CLASSIFIED; retroactively matched records become AUTO_CLASSIFIED through the saved rule.
+- The UI reports how many matching pending transactions were classified.
+- No manual refresh is required.
+- One-word person-like identities are not automatically learned; merchant-like PayBill/Buy Goods identities can still be learned exactly.
+- Existing legacy contains-based rules remain supported for backwards compatibility.
+
+Tests added/expanded:
+
+- bank incoming-credit candidate parsing
+- full-name exact matching
+- first-name collision avoidance
+- phone identity normalization/matching
+- M-Pesa counterparty phone parsing
+
+The implementation passed Android CI run #42 before the final bank-order/context update.
+
 ## Current implementation
 
 Baseline: `main` after the verified reference UI merge
@@ -305,17 +362,17 @@ For every implementation phase:
 4. Fix the actual cause before continuing.
 5. Only mark the implementation complete when the relevant check passes.
 
-## Immediate next phase after pay-cycle merge
+## Immediate next phase after progressive onboarding merge
 
-1. Install the latest debug APK on the Redmi Note 14.
-2. Go to Settings -> Import M-Pesa SMS history -> Request SMS access and test This month first.
-3. If Android grants SMS access, verify older M-Pesa messages appear in Activity on their original transaction dates; then optionally test 30/90 days.
-4. If SMS access is refused by HyperOS/installer policy, keep real-time Notification Access and add a statement/history-file fallback instead of bypassing Android security.
-5. Add the user's real bank account under My Accounts, then create a Salary preset using the actual bank notification sender/message pattern.
-6. Validate that a recognized salary starts a pay cycle, recurring commitments are protected immediately, and the next accepted salary closes the prior cycle with carryover.
-7. Test an unusual/early salary-like credit and confirm both Start new cycle and Extra income paths.
-8. Validate Equity/bank -> M-Pesa own-account transfer rules so movement between owned accounts never becomes duplicate income/spending.
-9. Add month/pay-cycle history selection to Activity and Plan after the live cycle is proven.
+1. Install the latest debug APK on the Redmi Note 14 and test first-run setup from a clean app state.
+2. Choose Salary -> Bank account -> the real bank and verify SMS permission/candidate discovery on-device.
+3. Confirm the selected salary example creates a salary rule without asking for amount or fixed payday.
+4. Verify the 90-day backfill recognizes historical salary events and reconstructs pay cycles when the real bank SMS format contains a stable employer/originator phrase.
+5. If the bank SMS format does not expose a stable company/originator, capture an anonymized example and improve the deterministic bank parser rather than broadening the rule unsafely.
+6. Review one Needs Review M-Pesa transaction with a full person name/phone, choose Remember, and verify matching pending history is classified immediately.
+7. Verify a different person sharing the same first name remains Needs Review.
+8. Validate bank -> M-Pesa own-account transfer rules so movement between owned accounts never becomes duplicate income/spending.
+9. Add month/pay-cycle history selection to Activity and Plan after the real historical cycles are proven.
 10. Connect Goals only to deliberate savings/goal allocations and then add biometric/PIN protection before broader historical use.
 
 ## Important constraints

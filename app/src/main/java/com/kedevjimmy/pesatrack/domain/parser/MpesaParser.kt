@@ -34,6 +34,14 @@ object MpesaParser {
     private val trailingPhoneRegex = Regex(
         """\s+(?:(?:\+?254|0)?[0-9xX*\-\s]{7,})$"""
     )
+    private val sentPhoneRegex = Regex(
+        """sent\s+to\s+.+?\s+((?:\+?254|0)\d{9})\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val receivedPhoneRegex = Regex(
+        """received\s+(?:Ksh|KES)\s*[0-9,]+(?:\.\d{1,2})?\s+from\s+.+?\s+((?:\+?254|0)\d{9})\b""",
+        RegexOption.IGNORE_CASE
+    )
     private val reversalOfCodeRegex = Regex(
         """(?:transaction|for\s+transaction)\s+([A-Z0-9]{10})\b""",
         RegexOption.IGNORE_CASE
@@ -55,6 +63,7 @@ object MpesaParser {
             type = type,
             amountMinor = amountToMinor(amountMatch.groupValues[1]),
             counterparty = extractCounterparty(normalized, type),
+            counterpartyPhone = extractCounterpartyPhone(normalized, type),
             feeMinor = feeRegex.find(normalized)?.groupValues?.get(1)?.let(::amountToMinor) ?: 0L,
             balanceMinor = balanceRegex.find(normalized)?.groupValues?.get(1)?.let(::amountToMinor),
             occurredAtText = occurredAtRegex.find(normalized)?.groupValues?.get(1),
@@ -103,6 +112,29 @@ object MpesaParser {
             ?.trim()
 
         return cleaned?.takeIf { it.isNotBlank() }
+    }
+
+    private fun extractCounterpartyPhone(
+        message: String,
+        type: MpesaTransactionType
+    ): String? {
+        val raw = when (type) {
+            MpesaTransactionType.SENT_MONEY ->
+                sentPhoneRegex.find(message)?.groupValues?.get(1)
+            MpesaTransactionType.RECEIVED ->
+                receivedPhoneRegex.find(message)?.groupValues?.get(1)
+            else -> null
+        }
+        return raw?.let(::normalizeKenyanPhone)
+    }
+
+    private fun normalizeKenyanPhone(raw: String): String {
+        val digits = raw.filter(Char::isDigit)
+        return when {
+            digits.startsWith("254") && digits.length == 12 -> "+" + digits
+            digits.startsWith("0") && digits.length == 10 -> "+254" + digits.drop(1)
+            else -> digits
+        }
     }
 
     private fun amountToMinor(raw: String): Long =

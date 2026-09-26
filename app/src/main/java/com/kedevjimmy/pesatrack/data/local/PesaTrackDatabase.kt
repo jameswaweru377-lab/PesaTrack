@@ -85,6 +85,12 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             )
         }
 
+        if (oldVersion < 5) {
+            db.execSQL("ALTER TABLE transactions ADD COLUMN counterparty_phone TEXT")
+            db.execSQL("ALTER TABLE smart_rules ADD COLUMN counterparty_exact TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE smart_rules ADD COLUMN counterparty_phone_equals TEXT NOT NULL DEFAULT ''")
+        }
+
         createIndexes(db)
     }
 
@@ -100,6 +106,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 fee_minor INTEGER NOT NULL,
                 balance_minor INTEGER,
                 counterparty TEXT,
+                counterparty_phone TEXT,
                 occurred_at_text TEXT,
                 occurred_at_epoch_ms INTEGER NOT NULL,
                 received_at_epoch_ms INTEGER NOT NULL,
@@ -144,6 +151,8 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 linked_account_id TEXT,
                 pay_window_start_day INTEGER,
                 pay_window_end_day INTEGER,
+                counterparty_exact TEXT NOT NULL DEFAULT '',
+                counterparty_phone_equals TEXT NOT NULL DEFAULT '',
                 created_at_epoch_ms INTEGER NOT NULL,
                 updated_at_epoch_ms INTEGER NOT NULL
             )
@@ -232,6 +241,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 4
+        private const val DATABASE_VERSION = 5
     }
 }

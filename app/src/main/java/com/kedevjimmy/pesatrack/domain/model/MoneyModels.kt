@@ -78,6 +78,7 @@ data class ParsedMpesaTransaction(
     val type: MpesaTransactionType,
     val amountMinor: Long,
     val counterparty: String?,
+    val counterpartyPhone: String? = null,
     val feeMinor: Long,
     val balanceMinor: Long?,
     val occurredAtText: String?,
@@ -103,5 +104,7 @@ data class SmartRule(
     val accountId: String? = null,
     val linkedAccountId: String? = null,
     val payWindowStartDay: Int? = null,
-    val payWindowEndDay: Int? = null
+    val payWindowEndDay: Int? = null,
+    val counterpartyExact: String = "",
+    val counterpartyPhoneEquals: String = ""
 )
