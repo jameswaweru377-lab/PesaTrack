@@ -13,7 +13,8 @@ import kotlin.math.abs
 
 data class FulizaStoreResult(
     val inserted: Boolean,
-    val linkedTransactionId: Long?
+    val linkedTransactionId: Long?,
+    val repairedLegacyTransaction: Boolean
 )
 
 class FulizaStore private constructor(context: Context) {
@@ -74,15 +75,15 @@ class FulizaStore private constructor(context: Context) {
             inserted = false
         }
 
-        parsed.transactionCode?.let { code ->
+        val repairedLegacyTransaction = parsed.transactionCode?.let { code ->
             // Older builds could ingest a Fuliza confirmation as a generic OTHER
             // transaction. Re-importing the SMS safely removes that duplicate row.
             db.delete(
                 "transactions",
                 "transaction_code = ? AND type = ?",
                 arrayOf(code, MpesaTransactionType.OTHER.name)
-            )
-        }
+            ) > 0
+        } ?: false
 
         val linked = existing?.second ?: findAndAttachCandidate(
             eventId = eventId,
@@ -92,9 +93,27 @@ class FulizaStore private constructor(context: Context) {
 
         return FulizaStoreResult(
             inserted = inserted,
-            linkedTransactionId = linked
+            linkedTransactionId = linked,
+            repairedLegacyTransaction = repairedLegacyTransaction
         )
     }
+
+    @Synchronized
+    fun sumAccessFeesBetween(
+        startEpochMs: Long,
+        endEpochMsExclusive: Long
+    ): Long =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT COALESCE(SUM(access_fee_minor), 0)
+            FROM fuliza_events
+            WHERE occurred_at_epoch_ms >= ?
+              AND occurred_at_epoch_ms < ?
+            """.trimIndent(),
+            arrayOf(startEpochMs.toString(), endEpochMsExclusive.toString())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getLong(0) else 0L
+        }
 
     @Synchronized
     fun linkPendingForTransaction(
