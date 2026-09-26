@@ -84,6 +84,13 @@ class TransactionStore private constructor(context: Context) {
         )
 
         val inserted = rowId != -1L
+        if (inserted) {
+            FulizaStore.get(appContext).linkPendingForTransaction(
+                transactionId = rowId,
+                parsed = parsed,
+                occurredAtEpochMs = occurredAtEpochMs
+            )
+        }
         if (inserted && rebuildPayCycles) {
             PayCycleStore.get(appContext).rebuild()
         }
@@ -217,7 +224,9 @@ class TransactionStore private constructor(context: Context) {
             .filter { it.direction == MoneyDirection.TRANSFER.name }
             .sumOf { it.amountMinor }
 
-        val fees = effective.sumOf { it.feeMinor }
+        val fees = effective.sumOf {
+            it.feeMinor + it.fulizaAccessFeeMinor
+        }
 
         return ActivityLedgerSnapshot(
             transactions = transactions,
@@ -446,7 +455,8 @@ class TransactionStore private constructor(context: Context) {
                    occurred_at_epoch_ms, received_at_epoch_ms, source_package, source_kind,
                    direction, category, review_state, rule_id, planning_month, reversal_of_code,
                    account_id, linked_account_id, pay_cycle_id, cycle_candidate_reason,
-                   cycle_override
+                   cycle_override, fuliza_financed_minor, fuliza_access_fee_minor,
+                   fuliza_outstanding_minor, fuliza_event_code
             FROM transactions
         """
 
@@ -486,7 +496,11 @@ private fun android.database.Cursor.toStoredTransaction(): StoredTransaction =
         linkedAccountId = getStringOrNull(21),
         payCycleId = getStringOrNull(22),
         cycleCandidateReason = getStringOrNull(23),
-        cycleOverride = getStringOrNull(24)
+        cycleOverride = getStringOrNull(24),
+        fulizaFinancedMinor = getLong(25),
+        fulizaAccessFeeMinor = getLong(26),
+        fulizaOutstandingMinor = getLongOrNull(27),
+        fulizaEventCode = getStringOrNull(28)
     )
 
 private fun android.database.Cursor.getStringOrNull(index: Int): String? =
