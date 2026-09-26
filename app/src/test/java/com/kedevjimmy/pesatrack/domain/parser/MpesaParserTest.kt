@@ -17,7 +17,7 @@ class MpesaParserTest {
         assertEquals("TQK12ABC34", parsed?.transactionCode)
         assertEquals(MpesaTransactionType.SENT_MONEY, parsed?.type)
         assertEquals(45_000L, parsed?.amountMinor)
-        assertEquals("ELIZABETH W.", parsed?.counterparty)
+        assertEquals("ELIZABETH W", parsed?.counterparty)
         assertEquals(0L, parsed?.feeMinor)
         assertEquals(1_285_000L, parsed?.balanceMinor)
     }
