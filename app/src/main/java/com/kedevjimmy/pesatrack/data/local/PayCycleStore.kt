@@ -383,14 +383,30 @@ class PayCycleStore private constructor(context: Context) {
     private fun commitmentsFor(cycle: PayCycle): List<CommitmentProgress> {
         val rules = database.readableDatabase.rawQuery(
             """
-            SELECT id, name, category, planned_amount_minor
+            SELECT id, name, category, direction, preset, planned_amount_minor
             FROM smart_rules
             WHERE enabled = 1
-              AND direction = ?
               AND starts_pay_cycle = 0
+              AND (
+                    (
+                        direction = ?
+                        AND (
+                            planned_amount_minor IS NOT NULL
+                            OR preset IN ('RENT', 'INTERNET', 'ELECTRICITY', 'FAMILY_SUPPORT', 'OTHER_RECURRING')
+                        )
+                    )
+                    OR (
+                        direction = ?
+                        AND category = 'SAVINGS'
+                        AND planned_amount_minor IS NOT NULL
+                    )
+              )
             ORDER BY name COLLATE NOCASE
             """.trimIndent(),
-            arrayOf(MoneyDirection.EXPENSE.name)
+            arrayOf(
+                MoneyDirection.EXPENSE.name,
+                MoneyDirection.TRANSFER.name
+            )
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
@@ -399,7 +415,8 @@ class PayCycleStore private constructor(context: Context) {
                             id = cursor.getString(0),
                             name = cursor.getString(1),
                             category = cursor.getString(2),
-                            plannedMinor = if (cursor.isNull(3)) null else cursor.getLong(3)
+                            direction = cursor.getString(3),
+                            plannedMinor = if (cursor.isNull(5)) null else cursor.getLong(5)
                         )
                     )
                 }
@@ -423,7 +440,7 @@ class PayCycleStore private constructor(context: Context) {
                 arrayOf(
                     cycle.id,
                     rule.id,
-                    MoneyDirection.EXPENSE.name,
+                    rule.direction,
                     ReviewState.EXCLUDED.name,
                     MpesaTransactionType.REVERSAL.name
                 )
@@ -530,6 +547,7 @@ class PayCycleStore private constructor(context: Context) {
         val id: String,
         val name: String,
         val category: String,
+        val direction: String,
         val plannedMinor: Long?
     )
 
