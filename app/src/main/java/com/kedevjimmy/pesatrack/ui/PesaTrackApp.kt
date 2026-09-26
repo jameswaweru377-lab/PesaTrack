@@ -7,14 +7,23 @@ import androidx.navigation.compose.rememberNavController
 import com.kedevjimmy.pesatrack.ui.components.AppScaffold
 import com.kedevjimmy.pesatrack.ui.components.MainTab
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
+import com.kedevjimmy.pesatrack.ui.screens.GoalDetailScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
 import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
+import com.kedevjimmy.pesatrack.ui.screens.TransactionDetailScreen
 
 @Composable
 fun PesaTrackApp() {
     val navController = rememberNavController()
+
+    fun navigateToTab(tab: MainTab) {
+        navController.navigate(tab.route) {
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -30,24 +39,69 @@ fun PesaTrackApp() {
             )
         }
 
-        MainTab.entries.forEach { tab ->
-            composable(tab.route) {
-                AppScaffold(
-                    currentTab = tab,
-                    onTabSelected = { destination ->
-                        navController.navigate(destination.route) {
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
-                ) { padding ->
-                    when (tab) {
-                        MainTab.HOME -> HomeScreen(padding)
-                        MainTab.ACTIVITY -> ActivityScreen(padding)
-                        MainTab.PLAN -> PlanScreen(padding)
-                        MainTab.GOALS -> GoalsScreen(padding)
-                    }
-                }
+        composable(MainTab.HOME.route) {
+            AppScaffold(
+                currentTab = MainTab.HOME,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                HomeScreen(padding)
+            }
+        }
+
+        composable(MainTab.ACTIVITY.route) {
+            AppScaffold(
+                currentTab = MainTab.ACTIVITY,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                ActivityScreen(
+                    scaffoldPadding = padding,
+                    onTransactionClick = { navController.navigate("transaction-detail") }
+                )
+            }
+        }
+
+        composable(MainTab.PLAN.route) {
+            AppScaffold(
+                currentTab = MainTab.PLAN,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                PlanScreen(padding)
+            }
+        }
+
+        composable(MainTab.GOALS.route) {
+            AppScaffold(
+                currentTab = MainTab.GOALS,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                GoalsScreen(
+                    scaffoldPadding = padding,
+                    onGoalClick = { navController.navigate("goal-detail") }
+                )
+            }
+        }
+
+        composable("transaction-detail") {
+            AppScaffold(
+                currentTab = MainTab.ACTIVITY,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                TransactionDetailScreen(
+                    scaffoldPadding = padding,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable("goal-detail") {
+            AppScaffold(
+                currentTab = MainTab.GOALS,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                GoalDetailScreen(
+                    scaffoldPadding = padding,
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }
