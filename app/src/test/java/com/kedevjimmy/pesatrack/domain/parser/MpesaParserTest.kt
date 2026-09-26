@@ -70,6 +70,13 @@ class MpesaParserTest {
     }
 
     @Test
+    fun leavesFulizaConfirmationForDedicatedParser() {
+        val message = "UFAGA7JQOD Confirmed. Fuliza M-PESA amount is KSh 167.00. Access Fee charged KSh 1.67. Total Fuliza M-PESA outstanding amount is KSh 1086.51 due on 18/05/26."
+
+        assertEquals(null, MpesaParser.parse(message))
+    }
+
+    @Test
     fun ignoresNonMpesaText() {
         assertEquals(null, MpesaParser.parse("Your parcel has been delivered."))
     }
