@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Landscape
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material.icons.rounded.TrendingUp
@@ -46,6 +48,8 @@ import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
 import com.kedevjimmy.pesatrack.ui.theme.MintSoft
 import com.kedevjimmy.pesatrack.ui.theme.SkySoft
@@ -66,7 +70,8 @@ private data class GoalCardModel(
 @Composable
 fun GoalsScreen(
     scaffoldPadding: PaddingValues,
-    onGoalClick: () -> Unit = {}
+    onGoalClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {}
 ) {
     val goals = listOf(
         GoalCardModel("Couch", "KES 28,000", "60,000", "47%", .47f, "Est. Dec 2024", "KES 2,000", Icons.Rounded.Chair, "green"),
@@ -83,12 +88,31 @@ fun GoalsScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Text("Goals", style = MaterialTheme.typography.headlineLarge)
-            Text(
-                "Turn your dreams into reality.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Goals", style = MaterialTheme.typography.headlineLarge)
+                    Text(
+                        "Turn your dreams into reality.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Surface(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clickable(onClick = onProfileClick),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Rounded.Person,
+                            contentDescription = "Profile",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
         }
 
         item {
@@ -145,7 +169,7 @@ fun GoalsScreen(
         item {
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = AmberSoft
+                color = pesaToneContainer("amber")
             ) {
                 Row(
                     Modifier.padding(18.dp),
@@ -154,7 +178,8 @@ fun GoalsScreen(
                     IconBubble(
                         Icons.Rounded.TrendingUp,
                         size = 50.dp,
-                        background = Color(0xFFFFE3A4)
+                        background = pesaToneContainer("amber"),
+                        tint = pesaToneContent("amber")
                     )
                     Column(
                         Modifier
@@ -234,20 +259,14 @@ private fun GoalCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(92.dp)
-                    .background(
-                        when (goal.tone) {
-                            "blue" -> SkySoft
-                            "amber" -> AmberSoft
-                            "violet" -> VioletSoft
-                            else -> MintSoft
-                        }
-                    ),
+.background(pesaToneContainer(goal.tone)),
                 contentAlignment = Alignment.Center
             ) {
                 IconBubble(
                     goal.icon,
                     size = 62.dp,
-                    background = Color.White.copy(alpha = .75f)
+                    background = MaterialTheme.colorScheme.surfaceVariant,
+                    tint = pesaToneContent(goal.tone)
                 )
                 IconButton(
                     onClick = {},
