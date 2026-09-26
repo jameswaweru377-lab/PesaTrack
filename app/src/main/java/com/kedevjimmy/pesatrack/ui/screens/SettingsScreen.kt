@@ -49,7 +49,8 @@ fun SettingsScreen(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     onBack: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onMpesaConnectionClick: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -174,7 +175,12 @@ fun SettingsScreen(
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
                     SettingsRow(Icons.Rounded.Storage, "Data & storage", "Local data, backup, restore")
                     SettingsRow(Icons.Rounded.Security, "Security", "PIN and biometric lock")
-                    SettingsRow(Icons.Rounded.Upload, "Import data", "M-Pesa notifications and SMS")
+                    SettingsRow(
+                        Icons.Rounded.Upload,
+                        "M-Pesa connection",
+                        "Notification access and capture status",
+                        onClick = onMpesaConnectionClick
+                    )
                 }
             }
         }
@@ -196,12 +202,13 @@ fun SettingsScreen(
 private fun SettingsRow(
     icon: ImageVector,
     title: String,
-    subtitle: String
+    subtitle: String,
+    onClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { }
+            .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
