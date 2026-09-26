@@ -42,7 +42,10 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                         sourceKind = SOURCE_FULIZA_NOTIFICATION,
                         occurredAtEpochMs = receivedAt
                     )
-                    if (result.linkedTransactionId != null) {
+                    if (
+                        result.linkedTransactionId != null ||
+                        result.repairedLegacyTransaction
+                    ) {
                         PayCycleStore.get(applicationContext).rebuild()
                     }
                     return@execute
