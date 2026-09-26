@@ -375,6 +375,68 @@ Tests added:
 
 The implementation passed Android CI run #46 before the documentation update.
 
+## Fuliza financing and duplicate-spend correction
+
+Fuliza is treated as financing metadata attached to the real M-Pesa payment, not as a second purchase.
+
+Implemented:
+
+- Added a dedicated Fuliza parser for confirmation messages such as:
+  - Fuliza M-PESA amount
+  - Access Fee charged / charge of
+  - Total Fuliza M-PESA outstanding amount
+  - optional available Fuliza limit when present
+- Generic M-Pesa parsing explicitly refuses Fuliza drawdown confirmations, preventing them from entering the transaction ledger as ordinary transactions.
+- Database schema v6 adds a separate `fuliza_events` store plus attached payment metadata:
+  - financed amount
+  - Fuliza access fee
+  - outstanding Fuliza amount after the event
+  - Fuliza event transaction code
+- A Fuliza event is conservatively linked to the real outgoing payment:
+  - exact payment amount + normal M-Pesa fee match is preferred
+  - a partial-shortfall match is allowed only when there is exactly one plausible outgoing payment within a three-minute window
+  - ambiguous matches remain unlinked rather than guessed
+  - out-of-order pairing is restricted to exact matches
+- Supported payment candidates are Send Money, Pay Bill, Buy Goods and Airtime.
+- The Fuliza financed principal is never counted as new income or additional spending.
+- The original merchant/person payment remains the single spending transaction.
+- Normal M-Pesa transaction fees remain separate.
+- Fuliza access fees are included exactly once in monthly Activity and pay-cycle fee totals, even if a Fuliza event cannot be confidently linked.
+- When a link is available, Activity annotates the real payment with the Fuliza financed amount and access fee rather than displaying a second purchase row.
+- Transaction Details explains that the payment was funded partly by Fuliza and displays:
+  - financed amount
+  - Fuliza access fee
+  - outstanding Fuliza balance after the event when present
+- Historical SMS import routes Fuliza through the financing store and reports Fuliza financing messages separately from new transactions.
+- Re-importing historical SMS can repair Fuliza confirmations previously ingested by older builds as generic `OTHER` transactions:
+  - the exact legacy row is identified by the Fuliza confirmation transaction code
+  - it is removed from the spending ledger
+  - the message is re-stored as Fuliza financing metadata
+  - pay-cycle totals are rebuilt
+- Raw Fuliza SMS bodies are not persisted.
+- Available Fuliza limit is captured when present in a supported Fuliza message but is not yet presented as spend or a live credit balance.
+
+Accounting example:
+
+- Real payment: KES 160
+- normal M-Pesa transaction fee: KES 7
+- Fuliza financed amount: KES 167
+- Fuliza access fee: KES 1.67
+
+PesaTrack records one KES 160 payment, KES 7 normal transaction fee, KES 1.67 Fuliza access fee, and KES 167 as financing metadata/debt context. It does not record KES 160 + KES 167 as two expenses.
+
+Tests added:
+
+- common Fuliza confirmation format
+- access-fee "charge of" variant
+- generic M-Pesa parser rejects Fuliza confirmations
+- exact payment + M-Pesa-fee pairing
+- unique partial-shortfall pairing
+- ambiguous shortfall refusal
+- distant payment refusal
+
+The implementation passed Android CI run #49 before this documentation update.
+
 ## Current implementation
 
 Baseline: `main` after the verified reference UI merge
@@ -414,7 +476,7 @@ For every implementation phase:
 4. Fix the actual cause before continuing.
 5. Only mark the implementation complete when the relevant check passes.
 
-## Immediate next phase after optional-history onboarding merge
+## Immediate next phase after Fuliza correction and optional-history onboarding
 
 1. Install the latest debug APK on the Redmi Note 14 and clear app data so the real first-run flow can be tested from scratch.
 2. Test a single-source path: Salary -> Bank -> real Kenyan bank -> Don't import messages, and verify setup completes without any SMS permission request.
