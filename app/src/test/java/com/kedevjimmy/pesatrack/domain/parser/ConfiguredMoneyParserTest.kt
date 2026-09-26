@@ -9,27 +9,48 @@ import org.junit.Test
 
 class ConfiguredMoneyParserTest {
     @Test
-    fun parsesConfiguredBankSalaryAlert() {
+    fun parsesConfiguredBankIncomeWithoutHardcodingBankOrEmployer() {
         val rule = SmartRule(
             id = "salary",
-            counterpartyContains = "",
-            category = TransactionCategory.INCOME,
             name = "Monthly salary",
-            notificationTitleContains = "equity",
-            messageContains = "employer",
+            counterpartyContains = "",
+            notificationTitleContains = "my bank",
+            messageContains = "my employer",
+            category = TransactionCategory.INCOME,
             direction = MoneyDirection.INCOME,
             planningMonthOffset = 1,
             displayLabel = "Salary"
         )
 
         val parsed = ConfiguredMoneyParser.parse(
-            title = "Equity Mobile",
-            body = "KES 60,000.00 credited from EMPLOYER. Available balance KES 75,500.00",
+            title = "My Bank",
+            body = "KES 60,000.00 received from My Employer. Available balance KES 72,100.00.",
             rule = rule
         )
 
         assertNotNull(parsed)
         assertEquals(6_000_000L, parsed?.amountMinor)
         assertEquals("Salary", parsed?.counterparty)
+    }
+
+    @Test
+    fun requiresAnAmount() {
+        val rule = SmartRule(
+            id = "salary",
+            counterpartyContains = "",
+            category = TransactionCategory.INCOME,
+            direction = MoneyDirection.INCOME,
+            notificationTitleContains = "bank",
+            messageContains = "salary"
+        )
+
+        assertEquals(
+            null,
+            ConfiguredMoneyParser.parse(
+                title = "Bank",
+                body = "Salary notification with no monetary amount.",
+                rule = rule
+            )
+        )
     }
 }
