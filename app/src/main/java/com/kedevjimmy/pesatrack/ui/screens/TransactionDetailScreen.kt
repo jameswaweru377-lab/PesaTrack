@@ -25,11 +25,12 @@ import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +46,7 @@ import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
@@ -71,16 +73,24 @@ fun TransactionDetailScreen(
     var transaction by remember(transactionId) {
         mutableStateOf(store.getById(transactionId))
     }
-    var alwaysClassify by remember(transactionId) {
-        mutableStateOf(transaction?.ruleId != null)
+    var pendingCategory by remember(transactionId) {
+        mutableStateOf<TransactionCategory?>(null)
+    }
+    var pendingMatchCount by remember(transactionId) {
+        mutableStateOf(0)
+    }
+    var learnedMessage by remember(transactionId) {
+        mutableStateOf<String?>(null)
     }
 
     fun refresh() {
         transaction = store.getById(transactionId)
     }
 
-    fun applyCategory(category: TransactionCategory) {
-        val current = transaction ?: return
+    fun classifyOnly(
+        current: StoredTransaction,
+        category: TransactionCategory
+    ) {
         val direction = directionForCategory(
             category = category,
             existingDirection = runCatching {
@@ -93,27 +103,131 @@ fun TransactionDetailScreen(
             direction = direction,
             markTransfer = category == TransactionCategory.TRANSFER
         )
-
-        if (
-            alwaysClassify &&
-            current.sourceKind == "mpesa_notification" &&
-            !current.counterparty.isNullOrBlank() &&
-            category != TransactionCategory.UNCATEGORIZED
-        ) {
-            ruleStore.save(
-                name = "Always classify " + current.counterparty,
-                counterpartyContains = current.counterparty,
-                category = category,
-                direction = direction,
-                displayLabel = current.counterparty
-            )
-            store.reapplyCounterpartyRules(ruleStore.listRules(enabledOnly = true))
-        }
-
         refresh()
     }
 
+    fun learningRule(
+        current: StoredTransaction,
+        category: TransactionCategory,
+        id: String = "preview"
+    ): SmartRule {
+        val direction = directionForCategory(
+            category = category,
+            existingDirection = runCatching {
+                MoneyDirection.valueOf(current.direction)
+            }.getOrDefault(MoneyDirection.NEUTRAL)
+        )
+        return SmartRule(
+            id = id,
+            counterpartyContains = "",
+            counterpartyExact = current.counterparty.orEmpty(),
+            counterpartyPhoneEquals = current.counterpartyPhone.orEmpty(),
+            category = category,
+            direction = direction,
+            name = current.counterparty?.let { "Always classify " + it } ?: "Learned rule",
+            displayLabel = current.counterparty,
+            accountId = current.accountId
+        )
+    }
+
+    fun applyCategory(category: TransactionCategory) {
+        val current = transaction ?: return
+        val shouldOfferLearning =
+            current.ruleId == null &&
+                current.reviewState == ReviewState.NEEDS_REVIEW.name &&
+                category != TransactionCategory.UNCATEGORIZED &&
+                canLearnIdentity(current)
+
+        if (shouldOfferLearning) {
+            val preview = learningRule(current, category)
+            pendingMatchCount = store.matchingPendingCount(
+                rule = preview,
+                excludingId = current.id
+            )
+            pendingCategory = category
+        } else {
+            classifyOnly(current, category)
+        }
+    }
+
     val current = transaction
+
+    if (current != null && pendingCategory != null) {
+        val category = pendingCategory!!
+        AlertDialog(
+            onDismissRequest = { pendingCategory = null },
+            title = {
+                Text("Remember this for next time?")
+            },
+            text = {
+                Text(
+                    buildString {
+                        append("Use “")
+                        append(current.counterparty ?: current.counterpartyPhone ?: "this identity")
+                        append("” as ")
+                        append(category.prettyName())
+                        append(".")
+                        if (pendingMatchCount > 0) {
+                            append(" This can also classify ")
+                            append(pendingMatchCount)
+                            append(" matching transaction")
+                            if (pendingMatchCount != 1) append("s")
+                            append(" already waiting for review.")
+                        }
+                    }
+                )
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        classifyOnly(current, category)
+                        pendingCategory = null
+                    }
+                ) {
+                    Text("Only this one")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val direction = directionForCategory(
+                            category = category,
+                            existingDirection = runCatching {
+                                MoneyDirection.valueOf(current.direction)
+                            }.getOrDefault(MoneyDirection.NEUTRAL)
+                        )
+                        store.classifyManually(
+                            id = current.id,
+                            category = category,
+                            direction = direction,
+                            markTransfer = category == TransactionCategory.TRANSFER
+                        )
+                        val savedRule = ruleStore.save(
+                            name = current.counterparty?.let { "Remember " + it } ?: "Learned rule",
+                            counterpartyContains = "",
+                            counterpartyExact = current.counterparty.orEmpty(),
+                            counterpartyPhoneEquals = current.counterpartyPhone.orEmpty(),
+                            category = category,
+                            direction = direction,
+                            displayLabel = current.counterparty,
+                            accountId = current.accountId
+                        )
+                        val changed = store.reapplyRule(savedRule)
+                        learnedMessage = if (changed > 0) {
+                            "Rule saved • " + changed + " matching pending transaction" +
+                                if (changed == 1) " classified." else "s classified."
+                        } else {
+                            "Rule saved for future matching transactions."
+                        }
+                        pendingCategory = null
+                        refresh()
+                    }
+                ) {
+                    Text("Remember")
+                }
+            }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -161,35 +275,26 @@ fun TransactionDetailScreen(
             ClassificationCard(current)
         }
 
-        if (
-            current.sourceKind == "mpesa_notification" &&
-            !current.counterparty.isNullOrBlank()
-        ) {
+        learnedMessage?.let { message ->
             item {
-                PesaCard {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = pesaToneContainer("green")
+                ) {
                     Row(
-                        Modifier.padding(16.dp),
+                        Modifier.padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconBubble(Icons.Rounded.Tune, size = 44.dp)
-                        Column(
-                            Modifier
-                                .weight(1f)
-                                .padding(start = 11.dp)
-                        ) {
-                            Text(
-                                "Use this for future payments too",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                "When you choose a category below, PesaTrack can remember this M-Pesa name.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = alwaysClassify,
-                            onCheckedChange = { alwaysClassify = it }
+                        Icon(
+                            Icons.Rounded.CheckCircle,
+                            contentDescription = null,
+                            tint = pesaToneContent("green")
+                        )
+                        Text(
+                            message,
+                            modifier = Modifier.padding(start = 10.dp),
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -570,3 +675,15 @@ private fun TransactionCategory.prettyName(): String =
     name.lowercase()
         .replace('_', ' ')
         .replaceFirstChar { it.uppercase() }
+
+private fun canLearnIdentity(item: StoredTransaction): Boolean {
+    if (!item.counterpartyPhone.isNullOrBlank()) return true
+
+    val name = item.counterparty?.trim().orEmpty()
+    if (name.isBlank()) return false
+
+    val tokenCount = name.split(Regex("""\s+""")).count { it.isNotBlank() }
+    val merchantLike = item.type == "PAY_BILL" || item.type == "BUY_GOODS"
+
+    return tokenCount >= 2 || merchantLike
+}
