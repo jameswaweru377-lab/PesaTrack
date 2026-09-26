@@ -290,6 +290,9 @@ fun HistoricalImportScreen(
                         ImportResultRow("SMS scanned", importResult.scanned)
                         ImportResultRow("Money messages matched", importResult.matched)
                         ImportResultRow("New transactions added", importResult.inserted)
+                        if (importResult.fulizaMessages > 0) {
+                            ImportResultRow("Fuliza financing messages", importResult.fulizaMessages)
+                        }
                         ImportResultRow("Duplicates skipped", importResult.duplicates)
                         ImportResultRow("Unrelated messages ignored", importResult.ignored)
                     }
