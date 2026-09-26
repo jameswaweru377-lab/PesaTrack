@@ -12,16 +12,25 @@ import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
 import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
+import com.kedevjimmy.pesatrack.ui.screens.ProfileScreen
+import com.kedevjimmy.pesatrack.ui.screens.SettingsScreen
 import com.kedevjimmy.pesatrack.ui.screens.TransactionDetailScreen
+import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 
 @Composable
-fun PesaTrackApp() {
+fun PesaTrackApp(
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit
+) {
     val navController = rememberNavController()
 
     fun navigateToTab(tab: MainTab) {
         navController.navigate(tab.route) {
             launchSingleTop = true
             restoreState = true
+            popUpTo(MainTab.HOME.route) {
+                saveState = true
+            }
         }
     }
 
@@ -44,7 +53,10 @@ fun PesaTrackApp() {
                 currentTab = MainTab.HOME,
                 onTabSelected = ::navigateToTab
             ) { padding ->
-                HomeScreen(padding)
+                HomeScreen(
+                    scaffoldPadding = padding,
+                    onProfileClick = { navController.navigate("profile") }
+                )
             }
         }
 
@@ -76,7 +88,8 @@ fun PesaTrackApp() {
             ) { padding ->
                 GoalsScreen(
                     scaffoldPadding = padding,
-                    onGoalClick = { navController.navigate("goal-detail") }
+                    onGoalClick = { navController.navigate("goal-detail") },
+                    onProfileClick = { navController.navigate("profile") }
                 )
             }
         }
@@ -101,6 +114,34 @@ fun PesaTrackApp() {
                 GoalDetailScreen(
                     scaffoldPadding = padding,
                     onBack = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable("profile") {
+            AppScaffold(
+                currentTab = null,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                ProfileScreen(
+                    scaffoldPadding = padding,
+                    onBack = { navController.popBackStack() },
+                    onSettingsClick = { navController.navigate("settings") }
+                )
+            }
+        }
+
+        composable("settings") {
+            AppScaffold(
+                currentTab = null,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                SettingsScreen(
+                    scaffoldPadding = padding,
+                    themeMode = themeMode,
+                    onThemeModeChange = onThemeModeChange,
+                    onBack = { navController.popBackStack() },
+                    onProfileClick = { navController.navigate("profile") }
                 )
             }
         }

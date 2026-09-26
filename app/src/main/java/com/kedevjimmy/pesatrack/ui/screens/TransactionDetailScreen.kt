@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -56,6 +57,8 @@ import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import com.kedevjimmy.pesatrack.ui.theme.Amber
 import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
 import com.kedevjimmy.pesatrack.ui.theme.MintSoft
@@ -86,42 +89,73 @@ fun TransactionDetailScreen(
         }
 
         item {
-            LandscapeBackdrop(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(232.dp),
-                dark = MaterialTheme.colorScheme.background.luminance() < .2f
-            ) {
-                Column(
-                    Modifier
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val compact = maxWidth < 600.dp
+                LandscapeBackdrop(
+                    modifier = Modifier
                         .fillMaxWidth()
-                        .padding(18.dp)
+                        .height(if (compact) 340.dp else 235.dp),
+                    showSun = false
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconBubble(Icons.Rounded.AccountCircle, size = 56.dp, background = MaterialTheme.colorScheme.primaryContainer)
-                        Column(
-                            Modifier
-                                .weight(1f)
-                                .padding(start = 12.dp)
-                        ) {
-                            Text("Elizabeth W.", style = MaterialTheme.typography.titleLarge)
-                            Text("Sent money via M-Pesa", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Text("KES 450", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = .92f)
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp)
                     ) {
-                        Row(
-                            Modifier.padding(14.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconBubble(
+                                Icons.Rounded.AccountCircle,
+                                size = 54.dp,
+                                background = MaterialTheme.colorScheme.primaryContainer
+                            )
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .padding(start = 12.dp)
+                            ) {
+                                Text("Elizabeth W.", style = MaterialTheme.typography.titleLarge)
+                                Text(
+                                    "Sent money via M-Pesa",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text(
+                                "KES 450",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = .96f)
                         ) {
-                            DetailTopMetric("Date & time", "21 Sep 2024\n1:24 PM", Icons.Rounded.CalendarMonth, Modifier.weight(1f))
-                            DetailTopMetric("M-Pesa code", "OE4G7K3L9P", Icons.Rounded.ReceiptLong, Modifier.weight(1f))
-                            DetailTopMetric("Transaction type", "Sent money", Icons.Rounded.SyncAlt, Modifier.weight(1f))
-                            DetailTopMetric("Fee", "KES 0", Icons.Rounded.Paid, Modifier.weight(1f))
+                            if (compact) {
+                                Column(
+                                    Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                        DetailTopMetric("Date & time", "21 Sep 2024\n1:24 PM", Icons.Rounded.CalendarMonth, Modifier.weight(1f))
+                                        DetailTopMetric("M-Pesa code", "OE4G7K3L9P", Icons.Rounded.ReceiptLong, Modifier.weight(1f))
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                        DetailTopMetric("Transaction type", "Sent money", Icons.Rounded.SyncAlt, Modifier.weight(1f))
+                                        DetailTopMetric("Fee", "KES 0", Icons.Rounded.Paid, Modifier.weight(1f))
+                                    }
+                                }
+                            } else {
+                                Row(
+                                    Modifier.padding(14.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    DetailTopMetric("Date & time", "21 Sep 2024\n1:24 PM", Icons.Rounded.CalendarMonth, Modifier.weight(1f))
+                                    DetailTopMetric("M-Pesa code", "OE4G7K3L9P", Icons.Rounded.ReceiptLong, Modifier.weight(1f))
+                                    DetailTopMetric("Transaction type", "Sent money", Icons.Rounded.SyncAlt, Modifier.weight(1f))
+                                    DetailTopMetric("Fee", "KES 0", Icons.Rounded.Paid, Modifier.weight(1f))
+                                }
+                            }
                         }
                     }
                 }
@@ -136,21 +170,35 @@ fun TransactionDetailScreen(
                     .fillMaxWidth()
                     .clickable { },
                 shape = RoundedCornerShape(20.dp),
-                color = AmberSoft,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Amber.copy(alpha = .65f))
+                color = pesaToneContainer("amber"),
+                contentColor = pesaToneContent("amber"),
+                border = androidx.compose.foundation.BorderStroke(1.dp, pesaToneContent("amber").copy(alpha = .55f))
             ) {
                 Row(
                     Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconBubble(Icons.Rounded.Restaurant, tint = Amber, background = Color(0xFFFFE1A3), size = 46.dp)
+                    IconBubble(
+                        Icons.Rounded.Restaurant,
+                        tint = pesaToneContent("amber"),
+                        background = pesaToneContainer("amber"),
+                        size = 46.dp
+                    )
                     Column(
                         Modifier
                             .weight(1f)
                             .padding(start = 12.dp)
                     ) {
-                        Text("Current category", style = MaterialTheme.typography.bodySmall, color = Color(0xFF9A650D))
-                        Text("Lunch", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            "Current category",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = pesaToneContent("amber")
+                        )
+                        Text(
+                            "Lunch",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                     Text("Change", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                     Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.primary)
@@ -239,7 +287,12 @@ private fun DetailTopMetric(
         Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(5.dp))
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleSmall)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2
+        )
     }
 }
 
@@ -307,24 +360,21 @@ private fun SuggestionChip(
     Surface(
         modifier = modifier.clickable { },
         shape = RoundedCornerShape(50),
-        color = when (tone) {
-            "amber" -> AmberSoft
-            "blue" -> SkySoft
-            "violet" -> VioletSoft
-            else -> MintSoft
-        }
+        color = pesaToneContainer(tone),
+        contentColor = pesaToneContent(tone)
     ) {
         Row(
             Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, null, modifier = Modifier.height(18.dp), tint = MaterialTheme.colorScheme.primary)
-            Text(label, modifier = Modifier.padding(start = 6.dp), style = MaterialTheme.typography.labelLarge)
+            Icon(icon, null, modifier = Modifier.height(18.dp), tint = pesaToneContent(tone))
+            Text(
+                label,
+                modifier = Modifier.padding(start = 6.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = pesaToneContent(tone)
+            )
         }
     }
 }
 
-private fun Color.luminance(): Float {
-    fun channel(v: Float): Float = if (v <= .03928f) v / 12.92f else Math.pow(((v + .055f) / 1.055f).toDouble(), 2.4).toFloat()
-    return .2126f * channel(red) + .7152f * channel(green) + .0722f * channel(blue)
-}

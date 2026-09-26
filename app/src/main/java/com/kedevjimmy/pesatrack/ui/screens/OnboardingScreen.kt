@@ -45,6 +45,8 @@ import com.kedevjimmy.pesatrack.ui.components.BrandWordmark
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
 import com.kedevjimmy.pesatrack.ui.theme.MintSoft
 import com.kedevjimmy.pesatrack.ui.theme.SkySoft
@@ -113,7 +115,8 @@ fun OnboardingScreen(onContinue: () -> Unit) {
                                         .align(Alignment.TopCenter)
                                         .padding(top = 22.dp),
                                     shape = RoundedCornerShape(12.dp),
-                                    color = MintSoft
+                                    color = pesaToneContainer("green"),
+                contentColor = MaterialTheme.colorScheme.onSurface
                                 ) {
                                     Text(
                                         "M-PESA",
@@ -156,13 +159,19 @@ fun OnboardingScreen(onContinue: () -> Unit) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                color = MintSoft
+                color = pesaToneContainer("green"),
+                contentColor = MaterialTheme.colorScheme.onSurface
             ) {
                 Row(
                     Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconBubble(Icons.Rounded.Shield, size = 48.dp, background = Color.White.copy(alpha = .72f))
+                    IconBubble(
+                        Icons.Rounded.Shield,
+                        size = 48.dp,
+                        background = MaterialTheme.colorScheme.surfaceVariant,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                     Column(
                         Modifier
                             .weight(1f)
@@ -188,7 +197,8 @@ fun OnboardingScreen(onContinue: () -> Unit) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                color = AmberSoft
+                color = pesaToneContainer("amber"),
+                contentColor = MaterialTheme.colorScheme.onSurface
             ) {
                 Column(Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -255,11 +265,8 @@ private fun SetupAction(
             IconBubble(
                 icon,
                 size = 48.dp,
-                background = when (tone) {
-                    "amber" -> AmberSoft
-                    "blue" -> SkySoft
-                    else -> MintSoft
-                }
+                background = pesaToneContainer(tone),
+                tint = pesaToneContent(tone)
             )
             Column(
                 Modifier

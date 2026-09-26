@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -42,6 +43,8 @@ import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import com.kedevjimmy.pesatrack.ui.theme.Amber
 import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
 import com.kedevjimmy.pesatrack.ui.theme.MintSoft
@@ -77,8 +80,7 @@ fun GoalDetailScreen(
             LandscapeBackdrop(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp),
-                dark = MaterialTheme.colorScheme.background.luminance() < .2f
+                    .height(280.dp)
             ) {
                 Column(
                     Modifier
@@ -167,20 +169,30 @@ fun GoalDetailScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(22.dp),
-                color = AmberSoft,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Amber.copy(alpha = .65f))
+                color = pesaToneContainer("amber"),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                border = androidx.compose.foundation.BorderStroke(1.dp, pesaToneContent("amber").copy(alpha = .55f))
             ) {
                 Row(
                     Modifier.padding(18.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconBubble(Icons.Rounded.TrendingUp, tint = Amber, background = Color(0xFFFFE19C), size = 48.dp)
+                    IconBubble(
+                        Icons.Rounded.TrendingUp,
+                        tint = pesaToneContent("amber"),
+                        background = pesaToneContainer("amber"),
+                        size = 48.dp
+                    )
                     Column(
                         Modifier
                             .weight(1f)
                             .padding(start = 12.dp)
                     ) {
-                        Text("Save faster", style = MaterialTheme.typography.titleMedium, color = Color(0xFF9A650D))
+                        Text(
+                            "Save faster",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = pesaToneContent("amber")
+                        )
                         Text(
                             "If you add KES 5,000 this month, you'll finish 3 weeks earlier.",
                             color = MaterialTheme.colorScheme.onSurface
@@ -204,31 +216,57 @@ fun GoalDetailScreen(
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = {},
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(Icons.Rounded.Edit, null, modifier = Modifier.padding(end = 5.dp))
-                    Text("Edit goal")
-                }
-                OutlinedButton(
-                    onClick = {},
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(Icons.Rounded.Pause, null, modifier = Modifier.padding(end = 5.dp))
-                    Text("Pause")
-                }
-                Button(
-                    onClick = {},
-                    modifier = Modifier.weight(1.25f),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(Icons.Rounded.CheckCircle, null, modifier = Modifier.padding(end = 5.dp))
-                    Text("Complete")
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth < 600.dp) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {},
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Icon(Icons.Rounded.Edit, null, modifier = Modifier.padding(end = 5.dp))
+                                Text("Edit goal")
+                            }
+                            OutlinedButton(
+                                onClick = {},
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Icon(Icons.Rounded.Pause, null, modifier = Modifier.padding(end = 5.dp))
+                                Text("Pause")
+                            }
+                        }
+                        Button(
+                            onClick = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Rounded.CheckCircle, null, modifier = Modifier.padding(end = 5.dp))
+                            Text("Mark complete")
+                        }
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = {}, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) {
+                            Icon(Icons.Rounded.Edit, null, modifier = Modifier.padding(end = 5.dp))
+                            Text("Edit goal")
+                        }
+                        OutlinedButton(onClick = {}, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) {
+                            Icon(Icons.Rounded.Pause, null, modifier = Modifier.padding(end = 5.dp))
+                            Text("Pause")
+                        }
+                        Button(
+                            onClick = {},
+                            modifier = Modifier.weight(1.25f),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Rounded.CheckCircle, null, modifier = Modifier.padding(end = 5.dp))
+                            Text("Complete")
+                        }
+                    }
                 }
             }
         }
@@ -282,7 +320,3 @@ private fun GoalTimeline() {
     }
 }
 
-private fun Color.luminance(): Float {
-    fun channel(v: Float): Float = if (v <= .03928f) v / 12.92f else Math.pow(((v + .055f) / 1.055f).toDouble(), 2.4).toFloat()
-    return .2126f * channel(red) + .7152f * channel(green) + .0722f * channel(blue)
-}

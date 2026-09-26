@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -51,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
 import com.kedevjimmy.pesatrack.ui.theme.MintSoft
 import com.kedevjimmy.pesatrack.ui.theme.RoseSoft
@@ -155,12 +158,7 @@ fun ActivityScreen(
                         }
                     }
                     Spacer(Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActivityMetric("Spent", "KES 16,200", "↑ 12%", Icons.Rounded.Paid, "red", Modifier.weight(1f))
-                        ActivityMetric("Income", "KES 45,000", "↑ 8%", Icons.Rounded.CallReceived, "green", Modifier.weight(1f))
-                        ActivityMetric("Fees", "KES 428", "↓ 20%", Icons.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
-                        ActivityMetric("Net", "KES 28,372", "↑ 15%", Icons.Rounded.Paid, "blue", Modifier.weight(1f))
-                    }
+                    ResponsiveActivityMetrics()
                 }
             }
         }
@@ -183,6 +181,32 @@ fun ActivityScreen(
 }
 
 @Composable
+private fun ResponsiveActivityMetrics() {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val compact = maxWidth < 600.dp
+        if (compact) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ActivityMetric("Spent", "KES 16,200", "↑ 12%", Icons.Rounded.Paid, "red", Modifier.weight(1f))
+                    ActivityMetric("Income", "KES 45,000", "↑ 8%", Icons.Rounded.CallReceived, "green", Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ActivityMetric("Fees", "KES 428", "↓ 20%", Icons.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
+                    ActivityMetric("Net", "KES 28,372", "↑ 15%", Icons.Rounded.Paid, "blue", Modifier.weight(1f))
+                }
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ActivityMetric("Spent", "KES 16,200", "↑ 12%", Icons.Rounded.Paid, "red", Modifier.weight(1f))
+                ActivityMetric("Income", "KES 45,000", "↑ 8%", Icons.Rounded.CallReceived, "green", Modifier.weight(1f))
+                ActivityMetric("Fees", "KES 428", "↓ 20%", Icons.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
+                ActivityMetric("Net", "KES 28,372", "↑ 15%", Icons.Rounded.Paid, "blue", Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
 private fun ActivityMetric(
     label: String,
     value: String,
@@ -195,16 +219,12 @@ private fun ActivityMetric(
         IconBubble(
             icon,
             size = 34.dp,
-            background = when (tone) {
-                "red" -> RoseSoft
-                "amber" -> AmberSoft
-                "blue" -> SkySoft
-                else -> MintSoft
-            }
+            background = pesaToneContainer(tone),
+            tint = pesaToneContent(tone)
         )
         Spacer(Modifier.height(6.dp))
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
         Spacer(Modifier.height(4.dp))
         SmallStatusPill(trend)
     }
@@ -245,12 +265,15 @@ private fun ActivityRow(item: ActivityItem, onClick: () -> Unit) {
             IconBubble(
                 item.icon,
                 size = 40.dp,
-                background = when (item.tone) {
-                    "amber" -> AmberSoft
-                    "blue" -> SkySoft
-                    "violet" -> VioletSoft
-                    "green" -> MintSoft
-                    else -> MaterialTheme.colorScheme.surfaceVariant
+                background = if (item.tone == "neutral") {
+                    MaterialTheme.colorScheme.surfaceVariant
+                } else {
+                    pesaToneContainer(item.tone)
+                },
+                tint = if (item.tone == "neutral") {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    pesaToneContent(item.tone)
                 }
             )
             Column(
@@ -259,31 +282,47 @@ private fun ActivityRow(item: ActivityItem, onClick: () -> Unit) {
                     .padding(horizontal = 11.dp)
             ) {
                 Text(item.name, style = MaterialTheme.typography.titleMedium)
-                Text(item.time, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            SmallStatusPill(
-                item.category,
-                when (item.tone) {
-                    "amber" -> "amber"
-                    "blue" -> "blue"
-                    "violet" -> "violet"
-                    else -> "green"
+                Row(
+                    modifier = Modifier.padding(top = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        item.time,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "  •  ",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        item.category,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = pesaToneContent(
+                            when (item.tone) {
+                                "neutral" -> "blue"
+                                else -> item.tone
+                            }
+                        )
+                    )
                 }
-            )
-            Text(
-                item.amount,
-                modifier = Modifier.padding(start = 9.dp),
-                style = MaterialTheme.typography.titleSmall,
-                color = if (item.positive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-            )
-            Icon(
-                Icons.Rounded.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .padding(start = 4.dp)
-                    .size(18.dp)
-            )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    item.amount,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (item.positive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                )
+                Icon(
+                    Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(top = 4.dp)
+                        .size(18.dp)
+                )
+            }
         }
     }
 }
