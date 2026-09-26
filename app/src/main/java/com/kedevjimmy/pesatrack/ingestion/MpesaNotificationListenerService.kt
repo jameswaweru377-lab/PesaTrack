@@ -3,9 +3,12 @@ package com.kedevjimmy.pesatrack.ingestion
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
+import com.kedevjimmy.pesatrack.domain.parser.ConfiguredMoneyParser
 import com.kedevjimmy.pesatrack.domain.parser.MpesaParser
+import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import java.util.concurrent.Executors
 
 class MpesaNotificationListenerService : NotificationListenerService() {
@@ -19,18 +22,45 @@ class MpesaNotificationListenerService : NotificationListenerService() {
             ?.trim()
 
         val body = extractBody(notification) ?: return
-        if (!MpesaMessageDetector.isLikelyMpesa(title, body)) return
-
-        val parsed = MpesaParser.parse(body) ?: return
         val packageName = sbn.packageName
         val receivedAt = sbn.postTime.takeIf { it > 0L } ?: System.currentTimeMillis()
 
         executor.execute {
-            TransactionStore.get(applicationContext).insertIfNew(
+            val rules = RuleStore.get(applicationContext).listRules(enabledOnly = true)
+            val store = TransactionStore.get(applicationContext)
+
+            if (MpesaMessageDetector.isLikelyMpesa(title, body)) {
+                val parsed = MpesaParser.parse(body) ?: return@execute
+                val matchedRule = SmartRuleEngine.matchTransaction(parsed, rules)
+
+                store.insertIfNew(
+                    parsed = parsed,
+                    sourcePackage = packageName,
+                    sourceKind = SOURCE_MPESA_NOTIFICATION,
+                    receivedAtEpochMs = receivedAt,
+                    matchedRule = matchedRule
+                )
+                return@execute
+            }
+
+            val configuredRule = SmartRuleEngine.matchNotification(
+                title = title,
+                body = body,
+                rules = rules
+            ) ?: return@execute
+
+            val parsed = ConfiguredMoneyParser.parse(
+                title = title,
+                body = body,
+                rule = configuredRule
+            ) ?: return@execute
+
+            store.insertIfNew(
                 parsed = parsed,
                 sourcePackage = packageName,
-                sourceKind = SOURCE_NOTIFICATION,
-                receivedAtEpochMs = receivedAt
+                sourceKind = SOURCE_CONFIGURED_NOTIFICATION,
+                receivedAtEpochMs = receivedAt,
+                matchedRule = configuredRule
             )
         }
     }
@@ -57,16 +87,15 @@ class MpesaNotificationListenerService : NotificationListenerService() {
 
         if (text != null) return text
 
-        val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+        return extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
             ?.map { it.toString().trim() }
             ?.filter { it.isNotBlank() }
             ?.joinToString(" ")
             ?.takeIf { it.isNotBlank() }
-
-        return lines
     }
 
     companion object {
-        const val SOURCE_NOTIFICATION = "notification"
+        const val SOURCE_MPESA_NOTIFICATION = "mpesa_notification"
+        const val SOURCE_CONFIGURED_NOTIFICATION = "configured_notification"
     }
 }
