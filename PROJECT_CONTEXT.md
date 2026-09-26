@@ -124,6 +124,51 @@ Why Notification Access first:
 
 The first code-complete ingestion build passed Android CI run #17.
 
+## Smart money rules and real ledger phase
+
+The interrupted smart-money phase was recovered from branch `feature/smart-money-rules-ledger`, completed, and validated before merge.
+
+Implemented behavior:
+
+- Persistent Smart Rules are stored locally and survive app restarts.
+- First-run flow is now Onboarding -> Money Setup -> Home. Even skipping onboarding still passes through Money Setup; the user can explicitly defer rule creation from there.
+- Money Setup supports three rule types:
+  - salary/income source
+  - recurring expense
+  - own-account transfer
+- Salary rules are not hardcoded to any bank or employer. The user defines notification sender/title text and/or a message phrase.
+- Salary rules can assign income to the same planning month or the following planning month. This supports salary received at the end of one month being used to fund the next month's plan.
+- Configured non-M-Pesa money notifications can be parsed for an amount after a saved rule matches.
+- M-Pesa rules can match normalized counterparty names.
+- One-off/unrecognized transactions are intentionally labeled **Needs review** rather than guessed.
+- Activity is backed by the real local transaction ledger rather than preview/demo transactions.
+- Activity provides real captured totals for spending, income, fees and net cash flow.
+- Activity filters include All, Expenses, Income, Transfers and Needs review.
+- Tapping Activity opens the exact stored transaction by database ID.
+- Transaction Details is backed by the stored record and supports:
+  - one-time manual classification
+  - optional "use this for future payments too" smart-rule creation
+  - marking an item as an own-account transfer
+  - excluding an item from budget calculations
+- Income direction is preserved during manual review unless explicitly changed to a transfer; descriptive categorization cannot accidentally turn captured incoming money into spending.
+- Savings and own-account movements are treated as transfers rather than consumption spending.
+- Transaction records now persist direction, category, review state, matched rule ID, planning month and optional referenced reversal code.
+- Reversal-aware summaries omit a known reversed original transaction when the reversal identifies the original transaction code.
+- Withdrawals default to transfer-to-cash rather than immediate spending.
+- Existing unreviewed transactions can be re-evaluated when a new counterparty rule is saved.
+- Planning month calculations remain compatible with the app's Android API 24 minimum.
+
+Tests added/expanded:
+
+- counterparty smart-rule matching
+- amount caps on person rules
+- configured salary notification sender + message matching
+- disabled notification rules
+- same-month vs next-month salary planning
+- generic configured bank-money notification parsing
+
+The final implementation state passed Android CI run #23 before the documentation update.
+
 ## Current implementation
 
 Baseline: `main` after the verified reference UI merge
@@ -163,18 +208,18 @@ For every implementation phase:
 4. Fix the actual cause before continuing.
 5. Only mark the implementation complete when the relevant check passes.
 
-## Immediate next phase after M-Pesa ingestion is proven on-device
+## Immediate next phase after smart-money rules merge
 
-1. Install the debug APK on the Redmi Note 14 and grant PesaTrack Notification Access.
-2. Trigger a real M-Pesa transaction and verify the Connection screen captures the correct name, amount, fee, code and optional balance.
-3. Collect only anonymized format examples for any transaction type the parser misses; never commit real private transaction content.
-4. Add explicit reversal linking and own-account transfer rules before using captured data as spending.
-5. Connect Activity to the local ledger.
-6. Connect Home totals and last-known balance semantics to the local ledger without fabricating unavailable balances.
-7. Connect smart categorization rules to persisted transactions.
-8. Add budgets/plan calculations on top of real categorized transactions.
+1. Install the latest debug APK on the Redmi Note 14 and grant PesaTrack Notification Access.
+2. Validate at least one real outgoing M-Pesa transaction and one real incoming/configured money notification against Activity and Transaction Details.
+3. Verify the captured counterparty name, amount, transaction code, fee, last-known balance and review/classification behavior on-device.
+4. Collect only anonymized examples for any real notification format the deterministic parsers miss; never commit private raw financial messages.
+5. Connect Home totals and last-known-balance semantics to the real ledger, clearly distinguishing observed balance from continuously live balance.
+6. Connect Plan to real categorized transactions and use transaction `planning_month` for salary-funded monthly plans.
+7. Connect Goals to deliberate goal allocations/savings transfers instead of treating unspent money as automatically saved.
+8. Add threshold/forecast notifications only after the real ledger and Plan calculations are proven correct.
 9. Prototype historical SMS import only if the Redmi/installer can legitimately grant the restricted SMS permissions.
-10. Add biometric/PIN protection before exposing sensitive historical financial detail at scale.
+10. Add biometric/PIN protection before exposing larger volumes of sensitive historical financial detail.
 
 ## Important constraints
 
