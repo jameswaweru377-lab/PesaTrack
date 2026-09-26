@@ -97,6 +97,33 @@ Implemented on this pass:
 
 The correction was validated with Android unit tests and debug APK assembly on CI before merge.
 
+## M-Pesa ingestion foundation
+
+The first real data-ingestion slice is implemented using Android Notification Listener access rather than requiring restricted SMS permissions.
+
+Implemented:
+
+- `MpesaNotificationListenerService` receives newly posted notifications after the user explicitly grants Notification Access.
+- Notification bodies are filtered locally; unrelated notifications are ignored.
+- M-Pesa confirmation text is parsed into structured fields using the deterministic `MpesaParser`.
+- Person-to-person counterparty parsing prioritizes the recipient/sender name and strips trailing full or masked phone tokens.
+- Parsed transactions are stored in an app-private SQLite ledger.
+- Raw M-Pesa notification/SMS bodies are **not persisted**.
+- Transactions are deduplicated by transaction code when available and a deterministic SHA-256 fingerprint as fallback.
+- Stored fields include transaction code, type, amount, fee, counterparty name, optional balance, observed time and ingestion source.
+- If a confirmation includes a new M-Pesa balance, PesaTrack stores it as a **last known observed balance** with timestamp. It is not treated as continuously live.
+- Settings now includes an M-Pesa Connection screen with Notification Access controls and local diagnostics.
+- The Android app still declares no Internet permission; cleartext traffic is explicitly disabled.
+- Unit tests cover parser name cleanup, M-Pesa notification detection and transaction fingerprint stability.
+
+Why Notification Access first:
+
+- Modern Android treats `READ_SMS` and `RECEIVE_SMS` as restricted permissions whose availability depends on installer/platform policy.
+- Notification Listener access is explicitly granted by the user in Android Settings and is suitable for testing real-time M-Pesa confirmation capture on the Redmi Note 14.
+- Historical SMS import remains a separate follow-up experiment after the real-time path is proven on-device.
+
+The first code-complete ingestion build passed Android CI run #17.
+
 ## Current implementation
 
 Baseline: `main` after the verified reference UI merge
@@ -136,18 +163,18 @@ For every implementation phase:
 4. Fix the actual cause before continuing.
 5. Only mark the implementation complete when the relevant check passes.
 
-## Immediate next phase after bootstrap CI is green
+## Immediate next phase after M-Pesa ingestion is proven on-device
 
-1. Add Room entities/DAO/database and repository layer.
-2. Persist parsed transactions using integer minor units (cents), not floating point.
-3. Add an importer abstraction so ingestion is not coupled directly to SMS APIs.
-4. Prototype SMS access on the real Redmi Note 14.
-5. Add notification-listener ingestion as a future-transaction fallback.
-6. Add duplicate detection using transaction code plus normalized fingerprint.
-7. Handle reversals and transfers correctly before counting spending.
-8. Replace preview Activity data with repository-backed data.
-9. Add smart-rule creation/editing UI.
-10. Then connect Home totals, budgets and goals to real stored data.
+1. Install the debug APK on the Redmi Note 14 and grant PesaTrack Notification Access.
+2. Trigger a real M-Pesa transaction and verify the Connection screen captures the correct name, amount, fee, code and optional balance.
+3. Collect only anonymized format examples for any transaction type the parser misses; never commit real private transaction content.
+4. Add explicit reversal linking and own-account transfer rules before using captured data as spending.
+5. Connect Activity to the local ledger.
+6. Connect Home totals and last-known balance semantics to the local ledger without fabricating unavailable balances.
+7. Connect smart categorization rules to persisted transactions.
+8. Add budgets/plan calculations on top of real categorized transactions.
+9. Prototype historical SMS import only if the Redmi/installer can legitimately grant the restricted SMS permissions.
+10. Add biometric/PIN protection before exposing sensitive historical financial detail at scale.
 
 ## Important constraints
 
