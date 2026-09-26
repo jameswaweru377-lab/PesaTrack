@@ -16,14 +16,27 @@ object SmartRuleEngine {
         transaction: ParsedMpesaTransaction,
         rules: List<SmartRule>
     ): SmartRule? {
-        val counterparty = transaction.counterparty?.normalize()
+        val counterparty = transaction.counterparty?.normalizeName()
+        val phone = normalizePhone(transaction.counterpartyPhone.orEmpty())
 
         return rules
             .asSequence()
             .filter(SmartRule::enabled)
-            .filter { rule -> rule.counterpartyContains.isNotBlank() }
             .filter { rule ->
-                counterparty?.contains(rule.counterpartyContains.normalize()) == true
+                when {
+                    rule.counterpartyPhoneEquals.isNotBlank() ->
+                        phone.isNotBlank() &&
+                            phone == normalizePhone(rule.counterpartyPhoneEquals)
+
+                    rule.counterpartyExact.isNotBlank() ->
+                        counterparty != null &&
+                            counterparty == rule.counterpartyExact.normalizeName()
+
+                    rule.counterpartyContains.isNotBlank() ->
+                        counterparty?.contains(rule.counterpartyContains.normalizeName()) == true
+
+                    else -> false
+                }
             }
             .filter { rule ->
                 rule.maximumAmountMinor == null || transaction.amountMinor <= rule.maximumAmountMinor
@@ -36,8 +49,8 @@ object SmartRuleEngine {
         body: String,
         rules: List<SmartRule>
     ): SmartRule? {
-        val normalizedTitle = title.orEmpty().normalize()
-        val normalizedBody = body.normalize()
+        val normalizedTitle = title.orEmpty().normalizeText()
+        val normalizedBody = body.normalizeText()
 
         return rules
             .asSequence()
@@ -48,15 +61,49 @@ object SmartRuleEngine {
             }
             .filter { rule ->
                 rule.notificationTitleContains.isBlank() ||
-                    normalizedTitle.contains(rule.notificationTitleContains.normalize())
+                    normalizedTitle.contains(rule.notificationTitleContains.normalizeText())
             }
             .filter { rule ->
                 rule.messageContains.isBlank() ||
-                    normalizedBody.contains(rule.messageContains.normalize())
+                    normalizedBody.contains(rule.messageContains.normalizeText())
             }
             .firstOrNull()
     }
 
-    private fun String.normalize(): String =
-        trim().lowercase().replace(Regex("""\s+"""), " ")
+    fun sameStrongIdentity(
+        transaction: ParsedMpesaTransaction,
+        rule: SmartRule
+    ): Boolean {
+        val phone = normalizePhone(transaction.counterpartyPhone.orEmpty())
+        if (rule.counterpartyPhoneEquals.isNotBlank()) {
+            return phone.isNotBlank() &&
+                phone == normalizePhone(rule.counterpartyPhoneEquals)
+        }
+
+        if (rule.counterpartyExact.isNotBlank()) {
+            return transaction.counterparty?.normalizeName() ==
+                rule.counterpartyExact.normalizeName()
+        }
+
+        return false
+    }
+
+    private fun String.normalizeName(): String =
+        trim()
+            .lowercase()
+            .replace(Regex("""[^a-z0-9]+"""), " ")
+            .replace(Regex("""s+"""), " ")
+            .trim()
+
+    private fun String.normalizeText(): String =
+        trim().lowercase().replace(Regex("""s+"""), " ")
+
+    private fun normalizePhone(value: String): String {
+        val digits = value.filter(Char::isDigit)
+        return when {
+            digits.startsWith("254") && digits.length == 12 -> "+" + digits
+            digits.startsWith("0") && digits.length == 10 -> "+254" + digits.drop(1)
+            else -> value.trim()
+        }
+    }
 }
