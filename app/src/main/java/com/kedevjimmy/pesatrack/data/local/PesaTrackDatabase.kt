@@ -32,6 +32,17 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 "CREATE INDEX IF NOT EXISTS idx_transactions_review_state ON transactions(review_state)"
             )
         }
+        if (oldVersion < 3) {
+            db.execSQL(
+                "ALTER TABLE transactions ADD COLUMN occurred_at_epoch_ms INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL(
+                "UPDATE transactions SET occurred_at_epoch_ms = received_at_epoch_ms WHERE occurred_at_epoch_ms = 0"
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_transactions_occurred_at ON transactions(occurred_at_epoch_ms DESC)"
+            )
+        }
     }
 
     private fun createTransactionsTable(db: SQLiteDatabase) {
@@ -47,6 +58,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 balance_minor INTEGER,
                 counterparty TEXT,
                 occurred_at_text TEXT,
+                occurred_at_epoch_ms INTEGER NOT NULL,
                 received_at_epoch_ms INTEGER NOT NULL,
                 source_package TEXT,
                 source_kind TEXT NOT NULL,
@@ -92,6 +104,9 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             "CREATE INDEX idx_transactions_received_at ON transactions(received_at_epoch_ms DESC)"
         )
         db.execSQL(
+            "CREATE INDEX idx_transactions_occurred_at ON transactions(occurred_at_epoch_ms DESC)"
+        )
+        db.execSQL(
             "CREATE INDEX idx_transactions_balance ON transactions(balance_minor) WHERE balance_minor IS NOT NULL"
         )
         db.execSQL(
@@ -104,6 +119,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
     }
 }
