@@ -57,7 +57,7 @@ Insights are intentionally embedded where they matter instead of becoming a fift
 
 ## Reference UI implementation
 
-A full visual alignment pass based on the approved PesaTrack concept screens is being implemented on branch `design/reference-ui`.
+The full visual alignment pass based on the approved PesaTrack concept screens is merged into `main` and verified by Android CI.
 
 Reference-aligned scope:
 
@@ -74,22 +74,26 @@ Reference-aligned scope:
 - Activity -> Transaction Details navigation
 - Goals -> Goal Details navigation
 
-All financial values in these screens remain preview data until the local data layer is connected. The design pass must pass Android CI before merge.
+All financial values in these screens remain preview data until the local data layer is connected. The reference UI passed Android CI on the PR branch and again on merged `main` (run #11).
 
 ## Current implementation
 
-Branch: `bootstrap/android-foundation`
+Baseline: `main` after the verified reference UI merge
 
 Bootstrap scope:
 
 - Android/Gradle structure.
 - Compose Material 3 shell.
 - light/dark theme foundations.
-- onboarding/privacy screen.
-- Home preview screen.
-- Activity preview screen.
-- Plan preview screen.
-- Goals preview screen.
+- reference-aligned onboarding/privacy screen.
+- reference-aligned Home screen.
+- reference-aligned Activity screen.
+- reference-aligned Plan screen.
+- reference-aligned Goals screen.
+- Transaction Details screen.
+- Goal Details screen.
+- custom PesaTrack app icon/brand mark.
+- Activity and Goals inner-page navigation.
 - bottom navigation.
 - deterministic `MpesaParser`.
 - `SmartRuleEngine`.
