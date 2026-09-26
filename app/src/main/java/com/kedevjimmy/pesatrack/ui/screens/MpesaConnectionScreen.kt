@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -70,96 +71,108 @@ fun MpesaConnectionScreen(
         refresh()
     }
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 18.dp, vertical = 16.dp),
+            .background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+            Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
             }
             Column {
-                Text("M-Pesa connection", style = MaterialTheme.typography.headlineMedium)
-                Text(
-                    "Real-time, on-device transaction capture",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Text("M-Pesa connection", style = MaterialTheme.typography.headlineMedium)
+            Text(
+            "Real-time, on-device transaction capture",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            }
             }
         }
 
-        ConnectionStatusCard(accessGranted)
+        item {
+            ConnectionStatusCard(accessGranted)
+        }
 
-        if (!accessGranted) {
+        item {
+            if (!accessGranted) {
             Button(
-                onClick = {
-                    launcher.launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp)
+            onClick = {
+            launcher.launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp)
             ) {
-                Icon(Icons.Rounded.Notifications, contentDescription = null)
-                Text(
-                    "Grant notification access",
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+            Icon(Icons.Rounded.Notifications, contentDescription = null)
+            Text(
+            "Grant notification access",
+            modifier = Modifier.padding(start = 8.dp)
+            )
             }
-        } else {
+            } else {
             OutlinedButton(
-                onClick = {
-                    launcher.launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp)
+            onClick = {
+            launcher.launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp)
             ) {
-                Icon(Icons.Rounded.Notifications, contentDescription = null)
-                Text(
-                    "Manage notification access",
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+            Icon(Icons.Rounded.Notifications, contentDescription = null)
+            Text(
+            "Manage notification access",
+            modifier = Modifier.padding(start = 8.dp)
+            )
+            }
             }
         }
 
-        SectionHeader("Live diagnostics")
-        LedgerDiagnostics(snapshot)
+        item {
+            SectionHeader("Live diagnostics")
+            LedgerDiagnostics(snapshot)
+        }
 
-        OutlinedButton(
+        item {
+            OutlinedButton(
             onClick = { refresh() },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp)
-        ) {
+            ) {
             Icon(Icons.Rounded.Refresh, contentDescription = null)
             Text("Refresh", modifier = Modifier.padding(start = 8.dp))
+            }
         }
 
-        Surface(
+        item {
+            Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.primaryContainer
-        ) {
-            Row(
-                Modifier.padding(16.dp),
-                verticalAlignment = Alignment.Top
             ) {
-                Icon(
-                    Icons.Rounded.Lock,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Column(Modifier.padding(start = 10.dp)) {
-                    Text(
-                        "Local by design",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Text(
-                        "PesaTrack filters notifications on this phone. Unrelated notifications are ignored, and raw M-Pesa message bodies are not saved. Only structured transaction fields are kept locally.",
-                        modifier = Modifier.padding(top = 4.dp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
+            Row(
+            Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top
+            ) {
+            Icon(
+            Icons.Rounded.Lock,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Column(Modifier.padding(start = 10.dp)) {
+            Text(
+            "Local by design",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Text(
+            "PesaTrack filters notifications on this phone. Unrelated notifications are ignored, and raw M-Pesa message bodies are not saved. Only structured transaction fields are kept locally.",
+            modifier = Modifier.padding(top = 4.dp),
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            }
+            }
             }
         }
     }
