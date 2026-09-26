@@ -6,6 +6,12 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
+enum class ThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK
+}
+
 private val LightColors = lightColorScheme(
     primary = Emerald,
     onPrimary = SurfaceLight,
@@ -33,8 +39,8 @@ private val DarkColors = darkColorScheme(
     onPrimaryContainer = NightText,
     secondary = androidx.compose.ui.graphics.Color(0xFFFFC764),
     onSecondary = Night,
-    secondaryContainer = androidx.compose.ui.graphics.Color(0xFF4D3712),
-    onSecondaryContainer = NightText,
+    secondaryContainer = NightAmberSurface,
+    onSecondaryContainer = NightAmberText,
     background = Night,
     onBackground = NightText,
     surface = NightSurface,
@@ -43,7 +49,7 @@ private val DarkColors = darkColorScheme(
     onSurfaceVariant = NightMuted,
     outline = NightOutline,
     error = androidx.compose.ui.graphics.Color(0xFFFF9097),
-    errorContainer = androidx.compose.ui.graphics.Color(0xFF4A2025)
+    errorContainer = NightRoseSurface
 )
 
 @Composable
