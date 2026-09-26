@@ -12,9 +12,8 @@ import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.PlanningPeriodResolver
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
-import java.time.Instant
-import java.time.ZoneId
-import java.time.YearMonth
+import java.util.Calendar
+import java.util.TimeZone
 
 class TransactionStore private constructor(context: Context) {
     private val database = PesaTrackDatabase(context)
@@ -121,17 +120,20 @@ class TransactionStore private constructor(context: Context) {
     @Synchronized
     fun activitySnapshot(
         nowEpochMs: Long = System.currentTimeMillis(),
-        zoneId: ZoneId = ZoneId.systemDefault()
+        timeZone: TimeZone = TimeZone.getDefault()
     ): ActivityLedgerSnapshot {
-        val currentMonth = YearMonth.from(Instant.ofEpochMilli(nowEpochMs).atZone(zoneId))
+        val now = Calendar.getInstance(timeZone).apply { timeInMillis = nowEpochMs }
+        val currentYear = now.get(Calendar.YEAR)
+        val currentMonth = now.get(Calendar.MONTH)
         val transactions = recent(200)
         val reversedCodes = reversedTransactionCodes()
 
         val monthTransactions = transactions.filter { item ->
-            val observedMonth = YearMonth.from(
-                Instant.ofEpochMilli(item.receivedAtEpochMs).atZone(zoneId)
-            )
-            observedMonth == currentMonth
+            val observed = Calendar.getInstance(timeZone).apply {
+                timeInMillis = item.receivedAtEpochMs
+            }
+            observed.get(Calendar.YEAR) == currentYear &&
+                observed.get(Calendar.MONTH) == currentMonth
         }
 
         val effective = monthTransactions.filter { item ->
