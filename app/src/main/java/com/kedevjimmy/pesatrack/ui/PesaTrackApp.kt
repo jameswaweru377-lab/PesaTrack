@@ -58,7 +58,9 @@ fun PesaTrackApp(
                 onContinue = {
                     navController.navigate("money-setup-initial")
                 },
-                onSkip = ::finishSetup
+                onSkip = {
+                    navController.navigate("money-setup-initial")
+                }
             )
         }
 
