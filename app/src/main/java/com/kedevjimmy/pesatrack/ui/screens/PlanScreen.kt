@@ -204,14 +204,20 @@ fun PlanScreen(scaffoldPadding: PaddingValues) {
         item {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = MintSoft,
+                color = pesaToneContainer("green"),
+                contentColor = MaterialTheme.colorScheme.onSurface,
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Row(
                     Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconBubble(Icons.Rounded.TrendingUp, size = 40.dp, background = MintSoft)
+                    IconBubble(
+                        Icons.Rounded.TrendingUp,
+                        size = 40.dp,
+                        background = pesaToneContainer("green"),
+                        tint = pesaToneContent("green")
+                    )
                     Column(
                         Modifier
                             .weight(1f)
