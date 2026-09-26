@@ -71,9 +71,7 @@ class TransactionStore private constructor(context: Context) {
         }
 
         val latest = db.rawQuery(
-            "${BASE_SELECT}
-             ORDER BY received_at_epoch_ms DESC, id DESC
-             LIMIT 1".trimIndent(),
+            BASE_SELECT + " ORDER BY received_at_epoch_ms DESC, id DESC LIMIT 1",
             null
         ).use { cursor ->
             if (!cursor.moveToFirst()) null else cursor.toStoredTransaction()
@@ -112,9 +110,7 @@ class TransactionStore private constructor(context: Context) {
     @Synchronized
     fun recent(limit: Int = 100): List<StoredTransaction> =
         database.readableDatabase.rawQuery(
-            "${BASE_SELECT}
-             ORDER BY received_at_epoch_ms DESC, id DESC
-             LIMIT ?".trimIndent(),
+            BASE_SELECT + " ORDER BY received_at_epoch_ms DESC, id DESC LIMIT ?",
             arrayOf(limit.coerceIn(1, 500).toString())
         ).use { cursor ->
             buildList {
