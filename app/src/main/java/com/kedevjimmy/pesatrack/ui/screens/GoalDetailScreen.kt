@@ -80,8 +80,7 @@ fun GoalDetailScreen(
             LandscapeBackdrop(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp),
-                dark = MaterialTheme.colorScheme.background.luminance() < .2f
+                    .height(280.dp)
             ) {
                 Column(
                     Modifier
