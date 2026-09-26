@@ -29,7 +29,7 @@ Signature concepts planned:
 - Package: `com.kedevjimmy.pesatrack`.
 - Minimum SDK: 24.
 - Target SDK: 36.
-- Compile SDK: 37.
+- Compile SDK: 36.
 - Compose BOM: 2026.09.00.
 - Material 3 stable.
 - Room and WorkManager are dependencies; database/background ingestion wiring is still pending.
