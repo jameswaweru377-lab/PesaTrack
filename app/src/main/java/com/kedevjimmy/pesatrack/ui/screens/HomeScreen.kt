@@ -275,7 +275,7 @@ fun HomeScreen(
                     "Good",
                     Icons.Rounded.Shield,
                     Modifier.weight(1f),
-                    MintSoft
+                    "green"
                 )
             }
         }
