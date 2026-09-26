@@ -2,8 +2,10 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -50,6 +52,8 @@ import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import com.kedevjimmy.pesatrack.ui.theme.Amber
 import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
 import com.kedevjimmy.pesatrack.ui.theme.MintSoft
@@ -57,7 +61,10 @@ import com.kedevjimmy.pesatrack.ui.theme.RoseSoft
 import com.kedevjimmy.pesatrack.ui.theme.SkySoft
 
 @Composable
-fun HomeScreen(scaffoldPadding: PaddingValues) {
+fun HomeScreen(
+    scaffoldPadding: PaddingValues,
+    onProfileClick: () -> Unit = {}
+) {
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
@@ -88,7 +95,9 @@ fun HomeScreen(scaffoldPadding: PaddingValues) {
                     )
                 }
                 Surface(
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clickable(onClick = onProfileClick),
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primaryContainer
                 ) {
@@ -107,7 +116,7 @@ fun HomeScreen(scaffoldPadding: PaddingValues) {
             LandscapeBackdrop(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(252.dp)
+                    .height(318.dp)
             ) {
                 Column(
                     Modifier
@@ -155,37 +164,7 @@ fun HomeScreen(scaffoldPadding: PaddingValues) {
                         shape = RoundedCornerShape(22.dp),
                         color = MaterialTheme.colorScheme.surface.copy(alpha = .92f)
                     ) {
-                        Row(
-                            Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            CompactMoneyMetric(
-                                "Current money",
-                                "KES 28,450",
-                                Icons.Rounded.AccountBalanceWallet,
-                                Modifier.weight(1f)
-                            )
-                            CompactMoneyMetric(
-                                "Committed",
-                                "KES 10,200",
-                                Icons.Rounded.CalendarMonth,
-                                Modifier.weight(1f),
-                                "amber"
-                            )
-                            CompactMoneyMetric(
-                                "Saved",
-                                "KES 5,400",
-                                Icons.Rounded.Savings,
-                                Modifier.weight(1f)
-                            )
-                            CompactMoneyMetric(
-                                "Free",
-                                "KES 12,850",
-                                Icons.Rounded.Paid,
-                                Modifier.weight(1f),
-                                "blue"
-                            )
-                        }
+                        ResponsiveMoneyMetrics()
                     }
                 }
             }
@@ -227,7 +206,7 @@ fun HomeScreen(scaffoldPadding: PaddingValues) {
         item {
             Card(
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = AmberSoft)
+                colors = CardDefaults.cardColors(containerColor = pesaToneContainer("amber"))
             ) {
                 Row(
                     Modifier.padding(18.dp),
@@ -237,14 +216,14 @@ fun HomeScreen(scaffoldPadding: PaddingValues) {
                     IconBubble(
                         Icons.Rounded.Restaurant,
                         tint = Amber,
-                        background = Color(0xFFFFE5AA),
+                        background = pesaToneContainer("amber"),
                         size = 50.dp
                     )
                     Column(Modifier.weight(1f)) {
                         Text(
                             "One thing to know",
                             style = MaterialTheme.typography.labelLarge,
-                            color = Color(0xFF9A650D)
+                            color = pesaToneContent("amber")
                         )
                         Text(
                             "Lunch is running 18% ahead of your normal pace.",
@@ -269,7 +248,7 @@ fun HomeScreen(scaffoldPadding: PaddingValues) {
                     "↑ 12%",
                     Icons.Rounded.Paid,
                     Modifier.weight(1f),
-                    RoseSoft
+                    "red"
                 )
                 SummaryCard(
                     "Saved",
@@ -277,7 +256,7 @@ fun HomeScreen(scaffoldPadding: PaddingValues) {
                     "↑ 8%",
                     Icons.Rounded.Savings,
                     Modifier.weight(1f),
-                    MintSoft
+                    "green"
                 )
             }
             Spacer(Modifier.height(10.dp))
@@ -288,7 +267,7 @@ fun HomeScreen(scaffoldPadding: PaddingValues) {
                     "3 upcoming",
                     Icons.Rounded.CalendarMonth,
                     Modifier.weight(1f),
-                    SkySoft
+                    "blue"
                 )
                 SummaryCard(
                     "Free to spend",
@@ -339,6 +318,40 @@ fun HomeScreen(scaffoldPadding: PaddingValues) {
 }
 
 @Composable
+private fun ResponsiveMoneyMetrics() {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val wide = maxWidth >= 600.dp
+        if (wide) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CompactMoneyMetric("Current money", "KES 28,450", Icons.Rounded.AccountBalanceWallet, Modifier.weight(1f))
+                CompactMoneyMetric("Committed", "KES 10,200", Icons.Rounded.CalendarMonth, Modifier.weight(1f), "amber")
+                CompactMoneyMetric("Saved", "KES 5,400", Icons.Rounded.Savings, Modifier.weight(1f))
+                CompactMoneyMetric("Free", "KES 12,850", Icons.Rounded.Paid, Modifier.weight(1f), "blue")
+            }
+        } else {
+            Column(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CompactMoneyMetric("Current money", "KES 28,450", Icons.Rounded.AccountBalanceWallet, Modifier.weight(1f))
+                    CompactMoneyMetric("Committed", "KES 10,200", Icons.Rounded.CalendarMonth, Modifier.weight(1f), "amber")
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CompactMoneyMetric("Saved", "KES 5,400", Icons.Rounded.Savings, Modifier.weight(1f))
+                    CompactMoneyMetric("Free", "KES 12,850", Icons.Rounded.Paid, Modifier.weight(1f), "blue")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun CompactMoneyMetric(
     label: String,
     value: String,
@@ -350,11 +363,8 @@ private fun CompactMoneyMetric(
         IconBubble(
             icon = icon,
             size = 30.dp,
-            background = when (tone) {
-                "amber" -> AmberSoft
-                "blue" -> SkySoft
-                else -> MintSoft
-            }
+            background = pesaToneContainer(tone),
+            tint = pesaToneContent(tone)
         )
         Spacer(Modifier.height(5.dp))
         Text(
@@ -377,23 +387,34 @@ private fun SummaryCard(
     tag: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier,
-    bubble: Color
+    tone: String
 ) {
     PesaCard(modifier) {
-        Row(
-            Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconBubble(icon, background = bubble, size = 38.dp)
-            Column(
-                Modifier
-                    .weight(1f)
-                    .padding(start = 10.dp)
+        Column(Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(value, style = MaterialTheme.typography.titleMedium)
+                IconBubble(
+                    icon,
+                    background = pesaToneContainer(tone),
+                    tint = pesaToneContent(tone),
+                    size = 38.dp
+                )
+                Spacer(Modifier.weight(1f))
+                SmallStatusPill(tag, tone)
             }
-            SmallStatusPill(tag)
+            Text(
+                title,
+                modifier = Modifier.padding(top = 10.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 1
+            )
         }
     }
 }
