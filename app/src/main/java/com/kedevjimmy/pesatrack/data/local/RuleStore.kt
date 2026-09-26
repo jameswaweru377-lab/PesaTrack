@@ -20,7 +20,8 @@ class RuleStore private constructor(context: Context) {
                    message_contains, category, direction, maximum_amount_minor,
                    planning_month_offset, display_label, enabled, preset,
                    planned_amount_minor, starts_pay_cycle, account_id,
-                   linked_account_id, pay_window_start_day, pay_window_end_day
+                   linked_account_id, pay_window_start_day, pay_window_end_day,
+                   counterparty_exact, counterparty_phone_equals
             FROM smart_rules
             $where
             ORDER BY updated_at_epoch_ms DESC
@@ -50,7 +51,9 @@ class RuleStore private constructor(context: Context) {
                             accountId = cursor.getStringOrNull(14),
                             linkedAccountId = cursor.getStringOrNull(15),
                             payWindowStartDay = cursor.getIntOrNull(16),
-                            payWindowEndDay = cursor.getIntOrNull(17)
+                            payWindowEndDay = cursor.getIntOrNull(17),
+                            counterpartyExact = cursor.getString(18),
+                            counterpartyPhoneEquals = cursor.getString(19)
                         )
                     )
                 }
@@ -77,10 +80,14 @@ class RuleStore private constructor(context: Context) {
         linkedAccountId: String? = null,
         payWindowStartDay: Int? = null,
         payWindowEndDay: Int? = null,
+        counterpartyExact: String = "",
+        counterpartyPhoneEquals: String = "",
         id: String = UUID.randomUUID().toString()
     ): SmartRule {
         require(
             counterpartyContains.isNotBlank() ||
+                counterpartyExact.isNotBlank() ||
+                counterpartyPhoneEquals.isNotBlank() ||
                 notificationTitleContains.isNotBlank() ||
                 messageContains.isNotBlank()
         ) { "A smart rule needs at least one match condition." }
@@ -112,6 +119,8 @@ class RuleStore private constructor(context: Context) {
             if (linkedAccountId != null) put("linked_account_id", linkedAccountId) else putNull("linked_account_id")
             if (payWindowStartDay != null) put("pay_window_start_day", payWindowStartDay) else putNull("pay_window_start_day")
             if (payWindowEndDay != null) put("pay_window_end_day", payWindowEndDay) else putNull("pay_window_end_day")
+            put("counterparty_exact", counterpartyExact.trim())
+            put("counterparty_phone_equals", normalizePhone(counterpartyPhoneEquals))
             put("updated_at_epoch_ms", now)
             put("created_at_epoch_ms", existingCreatedAt)
         }
@@ -141,7 +150,9 @@ class RuleStore private constructor(context: Context) {
             accountId = accountId,
             linkedAccountId = linkedAccountId,
             payWindowStartDay = payWindowStartDay,
-            payWindowEndDay = payWindowEndDay
+            payWindowEndDay = payWindowEndDay,
+            counterpartyExact = counterpartyExact.trim(),
+            counterpartyPhoneEquals = normalizePhone(counterpartyPhoneEquals)
         )
     }
 
@@ -169,3 +180,12 @@ private fun android.database.Cursor.getLongOrNull(index: Int): Long? =
 
 private fun android.database.Cursor.getIntOrNull(index: Int): Int? =
     if (isNull(index)) null else getInt(index)
+
+private fun normalizePhone(value: String): String {
+    val digits = value.filter(Char::isDigit)
+    return when {
+        digits.startsWith("254") && digits.length == 12 -> "+" + digits
+        digits.startsWith("0") && digits.length == 10 -> "+254" + digits.drop(1)
+        else -> value.trim()
+    }
+}
