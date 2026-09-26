@@ -19,7 +19,12 @@ data class StoredTransaction(
     val reviewState: String,
     val ruleId: String?,
     val planningMonth: String?,
-    val reversalOfCode: String?
+    val reversalOfCode: String?,
+    val accountId: String?,
+    val linkedAccountId: String?,
+    val payCycleId: String?,
+    val cycleCandidateReason: String?,
+    val cycleOverride: String?
 )
 
 data class LedgerSnapshot(
