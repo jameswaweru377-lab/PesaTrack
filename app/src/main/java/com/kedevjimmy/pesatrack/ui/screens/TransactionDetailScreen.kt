@@ -21,6 +21,7 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.LocalDining
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Paid
 import androidx.compose.material.icons.rounded.ReceiptLong
