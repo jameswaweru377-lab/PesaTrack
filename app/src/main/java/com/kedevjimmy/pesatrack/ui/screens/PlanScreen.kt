@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -44,6 +45,8 @@ import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
 import com.kedevjimmy.pesatrack.ui.theme.MintSoft
 import com.kedevjimmy.pesatrack.ui.theme.RoseSoft
@@ -113,34 +116,53 @@ fun PlanScreen(scaffoldPadding: PaddingValues) {
         }
 
         item {
-            LandscapeBackdrop(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(222.dp)
-            ) {
-                Column(
-                    Modifier
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val compact = maxWidth < 600.dp
+                LandscapeBackdrop(
+                    modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .height(if (compact) 340.dp else 230.dp)
                 ) {
-                    Text(
-                        "Monthly plan",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Spacer(Modifier.weight(1f))
-                    Surface(
-                        shape = RoundedCornerShape(22.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = .94f)
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
                     ) {
-                        Row(
-                            Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        Text(
+                            "Monthly plan",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Surface(
+                            shape = RoundedCornerShape(22.dp),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = .96f)
                         ) {
-                            PlanTopMetric("Monthly income", "KES 28,000", "↑ 0%", Icons.Rounded.AccountBalanceWallet, Modifier.weight(1f), "green")
-                            PlanTopMetric("Planned spending", "KES 13,800", "↑ 5%", Icons.Rounded.ShoppingBag, Modifier.weight(1f), "red")
-                            PlanTopMetric("Planned savings", "KES 12,200", "↑ 8%", Icons.Rounded.Savings, Modifier.weight(1f), "green")
-                            PlanTopMetric("Unallocated", "KES 2,000", "7% of income", Icons.Rounded.TrendingUp, Modifier.weight(1f), "blue")
+                            if (compact) {
+                                Column(
+                                    Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        PlanTopMetric("Monthly income", "KES 28,000", "↑ 0%", Icons.Rounded.AccountBalanceWallet, Modifier.weight(1f), "green")
+                                        PlanTopMetric("Planned spending", "KES 13,800", "↑ 5%", Icons.Rounded.ShoppingBag, Modifier.weight(1f), "red")
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        PlanTopMetric("Planned savings", "KES 12,200", "↑ 8%", Icons.Rounded.Savings, Modifier.weight(1f), "green")
+                                        PlanTopMetric("Unallocated", "KES 2,000", "7% of income", Icons.Rounded.TrendingUp, Modifier.weight(1f), "blue")
+                                    }
+                                }
+                            } else {
+                                Row(
+                                    Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    PlanTopMetric("Monthly income", "KES 28,000", "↑ 0%", Icons.Rounded.AccountBalanceWallet, Modifier.weight(1f), "green")
+                                    PlanTopMetric("Planned spending", "KES 13,800", "↑ 5%", Icons.Rounded.ShoppingBag, Modifier.weight(1f), "red")
+                                    PlanTopMetric("Planned savings", "KES 12,200", "↑ 8%", Icons.Rounded.Savings, Modifier.weight(1f), "green")
+                                    PlanTopMetric("Unallocated", "KES 2,000", "7% of income", Icons.Rounded.TrendingUp, Modifier.weight(1f), "blue")
+                                }
+                            }
                         }
                     }
                 }
@@ -237,15 +259,12 @@ private fun PlanTopMetric(
         IconBubble(
             icon,
             size = 34.dp,
-            background = when (tone) {
-                "red" -> RoseSoft
-                "blue" -> SkySoft
-                else -> MintSoft
-            }
+            background = pesaToneContainer(tone),
+            tint = pesaToneContent(tone)
         )
         Spacer(Modifier.height(7.dp))
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
         Spacer(Modifier.height(5.dp))
         SmallStatusPill(trend, if (tone == "red") "amber" else if (tone == "blue") "blue" else "green")
     }
@@ -253,48 +272,48 @@ private fun PlanTopMetric(
 
 @Composable
 private fun BudgetRow(item: PlanBudget) {
-    Row(
+    Column(
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 10.dp)
     ) {
-        IconBubble(
-            item.icon,
-            size = 38.dp,
-            background = when (item.tone) {
-                "amber" -> AmberSoft
-                "blue" -> SkySoft
-                "red" -> RoseSoft
-                else -> MintSoft
-            }
-        )
-        Column(
-            Modifier
-                .padding(start = 10.dp)
-                .weight(.33f)
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(item.name, style = MaterialTheme.typography.titleMedium)
-            SmallStatusPill(item.type, if (item.type == "Fixed") "blue" else "green")
+            IconBubble(
+                item.icon,
+                size = 40.dp,
+                background = pesaToneContainer(item.tone),
+                tint = pesaToneContent(item.tone)
+            )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(start = 11.dp)
+            ) {
+                Text(item.name, style = MaterialTheme.typography.titleMedium)
+                SmallStatusPill(item.type, if (item.type == "Fixed") "blue" else "green")
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(item.amount, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    item.percent,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         LinearProgressIndicator(
             progress = { item.progress },
             modifier = Modifier
-                .weight(.34f)
+                .fillMaxWidth()
+                .padding(start = 51.dp, top = 9.dp)
                 .height(8.dp),
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.surfaceVariant,
             strokeCap = StrokeCap.Round
         )
-        Column(
-            modifier = Modifier
-                .padding(start = 10.dp)
-                .weight(.33f),
-            horizontalAlignment = Alignment.End
-        ) {
-            Text(item.amount, style = MaterialTheme.typography.bodySmall)
-            Text(item.percent, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
     }
 }
 
@@ -309,7 +328,8 @@ private fun RecurringBillRow(item: RecurringBill) {
         IconBubble(
             item.icon,
             size = 40.dp,
-            background = if (item.tone == "blue") SkySoft else AmberSoft
+            background = pesaToneContainer(item.tone),
+            tint = pesaToneContent(item.tone)
         )
         Column(
             Modifier
