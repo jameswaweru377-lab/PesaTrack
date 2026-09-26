@@ -184,6 +184,12 @@ fun InitialMoneySetupScreen(
         val source = incomeSource ?: return
         val arrivalMethod = arrival ?: return
 
+        context.getSharedPreferences("pesatrack_preferences", Context.MODE_PRIVATE)
+            .edit()
+            .putString("primary_income_source", source.name)
+            .putString("primary_income_arrival", arrivalMethod.name)
+            .apply()
+
         if (source == IncomeSourceChoice.SALARY) {
             val salaryIdentifier = selectedCandidate?.originator
                 ?.takeIf { it.isNotBlank() }
