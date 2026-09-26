@@ -10,6 +10,7 @@ data class StoredTransaction(
     val balanceMinor: Long?,
     val counterparty: String?,
     val occurredAtText: String?,
+    val occurredAtEpochMs: Long,
     val receivedAtEpochMs: Long,
     val sourcePackage: String?,
     val sourceKind: String,
