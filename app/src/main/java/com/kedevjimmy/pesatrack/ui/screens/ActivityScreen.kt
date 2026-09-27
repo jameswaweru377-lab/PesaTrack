@@ -37,8 +37,10 @@ import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.ShoppingCart
 import androidx.compose.material.icons.rounded.SyncAlt
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Card
+import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -46,6 +48,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivityMonthBucket
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
+import com.kedevjimmy.pesatrack.data.local.PossibleDuplicateGroup
 import com.kedevjimmy.pesatrack.data.local.ReviewGroup
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
@@ -146,7 +150,17 @@ fun ActivityScreen(
     }
 
     val selectedMonthLabel = monthLabel(selectedMonthEpochMs)
+    val possibleDuplicateIds = snapshot.possibleDuplicates
+        .flatMap { listOf(it.first.id, it.second.id) }
+        .toSet()
     val filtered = snapshot.transactions.filter { item ->
+        if (item.reviewState == ReviewState.EXCLUDED.name) {
+            return@filter false
+        }
+        if (item.id in possibleDuplicateIds) {
+            return@filter false
+        }
+
         when (selectedFilter) {
             "Expenses" -> item.direction == MoneyDirection.EXPENSE.name
             "Income" -> item.direction == MoneyDirection.INCOME.name
@@ -222,6 +236,7 @@ fun ActivityScreen(
                         listOf(
                             "All",
                             "Review",
+                            "Duplicates",
                             "Expenses",
                             "Income",
                             "Transfers"
@@ -245,6 +260,23 @@ fun ActivityScreen(
 
                 if (
                     selectedFilter == "All" &&
+                    snapshot.possibleDuplicates.isNotEmpty()
+                ) {
+                    item(
+                        key = "duplicate-callout-" +
+                            bucket.monthStartEpochMs
+                    ) {
+                        PossibleDuplicateCallout(
+                            pairCount = snapshot.possibleDuplicates.size,
+                            onClick = {
+                                selectedFilter = "Duplicates"
+                            }
+                        )
+                    }
+                }
+
+                if (
+                    selectedFilter == "All" &&
                     snapshot.reviewGroups.isNotEmpty()
                 ) {
                     item(key = "review-callout-" + bucket.monthStartEpochMs) {
@@ -257,7 +289,65 @@ fun ActivityScreen(
                     }
                 }
 
-                if (selectedFilter == "Review") {
+                if (selectedFilter == "Duplicates") {
+                    if (snapshot.possibleDuplicates.isEmpty()) {
+                        item(
+                            key = "duplicate-empty-" +
+                                bucket.monthStartEpochMs
+                        ) {
+                            EmptyDuplicateState(selectedMonthLabel)
+                        }
+                    } else {
+                        item(
+                            key = "duplicate-title-" +
+                                bucket.monthStartEpochMs
+                        ) {
+                            Column {
+                                Text(
+                                    "Possible duplicates",
+                                    style =
+                                        MaterialTheme.typography.titleLarge
+                                )
+                                Text(
+                                    "These are reconciliation problems, not categorization problems. Compare the two observations and decide whether they are the same money movement.",
+                                    modifier = Modifier.padding(top = 3.dp),
+                                    style =
+                                        MaterialTheme.typography.bodyMedium,
+                                    color =
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        items(
+                            count = snapshot.possibleDuplicates.size,
+                            key = { index ->
+                                "duplicate-" +
+                                    snapshot.possibleDuplicates[index].key
+                            }
+                        ) { index ->
+                            val group =
+                                snapshot.possibleDuplicates[index]
+                            PossibleDuplicateRow(
+                                group = group,
+                                onSameTransaction = {
+                                    store.resolvePossibleDuplicate(
+                                        pairKey = group.key,
+                                        sameTransaction = true
+                                    )
+                                    refresh()
+                                },
+                                onKeepBoth = {
+                                    store.resolvePossibleDuplicate(
+                                        pairKey = group.key,
+                                        sameTransaction = false
+                                    )
+                                    refresh()
+                                }
+                            )
+                        }
+                    }
+                } else if (selectedFilter == "Review") {
                     if (snapshot.reviewGroups.isEmpty()) {
                         item(key = "review-empty-" + bucket.monthStartEpochMs) {
                             EmptyActivityState(
@@ -423,10 +513,35 @@ private fun ActivitySummaryCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (snapshot.reviewGroups.isNotEmpty()) {
+                if (
+                    snapshot.possibleDuplicates.isNotEmpty() ||
+                    snapshot.reviewGroups.isNotEmpty()
+                ) {
+                    val duplicateText =
+                        if (snapshot.possibleDuplicates.isNotEmpty()) {
+                            snapshot.possibleDuplicates.size.toString() +
+                                " duplicate" +
+                                if (
+                                    snapshot.possibleDuplicates.size == 1
+                                ) {
+                                    ""
+                                } else {
+                                    "s"
+                                }
+                        } else {
+                            ""
+                        }
+                    val reviewText =
+                        if (snapshot.reviewGroups.isNotEmpty()) {
+                            snapshot.reviewGroups.size.toString() +
+                                " review"
+                        } else {
+                            ""
+                        }
                     SmallStatusPill(
-                        "${snapshot.reviewGroups.size} review group" +
-                            if (snapshot.reviewGroups.size == 1) "" else "s",
+                        listOf(duplicateText, reviewText)
+                            .filter(String::isNotBlank)
+                            .joinToString(" • "),
                         "amber"
                     )
                 }
@@ -568,6 +683,202 @@ private fun EmptyActivityState(
                 } else {
                     "Try another filter to see more activity from $monthLabel."
                 },
+                modifier = Modifier.padding(top = 5.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun PossibleDuplicateCallout(
+    pairCount: Int,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.errorContainer
+    ) {
+        Row(
+            Modifier.padding(15.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconBubble(
+                Icons.Rounded.WarningAmber,
+                size = 42.dp,
+                background =
+                    MaterialTheme.colorScheme.surface.copy(alpha = .7f),
+                tint = MaterialTheme.colorScheme.error
+            )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 11.dp)
+            ) {
+                Text(
+                    pairCount.toString() +
+                        " possible duplicate pair" +
+                        if (pairCount == 1) "" else "s",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    "These observations are close enough to deserve reconciliation before they are treated as separate transactions.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = "Review possible duplicates"
+            )
+        }
+    }
+}
+
+@Composable
+private fun PossibleDuplicateRow(
+    group: PossibleDuplicateGroup,
+    onSameTransaction: () -> Unit,
+    onKeepBoth: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBubble(
+                    Icons.Rounded.WarningAmber,
+                    size = 40.dp,
+                    background = MaterialTheme.colorScheme.errorContainer,
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .padding(start = 11.dp)
+                ) {
+                    Text(
+                        formatMoney(group.amountMinor),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Two observations • " +
+                            (group.timeDeltaMs / 1000L).toString() +
+                            "s apart",
+                        style = MaterialTheme.typography.bodySmall,
+                        color =
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            DuplicateObservationLine(
+                label = "Observation 1",
+                item = group.first
+            )
+            DuplicateObservationLine(
+                label = "Observation 2",
+                item = group.second
+            )
+
+            Text(
+                "PesaTrack will not remove either record unless you confirm they describe the same transaction.",
+                modifier = Modifier.padding(top = 10.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onKeepBoth,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Keep both")
+                }
+                Button(
+                    onClick = onSameTransaction,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Same transaction")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DuplicateObservationLine(
+    label: String,
+    item: StoredTransaction
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge
+        )
+        Text(
+            duplicateSourceLabel(item) +
+                " • " +
+                formatPreciseTime(item.receivedAtEpochMs),
+            modifier = Modifier.padding(top = 2.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            buildString {
+                append(humanize(item.direction))
+                if (!item.transactionCode.isNullOrBlank()) {
+                    append(" • code ")
+                    append(item.transactionCode)
+                } else {
+                    append(" • no transaction code")
+                }
+            },
+            modifier = Modifier.padding(top = 2.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun EmptyDuplicateState(
+    monthLabel: String
+) {
+    PesaCard {
+        Column(
+            Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            IconBubble(
+                Icons.Rounded.WarningAmber,
+                size = 52.dp,
+                background = pesaToneContainer("green"),
+                tint = pesaToneContent("green")
+            )
+            Text(
+                "No possible duplicates in " + monthLabel,
+                modifier = Modifier.padding(top = 12.dp),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                "Any previously reviewed pairs marked Keep both are also kept out of this queue.",
                 modifier = Modifier.padding(top = 5.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -870,6 +1181,24 @@ private fun monthStart(year: Int, month: Int): Long =
         set(Calendar.MILLISECOND, 0)
     }.timeInMillis
 
+
+private fun duplicateSourceLabel(
+    item: StoredTransaction
+): String =
+    item.counterparty
+        ?.takeIf(String::isNotBlank)
+        ?: item.evidenceSource
+            ?.takeIf(String::isNotBlank)
+        ?: item.sourcePackage
+            ?.substringAfterLast('.')
+            ?.takeIf(String::isNotBlank)
+        ?: humanize(item.sourceKind)
+
+private fun formatPreciseTime(epochMs: Long): String =
+    SimpleDateFormat(
+        "d MMM, HH:mm:ss",
+        Locale.getDefault()
+    ).format(Date(epochMs))
 
 private fun humanize(value: String): String =
     value.lowercase()
