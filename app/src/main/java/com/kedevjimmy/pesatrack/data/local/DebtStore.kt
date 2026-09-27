@@ -154,16 +154,17 @@ class DebtStore private constructor(context: Context) {
             )
         }
 
-        event.outstandingAfterMinor?.let {
+        if (event.outstandingAfterMinor != null) {
             updateBalance(
                 accountId = identity.id,
-                outstandingMinor = it,
+                outstandingMinor =
+                    event.outstandingAfterMinor,
                 quality =
                     DebtBalanceQuality.OBSERVED,
                 observedAtEpochMs =
                     occurredAtEpochMs
             )
-        } ?: if (insert.inserted) {
+        } else if (insert.inserted) {
             applyEstimatedDelta(
                 accountId = identity.id,
                 deltaMinor =
