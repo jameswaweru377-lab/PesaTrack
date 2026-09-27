@@ -173,6 +173,9 @@ fun PesaTrackApp(
                     scaffoldPadding = padding,
                     onTransactionClick = { id ->
                         navController.navigate("transaction-detail/$id")
+                    },
+                    onProfileClick = {
+                        navController.navigate("profile")
                     }
                 )
             }

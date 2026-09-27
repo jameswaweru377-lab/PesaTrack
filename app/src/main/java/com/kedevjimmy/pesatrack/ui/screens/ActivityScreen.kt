@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -63,7 +64,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -82,7 +86,9 @@ import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
+import com.kedevjimmy.pesatrack.ui.components.PesaTrackTopBar
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
+import com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import java.text.NumberFormat
@@ -94,7 +100,8 @@ import java.util.Locale
 @Composable
 fun ActivityScreen(
     scaffoldPadding: PaddingValues,
-    onTransactionClick: (Long) -> Unit = {}
+    onTransactionClick: (Long) -> Unit = {},
+    onProfileClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val store = remember { TransactionStore.get(context) }
@@ -201,6 +208,12 @@ fun ActivityScreen(
         }
     }
 
+    val groupedFiltered = filtered
+        .sortedByDescending { it.occurredAtEpochMs }
+        .groupBy { dayStart(it.occurredAtEpochMs) }
+        .toList()
+        .sortedByDescending { it.first }
+
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
@@ -212,23 +225,30 @@ fun ActivityScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            PesaTrackTopBar(
+                onProfileClick = onProfileClick
+            )
+        }
+
+        item {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         "Activity",
-                        style = MaterialTheme.typography.headlineLarge
+                        style = MaterialTheme.typography.titleLarge
                     )
                     Text(
-                        "Your captured money activity.",
-                        style = MaterialTheme.typography.bodyLarge,
+                        "Track. Review. Take control.",
+                        style = MaterialTheme.typography.bodySmall,
                         color =
                             MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Surface(
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = 2.dp
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     IconButton(onClick = ::refresh) {
                         Icon(
@@ -476,20 +496,32 @@ fun ActivityScreen(
                         )
                     }
                 } else {
-                    items(
-                        count = filtered.size,
-                        key = { index ->
-                            filtered[index].id
+                    groupedFiltered.forEach { (dayEpochMs, transactions) ->
+                        item(
+                            key = "day-" +
+                                bucket.monthStartEpochMs +
+                                "-" +
+                                dayEpochMs
+                        ) {
+                            ActivityDateHeader(
+                                dayEpochMs = dayEpochMs,
+                                transactions = transactions
+                            )
                         }
-                    ) { index ->
-                        ActivityRow(
-                            item = filtered[index],
-                            onClick = {
-                                onTransactionClick(
-                                    filtered[index].id
-                                )
+                        items(
+                            count = transactions.size,
+                            key = { index ->
+                                transactions[index].id
                             }
-                        )
+                        ) { index ->
+                            val transaction = transactions[index]
+                            ActivityRow(
+                                item = transaction,
+                                onClick = {
+                                    onTransactionClick(transaction.id)
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -1054,55 +1086,154 @@ private fun ActivitySummaryCard(
     monthLabel: String
 ) {
     val summary = snapshot.summary
-    PesaCard {
-        Column(Modifier.padding(16.dp)) {
+    val dark = isPesaDarkTheme()
+    val gradient = if (dark) {
+        listOf(
+            Color(0xFF06453E),
+            Color(0xFF0A6A59)
+        )
+    } else {
+        listOf(
+            Color(0xFF087A5B),
+            Color(0xFF0A9B73)
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(Brush.linearGradient(gradient))
+            .padding(16.dp)
+    ) {
+        Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        monthLabel,
-                        style = MaterialTheme.typography.titleLarge
+                        monthLabel + " Summary",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White
                     )
                     Text(
-                        "${formatMoney(summary.spentMinor)} spent • ${formatMoney(summary.incomeMinor)} income",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        formatMoney(summary.spentMinor) +
+                            " spent • " +
+                            formatMoney(summary.incomeMinor) +
+                            " income",
+                        modifier = Modifier.padding(top = 2.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = .78f)
                     )
                 }
                 if (
                     snapshot.possibleDuplicates.isNotEmpty() ||
                     snapshot.reviewGroups.isNotEmpty()
                 ) {
-                    val duplicateText =
-                        if (snapshot.possibleDuplicates.isNotEmpty()) {
-                            snapshot.possibleDuplicates.size.toString() +
-                                " duplicate" +
-                                if (
-                                    snapshot.possibleDuplicates.size == 1
-                                ) {
-                                    ""
-                                } else {
-                                    "s"
-                                }
-                        } else {
-                            ""
-                        }
-                    val reviewText =
-                        if (snapshot.reviewGroups.isNotEmpty()) {
-                            snapshot.reviewGroups.size.toString() +
-                                " review"
-                        } else {
-                            ""
-                        }
-                    SmallStatusPill(
-                        listOf(duplicateText, reviewText)
-                            .filter(String::isNotBlank)
-                            .joinToString(" • "),
-                        "amber"
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color.White.copy(alpha = .14f)
+                    ) {
+                        Text(
+                            (
+                                snapshot.reviewGroups.size +
+                                    snapshot.possibleDuplicates.size
+                                ).toString() +
+                                " to check",
+                            modifier = Modifier.padding(
+                                horizontal = 10.dp,
+                                vertical = 5.dp
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.padding(top = 18.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                SummaryAmount(
+                    label = "Money in",
+                    value = formatMoney(summary.incomeMinor),
+                    modifier = Modifier.weight(1f)
+                )
+                SummaryAmount(
+                    label = "Money spent",
+                    value = formatMoney(summary.spentMinor),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 14.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White.copy(alpha = .13f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    SummaryMini(
+                        "Fees",
+                        formatMoney(summary.feesMinor),
+                        Modifier.weight(1f)
+                    )
+                    SummaryMini(
+                        "Net",
+                        formatSignedMoney(summary.netMinor),
+                        Modifier.weight(1f)
                     )
                 }
             }
-            Spacer(Modifier.height(16.dp))
-            ResponsiveActivityMetrics(snapshot, monthLabel)
         }
+    }
+}
+
+@Composable
+private fun SummaryAmount(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = .72f)
+        )
+        Text(
+            value,
+            modifier = Modifier.padding(top = 2.dp),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun SummaryMini(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = .68f)
+        )
+        Text(
+            value,
+            modifier = Modifier.padding(top = 1.dp),
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White,
+            maxLines = 1
+        )
     }
 }
 
@@ -1548,6 +1679,37 @@ private fun ReviewGroupRow(
 }
 
 @Composable
+private fun ActivityDateHeader(
+    dayEpochMs: Long,
+    transactions: List<StoredTransaction>
+) {
+    val expenseTotal = transactions
+        .filter { it.direction == MoneyDirection.EXPENSE.name }
+        .sumOf { it.amountMinor + it.feeMinor }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            dayLabel(dayEpochMs),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (expenseTotal > 0L) {
+            Text(
+                formatMoney(expenseTotal),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
 private fun ActivityRow(
     item: StoredTransaction,
     onClick: () -> Unit
@@ -1569,15 +1731,16 @@ private fun ActivityRow(
         else -> "green"
     }
 
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
     ) {
         Row(
-            Modifier.padding(13.dp),
+            Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconBubble(
@@ -1714,6 +1877,32 @@ private fun formatSignedMoney(minor: Long): String =
 
 private fun formatTime(epochMs: Long): String =
     SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(Date(epochMs))
+
+private fun dayStart(epochMs: Long): Long =
+    Calendar.getInstance().apply {
+        timeInMillis = epochMs
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+private fun dayLabel(epochMs: Long): String {
+    val today = dayStart(System.currentTimeMillis())
+    val yesterday = Calendar.getInstance().apply {
+        timeInMillis = today
+        add(Calendar.DAY_OF_MONTH, -1)
+    }.timeInMillis
+
+    return when (epochMs) {
+        today -> "Today"
+        yesterday -> "Yesterday"
+        else -> SimpleDateFormat(
+            "EEE, d MMM",
+            Locale.getDefault()
+        ).format(Date(epochMs))
+    }
+}
 
 private fun monthLabel(epochMs: Long): String =
     SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date(epochMs))
