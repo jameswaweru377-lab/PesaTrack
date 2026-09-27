@@ -29,6 +29,7 @@ class FulizaParserTest {
         assertEquals("UIQFT85YNE", parsed?.transactionCode)
         assertEquals(22_000L, parsed?.repaidAmountMinor)
         assertEquals(58_909L, parsed?.availableLimitMinor)
+        assertEquals(0L, parsed?.mpesaBalanceMinor)
     }
 
     @Test
