@@ -53,7 +53,7 @@ object MpesaParser {
 
     fun parse(message: String): ParsedMpesaTransaction? {
         val normalized = message.replace(Regex("""\s+"""), " ").trim()
-        if (FulizaParser.isFulizaDrawdown(normalized)) {
+        if (FulizaParser.isFulizaDebtEvent(normalized)) {
             return null
         }
         if (!normalized.contains("M-PESA", ignoreCase = true) &&

@@ -177,6 +177,14 @@ fun TransactionDetailScreen(
     }
 
     val current = transaction
+    val linkedRefundOriginal =
+        current
+            ?.takeIf {
+                it.relationType ==
+                    TransactionStore.RELATION_REFUND
+            }
+            ?.relatedTransactionId
+            ?.let(store::getById)
 
     if (current != null && pendingCategoryId != null) {
         val categoryId = pendingCategoryId!!
@@ -306,6 +314,18 @@ fun TransactionDetailScreen(
             }
         }
 
+        if (
+            current.relationType ==
+            TransactionStore.RELATION_REFUND
+        ) {
+            item {
+                RefundLinkCard(
+                    item = current,
+                    original = linkedRefundOriginal
+                )
+            }
+        }
+
         item {
             SectionHeader("Classification")
             Spacer(Modifier.height(8.dp))
@@ -338,14 +358,19 @@ fun TransactionDetailScreen(
             }
         }
 
-        item {
-            SectionHeader("Choose a category")
-            Spacer(Modifier.height(8.dp))
-            CategoryGrid(
-                currentCategoryId =
-                    categoryStore.canonicalId(current.category),
-                onSelected = ::applyCategory
-            )
+        if (
+            current.relationType !=
+            TransactionStore.RELATION_REFUND
+        ) {
+            item {
+                SectionHeader("Choose a category")
+                Spacer(Modifier.height(8.dp))
+                CategoryGrid(
+                    currentCategoryId =
+                        categoryStore.canonicalId(current.category),
+                    onSelected = ::applyCategory
+                )
+            }
         }
 
         item {
@@ -428,19 +453,37 @@ fun TransactionDetailScreen(
                             }
                         )
                     }
-                    ActionRow(
-                        icon = Icons.Rounded.SwapHoriz,
-                        label = "Mark as own-account transfer",
-                        onClick = {
-                            store.classifyManually(
-                                id = current.id,
-                                category = TransactionCategory.TRANSFER,
-                                direction = MoneyDirection.TRANSFER,
-                                markTransfer = true
-                            )
-                            refresh()
-                        }
-                    )
+                    if (
+                        current.relationType ==
+                        TransactionStore.RELATION_REFUND
+                    ) {
+                        ActionRow(
+                            icon = Icons.Rounded.SwapHoriz,
+                            label = "This was not a refund",
+                            onClick = {
+                                store.unlinkRefund(current.id)
+                                refresh()
+                            }
+                        )
+                    }
+                    if (
+                        current.relationType !=
+                        TransactionStore.RELATION_REFUND
+                    ) {
+                        ActionRow(
+                            icon = Icons.Rounded.SwapHoriz,
+                            label = "Mark as own-account transfer",
+                            onClick = {
+                                store.classifyManually(
+                                    id = current.id,
+                                    category = TransactionCategory.TRANSFER,
+                                    direction = MoneyDirection.TRANSFER,
+                                    markTransfer = true
+                                )
+                                refresh()
+                            }
+                        )
+                    }
                     ActionRow(
                         icon = Icons.Rounded.Block,
                         label = "Exclude from budget",
@@ -615,6 +658,90 @@ private fun FulizaFundingCard(item: StoredTransaction) {
                     item.fulizaOutstandingMinor?.let(::formatMoney) ?: "—",
                     Icons.Rounded.AccountCircle,
                     Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RefundLinkCard(
+    item: StoredTransaction,
+    original: StoredTransaction?
+) {
+    val context = LocalContext.current
+    val categoryStore = remember {
+        CategoryStore.get(context)
+    }
+    val categoryLabel =
+        categoryStore.labelFor(item.category)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = pesaToneContainer("green")
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconBubble(
+                    Icons.Rounded.SwapHoriz,
+                    size = 44.dp,
+                    background =
+                        MaterialTheme.colorScheme.surface
+                            .copy(alpha = .7f),
+                    tint = pesaToneContent("green")
+                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp)
+                ) {
+                    Text(
+                        "Refund linked to purchase",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        if (
+                            original != null &&
+                            original.reviewState !=
+                                ReviewState.NEEDS_REVIEW.name &&
+                            original.reviewState !=
+                                ReviewState.EXCLUDED.name
+                        ) {
+                            "Not counted as income. It reduces " +
+                                categoryLabel +
+                                " spending."
+                        } else {
+                            "Not counted as income. Review the original purchase before this refund changes trusted spending totals."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+            }
+
+            original?.let {
+                Text(
+                    buildString {
+                        append("Original: ")
+                        append(
+                            it.counterparty
+                                ?: "transaction"
+                        )
+                        append(" • ")
+                        append(formatMoney(it.amountMinor))
+                        append(" • ")
+                        append(formatDateTime(it.occurredAtEpochMs))
+                    },
+                    modifier = Modifier.padding(top = 10.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
                 )
             }
         }

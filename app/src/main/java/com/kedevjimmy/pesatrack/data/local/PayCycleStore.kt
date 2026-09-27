@@ -173,14 +173,17 @@ class PayCycleStore private constructor(context: Context) {
         val remainingCommitments = commitments.sumOf { it.remainingMinor }
         val startingFunds = cycle.openingIncomeMinor + cycle.carryoverMinor
         val available = startingFunds +
-            totals.additionalIncomeMinor -
+            totals.additionalIncomeMinor +
+            totals.refundsMinor -
             totals.spentMinor -
             totals.feesMinor -
             totals.savingsMinor -
             remainingCommitments
         val unexplainedFundingGap = FundingGapPolicy.unexplainedGap(
             startingFundsMinor = startingFunds,
-            additionalIncomeMinor = totals.additionalIncomeMinor,
+            additionalIncomeMinor =
+                totals.additionalIncomeMinor +
+                    totals.refundsMinor,
             spentMinor = totals.spentMinor,
             feesMinor = totals.feesMinor
         )
@@ -211,7 +214,8 @@ class PayCycleStore private constructor(context: Context) {
             estimatedDaysRemaining = daysRemaining,
             commitments = commitments,
             pendingSalary = pending,
-            unexplainedFundingGapMinor = unexplainedFundingGap
+            unexplainedFundingGapMinor = unexplainedFundingGap,
+            refundsMinor = totals.refundsMinor
         )
     }
 
@@ -312,7 +316,8 @@ class PayCycleStore private constructor(context: Context) {
         )
         return openingIncomeMinor +
             carryoverMinor +
-            totals.additionalIncomeMinor -
+            totals.additionalIncomeMinor +
+            totals.refundsMinor -
             totals.spentMinor -
             totals.feesMinor -
             totals.savingsMinor
@@ -351,7 +356,8 @@ class PayCycleStore private constructor(context: Context) {
 
         return database.readableDatabase.rawQuery(
             """
-            SELECT id, amount_minor, fee_minor, direction, category
+            SELECT id, amount_minor, fee_minor, direction, category,
+                   relation_type, related_transaction_id
             FROM transactions
             WHERE $selection
             """.trimIndent(),
@@ -361,6 +367,7 @@ class PayCycleStore private constructor(context: Context) {
             var spent = 0L
             var fees = 0L
             var savings = 0L
+            var refunds = 0L
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(0)
@@ -368,10 +375,18 @@ class PayCycleStore private constructor(context: Context) {
                 val fee = cursor.getLong(2)
                 val direction = cursor.getString(3)
                 val category = cursor.getString(4)
+                val relationType =
+                    if (cursor.isNull(5)) null else cursor.getString(5)
+                val relatedTransactionId =
+                    if (cursor.isNull(6)) null else cursor.getLong(6)
 
                 fees += fee
 
                 when {
+                    relationType == TransactionStore.RELATION_REFUND &&
+                        relatedTransactionId != null &&
+                        isTrustedExpense(relatedTransactionId) ->
+                        refunds += amount
                     id != startTransactionId && direction == MoneyDirection.INCOME.name ->
                         additionalIncome += amount
                     direction == MoneyDirection.EXPENSE.name ->
@@ -379,7 +394,8 @@ class PayCycleStore private constructor(context: Context) {
                     direction == MoneyDirection.TRANSFER.name &&
                         category in setOf(
                             "SAVINGS",
-                            "INVESTMENT"
+                            "INVESTMENT",
+                            "DEBT_LOAN"
                         ) ->
                         savings += amount
                 }
@@ -391,7 +407,8 @@ class PayCycleStore private constructor(context: Context) {
                 additionalIncomeMinor = additionalIncome,
                 spentMinor = spent,
                 feesMinor = fees,
-                savingsMinor = savings
+                savingsMinor = savings,
+                refundsMinor = refunds
             )
         }
     }
@@ -413,6 +430,31 @@ class PayCycleStore private constructor(context: Context) {
             if (cursor.moveToFirst()) cursor.getLong(0) else 0L
         }
     }
+
+    private fun isTrustedExpense(
+        transactionId: Long
+    ): Boolean =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT 1
+            FROM transactions
+            WHERE id = ?
+              AND direction = ?
+              AND review_state != ?
+              AND review_state != ?
+              AND type != ?
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(
+                transactionId.toString(),
+                MoneyDirection.EXPENSE.name,
+                ReviewState.EXCLUDED.name,
+                ReviewState.NEEDS_REVIEW.name,
+                MpesaTransactionType.REVERSAL.name
+            )
+        ).use { cursor ->
+            cursor.moveToFirst()
+        }
 
     private fun commitmentsFor(cycle: PayCycle): List<CommitmentProgress> {
         val rules = database.readableDatabase.rawQuery(
@@ -574,7 +616,8 @@ class PayCycleStore private constructor(context: Context) {
         val additionalIncomeMinor: Long,
         val spentMinor: Long,
         val feesMinor: Long,
-        val savingsMinor: Long
+        val savingsMinor: Long,
+        val refundsMinor: Long
     )
 
     private data class RuleCommitment(

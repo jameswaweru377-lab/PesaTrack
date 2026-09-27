@@ -17,7 +17,8 @@ data class FulizaStoreResult(
 )
 
 class FulizaStore private constructor(context: Context) {
-    private val database = PesaTrackDatabase(context.applicationContext)
+    private val appContext = context.applicationContext
+    private val database = PesaTrackDatabase(appContext)
 
     @Synchronized
     fun insertOrUpdate(
@@ -88,6 +89,14 @@ class FulizaStore private constructor(context: Context) {
             eventId = eventId,
             financedAmountMinor = parsed.financedAmountMinor,
             occurredAtEpochMs = occurredAtEpochMs
+        )
+
+        DebtStore.get(appContext).recordFulizaDrawdown(
+            parsed = parsed,
+            sourcePackage = sourcePackage,
+            sourceKind = sourceKind,
+            occurredAtEpochMs = occurredAtEpochMs,
+            linkedTransactionId = linked
         )
 
         return FulizaStoreResult(

@@ -42,6 +42,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
+import com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality
+import com.kedevjimmy.pesatrack.data.local.DebtEventRecord
+import com.kedevjimmy.pesatrack.data.local.DebtEventType
+import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
@@ -87,6 +91,7 @@ fun HomeScreen(
     val transactionStore = remember { TransactionStore.get(context) }
     val budgetStore = remember { BudgetStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
+    val debtStore = remember { DebtStore.get(context) }
     val ruleStore = remember { RuleStore.get(context) }
     val preferences = remember {
         context.getSharedPreferences(
@@ -120,17 +125,34 @@ fun HomeScreen(
     var monthlyBudgets by remember {
         mutableStateOf(budgetStore.list())
     }
+    var debtAccounts by remember {
+        mutableStateOf(debtStore.accounts())
+    }
 
     fun refresh() {
         cycleSnapshot = cycleStore.snapshot()
         ledgerSnapshot = transactionStore.snapshot()
         activitySnapshot = transactionStore.activitySnapshot()
         monthlyBudgets = budgetStore.list()
+        debtAccounts = debtStore.accounts()
     }
 
     LaunchedEffect(ledgerUpdateState.revision) {
         if (ledgerUpdateState.revision > 0L) {
             refresh()
+        }
+    }
+
+    val latestDebtEvents = remember(
+        debtAccounts,
+        ledgerUpdateState.revision
+    ) {
+        debtAccounts.associate { account ->
+            account.id to
+                debtStore.recentEvents(
+                    debtAccountId = account.id,
+                    limit = 1
+                ).firstOrNull()
         }
     }
 
@@ -154,16 +176,43 @@ fun HomeScreen(
     val spendSlices = remember(activitySnapshot) {
         activitySnapshot.transactions
             .filter {
-                it.direction == MoneyDirection.EXPENSE.name &&
-                    it.reviewState != ReviewState.EXCLUDED.name &&
-                    it.reviewState != ReviewState.NEEDS_REVIEW.name
+                it.reviewState != ReviewState.EXCLUDED.name &&
+                    it.reviewState != ReviewState.NEEDS_REVIEW.name &&
+                    (
+                        it.direction ==
+                            MoneyDirection.EXPENSE.name ||
+                            it.relationType ==
+                                TransactionStore.RELATION_REFUND
+                        )
             }
             .groupBy {
                 categoryStore.canonicalId(it.category)
             }
             .mapValues { (_, items) ->
-                items.sumOf { it.amountMinor + it.feeMinor }
+                maxOf(
+                    0L,
+                    items.sumOf { item ->
+                        if (
+                            item.relationType ==
+                            TransactionStore.RELATION_REFUND
+                        ) {
+                            if (
+                                refundCountsInTrustedTotals(
+                                    item = item,
+                                    store = transactionStore
+                                )
+                            ) {
+                                -item.amountMinor
+                            } else {
+                                0L
+                            }
+                        } else {
+                            item.amountMinor + item.feeMinor
+                        }
+                    }
+                )
             }
+            .filterValues { it > 0L }
             .entries
             .sortedByDescending { it.value }
             .mapIndexed { index, entry ->
@@ -185,7 +234,28 @@ fun HomeScreen(
                 categoryStore.canonicalId(it.category)
             }
             .mapValues { (_, items) ->
-                items.sumOf { it.amountMinor + it.feeMinor }
+                maxOf(
+                    0L,
+                    items.sumOf { item ->
+                        if (
+                            item.relationType ==
+                            TransactionStore.RELATION_REFUND
+                        ) {
+                            if (
+                                refundCountsInTrustedTotals(
+                                    item = item,
+                                    store = transactionStore
+                                )
+                            ) {
+                                -item.amountMinor
+                            } else {
+                                0L
+                            }
+                        } else {
+                            item.amountMinor + item.feeMinor
+                        }
+                    }
+                )
             }
 
         monthlyBudgets
@@ -317,7 +387,7 @@ fun HomeScreen(
                 subtitle = if (cycleSnapshot.cycle == null) {
                     "PesaTrack will calculate this from real salary-cycle data."
                 } else {
-                    "After tracked spending, savings, investments and protected commitments."
+                    "After tracked spending, savings, investments, debt repayments and protected commitments."
                 },
                 footer = cycleSnapshot.safeTodayMinor?.let {
                     "Safe today " + formatMoney(it)
@@ -339,8 +409,12 @@ fun HomeScreen(
                 }
             val cycleSpent =
                 if (cycle != null) {
-                    cycleSnapshot.spentMinor +
-                        cycleSnapshot.feesMinor
+                    maxOf(
+                        0L,
+                        cycleSnapshot.spentMinor +
+                            cycleSnapshot.feesMinor -
+                            cycleSnapshot.refundsMinor
+                    )
                 } else {
                     activitySnapshot.summary.spentMinor +
                         activitySnapshot.summary.feesMinor
@@ -368,6 +442,17 @@ fun HomeScreen(
                     incoming = false,
                     helper = helper,
                     modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        if (debtAccounts.any { it.outstandingMinor > 0L }) {
+            item {
+                DebtOverviewCard(
+                    accounts = debtAccounts.filter {
+                        it.outstandingMinor > 0L
+                    },
+                    latestEvents = latestDebtEvents
                 )
             }
         }
@@ -466,6 +551,98 @@ fun HomeScreen(
         }
     }
 }
+
+@Composable
+private fun DebtOverviewCard(
+    accounts: List<com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot>,
+    latestEvents: Map<String, DebtEventRecord?>
+) {
+    PesaCard {
+        Column(Modifier.padding(15.dp)) {
+            Text(
+                "Debt",
+                style = MaterialTheme.typography.titleLarge
+            )
+            Text(
+                "Borrowed money is tracked separately from spending.",
+                modifier = Modifier.padding(top = 2.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            accounts.take(3).forEachIndexed { index, account ->
+                if (index > 0) {
+                    androidx.compose.material3.HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 10.dp)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            account.name,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            if (
+                                account.balanceQuality ==
+                                DebtBalanceQuality.OBSERVED
+                            ) {
+                                "Observed outstanding balance"
+                            } else {
+                                "Estimated after repayments"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        latestEvents[account.id]?.let { event ->
+                            Text(
+                                debtEventLabel(event),
+                                modifier = Modifier.padding(top = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    Text(
+                        formatMoney(account.outstandingMinor),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun refundCountsInTrustedTotals(
+    item: com.kedevjimmy.pesatrack.data.local.StoredTransaction,
+    store: TransactionStore
+): Boolean {
+    val originalId = item.relatedTransactionId ?: return false
+    val original = store.getById(originalId) ?: return false
+    return original.direction == MoneyDirection.EXPENSE.name &&
+        original.reviewState != ReviewState.EXCLUDED.name &&
+        original.reviewState != ReviewState.NEEDS_REVIEW.name &&
+        original.type !=
+            com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
+                .REVERSAL.name
+}
+
+private fun debtEventLabel(
+    event: DebtEventRecord
+): String =
+    when (event.type) {
+        DebtEventType.DRAWDOWN ->
+            "Borrowed " + formatMoney(event.amountMinor)
+        DebtEventType.REPAYMENT ->
+            "Repaid " + formatMoney(event.amountMinor)
+        DebtEventType.FEE ->
+            "Finance cost " + formatMoney(event.feeMinor)
+        DebtEventType.ADJUSTMENT ->
+            "Debt adjusted " + formatMoney(event.amountMinor)
+    }
 
 @Composable
 private fun GreetingBlock(

@@ -6,6 +6,16 @@ import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class MpesaParserTest {
+    @Test
+    fun ignoresFulizaRepaymentAsOrdinaryMpesaTransaction() {
+        val message =
+            "UIQFT85YNE Confirmed. Ksh 220.00 from your M-PESA has been used to partially pay your outstanding Fuliza M-PESA. Your available Fuliza M-PESA limit is Ksh 589.09. Your M-PESA balance is 0.00."
+
+        val parsed = MpesaParser.parse(message)
+
+        org.junit.Assert.assertNull(parsed)
+    }
+
 
     @Test
     fun parsesSentMoneyMessage() {

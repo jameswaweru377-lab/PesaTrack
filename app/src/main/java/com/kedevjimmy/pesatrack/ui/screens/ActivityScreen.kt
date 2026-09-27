@@ -235,7 +235,9 @@ fun ActivityScreen(
             "Income" ->
                 item.direction == MoneyDirection.INCOME.name
             "Transfers" ->
-                item.direction == MoneyDirection.TRANSFER.name
+                item.direction == MoneyDirection.TRANSFER.name &&
+                    item.relationType !=
+                        TransactionStore.RELATION_REFUND
             else -> true
         }
     }
@@ -2057,12 +2059,16 @@ private fun ActivityRow(
     val categoryLabel = categoryStore.labelFor(categoryId)
     val needsReview =
         item.reviewState == ReviewState.NEEDS_REVIEW.name
+    val isRefund =
+        item.relationType ==
+            TransactionStore.RELATION_REFUND
     val direction = runCatching {
         MoneyDirection.valueOf(item.direction)
     }.getOrDefault(MoneyDirection.NEUTRAL)
 
     val tone = when {
         needsReview -> "amber"
+        isRefund -> "green"
         direction == MoneyDirection.INCOME -> "green"
         direction == MoneyDirection.TRANSFER -> "blue"
         categoryId == TransactionCategory.SHOPPING.name -> "violet"
@@ -2112,10 +2118,11 @@ private fun ActivityRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        if (needsReview) {
-                            "Needs review"
-                        } else {
-                            categoryLabel
+                        when {
+                            needsReview -> "Needs review"
+                            isRefund ->
+                                "Refund • " + categoryLabel
+                            else -> categoryLabel
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = pesaToneContent(tone)
@@ -2324,6 +2331,8 @@ private fun amountLabel(
     direction: MoneyDirection
 ): String {
     val sign = when {
+        item.relationType ==
+            TransactionStore.RELATION_REFUND -> "+"
         direction == MoneyDirection.INCOME -> "+"
         item.type == MpesaTransactionType.REVERSAL.name -> "+"
         direction == MoneyDirection.EXPENSE -> "-"

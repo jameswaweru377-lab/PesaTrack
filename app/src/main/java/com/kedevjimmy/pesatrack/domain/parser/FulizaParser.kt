@@ -2,6 +2,14 @@ package com.kedevjimmy.pesatrack.domain.parser
 
 import java.math.RoundingMode
 
+data class ParsedFulizaRepayment(
+    val transactionCode: String?,
+    val repaidAmountMinor: Long,
+    val availableLimitMinor: Long?,
+    val mpesaBalanceMinor: Long?,
+    val rawMessage: String
+)
+
 data class ParsedFulizaEvent(
     val transactionCode: String?,
     val financedAmountMinor: Long,
@@ -32,6 +40,14 @@ object FulizaParser {
         """Available\s+Fuliza\s+M-PESA\s+limit\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
+    private val repaymentRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+your\s+M-PESA\s+has\s+been\s+used\s+to\s+(?:partially\s+)?pay\s+your\s+outstanding\s+Fuliza\s+M-PESA""",
+        RegexOption.IGNORE_CASE
+    )
+    private val mpesaBalanceRegex = Regex(
+        """(?:Your\s+)?M-PESA\s+balance\s+is\s*(?:(?:Ksh|KES)\s*)?([0-9,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
 
     fun parse(message: String): ParsedFulizaEvent? {
         val normalized = message.replace(Regex("""\s+"""), " ").trim()
@@ -57,8 +73,46 @@ object FulizaParser {
         )
     }
 
+    fun parseRepayment(message: String): ParsedFulizaRepayment? {
+        val normalized = message
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+        val repaid = repaymentRegex
+            .find(normalized)
+            ?.groupValues
+            ?.get(1)
+            ?: return null
+
+        return ParsedFulizaRepayment(
+            transactionCode = codeRegex
+                .find(normalized)
+                ?.groupValues
+                ?.get(1)
+                ?.uppercase(),
+            repaidAmountMinor = amountToMinor(repaid),
+            availableLimitMinor = availableLimitRegex
+                .find(normalized)
+                ?.groupValues
+                ?.get(1)
+                ?.let(::amountToMinor),
+            mpesaBalanceMinor = mpesaBalanceRegex
+                .find(normalized)
+                ?.groupValues
+                ?.get(1)
+                ?.let(::amountToMinor),
+            rawMessage = message
+        )
+    }
+
     fun isFulizaDrawdown(message: String): Boolean =
         financedRegex.containsMatchIn(message)
+
+    fun isFulizaRepayment(message: String): Boolean =
+        repaymentRegex.containsMatchIn(message)
+
+    fun isFulizaDebtEvent(message: String): Boolean =
+        isFulizaDrawdown(message) ||
+            isFulizaRepayment(message)
 
     private fun amountToMinor(raw: String): Long =
         raw.replace(",", "")

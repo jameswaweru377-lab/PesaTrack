@@ -19,6 +19,8 @@ import com.kedevjimmy.pesatrack.domain.rules.PlanningPeriodResolver
 import com.kedevjimmy.pesatrack.domain.rules.PossibleDuplicateObservation
 import com.kedevjimmy.pesatrack.domain.rules.PossibleDuplicatePolicy
 import com.kedevjimmy.pesatrack.domain.rules.ReviewTriagePolicy
+import com.kedevjimmy.pesatrack.domain.rules.RefundCandidate
+import com.kedevjimmy.pesatrack.domain.rules.RefundMatchingPolicy
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import com.kedevjimmy.pesatrack.domain.rules.EvidenceConfidence
 import com.kedevjimmy.pesatrack.domain.rules.FinancialMessageEvidence
@@ -144,6 +146,20 @@ class TransactionStore private constructor(context: Context) {
                 parsed = parsed,
                 occurredAtEpochMs = occurredAtEpochMs
             )
+            if (
+                parsed.type == MpesaTransactionType.RECEIVED ||
+                parsed.type == MpesaTransactionType.DEPOSIT
+            ) {
+                DebtStore.get(appContext)
+                    .linkPendingRepaymentForTransaction(
+                        transactionId = mirrorCandidate.id,
+                        amountMinor = parsed.amountMinor,
+                        occurredAtEpochMs = occurredAtEpochMs
+                    )
+                if (matchedRule == null) {
+                    tryLinkRefund(mirrorCandidate.id)
+                }
+            }
             if (rebuildPayCycles) {
                 PayCycleStore.get(appContext).rebuild()
             }
@@ -176,6 +192,8 @@ class TransactionStore private constructor(context: Context) {
             putNull("pay_cycle_id")
             putNull("cycle_candidate_reason")
             putNull("cycle_override")
+            putNull("relation_type")
+            putNull("related_transaction_id")
             if (evidence != null) {
                 put("evidence_label", evidence.label)
                 put("evidence_source", evidence.sourceLabel)
@@ -203,6 +221,20 @@ class TransactionStore private constructor(context: Context) {
                 parsed = parsed,
                 occurredAtEpochMs = occurredAtEpochMs
             )
+            if (
+                parsed.type == MpesaTransactionType.RECEIVED ||
+                parsed.type == MpesaTransactionType.DEPOSIT
+            ) {
+                DebtStore.get(appContext)
+                    .linkPendingRepaymentForTransaction(
+                        transactionId = rowId,
+                        amountMinor = parsed.amountMinor,
+                        occurredAtEpochMs = occurredAtEpochMs
+                    )
+                if (matchedRule == null) {
+                    tryLinkRefund(rowId)
+                }
+            }
             if (matchedRule == null) {
                 reconcileReviewTriageForMonth(occurredAtEpochMs)
             }
@@ -249,6 +281,7 @@ class TransactionStore private constructor(context: Context) {
     fun snapshot(): LedgerSnapshot {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
+        ensureRefundsReconciled()
         val db = database.readableDatabase
 
         val count = db.rawQuery("SELECT COUNT(*) FROM transactions", null).use { cursor ->
@@ -264,15 +297,32 @@ class TransactionStore private constructor(context: Context) {
 
         val balance = db.rawQuery(
             """
-            SELECT balance_minor, occurred_at_epoch_ms
-            FROM transactions
-            WHERE balance_minor IS NOT NULL
-            ORDER BY occurred_at_epoch_ms DESC, id DESC
+            SELECT balance_minor, observed_at
+            FROM (
+                SELECT balance_minor,
+                       occurred_at_epoch_ms AS observed_at,
+                       0 AS priority
+                FROM transactions
+                WHERE balance_minor IS NOT NULL
+
+                UNION ALL
+
+                SELECT wallet_balance_after_minor AS balance_minor,
+                       occurred_at_epoch_ms AS observed_at,
+                       1 AS priority
+                FROM debt_events
+                WHERE wallet_balance_after_minor IS NOT NULL
+            )
+            ORDER BY observed_at DESC, priority DESC
             LIMIT 1
             """.trimIndent(),
             null
         ).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getLong(0) to cursor.getLong(1) else null
+            if (cursor.moveToFirst()) {
+                cursor.getLong(0) to cursor.getLong(1)
+            } else {
+                null
+            }
         }
 
         return LedgerSnapshot(
@@ -339,6 +389,7 @@ class TransactionStore private constructor(context: Context) {
     fun activityReviewOverview(): ActivityReviewOverview {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
+        ensureRefundsReconciled()
 
         val transactions = allTransactions()
             .filter { it.reviewState != ReviewState.EXCLUDED.name }
@@ -366,6 +417,7 @@ class TransactionStore private constructor(context: Context) {
     ): ActivityLedgerSnapshot {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
+        ensureRefundsReconciled()
         reconcileRecentReviewTriage(nowEpochMs, timeZone)
 
         val monthStart = Calendar.getInstance(timeZone).apply {
@@ -404,12 +456,24 @@ class TransactionStore private constructor(context: Context) {
             .filter { it.direction == MoneyDirection.INCOME.name }
             .sumOf { it.amountMinor }
 
-        val spent = effective
+        val grossSpent = effective
             .filter { it.direction == MoneyDirection.EXPENSE.name }
             .sumOf { it.amountMinor }
 
+        val refunds = effective
+            .filter {
+                it.relationType == RELATION_REFUND &&
+                    refundOriginalIsTrusted(it)
+            }
+            .sumOf { it.amountMinor }
+
+        val spent = maxOf(0L, grossSpent - refunds)
+
         val transfers = effective
-            .filter { it.direction == MoneyDirection.TRANSFER.name }
+            .filter {
+                it.direction == MoneyDirection.TRANSFER.name &&
+                    it.relationType != RELATION_REFUND
+            }
             .sumOf { it.amountMinor }
 
         val fees = effective.sumOf { it.feeMinor } +
@@ -425,14 +489,15 @@ class TransactionStore private constructor(context: Context) {
                 spentMinor = spent,
                 feesMinor = fees,
                 transferMinor = transfers,
-                netMinor = income - spent - fees,
+                netMinor = income + refunds - grossSpent - fees,
                 needsReviewCount = monthTransactions.count {
                     it.id !in possibleDuplicateIds &&
                         (
                             it.reviewState == ReviewState.NEEDS_REVIEW.name ||
                                 it.cycleCandidateReason != null
                             )
-                }
+                },
+                refundMinor = refunds
             ),
             reviewGroups = buildReviewGroups(
                 monthTransactions.filterNot {
@@ -832,6 +897,182 @@ class TransactionStore private constructor(context: Context) {
                 true
             )
             .apply()
+    }
+
+    private fun refundOriginalIsTrusted(
+        refund: StoredTransaction
+    ): Boolean {
+        val originalId =
+            refund.relatedTransactionId ?: return false
+        val original = getById(originalId) ?: return false
+        return original.direction == MoneyDirection.EXPENSE.name &&
+            original.reviewState != ReviewState.EXCLUDED.name &&
+            original.reviewState != ReviewState.NEEDS_REVIEW.name &&
+            original.type != MpesaTransactionType.REVERSAL.name
+    }
+
+    private fun ensureRefundsReconciled() {
+        val preferences = appContext.getSharedPreferences(
+            "pesatrack_preferences",
+            Context.MODE_PRIVATE
+        )
+        if (
+            preferences.getBoolean(
+                REFUND_RECONCILIATION_KEY,
+                false
+            )
+        ) {
+            return
+        }
+
+        var changed = false
+        database.readableDatabase.rawQuery(
+            """
+            SELECT id
+            FROM transactions
+            WHERE type IN (?, ?)
+              AND relation_type IS NULL
+              AND rule_id IS NULL
+              AND review_state != ?
+              AND review_state != ?
+            ORDER BY occurred_at_epoch_ms DESC, id DESC
+            LIMIT 400
+            """.trimIndent(),
+            arrayOf(
+                MpesaTransactionType.RECEIVED.name,
+                MpesaTransactionType.DEPOSIT.name,
+                ReviewState.USER_CLASSIFIED.name,
+                ReviewState.EXCLUDED.name
+            )
+        ).use { cursor ->
+            val ids = mutableListOf<Long>()
+            while (cursor.moveToNext()) {
+                ids += cursor.getLong(0)
+            }
+            ids.forEach { id ->
+                changed = tryLinkRefund(id) || changed
+            }
+        }
+
+        if (changed) {
+            PayCycleStore.get(appContext).rebuild()
+        }
+
+        preferences.edit()
+            .putBoolean(REFUND_RECONCILIATION_KEY, true)
+            .apply()
+    }
+
+    private fun tryLinkRefund(
+        transactionId: Long
+    ): Boolean {
+        val incoming = getById(transactionId) ?: return false
+        if (
+            incoming.type != MpesaTransactionType.RECEIVED.name &&
+            incoming.type != MpesaTransactionType.DEPOSIT.name
+        ) {
+            return false
+        }
+        if (
+            incoming.relationType != null ||
+            incoming.ruleId != null ||
+            incoming.reviewState == ReviewState.USER_CLASSIFIED.name ||
+            incoming.reviewState == ReviewState.EXCLUDED.name
+        ) {
+            return false
+        }
+
+        val candidates = database.readableDatabase.rawQuery(
+            """
+            SELECT id, occurred_at_epoch_ms, amount_minor, counterparty
+            FROM transactions
+            WHERE id != ?
+              AND direction = ?
+              AND amount_minor = ?
+              AND occurred_at_epoch_ms <= ?
+              AND occurred_at_epoch_ms >= ?
+              AND review_state != ?
+              AND id NOT IN (
+                    SELECT related_transaction_id
+                    FROM transactions
+                    WHERE relation_type = ?
+                      AND related_transaction_id IS NOT NULL
+              )
+            ORDER BY occurred_at_epoch_ms DESC, id DESC
+            """.trimIndent(),
+            arrayOf(
+                transactionId.toString(),
+                MoneyDirection.EXPENSE.name,
+                incoming.amountMinor.toString(),
+                incoming.occurredAtEpochMs.toString(),
+                (
+                    incoming.occurredAtEpochMs -
+                        RefundMatchingPolicy.MAX_REFUND_DISTANCE_MS
+                ).toString(),
+                ReviewState.EXCLUDED.name,
+                RELATION_REFUND
+            )
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        RefundCandidate(
+                            transactionId = cursor.getLong(0),
+                            occurredAtEpochMs = cursor.getLong(1),
+                            amountMinor = cursor.getLong(2),
+                            counterparty =
+                                if (cursor.isNull(3)) {
+                                    null
+                                } else {
+                                    cursor.getString(3)
+                                }
+                        )
+                    )
+                }
+            }
+        }
+
+        val originalId = RefundMatchingPolicy.chooseCandidate(
+            receivedAmountMinor = incoming.amountMinor,
+            receivedAtEpochMs = incoming.occurredAtEpochMs,
+            receivedCounterparty = incoming.counterparty,
+            candidates = candidates
+        ) ?: return false
+
+        val original = getById(originalId) ?: return false
+        val evidenceLabel = buildString {
+            append("Refund")
+            original.counterparty
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    append(" for ")
+                    append(it)
+                }
+        }
+
+        val values = ContentValues().apply {
+            put("direction", MoneyDirection.TRANSFER.name)
+            put("category", original.category)
+            put("review_state", ReviewState.AUTO_CLASSIFIED.name)
+            put("relation_type", RELATION_REFUND)
+            put("related_transaction_id", original.id)
+            put("evidence_label", evidenceLabel)
+            put("evidence_source", "refund_match")
+            put("evidence_confidence", "HIGH")
+            put(
+                "evidence_time_delta_ms",
+                incoming.occurredAtEpochMs -
+                    original.occurredAtEpochMs
+            )
+            putNull("cycle_candidate_reason")
+        }
+
+        return database.writableDatabase.update(
+            "transactions",
+            values,
+            "id = ?",
+            arrayOf(transactionId.toString())
+        ) > 0
     }
 
     private fun findMirrorCandidate(
@@ -1438,6 +1679,41 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun unlinkRefund(id: Long): Boolean {
+        val current = getById(id) ?: return false
+        if (current.relationType != RELATION_REFUND) {
+            return false
+        }
+
+        val values = ContentValues().apply {
+            putNull("relation_type")
+            putNull("related_transaction_id")
+            put("direction", MoneyDirection.INCOME.name)
+            put("category", TransactionCategory.UNCATEGORIZED.name)
+            put("review_state", ReviewState.NEEDS_REVIEW.name)
+            if (current.evidenceSource == "refund_match") {
+                putNull("evidence_label")
+                putNull("evidence_source")
+                putNull("evidence_confidence")
+                putNull("evidence_time_delta_ms")
+            }
+        }
+
+        val changed = database.writableDatabase.update(
+            "transactions",
+            values,
+            "id = ?",
+            arrayOf(id.toString())
+        ) > 0
+
+        if (changed) {
+            PayCycleStore.get(appContext).rebuild()
+            LedgerUpdateBus.notifyChanged()
+        }
+        return changed
+    }
+
+    @Synchronized
     fun excludeFromBudget(id: Long) {
         val values = ContentValues().apply {
             put("review_state", ReviewState.EXCLUDED.name)
@@ -1592,6 +1868,9 @@ class TransactionStore private constructor(context: Context) {
             "mirror_transaction_reconciliation_v2"
         private const val BUILT_IN_RECOGNITION_RECONCILIATION_KEY =
             "built_in_recognition_reconciliation_v1"
+        private const val REFUND_RECONCILIATION_KEY =
+            "refund_reconciliation_v1"
+        const val RELATION_REFUND = "REFUND"
         private const val DUPLICATE_DECISION_SAME = "SAME_TRANSACTION"
         private const val DUPLICATE_DECISION_KEEP_BOTH = "KEEP_BOTH"
 
@@ -1609,7 +1888,8 @@ class TransactionStore private constructor(context: Context) {
                    account_id, linked_account_id, pay_cycle_id, cycle_candidate_reason,
                    cycle_override, fuliza_financed_minor, fuliza_access_fee_minor,
                    fuliza_outstanding_minor, fuliza_event_code, evidence_label,
-                   evidence_source, evidence_confidence, evidence_time_delta_ms
+                   evidence_source, evidence_confidence, evidence_time_delta_ms,
+                   relation_type, related_transaction_id
             FROM transactions
         """
 
@@ -1657,7 +1937,9 @@ private fun android.database.Cursor.toStoredTransaction(): StoredTransaction =
         evidenceLabel = getStringOrNull(29),
         evidenceSource = getStringOrNull(30),
         evidenceConfidence = getStringOrNull(31),
-        evidenceTimeDeltaMs = getLongOrNull(32)
+        evidenceTimeDeltaMs = getLongOrNull(32),
+        relationType = getStringOrNull(33),
+        relatedTransactionId = getLongOrNull(34)
     )
 
 private fun android.database.Cursor.getStringOrNull(index: Int): String? =

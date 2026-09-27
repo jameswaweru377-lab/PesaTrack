@@ -102,7 +102,34 @@ fun BudgetScreen(
             }
             .groupBy { categoryStore.canonicalId(it.category) }
             .mapValues { (_, transactions) ->
-                transactions.sumOf { it.amountMinor + it.feeMinor }
+                maxOf(
+                    0L,
+                    transactions.sumOf { item ->
+                        if (
+                            item.relationType ==
+                            TransactionStore.RELATION_REFUND
+                        ) {
+                            val original =
+                                item.relatedTransactionId
+                                    ?.let(transactionStore::getById)
+                            if (
+                                original != null &&
+                                original.direction ==
+                                    com.kedevjimmy.pesatrack.domain.model.MoneyDirection.EXPENSE.name &&
+                                original.reviewState !=
+                                    ReviewState.EXCLUDED.name &&
+                                original.reviewState !=
+                                    ReviewState.NEEDS_REVIEW.name
+                            ) {
+                                -item.amountMinor
+                            } else {
+                                0L
+                            }
+                        } else {
+                            item.amountMinor + item.feeMinor
+                        }
+                    }
+                )
             }
     }
 

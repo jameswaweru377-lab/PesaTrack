@@ -1039,7 +1039,7 @@ private fun TransactionCategory.prettyName(): String =
     when (this) {
         TransactionCategory.PHONE_AND_DATA -> "Phone & data"
         TransactionCategory.HOME_HOUSEHOLD -> "Home & household"
-        TransactionCategory.DEBT_LOAN -> "Debt & loans"
+        TransactionCategory.DEBT_LOAN -> "Debt repayment"
         TransactionCategory.FAMILY -> "Family support"
         TransactionCategory.INVESTMENT -> "Investments"
         TransactionCategory.LUNCH,
