@@ -343,6 +343,22 @@ class TransactionStore private constructor(context: Context) {
         }
 
     @Synchronized
+    fun findByTransactionCode(
+        transactionCode: String
+    ): StoredTransaction? =
+        database.readableDatabase.rawQuery(
+            BASE_SELECT +
+                " WHERE transaction_code = ? LIMIT 1",
+            arrayOf(transactionCode.uppercase())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.toStoredTransaction()
+            } else {
+                null
+            }
+        }
+
+    @Synchronized
     fun recent(limit: Int = 100): List<StoredTransaction> =
         database.readableDatabase.rawQuery(
             BASE_SELECT + " ORDER BY occurred_at_epoch_ms DESC, id DESC LIMIT ?",
