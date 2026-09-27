@@ -216,7 +216,6 @@ class TransactionStore private constructor(context: Context) {
         val nextMonthStart = (monthStart.clone() as Calendar).apply {
             add(Calendar.MONTH, 1)
         }
-        val transactions = recent(200)
         val reversedCodes = reversedTransactionCodes()
         val monthTransactions = transactionsBetween(
             startEpochMs = monthStart.timeInMillis,
@@ -250,19 +249,19 @@ class TransactionStore private constructor(context: Context) {
             )
 
         return ActivityLedgerSnapshot(
-            transactions = transactions,
+            transactions = monthTransactions,
             summary = ActivitySummary(
                 incomeMinor = income,
                 spentMinor = spent,
                 feesMinor = fees,
                 transferMinor = transfers,
                 netMinor = income - spent - fees,
-                needsReviewCount = transactions.count {
+                needsReviewCount = monthTransactions.count {
                     it.reviewState == ReviewState.NEEDS_REVIEW.name ||
                         it.cycleCandidateReason != null
                 }
             ),
-            reviewGroups = buildReviewGroups(transactions)
+            reviewGroups = buildReviewGroups(monthTransactions)
         )
     }
 

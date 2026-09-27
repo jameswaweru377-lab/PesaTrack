@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CallReceived
+import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Groups
@@ -37,6 +38,7 @@ import androidx.compose.material.icons.rounded.ShoppingCart
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -45,11 +47,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -71,6 +75,7 @@ import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -81,12 +86,29 @@ fun ActivityScreen(
 ) {
     val context = LocalContext.current
     val store = remember { TransactionStore.get(context) }
-    var snapshot by remember { mutableStateOf(store.activitySnapshot()) }
+    val currentMonthEpochMs = remember { monthStart(System.currentTimeMillis()) }
+    var selectedMonthEpochMs by rememberSaveable {
+        mutableStateOf(currentMonthEpochMs)
+    }
+    var snapshot by remember {
+        mutableStateOf(
+            store.activitySnapshot(nowEpochMs = selectedMonthEpochMs)
+        )
+    }
     var selectedFilter by remember { mutableStateOf("All") }
+    var showMonthPicker by remember { mutableStateOf(false) }
+
+    fun selectMonth(epochMs: Long) {
+        val normalizedMonth = monthStart(epochMs)
+        selectedMonthEpochMs = normalizedMonth
+        snapshot = store.activitySnapshot(nowEpochMs = normalizedMonth)
+    }
 
     fun refresh() {
-        snapshot = store.activitySnapshot()
+        snapshot = store.activitySnapshot(nowEpochMs = selectedMonthEpochMs)
     }
+
+    val selectedMonthLabel = monthLabel(selectedMonthEpochMs)
 
     val filtered = snapshot.transactions.filter { item ->
         when (selectedFilter) {
@@ -128,6 +150,22 @@ fun ActivityScreen(
         }
 
         item {
+            ActivityMonthNavigator(
+                selectedMonthEpochMs = selectedMonthEpochMs,
+                currentMonthEpochMs = currentMonthEpochMs,
+                onPrevious = {
+                    selectMonth(shiftMonth(selectedMonthEpochMs, -1))
+                },
+                onNext = {
+                    if (selectedMonthEpochMs < currentMonthEpochMs) {
+                        selectMonth(shiftMonth(selectedMonthEpochMs, 1))
+                    }
+                },
+                onPickMonth = { showMonthPicker = true }
+            )
+        }
+
+        item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("All", "Review", "Expenses", "Income", "Transfers").forEach { label ->
                     item {
@@ -146,7 +184,7 @@ fun ActivityScreen(
         }
 
         item {
-            ActivitySummaryCard(snapshot)
+            ActivitySummaryCard(snapshot, selectedMonthLabel)
         }
 
         if (selectedFilter == "All" && snapshot.reviewGroups.isNotEmpty()) {
@@ -164,7 +202,8 @@ fun ActivityScreen(
                 item {
                     EmptyActivityState(
                         selectedFilter = "Review",
-                        capturedCount = snapshot.transactions.size
+                        capturedCount = snapshot.transactions.size,
+                        monthLabel = selectedMonthLabel
                     )
                 }
             } else {
@@ -198,7 +237,8 @@ fun ActivityScreen(
             item {
                 EmptyActivityState(
                     selectedFilter = selectedFilter,
-                    capturedCount = snapshot.transactions.size
+                    capturedCount = snapshot.transactions.size,
+                    monthLabel = selectedMonthLabel
                 )
             }
         } else if (selectedFilter != "Review") {
@@ -210,7 +250,11 @@ fun ActivityScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        if (selectedFilter == "All") "Recent activity" else selectedFilter,
+                        if (selectedFilter == "All") {
+                            "$selectedMonthLabel activity"
+                        } else {
+                            "$selectedFilter · $selectedMonthLabel"
+                        },
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.weight(1f)
                     )
@@ -230,17 +274,190 @@ fun ActivityScreen(
             }
         }
     }
+
+    if (showMonthPicker) {
+        ActivityMonthPickerDialog(
+            selectedMonthEpochMs = selectedMonthEpochMs,
+            currentMonthEpochMs = currentMonthEpochMs,
+            onDismiss = { showMonthPicker = false },
+            onMonthSelected = { epochMs ->
+                selectMonth(epochMs)
+                showMonthPicker = false
+            }
+        )
+    }
 }
 
 @Composable
-private fun ActivitySummaryCard(snapshot: ActivityLedgerSnapshot) {
+private fun ActivityMonthNavigator(
+    selectedMonthEpochMs: Long,
+    currentMonthEpochMs: Long,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onPickMonth: () -> Unit
+) {
+    PesaCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onPrevious) {
+                Icon(
+                    Icons.Rounded.ChevronLeft,
+                    contentDescription = "Previous month"
+                )
+            }
+
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onPickMonth),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .55f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        monthLabel(selectedMonthEpochMs),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Tap to choose month",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onNext,
+                enabled = selectedMonthEpochMs < currentMonthEpochMs
+            ) {
+                Icon(
+                    Icons.Rounded.ChevronRight,
+                    contentDescription = "Next month"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActivityMonthPickerDialog(
+    selectedMonthEpochMs: Long,
+    currentMonthEpochMs: Long,
+    onDismiss: () -> Unit,
+    onMonthSelected: (Long) -> Unit
+) {
+    val selectedCalendar = remember(selectedMonthEpochMs) {
+        Calendar.getInstance().apply { timeInMillis = selectedMonthEpochMs }
+    }
+    val currentCalendar = remember(currentMonthEpochMs) {
+        Calendar.getInstance().apply { timeInMillis = currentMonthEpochMs }
+    }
+    var displayedYear by remember(selectedMonthEpochMs) {
+        mutableStateOf(selectedCalendar.get(Calendar.YEAR))
+    }
+    val selectedYear = selectedCalendar.get(Calendar.YEAR)
+    val selectedMonth = selectedCalendar.get(Calendar.MONTH)
+    val currentYear = currentCalendar.get(Calendar.YEAR)
+    val monthNames = remember {
+        (0..11).map { month ->
+            Calendar.getInstance().apply {
+                clear()
+                set(2000, month, 1)
+            }.let { calendar ->
+                SimpleDateFormat("MMM", Locale.getDefault()).format(calendar.time)
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Choose activity month")
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { displayedYear -= 1 }
+                    ) {
+                        Icon(
+                            Icons.Rounded.ChevronLeft,
+                            contentDescription = "Previous year"
+                        )
+                    }
+                    Text(
+                        displayedYear.toString(),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    IconButton(
+                        onClick = { displayedYear += 1 },
+                        enabled = displayedYear < currentYear
+                    ) {
+                        Icon(
+                            Icons.Rounded.ChevronRight,
+                            contentDescription = "Next year"
+                        )
+                    }
+                }
+
+                (0 until 12 step 3).forEach { startMonth ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        (startMonth until startMonth + 3).forEach { month ->
+                            val candidate = monthStart(displayedYear, month)
+                            FilterChip(
+                                modifier = Modifier.weight(1f),
+                                selected = displayedYear == selectedYear &&
+                                    month == selectedMonth,
+                                onClick = { onMonthSelected(candidate) },
+                                enabled = candidate <= currentMonthEpochMs,
+                                label = {
+                                    Text(
+                                        monthNames[month],
+                                        maxLines = 1
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+@Composable
+private fun ActivitySummaryCard(
+    snapshot: ActivityLedgerSnapshot,
+    monthLabel: String
+) {
     val summary = snapshot.summary
     PesaCard {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        currentMonthLabel(),
+                        monthLabel,
                         style = MaterialTheme.typography.titleLarge
                     )
                     Text(
@@ -257,13 +474,16 @@ private fun ActivitySummaryCard(snapshot: ActivityLedgerSnapshot) {
                 }
             }
             Spacer(Modifier.height(16.dp))
-            ResponsiveActivityMetrics(snapshot)
+            ResponsiveActivityMetrics(snapshot, monthLabel)
         }
     }
 }
 
 @Composable
-private fun ResponsiveActivityMetrics(snapshot: ActivityLedgerSnapshot) {
+private fun ResponsiveActivityMetrics(
+    snapshot: ActivityLedgerSnapshot,
+    monthLabel: String
+) {
     val summary = snapshot.summary
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val compact = maxWidth < 600.dp
@@ -273,7 +493,7 @@ private fun ResponsiveActivityMetrics(snapshot: ActivityLedgerSnapshot) {
                     ActivityMetric(
                         "Spent",
                         formatMoney(summary.spentMinor),
-                        "This month",
+                        "$monthLabel",
                         Icons.Rounded.Paid,
                         "red",
                         Modifier.weight(1f)
@@ -281,7 +501,7 @@ private fun ResponsiveActivityMetrics(snapshot: ActivityLedgerSnapshot) {
                     ActivityMetric(
                         "Income",
                         formatMoney(summary.incomeMinor),
-                        "This month",
+                        "$monthLabel",
                         Icons.Rounded.CallReceived,
                         "green",
                         Modifier.weight(1f)
@@ -308,8 +528,8 @@ private fun ResponsiveActivityMetrics(snapshot: ActivityLedgerSnapshot) {
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ActivityMetric("Spent", formatMoney(summary.spentMinor), "This month", Icons.Rounded.Paid, "red", Modifier.weight(1f))
-                ActivityMetric("Income", formatMoney(summary.incomeMinor), "This month", Icons.Rounded.CallReceived, "green", Modifier.weight(1f))
+                ActivityMetric("Spent", formatMoney(summary.spentMinor), "$monthLabel", Icons.Rounded.Paid, "red", Modifier.weight(1f))
+                ActivityMetric("Income", formatMoney(summary.incomeMinor), "$monthLabel", Icons.Rounded.CallReceived, "green", Modifier.weight(1f))
                 ActivityMetric("Fees", formatMoney(summary.feesMinor), "M-Pesa fees", Icons.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
                 ActivityMetric("Net", formatSignedMoney(summary.netMinor), "Cash flow", Icons.Rounded.AccountBalance, "blue", Modifier.weight(1f))
             }
@@ -357,7 +577,8 @@ private fun ActivityMetric(
 @Composable
 private fun EmptyActivityState(
     selectedFilter: String,
-    capturedCount: Int
+    capturedCount: Int,
+    monthLabel: String
 ) {
     PesaCard {
         Column(
@@ -371,21 +592,23 @@ private fun EmptyActivityState(
                 tint = pesaToneContent(if (selectedFilter == "Review") "amber" else "green")
             )
             Text(
-                if (capturedCount == 0) {
-                    "Waiting for your first captured transaction"
+                if (selectedFilter == "Review") {
+                    "Nothing to review in $monthLabel"
+                } else if (capturedCount == 0) {
+                    "No activity in $monthLabel"
                 } else {
-                    "Nothing in $selectedFilter"
+                    "Nothing in $selectedFilter for $monthLabel"
                 },
                 modifier = Modifier.padding(top = 12.dp),
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                if (capturedCount == 0) {
-                    "Once Notification Access is enabled, new M-Pesa confirmations and configured money alerts will appear here."
-                } else if (selectedFilter == "Review") {
-                    "Good — every captured transaction currently has a classification."
+                if (selectedFilter == "Review") {
+                    "Good — this month's captured transactions currently have no pending review groups."
+                } else if (capturedCount == 0) {
+                    "Choose another month or refresh after importing older M-Pesa and bank activity."
                 } else {
-                    "Try another filter to see your captured activity."
+                    "Try another filter to see more activity from $monthLabel."
                 },
                 modifier = Modifier.padding(top = 5.dp),
                 style = MaterialTheme.typography.bodyMedium,
@@ -656,8 +879,31 @@ private fun formatSignedMoney(minor: Long): String =
 private fun formatTime(epochMs: Long): String =
     SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(Date(epochMs))
 
-private fun currentMonthLabel(): String =
-    SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date())
+private fun monthLabel(epochMs: Long): String =
+    SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date(epochMs))
+
+private fun monthStart(epochMs: Long): Long =
+    Calendar.getInstance().apply {
+        timeInMillis = epochMs
+        set(Calendar.DAY_OF_MONTH, 1)
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+private fun monthStart(year: Int, month: Int): Long =
+    Calendar.getInstance().apply {
+        clear()
+        set(year, month, 1, 0, 0, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+private fun shiftMonth(epochMs: Long, amount: Int): Long =
+    Calendar.getInstance().apply {
+        timeInMillis = monthStart(epochMs)
+        add(Calendar.MONTH, amount)
+    }.timeInMillis
 
 private fun humanize(value: String): String =
     value.lowercase()
