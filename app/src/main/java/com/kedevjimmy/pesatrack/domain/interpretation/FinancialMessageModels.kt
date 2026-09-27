@@ -29,6 +29,7 @@ enum class FinancialEventKind {
     DEBT_DRAWDOWN,
     DEBT_REPAYMENT,
     REFUND,
+    REVERSAL,
     FEE
 }
 
@@ -109,6 +110,19 @@ data class ReceiptEventFact(
         true
     override val kind: FinancialEventKind =
         FinancialEventKind.RECEIPT
+}
+
+data class ReversalEventFact(
+    val amountMinor: Long,
+    val account: FinancialAccountReference?,
+    val originalTransactionCode: String,
+    override val confidence: InterpretationConfidence,
+    val evidence: List<FieldEvidence> = emptyList()
+) : FinancialEventFact {
+    override val genericIngestionReady: Boolean =
+        true
+    override val kind: FinancialEventKind =
+        FinancialEventKind.REVERSAL
 }
 
 data class DebtDrawdownEventFact(
