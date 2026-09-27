@@ -1,9 +1,11 @@
 package com.kedevjimmy.pesatrack.ui.components
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material3.Icon
@@ -15,7 +17,9 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 
 enum class MainTab(
     val route: String,
@@ -24,8 +28,9 @@ enum class MainTab(
 ) {
     HOME("home", "Home", Icons.Rounded.Home),
     ACTIVITY("activity", "Activity", Icons.Rounded.ReceiptLong),
-    PLAN("plan", "Plan", Icons.Rounded.CalendarMonth),
-    GOALS("goals", "Goals", Icons.Rounded.TrackChanges)
+    COMMUNITY("community", "Community", Icons.Rounded.Groups),
+    GOALS("goals", "Goals", Icons.Rounded.TrackChanges),
+    MORE("more", "More", Icons.Rounded.MoreHoriz)
 }
 
 @Composable
@@ -45,8 +50,19 @@ fun AppScaffold(
                     NavigationBarItem(
                         selected = currentTab == tab,
                         onClick = { onTabSelected(tab) },
-                        icon = { Icon(tab.icon, contentDescription = tab.label) },
-                        label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
+                        icon = {
+                            Icon(
+                                tab.icon,
+                                contentDescription = tab.label,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        },
+                        label = {
+                            Text(
+                                tab.label,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,

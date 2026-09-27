@@ -10,12 +10,14 @@ import androidx.navigation.navArgument
 import com.kedevjimmy.pesatrack.ui.components.AppScaffold
 import com.kedevjimmy.pesatrack.ui.components.MainTab
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
+import com.kedevjimmy.pesatrack.ui.screens.CommunityScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalDetailScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
 import com.kedevjimmy.pesatrack.ui.screens.InitialMoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
+import com.kedevjimmy.pesatrack.ui.screens.MoreScreen
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
 import com.kedevjimmy.pesatrack.ui.screens.PermissionSetupScreen
@@ -181,9 +183,23 @@ fun PesaTrackApp(
             }
         }
 
-        composable(MainTab.PLAN.route) {
+        composable(MainTab.COMMUNITY.route) {
             AppScaffold(
-                currentTab = MainTab.PLAN,
+                currentTab = MainTab.COMMUNITY,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                CommunityScreen(
+                    scaffoldPadding = padding,
+                    onProfileClick = {
+                        navController.navigate("profile")
+                    }
+                )
+            }
+        }
+
+        composable("plan") {
+            AppScaffold(
+                currentTab = MainTab.MORE,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 PlanScreen(padding)
@@ -199,6 +215,26 @@ fun PesaTrackApp(
                     scaffoldPadding = padding,
                     onGoalClick = { navController.navigate("goal-detail") },
                     onProfileClick = { navController.navigate("profile") }
+                )
+            }
+        }
+
+        composable(MainTab.MORE.route) {
+            AppScaffold(
+                currentTab = MainTab.MORE,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                MoreScreen(
+                    scaffoldPadding = padding,
+                    onProfileClick = {
+                        navController.navigate("profile")
+                    },
+                    onPlanClick = {
+                        navController.navigate("plan")
+                    },
+                    onSettingsClick = {
+                        navController.navigate("settings")
+                    }
                 )
             }
         }
