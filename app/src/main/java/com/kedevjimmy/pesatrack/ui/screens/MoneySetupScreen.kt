@@ -842,14 +842,25 @@ private fun CategoryChooser(
     onSelected: (TransactionCategory) -> Unit
 ) {
     val categories = listOf(
-        TransactionCategory.RENT,
-        TransactionCategory.LUNCH,
-        TransactionCategory.ELECTRICITY,
-        TransactionCategory.INTERNET,
+        TransactionCategory.GROCERIES,
+        TransactionCategory.EATING_OUT,
         TransactionCategory.TRANSPORT,
+        TransactionCategory.RENT,
+        TransactionCategory.ELECTRICITY,
+        TransactionCategory.WATER,
+        TransactionCategory.INTERNET,
+        TransactionCategory.PHONE_AND_DATA,
+        TransactionCategory.HOME_HOUSEHOLD,
         TransactionCategory.SHOPPING,
+        TransactionCategory.HEALTH,
+        TransactionCategory.EDUCATION,
+        TransactionCategory.ENTERTAINMENT,
+        TransactionCategory.PERSONAL_CARE,
         TransactionCategory.FAMILY,
+        TransactionCategory.FEES,
+        TransactionCategory.DEBT_LOAN,
         TransactionCategory.SAVINGS,
+        TransactionCategory.INVESTMENT,
         TransactionCategory.OTHER
     )
 
@@ -975,7 +986,7 @@ private fun presetConfig(
         RulePreset.RENT -> PresetConfig("Rent", TransactionCategory.RENT, MoneyDirection.EXPENSE)
         RulePreset.INTERNET -> PresetConfig("Internet", TransactionCategory.INTERNET, MoneyDirection.EXPENSE)
         RulePreset.ELECTRICITY -> PresetConfig("Electricity", TransactionCategory.ELECTRICITY, MoneyDirection.EXPENSE)
-        RulePreset.FOOD -> PresetConfig("Food / lunch", TransactionCategory.LUNCH, MoneyDirection.EXPENSE)
+        RulePreset.FOOD -> PresetConfig("Eating out", TransactionCategory.EATING_OUT, MoneyDirection.EXPENSE)
         RulePreset.TRANSPORT -> PresetConfig("Transport", TransactionCategory.TRANSPORT, MoneyDirection.EXPENSE)
         RulePreset.FAMILY_SUPPORT -> PresetConfig("Family support", TransactionCategory.FAMILY, MoneyDirection.EXPENSE)
         RulePreset.SAVINGS -> PresetConfig("Savings", TransactionCategory.SAVINGS, MoneyDirection.TRANSFER)
