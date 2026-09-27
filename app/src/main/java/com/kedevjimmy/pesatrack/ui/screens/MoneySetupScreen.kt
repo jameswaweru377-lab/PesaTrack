@@ -1036,9 +1036,19 @@ private fun RulePreset.prettyName(): String =
     presetConfig(this, TransactionCategory.OTHER, MoneyDirection.EXPENSE).label
 
 private fun TransactionCategory.prettyName(): String =
-    name.lowercase()
-        .replace('_', ' ')
-        .replaceFirstChar { it.uppercase() }
+    when (this) {
+        TransactionCategory.PHONE_AND_DATA -> "Phone & data"
+        TransactionCategory.HOME_HOUSEHOLD -> "Home & household"
+        TransactionCategory.DEBT_LOAN -> "Debt & loans"
+        TransactionCategory.FAMILY -> "Family support"
+        TransactionCategory.INVESTMENT -> "Investments"
+        TransactionCategory.LUNCH,
+        TransactionCategory.EATING_OUT -> "Eating out"
+        else ->
+            name.lowercase()
+                .replace('_', ' ')
+                .replaceFirstChar { it.uppercase() }
+    }
 
 private fun accountTypeLabel(type: AccountType): String =
     when (type) {
