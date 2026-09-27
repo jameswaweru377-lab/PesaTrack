@@ -19,6 +19,7 @@ data class FinancialMessageFixture(
     val coverage: FixtureCoverage,
     val transactionCode: String?,
     val expectedKinds: List<CanonicalFinancialRecordKind>,
+    val targetKinds: List<CanonicalFinancialRecordKind>,
     val expectedBalances: List<ExpectedBalanceFixture>
 )
 
@@ -32,6 +33,11 @@ object FinancialMessageFixtureCorpus {
             coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC01",
             expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.TRANSFER
+            ),
+            targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
                 CanonicalFinancialRecordKind.TRANSFER
@@ -61,6 +67,11 @@ object FinancialMessageFixtureCorpus {
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
                 CanonicalFinancialRecordKind.TRANSFER
             ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.TRANSFER
+            ),
             expectedBalances = listOf(
                 ExpectedBalanceFixture(
                     providerKey = "NCBA_MSHWARI_SAVINGS",
@@ -82,6 +93,11 @@ object FinancialMessageFixtureCorpus {
             coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC03",
             expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.TRANSFER
+            ),
+            targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
                 CanonicalFinancialRecordKind.TRANSFER
@@ -109,6 +125,11 @@ object FinancialMessageFixtureCorpus {
             expectedKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION
             ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.PAYMENT,
+                CanonicalFinancialRecordKind.FEE
+            ),
             expectedBalances = listOf(
                 ExpectedBalanceFixture(
                     providerKey = "SAFARICOM_MPESA",
@@ -127,6 +148,10 @@ object FinancialMessageFixtureCorpus {
             expectedKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION
             ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.RECEIPT
+            ),
             expectedBalances = listOf(
                 ExpectedBalanceFixture(
                     providerKey = "SAFARICOM_MPESA",
@@ -143,6 +168,10 @@ object FinancialMessageFixtureCorpus {
             coverage = FixtureCoverage.LEGACY_REQUIRED,
             transactionCode = "TST12ABC06",
             expectedKinds = emptyList(),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.DEBT_DRAWDOWN,
+                CanonicalFinancialRecordKind.FEE
+            ),
             expectedBalances = emptyList()
         ),
         FinancialMessageFixture(
@@ -154,6 +183,11 @@ object FinancialMessageFixtureCorpus {
             transactionCode = "TST12ABC07",
             expectedKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.DEBT_REPAYMENT,
+                CanonicalFinancialRecordKind.AVAILABLE_CREDIT_OBSERVATION
             ),
             expectedBalances = listOf(
                 ExpectedBalanceFixture(
@@ -173,6 +207,11 @@ object FinancialMessageFixtureCorpus {
             expectedKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION
             ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.DEBT_REPAYMENT,
+                CanonicalFinancialRecordKind.AVAILABLE_CREDIT_OBSERVATION
+            ),
             expectedBalances = listOf(
                 ExpectedBalanceFixture(
                     providerKey = "SAFARICOM_MPESA",
@@ -191,11 +230,37 @@ object FinancialMessageFixtureCorpus {
             expectedKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION
             ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.RECEIPT
+            ),
             expectedBalances = listOf(
                 ExpectedBalanceFixture(
                     providerKey = "SAFARICOM_MPESA",
                     displayName = "M-Pesa",
                     amountMinor = 22_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "mpesa_reversal",
+            title = "MPESA",
+            body =
+                "TST12ABC10 Confirmed. The reversal of transaction TST12ABC04 of Ksh 450.00 has been completed on 28/9/26 at 7:40 PM. New M-PESA balance is Ksh 8,100.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC10",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.REVERSAL
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 810_000L
                 )
             )
         ),
@@ -206,6 +271,7 @@ object FinancialMessageFixtureCorpus {
             coverage = FixtureCoverage.NON_FINANCIAL,
             transactionCode = null,
             expectedKinds = emptyList(),
+            targetKinds = emptyList(),
             expectedBalances = emptyList()
         )
     )
