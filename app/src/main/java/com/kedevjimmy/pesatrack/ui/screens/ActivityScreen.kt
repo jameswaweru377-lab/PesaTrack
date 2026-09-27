@@ -84,6 +84,7 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivityMonthBucket
 import com.kedevjimmy.pesatrack.data.local.ActivityReviewOverview
+import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PossibleDuplicateGroup
 import com.kedevjimmy.pesatrack.data.local.ReviewGroup
@@ -2048,10 +2049,12 @@ private fun ActivityRow(
     item: StoredTransaction,
     onClick: () -> Unit
 ) {
-    val category = runCatching {
-        TransactionCategory.valueOf(item.category)
-    }.getOrDefault(TransactionCategory.UNCATEGORIZED)
-    val needsReview = item.reviewState == ReviewState.NEEDS_REVIEW.name
+    val context = LocalContext.current
+    val categoryStore = remember { CategoryStore.get(context) }
+    val categoryId = categoryStore.canonicalId(item.category)
+    val categoryLabel = categoryStore.labelFor(categoryId)
+    val needsReview =
+        item.reviewState == ReviewState.NEEDS_REVIEW.name
     val direction = runCatching {
         MoneyDirection.valueOf(item.direction)
     }.getOrDefault(MoneyDirection.NEUTRAL)
@@ -2060,8 +2063,9 @@ private fun ActivityRow(
         needsReview -> "amber"
         direction == MoneyDirection.INCOME -> "green"
         direction == MoneyDirection.TRANSFER -> "blue"
-        category == TransactionCategory.SHOPPING -> "violet"
-        category == TransactionCategory.ELECTRICITY || category == TransactionCategory.RENT -> "amber"
+        categoryId == TransactionCategory.SHOPPING.name -> "violet"
+        categoryId == TransactionCategory.ELECTRICITY.name ||
+            categoryId == TransactionCategory.RENT.name -> "amber"
         else -> "green"
     }
 
@@ -2079,7 +2083,7 @@ private fun ActivityRow(
         ) {
             MerchantBadge(
                 item = item,
-                category = category,
+                categoryId = categoryId,
                 tone = tone
             )
             Column(
@@ -2106,7 +2110,11 @@ private fun ActivityRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        if (needsReview) "Needs review" else category.prettyName(),
+                        if (needsReview) {
+                            "Needs review"
+                        } else {
+                            categoryLabel
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = pesaToneContent(tone)
                     )
@@ -2124,9 +2132,13 @@ private fun ActivityRow(
                 }
                 if (item.fulizaFinancedMinor > 0L) {
                     Text(
-                        "Fuliza financed " + formatMoney(item.fulizaFinancedMinor) +
+                        "Fuliza financed " +
+                            formatMoney(item.fulizaFinancedMinor) +
                             if (item.fulizaAccessFeeMinor > 0L) {
-                                " • access fee " + formatMoney(item.fulizaAccessFeeMinor)
+                                " • access fee " +
+                                    formatMoney(
+                                        item.fulizaAccessFeeMinor
+                                    )
                             } else {
                                 ""
                             },
@@ -2142,11 +2154,13 @@ private fun ActivityRow(
                     style = MaterialTheme.typography.titleSmall,
                     color = when {
                         direction == MoneyDirection.INCOME ||
-                            item.type == MpesaTransactionType.REVERSAL.name ->
+                            item.type ==
+                            MpesaTransactionType.REVERSAL.name ->
                             MaterialTheme.colorScheme.primary
                         direction == MoneyDirection.EXPENSE ->
                             MaterialTheme.colorScheme.error
-                        needsReview || direction == MoneyDirection.NEUTRAL ->
+                        needsReview ||
+                            direction == MoneyDirection.NEUTRAL ->
                             pesaToneContent("amber")
                         else -> MaterialTheme.colorScheme.onSurface
                     }
@@ -2167,7 +2181,7 @@ private fun ActivityRow(
 @Composable
 private fun MerchantBadge(
     item: StoredTransaction,
-    category: TransactionCategory,
+    categoryId: String,
     tone: String
 ) {
     val name = (
@@ -2219,7 +2233,7 @@ private fun MerchantBadge(
     if (merchant == null) {
         IconBubble(
             icon = iconFor(
-                category,
+                categoryId,
                 item.type
             ),
             size = 40.dp,
@@ -2250,28 +2264,57 @@ private fun MerchantBadge(
 }
 
 private fun iconFor(
-    category: TransactionCategory,
+    categoryId: String,
     type: String
-): ImageVector = when (category) {
-    TransactionCategory.RENT -> Icons.Rounded.Home
-    TransactionCategory.LUNCH -> Icons.Rounded.Restaurant
-    TransactionCategory.ELECTRICITY -> Icons.Rounded.Bolt
-    TransactionCategory.INTERNET -> Icons.Rounded.Wifi
-    TransactionCategory.TRANSPORT -> Icons.Rounded.DirectionsBus
-    TransactionCategory.SHOPPING -> Icons.Rounded.ShoppingCart
-    TransactionCategory.FAMILY -> Icons.Rounded.Groups
-    TransactionCategory.FEES -> Icons.Rounded.ReceiptLong
-    TransactionCategory.PHONE_AND_DATA -> Icons.Rounded.PhoneAndroid
-    TransactionCategory.INCOME -> Icons.Rounded.CallReceived
-    TransactionCategory.TRANSFER -> Icons.Rounded.SyncAlt
-    TransactionCategory.CASH -> Icons.Rounded.LocalAtm
-    TransactionCategory.SAVINGS -> Icons.Rounded.Savings
-    TransactionCategory.OTHER -> Icons.Rounded.MoreHoriz
-    TransactionCategory.UNCATEGORIZED -> if (type == MpesaTransactionType.REVERSAL.name) {
+): ImageVector = when (categoryId) {
+    TransactionCategory.RENT.name ->
+        Icons.Rounded.Home
+    TransactionCategory.GROCERIES.name ->
+        Icons.Rounded.ShoppingCart
+    TransactionCategory.EATING_OUT.name,
+    TransactionCategory.LUNCH.name ->
+        Icons.Rounded.Restaurant
+    TransactionCategory.ELECTRICITY.name ->
+        Icons.Rounded.Bolt
+    TransactionCategory.INTERNET.name ->
+        Icons.Rounded.Wifi
+    TransactionCategory.TRANSPORT.name ->
+        Icons.Rounded.DirectionsBus
+    TransactionCategory.HOME_HOUSEHOLD.name ->
+        Icons.Rounded.Home
+    TransactionCategory.SHOPPING.name ->
+        Icons.Rounded.ShoppingCart
+    TransactionCategory.FAMILY.name ->
+        Icons.Rounded.Groups
+    TransactionCategory.FEES.name,
+    TransactionCategory.DEBT_LOAN.name,
+    TransactionCategory.EDUCATION.name ->
+        Icons.Rounded.ReceiptLong
+    TransactionCategory.PHONE_AND_DATA.name ->
+        Icons.Rounded.PhoneAndroid
+    TransactionCategory.INCOME.name ->
+        Icons.Rounded.CallReceived
+    TransactionCategory.TRANSFER.name ->
         Icons.Rounded.SyncAlt
-    } else {
-        Icons.Rounded.HelpOutline
-    }
+    TransactionCategory.CASH.name ->
+        Icons.Rounded.LocalAtm
+    TransactionCategory.SAVINGS.name ->
+        Icons.Rounded.Savings
+    TransactionCategory.INVESTMENT.name ->
+        Icons.Rounded.AccountBalance
+    TransactionCategory.WATER.name,
+    TransactionCategory.HEALTH.name,
+    TransactionCategory.ENTERTAINMENT.name,
+    TransactionCategory.PERSONAL_CARE.name,
+    TransactionCategory.OTHER.name ->
+        Icons.Rounded.MoreHoriz
+    TransactionCategory.UNCATEGORIZED.name ->
+        if (type == MpesaTransactionType.REVERSAL.name) {
+            Icons.Rounded.SyncAlt
+        } else {
+            Icons.Rounded.HelpOutline
+        }
+    else -> Icons.Rounded.MoreHoriz
 }
 
 private fun amountLabel(
