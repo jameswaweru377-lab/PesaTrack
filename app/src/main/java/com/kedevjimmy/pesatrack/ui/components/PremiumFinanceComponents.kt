@@ -365,6 +365,8 @@ data class BudgetProgressItem(
     val label: String,
     val spentLabel: String,
     val limitLabel: String,
+    val remainingLabel: String,
+    val overBudget: Boolean,
     val progress: Float,
     val color: Color
 )
@@ -479,6 +481,16 @@ fun BudgetProgressCard(
                                             .background(item.color)
                                     )
                                 }
+                                Text(
+                                    item.remainingLabel,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (item.overBudget) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
                             }
                         }
                     }
