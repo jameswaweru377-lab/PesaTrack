@@ -300,18 +300,20 @@ class TransactionStore private constructor(context: Context) {
             SELECT balance_minor, observed_at
             FROM (
                 SELECT balance_minor,
-                       occurred_at_epoch_ms AS observed_at
+                       occurred_at_epoch_ms AS observed_at,
+                       0 AS priority
                 FROM transactions
                 WHERE balance_minor IS NOT NULL
 
                 UNION ALL
 
                 SELECT wallet_balance_after_minor AS balance_minor,
-                       occurred_at_epoch_ms AS observed_at
+                       occurred_at_epoch_ms AS observed_at,
+                       1 AS priority
                 FROM debt_events
                 WHERE wallet_balance_after_minor IS NOT NULL
             )
-            ORDER BY observed_at DESC
+            ORDER BY observed_at DESC, priority DESC
             LIMIT 1
             """.trimIndent(),
             null
