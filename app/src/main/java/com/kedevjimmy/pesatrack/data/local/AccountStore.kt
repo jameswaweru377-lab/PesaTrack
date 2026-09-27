@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
+import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import java.util.UUID
 
 class AccountStore private constructor(context: Context) {
@@ -14,7 +15,8 @@ class AccountStore private constructor(context: Context) {
         val where = if (enabledOnly) "WHERE enabled = 1" else ""
         return database.readableDatabase.rawQuery(
             """
-            SELECT id, name, type, enabled
+            SELECT id, name, type, enabled, identifier,
+                   opening_balance_minor, opening_balance_as_of_epoch_ms
             FROM money_accounts
             $where
             ORDER BY
@@ -36,7 +38,10 @@ class AccountStore private constructor(context: Context) {
                             id = cursor.getString(0),
                             name = cursor.getString(1),
                             type = AccountType.valueOf(cursor.getString(2)),
-                            enabled = cursor.getInt(3) == 1
+                            enabled = cursor.getInt(3) == 1,
+                            identifier = cursor.getStringOrNull(4),
+                            openingBalanceMinor = cursor.getLongOrNull(5),
+                            openingBalanceAsOfEpochMs = cursor.getLongOrNull(6)
                         )
                     )
                 }
@@ -79,7 +84,8 @@ class AccountStore private constructor(context: Context) {
 
         val existing = database.readableDatabase.rawQuery(
             """
-            SELECT id, name, type, enabled
+            SELECT id, name, type, enabled, identifier,
+                   opening_balance_minor, opening_balance_as_of_epoch_ms
             FROM money_accounts
             WHERE LOWER(name) = LOWER(?)
               AND type = ?
@@ -94,12 +100,59 @@ class AccountStore private constructor(context: Context) {
                     id = cursor.getString(0),
                     name = cursor.getString(1),
                     type = AccountType.valueOf(cursor.getString(2)),
-                    enabled = cursor.getInt(3) == 1
+                    enabled = cursor.getInt(3) == 1,
+                    identifier = cursor.getStringOrNull(4),
+                    openingBalanceMinor = cursor.getLongOrNull(5),
+                    openingBalanceAsOfEpochMs = cursor.getLongOrNull(6)
                 )
             }
         }
 
         return existing ?: save(normalized, type)
+    }
+
+    @Synchronized
+    fun updateDetails(
+        id: String,
+        identifier: String?,
+        openingBalanceMinor: Long?,
+        openingBalanceAsOfEpochMs: Long? = System.currentTimeMillis()
+    ) {
+        val account = listAccounts(enabledOnly = false)
+            .firstOrNull { it.id == id }
+            ?: error("Account not found.")
+
+        val normalizedIdentifier = when {
+            identifier.isNullOrBlank() -> null
+            account.type == AccountType.MOBILE_WALLET ->
+                OwnAccountTransferDetector.normalizeKenyanPhone(identifier)
+                    ?: throw IllegalArgumentException(
+                        "Enter a valid Kenyan mobile number, for example 0712345678."
+                    )
+            else -> identifier.trim()
+        }
+
+        val values = ContentValues().apply {
+            if (normalizedIdentifier == null) putNull("identifier") else put("identifier", normalizedIdentifier)
+            if (openingBalanceMinor == null) {
+                putNull("opening_balance_minor")
+                putNull("opening_balance_as_of_epoch_ms")
+            } else {
+                put("opening_balance_minor", openingBalanceMinor)
+                put(
+                    "opening_balance_as_of_epoch_ms",
+                    openingBalanceAsOfEpochMs ?: System.currentTimeMillis()
+                )
+            }
+            put("updated_at_epoch_ms", System.currentTimeMillis())
+        }
+
+        database.writableDatabase.update(
+            "money_accounts",
+            values,
+            "id = ?",
+            arrayOf(id)
+        )
     }
 
     @Synchronized
@@ -129,3 +182,9 @@ class AccountStore private constructor(context: Context) {
             }
     }
 }
+
+private fun android.database.Cursor.getStringOrNull(index: Int): String? =
+    if (isNull(index)) null else getString(index)
+
+private fun android.database.Cursor.getLongOrNull(index: Int): Long? =
+    if (isNull(index)) null else getLong(index)

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.SwapHoriz
@@ -108,6 +109,9 @@ fun MoneySetupScreen(
     var showAddAccount by remember { mutableStateOf(false) }
     var newAccountName by remember { mutableStateOf("") }
     var newAccountType by remember { mutableStateOf(AccountType.BANK) }
+    var editingAccountId by remember { mutableStateOf<String?>(null) }
+    var accountIdentifierDraft by remember { mutableStateOf("") }
+    var accountOpeningBalanceDraft by remember { mutableStateOf("") }
 
     fun config(): PresetConfig = presetConfig(
         preset = preset,
@@ -118,6 +122,51 @@ fun MoneySetupScreen(
     fun reload() {
         rules = ruleStore.listRules()
         accounts = accountStore.listAccounts()
+    }
+
+    fun beginAccountEdit(account: MoneyAccount) {
+        editingAccountId = account.id
+        accountIdentifierDraft = account.identifier.orEmpty()
+        accountOpeningBalanceDraft = account.openingBalanceMinor
+            ?.let(::formatEditableMoney)
+            .orEmpty()
+        error = null
+    }
+
+    fun saveAccountDetails(account: MoneyAccount) {
+        error = null
+        val openingBalanceMinor = accountOpeningBalanceDraft
+            .trim()
+            .takeIf { it.isNotBlank() }
+            ?.let(::parseEditableMoneyMinor)
+
+        if (
+            accountOpeningBalanceDraft.isNotBlank() &&
+            openingBalanceMinor == null
+        ) {
+            error = "Enter the opening balance as a number."
+            return
+        }
+
+        runCatching {
+            accountStore.updateDetails(
+                id = account.id,
+                identifier = if (account.type == AccountType.MOBILE_WALLET) {
+                    accountIdentifierDraft
+                } else {
+                    account.identifier
+                },
+                openingBalanceMinor = openingBalanceMinor
+            )
+        }.onSuccess {
+            transactionStore.reconcileOwnAccountTransfers()
+            reload()
+            editingAccountId = null
+            accountIdentifierDraft = ""
+            accountOpeningBalanceDraft = ""
+        }.onFailure {
+            error = it.message
+        }
     }
 
     fun choosePreset(newPreset: RulePreset) {
@@ -277,7 +326,31 @@ fun MoneySetupScreen(
             PesaCard {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     accounts.forEach { account ->
-                        AccountRow(account)
+                        AccountRow(
+                            account = account,
+                            onEdit = { beginAccountEdit(account) }
+                        )
+                        if (editingAccountId == account.id) {
+                            AccountDetailsEditor(
+                                account = account,
+                                identifier = accountIdentifierDraft,
+                                openingBalance = accountOpeningBalanceDraft,
+                                onIdentifierChanged = {
+                                    accountIdentifierDraft = it
+                                },
+                                onOpeningBalanceChanged = {
+                                    accountOpeningBalanceDraft = it
+                                },
+                                onSave = {
+                                    saveAccountDetails(account)
+                                },
+                                onCancel = {
+                                    editingAccountId = null
+                                    accountIdentifierDraft = ""
+                                    accountOpeningBalanceDraft = ""
+                                }
+                            )
+                        }
                     }
 
                     if (showAddAccount) {
@@ -309,10 +382,11 @@ fun MoneySetupScreen(
                                 onClick = {
                                     runCatching {
                                         accountStore.save(newAccountName, newAccountType)
-                                    }.onSuccess {
+                                    }.onSuccess { created ->
                                         showAddAccount = false
                                         newAccountName = ""
                                         reload()
+                                        beginAccountEdit(created)
                                     }.onFailure {
                                         error = it.message
                                     }
@@ -562,7 +636,10 @@ fun MoneySetupScreen(
 }
 
 @Composable
-private fun AccountRow(account: MoneyAccount) {
+private fun AccountRow(
+    account: MoneyAccount,
+    onEdit: () -> Unit
+) {
     Row(
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -582,10 +659,94 @@ private fun AccountRow(account: MoneyAccount) {
         ) {
             Text(account.name, style = MaterialTheme.typography.titleMedium)
             Text(
-                accountTypeLabel(account.type),
+                buildString {
+                    append(accountTypeLabel(account.type))
+                    account.identifier?.let {
+                        append(" • ")
+                        append(it)
+                    }
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            account.openingBalanceMinor?.let { balance ->
+                Text(
+                    "Opening balance " + formatDisplayMoney(balance),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        IconButton(onClick = onEdit) {
+            Icon(
+                Icons.Rounded.Edit,
+                contentDescription = "Edit account details"
+            )
+        }
+    }
+}
+
+@Composable
+private fun AccountDetailsEditor(
+    account: MoneyAccount,
+    identifier: String,
+    openingBalance: String,
+    onIdentifierChanged: (String) -> Unit,
+    onOpeningBalanceChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 48.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (account.type == AccountType.MOBILE_WALLET) {
+            OutlinedTextField(
+                value = identifier,
+                onValueChange = onIdentifierChanged,
+                label = { Text("Your M-Pesa phone number") },
+                placeholder = { Text("0712345678") },
+                supportingText = {
+                    Text(
+                        "Used only to recognize transfers between accounts that belong to you."
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        }
+
+        OutlinedTextField(
+            value = openingBalance,
+            onValueChange = onOpeningBalanceChanged,
+            label = { Text("Balance when tracking starts (optional)") },
+            placeholder = { Text("0") },
+            supportingText = {
+                Text(
+                    "This is existing money, not income. It gives future reconciliation a starting point."
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = onCancel,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Cancel")
+            }
+            Button(
+                onClick = onSave,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Save details")
+            }
         }
     }
 }
@@ -854,3 +1015,21 @@ private fun accountTypeLabel(type: AccountType): String =
         AccountType.SAVINGS -> "Savings account"
         AccountType.OTHER -> "Other"
     }
+
+
+private fun parseEditableMoneyMinor(value: String): Long? =
+    runCatching {
+        value.replace(",", "")
+            .toBigDecimal()
+            .movePointRight(2)
+            .setScale(0, RoundingMode.HALF_UP)
+            .longValueExact()
+    }.getOrNull()
+
+private fun formatEditableMoney(minor: Long): String =
+    java.math.BigDecimal.valueOf(minor, 2)
+        .stripTrailingZeros()
+        .toPlainString()
+
+private fun formatDisplayMoney(minor: Long): String =
+    "KES " + java.text.NumberFormat.getNumberInstance().format(minor / 100.0)

@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.ingestion
 
 import android.content.Context
 import android.provider.Telephony
+import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.FulizaStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
@@ -11,6 +12,7 @@ import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
 import com.kedevjimmy.pesatrack.domain.parser.ConfiguredMoneyParser
 import com.kedevjimmy.pesatrack.domain.parser.FulizaParser
 import com.kedevjimmy.pesatrack.domain.parser.MpesaParser
+import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 
 data class HistoricalImportResult(
@@ -27,6 +29,7 @@ class HistoricalSmsImporter(
 ) {
     fun importSince(sinceEpochMs: Long): HistoricalImportResult {
         val rules = RuleStore.get(context).listRules(enabledOnly = true)
+        val accounts = AccountStore.get(context).listAccounts()
         val store = TransactionStore.get(context)
 
         var scanned = 0
@@ -106,11 +109,17 @@ class HistoricalSmsImporter(
                     continue
                 }
 
-                val configuredRule = SmartRuleEngine.matchNotification(
-                    title = address,
-                    body = body,
-                    rules = rules
-                )
+                val configuredRule =
+                    OwnAccountTransferDetector.matchConfiguredNotification(
+                        title = address,
+                        body = body,
+                        accounts = accounts
+                    )?.asSmartRule()
+                        ?: SmartRuleEngine.matchNotification(
+                            title = address,
+                            body = body,
+                            rules = rules
+                        )
 
                 if (configuredRule == null) {
                     ignored += 1
