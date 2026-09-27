@@ -42,6 +42,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
+import com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality
+import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
@@ -87,6 +89,7 @@ fun HomeScreen(
     val transactionStore = remember { TransactionStore.get(context) }
     val budgetStore = remember { BudgetStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
+    val debtStore = remember { DebtStore.get(context) }
     val ruleStore = remember { RuleStore.get(context) }
     val preferences = remember {
         context.getSharedPreferences(
@@ -120,12 +123,16 @@ fun HomeScreen(
     var monthlyBudgets by remember {
         mutableStateOf(budgetStore.list())
     }
+    var debtAccounts by remember {
+        mutableStateOf(debtStore.accounts())
+    }
 
     fun refresh() {
         cycleSnapshot = cycleStore.snapshot()
         ledgerSnapshot = transactionStore.snapshot()
         activitySnapshot = transactionStore.activitySnapshot()
         monthlyBudgets = budgetStore.list()
+        debtAccounts = debtStore.accounts()
     }
 
     LaunchedEffect(ledgerUpdateState.revision) {
@@ -154,16 +161,34 @@ fun HomeScreen(
     val spendSlices = remember(activitySnapshot) {
         activitySnapshot.transactions
             .filter {
-                it.direction == MoneyDirection.EXPENSE.name &&
-                    it.reviewState != ReviewState.EXCLUDED.name &&
-                    it.reviewState != ReviewState.NEEDS_REVIEW.name
+                it.reviewState != ReviewState.EXCLUDED.name &&
+                    it.reviewState != ReviewState.NEEDS_REVIEW.name &&
+                    (
+                        it.direction ==
+                            MoneyDirection.EXPENSE.name ||
+                            it.relationType ==
+                                TransactionStore.RELATION_REFUND
+                        )
             }
             .groupBy {
                 categoryStore.canonicalId(it.category)
             }
             .mapValues { (_, items) ->
-                items.sumOf { it.amountMinor + it.feeMinor }
+                maxOf(
+                    0L,
+                    items.sumOf { item ->
+                        if (
+                            item.relationType ==
+                            TransactionStore.RELATION_REFUND
+                        ) {
+                            -item.amountMinor
+                        } else {
+                            item.amountMinor + item.feeMinor
+                        }
+                    }
+                )
             }
+            .filterValues { it > 0L }
             .entries
             .sortedByDescending { it.value }
             .mapIndexed { index, entry ->
@@ -185,7 +210,19 @@ fun HomeScreen(
                 categoryStore.canonicalId(it.category)
             }
             .mapValues { (_, items) ->
-                items.sumOf { it.amountMinor + it.feeMinor }
+                maxOf(
+                    0L,
+                    items.sumOf { item ->
+                        if (
+                            item.relationType ==
+                            TransactionStore.RELATION_REFUND
+                        ) {
+                            -item.amountMinor
+                        } else {
+                            item.amountMinor + item.feeMinor
+                        }
+                    }
+                )
             }
 
         monthlyBudgets
@@ -339,8 +376,12 @@ fun HomeScreen(
                 }
             val cycleSpent =
                 if (cycle != null) {
-                    cycleSnapshot.spentMinor +
-                        cycleSnapshot.feesMinor
+                    maxOf(
+                        0L,
+                        cycleSnapshot.spentMinor +
+                            cycleSnapshot.feesMinor -
+                            cycleSnapshot.refundsMinor
+                    )
                 } else {
                     activitySnapshot.summary.spentMinor +
                         activitySnapshot.summary.feesMinor
@@ -368,6 +409,16 @@ fun HomeScreen(
                     incoming = false,
                     helper = helper,
                     modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        if (debtAccounts.any { it.outstandingMinor > 0L }) {
+            item {
+                DebtOverviewCard(
+                    accounts = debtAccounts.filter {
+                        it.outstandingMinor > 0L
+                    }
                 )
             }
         }
@@ -461,6 +512,61 @@ fun HomeScreen(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DebtOverviewCard(
+    accounts: List<com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot>
+) {
+    PesaCard {
+        Column(Modifier.padding(15.dp)) {
+            Text(
+                "Debt",
+                style = MaterialTheme.typography.titleLarge
+            )
+            Text(
+                "Borrowed money is tracked separately from spending.",
+                modifier = Modifier.padding(top = 2.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            accounts.take(3).forEachIndexed { index, account ->
+                if (index > 0) {
+                    androidx.compose.material3.HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 10.dp)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            account.name,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            if (
+                                account.balanceQuality ==
+                                DebtBalanceQuality.OBSERVED
+                            ) {
+                                "Observed outstanding balance"
+                            } else {
+                                "Estimated after repayments"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        formatMoney(account.outstandingMinor),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
