@@ -419,6 +419,17 @@ class FinancialUnderstandingStore private constructor(
             "entity_key = ?",
             arrayOf(entityKey)
         )
+
+        val observationValues = ContentValues().apply {
+            put("account_id", account.id)
+        }
+        database.writableDatabase.update(
+            "account_balance_observations",
+            observationValues,
+            "entity_key = ? AND account_id IS NULL",
+            arrayOf(entityKey)
+        )
+
         LedgerUpdateBus.notifyChanged()
         return account.id
     }
