@@ -269,12 +269,19 @@ class TransactionStore private constructor(context: Context) {
         nowEpochMs: Long = System.currentTimeMillis(),
         timeZone: TimeZone = TimeZone.getDefault()
     ) {
+        var changed = 0
         repeat(3) { monthOffset ->
             val calendar = Calendar.getInstance(timeZone).apply {
                 timeInMillis = nowEpochMs
                 add(Calendar.MONTH, -monthOffset)
             }
-            reconcileReviewTriageForMonth(calendar.timeInMillis, timeZone)
+            changed += reconcileReviewTriageForMonth(
+                calendar.timeInMillis,
+                timeZone
+            )
+        }
+        if (changed > 0) {
+            PayCycleStore.get(appContext).rebuild()
         }
     }
 
@@ -282,7 +289,7 @@ class TransactionStore private constructor(context: Context) {
     fun reconcileReviewTriageForMonth(
         epochMs: Long,
         timeZone: TimeZone = TimeZone.getDefault()
-    ) {
+    ): Int {
         val target = Calendar.getInstance(timeZone).apply { timeInMillis = epochMs }
         val year = target.get(Calendar.YEAR)
         val month = target.get(Calendar.MONTH)
@@ -309,6 +316,7 @@ class TransactionStore private constructor(context: Context) {
         }
 
         val db = database.writableDatabase
+        var changed = 0
         eligible.groupBy { item ->
             ReviewTriagePolicy.identityKey(
                 item.counterparty,
@@ -336,14 +344,22 @@ class TransactionStore private constructor(context: Context) {
             }
 
             group.forEach { item ->
-                db.update(
-                    "transactions",
-                    values,
-                    "id = ?",
-                    arrayOf(item.id.toString())
-                )
+                val desiredCategory = values.getAsString("category")
+                val desiredReviewState = values.getAsString("review_state")
+                if (
+                    item.category != desiredCategory ||
+                    item.reviewState != desiredReviewState
+                ) {
+                    changed += db.update(
+                        "transactions",
+                        values,
+                        "id = ?",
+                        arrayOf(item.id.toString())
+                    )
+                }
             }
         }
+        return changed
     }
 
     private fun buildReviewGroups(
