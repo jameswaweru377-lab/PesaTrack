@@ -437,6 +437,45 @@ Tests added:
 
 The implementation passed Android CI run #49 before this documentation update.
 
+## Simplified review queue and one-off triage
+
+Transaction review is now intentionally conservative and lower-effort.
+
+Implemented:
+
+- Unknown person/merchant identities are never assigned Shopping/Rent/etc. from a guessed name.
+- For unruled outgoing Send Money, Pay Bill and Buy Goods transactions:
+  - one occurrence of an exact identity within a calendar month defaults to `Other`
+  - two or more occurrences of that exact identity in the same month move into `Needs Review`
+- Phone number is the strongest identity when an unmasked Kenyan number is available.
+- Otherwise the complete normalized counterparty name is used; the system does not reduce a person such as "Joseph Mwango" to "Joseph".
+- Activity reconciles this policy across the current month plus the previous two calendar months, so already-imported recent history is cleaned up without re-importing.
+- Changes made by triage rebuild pay-cycle calculations so Home/Plan do not show stale totals.
+- Activity now has a compact `Review` filter and groups pending records by identity.
+- A repeated identity is represented by one review card showing:
+  - identity/name
+  - number of matching transactions
+  - combined amount
+- Tapping the group opens one representative transaction rather than requiring the user to review every matching message.
+- Existing teach-once behavior remains:
+  - choose a category
+  - choose `Only this one` or `Remember`
+- `Remember` can now retroactively update both:
+  - matching Needs Review records
+  - matching one-off records that had previously defaulted to Other
+- User-classified and excluded transactions are never overwritten by automatic triage.
+- Transactions already controlled by a saved Smart Rule are excluded from one-off/repeat triage.
+- Fuliza financing metadata and duplicate-spend handling are preserved unchanged.
+
+Tests added:
+
+- phone identity precedence
+- exact full-name normalization
+- one occurrence -> Other
+- repeated identity -> teaching/review
+
+Android CI run #52 passed unit tests, debug APK assembly and artifact upload before this documentation update.
+
 ## Current implementation
 
 Baseline: `main` after the verified reference UI merge
@@ -485,7 +524,7 @@ For every implementation phase:
 5. With SMS access allowed, verify salary candidate discovery uses only the chosen history window and the actual bank sender on-device.
 6. If no candidate is found, enter one or more manual salary months with amount + actual arrival day and verify Home/Plan reconstruct pay-cycle boundaries correctly.
 7. Test a multi-income path such as Salary -> Bank plus Business income -> M-Pesa and confirm no irrelevant fields appear for either source.
-8. Review one Needs Review transaction, choose Remember, and verify exact-name/phone matching cleans up the rest of the pending history without first-name collisions.
+8. Open Activity -> Review and verify repeated identities are grouped. Review one group, choose Remember, and confirm exact-name/phone matching cleans up the full group plus matching one-off Other history without first-name collisions.
 9. Validate bank -> M-Pesa own-account transfers so movement between owned accounts never becomes duplicate income/spending.
 10. After these real-device flows are stable, add month/pay-cycle history selection to Activity/Plan and connect Goals only to deliberate savings allocations.
 
