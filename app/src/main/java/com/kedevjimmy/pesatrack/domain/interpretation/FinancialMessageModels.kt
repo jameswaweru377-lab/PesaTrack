@@ -14,6 +14,12 @@ enum class AccountOwnershipHint {
     UNKNOWN
 }
 
+enum class FinancialAccountNature {
+    ASSET,
+    LIABILITY,
+    UNKNOWN
+}
+
 enum class FinancialEventKind {
     TRANSFER,
     INCOME,
@@ -29,7 +35,8 @@ data class FinancialAccountReference(
     val displayName: String,
     val providerKey: String?,
     val accountTypeHint: AccountType,
-    val ownershipHint: AccountOwnershipHint
+    val ownershipHint: AccountOwnershipHint,
+    val nature: FinancialAccountNature
 )
 
 data class BalanceObservationFact(
