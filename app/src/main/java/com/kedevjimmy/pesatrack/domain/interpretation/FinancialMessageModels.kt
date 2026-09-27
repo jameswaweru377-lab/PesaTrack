@@ -42,7 +42,8 @@ data class FinancialAccountReference(
 data class BalanceObservationFact(
     val account: FinancialAccountReference,
     val balanceMinor: Long,
-    val confidence: InterpretationConfidence
+    val confidence: InterpretationConfidence,
+    val evidence: List<FieldEvidence> = emptyList()
 )
 
 sealed interface FinancialEventFact {
@@ -55,7 +56,8 @@ data class TransferEventFact(
     val source: FinancialAccountReference,
     val destination: FinancialAccountReference,
     val feeMinor: Long,
-    override val confidence: InterpretationConfidence
+    override val confidence: InterpretationConfidence,
+    val evidence: List<FieldEvidence> = emptyList()
 ) : FinancialEventFact {
     override val kind: FinancialEventKind =
         FinancialEventKind.TRANSFER
@@ -65,7 +67,8 @@ data class FinancialMessageInterpretation(
     val transactionCode: String?,
     val occurredAtText: String?,
     val balances: List<BalanceObservationFact>,
-    val events: List<FinancialEventFact>
+    val events: List<FinancialEventFact>,
+    val metadataEvidence: List<FieldEvidence> = emptyList()
 ) {
     val recognized: Boolean
         get() = balances.isNotEmpty() || events.isNotEmpty()
