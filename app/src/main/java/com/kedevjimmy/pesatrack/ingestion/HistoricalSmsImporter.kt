@@ -75,6 +75,35 @@ class HistoricalSmsImporter(
                     continue
                 }
 
+                val interpreted =
+                    FinancialMessageIngestionCoordinator
+                        .get(context)
+                        .ingest(
+                            title = address,
+                            body = body,
+                            sourcePackage = null,
+                            sourceKind =
+                                SOURCE_HISTORICAL_FINANCIAL_MESSAGE,
+                            receivedAtEpochMs = smsDate,
+                            rebuildPayCycles = false
+                        )
+
+                if (
+                    interpreted
+                        .consumesLegacyTransactionParsing
+                ) {
+                    matched += 1
+                    inserted +=
+                        interpreted.insertedTransactions
+                    if (
+                        interpreted.insertedTransactions == 0 &&
+                        interpreted.pendingReviewEvents == 0
+                    ) {
+                        duplicates += 1
+                    }
+                    continue
+                }
+
                 if (MpesaMessageDetector.isLikelyMpesa(address, body)) {
                     val fuliza = FulizaParser.parse(body)
                     if (fuliza != null) {
@@ -250,5 +279,7 @@ class HistoricalSmsImporter(
     companion object {
         const val SOURCE_HISTORICAL_SMS = "historical_sms"
         const val SOURCE_HISTORICAL_FULIZA_SMS = "historical_fuliza_sms"
+        const val SOURCE_HISTORICAL_FINANCIAL_MESSAGE =
+            "historical_financial_message"
     }
 }
