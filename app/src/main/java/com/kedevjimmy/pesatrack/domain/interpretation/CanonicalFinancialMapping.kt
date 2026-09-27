@@ -96,6 +96,65 @@ fun FinancialMessageInterpretation.toCanonicalDraft():
                         )
                     }
                 }
+                is DebtDrawdownEventFact -> {
+                    add(
+                        DebtMovementDraft(
+                            kind =
+                                CanonicalFinancialRecordKind
+                                    .DEBT_DRAWDOWN,
+                            amountMinor = event.amountMinor,
+                            liability = event.liability,
+                            fundingAccount = null,
+                            completion =
+                                DebtCompletion.UNKNOWN,
+                            outstandingAfterMinor =
+                                event.outstandingAfterMinor,
+                            confidence = event.confidence,
+                            evidence = event.evidence
+                        )
+                    )
+                    if (event.feeMinor > 0L) {
+                        add(
+                            FeeDraft(
+                                amountMinor = event.feeMinor,
+                                chargedTo = event.liability,
+                                confidence = event.confidence,
+                                evidence = event.evidence.filter {
+                                    it.field == FinancialField.FEE
+                                }
+                            )
+                        )
+                    }
+                }
+                is DebtRepaymentEventFact -> {
+                    add(
+                        DebtMovementDraft(
+                            kind =
+                                CanonicalFinancialRecordKind
+                                    .DEBT_REPAYMENT,
+                            amountMinor = event.amountMinor,
+                            liability = event.liability,
+                            fundingAccount =
+                                event.fundingAccount,
+                            completion = event.completion,
+                            outstandingAfterMinor =
+                                event.outstandingAfterMinor,
+                            confidence = event.confidence,
+                            evidence = event.evidence
+                        )
+                    )
+                }
+                is AvailableCreditObservationFact -> {
+                    add(
+                        AvailableCreditObservationDraft(
+                            liability = event.liability,
+                            availableCreditMinor =
+                                event.availableCreditMinor,
+                            confidence = event.confidence,
+                            evidence = event.evidence
+                        )
+                    )
+                }
             }
         }
     }
@@ -106,6 +165,6 @@ fun FinancialMessageInterpretation.toCanonicalDraft():
         records = records,
         metadataEvidence = metadataEvidence,
         requiresLegacyFallback =
-            !consumesLegacyTransactionParsing
+            legacyFallbackRequired
     )
 }
