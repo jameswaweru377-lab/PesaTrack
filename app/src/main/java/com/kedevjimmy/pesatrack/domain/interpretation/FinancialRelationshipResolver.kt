@@ -38,11 +38,40 @@ data class ResolvedReceiptRelationship(
     override val evidence: List<FieldEvidence>
 ) : ResolvedFinancialRelationship
 
+data class ResolvedDebtDrawdownRelationship(
+    override val amountMinor: Long,
+    val liability: FinancialAccountReference,
+    val outstandingAfterMinor: Long?,
+    override val feeMinor: Long,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence>
+) : ResolvedFinancialRelationship
+
+data class ResolvedDebtRepaymentRelationship(
+    override val amountMinor: Long,
+    val liability: FinancialAccountReference,
+    val fundingAccount: FinancialAccountReference?,
+    val completion: DebtCompletion,
+    val outstandingAfterMinor: Long?,
+    override val feeMinor: Long = 0L,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence>
+) : ResolvedFinancialRelationship
+
+data class ResolvedAvailableCreditObservation(
+    val liability: FinancialAccountReference,
+    val availableCreditMinor: Long,
+    val confidence: InterpretationConfidence,
+    val evidence: List<FieldEvidence>
+)
+
 data class ResolvedFinancialMessage(
     val transactionCode: TextValueCandidate?,
     val occurredAt: TextValueCandidate?,
     val balances: List<BalanceObservationFact>,
-    val relationship: ResolvedFinancialRelationship?
+    val relationship: ResolvedFinancialRelationship?,
+    val availableCreditObservations:
+        List<ResolvedAvailableCreditObservation>
 )
 
 object FinancialRelationshipResolver {
@@ -78,23 +107,53 @@ object FinancialRelationshipResolver {
                 null
             }
 
+        val debtRelationship =
+            candidates.debtRepayments
+                .firstNotNullOfOrNull {
+                    resolveDebtRepayment(
+                        candidate = it,
+                        outstandingCandidates =
+                            candidates.outstandingDebts
+                    )
+                }
+                ?: candidates.debtDrawdowns
+                    .firstNotNullOfOrNull {
+                        resolveDebtDrawdown(
+                            candidate = it,
+                            outstandingCandidates =
+                                candidates.outstandingDebts,
+                            fee = candidates.fee
+                        )
+                    }
+
         val prioritized = candidates.actions
             .sortedBy(::priority)
 
-        val relationship = prioritized
-            .firstNotNullOfOrNull { action ->
-                resolveAction(
-                    action = action,
-                    observedWallet = observedWallet,
-                    fee = candidates.fee
+        val relationship =
+            debtRelationship ?:
+                prioritized
+                    .firstNotNullOfOrNull { action ->
+                        resolveAction(
+                            action = action,
+                            observedWallet =
+                                observedWallet,
+                            fee = candidates.fee
+                        )
+                    }
+
+        val creditObservations =
+            candidates.availableCredits
+                .mapNotNull(
+                    ::resolveAvailableCredit
                 )
-            }
 
         return ResolvedFinancialMessage(
             transactionCode = candidates.transactionCode,
             occurredAt = candidates.occurredAt,
             balances = balances,
-            relationship = relationship
+            relationship = relationship,
+            availableCreditObservations =
+                creditObservations
         )
     }
 
@@ -143,6 +202,271 @@ object FinancialRelationshipResolver {
             )
         )
     }
+
+    private fun resolveDebtDrawdown(
+        candidate: DebtDrawdownCandidate,
+        outstandingCandidates:
+            List<OutstandingDebtCandidate>,
+        fee: FeeCandidate?
+    ): ResolvedDebtDrawdownRelationship? {
+        val liability =
+            FinancialProviderRegistry.resolveAccount(
+                candidate.rawLiabilityLabel
+            )
+        if (
+            liability.nature ==
+            FinancialAccountNature.ASSET
+        ) {
+            return null
+        }
+
+        val outstanding =
+            matchingOutstanding(
+                liability = liability,
+                candidates = outstandingCandidates
+            )
+        val confidence =
+            if (
+                liability.nature ==
+                FinancialAccountNature.LIABILITY
+            ) {
+                InterpretationConfidence.HIGH
+            } else {
+                InterpretationConfidence.MEDIUM
+            }
+
+        return ResolvedDebtDrawdownRelationship(
+            amountMinor = candidate.amountMinor,
+            liability = liability,
+            outstandingAfterMinor =
+                outstanding?.outstandingMinor,
+            feeMinor = fee?.amountMinor ?: 0L,
+            confidence = confidence,
+            evidence = buildList {
+                add(
+                    evidence(
+                        field = FinancialField.LIABILITY,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId +
+                                ".liability",
+                        span = candidate.liabilitySpan,
+                        confidence = confidence
+                    )
+                )
+                add(
+                    evidence(
+                        field = FinancialField.AMOUNT,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId +
+                                ".amount",
+                        span = candidate.amountSpan,
+                        confidence = confidence
+                    )
+                )
+                outstanding?.let {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField
+                                    .OUTSTANDING_BALANCE,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId = it.ruleId,
+                            span = it.amountSpan,
+                            confidence = confidence
+                        )
+                    )
+                }
+                fee?.let {
+                    add(
+                        evidence(
+                            field = FinancialField.FEE,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId = it.ruleId,
+                            span = it.amountSpan,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
+            }
+        )
+    }
+
+    private fun resolveDebtRepayment(
+        candidate: DebtRepaymentCandidate,
+        outstandingCandidates:
+            List<OutstandingDebtCandidate>
+    ): ResolvedDebtRepaymentRelationship? {
+        val liability =
+            FinancialProviderRegistry.resolveAccount(
+                candidate.rawLiabilityLabel
+            )
+        if (
+            liability.nature ==
+            FinancialAccountNature.ASSET
+        ) {
+            return null
+        }
+        val funding =
+            FinancialProviderRegistry.resolveAccount(
+                candidate.rawFundingLabel
+            )
+        val outstanding =
+            if (
+                candidate.completion ==
+                DebtCompletion.FULL
+            ) {
+                0L
+            } else {
+                matchingOutstanding(
+                    liability = liability,
+                    candidates = outstandingCandidates
+                )?.outstandingMinor
+            }
+        val confidence =
+            if (
+                liability.nature ==
+                    FinancialAccountNature.LIABILITY &&
+                funding.nature ==
+                    FinancialAccountNature.ASSET
+            ) {
+                InterpretationConfidence.HIGH
+            } else {
+                InterpretationConfidence.MEDIUM
+            }
+
+        return ResolvedDebtRepaymentRelationship(
+            amountMinor = candidate.amountMinor,
+            liability = liability,
+            fundingAccount = funding,
+            completion = candidate.completion,
+            outstandingAfterMinor = outstanding,
+            confidence = confidence,
+            evidence = buildList {
+                add(
+                    evidence(
+                        field = FinancialField.AMOUNT,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId +
+                                ".amount",
+                        span = candidate.amountSpan,
+                        confidence = confidence
+                    )
+                )
+                add(
+                    evidence(
+                        field =
+                            FinancialField.SOURCE_ACCOUNT,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId +
+                                ".funding_account",
+                        span = candidate.fundingSpan,
+                        confidence = confidence
+                    )
+                )
+                add(
+                    evidence(
+                        field = FinancialField.LIABILITY,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId +
+                                ".liability",
+                        span = candidate.liabilitySpan,
+                        confidence = confidence
+                    )
+                )
+                add(
+                    evidence(
+                        field = FinancialField.COMPLETION,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId +
+                                ".completion",
+                        span = null,
+                        confidence = confidence
+                    )
+                )
+            }
+        )
+    }
+
+    private fun resolveAvailableCredit(
+        candidate: AvailableCreditCandidate
+    ): ResolvedAvailableCreditObservation? {
+        val liability =
+            FinancialProviderRegistry.resolveAccount(
+                candidate.rawLiabilityLabel
+            )
+        if (
+            liability.nature ==
+            FinancialAccountNature.ASSET
+        ) {
+            return null
+        }
+        val confidence =
+            if (
+                liability.nature ==
+                FinancialAccountNature.LIABILITY
+            ) {
+                InterpretationConfidence.HIGH
+            } else {
+                InterpretationConfidence.MEDIUM
+            }
+        return ResolvedAvailableCreditObservation(
+            liability = liability,
+            availableCreditMinor =
+                candidate.availableCreditMinor,
+            confidence = confidence,
+            evidence = listOf(
+                evidence(
+                    field = FinancialField.LIABILITY,
+                    origin =
+                        EvidenceOrigin.MESSAGE_TEXT,
+                    ruleId =
+                        candidate.ruleId +
+                            ".liability",
+                    span = candidate.liabilitySpan,
+                    confidence = confidence
+                ),
+                evidence(
+                    field =
+                        FinancialField.AVAILABLE_CREDIT,
+                    origin =
+                        EvidenceOrigin.MESSAGE_TEXT,
+                    ruleId =
+                        candidate.ruleId +
+                            ".amount",
+                    span = candidate.amountSpan,
+                    confidence = confidence
+                )
+            )
+        )
+    }
+
+    private fun matchingOutstanding(
+        liability: FinancialAccountReference,
+        candidates: List<OutstandingDebtCandidate>
+    ): OutstandingDebtCandidate? =
+        candidates.firstOrNull { candidate ->
+            val candidateLiability =
+                FinancialProviderRegistry.resolveAccount(
+                    candidate.rawLiabilityLabel
+                )
+            candidateLiability.entityKey ==
+                liability.entityKey
+        }
 
     private fun resolveAction(
         action: FinancialActionCandidate,
