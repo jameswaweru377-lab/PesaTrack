@@ -157,6 +157,7 @@ fun ActivityScreen(
         selectedMonthEpochMs = normalizedMonth
         expandedMonthEpochMs = normalizedMonth
         selectedFilter = "All"
+        selectedGlobalQueue = null
         snapshot = store.activitySnapshot(
             nowEpochMs = normalizedMonth
         )
@@ -854,11 +855,13 @@ private fun GlobalReviewHeader(
         Text(
             pendingTransactions.toString() +
                 " pending transaction" +
-                if (pendingTransactions == 1) {
-                    ""
-                } else {
-                    "s"
-                } +
+                (
+                    if (pendingTransactions == 1) {
+                        ""
+                    } else {
+                        "s"
+                    }
+                ) +
                 " across all captured months. Teach an identity once and matching history can follow.",
             modifier = Modifier.padding(top = 3.dp),
             style = MaterialTheme.typography.bodyMedium,
@@ -875,13 +878,15 @@ private fun GlobalDuplicateHeader(
     Text(
         overview.possibleDuplicates.size.toString() +
             " possible duplicate pair" +
-            if (
-                overview.possibleDuplicates.size == 1
-            ) {
-                ""
-            } else {
-                "s"
-            } +
+            (
+                if (
+                    overview.possibleDuplicates.size == 1
+                ) {
+                    ""
+                } else {
+                    "s"
+                }
+            ) +
             " across all captured months",
         style = MaterialTheme.typography.titleLarge
     )
