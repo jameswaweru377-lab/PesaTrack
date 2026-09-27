@@ -118,7 +118,7 @@ private enum class ArrivalChoice(
     CASH("Cash", "Money is received physically")
 }
 
-private enum class PayWindowChoice(
+private enum class OnboardingPayWindowChoice(
     val label: String,
     val helper: String,
     val startDay: Int?,
@@ -193,7 +193,7 @@ fun InitialMoneySetupScreen(
     var activeManualSalaryMonthKey by remember {
         mutableStateOf<String?>(null)
     }
-    var payWindowChoice by remember { mutableStateOf(PayWindowChoice.VARIES) }
+    var payWindowChoice by remember { mutableStateOf(OnboardingPayWindowChoice.VARIES) }
     var customPayWindowStart by remember { mutableStateOf("") }
     var customPayWindowEnd by remember { mutableStateOf("") }
     var mpesaPhone by remember { mutableStateOf("") }
@@ -329,7 +329,7 @@ fun InitialMoneySetupScreen(
     }
 
     fun resolvedPayWindow(): Pair<Int?, Int?> =
-        if (payWindowChoice == PayWindowChoice.CUSTOM) {
+        if (payWindowChoice == OnboardingPayWindowChoice.CUSTOM) {
             customPayWindowStart.toIntOrNull() to
                 customPayWindowEnd.toIntOrNull()
         } else {
@@ -337,7 +337,7 @@ fun InitialMoneySetupScreen(
         }
 
     fun validatePayWindow(): Boolean {
-        if (payWindowChoice != PayWindowChoice.CUSTOM) return true
+        if (payWindowChoice != OnboardingPayWindowChoice.CUSTOM) return true
         val (startDay, endDay) = resolvedPayWindow()
         if (
             startDay == null || endDay == null ||
@@ -1445,10 +1445,10 @@ private fun IdentifyIncomeStep(
 
 @Composable
 private fun PaydayWindowStep(
-    selected: PayWindowChoice,
+    selected: OnboardingPayWindowChoice,
     customStart: String,
     customEnd: String,
-    onSelected: (PayWindowChoice) -> Unit,
+    onSelected: (OnboardingPayWindowChoice) -> Unit,
     onCustomStartChanged: (String) -> Unit,
     onCustomEndChanged: (String) -> Unit
 ) {
@@ -1456,7 +1456,7 @@ private fun PaydayWindowStep(
         title = "When do you usually get paid?",
         body = "Optional. This is only an expected window; PesaTrack never counts salary until the money is actually detected or you add it."
     ) {
-        PayWindowChoice.entries.forEach { choice ->
+        OnboardingPayWindowChoice.entries.forEach { choice ->
             SetupChoice(
                 icon = Icons.Rounded.CalendarMonth,
                 title = choice.label,
@@ -1466,7 +1466,7 @@ private fun PaydayWindowStep(
             )
         }
 
-        if (selected == PayWindowChoice.CUSTOM) {
+        if (selected == OnboardingPayWindowChoice.CUSTOM) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = customStart,
