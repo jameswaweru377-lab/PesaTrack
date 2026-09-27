@@ -10,6 +10,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
+import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.parser.FulizaRepaymentCompletion
 import com.kedevjimmy.pesatrack.domain.parser.ParsedFulizaEvent
 import com.kedevjimmy.pesatrack.domain.parser.ParsedFulizaRepayment
@@ -854,6 +855,445 @@ class DebtStore private constructor(context: Context) {
         }
     }
 
+    @Synchronized
+    fun sumFeesBetween(
+        startEpochMs: Long,
+        endEpochMsExclusive: Long
+    ): Long =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT COALESCE(SUM(fee_minor), 0)
+            FROM debt_events
+            WHERE occurred_at_epoch_ms >= ?
+              AND occurred_at_epoch_ms < ?
+            """.trimIndent(),
+            arrayOf(
+                startEpochMs.toString(),
+                endEpochMsExclusive.toString()
+            )
+        ).use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.getLong(0)
+            } else {
+                0L
+            }
+        }
+
+    @Synchronized
+    fun reconcilePendingDrawdownsForTransaction(
+        transactionId: Long,
+        parsed:
+            com.kedevjimmy.pesatrack.domain.model
+                .ParsedMpesaTransaction,
+        occurredAtEpochMs: Long
+    ) {
+        if (
+            parsed.type !in setOf(
+                MpesaTransactionType.SENT_MONEY,
+                MpesaTransactionType.PAY_BILL,
+                MpesaTransactionType.BUY_GOODS,
+                MpesaTransactionType.AIRTIME
+            )
+        ) {
+            return
+        }
+
+        val pending =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT e.id, e.amount_minor,
+                       e.occurred_at_epoch_ms,
+                       a.provider_key
+                FROM debt_events e
+                JOIN debt_accounts a
+                  ON a.id = e.debt_account_id
+                WHERE e.event_type = ?
+                  AND e.linked_transaction_id IS NULL
+                  AND e.occurred_at_epoch_ms
+                      BETWEEN ? AND ?
+                ORDER BY ABS(
+                    e.occurred_at_epoch_ms - ?
+                ) ASC
+                """.trimIndent(),
+                arrayOf(
+                    DebtEventType.DRAWDOWN.name,
+                    (
+                        occurredAtEpochMs -
+                            DRAW_DOWN_LINK_WINDOW_MS
+                    ).toString(),
+                    (
+                        occurredAtEpochMs +
+                            DRAW_DOWN_LINK_WINDOW_MS
+                    ).toString(),
+                    occurredAtEpochMs.toString()
+                )
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(
+                            PendingDebtDrawdown(
+                                eventId =
+                                    cursor.getLong(0),
+                                financedMinor =
+                                    cursor.getLong(1),
+                                occurredAtEpochMs =
+                                    cursor.getLong(2),
+                                providerKey =
+                                    cursor.getString(3)
+                            )
+                        )
+                    }
+                }
+            }
+
+        val candidate = DebtFundingCandidate(
+            transactionId = transactionId,
+            occurredAtEpochMs = occurredAtEpochMs,
+            amountMinor = parsed.amountMinor,
+            transactionFeeMinor = parsed.feeMinor
+        )
+
+        val eligible = pending.filter { item ->
+            val reference =
+                debtAccountReferenceForProvider(
+                    item.providerKey
+                )
+            val behavior =
+                FinancialProviderRegistry
+                    .debtBehaviorFor(reference)
+
+            behavior?.fundingBehavior ==
+                DebtFundingBehavior
+                    .TRANSACTION_SHORTFALL &&
+                DebtFundingPairingPolicy
+                    .chooseTransactionShortfallCandidate(
+                        financedMinor =
+                            item.financedMinor,
+                        financedAtEpochMs =
+                            item.occurredAtEpochMs,
+                        candidates =
+                            listOf(candidate)
+                    ) == transactionId
+        }
+
+        val totalRequired =
+            parsed.amountMinor +
+                parsed.feeMinor
+        val exact = eligible.filter {
+            it.financedMinor == totalRequired
+        }
+        val selected = when {
+            exact.size == 1 -> exact.single()
+            exact.isEmpty() &&
+                eligible.size == 1 ->
+                eligible.single()
+            else -> null
+        } ?: return
+
+        attachDrawdownToTransaction(
+            eventId = selected.eventId,
+            transactionId = transactionId
+        )
+    }
+
+    private fun findDrawdownFundingTransaction(
+        financedAmountMinor: Long,
+        occurredAtEpochMs: Long
+    ): Long? {
+        val candidates =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT id, occurred_at_epoch_ms,
+                       amount_minor, fee_minor
+                FROM transactions
+                WHERE type IN (?, ?, ?, ?)
+                  AND occurred_at_epoch_ms
+                      BETWEEN ? AND ?
+                  AND review_state != ?
+                ORDER BY occurred_at_epoch_ms DESC
+                """.trimIndent(),
+                arrayOf(
+                    MpesaTransactionType.SENT_MONEY.name,
+                    MpesaTransactionType.PAY_BILL.name,
+                    MpesaTransactionType.BUY_GOODS.name,
+                    MpesaTransactionType.AIRTIME.name,
+                    (
+                        occurredAtEpochMs -
+                            DRAW_DOWN_LINK_WINDOW_MS
+                    ).toString(),
+                    (
+                        occurredAtEpochMs +
+                            DRAW_DOWN_LINK_WINDOW_MS
+                    ).toString(),
+                    com.kedevjimmy.pesatrack.domain.model
+                        .ReviewState.EXCLUDED.name
+                )
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(
+                            DebtFundingCandidate(
+                                transactionId =
+                                    cursor.getLong(0),
+                                occurredAtEpochMs =
+                                    cursor.getLong(1),
+                                amountMinor =
+                                    cursor.getLong(2),
+                                transactionFeeMinor =
+                                    cursor.getLong(3)
+                            )
+                        )
+                    }
+                }
+            }
+
+        return DebtFundingPairingPolicy
+            .chooseTransactionShortfallCandidate(
+                financedMinor =
+                    financedAmountMinor,
+                financedAtEpochMs =
+                    occurredAtEpochMs,
+                candidates = candidates
+            )
+    }
+
+    private fun attachDrawdownToTransaction(
+        eventId: Long,
+        transactionId: Long
+    ) {
+        ContentValues().apply {
+            put(
+                "linked_transaction_id",
+                transactionId
+            )
+        }.also { values ->
+            database.writableDatabase.update(
+                "debt_events",
+                values,
+                "id = ?",
+                arrayOf(eventId.toString())
+            )
+        }
+
+        val metadata =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT e.amount_minor, e.fee_minor,
+                       e.outstanding_after_minor,
+                       a.provider_key
+                FROM debt_events e
+                JOIN debt_accounts a
+                  ON a.id = e.debt_account_id
+                WHERE e.id = ?
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf(eventId.toString())
+            ).use { cursor ->
+                if (!cursor.moveToFirst()) {
+                    null
+                } else {
+                    LegacyFundingMetadata(
+                        financedMinor =
+                            cursor.getLong(0),
+                        feeMinor =
+                            cursor.getLong(1),
+                        outstandingMinor =
+                            if (cursor.isNull(2)) {
+                                null
+                            } else {
+                                cursor.getLong(2)
+                            },
+                        providerKey =
+                            cursor.getString(3)
+                    )
+                }
+            } ?: return
+
+        val reference =
+            debtAccountReferenceForProvider(
+                metadata.providerKey
+            )
+        val behavior =
+            FinancialProviderRegistry
+                .debtBehaviorFor(reference)
+
+        if (
+            behavior
+                ?.preserveLegacyTransactionMetadata ==
+                true
+        ) {
+            ContentValues().apply {
+                put(
+                    "fuliza_financed_minor",
+                    metadata.financedMinor
+                )
+                put(
+                    "fuliza_access_fee_minor",
+                    metadata.feeMinor
+                )
+                if (
+                    metadata.outstandingMinor != null
+                ) {
+                    put(
+                        "fuliza_outstanding_minor",
+                        metadata.outstandingMinor
+                    )
+                } else {
+                    putNull(
+                        "fuliza_outstanding_minor"
+                    )
+                }
+            }.also { values ->
+                database.writableDatabase.update(
+                    "transactions",
+                    values,
+                    "id = ?",
+                    arrayOf(
+                        transactionId.toString()
+                    )
+                )
+            }
+        }
+
+        LedgerUpdateBus.notifyChanged()
+    }
+
+    private fun applyLegacyTransactionFundingMetadata(
+        transactionId: Long,
+        event: DebtDrawdownEventFact,
+        transactionCode: String?
+    ) {
+        ContentValues().apply {
+            put(
+                "fuliza_financed_minor",
+                event.amountMinor
+            )
+            put(
+                "fuliza_access_fee_minor",
+                event.feeMinor
+            )
+            if (
+                event.outstandingAfterMinor != null
+            ) {
+                put(
+                    "fuliza_outstanding_minor",
+                    event.outstandingAfterMinor
+                )
+            } else {
+                putNull(
+                    "fuliza_outstanding_minor"
+                )
+            }
+            if (
+                !transactionCode.isNullOrBlank()
+            ) {
+                put(
+                    "fuliza_event_code",
+                    transactionCode
+                )
+            }
+        }.also { values ->
+            database.writableDatabase.update(
+                "transactions",
+                values,
+                "id = ?",
+                arrayOf(transactionId.toString())
+            )
+        }
+    }
+
+    private fun linkedTransactionId(
+        eventId: Long
+    ): Long? =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT linked_transaction_id
+            FROM debt_events
+            WHERE id = ?
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(eventId.toString())
+        ).use { cursor ->
+            if (
+                cursor.moveToFirst() &&
+                !cursor.isNull(0)
+            ) {
+                cursor.getLong(0)
+            } else {
+                null
+            }
+        }
+
+    private fun debtAccountIdentity(
+        reference: FinancialAccountReference
+    ): DebtAccountIdentity {
+        val providerKey =
+            reference.providerKey
+                ?: reference.entityKey
+
+        val id = if (
+            providerKey == FULIZA_PROVIDER_KEY
+        ) {
+            FULIZA_ACCOUNT_ID
+        } else {
+            "debt-" +
+                sha256(providerKey)
+                    .take(20)
+        }
+
+        return DebtAccountIdentity(
+            id = id,
+            providerKey = providerKey,
+            name = reference.displayName
+        )
+    }
+
+    private fun debtAccountReferenceForProvider(
+        providerKey: String
+    ): FinancialAccountReference =
+        if (
+            providerKey.startsWith(
+                "discovered:"
+            )
+        ) {
+            FinancialProviderRegistry
+                .resolveAccount(
+                    providerKey
+                        .removePrefix(
+                            "discovered:"
+                        )
+                        .replace('-', ' ')
+                )
+                .copy(
+                    nature =
+                        com.kedevjimmy.pesatrack.domain
+                            .interpretation
+                            .FinancialAccountNature.LIABILITY
+                )
+        } else {
+            FinancialProviderRegistry
+                .resolveAccount(
+                    when (providerKey) {
+                        FULIZA_PROVIDER_KEY ->
+                            "Fuliza M-PESA"
+                        else -> providerKey
+                    }
+                )
+        }
+
+    private fun sha256(
+        value: String
+    ): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(
+                value.toByteArray(
+                    Charsets.UTF_8
+                )
+            )
+            .joinToString("") { byte ->
+                "%02x".format(byte)
+            }
+
     private fun ensureAccount(
         id: String,
         providerKey: String,
@@ -1294,6 +1734,26 @@ class DebtStore private constructor(context: Context) {
             }
     }
 
+    private data class DebtAccountIdentity(
+        val id: String,
+        val providerKey: String,
+        val name: String
+    )
+
+    private data class PendingDebtDrawdown(
+        val eventId: Long,
+        val financedMinor: Long,
+        val occurredAtEpochMs: Long,
+        val providerKey: String
+    )
+
+    private data class LegacyFundingMetadata(
+        val financedMinor: Long,
+        val feeMinor: Long,
+        val outstandingMinor: Long?,
+        val providerKey: String
+    )
+
     private data class LegacyFulizaRepaymentRow(
         val transactionId: Long,
         val rawMessage: String,
@@ -1319,6 +1779,10 @@ class DebtStore private constructor(context: Context) {
 
         private const val REPAYMENT_LINK_WINDOW_MS =
             10L * 60L * 1000L
+        private const val DRAW_DOWN_LINK_WINDOW_MS =
+            3L * 60L * 1000L
+        private const val MPESA_PROVIDER_KEY =
+            "SAFARICOM_MPESA"
         private const val LEGACY_FULIZA_REPAYMENT_RECONCILIATION_KEY =
             "legacy_fuliza_repayment_reconciliation_v1"
 
