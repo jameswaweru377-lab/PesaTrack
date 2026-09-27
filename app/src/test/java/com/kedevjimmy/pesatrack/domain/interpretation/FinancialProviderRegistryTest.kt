@@ -45,6 +45,10 @@ class FinancialProviderRegistryTest {
             AccountType.OTHER,
             account.accountTypeHint
         )
+        assertEquals(
+            FinancialAccountNature.LIABILITY,
+            account.nature
+        )
     }
 
     @Test
@@ -61,6 +65,10 @@ class FinancialProviderRegistryTest {
         assertEquals(
             AccountOwnershipHint.UNKNOWN,
             account.ownershipHint
+        )
+        assertEquals(
+            FinancialAccountNature.LIABILITY,
+            account.nature
         )
     }
 
