@@ -10,6 +10,8 @@ import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.rules.MirrorTransactionMatcher
+import com.kedevjimmy.pesatrack.domain.rules.MirrorTransactionObservation
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.OwnTransferEvidence
 import com.kedevjimmy.pesatrack.domain.rules.PlanningPeriodResolver
@@ -89,6 +91,42 @@ class TransactionStore private constructor(context: Context) {
                 MpesaTransactionType.WITHDRAWAL -> AccountStore.DEFAULT_CASH_ID
                 else -> null
             }
+        }
+
+        val mirrorCandidate = findMirrorCandidate(
+            parsed = parsed,
+            sourcePackage = sourcePackage,
+            sourceKind = sourceKind,
+            receivedAtEpochMs = receivedAtEpochMs,
+            occurredAtEpochMs = occurredAtEpochMs
+        )
+        if (mirrorCandidate != null) {
+            if (parsed.transactionCode.isNullOrBlank()) {
+                return false
+            }
+
+            mergeMpesaMirrorIntoExisting(
+                existing = mirrorCandidate,
+                parsed = parsed,
+                fingerprint = fingerprint,
+                sourcePackage = sourcePackage,
+                sourceKind = sourceKind,
+                receivedAtEpochMs = receivedAtEpochMs,
+                occurredAtEpochMs = occurredAtEpochMs,
+                classification = classification,
+                displayCounterparty = displayCounterparty,
+                accountId = accountId,
+                linkedAccountId = linkedAccountId
+            )
+            FulizaStore.get(appContext).linkPendingForTransaction(
+                transactionId = mirrorCandidate.id,
+                parsed = parsed,
+                occurredAtEpochMs = occurredAtEpochMs
+            )
+            if (rebuildPayCycles) {
+                PayCycleStore.get(appContext).rebuild()
+            }
+            return false
         }
 
         val values = ContentValues().apply {
@@ -177,6 +215,7 @@ class TransactionStore private constructor(context: Context) {
 
     @Synchronized
     fun snapshot(): LedgerSnapshot {
+        ensureMirrorReconciled()
         val db = database.readableDatabase
 
         val count = db.rawQuery("SELECT COUNT(*) FROM transactions", null).use { cursor ->
@@ -236,6 +275,7 @@ class TransactionStore private constructor(context: Context) {
         nowEpochMs: Long = System.currentTimeMillis(),
         timeZone: TimeZone = TimeZone.getDefault()
     ): ActivityLedgerSnapshot {
+        ensureMirrorReconciled()
         reconcileRecentReviewTriage(nowEpochMs, timeZone)
 
         val monthStart = Calendar.getInstance(timeZone).apply {
@@ -534,6 +574,210 @@ class TransactionStore private constructor(context: Context) {
             )
 
     @Synchronized
+    fun reconcileMirrorDuplicates(): Int {
+        val transactions = allTransactions()
+        val mpesaCanonical = transactions.filter {
+            !it.transactionCode.isNullOrBlank() &&
+                it.reviewState != ReviewState.EXCLUDED.name
+        }
+        val duplicates = transactions.filter {
+            it.transactionCode.isNullOrBlank() &&
+                it.reviewState != ReviewState.USER_CLASSIFIED.name &&
+                it.reviewState != ReviewState.EXCLUDED.name
+        }
+        val db = database.writableDatabase
+        var removed = 0
+
+        mpesaCanonical.forEach { canonical ->
+            val canonicalObservation = canonical.toMirrorObservation()
+            val candidate = duplicates
+                .asSequence()
+                .filter { it.id != canonical.id }
+                .filter { it.amountMinor == canonical.amountMinor }
+                .filter {
+                    kotlin.math.abs(
+                        it.receivedAtEpochMs - canonical.receivedAtEpochMs
+                    ) <= MirrorTransactionMatcher.MAX_TIME_DELTA_MS
+                }
+                .filter {
+                    MirrorTransactionMatcher.isMirror(
+                        canonicalObservation,
+                        it.toMirrorObservation()
+                    )
+                }
+                .minByOrNull {
+                    kotlin.math.abs(
+                        it.receivedAtEpochMs - canonical.receivedAtEpochMs
+                    )
+                } ?: return@forEach
+
+            if (canonical.ruleId == null && candidate.ruleId != null) {
+                val values = ContentValues().apply {
+                    put("direction", candidate.direction)
+                    put("category", candidate.category)
+                    put("review_state", candidate.reviewState)
+                    put("rule_id", candidate.ruleId)
+                    if (candidate.planningMonth != null) {
+                        put("planning_month", candidate.planningMonth)
+                    }
+                }
+                db.update(
+                    "transactions",
+                    values,
+                    "id = ?",
+                    arrayOf(canonical.id.toString())
+                )
+            }
+
+            removed += db.delete(
+                "transactions",
+                "id = ?",
+                arrayOf(candidate.id.toString())
+            )
+        }
+
+        if (removed > 0) {
+            PayCycleStore.get(appContext).rebuild()
+        }
+        return removed
+    }
+
+    private fun ensureMirrorReconciled() {
+        val preferences = appContext.getSharedPreferences(
+            "pesatrack_preferences",
+            Context.MODE_PRIVATE
+        )
+        if (preferences.getBoolean(MIRROR_RECONCILIATION_KEY, false)) return
+
+        reconcileMirrorDuplicates()
+        preferences.edit()
+            .putBoolean(MIRROR_RECONCILIATION_KEY, true)
+            .apply()
+    }
+
+    private fun findMirrorCandidate(
+        parsed: ParsedMpesaTransaction,
+        sourcePackage: String?,
+        sourceKind: String,
+        receivedAtEpochMs: Long,
+        occurredAtEpochMs: Long
+    ): StoredTransaction? {
+        if (parsed.type == MpesaTransactionType.REVERSAL) return null
+
+        val incoming = MirrorTransactionObservation(
+            amountMinor = parsed.amountMinor,
+            occurredAtEpochMs = occurredAtEpochMs,
+            receivedAtEpochMs = receivedAtEpochMs,
+            sourceKind = sourceKind,
+            sourcePackage = sourcePackage,
+            transactionCode = parsed.transactionCode,
+            type = parsed.type.name,
+            counterparty = parsed.counterparty,
+            counterpartyPhone = parsed.counterpartyPhone
+        )
+
+        return database.readableDatabase.rawQuery(
+            BASE_SELECT +
+                " WHERE amount_minor = ?" +
+                " AND received_at_epoch_ms >= ?" +
+                " AND received_at_epoch_ms <= ?" +
+                " ORDER BY ABS(received_at_epoch_ms - ?) ASC" +
+                " LIMIT 12",
+            arrayOf(
+                parsed.amountMinor.toString(),
+                (receivedAtEpochMs - MirrorTransactionMatcher.MAX_TIME_DELTA_MS).toString(),
+                (receivedAtEpochMs + MirrorTransactionMatcher.MAX_TIME_DELTA_MS).toString(),
+                receivedAtEpochMs.toString()
+            )
+        ).use { cursor ->
+            var best: StoredTransaction? = null
+            while (cursor.moveToNext()) {
+                val candidate = cursor.toStoredTransaction()
+                if (
+                    candidate.reviewState == ReviewState.USER_CLASSIFIED.name ||
+                    candidate.reviewState == ReviewState.EXCLUDED.name
+                ) {
+                    continue
+                }
+                if (
+                    MirrorTransactionMatcher.isMirror(
+                        incoming,
+                        candidate.toMirrorObservation()
+                    )
+                ) {
+                    best = candidate
+                    break
+                }
+            }
+            best
+        }
+    }
+
+    private fun mergeMpesaMirrorIntoExisting(
+        existing: StoredTransaction,
+        parsed: ParsedMpesaTransaction,
+        fingerprint: String,
+        sourcePackage: String?,
+        sourceKind: String,
+        receivedAtEpochMs: Long,
+        occurredAtEpochMs: Long,
+        classification: Classification,
+        displayCounterparty: String?,
+        accountId: String?,
+        linkedAccountId: String?
+    ) {
+        val keepExistingRule =
+            existing.ruleId != null && classification.ruleId == null
+
+        val values = ContentValues().apply {
+            put("transaction_code", parsed.transactionCode)
+            put("fingerprint", fingerprint)
+            put("type", parsed.type.name)
+            put("fee_minor", parsed.feeMinor)
+            if (parsed.balanceMinor != null) {
+                put("balance_minor", parsed.balanceMinor)
+            }
+            if (!displayCounterparty.isNullOrBlank()) {
+                put("counterparty", displayCounterparty)
+            }
+            if (!parsed.counterpartyPhone.isNullOrBlank()) {
+                put("counterparty_phone", parsed.counterpartyPhone)
+            }
+            if (!parsed.occurredAtText.isNullOrBlank()) {
+                put("occurred_at_text", parsed.occurredAtText)
+            }
+            put("occurred_at_epoch_ms", occurredAtEpochMs)
+            put("received_at_epoch_ms", receivedAtEpochMs)
+            put("source_package", sourcePackage)
+            put("source_kind", sourceKind)
+
+            if (!keepExistingRule) {
+                put("direction", classification.direction.name)
+                put("category", classification.category.name)
+                put("review_state", classification.reviewState.name)
+                if (classification.ruleId != null) {
+                    put("rule_id", classification.ruleId)
+                } else {
+                    putNull("rule_id")
+                }
+                put("planning_month", classification.planningMonth)
+            }
+
+            if (accountId != null) put("account_id", accountId)
+            if (linkedAccountId != null) put("linked_account_id", linkedAccountId)
+            putNull("pay_cycle_id")
+            putNull("cycle_candidate_reason")
+        }
+
+        database.writableDatabase.update(
+            "transactions",
+            values,
+            "id = ?",
+            arrayOf(existing.id.toString())
+        )
+    }
+
+    @Synchronized
     fun reconcileOwnAccountTransfers(): Int {
         val accounts = AccountStore.get(appContext).listAccounts()
         val db = database.writableDatabase
@@ -739,6 +983,9 @@ class TransactionStore private constructor(context: Context) {
     )
 
     companion object {
+        private const val MIRROR_RECONCILIATION_KEY =
+            "mirror_transaction_reconciliation_v1"
+
         private val OUTGOING_REVIEW_TYPES = setOf(
             MpesaTransactionType.SENT_MONEY.name,
             MpesaTransactionType.PAY_BILL.name,
@@ -804,6 +1051,19 @@ private fun android.database.Cursor.getStringOrNull(index: Int): String? =
 
 private fun android.database.Cursor.getLongOrNull(index: Int): Long? =
     if (isNull(index)) null else getLong(index)
+
+private fun StoredTransaction.toMirrorObservation(): MirrorTransactionObservation =
+    MirrorTransactionObservation(
+        amountMinor = amountMinor,
+        occurredAtEpochMs = occurredAtEpochMs,
+        receivedAtEpochMs = receivedAtEpochMs,
+        sourceKind = sourceKind,
+        sourcePackage = sourcePackage,
+        transactionCode = transactionCode,
+        type = type,
+        counterparty = counterparty,
+        counterpartyPhone = counterpartyPhone
+    )
 
 private fun StoredTransaction.toParsedTransaction(): ParsedMpesaTransaction =
     ParsedMpesaTransaction(
