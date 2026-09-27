@@ -6,6 +6,7 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.rules.PayCyclePolicy
+import com.kedevjimmy.pesatrack.domain.rules.FundingGapPolicy
 import kotlin.math.max
 import java.util.Calendar
 import java.util.TimeZone
@@ -162,7 +163,8 @@ class PayCycleStore private constructor(context: Context) {
                 safeTodayMinor = null,
                 estimatedDaysRemaining = null,
                 commitments = emptyList(),
-                pendingSalary = pending
+                pendingSalary = pending,
+                unexplainedFundingGapMinor = 0L
             )
         }
 
@@ -176,6 +178,12 @@ class PayCycleStore private constructor(context: Context) {
             totals.feesMinor -
             totals.savingsMinor -
             remainingCommitments
+        val unexplainedFundingGap = FundingGapPolicy.unexplainedGap(
+            startingFundsMinor = startingFunds,
+            additionalIncomeMinor = totals.additionalIncomeMinor,
+            spentMinor = totals.spentMinor,
+            feesMinor = totals.feesMinor
+        )
 
         val averageLength = averageCompletedCycleLengthDays()
         val daysRemaining = averageLength?.let { average ->
@@ -202,7 +210,8 @@ class PayCycleStore private constructor(context: Context) {
             safeTodayMinor = safeToday,
             estimatedDaysRemaining = daysRemaining,
             commitments = commitments,
-            pendingSalary = pending
+            pendingSalary = pending,
+            unexplainedFundingGapMinor = unexplainedFundingGap
         )
     }
 

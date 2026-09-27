@@ -37,6 +37,7 @@ import com.kedevjimmy.pesatrack.data.local.CommitmentProgress
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
+import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
@@ -129,6 +130,12 @@ fun PlanScreen(scaffoldPadding: PaddingValues) {
                             PlanMetric("Available", formatPlanMoney(snapshot.availableToLiveMinor), "Free to live", "violet", Modifier.weight(1f))
                         }
                     }
+                }
+            }
+
+            if (snapshot.unexplainedFundingGapMinor > 0L) {
+                item {
+                    FundingGapCard(snapshot.unexplainedFundingGapMinor)
                 }
             }
 

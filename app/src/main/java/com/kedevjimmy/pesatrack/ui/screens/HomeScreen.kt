@@ -46,6 +46,7 @@ import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.SalaryCycleCandidate
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
+import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
@@ -193,6 +194,12 @@ fun HomeScreen(
                         MoneyMetric("Spent", formatMoney(cycleSnapshot.spentMinor + cycleSnapshot.feesMinor), "This pay cycle", "violet", Modifier.weight(1f))
                     }
                 }
+            }
+        }
+
+        if (cycleSnapshot.unexplainedFundingGapMinor > 0L) {
+            item {
+                FundingGapCard(cycleSnapshot.unexplainedFundingGapMinor)
             }
         }
 
