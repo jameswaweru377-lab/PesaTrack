@@ -336,6 +336,30 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun activityReviewOverview(): ActivityReviewOverview {
+        ensureMirrorReconciled()
+        ensureBuiltInRecognitionReconciled()
+
+        val transactions = allTransactions()
+            .filter { it.reviewState != ReviewState.EXCLUDED.name }
+        val possibleDuplicates = buildPossibleDuplicateGroups(
+            transactions
+        )
+        val possibleDuplicateIds = possibleDuplicates
+            .flatMap { listOf(it.first.id, it.second.id) }
+            .toSet()
+
+        return ActivityReviewOverview(
+            reviewGroups = buildReviewGroups(
+                transactions.filterNot {
+                    it.id in possibleDuplicateIds
+                }
+            ),
+            possibleDuplicates = possibleDuplicates
+        )
+    }
+
+    @Synchronized
     fun activitySnapshot(
         nowEpochMs: Long = System.currentTimeMillis(),
         timeZone: TimeZone = TimeZone.getDefault()

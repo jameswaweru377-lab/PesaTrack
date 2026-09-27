@@ -82,3 +82,8 @@ data class ActivityMonthBucket(
     val monthStartEpochMs: Long,
     val transactionCount: Int
 )
+
+data class ActivityReviewOverview(
+    val reviewGroups: List<ReviewGroup>,
+    val possibleDuplicates: List<PossibleDuplicateGroup>
+)

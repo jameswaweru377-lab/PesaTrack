@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CallReceived
+import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -51,6 +53,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -67,6 +70,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivityMonthBucket
+import com.kedevjimmy.pesatrack.data.local.ActivityReviewOverview
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PossibleDuplicateGroup
 import com.kedevjimmy.pesatrack.data.local.ReviewGroup
@@ -95,11 +99,17 @@ fun ActivityScreen(
     val context = LocalContext.current
     val store = remember { TransactionStore.get(context) }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
-    val currentMonthEpochMs = remember { monthStart(System.currentTimeMillis()) }
+    val currentMonthEpochMs = remember {
+        monthStart(System.currentTimeMillis())
+    }
 
     fun loadMonthBuckets(): List<ActivityMonthBucket> {
         val existing = store.activityMonths().toMutableList()
-        if (existing.none { it.monthStartEpochMs == currentMonthEpochMs }) {
+        if (
+            existing.none {
+                it.monthStartEpochMs == currentMonthEpochMs
+            }
+        ) {
             existing.add(
                 0,
                 ActivityMonthBucket(
@@ -108,39 +118,56 @@ fun ActivityScreen(
                 )
             )
         }
-        return existing.sortedByDescending { it.monthStartEpochMs }
+        return existing.sortedByDescending {
+            it.monthStartEpochMs
+        }
     }
 
     var monthBuckets by remember {
         mutableStateOf(loadMonthBuckets())
     }
     var selectedMonthEpochMs by rememberSaveable {
-        mutableStateOf(
-            monthBuckets.firstOrNull()?.monthStartEpochMs
-                ?: currentMonthEpochMs
-        )
+        mutableStateOf(currentMonthEpochMs)
     }
     var expandedMonthEpochMs by rememberSaveable {
-        mutableStateOf<Long?>(selectedMonthEpochMs)
+        mutableStateOf<Long?>(currentMonthEpochMs)
     }
     var snapshot by remember {
         mutableStateOf(
-            store.activitySnapshot(nowEpochMs = selectedMonthEpochMs)
+            store.activitySnapshot(
+                nowEpochMs = selectedMonthEpochMs
+            )
         )
     }
-    var selectedFilter by remember { mutableStateOf("All") }
+    var globalOverview by remember {
+        mutableStateOf(store.activityReviewOverview())
+    }
+    var selectedFilter by remember {
+        mutableStateOf("All")
+    }
+    var selectedGlobalQueue by rememberSaveable {
+        mutableStateOf<String?>(null)
+    }
+    var showMonthPicker by remember {
+        mutableStateOf(false)
+    }
 
     fun selectMonth(epochMs: Long) {
         val normalizedMonth = monthStart(epochMs)
         selectedMonthEpochMs = normalizedMonth
         expandedMonthEpochMs = normalizedMonth
         selectedFilter = "All"
-        snapshot = store.activitySnapshot(nowEpochMs = normalizedMonth)
+        snapshot = store.activitySnapshot(
+            nowEpochMs = normalizedMonth
+        )
     }
 
     fun refresh() {
         monthBuckets = loadMonthBuckets()
-        snapshot = store.activitySnapshot(nowEpochMs = selectedMonthEpochMs)
+        snapshot = store.activitySnapshot(
+            nowEpochMs = selectedMonthEpochMs
+        )
+        globalOverview = store.activityReviewOverview()
     }
 
     LaunchedEffect(ledgerUpdateState.revision) {
@@ -149,7 +176,8 @@ fun ActivityScreen(
         }
     }
 
-    val selectedMonthLabel = monthLabel(selectedMonthEpochMs)
+    val selectedMonthLabel =
+        monthLabel(selectedMonthEpochMs)
     val possibleDuplicateIds = snapshot.possibleDuplicates
         .flatMap { listOf(it.first.id, it.second.id) }
         .toSet()
@@ -162,10 +190,12 @@ fun ActivityScreen(
         }
 
         when (selectedFilter) {
-            "Expenses" -> item.direction == MoneyDirection.EXPENSE.name
-            "Income" -> item.direction == MoneyDirection.INCOME.name
-            "Transfers" -> item.direction == MoneyDirection.TRANSFER.name
-            "Review" -> item.reviewState == ReviewState.NEEDS_REVIEW.name
+            "Expenses" ->
+                item.direction == MoneyDirection.EXPENSE.name
+            "Income" ->
+                item.direction == MoneyDirection.INCOME.name
+            "Transfers" ->
+                item.direction == MoneyDirection.TRANSFER.name
             else -> true
         }
     }
@@ -174,17 +204,24 @@ fun ActivityScreen(
         modifier = Modifier
             .padding(scaffoldPadding)
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
+        contentPadding = PaddingValues(
+            horizontal = 18.dp,
+            vertical = 18.dp
+        ),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Activity", style = MaterialTheme.typography.headlineLarge)
+                    Text(
+                        "Activity",
+                        style = MaterialTheme.typography.headlineLarge
+                    )
                     Text(
                         "Your captured money activity.",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color =
+                            MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Surface(
@@ -193,7 +230,10 @@ fun ActivityScreen(
                     shadowElevation = 2.dp
                 ) {
                     IconButton(onClick = ::refresh) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "Refresh")
+                        Icon(
+                            Icons.Rounded.Refresh,
+                            contentDescription = "Refresh"
+                        )
                     }
                 }
             }
@@ -206,212 +246,721 @@ fun ActivityScreen(
         }
 
         item {
-            ActivitySummaryCard(snapshot, selectedMonthLabel)
+            ActivityMonthNavigator(
+                selectedMonthEpochMs = selectedMonthEpochMs,
+                currentMonthEpochMs = currentMonthEpochMs,
+                onPrevious = {
+                    selectMonth(
+                        shiftMonth(
+                            selectedMonthEpochMs,
+                            -1
+                        )
+                    )
+                },
+                onNext = {
+                    if (
+                        selectedMonthEpochMs <
+                        currentMonthEpochMs
+                    ) {
+                        selectMonth(
+                            shiftMonth(
+                                selectedMonthEpochMs,
+                                1
+                            )
+                        )
+                    }
+                },
+                onPickMonth = {
+                    showMonthPicker = true
+                }
+            )
+        }
+
+        item {
+            ActivitySummaryCard(
+                snapshot,
+                selectedMonthLabel
+            )
+        }
+
+        item {
+            GlobalReviewNavigationBar(
+                overview = globalOverview,
+                selectedQueue = selectedGlobalQueue,
+                onQueueSelected = { queue ->
+                    selectedGlobalQueue =
+                        if (selectedGlobalQueue == queue) {
+                            null
+                        } else {
+                            queue
+                        }
+                }
+            )
+        }
+
+        when (selectedGlobalQueue) {
+            "Review" -> {
+                item {
+                    GlobalReviewHeader(globalOverview)
+                }
+
+                if (globalOverview.reviewGroups.isEmpty()) {
+                    item {
+                        EmptyGlobalReviewState()
+                    }
+                } else {
+                    items(
+                        count =
+                            globalOverview.reviewGroups.size,
+                        key = { index ->
+                            "global-review-" +
+                                globalOverview
+                                    .reviewGroups[index]
+                                    .key
+                        }
+                    ) { index ->
+                        val group =
+                            globalOverview.reviewGroups[index]
+                        ReviewGroupRow(
+                            group = group,
+                            onClick = {
+                                onTransactionClick(
+                                    group.representativeTransactionId
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
+            "Duplicates" -> {
+                item {
+                    GlobalDuplicateHeader(globalOverview)
+                }
+
+                if (
+                    globalOverview
+                        .possibleDuplicates
+                        .isEmpty()
+                ) {
+                    item {
+                        EmptyGlobalDuplicateState()
+                    }
+                } else {
+                    items(
+                        count =
+                            globalOverview
+                                .possibleDuplicates
+                                .size,
+                        key = { index ->
+                            "global-duplicate-" +
+                                globalOverview
+                                    .possibleDuplicates[index]
+                                    .key
+                        }
+                    ) { index ->
+                        val group =
+                            globalOverview
+                                .possibleDuplicates[index]
+                        PossibleDuplicateRow(
+                            group = group,
+                            onSameTransaction = {
+                                store.resolvePossibleDuplicate(
+                                    pairKey = group.key,
+                                    sameTransaction = true
+                                )
+                                refresh()
+                            },
+                            onKeepBoth = {
+                                store.resolvePossibleDuplicate(
+                                    pairKey = group.key,
+                                    sameTransaction = false
+                                )
+                                refresh()
+                            }
+                        )
+                    }
+                }
+            }
         }
 
         monthBuckets.forEach { bucket ->
             val isExpanded =
-                expandedMonthEpochMs == bucket.monthStartEpochMs
+                expandedMonthEpochMs ==
+                    bucket.monthStartEpochMs
 
-            item(key = "month-" + bucket.monthStartEpochMs) {
+            item(
+                key =
+                    "month-" +
+                        bucket.monthStartEpochMs
+            ) {
                 ActivityMonthSectionHeader(
-                    monthLabel = monthLabel(bucket.monthStartEpochMs),
-                    transactionCount = bucket.transactionCount,
+                    monthLabel = monthLabel(
+                        bucket.monthStartEpochMs
+                    ),
+                    transactionCount =
+                        bucket.transactionCount,
                     expanded = isExpanded,
                     onClick = {
                         if (isExpanded) {
                             expandedMonthEpochMs = null
                         } else {
-                            selectMonth(bucket.monthStartEpochMs)
+                            selectMonth(
+                                bucket.monthStartEpochMs
+                            )
                         }
                     }
                 )
             }
 
             if (isExpanded) {
-                item(key = "filters-" + bucket.monthStartEpochMs) {
+                item(
+                    key =
+                        "filters-" +
+                            bucket.monthStartEpochMs
+                ) {
                     LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement =
+                            Arrangement.spacedBy(8.dp)
                     ) {
                         listOf(
                             "All",
-                            "Review",
-                            "Duplicates",
                             "Expenses",
                             "Income",
                             "Transfers"
                         ).forEach { label ->
                             item {
                                 FilterChip(
-                                    selected = selectedFilter == label,
-                                    onClick = { selectedFilter = label },
-                                    label = { Text(label) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor =
-                                            MaterialTheme.colorScheme.primary,
-                                        selectedLabelColor =
-                                            MaterialTheme.colorScheme.onPrimary
-                                    )
+                                    selected =
+                                        selectedFilter ==
+                                            label,
+                                    onClick = {
+                                        selectedFilter =
+                                            label
+                                    },
+                                    label = {
+                                        Text(label)
+                                    },
+                                    colors =
+                                        FilterChipDefaults
+                                            .filterChipColors(
+                                                selectedContainerColor =
+                                                    MaterialTheme
+                                                        .colorScheme
+                                                        .primary,
+                                                selectedLabelColor =
+                                                    MaterialTheme
+                                                        .colorScheme
+                                                        .onPrimary
+                                            )
                                 )
                             }
                         }
                     }
                 }
 
-                if (
-                    selectedFilter == "All" &&
-                    snapshot.possibleDuplicates.isNotEmpty()
-                ) {
+                if (filtered.isEmpty()) {
                     item(
-                        key = "duplicate-callout-" +
-                            bucket.monthStartEpochMs
+                        key =
+                            "empty-" +
+                                bucket.monthStartEpochMs
                     ) {
-                        PossibleDuplicateCallout(
-                            pairCount = snapshot.possibleDuplicates.size,
-                            onClick = {
-                                selectedFilter = "Duplicates"
-                            }
-                        )
-                    }
-                }
-
-                if (
-                    selectedFilter == "All" &&
-                    snapshot.reviewGroups.isNotEmpty()
-                ) {
-                    item(key = "review-callout-" + bucket.monthStartEpochMs) {
-                        ReviewQueueCallout(
-                            groupCount = snapshot.reviewGroups.size,
-                            transactionCount =
-                                snapshot.summary.needsReviewCount,
-                            onClick = { selectedFilter = "Review" }
-                        )
-                    }
-                }
-
-                if (selectedFilter == "Duplicates") {
-                    if (snapshot.possibleDuplicates.isEmpty()) {
-                        item(
-                            key = "duplicate-empty-" +
-                                bucket.monthStartEpochMs
-                        ) {
-                            EmptyDuplicateState(selectedMonthLabel)
-                        }
-                    } else {
-                        item(
-                            key = "duplicate-title-" +
-                                bucket.monthStartEpochMs
-                        ) {
-                            Column {
-                                Text(
-                                    "Possible duplicates",
-                                    style =
-                                        MaterialTheme.typography.titleLarge
-                                )
-                                Text(
-                                    "These are reconciliation problems, not categorization problems. Compare the two observations and decide whether they are the same money movement.",
-                                    modifier = Modifier.padding(top = 3.dp),
-                                    style =
-                                        MaterialTheme.typography.bodyMedium,
-                                    color =
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        items(
-                            count = snapshot.possibleDuplicates.size,
-                            key = { index ->
-                                "duplicate-" +
-                                    snapshot.possibleDuplicates[index].key
-                            }
-                        ) { index ->
-                            val group =
-                                snapshot.possibleDuplicates[index]
-                            PossibleDuplicateRow(
-                                group = group,
-                                onSameTransaction = {
-                                    store.resolvePossibleDuplicate(
-                                        pairKey = group.key,
-                                        sameTransaction = true
-                                    )
-                                    refresh()
-                                },
-                                onKeepBoth = {
-                                    store.resolvePossibleDuplicate(
-                                        pairKey = group.key,
-                                        sameTransaction = false
-                                    )
-                                    refresh()
-                                }
-                            )
-                        }
-                    }
-                } else if (selectedFilter == "Review") {
-                    if (snapshot.reviewGroups.isEmpty()) {
-                        item(key = "review-empty-" + bucket.monthStartEpochMs) {
-                            EmptyActivityState(
-                                selectedFilter = "Review",
-                                capturedCount = snapshot.transactions.size,
-                                monthLabel = selectedMonthLabel
-                            )
-                        }
-                    } else {
-                        item(key = "review-title-" + bucket.monthStartEpochMs) {
-                            Column {
-                                Text(
-                                    "Review by identity",
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                                Text(
-                                    "Teach one repeated name or number once. Matching pending transactions update together.",
-                                    modifier = Modifier.padding(top = 3.dp),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        items(
-                            count = snapshot.reviewGroups.size,
-                            key = { index ->
-                                "review-" +
-                                    snapshot.reviewGroups[index].key
-                            }
-                        ) { index ->
-                            ReviewGroupRow(
-                                group = snapshot.reviewGroups[index],
-                                onClick = {
-                                    onTransactionClick(
-                                        snapshot.reviewGroups[index]
-                                            .representativeTransactionId
-                                    )
-                                }
-                            )
-                        }
-                    }
-                } else if (filtered.isEmpty()) {
-                    item(key = "empty-" + bucket.monthStartEpochMs) {
                         EmptyActivityState(
-                            selectedFilter = selectedFilter,
-                            capturedCount = snapshot.transactions.size,
-                            monthLabel = selectedMonthLabel
+                            selectedFilter =
+                                selectedFilter,
+                            capturedCount =
+                                snapshot.transactions.size,
+                            monthLabel =
+                                selectedMonthLabel
                         )
                     }
                 } else {
                     items(
                         count = filtered.size,
-                        key = { index -> filtered[index].id }
+                        key = { index ->
+                            filtered[index].id
+                        }
                     ) { index ->
                         ActivityRow(
                             item = filtered[index],
                             onClick = {
-                                onTransactionClick(filtered[index].id)
+                                onTransactionClick(
+                                    filtered[index].id
+                                )
                             }
                         )
                     }
                 }
             }
+        }
+    }
+
+    if (showMonthPicker) {
+        ActivityMonthPickerDialog(
+            selectedMonthEpochMs =
+                selectedMonthEpochMs,
+            currentMonthEpochMs =
+                currentMonthEpochMs,
+            onDismiss = {
+                showMonthPicker = false
+            },
+            onMonthSelected = { epochMs ->
+                selectMonth(epochMs)
+                showMonthPicker = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun ActivityMonthNavigator(
+    selectedMonthEpochMs: Long,
+    currentMonthEpochMs: Long,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onPickMonth: () -> Unit
+) {
+    PesaCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 6.dp
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onPrevious) {
+                Icon(
+                    Icons.Rounded.ChevronLeft,
+                    contentDescription =
+                        "Previous month"
+                )
+            }
+
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(
+                        onClick = onPickMonth
+                    ),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme
+                    .colorScheme
+                    .surfaceVariant
+                    .copy(alpha = .55f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(
+                        horizontal = 12.dp,
+                        vertical = 10.dp
+                    ),
+                    horizontalAlignment =
+                        Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        monthLabel(
+                            selectedMonthEpochMs
+                        ),
+                        style = MaterialTheme
+                            .typography
+                            .titleMedium,
+                        fontWeight =
+                            FontWeight.SemiBold
+                    )
+                    Text(
+                        "Tap to choose month",
+                        style = MaterialTheme
+                            .typography
+                            .bodySmall,
+                        color = MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onNext,
+                enabled =
+                    selectedMonthEpochMs <
+                        currentMonthEpochMs
+            ) {
+                Icon(
+                    Icons.Rounded.ChevronRight,
+                    contentDescription = "Next month"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActivityMonthPickerDialog(
+    selectedMonthEpochMs: Long,
+    currentMonthEpochMs: Long,
+    onDismiss: () -> Unit,
+    onMonthSelected: (Long) -> Unit
+) {
+    val selectedCalendar =
+        remember(selectedMonthEpochMs) {
+            Calendar.getInstance().apply {
+                timeInMillis =
+                    selectedMonthEpochMs
+            }
+        }
+    val currentCalendar =
+        remember(currentMonthEpochMs) {
+            Calendar.getInstance().apply {
+                timeInMillis =
+                    currentMonthEpochMs
+            }
+        }
+    var displayedYear by remember(
+        selectedMonthEpochMs
+    ) {
+        mutableStateOf(
+            selectedCalendar.get(
+                Calendar.YEAR
+            )
+        )
+    }
+    val selectedYear =
+        selectedCalendar.get(Calendar.YEAR)
+    val selectedMonth =
+        selectedCalendar.get(Calendar.MONTH)
+    val currentYear =
+        currentCalendar.get(Calendar.YEAR)
+    val monthNames = remember {
+        (0..11).map { month ->
+            Calendar.getInstance().apply {
+                clear()
+                set(2000, month, 1)
+            }.let { calendar ->
+                SimpleDateFormat(
+                    "MMM",
+                    Locale.getDefault()
+                ).format(calendar.time)
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Choose activity month")
+        },
+        text = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            displayedYear -= 1
+                        }
+                    ) {
+                        Icon(
+                            Icons.Rounded
+                                .ChevronLeft,
+                            contentDescription =
+                                "Previous year"
+                        )
+                    }
+                    Text(
+                        displayedYear.toString(),
+                        modifier =
+                            Modifier.weight(1f),
+                        style = MaterialTheme
+                            .typography
+                            .titleLarge,
+                        fontWeight =
+                            FontWeight.SemiBold
+                    )
+                    IconButton(
+                        onClick = {
+                            displayedYear += 1
+                        },
+                        enabled =
+                            displayedYear <
+                                currentYear
+                    ) {
+                        Icon(
+                            Icons.Rounded
+                                .ChevronRight,
+                            contentDescription =
+                                "Next year"
+                        )
+                    }
+                }
+
+                (0 until 12 step 3).forEach {
+                    startMonth ->
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(
+                                8.dp
+                            )
+                    ) {
+                        (
+                            startMonth until
+                                startMonth + 3
+                            ).forEach { month ->
+                            val candidate =
+                                monthStart(
+                                    displayedYear,
+                                    month
+                                )
+                            FilterChip(
+                                modifier =
+                                    Modifier.weight(
+                                        1f
+                                    ),
+                                selected =
+                                    displayedYear ==
+                                        selectedYear &&
+                                        month ==
+                                        selectedMonth,
+                                onClick = {
+                                    onMonthSelected(
+                                        candidate
+                                    )
+                                },
+                                enabled =
+                                    candidate <=
+                                        currentMonthEpochMs,
+                                label = {
+                                    Text(
+                                        monthNames[
+                                            month
+                                        ],
+                                        maxLines = 1
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+@Composable
+private fun GlobalReviewNavigationBar(
+    overview: ActivityReviewOverview,
+    selectedQueue: String?,
+    onQueueSelected: (String) -> Unit
+) {
+    PesaCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement =
+                Arrangement.spacedBy(10.dp)
+        ) {
+            FilterChip(
+                modifier = Modifier.weight(1f),
+                selected =
+                    selectedQueue == "Review",
+                onClick = {
+                    onQueueSelected("Review")
+                },
+                label = {
+                    Text(
+                        "Review " +
+                            overview
+                                .reviewGroups
+                                .size
+                    )
+                },
+                colors =
+                    FilterChipDefaults
+                        .filterChipColors(
+                            selectedContainerColor =
+                                pesaToneContainer(
+                                    "amber"
+                                ),
+                            selectedLabelColor =
+                                pesaToneContent(
+                                    "amber"
+                                )
+                        )
+            )
+            FilterChip(
+                modifier = Modifier.weight(1f),
+                selected =
+                    selectedQueue ==
+                        "Duplicates",
+                onClick = {
+                    onQueueSelected(
+                        "Duplicates"
+                    )
+                },
+                label = {
+                    Text(
+                        "Duplicates " +
+                            overview
+                                .possibleDuplicates
+                                .size
+                    )
+                },
+                colors =
+                    FilterChipDefaults
+                        .filterChipColors(
+                            selectedContainerColor =
+                                MaterialTheme
+                                    .colorScheme
+                                    .errorContainer,
+                            selectedLabelColor =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onErrorContainer
+                        )
+            )
+        }
+    }
+}
+
+@Composable
+private fun GlobalReviewHeader(
+    overview: ActivityReviewOverview
+) {
+    val pendingTransactions =
+        overview.reviewGroups.sumOf {
+            it.transactionCount
+        }
+
+    Column {
+        Text(
+            "Review all months",
+            style = MaterialTheme.typography.titleLarge
+        )
+        Text(
+            pendingTransactions.toString() +
+                " pending transaction" +
+                if (pendingTransactions == 1) {
+                    ""
+                } else {
+                    "s"
+                } +
+                " across all captured months. Teach an identity once and matching history can follow.",
+            modifier = Modifier.padding(top = 3.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color =
+                MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun GlobalDuplicateHeader(
+    overview: ActivityReviewOverview
+) {
+    Text(
+        overview.possibleDuplicates.size.toString() +
+            " possible duplicate pair" +
+            if (
+                overview.possibleDuplicates.size == 1
+            ) {
+                ""
+            } else {
+                "s"
+            } +
+            " across all captured months",
+        style = MaterialTheme.typography.titleLarge
+    )
+}
+
+@Composable
+private fun EmptyGlobalReviewState() {
+    PesaCard {
+        Column(
+            Modifier.padding(20.dp),
+            horizontalAlignment =
+                Alignment.CenterHorizontally
+        ) {
+            IconBubble(
+                Icons.Rounded.HelpOutline,
+                size = 52.dp,
+                background =
+                    pesaToneContainer("green"),
+                tint =
+                    pesaToneContent("green")
+            )
+            Text(
+                "Nothing needs review",
+                modifier =
+                    Modifier.padding(top = 12.dp),
+                style =
+                    MaterialTheme.typography
+                        .titleMedium
+            )
+            Text(
+                "There are no pending review groups across the captured months.",
+                modifier =
+                    Modifier.padding(top = 5.dp),
+                style =
+                    MaterialTheme.typography
+                        .bodyMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyGlobalDuplicateState() {
+    PesaCard {
+        Column(
+            Modifier.padding(20.dp),
+            horizontalAlignment =
+                Alignment.CenterHorizontally
+        ) {
+            IconBubble(
+                Icons.Rounded.WarningAmber,
+                size = 52.dp,
+                background =
+                    pesaToneContainer("green"),
+                tint =
+                    pesaToneContent("green")
+            )
+            Text(
+                "No possible duplicates",
+                modifier =
+                    Modifier.padding(top = 12.dp),
+                style =
+                    MaterialTheme.typography
+                        .titleMedium
+            )
+            Text(
+                "No unresolved duplicate pairs remain across the captured months.",
+                modifier =
+                    Modifier.padding(top = 5.dp),
+                style =
+                    MaterialTheme.typography
+                        .bodyMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
         }
     }
 }
@@ -1167,6 +1716,20 @@ private fun monthLabel(epochMs: Long): String =
 private fun monthStart(epochMs: Long): Long =
     Calendar.getInstance().apply {
         timeInMillis = epochMs
+        set(Calendar.DAY_OF_MONTH, 1)
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+private fun shiftMonth(
+    epochMs: Long,
+    months: Int
+): Long =
+    Calendar.getInstance().apply {
+        timeInMillis = epochMs
+        add(Calendar.MONTH, months)
         set(Calendar.DAY_OF_MONTH, 1)
         set(Calendar.HOUR_OF_DAY, 0)
         set(Calendar.MINUTE, 0)
