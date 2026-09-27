@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.domain.interpretation
 
 enum class FixtureCoverage {
     GENERIC_COMPLETE,
+    GENERIC_SEMANTICS_LEGACY_RUNTIME,
     LEGACY_REQUIRED,
     NON_FINANCIAL
 }
@@ -216,9 +217,12 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC06 Confirmed. Fuliza M-PESA amount is KSh 167.00. Access Fee charged KSh 1.67. Total Fuliza M-PESA outstanding amount is KSh 1086.51 due on 18/10/26.",
-            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            coverage = FixtureCoverage.GENERIC_SEMANTICS_LEGACY_RUNTIME,
             transactionCode = "TST12ABC06",
-            expectedKinds = emptyList(),
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.DEBT_DRAWDOWN,
+                CanonicalFinancialRecordKind.FEE
+            ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.DEBT_DRAWDOWN,
                 CanonicalFinancialRecordKind.FEE
@@ -230,10 +234,12 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC07 Confirmed. Ksh 220.00 from your M-PESA has been used to partially pay your outstanding Fuliza M-PESA. Your available Fuliza M-PESA limit is Ksh 589.09. Your M-PESA balance is Ksh 0.00.",
-            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            coverage = FixtureCoverage.GENERIC_SEMANTICS_LEGACY_RUNTIME,
             transactionCode = "TST12ABC07",
             expectedKinds = listOf(
-                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.DEBT_REPAYMENT,
+                CanonicalFinancialRecordKind.AVAILABLE_CREDIT_OBSERVATION
             ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
@@ -253,10 +259,12 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC08 Confirmed. Ksh 1,381.00 from your M-PESA has been used to fully pay your outstanding Fuliza M-PESA. Available Fuliza balance limit is Ksh 1,440.00. Your M-PESA balance is Ksh 13,000.00.",
-            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            coverage = FixtureCoverage.GENERIC_SEMANTICS_LEGACY_RUNTIME,
             transactionCode = "TST12ABC08",
             expectedKinds = listOf(
-                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.DEBT_REPAYMENT,
+                CanonicalFinancialRecordKind.AVAILABLE_CREDIT_OBSERVATION
             ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
