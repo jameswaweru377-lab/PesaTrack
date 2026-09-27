@@ -73,6 +73,54 @@ class FinancialProviderRegistryTest {
     }
 
     @Test
+    fun providerProfileDescribesFulizaAsTransactionShortfallFunding() {
+        val account =
+            FinancialProviderRegistry.resolveAccount(
+                "Fuliza M-PESA"
+            )
+        val behavior =
+            FinancialProviderRegistry
+                .debtBehaviorFor(account)
+
+        assertEquals(
+            DebtFundingBehavior.TRANSACTION_SHORTFALL,
+            behavior?.fundingBehavior
+        )
+        assertEquals(
+            "SAFARICOM_MPESA",
+            behavior?.fundingAccountProviderKey
+        )
+        assertEquals(
+            true,
+            behavior?.preserveLegacyTransactionMetadata
+        )
+        assertEquals(
+            "fuliza",
+            behavior?.eventNamespace
+        )
+    }
+
+    @Test
+    fun providerProfileDescribesMshwariLoanAsCashDisbursement() {
+        val account =
+            FinancialProviderRegistry.resolveAccount(
+                "M-Shwari Loan"
+            )
+        val behavior =
+            FinancialProviderRegistry
+                .debtBehaviorFor(account)
+
+        assertEquals(
+            DebtFundingBehavior.CASH_DISBURSEMENT,
+            behavior?.fundingBehavior
+        )
+        assertEquals(
+            "SAFARICOM_MPESA",
+            behavior?.fundingAccountProviderKey
+        )
+    }
+
+    @Test
     fun preservesUnknownInstitutionWithoutClaimingOwnership() {
         val account =
             FinancialProviderRegistry.resolveAccount(
