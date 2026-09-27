@@ -16,6 +16,8 @@ import com.kedevjimmy.pesatrack.domain.rules.MirrorTransactionObservation
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.OwnTransferEvidence
 import com.kedevjimmy.pesatrack.domain.rules.PlanningPeriodResolver
+import com.kedevjimmy.pesatrack.domain.rules.PossibleDuplicateObservation
+import com.kedevjimmy.pesatrack.domain.rules.PossibleDuplicatePolicy
 import com.kedevjimmy.pesatrack.domain.rules.ReviewTriagePolicy
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import com.kedevjimmy.pesatrack.domain.rules.EvidenceConfidence
@@ -308,8 +310,8 @@ class TransactionStore private constructor(context: Context) {
         val counts = linkedMapOf<Long, Int>()
 
         database.readableDatabase.rawQuery(
-            "SELECT occurred_at_epoch_ms FROM transactions ORDER BY occurred_at_epoch_ms DESC, id DESC",
-            null
+            "SELECT occurred_at_epoch_ms FROM transactions WHERE review_state != ? ORDER BY occurred_at_epoch_ms DESC, id DESC",
+            arrayOf(ReviewState.EXCLUDED.name)
         ).use { cursor ->
             while (cursor.moveToNext()) {
                 val monthStart = Calendar.getInstance(timeZone).apply {
@@ -358,6 +360,12 @@ class TransactionStore private constructor(context: Context) {
             startEpochMs = monthStart.timeInMillis,
             endEpochMsExclusive = nextMonthStart.timeInMillis
         )
+        val possibleDuplicates = buildPossibleDuplicateGroups(
+            monthTransactions
+        )
+        val possibleDuplicateIds = possibleDuplicates
+            .flatMap { listOf(it.first.id, it.second.id) }
+            .toSet()
 
         val effective = monthTransactions.filter { item ->
             item.transactionCode !in reversedCodes &&
@@ -394,11 +402,19 @@ class TransactionStore private constructor(context: Context) {
                 transferMinor = transfers,
                 netMinor = income - spent - fees,
                 needsReviewCount = monthTransactions.count {
-                    it.reviewState == ReviewState.NEEDS_REVIEW.name ||
-                        it.cycleCandidateReason != null
+                    it.id !in possibleDuplicateIds &&
+                        (
+                            it.reviewState == ReviewState.NEEDS_REVIEW.name ||
+                                it.cycleCandidateReason != null
+                            )
                 }
             ),
-            reviewGroups = buildReviewGroups(monthTransactions)
+            reviewGroups = buildReviewGroups(
+                monthTransactions.filterNot {
+                    it.id in possibleDuplicateIds
+                }
+            ),
+            possibleDuplicates = possibleDuplicates
         )
     }
 
@@ -1177,6 +1193,168 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun resolvePossibleDuplicate(
+        pairKey: String,
+        sameTransaction: Boolean
+    ): Boolean {
+        val ids = pairKey.split(":").mapNotNull(String::toLongOrNull)
+        if (ids.size != 2) return false
+
+        val first = getById(ids[0]) ?: return false
+        val second = getById(ids[1]) ?: return false
+        val now = System.currentTimeMillis()
+
+        if (sameTransaction) {
+            val canonical = chooseDuplicateCanonical(first, second)
+            val duplicate = if (canonical.id == first.id) second else first
+            val values = ContentValues().apply {
+                put("review_state", ReviewState.EXCLUDED.name)
+                putNull("cycle_candidate_reason")
+            }
+            database.writableDatabase.update(
+                "transactions",
+                values,
+                "id = ?",
+                arrayOf(duplicate.id.toString())
+            )
+        }
+
+        val resolution = ContentValues().apply {
+            put("pair_key", pairKey)
+            put("first_transaction_id", first.id)
+            put("second_transaction_id", second.id)
+            put(
+                "decision",
+                if (sameTransaction) {
+                    DUPLICATE_DECISION_SAME
+                } else {
+                    DUPLICATE_DECISION_KEEP_BOTH
+                }
+            )
+            put("created_at_epoch_ms", now)
+            put("updated_at_epoch_ms", now)
+        }
+        database.writableDatabase.insertWithOnConflict(
+            "duplicate_resolutions",
+            null,
+            resolution,
+            android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
+        )
+
+        PayCycleStore.get(appContext).rebuild()
+        LedgerUpdateBus.notifyChanged()
+        return true
+    }
+
+    private fun chooseDuplicateCanonical(
+        first: StoredTransaction,
+        second: StoredTransaction
+    ): StoredTransaction {
+        fun score(item: StoredTransaction): Int {
+            var value = 0
+            if (!item.transactionCode.isNullOrBlank()) value += 8
+            if (!item.counterparty.isNullOrBlank()) value += 4
+            if (!item.counterpartyPhone.isNullOrBlank()) value += 3
+            if (!item.evidenceLabel.isNullOrBlank()) value += 2
+            if (item.type != MpesaTransactionType.OTHER.name) value += 2
+            if (item.direction != MoneyDirection.NEUTRAL.name) value += 1
+            return value
+        }
+
+        val firstScore = score(first)
+        val secondScore = score(second)
+        return when {
+            firstScore > secondScore -> first
+            secondScore > firstScore -> second
+            else -> if (first.id <= second.id) first else second
+        }
+    }
+
+    private fun buildPossibleDuplicateGroups(
+        transactions: List<StoredTransaction>
+    ): List<PossibleDuplicateGroup> {
+        val resolvedKeys = duplicateResolutionKeys()
+        val eligible = transactions
+            .filter { item ->
+                item.reviewState != ReviewState.EXCLUDED.name &&
+                    item.reviewState != ReviewState.USER_CLASSIFIED.name
+            }
+            .sortedByDescending(StoredTransaction::receivedAtEpochMs)
+
+        val claimedIds = mutableSetOf<Long>()
+        val groups = mutableListOf<PossibleDuplicateGroup>()
+
+        eligible.forEachIndexed { index, first ->
+            if (first.id in claimedIds) return@forEachIndexed
+
+            val firstObservation = first.toPossibleDuplicateObservation()
+            val best = eligible
+                .asSequence()
+                .drop(index + 1)
+                .filter { it.id !in claimedIds }
+                .mapNotNull { second ->
+                    val key = duplicatePairKey(first.id, second.id)
+                    if (key in resolvedKeys) return@mapNotNull null
+                    if (
+                        !PossibleDuplicatePolicy.isCandidate(
+                            firstObservation,
+                            second.toPossibleDuplicateObservation()
+                        )
+                    ) {
+                        return@mapNotNull null
+                    }
+
+                    second to kotlin.math.abs(
+                        first.receivedAtEpochMs -
+                            second.receivedAtEpochMs
+                    )
+                }
+                .minByOrNull { it.second }
+                ?: return@forEachIndexed
+
+            val second = best.first
+            val key = duplicatePairKey(first.id, second.id)
+            groups += PossibleDuplicateGroup(
+                key = key,
+                first = first,
+                second = second,
+                timeDeltaMs = best.second
+            )
+            claimedIds += first.id
+            claimedIds += second.id
+        }
+
+        return groups.sortedByDescending {
+            maxOf(
+                it.first.receivedAtEpochMs,
+                it.second.receivedAtEpochMs
+            )
+        }
+    }
+
+    private fun duplicateResolutionKeys(): Set<String> =
+        database.readableDatabase.rawQuery(
+            "SELECT pair_key FROM duplicate_resolutions",
+            null
+        ).use { cursor ->
+            buildSet {
+                while (cursor.moveToNext()) {
+                    add(cursor.getString(0))
+                }
+            }
+        }
+
+    private fun duplicatePairKey(
+        firstId: Long,
+        secondId: Long
+    ): String =
+        if (firstId <= secondId) {
+            firstId.toString() + ":" + secondId
+        } else {
+            secondId.toString() + ":" + firstId
+        }
+
+    @Synchronized
     fun classifyManually(
         id: Long,
         category: TransactionCategory,
@@ -1349,6 +1527,8 @@ class TransactionStore private constructor(context: Context) {
             "mirror_transaction_reconciliation_v2"
         private const val BUILT_IN_RECOGNITION_RECONCILIATION_KEY =
             "built_in_recognition_reconciliation_v1"
+        private const val DUPLICATE_DECISION_SAME = "SAME_TRANSACTION"
+        private const val DUPLICATE_DECISION_KEEP_BOTH = "KEEP_BOTH"
 
         private val OUTGOING_REVIEW_TYPES = setOf(
             MpesaTransactionType.SENT_MONEY.name,
@@ -1433,6 +1613,23 @@ private fun StoredTransaction.toMirrorObservation(): MirrorTransactionObservatio
         counterparty = counterparty,
         counterpartyPhone = counterpartyPhone,
         direction = direction
+    )
+
+private fun StoredTransaction.toPossibleDuplicateObservation():
+    PossibleDuplicateObservation =
+    PossibleDuplicateObservation(
+        id = id,
+        amountMinor = amountMinor,
+        receivedAtEpochMs = receivedAtEpochMs,
+        transactionCode = transactionCode,
+        sourcePackage = sourcePackage,
+        sourceKind = sourceKind,
+        direction = direction,
+        reviewState = reviewState,
+        category = category,
+        counterparty = counterparty,
+        evidenceLabel = evidenceLabel,
+        type = type
     )
 
 private fun StoredTransaction.toParsedTransaction(): ParsedMpesaTransaction =
