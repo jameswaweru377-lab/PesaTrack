@@ -1647,6 +1647,41 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun unlinkRefund(id: Long): Boolean {
+        val current = getById(id) ?: return false
+        if (current.relationType != RELATION_REFUND) {
+            return false
+        }
+
+        val values = ContentValues().apply {
+            putNull("relation_type")
+            putNull("related_transaction_id")
+            put("direction", MoneyDirection.INCOME.name)
+            put("category", TransactionCategory.UNCATEGORIZED.name)
+            put("review_state", ReviewState.NEEDS_REVIEW.name)
+            if (current.evidenceSource == "refund_match") {
+                putNull("evidence_label")
+                putNull("evidence_source")
+                putNull("evidence_confidence")
+                putNull("evidence_time_delta_ms")
+            }
+        }
+
+        val changed = database.writableDatabase.update(
+            "transactions",
+            values,
+            "id = ?",
+            arrayOf(id.toString())
+        ) > 0
+
+        if (changed) {
+            PayCycleStore.get(appContext).rebuild()
+            LedgerUpdateBus.notifyChanged()
+        }
+        return changed
+    }
+
+    @Synchronized
     fun excludeFromBudget(id: Long) {
         val values = ContentValues().apply {
             put("review_state", ReviewState.EXCLUDED.name)
