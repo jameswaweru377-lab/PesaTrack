@@ -992,7 +992,29 @@ private fun presetConfig(
         RulePreset.SAVINGS -> PresetConfig("Savings", TransactionCategory.SAVINGS, MoneyDirection.TRANSFER)
         RulePreset.OWN_TRANSFER -> PresetConfig("My own transfer", TransactionCategory.TRANSFER, MoneyDirection.TRANSFER)
         RulePreset.OTHER_RECURRING -> PresetConfig("Other recurring", TransactionCategory.OTHER, MoneyDirection.EXPENSE)
-        RulePreset.CUSTOM -> PresetConfig("Custom", customCategory, customDirection)
+        RulePreset.CUSTOM -> PresetConfig(
+            "Custom",
+            customCategory,
+            directionForCustomCategory(
+                customCategory,
+                customDirection
+            )
+        )
+    }
+
+private fun directionForCustomCategory(
+    category: TransactionCategory,
+    fallback: MoneyDirection
+): MoneyDirection =
+    when (category) {
+        TransactionCategory.INCOME ->
+            MoneyDirection.INCOME
+        TransactionCategory.TRANSFER,
+        TransactionCategory.CASH,
+        TransactionCategory.SAVINGS,
+        TransactionCategory.INVESTMENT ->
+            MoneyDirection.TRANSFER
+        else -> fallback
     }
 
 private fun rulePresetOptions(): List<Pair<RulePreset, String>> =
