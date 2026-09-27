@@ -173,7 +173,7 @@ object FinancialMessageFixtureCorpus {
             expectedKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
                 CanonicalFinancialRecordKind.PAYMENT
-            )
+            ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
                 CanonicalFinancialRecordKind.PAYMENT
@@ -197,7 +197,7 @@ object FinancialMessageFixtureCorpus {
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
                 CanonicalFinancialRecordKind.PAYMENT,
                 CanonicalFinancialRecordKind.FEE
-            )
+            ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
                 CanonicalFinancialRecordKind.PAYMENT,
