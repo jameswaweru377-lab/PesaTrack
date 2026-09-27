@@ -10,6 +10,8 @@ import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
+import com.kedevjimmy.pesatrack.domain.rules.OwnTransferEvidence
 import com.kedevjimmy.pesatrack.domain.rules.PlanningPeriodResolver
 import com.kedevjimmy.pesatrack.domain.rules.ReviewTriagePolicy
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
@@ -40,22 +42,53 @@ class TransactionStore private constructor(context: Context) {
                 return false
             }
         }
-        val classification = classify(parsed, matchedRule, occurredAtEpochMs)
+        val accounts = AccountStore.get(appContext).listAccounts()
+        val ownTransfer = OwnAccountTransferDetector.matchMpesa(
+            parsed = parsed,
+            accounts = accounts,
+            observedWalletId = AccountStore.DEFAULT_MPESA_ID
+        )
+        val useOwnTransfer = ownTransfer != null &&
+            (
+                matchedRule == null ||
+                    ownTransfer.evidence == OwnTransferEvidence.EXACT_IDENTIFIER
+                )
+
+        val classification = if (useOwnTransfer) {
+            Classification(
+                direction = MoneyDirection.TRANSFER,
+                category = TransactionCategory.TRANSFER,
+                reviewState = ReviewState.AUTO_CLASSIFIED,
+                ruleId = null,
+                planningMonth = PlanningPeriodResolver.resolve(occurredAtEpochMs, 0)
+            )
+        } else {
+            classify(parsed, matchedRule, occurredAtEpochMs)
+        }
         val displayCounterparty = parsed.counterparty
+            ?: ownTransfer?.destinationName?.takeIf { useOwnTransfer }
             ?: matchedRule?.displayLabel?.takeIf { it.isNotBlank() }
             ?: matchedRule?.name?.takeIf { it.isNotBlank() }
 
         val defaultMpesa =
             sourceKind.contains("mpesa", ignoreCase = true) ||
                 parsed.type != MpesaTransactionType.OTHER
-        val accountId = matchedRule?.accountId ?: when {
-            parsed.type == MpesaTransactionType.WITHDRAWAL -> AccountStore.DEFAULT_MPESA_ID
-            defaultMpesa -> AccountStore.DEFAULT_MPESA_ID
-            else -> null
+        val accountId = if (useOwnTransfer) {
+            ownTransfer!!.sourceAccountId
+        } else {
+            matchedRule?.accountId ?: when {
+                parsed.type == MpesaTransactionType.WITHDRAWAL -> AccountStore.DEFAULT_MPESA_ID
+                defaultMpesa -> AccountStore.DEFAULT_MPESA_ID
+                else -> null
+            }
         }
-        val linkedAccountId = matchedRule?.linkedAccountId ?: when (parsed.type) {
-            MpesaTransactionType.WITHDRAWAL -> AccountStore.DEFAULT_CASH_ID
-            else -> null
+        val linkedAccountId = if (useOwnTransfer) {
+            ownTransfer!!.destinationAccountId
+        } else {
+            matchedRule?.linkedAccountId ?: when (parsed.type) {
+                MpesaTransactionType.WITHDRAWAL -> AccountStore.DEFAULT_CASH_ID
+                else -> null
+            }
         }
 
         val values = ContentValues().apply {
@@ -501,6 +534,56 @@ class TransactionStore private constructor(context: Context) {
             )
 
     @Synchronized
+    fun reconcileOwnAccountTransfers(): Int {
+        val accounts = AccountStore.get(appContext).listAccounts()
+        val db = database.writableDatabase
+        var changed = 0
+
+        allTransactions().forEach { stored ->
+            if (
+                stored.reviewState == ReviewState.USER_CLASSIFIED.name ||
+                stored.reviewState == ReviewState.EXCLUDED.name
+            ) {
+                return@forEach
+            }
+
+            val parsed = stored.toParsedTransaction()
+            val match = OwnAccountTransferDetector.matchMpesa(
+                parsed = parsed,
+                accounts = accounts,
+                observedWalletId = AccountStore.DEFAULT_MPESA_ID
+            ) ?: return@forEach
+
+            if (
+                stored.ruleId != null &&
+                match.evidence != OwnTransferEvidence.EXACT_IDENTIFIER
+            ) {
+                return@forEach
+            }
+
+            val values = ContentValues().apply {
+                put("direction", MoneyDirection.TRANSFER.name)
+                put("category", TransactionCategory.TRANSFER.name)
+                put("review_state", ReviewState.AUTO_CLASSIFIED.name)
+                putNull("rule_id")
+                put("account_id", match.sourceAccountId)
+                put("linked_account_id", match.destinationAccountId)
+            }
+            changed += db.update(
+                "transactions",
+                values,
+                "id = ?",
+                arrayOf(stored.id.toString())
+            )
+        }
+
+        if (changed > 0) {
+            PayCycleStore.get(appContext).rebuild()
+        }
+        return changed
+    }
+
+    @Synchronized
     fun classifyManually(
         id: Long,
         category: TransactionCategory,
@@ -531,6 +614,16 @@ class TransactionStore private constructor(context: Context) {
         )
         PayCycleStore.get(appContext).rebuild()
     }
+
+    private fun allTransactions(): List<StoredTransaction> =
+        database.readableDatabase.rawQuery(
+            BASE_SELECT + " ORDER BY occurred_at_epoch_ms DESC, id DESC",
+            null
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(cursor.toStoredTransaction())
+            }
+        }
 
     private fun transactionsBetween(
         startEpochMs: Long,

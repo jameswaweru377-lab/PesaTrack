@@ -70,7 +70,10 @@ data class MoneyAccount(
     val id: String,
     val name: String,
     val type: AccountType,
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    val identifier: String? = null,
+    val openingBalanceMinor: Long? = null,
+    val openingBalanceAsOfEpochMs: Long? = null
 )
 
 data class ParsedMpesaTransaction(

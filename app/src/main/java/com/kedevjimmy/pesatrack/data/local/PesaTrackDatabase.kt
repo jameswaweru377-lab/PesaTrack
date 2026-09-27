@@ -100,6 +100,12 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             createFulizaEventsTable(db)
         }
 
+        if (oldVersion < 7) {
+            db.execSQL("ALTER TABLE money_accounts ADD COLUMN identifier TEXT")
+            db.execSQL("ALTER TABLE money_accounts ADD COLUMN opening_balance_minor INTEGER")
+            db.execSQL("ALTER TABLE money_accounts ADD COLUMN opening_balance_as_of_epoch_ms INTEGER")
+        }
+
         createIndexes(db)
     }
 
@@ -181,6 +187,9 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 name TEXT NOT NULL,
                 type TEXT NOT NULL,
                 enabled INTEGER NOT NULL DEFAULT 1,
+                identifier TEXT,
+                opening_balance_minor INTEGER,
+                opening_balance_as_of_epoch_ms INTEGER,
                 created_at_epoch_ms INTEGER NOT NULL,
                 updated_at_epoch_ms INTEGER NOT NULL
             )
@@ -269,6 +278,9 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             "CREATE INDEX IF NOT EXISTS idx_transactions_pay_cycle ON transactions(pay_cycle_id)"
         )
         db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_money_accounts_identifier ON money_accounts(identifier) WHERE identifier IS NOT NULL AND identifier != ''"
+        )
+        db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_pay_cycles_start ON pay_cycles(start_epoch_ms DESC)"
         )
         db.execSQL(
@@ -281,6 +293,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 6
+        private const val DATABASE_VERSION = 7
     }
 }
