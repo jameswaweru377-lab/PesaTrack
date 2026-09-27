@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
@@ -66,11 +67,13 @@ fun HomeScreen(
     onReviewClick: () -> Unit = {},
     onImportClick: () -> Unit = {},
     onRulesClick: () -> Unit = {},
-    onGoalsClick: () -> Unit = {}
+    onGoalsClick: () -> Unit = {},
+    onBudgetClick: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val cycleStore = remember { PayCycleStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
+    val budgetStore = remember { BudgetStore.get(context) }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
 
     var cycleSnapshot by remember {
@@ -83,11 +86,15 @@ fun HomeScreen(
     var activitySnapshot by remember {
         mutableStateOf(transactionStore.activitySnapshot())
     }
+    var monthlyBudgets by remember {
+        mutableStateOf(budgetStore.list())
+    }
 
     fun refresh() {
         cycleSnapshot = cycleStore.snapshot()
         ledgerSnapshot = transactionStore.snapshot()
         activitySnapshot = transactionStore.activitySnapshot()
+        monthlyBudgets = budgetStore.list()
     }
 
     LaunchedEffect(ledgerUpdateState.revision) {
@@ -118,28 +125,30 @@ fun HomeScreen(
             }
     }
 
-    val budgetItems = remember(cycleSnapshot.commitments) {
-        cycleSnapshot.commitments
+    val budgetItems = remember(monthlyBudgets, activitySnapshot) {
+        val trustedExpenseByCategory = activitySnapshot.transactions
             .filter {
-                it.plannedMinor > 0L &&
-                    it.category != "SAVINGS"
+                it.direction == MoneyDirection.EXPENSE.name &&
+                    it.reviewState != ReviewState.EXCLUDED.name &&
+                    it.reviewState != ReviewState.NEEDS_REVIEW.name
             }
-            .groupBy { friendlyCategory(it.category) }
-            .entries
-            .sortedByDescending { (_, items) ->
-                items.sumOf { it.plannedMinor }
+            .groupBy { it.category }
+            .mapValues { (_, items) ->
+                items.sumOf { it.amountMinor + it.feeMinor }
             }
-            .mapIndexed { index, (label, items) ->
-                val limitMinor = items.sumOf { it.plannedMinor }
-                val spentMinor = items.sumOf { it.paidMinor }
+
+        monthlyBudgets
+            .mapIndexed { index, budget ->
+                val spentMinor =
+                    trustedExpenseByCategory[budget.category.name] ?: 0L
                 BudgetProgressItem(
-                    label = label,
+                    label = friendlyCategory(budget.category.name),
                     spentLabel = formatMoney(spentMinor),
-                    limitLabel = formatMoney(limitMinor),
-                    progress = if (limitMinor <= 0L) {
+                    limitLabel = formatMoney(budget.limitMinor),
+                    progress = if (budget.limitMinor <= 0L) {
                         0f
                     } else {
-                        spentMinor.toFloat() / limitMinor.toFloat()
+                        spentMinor.toFloat() / budget.limitMinor.toFloat()
                     },
                     color = premiumCategoryColor(index)
                 )
@@ -270,7 +279,7 @@ fun HomeScreen(
         item {
             BudgetProgressCard(
                 items = budgetItems,
-                onManageClick = onRulesClick
+                onManageClick = onBudgetClick
             )
         }
 
