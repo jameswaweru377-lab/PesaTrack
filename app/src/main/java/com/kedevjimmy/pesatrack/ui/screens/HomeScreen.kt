@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,9 +20,14 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -32,16 +38,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
+import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.SalaryCycleCandidate
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
+import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
 import com.kedevjimmy.pesatrack.ui.components.BudgetProgressCard
 import com.kedevjimmy.pesatrack.ui.components.BudgetProgressItem
@@ -56,6 +65,7 @@ import com.kedevjimmy.pesatrack.ui.components.SpendingDonutCard
 import com.kedevjimmy.pesatrack.ui.components.SpendingSlice
 import com.kedevjimmy.pesatrack.ui.components.premiumCategoryColor
 import java.text.NumberFormat
+import java.math.RoundingMode
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
