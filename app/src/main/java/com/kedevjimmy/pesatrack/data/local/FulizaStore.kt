@@ -90,6 +90,14 @@ class FulizaStore private constructor(context: Context) {
             occurredAtEpochMs = occurredAtEpochMs
         )
 
+        DebtStore.get(context).recordFulizaDrawdown(
+            parsed = parsed,
+            sourcePackage = sourcePackage,
+            sourceKind = sourceKind,
+            occurredAtEpochMs = occurredAtEpochMs,
+            linkedTransactionId = linked
+        )
+
         return FulizaStoreResult(
             inserted = inserted,
             linkedTransactionId = linked,
