@@ -7,6 +7,7 @@ data class FinancialProviderAccountKnowledge(
     val canonicalName: String,
     val accountType: AccountType,
     val ownershipHint: AccountOwnershipHint,
+    val nature: FinancialAccountNature,
     val aliases: Set<String>
 )
 
@@ -18,6 +19,7 @@ object FinancialProviderRegistry {
             canonicalName = "M-Shwari Lock Savings",
             accountType = AccountType.SAVINGS,
             ownershipHint = AccountOwnershipHint.USER_OWNED,
+            nature = FinancialAccountNature.ASSET,
             aliases = setOf(
                 "M SHWARI LOCK SAVINGS",
                 "MSHWARI LOCK SAVINGS"
@@ -28,6 +30,7 @@ object FinancialProviderRegistry {
             canonicalName = "M-Shwari Loan",
             accountType = AccountType.OTHER,
             ownershipHint = AccountOwnershipHint.UNKNOWN,
+            nature = FinancialAccountNature.LIABILITY,
             aliases = setOf(
                 "M SHWARI LOAN",
                 "MSHWARI LOAN"
@@ -38,6 +41,7 @@ object FinancialProviderRegistry {
             canonicalName = "Fuliza M-PESA",
             accountType = AccountType.OTHER,
             ownershipHint = AccountOwnershipHint.UNKNOWN,
+            nature = FinancialAccountNature.LIABILITY,
             aliases = setOf(
                 "FULIZA M PESA",
                 "FULIZA MPESA",
@@ -49,6 +53,7 @@ object FinancialProviderRegistry {
             canonicalName = "M-Pesa",
             accountType = AccountType.MOBILE_WALLET,
             ownershipHint = AccountOwnershipHint.USER_OWNED,
+            nature = FinancialAccountNature.ASSET,
             aliases = setOf(
                 "M PESA",
                 "MPESA"
@@ -59,6 +64,7 @@ object FinancialProviderRegistry {
             canonicalName = "M-Shwari",
             accountType = AccountType.SAVINGS,
             ownershipHint = AccountOwnershipHint.USER_OWNED,
+            nature = FinancialAccountNature.ASSET,
             aliases = setOf(
                 "M SHWARI",
                 "MSHWARI"
@@ -83,7 +89,8 @@ object FinancialProviderRegistry {
                 displayName = match.canonicalName,
                 providerKey = match.providerKey,
                 accountTypeHint = match.accountType,
-                ownershipHint = match.ownershipHint
+                ownershipHint = match.ownershipHint,
+                nature = match.nature
             )
         }
 
@@ -92,7 +99,8 @@ object FinancialProviderRegistry {
             displayName = cleaned,
             providerKey = null,
             accountTypeHint = inferAccountType(normalized),
-            ownershipHint = AccountOwnershipHint.UNKNOWN
+            ownershipHint = AccountOwnershipHint.UNKNOWN,
+            nature = FinancialAccountNature.UNKNOWN
         )
     }
 
