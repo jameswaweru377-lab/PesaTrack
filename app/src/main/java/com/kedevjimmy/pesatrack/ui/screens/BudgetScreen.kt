@@ -109,7 +109,22 @@ fun BudgetScreen(
                             item.relationType ==
                             TransactionStore.RELATION_REFUND
                         ) {
-                            -item.amountMinor
+                            val original =
+                                item.relatedTransactionId
+                                    ?.let(transactionStore::getById)
+                            if (
+                                original != null &&
+                                original.direction ==
+                                    com.kedevjimmy.pesatrack.domain.model.MoneyDirection.EXPENSE.name &&
+                                original.reviewState !=
+                                    ReviewState.EXCLUDED.name &&
+                                original.reviewState !=
+                                    ReviewState.NEEDS_REVIEW.name
+                            ) {
+                                -item.amountMinor
+                            } else {
+                                0L
+                            }
                         } else {
                             item.amountMinor + item.feeMinor
                         }
