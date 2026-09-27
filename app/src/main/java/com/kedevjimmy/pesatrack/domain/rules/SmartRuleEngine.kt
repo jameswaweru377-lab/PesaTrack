@@ -98,11 +98,11 @@ object SmartRuleEngine {
         trim()
             .lowercase()
             .replace(Regex("""[^a-z0-9]+"""), " ")
-            .replace(Regex("""s+"""), " ")
+            .replace(Regex("""\s+"""), " ")
             .trim()
 
     private fun String.normalizeText(): String =
-        trim().lowercase().replace(Regex("""s+"""), " ")
+        trim().lowercase().replace(Regex("""\s+"""), " ")
 
     private fun normalizePhone(value: String): String {
         val digits = value.filter(Char::isDigit)
