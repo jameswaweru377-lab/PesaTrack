@@ -438,6 +438,7 @@ class DebtStore private constructor(context: Context) {
                    fee_minor, outstanding_after_minor,
                    linked_transaction_id,
                    wallet_balance_after_minor,
+                   funding_account_key,
                    available_credit_after_minor,
                    repayment_completion,
                    funding_link_confidence,
@@ -482,42 +483,48 @@ class DebtStore private constructor(context: Context) {
                                 } else {
                                     cursor.getLong(7)
                                 },
-                            availableCreditAfterMinor =
+                            fundingAccountKey =
                                 if (cursor.isNull(8)) {
                                     null
                                 } else {
-                                    cursor.getLong(8)
+                                    cursor.getString(8)
                                 },
-                            repaymentCompletion =
+                            availableCreditAfterMinor =
                                 if (cursor.isNull(9)) {
                                     null
                                 } else {
-                                    runCatching {
-                                        FulizaRepaymentCompletion
-                                            .valueOf(
-                                                cursor.getString(9)
-                                            )
-                                    }.getOrNull()
+                                    cursor.getLong(9)
                                 },
-                            fundingLinkConfidence =
+                            repaymentCompletion =
                                 if (cursor.isNull(10)) {
                                     null
                                 } else {
                                     runCatching {
-                                        RepaymentChainConfidence
+                                        DebtCompletion
                                             .valueOf(
                                                 cursor.getString(10)
                                             )
                                     }.getOrNull()
                                 },
-                            fundingLinkReason =
+                            fundingLinkConfidence =
                                 if (cursor.isNull(11)) {
                                     null
                                 } else {
-                                    cursor.getString(11)
+                                    runCatching {
+                                        RepaymentChainConfidence
+                                            .valueOf(
+                                                cursor.getString(11)
+                                            )
+                                    }.getOrNull()
+                                },
+                            fundingLinkReason =
+                                if (cursor.isNull(12)) {
+                                    null
+                                } else {
+                                    cursor.getString(12)
                                 },
                             occurredAtEpochMs =
-                                cursor.getLong(12)
+                                cursor.getLong(13)
                         )
                     )
                 }
@@ -677,9 +684,10 @@ class DebtStore private constructor(context: Context) {
         outstandingAfterMinor: Long?,
         linkedTransactionId: Long?,
         walletBalanceAfterMinor: Long?,
+        fundingAccountKey: String?,
         availableCreditAfterMinor: Long?,
         repaymentCompletion:
-            FulizaRepaymentCompletion?,
+            DebtCompletion?,
         fundingLinkConfidence:
             RepaymentChainConfidence?,
         fundingLinkReason: String?,
@@ -710,6 +718,12 @@ class DebtStore private constructor(context: Context) {
                     put(
                         "wallet_balance_after_minor",
                         walletBalanceAfterMinor
+                    )
+                }
+                if (fundingAccountKey != null) {
+                    put(
+                        "funding_account_key",
+                        fundingAccountKey
                     )
                 }
                 if (availableCreditAfterMinor != null) {
@@ -782,6 +796,14 @@ class DebtStore private constructor(context: Context) {
                 )
             } else {
                 putNull("wallet_balance_after_minor")
+            }
+            if (fundingAccountKey != null) {
+                put(
+                    "funding_account_key",
+                    fundingAccountKey
+                )
+            } else {
+                putNull("funding_account_key")
             }
             if (availableCreditAfterMinor != null) {
                 put(
