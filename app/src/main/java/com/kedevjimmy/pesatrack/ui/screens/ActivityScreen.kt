@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -870,73 +871,111 @@ private fun GlobalReviewNavigationBar(
     selectedQueue: String?,
     onQueueSelected: (String) -> Unit
 ) {
-    PesaCard {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        ActivityQueueButton(
+            label = "Review",
+            count = overview.reviewGroups.size,
+            icon = Icons.Rounded.FactCheck,
+            selected = selectedQueue == "Review",
+            tone = "green",
+            modifier = Modifier.weight(1f),
+            onClick = {
+                onQueueSelected("Review")
+            }
+        )
+        ActivityQueueButton(
+            label = "Duplicates",
+            count = overview.possibleDuplicates.size,
+            icon = Icons.Rounded.ContentCopy,
+            selected = selectedQueue == "Duplicates",
+            tone = "violet",
+            modifier = Modifier.weight(1f),
+            onClick = {
+                onQueueSelected("Duplicates")
+            }
+        )
+    }
+}
+
+@Composable
+private fun ActivityQueueButton(
+    label: String,
+    count: Int,
+    icon: ImageVector,
+    selected: Boolean,
+    tone: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val background = if (selected) {
+        if (tone == "green") {
+            MaterialTheme.colorScheme.primary
+        } else {
+            pesaToneContainer("violet")
+        }
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+    val foreground = if (
+        selected &&
+        tone == "green"
+    ) {
+        MaterialTheme.colorScheme.onPrimary
+    } else if (
+        selected &&
+        tone == "violet"
+    ) {
+        pesaToneContent("violet")
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
+    Surface(
+        modifier = modifier
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = background,
+        border = if (selected) {
+            null
+        } else {
+            BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outline
+                    .copy(alpha = .65f)
+            )
+        }
+    ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement =
-                Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(
+                horizontal = 14.dp,
+                vertical = 12.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
-            FilterChip(
-                modifier = Modifier.weight(1f),
-                selected =
-                    selectedQueue == "Review",
-                onClick = {
-                    onQueueSelected("Review")
-                },
-                label = {
-                    Text(
-                        "Review " +
-                            overview
-                                .reviewGroups
-                                .size
-                    )
-                },
-                colors =
-                    FilterChipDefaults
-                        .filterChipColors(
-                            selectedContainerColor =
-                                pesaToneContainer(
-                                    "amber"
-                                ),
-                            selectedLabelColor =
-                                pesaToneContent(
-                                    "amber"
-                                )
-                        )
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = foreground
             )
-            FilterChip(
-                modifier = Modifier.weight(1f),
-                selected =
-                    selectedQueue ==
-                        "Duplicates",
-                onClick = {
-                    onQueueSelected(
-                        "Duplicates"
-                    )
-                },
-                label = {
-                    Text(
-                        "Duplicates " +
-                            overview
-                                .possibleDuplicates
-                                .size
-                    )
-                },
-                colors =
-                    FilterChipDefaults
-                        .filterChipColors(
-                            selectedContainerColor =
-                                MaterialTheme
-                                    .colorScheme
-                                    .errorContainer,
-                            selectedLabelColor =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onErrorContainer
-                        )
+            Text(
+                label,
+                modifier = Modifier.padding(start = 8.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = foreground
             )
+            if (count > 0) {
+                Text(
+                    count.toString(),
+                    modifier = Modifier.padding(start = 5.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = foreground.copy(alpha = .76f)
+                )
+            }
         }
     }
 }
@@ -1154,9 +1193,14 @@ private fun LiveActivityUpdateStatus() {
 @Composable
 private fun ActivitySummaryCard(
     snapshot: ActivityLedgerSnapshot,
+    previousSnapshot: ActivityLedgerSnapshot,
     monthLabel: String
 ) {
     val summary = snapshot.summary
+    val previous = previousSnapshot.summary
+    val savingsMinor = monthSavings(snapshot)
+    val previousSavingsMinor =
+        monthSavings(previousSnapshot)
     val dark = isPesaDarkTheme()
     val gradient = if (dark) {
         listOf(
@@ -1173,65 +1217,63 @@ private fun ActivitySummaryCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(gradient))
+            .clip(RoundedCornerShape(22.dp))
+            .background(
+                Brush.linearGradient(gradient)
+            )
             .padding(16.dp)
     ) {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        monthLabel + " Summary",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White
-                    )
-                    Text(
-                        formatMoney(summary.spentMinor) +
-                            " spent • " +
-                            formatMoney(summary.incomeMinor) +
-                            " income",
-                        modifier = Modifier.padding(top = 2.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = .78f)
-                    )
-                }
-                if (
-                    snapshot.possibleDuplicates.isNotEmpty() ||
-                    snapshot.reviewGroups.isNotEmpty()
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(36.dp),
+                    shape = RoundedCornerShape(11.dp),
+                    color = Color.White.copy(alpha = .14f)
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = Color.White.copy(alpha = .14f)
-                    ) {
-                        Text(
-                            (
-                                snapshot.reviewGroups.size +
-                                    snapshot.possibleDuplicates.size
-                                ).toString() +
-                                " to check",
-                            modifier = Modifier.padding(
-                                horizontal = 10.dp,
-                                vertical = 5.dp
-                            ),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Rounded.BarChart,
+                            contentDescription = null,
+                            modifier = Modifier.size(21.dp),
+                            tint = Color(0xFFF6C65B)
                         )
                     }
                 }
+                Text(
+                    monthLabel + " Summary",
+                    modifier = Modifier.padding(start = 10.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
             }
 
             Row(
-                modifier = Modifier.padding(top = 18.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.padding(top = 16.dp),
+                horizontalArrangement =
+                    Arrangement.spacedBy(18.dp)
             ) {
-                SummaryAmount(
+                SummaryAmountWithChange(
                     label = "Money in",
-                    value = formatMoney(summary.incomeMinor),
+                    value = formatMoney(
+                        summary.incomeMinor
+                    ),
+                    current = summary.incomeMinor,
+                    previous = previous.incomeMinor,
+                    positiveWhenUp = true,
                     modifier = Modifier.weight(1f)
                 )
-                SummaryAmount(
+                SummaryAmountWithChange(
                     label = "Money spent",
-                    value = formatMoney(summary.spentMinor),
+                    value = formatMoney(
+                        summary.spentMinor
+                    ),
+                    current = summary.spentMinor,
+                    previous = previous.spentMinor,
+                    positiveWhenUp = false,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1239,23 +1281,76 @@ private fun ActivitySummaryCard(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 14.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White.copy(alpha = .13f)
+                    .padding(top = 15.dp),
+                shape = RoundedCornerShape(15.dp),
+                color = if (dark) {
+                    Color(0xFF463718)
+                } else {
+                    Color(0xFFFFE7A8)
+                }
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
-                    SummaryMini(
-                        "Fees",
-                        formatMoney(summary.feesMinor),
-                        Modifier.weight(1f)
-                    )
-                    SummaryMini(
-                        "Net",
-                        formatSignedMoney(summary.netMinor),
-                        Modifier.weight(1f)
+                    Surface(
+                        modifier = Modifier.size(38.dp),
+                        shape = RoundedCornerShape(11.dp),
+                        color = MaterialTheme
+                            .colorScheme
+                            .primary
+                            .copy(alpha = .13f)
+                    ) {
+                        Box(
+                            contentAlignment =
+                                Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Rounded
+                                    .AccountBalanceWallet,
+                                contentDescription = null,
+                                modifier =
+                                    Modifier.size(21.dp),
+                                tint =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .primary
+                            )
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 10.dp)
+                    ) {
+                        Text(
+                            "Saved this month",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                        Text(
+                            formatMoney(savingsMinor),
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .titleMedium,
+                            fontWeight =
+                                FontWeight.Bold
+                        )
+                    }
+
+                    SavingsChangeBadge(
+                        current = savingsMinor,
+                        previous =
+                            previousSavingsMinor
                     )
                 }
             }
@@ -1264,9 +1359,12 @@ private fun ActivitySummaryCard(
 }
 
 @Composable
-private fun SummaryAmount(
+private fun SummaryAmountWithChange(
     label: String,
     value: String,
+    current: Long,
+    previous: Long,
+    positiveWhenUp: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(modifier) {
@@ -1283,30 +1381,195 @@ private fun SummaryAmount(
             color = Color.White,
             maxLines = 1
         )
+        SummaryComparison(
+            current = current,
+            previous = previous,
+            positiveWhenUp = positiveWhenUp
+        )
     }
 }
 
 @Composable
-private fun SummaryMini(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
+private fun SummaryComparison(
+    current: Long,
+    previous: Long,
+    positiveWhenUp: Boolean
 ) {
-    Column(modifier) {
+    val percent = percentageChange(
+        current = current,
+        previous = previous
+    )
+
+    if (percent == null) {
         Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
+            if (current == 0L) {
+                "No change from prior month"
+            } else {
+                "New vs prior month"
+            },
+            modifier = Modifier.padding(top = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
             color = Color.White.copy(alpha = .68f)
         )
+        return
+    }
+
+    val up = percent > 0
+    val favorable =
+        if (positiveWhenUp) up else !up
+    val tint = if (percent == 0) {
+        Color.White.copy(alpha = .66f)
+    } else if (favorable) {
+        Color(0xFF8CF2C6)
+    } else {
+        Color(0xFFFFA0AA)
+    }
+
+    Row(
+        modifier = Modifier.padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (percent != 0) {
+            Icon(
+                if (up) {
+                    Icons.Rounded.ArrowUpward
+                } else {
+                    Icons.Rounded.ArrowDownward
+                },
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(13.dp)
+            )
+        }
         Text(
-            value,
-            modifier = Modifier.padding(top = 1.dp),
-            style = MaterialTheme.typography.titleSmall,
-            color = Color.White,
-            maxLines = 1
+            if (percent == 0) {
+                "0% from prior month"
+            } else {
+                kotlin.math.abs(percent)
+                    .toString() +
+                    "% from prior month"
+            },
+            modifier = Modifier.padding(
+                start = if (percent == 0) {
+                    0.dp
+                } else {
+                    2.dp
+                }
+            ),
+            style = MaterialTheme.typography.labelSmall,
+            color = tint
         )
     }
 }
+
+@Composable
+private fun SavingsChangeBadge(
+    current: Long,
+    previous: Long
+) {
+    val percent = percentageChange(
+        current = current,
+        previous = previous
+    )
+
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme
+            .colorScheme
+            .primary
+            .copy(alpha = .12f)
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 9.dp,
+                vertical = 5.dp
+            ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            if (
+                percent != null &&
+                percent != 0
+            ) {
+                Icon(
+                    if (percent > 0) {
+                        Icons.Rounded.ArrowUpward
+                    } else {
+                        Icons.Rounded.ArrowDownward
+                    },
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = if (percent > 0) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    }
+                )
+            }
+            Text(
+                when {
+                    percent == null &&
+                        current > 0L ->
+                        "New"
+                    percent == null ->
+                        "No change"
+                    else ->
+                        kotlin.math.abs(percent)
+                            .toString() + "%"
+                },
+                modifier = Modifier.padding(
+                    start = if (
+                        percent != null &&
+                        percent != 0
+                    ) {
+                        2.dp
+                    } else {
+                        0.dp
+                    }
+                ),
+                style =
+                    MaterialTheme.typography
+                        .labelMedium,
+                color = when {
+                    percent == null ||
+                        percent >= 0 ->
+                        MaterialTheme
+                            .colorScheme
+                            .primary
+                    else ->
+                        MaterialTheme
+                            .colorScheme
+                            .error
+                }
+            )
+        }
+    }
+}
+
+private fun percentageChange(
+    current: Long,
+    previous: Long
+): Int? {
+    if (previous == 0L) return null
+    return (
+        ((current - previous) * 100.0) /
+            kotlin.math.abs(previous.toDouble())
+        ).toInt()
+}
+
+private fun monthSavings(
+    snapshot: ActivityLedgerSnapshot
+): Long =
+    snapshot.transactions
+        .filter {
+            it.category ==
+                TransactionCategory.SAVINGS.name &&
+                it.reviewState !=
+                    ReviewState.EXCLUDED.name &&
+                it.reviewState !=
+                    ReviewState.NEEDS_REVIEW.name
+        }
+        .sumOf { it.amountMinor }
 
 @Composable
 private fun ResponsiveActivityMetrics(
@@ -1814,11 +2077,10 @@ private fun ActivityRow(
             Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconBubble(
-                iconFor(category, item.type),
-                size = 40.dp,
-                background = pesaToneContainer(tone),
-                tint = pesaToneContent(tone)
+            MerchantBadge(
+                item = item,
+                category = category,
+                tone = tone
             )
             Column(
                 Modifier
@@ -1898,6 +2160,91 @@ private fun ActivityRow(
                         .size(18.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun MerchantBadge(
+    item: StoredTransaction,
+    category: TransactionCategory,
+    tone: String
+) {
+    val name = (
+        item.counterparty
+            ?: item.evidenceLabel
+            ?: ""
+        ).trim()
+    val normalized = name.lowercase()
+
+    val merchant = when {
+        "safaricom" in normalized ||
+            "tunukiwa" in normalized ->
+            Triple(
+                "S",
+                Color(0xFF00A651),
+                Color.White
+            )
+        "java house" in normalized ||
+            normalized == "java" ->
+            Triple(
+                "JH",
+                Color(0xFF8B2F2A),
+                Color.White
+            )
+        "naivas" in normalized ->
+            Triple(
+                "N",
+                Color(0xFFE31B23),
+                Color.White
+            )
+        "kplc" in normalized ||
+            "kenya power" in normalized ->
+            Triple(
+                "K",
+                Color(0xFFFFB300),
+                Color(0xFF172033)
+            )
+        "totalenergies" in normalized ||
+            "total energies" in normalized ||
+            normalized.startsWith("total ") ->
+            Triple(
+                "T",
+                Color(0xFFE30613),
+                Color.White
+            )
+        else -> null
+    }
+
+    if (merchant == null) {
+        IconBubble(
+            icon = iconFor(
+                category,
+                item.type
+            ),
+            size = 40.dp,
+            background = pesaToneContainer(tone),
+            tint = pesaToneContent(tone)
+        )
+        return
+    }
+
+    Surface(
+        modifier = Modifier.size(40.dp),
+        shape = CircleShape,
+        color = merchant.second
+    ) {
+        Box(
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                merchant.first,
+                style =
+                    MaterialTheme.typography
+                        .labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = merchant.third
+            )
         }
     }
 }
