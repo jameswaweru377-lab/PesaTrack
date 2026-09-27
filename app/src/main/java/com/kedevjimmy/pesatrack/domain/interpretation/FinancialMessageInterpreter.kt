@@ -174,7 +174,7 @@ object FinancialMessageInterpreter {
                             add(
                                 evidence(
                                     field =
-                                        FinancialField.SOURCE_ACCOUNT,
+                                        FinancialField.ACCOUNT,
                                     ruleId =
                                         "balance.account_label",
                                     range = it,
