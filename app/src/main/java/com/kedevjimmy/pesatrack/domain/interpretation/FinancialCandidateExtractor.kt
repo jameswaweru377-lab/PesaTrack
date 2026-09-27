@@ -6,6 +6,7 @@ enum class FinancialActionCandidateKind {
     TRANSFER_FROM_ACCOUNT,
     TRANSFER_TO_ACCOUNT,
     PAYMENT_SENT_TO,
+    PAYMENT_PAID_TO,
     RECEIPT_FROM
 }
 
@@ -42,6 +43,8 @@ data class FinancialActionCandidate(
     val partyLabel: String,
     val partySpan: MessageSpan,
     val partyPhone: String?,
+    val accountReference: String? = null,
+    val accountReferenceSpan: MessageSpan? = null,
     val ruleId: String
 )
 
@@ -109,6 +112,24 @@ object FinancialCandidateExtractor {
         """sent\s+to\s+.+?\s+((?:\+?254|0)\d{9})\b""",
         RegexOption.IGNORE_CASE
     )
+    private val paidAmountRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+paid\s+to\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val paidPartyRegex = Regex(
+        """paid\s+to\s+(.+?)(?=\s+for\s+account\b|\s+on\s+\d|\.\s*(?:New\s+)?M-PESA|$)""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
+    private val paidAccountReferenceRegex = Regex(
+        """\bfor\s+account\s+(.+?)(?=\s+on\s+\d|\.\s*(?:New\s+)?M-PESA|$)""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
     private val receiptRegex = Regex(
         """(?:you\s+have\s+)?received\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+(.+?)(?=\s+(?:\+?254|0)\d{9}\b|\s+on\s+\d|\.\s*(?:New\s+)?M-PESA|$)""",
         setOf(
@@ -139,6 +160,7 @@ object FinancialCandidateExtractor {
             transferFromCandidate(body)?.let(::add)
             transferToCandidate(body)?.let(::add)
             paymentCandidate(body)?.let(::add)
+            paidToCandidate(body)?.let(::add)
             receiptCandidate(body)?.let(::add)
         }
 
@@ -246,6 +268,39 @@ object FinancialCandidateExtractor {
                 ?.value
                 ?.let(::normalizeKenyanPhone),
             ruleId = "payment.sent_to"
+        )
+    }
+
+    private fun paidToCandidate(
+        body: String
+    ): FinancialActionCandidate? {
+        val amount = paidAmountRegex.find(body)
+            ?.groups
+            ?.get(1)
+            ?: return null
+        val party = paidPartyRegex.find(body)
+            ?.groups
+            ?.get(1)
+            ?: return null
+        val accountReference =
+            paidAccountReferenceRegex.find(body)
+                ?.groups
+                ?.get(1)
+
+        return FinancialActionCandidate(
+            kind =
+                FinancialActionCandidateKind
+                    .PAYMENT_PAID_TO,
+            amountMinor = amountToMinor(amount.value),
+            amountSpan = amount.range.toSpan(),
+            partyLabel = party.value.trim(),
+            partySpan = party.range.toSpan(),
+            partyPhone = null,
+            accountReference =
+                accountReference?.value?.trim(),
+            accountReferenceSpan =
+                accountReference?.range?.toSpan(),
+            ruleId = "payment.paid_to"
         )
     }
 

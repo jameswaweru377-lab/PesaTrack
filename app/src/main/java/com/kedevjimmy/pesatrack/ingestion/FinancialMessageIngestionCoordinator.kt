@@ -8,6 +8,7 @@ import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
 import com.kedevjimmy.pesatrack.domain.interpretation.ReceiptEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
@@ -238,7 +239,14 @@ class FinancialMessageIngestionCoordinator private constructor(
                         transactionCode =
                             interpretation.transactionCode,
                         type =
-                            MpesaTransactionType.SENT_MONEY,
+                            when (event.routeHint) {
+                                PaymentRouteHint.PERSON_TO_PERSON ->
+                                    MpesaTransactionType.SENT_MONEY
+                                PaymentRouteHint.MERCHANT ->
+                                    MpesaTransactionType.BUY_GOODS
+                                PaymentRouteHint.BILL ->
+                                    MpesaTransactionType.PAY_BILL
+                            },
                         amountMinor = event.amountMinor,
                         counterparty = event.counterparty,
                         counterpartyPhone =

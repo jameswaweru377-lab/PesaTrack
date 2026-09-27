@@ -33,6 +33,10 @@ object FinancialEventClassifier {
                         counterpartyPhone =
                             relationship
                                 .counterpartyPhone,
+                        routeHint =
+                            relationship.routeHint,
+                        accountReference =
+                            relationship.accountReference,
                         feeMinor =
                             relationship.feeMinor,
                         confidence =

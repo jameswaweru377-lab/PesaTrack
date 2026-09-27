@@ -65,11 +65,19 @@ data class TransferEventFact(
         FinancialEventKind.TRANSFER
 }
 
+enum class PaymentRouteHint {
+    PERSON_TO_PERSON,
+    MERCHANT,
+    BILL
+}
+
 data class PaymentEventFact(
     val amountMinor: Long,
     val source: FinancialAccountReference,
     val counterparty: String,
     val counterpartyPhone: String?,
+    val routeHint: PaymentRouteHint,
+    val accountReference: String? = null,
     val feeMinor: Long,
     override val confidence: InterpretationConfidence,
     val evidence: List<FieldEvidence> = emptyList()

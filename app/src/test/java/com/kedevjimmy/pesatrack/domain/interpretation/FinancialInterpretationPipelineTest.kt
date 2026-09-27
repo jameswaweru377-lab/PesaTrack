@@ -71,6 +71,80 @@ class FinancialInterpretationPipelineTest {
     }
 
     @Test
+    fun paidToWithoutAccountReferenceResolvesAsMerchantPayment() {
+        val normalized =
+            FinancialMessageNormalizer.normalize(
+                title = "MPESA",
+                body =
+                    "TST12PIPE4 Confirmed. Ksh 850.00 paid to SAMPLE SHOP on 28/9/26 at 7:25 PM. New M-PESA balance is Ksh 8,800.00. Transaction cost, Ksh 0.00."
+            )
+
+        val classified =
+            FinancialEventClassifier.classify(
+                FinancialRelationshipResolver.resolve(
+                    message = normalized,
+                    candidates =
+                        FinancialCandidateExtractor.extract(
+                            normalized
+                        )
+                )
+            )
+
+        val payment =
+            classified.events.single() as
+                PaymentEventFact
+
+        assertEquals(
+            PaymentRouteHint.MERCHANT,
+            payment.routeHint
+        )
+        assertEquals("SAMPLE SHOP", payment.counterparty)
+        assertEquals(null, payment.accountReference)
+    }
+
+    @Test
+    fun paidToForAccountResolvesAsBillPayment() {
+        val normalized =
+            FinancialMessageNormalizer.normalize(
+                title = "MPESA",
+                body =
+                    "TST12PIPE5 Confirmed. Ksh 1,200.00 paid to SAMPLE UTILITY for account 123456 on 28/9/26 at 7:28 PM. New M-PESA balance is Ksh 7,600.00. Transaction cost, Ksh 20.00."
+            )
+
+        val classified =
+            FinancialEventClassifier.classify(
+                FinancialRelationshipResolver.resolve(
+                    message = normalized,
+                    candidates =
+                        FinancialCandidateExtractor.extract(
+                            normalized
+                        )
+                )
+            )
+
+        val payment =
+            classified.events.single() as
+                PaymentEventFact
+
+        assertEquals(
+            PaymentRouteHint.BILL,
+            payment.routeHint
+        )
+        assertEquals(
+            "SAMPLE UTILITY",
+            payment.counterparty
+        )
+        assertEquals("123456", payment.accountReference)
+        assertEquals(2_000L, payment.feeMinor)
+        assertTrue(
+            payment.evidence.any {
+                it.field ==
+                    FinancialField.ACCOUNT_REFERENCE
+            }
+        )
+    }
+
+    @Test
     fun classifierCreatesReceiptWithoutCallingItIncome() {
         val normalized =
             FinancialMessageNormalizer.normalize(
