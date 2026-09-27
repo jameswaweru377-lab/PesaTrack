@@ -340,7 +340,7 @@ class DebtStore private constructor(context: Context) {
         sourcePackage: String?,
         sourceKind: String,
         occurredAtEpochMs: Long
-    ): Long {
+    ): DebtEventInsertResult {
         val existing = database.readableDatabase.rawQuery(
             """
             SELECT id
