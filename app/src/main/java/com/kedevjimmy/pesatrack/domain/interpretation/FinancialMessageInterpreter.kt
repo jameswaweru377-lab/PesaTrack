@@ -3,6 +3,11 @@ package com.kedevjimmy.pesatrack.domain.interpretation
 import java.math.RoundingMode
 
 object FinancialMessageInterpreter {
+    private val currencyHintRegex = Regex(
+        """\b(?:Ksh|KES)\b""",
+        RegexOption.IGNORE_CASE
+    )
+
     private val codeRegex = Regex(
         """\b([A-Z0-9]{10})\s+Confirmed\b""",
         RegexOption.IGNORE_CASE
@@ -57,6 +62,15 @@ object FinancialMessageInterpreter {
         val normalized = body
             .replace(Regex("""\s+"""), " ")
             .trim()
+
+        if (!currencyHintRegex.containsMatchIn(normalized)) {
+            return FinancialMessageInterpretation(
+                transactionCode = null,
+                occurredAtText = null,
+                balances = emptyList(),
+                events = emptyList()
+            )
+        }
 
         val balances = parseBalances(normalized)
         val observedMpesa = balances
