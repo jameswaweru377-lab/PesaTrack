@@ -7,6 +7,8 @@ import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
+import com.kedevjimmy.pesatrack.domain.interpretation.PaymentEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.ReceiptEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
@@ -222,6 +224,102 @@ class FinancialMessageIngestionCoordinator private constructor(
                         linkedTransactionId =
                             linkedTransactionId
                     )
+                }
+            is PaymentEventFact -> {
+                    val mpesaBalance =
+                        interpretation.balances
+                            .firstOrNull {
+                                it.account.providerKey ==
+                                    "SAFARICOM_MPESA"
+                            }
+                            ?.balanceMinor
+
+                    val parsed = ParsedMpesaTransaction(
+                        transactionCode =
+                            interpretation.transactionCode,
+                        type =
+                            MpesaTransactionType.SENT_MONEY,
+                        amountMinor = event.amountMinor,
+                        counterparty = event.counterparty,
+                        counterpartyPhone =
+                            event.counterpartyPhone,
+                        feeMinor = event.feeMinor,
+                        balanceMinor = mpesaBalance,
+                        occurredAtText =
+                            interpretation.occurredAtText,
+                        rawMessage = body,
+                        reversalOfCode = null
+                    )
+
+                    val inserted =
+                        transactionStore.insertIfNew(
+                            parsed = parsed,
+                            sourcePackage = sourcePackage,
+                            sourceKind =
+                                SOURCE_INTERPRETED_PREFIX +
+                                    sourceKind,
+                            receivedAtEpochMs =
+                                receivedAtEpochMs,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs,
+                            matchedRule = null,
+                            rebuildPayCycles =
+                                rebuildPayCycles,
+                            evidence = null
+                        )
+
+                    if (inserted) {
+                        insertedTransactions += 1
+                        changed = true
+                    }
+                }
+                is ReceiptEventFact -> {
+                    val mpesaBalance =
+                        interpretation.balances
+                            .firstOrNull {
+                                it.account.providerKey ==
+                                    "SAFARICOM_MPESA"
+                            }
+                            ?.balanceMinor
+
+                    val parsed = ParsedMpesaTransaction(
+                        transactionCode =
+                            interpretation.transactionCode,
+                        type =
+                            MpesaTransactionType.RECEIVED,
+                        amountMinor = event.amountMinor,
+                        counterparty = event.counterparty,
+                        counterpartyPhone =
+                            event.counterpartyPhone,
+                        feeMinor = event.feeMinor,
+                        balanceMinor = mpesaBalance,
+                        occurredAtText =
+                            interpretation.occurredAtText,
+                        rawMessage = body,
+                        reversalOfCode = null
+                    )
+
+                    val inserted =
+                        transactionStore.insertIfNew(
+                            parsed = parsed,
+                            sourcePackage = sourcePackage,
+                            sourceKind =
+                                SOURCE_INTERPRETED_PREFIX +
+                                    sourceKind,
+                            receivedAtEpochMs =
+                                receivedAtEpochMs,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs,
+                            matchedRule = null,
+                            rebuildPayCycles =
+                                rebuildPayCycles,
+                            evidence = null
+                        )
+
+                    if (inserted) {
+                        insertedTransactions += 1
+                        changed = true
+                    }
                 }
             }
         }

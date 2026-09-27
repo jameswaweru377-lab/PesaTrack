@@ -120,10 +120,12 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC04 Confirmed. Ksh 450.00 sent to SAMPLE PERSON 0712000000 on 28/9/26 at 7:10 PM. New M-PESA balance is Ksh 7,650.00. Transaction cost, Ksh 7.00.",
-            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC04",
             expectedKinds = listOf(
-                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.PAYMENT,
+                CanonicalFinancialRecordKind.FEE
             ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
@@ -143,10 +145,11 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC05 Confirmed. You have received Ksh 2,000.00 from SAMPLE PERSON 0712000001 on 28/9/26 at 7:20 PM. New M-PESA balance is Ksh 9,650.00.",
-            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC05",
             expectedKinds = listOf(
-                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.RECEIPT
             ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
@@ -157,6 +160,51 @@ object FinancialMessageFixtureCorpus {
                     providerKey = "SAFARICOM_MPESA",
                     displayName = "M-Pesa",
                     amountMinor = 965_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "mpesa_buy_goods_paid_to",
+            title = "MPESA",
+            body =
+                "TST12ABC11 Confirmed. Ksh 850.00 paid to SAMPLE SHOP on 28/9/26 at 7:25 PM. New M-PESA balance is Ksh 8,800.00. Transaction cost, Ksh 0.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC11",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.PAYMENT
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 880_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "mpesa_paybill_paid_to",
+            title = "MPESA",
+            body =
+                "TST12ABC12 Confirmed. Ksh 1,200.00 paid to SAMPLE UTILITY for account 123456 on 28/9/26 at 7:28 PM. New M-PESA balance is Ksh 7,600.00. Transaction cost, Ksh 20.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC12",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.PAYMENT,
+                CanonicalFinancialRecordKind.FEE
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 760_000L
                 )
             )
         ),
@@ -225,10 +273,11 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC09 Confirmed. You have received Ksh 220.00 from SAMPLE RIDE LIMITED 3000000 on 28/9/26 at 7:30 PM. New M-PESA balance is Ksh 220.00.",
-            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC09",
             expectedKinds = listOf(
-                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.RECEIPT
             ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
