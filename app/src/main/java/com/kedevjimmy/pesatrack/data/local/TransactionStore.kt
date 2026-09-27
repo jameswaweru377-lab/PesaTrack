@@ -505,8 +505,7 @@ class TransactionStore private constructor(context: Context) {
         if (rules.isEmpty()) return
 
         val db = database.writableDatabase
-        recent(500).forEach { stored ->
-            if (stored.reviewState != ReviewState.NEEDS_REVIEW.name) return@forEach
+        learnableHistoricalTransactions().forEach { stored ->
             val type = runCatching { MpesaTransactionType.valueOf(stored.type) }
                 .getOrDefault(MpesaTransactionType.OTHER)
             val parsed = ParsedMpesaTransaction(
@@ -545,9 +544,8 @@ class TransactionStore private constructor(context: Context) {
         rule: SmartRule,
         excludingId: Long? = null
     ): Int =
-        recent(500).count { stored ->
-            isLearnableHistoricalMatch(stored) &&
-                stored.id != excludingId &&
+        learnableHistoricalTransactions().count { stored ->
+            stored.id != excludingId &&
                 SmartRuleEngine.matchTransaction(
                     stored.toParsedTransaction(),
                     listOf(rule)
@@ -559,8 +557,7 @@ class TransactionStore private constructor(context: Context) {
         val db = database.writableDatabase
         var changed = 0
 
-        recent(500).forEach { stored ->
-            if (!isLearnableHistoricalMatch(stored)) return@forEach
+        learnableHistoricalTransactions().forEach { stored ->
             val parsed = stored.toParsedTransaction()
             if (SmartRuleEngine.matchTransaction(parsed, listOf(rule)) == null) return@forEach
 
@@ -600,6 +597,23 @@ class TransactionStore private constructor(context: Context) {
                     stored.ruleId == null &&
                     stored.category == TransactionCategory.OTHER.name
             )
+
+    private fun learnableHistoricalTransactions(): List<StoredTransaction> =
+        database.readableDatabase.rawQuery(
+            BASE_SELECT +
+                " WHERE review_state = ?" +
+                " OR (review_state = ? AND rule_id IS NULL AND category = ?)" +
+                " ORDER BY occurred_at_epoch_ms DESC, id DESC",
+            arrayOf(
+                ReviewState.NEEDS_REVIEW.name,
+                ReviewState.AUTO_CLASSIFIED.name,
+                TransactionCategory.OTHER.name
+            )
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(cursor.toStoredTransaction())
+            }
+        }
 
     @Synchronized
     fun reconcileMirrorDuplicates(): Int {

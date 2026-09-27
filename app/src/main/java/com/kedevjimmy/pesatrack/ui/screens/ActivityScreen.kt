@@ -821,13 +821,13 @@ private fun ActivityRow(
                 Text(
                     amountLabel(item, direction),
                     style = MaterialTheme.typography.titleSmall,
-                    color = if (
+                    color = when {
                         direction == MoneyDirection.INCOME ||
-                        item.type == MpesaTransactionType.REVERSAL.name
-                    ) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
+                            item.type == MpesaTransactionType.REVERSAL.name ->
+                            MaterialTheme.colorScheme.primary
+                        direction == MoneyDirection.EXPENSE ->
+                            MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurface
                     }
                 )
                 Icon(

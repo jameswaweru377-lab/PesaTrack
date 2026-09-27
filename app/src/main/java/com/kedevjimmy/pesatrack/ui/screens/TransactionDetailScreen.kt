@@ -467,7 +467,15 @@ private fun TransactionHero(item: StoredTransaction) {
                 }
                 Text(
                     signedMoney(item.amountMinor, direction, item.type),
-                    style = MaterialTheme.typography.headlineMedium
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = when {
+                        direction == MoneyDirection.INCOME ||
+                            item.type == MpesaTransactionType.REVERSAL.name ->
+                            MaterialTheme.colorScheme.primary
+                        direction == MoneyDirection.EXPENSE ->
+                            MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurface
+                    }
                 )
             }
 
