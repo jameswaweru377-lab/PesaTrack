@@ -113,9 +113,9 @@ class FinancialMessageInterpreterTest {
     }
 
     @Test
-    fun normalMpesaPaymentOnlyContributesBalanceAndFallsBackToLegacyParser() {
+    fun understandsOrdinaryMpesaPaymentGenerically() {
         val message =
-            "RQK12ABC37 Confirmed. Ksh 450.00 sent to ELIZABETH W. 0712345678 on 28/9/26 at 7:10 PM. New M-PESA balance is Ksh 7,650.00."
+            "RQK12ABC37 Confirmed. Ksh 450.00 sent to SAMPLE PERSON 0712345678 on 28/9/26 at 7:10 PM. New M-PESA balance is Ksh 7,650.00. Transaction cost, Ksh 7.00."
 
         val result = FinancialMessageInterpreter.interpret(
             title = "MPESA",
@@ -123,12 +123,61 @@ class FinancialMessageInterpreterTest {
         )
 
         assertTrue(result.recognized)
-        assertFalse(result.consumesLegacyTransactionParsing)
-        assertTrue(result.events.isEmpty())
+        assertTrue(result.consumesLegacyTransactionParsing)
         assertEquals(1, result.balances.size)
+
+        val payment =
+            result.events.single() as PaymentEventFact
+        assertEquals(45_000L, payment.amountMinor)
+        assertEquals("SAMPLE PERSON", payment.counterparty)
+        assertEquals(
+            "+254712345678",
+            payment.counterpartyPhone
+        )
+        assertEquals(700L, payment.feeMinor)
+        assertEquals(
+            "SAFARICOM_MPESA",
+            payment.source.providerKey
+        )
+        assertTrue(
+            payment.evidence.any {
+                it.field == FinancialField.AMOUNT
+            }
+        )
+        assertTrue(
+            payment.evidence.any {
+                it.field == FinancialField.COUNTERPARTY
+            }
+        )
         assertEquals(
             765_000L,
             result.balances.single().balanceMinor
+        )
+    }
+
+    @Test
+    fun understandsOrdinaryMpesaReceiptGenerically() {
+        val message =
+            "RQK12ABC39 Confirmed. You have received Ksh 2,000.00 from SAMPLE PERSON 0712345679 on 28/9/26 at 7:20 PM. New M-PESA balance is Ksh 9,650.00."
+
+        val result = FinancialMessageInterpreter.interpret(
+            title = "MPESA",
+            body = message
+        )
+
+        assertTrue(result.consumesLegacyTransactionParsing)
+
+        val receipt =
+            result.events.single() as ReceiptEventFact
+        assertEquals(200_000L, receipt.amountMinor)
+        assertEquals("SAMPLE PERSON", receipt.counterparty)
+        assertEquals(
+            "+254712345679",
+            receipt.counterpartyPhone
+        )
+        assertEquals(
+            "SAFARICOM_MPESA",
+            receipt.destination.providerKey
         )
     }
 
