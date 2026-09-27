@@ -875,7 +875,9 @@ private fun directionForCategory(
         category == TransactionCategory.INCOME -> MoneyDirection.INCOME
         category == TransactionCategory.TRANSFER ||
             category == TransactionCategory.CASH ||
-            category == TransactionCategory.SAVINGS -> MoneyDirection.TRANSFER
+            category == TransactionCategory.SAVINGS ||
+            category == TransactionCategory.INVESTMENT ->
+            MoneyDirection.TRANSFER
         existingDirection == MoneyDirection.INCOME -> MoneyDirection.INCOME
         else -> MoneyDirection.EXPENSE
     }
