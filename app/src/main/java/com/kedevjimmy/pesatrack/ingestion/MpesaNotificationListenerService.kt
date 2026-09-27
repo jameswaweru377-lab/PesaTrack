@@ -168,6 +168,7 @@ class MpesaNotificationListenerService : NotificationListenerService() {
             }
         }
     }
+    }
 
     private fun rememberEvidence(evidence: FinancialMessageEvidence) {
         recentEvidence.addLast(evidence)
