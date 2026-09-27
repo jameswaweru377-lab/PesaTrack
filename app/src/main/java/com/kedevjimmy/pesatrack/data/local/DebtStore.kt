@@ -249,7 +249,25 @@ class DebtStore private constructor(context: Context) {
         val event = interpretation.events
             .filterIsInstance<DebtDrawdownEventFact>()
             .firstOrNull()
-            ?: return
+            ?: DebtDrawdownEventFact(
+                amountMinor =
+                    parsed.financedAmountMinor,
+                liability =
+                    com.kedevjimmy.pesatrack.domain
+                        .interpretation
+                        .FinancialProviderRegistry
+                        .resolveAccount(
+                            "Fuliza M-PESA"
+                        ),
+                feeMinor =
+                    parsed.accessFeeMinor,
+                outstandingAfterMinor =
+                    parsed.outstandingAmountMinor,
+                availableCreditAfterMinor =
+                    parsed.availableLimitMinor,
+                confidence =
+                    InterpretationConfidence.HIGH
+            )
 
         recordDrawdown(
             event = event,
@@ -357,14 +375,12 @@ class DebtStore private constructor(context: Context) {
                 """
                 SELECT id
                 FROM debt_events
-                WHERE debt_account_id = ?
-                  AND event_type = ?
+                WHERE event_type = ?
                   AND linked_transaction_id IS NULL
                   AND occurred_at_epoch_ms BETWEEN ? AND ?
                 ORDER BY occurred_at_epoch_ms ASC, id ASC
                 """.trimIndent(),
                 arrayOf(
-                    FULIZA_ACCOUNT_ID,
                     DebtEventType.REPAYMENT.name,
                     (
                         occurredAtEpochMs -
@@ -641,7 +657,7 @@ class DebtStore private constructor(context: Context) {
                                     null
                                 } else {
                                     runCatching {
-                                        FulizaRepaymentCompletion
+                                        DebtCompletion
                                             .valueOf(
                                                 cursor.getString(9)
                                             )
