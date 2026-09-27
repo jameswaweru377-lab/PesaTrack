@@ -21,6 +21,8 @@ data class ResolvedPaymentRelationship(
     val source: FinancialAccountReference,
     val counterparty: String,
     val counterpartyPhone: String?,
+    val routeHint: PaymentRouteHint,
+    val accountReference: String?,
     override val feeMinor: Long,
     override val confidence: InterpretationConfidence,
     override val evidence: List<FieldEvidence>
@@ -167,7 +169,23 @@ object FinancialRelationshipResolver {
                 resolvePayment(
                     action,
                     observedWallet,
-                    fee
+                    fee,
+                    PaymentRouteHint.PERSON_TO_PERSON
+                )
+            FinancialActionCandidateKind
+                .PAYMENT_PAID_TO ->
+                resolvePayment(
+                    action,
+                    observedWallet,
+                    fee,
+                    if (
+                        action.accountReference
+                            .isNullOrBlank()
+                    ) {
+                        PaymentRouteHint.MERCHANT
+                    } else {
+                        PaymentRouteHint.BILL
+                    }
                 )
             FinancialActionCandidateKind
                 .RECEIPT_FROM ->
@@ -253,7 +271,8 @@ object FinancialRelationshipResolver {
     private fun resolvePayment(
         action: FinancialActionCandidate,
         observedWallet: FinancialAccountReference?,
-        fee: FeeCandidate?
+        fee: FeeCandidate?,
+        routeHint: PaymentRouteHint
     ): ResolvedFinancialRelationship? {
         val source = observedWallet ?: return null
         return ResolvedPaymentRelationship(
@@ -261,6 +280,9 @@ object FinancialRelationshipResolver {
             source = source,
             counterparty = action.partyLabel,
             counterpartyPhone = action.partyPhone,
+            routeHint = routeHint,
+            accountReference =
+                action.accountReference,
             feeMinor = fee?.amountMinor ?: 0L,
             confidence = InterpretationConfidence.HIGH,
             evidence = counterpartyEvidence(
@@ -405,6 +427,25 @@ object FinancialRelationshipResolver {
                         InterpretationConfidence.HIGH
                 )
             )
+            if (
+                !action.accountReference.isNullOrBlank()
+            ) {
+                add(
+                    evidence(
+                        field =
+                            FinancialField.ACCOUNT_REFERENCE,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            action.ruleId +
+                                ".account_reference",
+                        span =
+                            action.accountReferenceSpan,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+            }
             fee?.let {
                 add(
                     evidence(
@@ -445,6 +486,8 @@ object FinancialRelationshipResolver {
                 .TRANSFER_TO_ACCOUNT -> 1
             FinancialActionCandidateKind
                 .PAYMENT_SENT_TO -> 2
+            FinancialActionCandidateKind
+                .PAYMENT_PAID_TO -> 2
             FinancialActionCandidateKind
                 .RECEIPT_FROM -> 3
         }
