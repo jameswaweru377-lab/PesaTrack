@@ -51,6 +51,7 @@ import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
+import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
 import com.kedevjimmy.pesatrack.ui.components.BudgetProgressCard
 import com.kedevjimmy.pesatrack.ui.components.BudgetProgressItem
@@ -585,47 +586,16 @@ private fun expectedSalaryPrompt(
     if (cycleSnapshot.pendingSalary != null) return null
     if (nowEpochMs < deferredUntilEpochMs) return null
 
-    val startDay = salaryRule?.payWindowStartDay ?: return null
-    val endDay = salaryRule.payWindowEndDay ?: return null
-
-    val start = Calendar.getInstance().apply {
-        timeInMillis = cycle.startEpochMs
-        add(Calendar.MONTH, 1)
-        set(Calendar.DAY_OF_MONTH, 1)
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-        set(
-            Calendar.DAY_OF_MONTH,
-            startDay.coerceAtMost(
-                getActualMaximum(Calendar.DAY_OF_MONTH)
-            )
-        )
-    }
-
-    val end = (start.clone() as Calendar).apply {
-        if (endDay < startDay) {
-            add(Calendar.MONTH, 1)
-        }
-        set(Calendar.DAY_OF_MONTH, 1)
-        set(
-            Calendar.DAY_OF_MONTH,
-            endDay.coerceAtMost(
-                getActualMaximum(Calendar.DAY_OF_MONTH)
-            )
-        )
-        set(Calendar.HOUR_OF_DAY, 23)
-        set(Calendar.MINUTE, 59)
-        set(Calendar.SECOND, 59)
-        set(Calendar.MILLISECOND, 999)
-    }
-
-    if (nowEpochMs <= end.timeInMillis) return null
+    val window = SalaryExpectationPolicy.overdueWindow(
+        lastSalaryEpochMs = cycle.startEpochMs,
+        payWindowStartDay = salaryRule?.payWindowStartDay,
+        payWindowEndDay = salaryRule?.payWindowEndDay,
+        nowEpochMs = nowEpochMs
+    ) ?: return null
 
     return ExpectedSalaryPrompt(
-        windowStartEpochMs = start.timeInMillis,
-        windowEndEpochMs = end.timeInMillis,
+        windowStartEpochMs = window.startEpochMs,
+        windowEndEpochMs = window.endEpochMs,
         currentCycleStartEpochMs = cycle.startEpochMs
     )
 }
