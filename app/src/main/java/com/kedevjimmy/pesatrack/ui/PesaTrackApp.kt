@@ -10,6 +10,7 @@ import androidx.navigation.navArgument
 import com.kedevjimmy.pesatrack.ui.components.AppScaffold
 import com.kedevjimmy.pesatrack.ui.components.MainTab
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
+import com.kedevjimmy.pesatrack.ui.screens.BudgetScreen
 import com.kedevjimmy.pesatrack.ui.screens.CommunityScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalDetailScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
@@ -161,7 +162,22 @@ fun PesaTrackApp(
                     },
                     onGoalsClick = {
                         navigateToTab(MainTab.GOALS)
+                    },
+                    onBudgetClick = {
+                        navController.navigate("budgets")
                     }
+                )
+            }
+        }
+
+        composable("budgets") {
+            AppScaffold(
+                currentTab = MainTab.HOME,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                BudgetScreen(
+                    scaffoldPadding = padding,
+                    onBack = { navController.popBackStack() }
                 )
             }
         }
