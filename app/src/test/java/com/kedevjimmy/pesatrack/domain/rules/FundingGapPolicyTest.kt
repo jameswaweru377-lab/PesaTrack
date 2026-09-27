@@ -31,7 +31,7 @@ class FundingGapPolicyTest {
     }
 
     @Test
-    fun negativeCarryoverDoesNotInventA gapWithoutCurrentOutflow() {
+    fun negativeCarryoverDoesNotInventAGapWithoutCurrentOutflow() {
         assertEquals(
             0L,
             FundingGapPolicy.unexplainedGap(
