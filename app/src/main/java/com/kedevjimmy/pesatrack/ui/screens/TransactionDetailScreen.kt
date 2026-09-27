@@ -330,6 +330,33 @@ fun TransactionDetailScreen(
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
                     DetailRow(Icons.Rounded.AccountCircle, "Name", current.counterparty ?: "Not identified")
+                    current.evidenceLabel?.let { evidenceLabel ->
+                        DetailRow(
+                            Icons.Rounded.Tune,
+                            if (current.counterparty == evidenceLabel) {
+                                "Identified from nearby message"
+                            } else {
+                                "Possible match"
+                            },
+                            evidenceLabel
+                        )
+                        DetailRow(
+                            Icons.Rounded.Tune,
+                            "Evidence",
+                            buildString {
+                                append(current.evidenceSource ?: "Nearby financial message")
+                                current.evidenceConfidence?.let {
+                                    append(" • ")
+                                    append(it.lowercase().replace('_', ' '))
+                                }
+                                current.evidenceTimeDeltaMs?.let {
+                                    append(" • ")
+                                    append(it / 1000)
+                                    append("s apart")
+                                }
+                            }
+                        )
+                    }
                     DetailRow(Icons.Rounded.ReceiptLong, "Type", pretty(current.type))
                     DetailRow(Icons.Rounded.ReceiptLong, "M-Pesa code", current.transactionCode ?: "Not provided")
                     DetailRow(Icons.Rounded.CalendarMonth, "Transaction date", formatDateTime(current.occurredAtEpochMs))
@@ -364,6 +391,19 @@ fun TransactionDetailScreen(
             Spacer(Modifier.height(8.dp))
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
+                    if (
+                        current.counterparty.isNullOrBlank() &&
+                        !current.evidenceLabel.isNullOrBlank()
+                    ) {
+                        ActionRow(
+                            icon = Icons.Rounded.CheckCircle,
+                            label = "Use suggested identity",
+                            onClick = {
+                                store.acceptEvidenceIdentity(current.id)
+                                refresh()
+                            }
+                        )
+                    }
                     ActionRow(
                         icon = Icons.Rounded.SwapHoriz,
                         label = "Mark as own-account transfer",

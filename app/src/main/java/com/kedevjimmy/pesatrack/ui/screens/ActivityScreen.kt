@@ -792,6 +792,17 @@ private fun ActivityRow(
                         color = pesaToneContent(tone)
                     )
                 }
+                if (
+                    item.counterparty.isNullOrBlank() &&
+                    !item.evidenceLabel.isNullOrBlank()
+                ) {
+                    Text(
+                        "Possible match: " + item.evidenceLabel,
+                        modifier = Modifier.padding(top = 3.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 if (item.fulizaFinancedMinor > 0L) {
                     Text(
                         "Fuliza financed " + formatMoney(item.fulizaFinancedMinor) +

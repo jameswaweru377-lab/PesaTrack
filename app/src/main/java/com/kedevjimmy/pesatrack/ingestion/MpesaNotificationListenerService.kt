@@ -15,10 +15,14 @@ import com.kedevjimmy.pesatrack.domain.parser.FulizaParser
 import com.kedevjimmy.pesatrack.domain.parser.MpesaParser
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
+import com.kedevjimmy.pesatrack.domain.rules.FinancialMessageEvidence
+import com.kedevjimmy.pesatrack.domain.rules.TransactionEvidenceResolver
+import java.util.ArrayDeque
 import java.util.concurrent.Executors
 
 class MpesaNotificationListenerService : NotificationListenerService() {
     private val executor = Executors.newSingleThreadExecutor()
+    private val recentEvidence = ArrayDeque<FinancialMessageEvidence>()
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val notification = sbn?.notification ?: return
@@ -54,10 +58,21 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                 }
 
                 val parsed = MpesaParser.parse(body) ?: return@execute
-                val matchedRule = SmartRuleEngine.matchTransaction(parsed, rules)
+                pruneEvidence(receivedAt)
+                val evidence = if (parsed.counterparty.isNullOrBlank()) {
+                    TransactionEvidenceResolver.chooseBest(
+                        parsed = parsed,
+                        transactionObservedAtEpochMs = receivedAt,
+                        evidence = recentEvidence
+                    )
+                } else {
+                    null
+                }
+                val enriched = TransactionEvidenceResolver.enrich(parsed, evidence)
+                val matchedRule = SmartRuleEngine.matchTransaction(enriched, rules)
 
                 store.insertIfNew(
-                    parsed = parsed,
+                    parsed = enriched,
                     sourcePackage = packageName,
                     sourceKind = SOURCE_MPESA_NOTIFICATION,
                     receivedAtEpochMs = receivedAt,
@@ -65,9 +80,24 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                         occurredAtText = parsed.occurredAtText,
                         fallbackEpochMs = receivedAt
                     ),
-                    matchedRule = matchedRule
+                    matchedRule = matchedRule,
+                    evidence = evidence
                 )
                 return@execute
+            }
+
+            val evidenceCandidate = TransactionEvidenceResolver.parseEvidence(
+                title = title,
+                body = body,
+                observedAtEpochMs = receivedAt,
+                sourceFallback = packageName
+            )
+            if (evidenceCandidate != null) {
+                rememberEvidence(evidenceCandidate)
+                store.attachEvidenceToNearbyUnknown(
+                    evidence = evidenceCandidate,
+                    rules = rules
+                )
             }
 
             val accounts = AccountStore.get(applicationContext).listAccounts()
@@ -82,7 +112,10 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                         body = body,
                         rules = rules
                     )
-                    ?: return@execute
+
+            if (configuredRule == null) {
+                return@execute
+            }
 
             val parsed = ConfiguredMoneyParser.parse(
                 title = title,
@@ -98,6 +131,24 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                 occurredAtEpochMs = receivedAt,
                 matchedRule = configuredRule
             )
+        }
+    }
+
+    private fun rememberEvidence(evidence: FinancialMessageEvidence) {
+        recentEvidence.addLast(evidence)
+        pruneEvidence(evidence.observedAtEpochMs)
+        while (recentEvidence.size > 24) {
+            recentEvidence.removeFirst()
+        }
+    }
+
+    private fun pruneEvidence(nowEpochMs: Long) {
+        val cutoff = nowEpochMs - TransactionEvidenceResolver.MAX_WINDOW_MS
+        while (
+            recentEvidence.isNotEmpty() &&
+            recentEvidence.peekFirst().observedAtEpochMs < cutoff
+        ) {
+            recentEvidence.removeFirst()
         }
     }
 
