@@ -52,7 +52,8 @@ data class SpendingSlice(
 @Composable
 fun PesaTrackTopBar(
     onProfileClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showProfile: Boolean = true
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -68,21 +69,23 @@ fun PesaTrackTopBar(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(23.dp)
         )
-        Surface(
-            modifier = Modifier
-                .padding(start = 12.dp)
-                .size(40.dp)
-                .clickable(onClick = onProfileClick),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Rounded.Person,
-                    contentDescription = "Profile",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(21.dp)
-                )
+        if (showProfile) {
+            Surface(
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .size(40.dp)
+                    .clickable(onClick = onProfileClick),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Rounded.Person,
+                        contentDescription = "Profile",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
             }
         }
     }
@@ -102,34 +105,55 @@ fun AvailableToLiveHero(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(172.dp)
+            .height(150.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(Brush.linearGradient(listOf(start, end)))
     ) {
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(
-                color = Color.White.copy(alpha = .06f),
-                radius = size.minDimension * .38f,
-                center = Offset(size.width * .92f, size.height * .16f)
+                color = Color.White.copy(alpha = .045f),
+                radius = size.minDimension * .46f,
+                center = Offset(size.width * .98f, size.height * .08f)
             )
-            drawCircle(
-                color = PremiumGold.copy(alpha = .13f),
-                radius = size.minDimension * .19f,
-                center = Offset(size.width * .86f, size.height * .77f)
-            )
+            val stemStart = Offset(size.width * .72f, size.height * .88f)
+            val stemEnd = Offset(size.width * .90f, size.height * .42f)
             drawLine(
                 color = Color.White.copy(alpha = .16f),
-                start = Offset(size.width * .68f, size.height * .84f),
-                end = Offset(size.width * .88f, size.height * .48f),
-                strokeWidth = 4f,
+                start = stemStart,
+                end = stemEnd,
+                strokeWidth = 3.2f,
                 cap = StrokeCap.Round
+            )
+            drawOval(
+                color = Color.White.copy(alpha = .07f),
+                topLeft = Offset(size.width * .79f, size.height * .29f),
+                size = androidx.compose.ui.geometry.Size(
+                    size.width * .17f,
+                    size.height * .22f
+                )
+            )
+            drawOval(
+                color = PremiumGold.copy(alpha = .11f),
+                topLeft = Offset(size.width * .73f, size.height * .57f),
+                size = androidx.compose.ui.geometry.Size(
+                    size.width * .14f,
+                    size.height * .22f
+                )
+            )
+            drawOval(
+                color = Color.White.copy(alpha = .055f),
+                topLeft = Offset(size.width * .87f, size.height * .48f),
+                size = androidx.compose.ui.geometry.Size(
+                    size.width * .12f,
+                    size.height * .18f
+                )
             )
         }
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp)
+                .padding(16.dp)
         ) {
             Text(
                 "Available to live",
@@ -176,30 +200,39 @@ fun MoneySummaryTile(
         shape = RoundedCornerShape(18.dp),
         color = pesaToneContainer(tone)
     ) {
-        Column(Modifier.padding(14.dp)) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             IconBubble(
                 if (incoming) Icons.Rounded.TrendingUp else Icons.Rounded.TrendingDown,
                 size = 34.dp,
                 background = MaterialTheme.colorScheme.surface.copy(alpha = .68f),
                 tint = pesaToneContent(tone)
             )
-            Text(
-                label,
-                modifier = Modifier.padding(top = 10.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                amount,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-            Text(
-                "This month",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 10.dp)
+            ) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    amount,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    "This month",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -320,6 +353,113 @@ fun SpendingDonutCard(
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+data class BudgetProgressItem(
+    val label: String,
+    val spentLabel: String,
+    val limitLabel: String,
+    val progress: Float,
+    val color: Color
+)
+
+@Composable
+fun BudgetProgressCard(
+    items: List<BudgetProgressItem>,
+    onManageClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    PesaCard(modifier) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Budgets",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Text(
+                    if (items.isEmpty()) "Set up" else "View all",
+                    modifier = Modifier.clickable(onClick = onManageClick),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            if (items.isEmpty()) {
+                Text(
+                    "Add planned amounts in Rules and your budget progress will appear here.",
+                    modifier = Modifier.padding(top = 10.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Column(
+                    modifier = Modifier.padding(top = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(13.dp)
+                ) {
+                    items.take(4).forEach { item ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(36.dp),
+                                shape = CircleShape,
+                                color = item.color.copy(alpha = .15f)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        item.label.take(1).uppercase(),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = item.color,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 10.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        item.label,
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        item.spentLabel + " / " + item.limitLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 6.dp)
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(99.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(item.progress.coerceIn(0f, 1f))
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(99.dp))
+                                            .background(item.color)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
