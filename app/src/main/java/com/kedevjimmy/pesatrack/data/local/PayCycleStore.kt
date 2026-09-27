@@ -334,6 +334,7 @@ class PayCycleStore private constructor(context: Context) {
             append("occurred_at_epoch_ms >= ? ")
             if (endEpochMs != null) append("AND occurred_at_epoch_ms < ? ")
             append("AND review_state != ? ")
+            append("AND review_state != ? ")
             append("AND type != ? ")
             append("AND cycle_candidate_reason IS NULL ")
             append("AND (transaction_code IS NULL OR transaction_code NOT IN (")
@@ -344,6 +345,7 @@ class PayCycleStore private constructor(context: Context) {
             add(startEpochMs.toString())
             if (endEpochMs != null) add(endEpochMs.toString())
             add(ReviewState.EXCLUDED.name)
+            add(ReviewState.NEEDS_REVIEW.name)
             add(MpesaTransactionType.REVERSAL.name)
         }.toTypedArray()
 
