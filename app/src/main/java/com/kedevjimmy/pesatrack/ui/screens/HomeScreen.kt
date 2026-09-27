@@ -1,20 +1,26 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FactCheck
 import androidx.compose.material.icons.rounded.FileUpload
-import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,10 +29,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.kedevjimmy.pesatrack.data.local.CommitmentProgress
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
@@ -35,6 +41,8 @@ import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
+import com.kedevjimmy.pesatrack.ui.components.BudgetProgressCard
+import com.kedevjimmy.pesatrack.ui.components.BudgetProgressItem
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.MoneySummaryTile
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -110,6 +118,35 @@ fun HomeScreen(
             }
     }
 
+    val budgetItems = remember(cycleSnapshot.commitments) {
+        cycleSnapshot.commitments
+            .filter {
+                it.plannedMinor > 0L &&
+                    it.category != "SAVINGS"
+            }
+            .groupBy { friendlyCategory(it.category) }
+            .entries
+            .sortedByDescending { (_, items) ->
+                items.sumOf { it.plannedMinor }
+            }
+            .mapIndexed { index, (label, items) ->
+                val limitMinor = items.sumOf { it.plannedMinor }
+                val spentMinor = items.sumOf { it.paidMinor }
+                BudgetProgressItem(
+                    label = label,
+                    spentLabel = formatMoney(spentMinor),
+                    limitLabel = formatMoney(limitMinor),
+                    progress = if (limitMinor <= 0L) {
+                        0f
+                    } else {
+                        spentMinor.toFloat() / limitMinor.toFloat()
+                    },
+                    color = premiumCategoryColor(index)
+                )
+            }
+            .take(4)
+    }
+
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
@@ -118,11 +155,14 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            PesaTrackTopBar(onProfileClick = onProfileClick)
+            PesaTrackTopBar(
+                onProfileClick = onProfileClick,
+                showProfile = false
+            )
         }
 
         item {
-            GreetingBlock()
+            GreetingBlock(onProfileClick = onProfileClick)
         }
 
         cycleSnapshot.pendingSalary?.let { candidate ->
@@ -227,18 +267,11 @@ fun HomeScreen(
             )
         }
 
-        if (cycleSnapshot.commitments.isNotEmpty()) {
-            item {
-                SectionHeader("Commitments")
-            }
-            items(
-                count = cycleSnapshot.commitments.take(4).size,
-                key = { index ->
-                    cycleSnapshot.commitments[index].ruleId
-                }
-            ) { index ->
-                CommitmentRow(cycleSnapshot.commitments[index])
-            }
+        item {
+            BudgetProgressCard(
+                items = budgetItems,
+                onManageClick = onRulesClick
+            )
         }
 
         item {
@@ -282,7 +315,9 @@ fun HomeScreen(
 }
 
 @Composable
-private fun GreetingBlock() {
+private fun GreetingBlock(
+    onProfileClick: () -> Unit
+) {
     val hour = remember {
         Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     }
@@ -292,22 +327,48 @@ private fun GreetingBlock() {
         else -> "Good evening,"
     }
 
-    Column {
-        Text(
-            greeting,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            "James",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            "Small steps. Bigger tomorrows.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier
+                .size(50.dp)
+                .clickable(onClick = onProfileClick),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Rounded.Person,
+                    contentDescription = "Open profile",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(27.dp)
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp)
+        ) {
+            Text(
+                greeting,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "James",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Small steps. Bigger tomorrows.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -352,45 +413,6 @@ private fun PendingSalaryCard(
                     Text("Start cycle")
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun CommitmentRow(item: CommitmentProgress) {
-    PesaCard {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            com.kedevjimmy.pesatrack.ui.components.IconBubble(
-                Icons.Rounded.Shield,
-                size = 40.dp,
-                background =
-                    com.kedevjimmy.pesatrack.ui.components.pesaToneContainer(
-                        if (item.remainingMinor > 0L) "amber" else "green"
-                    ),
-                tint =
-                    com.kedevjimmy.pesatrack.ui.components.pesaToneContent(
-                        if (item.remainingMinor > 0L) "amber" else "green"
-                    )
-            )
-            Column(Modifier.weight(1f)) {
-                Text(item.name, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    if (item.remainingMinor > 0L) {
-                        formatMoney(item.remainingMinor) + " still protected"
-                    } else {
-                        "Paid this cycle"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Text(
-                formatMoney(item.plannedMinor),
-                style = MaterialTheme.typography.labelLarge
-            )
         }
     }
 }
