@@ -27,6 +27,44 @@ class FinancialProviderRegistryTest {
     }
 
     @Test
+    fun doesNotTreatMshwariLoanAsSavingsAsset() {
+        val account =
+            FinancialProviderRegistry.resolveAccount(
+                "M-Shwari Loan account"
+            )
+
+        assertEquals(
+            "NCBA_MSHWARI_LOAN",
+            account.providerKey
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            account.ownershipHint
+        )
+        assertEquals(
+            AccountType.OTHER,
+            account.accountTypeHint
+        )
+    }
+
+    @Test
+    fun doesNotCollapseFulizaIntoMpesaWallet() {
+        val account =
+            FinancialProviderRegistry.resolveAccount(
+                "Fuliza M-PESA account"
+            )
+
+        assertEquals(
+            "SAFARICOM_FULIZA",
+            account.providerKey
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            account.ownershipHint
+        )
+    }
+
+    @Test
     fun preservesUnknownInstitutionWithoutClaimingOwnership() {
         val account =
             FinancialProviderRegistry.resolveAccount(
