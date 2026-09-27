@@ -173,31 +173,6 @@ fun TransactionDetailScreen(
         }
     }
 
-    val current = transaction ?: return
-        val teachableState =
-            current.reviewState == ReviewState.NEEDS_REVIEW.name ||
-                (
-                    current.reviewState == ReviewState.AUTO_CLASSIFIED.name &&
-                        current.category == TransactionCategory.OTHER.name
-                )
-        val shouldOfferLearning =
-            current.ruleId == null &&
-                teachableState &&
-                category != TransactionCategory.UNCATEGORIZED &&
-                canLearnIdentity(current)
-
-        if (shouldOfferLearning) {
-            val preview = learningRule(current, category)
-            pendingMatchCount = store.matchingPendingCount(
-                rule = preview,
-                excludingId = current.id
-            )
-            pendingCategory = category
-        } else {
-            classifyOnly(current, category)
-        }
-    }
-
     val current = transaction
 
     if (current != null && pendingCategoryId != null) {
@@ -279,8 +254,6 @@ fun TransactionDetailScreen(
                 }
             }
         )
-    }
-
         }
     }
 
