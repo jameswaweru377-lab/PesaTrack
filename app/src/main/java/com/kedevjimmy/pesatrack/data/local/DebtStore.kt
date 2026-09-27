@@ -58,7 +58,7 @@ class DebtStore private constructor(context: Context) {
         )
 
         val outstanding = parsed.outstandingAmountMinor
-        insertEvent(
+        val insert = insertEvent(
             eventKey = debtEventKey(
                 prefix = "fuliza-drawdown",
                 transactionCode = parsed.transactionCode,
@@ -82,7 +82,7 @@ class DebtStore private constructor(context: Context) {
                 quality = DebtBalanceQuality.OBSERVED,
                 observedAtEpochMs = occurredAtEpochMs
             )
-        } else {
+        } else if (insert.inserted) {
             applyEstimatedDelta(
                 accountId = FULIZA_ACCOUNT_ID,
                 deltaMinor =
@@ -99,7 +99,7 @@ class DebtStore private constructor(context: Context) {
         sourcePackage: String?,
         sourceKind: String,
         occurredAtEpochMs: Long
-    ): Long {
+    ): DebtEventInsertResult {
         ensureAccount(
             id = FULIZA_ACCOUNT_ID,
             providerKey = FULIZA_PROVIDER_KEY,
@@ -112,7 +112,7 @@ class DebtStore private constructor(context: Context) {
                 occurredAtEpochMs = occurredAtEpochMs
             )
 
-        val eventId = insertEvent(
+        val insert = insertEvent(
             eventKey = debtEventKey(
                 prefix = "fuliza-repayment",
                 transactionCode = parsed.transactionCode,
@@ -129,13 +129,15 @@ class DebtStore private constructor(context: Context) {
             occurredAtEpochMs = occurredAtEpochMs
         )
 
-        applyEstimatedDelta(
-            accountId = FULIZA_ACCOUNT_ID,
-            deltaMinor = -parsed.repaidAmountMinor,
-            occurredAtEpochMs = occurredAtEpochMs
-        )
+        if (insert.inserted) {
+            applyEstimatedDelta(
+                accountId = FULIZA_ACCOUNT_ID,
+                deltaMinor = -parsed.repaidAmountMinor,
+                occurredAtEpochMs = occurredAtEpochMs
+            )
+        }
 
-        return eventId
+        return insert.id
     }
 
     @Synchronized
@@ -363,7 +365,10 @@ class DebtStore private constructor(context: Context) {
                     )
                 }
             }
-            return existing
+            return DebtEventInsertResult(
+                id = existing,
+                inserted = false
+            )
         }
 
         val now = System.currentTimeMillis()
@@ -399,10 +404,13 @@ class DebtStore private constructor(context: Context) {
             put("created_at_epoch_ms", now)
         }
 
-        return database.writableDatabase.insertOrThrow(
-            "debt_events",
-            null,
-            values
+        return DebtEventInsertResult(
+            id = database.writableDatabase.insertOrThrow(
+                "debt_events",
+                null,
+                values
+            ),
+            inserted = true
         )
     }
 
@@ -487,6 +495,11 @@ class DebtStore private constructor(context: Context) {
                 "%02x".format(byte)
             }
     }
+
+    private data class DebtEventInsertResult(
+        val id: Long,
+        val inserted: Boolean
+    )
 
     companion object {
         const val FULIZA_ACCOUNT_ID = "debt-fuliza-mpesa"
