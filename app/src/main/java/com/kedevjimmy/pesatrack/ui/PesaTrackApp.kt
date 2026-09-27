@@ -30,7 +30,9 @@ fun PesaTrackApp(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     setupComplete: Boolean,
-    onSetupComplete: () -> Unit
+    onSetupComplete: () -> Unit,
+    permissionSetupComplete: Boolean,
+    onPermissionSetupComplete: () -> Unit
 ) {
     val navController = rememberNavController()
 
@@ -52,17 +54,35 @@ fun PesaTrackApp(
         }
     }
 
+    val startDestination = when {
+        !setupComplete -> "onboarding"
+        !permissionSetupComplete -> "permission-setup-existing"
+        else -> MainTab.HOME.route
+    }
+
     NavHost(
         navController = navController,
-        startDestination = if (setupComplete) MainTab.HOME.route else "onboarding"
+        startDestination = startDestination
     ) {
         composable("onboarding") {
             OnboardingScreen(
                 onContinue = {
-                    navController.navigate("permission-setup")
+                    navController.navigate(
+                        if (permissionSetupComplete) {
+                            "money-setup-initial"
+                        } else {
+                            "permission-setup"
+                        }
+                    )
                 },
                 onSkip = {
-                    navController.navigate("permission-setup")
+                    navController.navigate(
+                        if (permissionSetupComplete) {
+                            "money-setup-initial"
+                        } else {
+                            "permission-setup"
+                        }
+                    )
                 }
             )
         }
@@ -70,10 +90,43 @@ fun PesaTrackApp(
         composable("permission-setup") {
             PermissionSetupScreen(
                 onContinue = {
-                    navController.navigate("money-setup-initial")
+                    onPermissionSetupComplete()
+                    navController.navigate("money-setup-initial") {
+                        popUpTo("permission-setup") {
+                            inclusive = true
+                        }
+                    }
                 },
                 onSkip = {
-                    navController.navigate("money-setup-initial")
+                    onPermissionSetupComplete()
+                    navController.navigate("money-setup-initial") {
+                        popUpTo("permission-setup") {
+                            inclusive = true
+                        }
+                    }
+                }
+            )
+        }
+
+        composable("permission-setup-existing") {
+            PermissionSetupScreen(
+                onContinue = {
+                    onPermissionSetupComplete()
+                    navController.navigate(MainTab.HOME.route) {
+                        popUpTo("permission-setup-existing") {
+                            inclusive = true
+                        }
+                        launchSingleTop = true
+                    }
+                },
+                onSkip = {
+                    onPermissionSetupComplete()
+                    navController.navigate(MainTab.HOME.route) {
+                        popUpTo("permission-setup-existing") {
+                            inclusive = true
+                        }
+                        launchSingleTop = true
+                    }
                 }
             )
         }
