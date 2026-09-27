@@ -254,6 +254,98 @@ class FinancialMessageIngestionCoordinator private constructor(
         }
 
     @Synchronized
+    fun reconcileExternalEntity(
+        entityKey: String
+    ): Int {
+        val pending =
+            understandingStore.pendingTransfersForEntity(
+                entityKey
+            )
+        var applied = 0
+
+        pending.forEach { event ->
+            val source =
+                understandingStore.entityByKey(
+                    event.sourceEntityKey
+                ) ?: return@forEach
+            val destination =
+                understandingStore.entityByKey(
+                    event.destinationEntityKey
+                ) ?: return@forEach
+
+            val sourceOwned =
+                understandingStore.isUserOwned(
+                    source.entityKey
+                )
+            val destinationOwned =
+                understandingStore.isUserOwned(
+                    destination.entityKey
+                )
+
+            val type = when {
+                !sourceOwned && destinationOwned ->
+                    MpesaTransactionType.RECEIVED
+                sourceOwned && !destinationOwned ->
+                    MpesaTransactionType.SENT_MONEY
+                else -> return@forEach
+            }
+
+            val parsed = ParsedMpesaTransaction(
+                transactionCode = null,
+                type = type,
+                amountMinor = event.amountMinor,
+                counterparty =
+                    if (type == MpesaTransactionType.RECEIVED) {
+                        source.displayName
+                    } else {
+                        destination.displayName
+                    },
+                counterpartyPhone = null,
+                feeMinor = event.feeMinor,
+                balanceMinor = null,
+                occurredAtText = null,
+                rawMessage =
+                    "interpreted-external-event|" +
+                        event.eventKey,
+                reversalOfCode = null
+            )
+
+            val inserted =
+                transactionStore.insertIfNew(
+                    parsed = parsed,
+                    sourcePackage =
+                        event.sourcePackage,
+                    sourceKind =
+                        SOURCE_INTERPRETED_PREFIX +
+                            event.sourceKind,
+                    receivedAtEpochMs =
+                        event.occurredAtEpochMs,
+                    occurredAtEpochMs =
+                        event.occurredAtEpochMs,
+                    matchedRule = null,
+                    rebuildPayCycles = false,
+                    evidence = null
+                )
+
+            understandingStore.markEventApplied(
+                eventKey = event.eventKey,
+                linkedTransactionId = null
+            )
+            if (inserted) {
+                applied += 1
+            }
+        }
+
+        if (pending.isNotEmpty()) {
+            com.kedevjimmy.pesatrack.data.local.PayCycleStore
+                .get(appContext)
+                .rebuild()
+        }
+
+        return applied
+    }
+
+    @Synchronized
     fun reconcilePendingTransfers(
         entityKey: String
     ): Int {
