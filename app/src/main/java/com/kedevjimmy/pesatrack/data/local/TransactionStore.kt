@@ -42,7 +42,9 @@ class TransactionStore private constructor(context: Context) {
         occurredAtEpochMs: Long = receivedAtEpochMs,
         matchedRule: SmartRule? = null,
         rebuildPayCycles: Boolean = true,
-        evidence: TransactionEvidenceMatch? = null
+        evidence: TransactionEvidenceMatch? = null,
+        accountTransferOverride:
+            com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null
     ): Boolean {
         val fingerprint = TransactionFingerprint.of(parsed, occurredAtEpochMs)
         if (parsed.transactionCode.isNullOrBlank()) {
@@ -66,16 +68,25 @@ class TransactionStore private constructor(context: Context) {
             }
         }
         val accounts = AccountStore.get(appContext).listAccounts()
-        val ownTransfer = OwnAccountTransferDetector.matchMpesa(
-            parsed = parsed,
-            accounts = accounts,
-            observedWalletId = AccountStore.DEFAULT_MPESA_ID
-        )
-        val useOwnTransfer = ownTransfer != null &&
-            (
-                matchedRule == null ||
-                    ownTransfer.evidence == OwnTransferEvidence.EXACT_IDENTIFIER
-                )
+        val detectedOwnTransfer =
+            OwnAccountTransferDetector.matchMpesa(
+                parsed = parsed,
+                accounts = accounts,
+                observedWalletId =
+                    AccountStore.DEFAULT_MPESA_ID
+            )
+        val ownTransfer =
+            accountTransferOverride ?: detectedOwnTransfer
+        val useOwnTransfer =
+            accountTransferOverride != null ||
+                (
+                    ownTransfer != null &&
+                    (
+                        matchedRule == null ||
+                            ownTransfer.evidence ==
+                                OwnTransferEvidence.EXACT_IDENTIFIER
+                        )
+                    )
 
         val classification = if (useOwnTransfer) {
             Classification(
