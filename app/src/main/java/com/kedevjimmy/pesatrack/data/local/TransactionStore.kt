@@ -11,6 +11,7 @@ import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.PlanningPeriodResolver
+import com.kedevjimmy.pesatrack.domain.rules.ReviewTriagePolicy
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import java.util.Calendar
 import java.util.TimeZone
@@ -90,6 +91,9 @@ class TransactionStore private constructor(context: Context) {
                 parsed = parsed,
                 occurredAtEpochMs = occurredAtEpochMs
             )
+            if (matchedRule == null) {
+                reconcileReviewTriageForMonth(occurredAtEpochMs)
+            }
         }
         if (inserted && rebuildPayCycles) {
             PayCycleStore.get(appContext).rebuild()
@@ -190,6 +194,8 @@ class TransactionStore private constructor(context: Context) {
         nowEpochMs: Long = System.currentTimeMillis(),
         timeZone: TimeZone = TimeZone.getDefault()
     ): ActivityLedgerSnapshot {
+        reconcileRecentReviewTriage(nowEpochMs, timeZone)
+
         val now = Calendar.getInstance(timeZone).apply { timeInMillis = nowEpochMs }
         val currentYear = now.get(Calendar.YEAR)
         val currentMonth = now.get(Calendar.MONTH)
@@ -253,9 +259,139 @@ class TransactionStore private constructor(context: Context) {
                     it.reviewState == ReviewState.NEEDS_REVIEW.name ||
                         it.cycleCandidateReason != null
                 }
-            )
+            ),
+            reviewGroups = buildReviewGroups(transactions)
         )
     }
+
+    @Synchronized
+    fun reconcileRecentReviewTriage(
+        nowEpochMs: Long = System.currentTimeMillis(),
+        timeZone: TimeZone = TimeZone.getDefault()
+    ) {
+        var changed = 0
+        repeat(3) { monthOffset ->
+            val calendar = Calendar.getInstance(timeZone).apply {
+                timeInMillis = nowEpochMs
+                add(Calendar.MONTH, -monthOffset)
+            }
+            changed += reconcileReviewTriageForMonth(
+                calendar.timeInMillis,
+                timeZone
+            )
+        }
+        if (changed > 0) {
+            PayCycleStore.get(appContext).rebuild()
+        }
+    }
+
+    @Synchronized
+    fun reconcileReviewTriageForMonth(
+        epochMs: Long,
+        timeZone: TimeZone = TimeZone.getDefault()
+    ): Int {
+        val target = Calendar.getInstance(timeZone).apply { timeInMillis = epochMs }
+        val year = target.get(Calendar.YEAR)
+        val month = target.get(Calendar.MONTH)
+
+        val eligible = recent(500).filter { item ->
+            if (item.ruleId != null) return@filter false
+            if (
+                item.reviewState == ReviewState.USER_CLASSIFIED.name ||
+                item.reviewState == ReviewState.EXCLUDED.name
+            ) return@filter false
+            if (item.direction != MoneyDirection.EXPENSE.name) return@filter false
+            if (item.type !in OUTGOING_REVIEW_TYPES) return@filter false
+
+            val occurred = Calendar.getInstance(timeZone).apply {
+                timeInMillis = item.occurredAtEpochMs
+            }
+
+            occurred.get(Calendar.YEAR) == year &&
+                occurred.get(Calendar.MONTH) == month &&
+                ReviewTriagePolicy.identityKey(
+                    item.counterparty,
+                    item.counterpartyPhone
+                ) != null
+        }
+
+        val db = database.writableDatabase
+        var changed = 0
+        eligible.groupBy { item ->
+            ReviewTriagePolicy.identityKey(
+                item.counterparty,
+                item.counterpartyPhone
+            )!!
+        }.values.forEach { group ->
+            val oneOff = ReviewTriagePolicy.shouldDefaultToOther(group.size)
+            val values = ContentValues().apply {
+                put(
+                    "category",
+                    if (oneOff) {
+                        TransactionCategory.OTHER.name
+                    } else {
+                        TransactionCategory.UNCATEGORIZED.name
+                    }
+                )
+                put(
+                    "review_state",
+                    if (oneOff) {
+                        ReviewState.AUTO_CLASSIFIED.name
+                    } else {
+                        ReviewState.NEEDS_REVIEW.name
+                    }
+                )
+            }
+
+            group.forEach { item ->
+                val desiredCategory = values.getAsString("category")
+                val desiredReviewState = values.getAsString("review_state")
+                if (
+                    item.category != desiredCategory ||
+                    item.reviewState != desiredReviewState
+                ) {
+                    changed += db.update(
+                        "transactions",
+                        values,
+                        "id = ?",
+                        arrayOf(item.id.toString())
+                    )
+                }
+            }
+        }
+        return changed
+    }
+
+    private fun buildReviewGroups(
+        transactions: List<StoredTransaction>
+    ): List<ReviewGroup> =
+        transactions
+            .filter { item ->
+                item.reviewState == ReviewState.NEEDS_REVIEW.name ||
+                    item.cycleCandidateReason != null
+            }
+            .groupBy { item ->
+                ReviewTriagePolicy.identityKey(
+                    item.counterparty,
+                    item.counterpartyPhone
+                ) ?: "transaction:${item.id}"
+            }
+            .map { (key, items) ->
+                val latest = items.maxByOrNull(StoredTransaction::occurredAtEpochMs)!!
+                ReviewGroup(
+                    key = key,
+                    label = latest.counterparty
+                        ?: latest.counterpartyPhone
+                        ?: latest.type.lowercase()
+                            .replace('_', ' ')
+                            .replaceFirstChar { it.uppercase() },
+                    representativeTransactionId = latest.id,
+                    transactionCount = items.size,
+                    totalMinor = items.sumOf(StoredTransaction::amountMinor),
+                    latestEpochMs = latest.occurredAtEpochMs
+                )
+            }
+            .sortedByDescending(ReviewGroup::latestEpochMs)
 
     @Synchronized
     fun reapplyCounterpartyRules(rules: List<SmartRule>) {
@@ -303,7 +439,7 @@ class TransactionStore private constructor(context: Context) {
         excludingId: Long? = null
     ): Int =
         recent(500).count { stored ->
-            stored.reviewState == ReviewState.NEEDS_REVIEW.name &&
+            isLearnableHistoricalMatch(stored) &&
                 stored.id != excludingId &&
                 SmartRuleEngine.matchTransaction(
                     stored.toParsedTransaction(),
@@ -317,7 +453,7 @@ class TransactionStore private constructor(context: Context) {
         var changed = 0
 
         recent(500).forEach { stored ->
-            if (stored.reviewState != ReviewState.NEEDS_REVIEW.name) return@forEach
+            if (!isLearnableHistoricalMatch(stored)) return@forEach
             val parsed = stored.toParsedTransaction()
             if (SmartRuleEngine.matchTransaction(parsed, listOf(rule)) == null) return@forEach
 
@@ -347,6 +483,16 @@ class TransactionStore private constructor(context: Context) {
         }
         return changed
     }
+
+    private fun isLearnableHistoricalMatch(
+        stored: StoredTransaction
+    ): Boolean =
+        stored.reviewState == ReviewState.NEEDS_REVIEW.name ||
+            (
+                stored.reviewState == ReviewState.AUTO_CLASSIFIED.name &&
+                    stored.ruleId == null &&
+                    stored.category == TransactionCategory.OTHER.name
+            )
 
     @Synchronized
     fun classifyManually(
@@ -462,6 +608,12 @@ class TransactionStore private constructor(context: Context) {
     )
 
     companion object {
+        private val OUTGOING_REVIEW_TYPES = setOf(
+            MpesaTransactionType.SENT_MONEY.name,
+            MpesaTransactionType.PAY_BILL.name,
+            MpesaTransactionType.BUY_GOODS.name
+        )
+
         private const val BASE_SELECT = """
             SELECT id, transaction_code, fingerprint, type, amount_minor, fee_minor,
                    balance_minor, counterparty, counterparty_phone, occurred_at_text,

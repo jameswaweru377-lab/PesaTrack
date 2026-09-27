@@ -132,9 +132,15 @@ fun TransactionDetailScreen(
 
     fun applyCategory(category: TransactionCategory) {
         val current = transaction ?: return
+        val teachableState =
+            current.reviewState == ReviewState.NEEDS_REVIEW.name ||
+                (
+                    current.reviewState == ReviewState.AUTO_CLASSIFIED.name &&
+                        current.category == TransactionCategory.OTHER.name
+                )
         val shouldOfferLearning =
             current.ruleId == null &&
-                current.reviewState == ReviewState.NEEDS_REVIEW.name &&
+                teachableState &&
                 category != TransactionCategory.UNCATEGORIZED &&
                 canLearnIdentity(current)
 
@@ -172,7 +178,7 @@ fun TransactionDetailScreen(
                             append(pendingMatchCount)
                             append(" matching transaction")
                             if (pendingMatchCount != 1) append("s")
-                            append(" already waiting for review.")
+                            append(" already in your history.")
                         }
                     }
                 )
