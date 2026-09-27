@@ -953,6 +953,26 @@ fun InitialMoneySetupScreen(
                 )
             }
 
+            SetupStage.PAY_WINDOW -> item {
+                PaydayWindowStep(
+                    selected = payWindowChoice,
+                    customStart = customPayWindowStart,
+                    customEnd = customPayWindowEnd,
+                    onSelected = { choice ->
+                        payWindowChoice = choice
+                        error = null
+                    },
+                    onCustomStartChanged = {
+                        customPayWindowStart = it
+                        error = null
+                    },
+                    onCustomEndChanged = {
+                        customPayWindowEnd = it
+                        error = null
+                    }
+                )
+            }
+
             SetupStage.SALARY_HISTORY -> item {
                 ManualSalaryHistoryStep(
                     months = eligibleManualSalaryMonths,
