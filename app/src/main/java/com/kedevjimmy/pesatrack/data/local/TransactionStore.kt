@@ -724,7 +724,8 @@ class TransactionStore private constructor(context: Context) {
         allTransactions().forEach { stored ->
             if (
                 stored.reviewState == ReviewState.USER_CLASSIFIED.name ||
-                stored.reviewState == ReviewState.EXCLUDED.name
+                stored.reviewState == ReviewState.EXCLUDED.name ||
+                stored.ruleId != null
             ) {
                 return@forEach
             }
