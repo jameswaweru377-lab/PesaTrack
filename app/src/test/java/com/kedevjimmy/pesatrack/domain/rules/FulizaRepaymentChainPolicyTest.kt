@@ -5,11 +5,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 
-class FulizaRepaymentChainPolicyTest {
+class DebtRepaymentChainPolicyTest {
     @Test
     fun linksDifferentIncomingAmountUsingBalanceEquation() {
         val match =
-            FulizaRepaymentChainPolicy
+            DebtRepaymentChainPolicy
                 .chooseFundingTransaction(
                     repaymentAmountMinor = 138_100L,
                     walletBalanceAfterMinor =
@@ -37,7 +37,7 @@ class FulizaRepaymentChainPolicyTest {
     @Test
     fun linksWhenIncomingBalanceBeforeRepaymentIsKnown() {
         val match =
-            FulizaRepaymentChainPolicy
+            DebtRepaymentChainPolicy
                 .chooseFundingTransaction(
                     repaymentAmountMinor = 22_000L,
                     walletBalanceAfterMinor = 0L,
@@ -63,7 +63,7 @@ class FulizaRepaymentChainPolicyTest {
     @Test
     fun usesUniqueVeryCloseIncomingTransactionWhenBalanceHistoryMissing() {
         val match =
-            FulizaRepaymentChainPolicy
+            DebtRepaymentChainPolicy
                 .chooseFundingTransaction(
                     repaymentAmountMinor = 138_100L,
                     walletBalanceAfterMinor =
@@ -90,7 +90,7 @@ class FulizaRepaymentChainPolicyTest {
     @Test
     fun refusesAmbiguousNearbyIncomingTransactions() {
         val match =
-            FulizaRepaymentChainPolicy
+            DebtRepaymentChainPolicy
                 .chooseFundingTransaction(
                     repaymentAmountMinor = 138_100L,
                     walletBalanceAfterMinor = null,
