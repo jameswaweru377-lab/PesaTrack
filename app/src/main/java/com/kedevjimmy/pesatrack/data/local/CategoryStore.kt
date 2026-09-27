@@ -161,7 +161,7 @@ class CategoryStore private constructor(context: Context) {
             PesaCategory(TransactionCategory.PERSONAL_CARE.name, "Personal care", CategoryKind.EXPENSE, true, true, 140),
             PesaCategory(TransactionCategory.FAMILY.name, "Family support", CategoryKind.EXPENSE, true, true, 150),
             PesaCategory(TransactionCategory.FEES.name, "Fees", CategoryKind.EXPENSE, true, true, 160),
-            PesaCategory(TransactionCategory.DEBT_LOAN.name, "Debt & loans", CategoryKind.EXPENSE, true, true, 170),
+            PesaCategory(TransactionCategory.DEBT_LOAN.name, "Debt repayment", CategoryKind.ALLOCATION, true, true, 170),
             PesaCategory(TransactionCategory.OTHER.name, "Other", CategoryKind.EXPENSE, true, true, 180),
             PesaCategory(TransactionCategory.SAVINGS.name, "Savings", CategoryKind.ALLOCATION, true, true, 200),
             PesaCategory(TransactionCategory.INVESTMENT.name, "Investments", CategoryKind.ALLOCATION, true, true, 210),
