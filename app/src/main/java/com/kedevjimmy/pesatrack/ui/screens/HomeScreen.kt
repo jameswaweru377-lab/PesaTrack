@@ -86,7 +86,25 @@ fun HomeScreen(
     val transactionStore = remember { TransactionStore.get(context) }
     val budgetStore = remember { BudgetStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
+    val ruleStore = remember { RuleStore.get(context) }
+    val preferences = remember {
+        context.getSharedPreferences(
+            "pesatrack_preferences",
+            android.content.Context.MODE_PRIVATE
+        )
+    }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
+    var salaryPromptDeferredUntil by remember {
+        mutableStateOf(
+            preferences.getLong(
+                "salary_prompt_deferred_until",
+                0L
+            )
+        )
+    }
+    var showManualSalaryDialog by remember {
+        mutableStateOf(false)
+    }
 
     var cycleSnapshot by remember {
         cycleStore.rebuild()
@@ -113,6 +131,23 @@ fun HomeScreen(
         if (ledgerUpdateState.revision > 0L) {
             refresh()
         }
+    }
+
+    val salaryRule = remember(ledgerUpdateState.revision) {
+        ruleStore.listRules(enabledOnly = true)
+            .firstOrNull { it.startsPayCycle }
+    }
+    val expectedSalaryPrompt = remember(
+        cycleSnapshot,
+        salaryRule,
+        salaryPromptDeferredUntil
+    ) {
+        expectedSalaryPrompt(
+            cycleSnapshot = cycleSnapshot,
+            salaryRule = salaryRule,
+            nowEpochMs = System.currentTimeMillis(),
+            deferredUntilEpochMs = salaryPromptDeferredUntil
+        )
     }
 
     val spendSlices = remember(activitySnapshot) {
