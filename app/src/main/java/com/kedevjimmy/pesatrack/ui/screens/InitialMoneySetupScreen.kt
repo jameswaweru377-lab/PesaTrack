@@ -1209,7 +1209,7 @@ private fun HistoryChoiceStep(
 ) {
     SetupQuestion(
         title = "Use recent SMS history?",
-        body = "This is optional. Choose how far back PesaTrack may look. The maximum is three months."
+        body = "This is optional. Choose up to three calendar months including the current month. If this month's salary has not arrived, leave it unadded."
     ) {
         (0..3).forEach { count ->
             val months = HistoryImportWindow.months(count)
