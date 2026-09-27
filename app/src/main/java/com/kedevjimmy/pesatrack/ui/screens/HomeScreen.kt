@@ -141,10 +141,17 @@ fun HomeScreen(
             .mapIndexed { index, budget ->
                 val spentMinor =
                     trustedExpenseByCategory[budget.category.name] ?: 0L
+                val difference = budget.limitMinor - spentMinor
                 BudgetProgressItem(
                     label = friendlyCategory(budget.category.name),
                     spentLabel = formatMoney(spentMinor),
                     limitLabel = formatMoney(budget.limitMinor),
+                    remainingLabel = if (difference >= 0L) {
+                        formatMoney(difference) + " remaining"
+                    } else {
+                        formatMoney(-difference) + " over budget"
+                    },
+                    overBudget = difference < 0L,
                     progress = if (budget.limitMinor <= 0L) {
                         0f
                     } else {
