@@ -6,6 +6,7 @@ data class ParsedFulizaRepayment(
     val transactionCode: String?,
     val repaidAmountMinor: Long,
     val availableLimitMinor: Long?,
+    val mpesaBalanceMinor: Long?,
     val rawMessage: String
 )
 
@@ -41,6 +42,10 @@ object FulizaParser {
     )
     private val repaymentRegex = Regex(
         """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+your\s+M-PESA\s+has\s+been\s+used\s+to\s+(?:partially\s+)?pay\s+your\s+outstanding\s+Fuliza\s+M-PESA""",
+        RegexOption.IGNORE_CASE
+    )
+    private val mpesaBalanceRegex = Regex(
+        """(?:Your\s+)?M-PESA\s+balance\s+is\s*(?:(?:Ksh|KES)\s*)?([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -86,6 +91,11 @@ object FulizaParser {
                 ?.uppercase(),
             repaidAmountMinor = amountToMinor(repaid),
             availableLimitMinor = availableLimitRegex
+                .find(normalized)
+                ?.groupValues
+                ?.get(1)
+                ?.let(::amountToMinor),
+            mpesaBalanceMinor = mpesaBalanceRegex
                 .find(normalized)
                 ?.groupValues
                 ?.get(1)
