@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -30,9 +31,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
@@ -71,11 +76,12 @@ fun TransactionDetailScreen(
     val context = LocalContext.current
     val store = remember { TransactionStore.get(context) }
     val ruleStore = remember { RuleStore.get(context) }
+    val categoryStore = remember { CategoryStore.get(context) }
     var transaction by remember(transactionId) {
         mutableStateOf(store.getById(transactionId))
     }
-    var pendingCategory by remember(transactionId) {
-        mutableStateOf<TransactionCategory?>(null)
+    var pendingCategoryId by remember(transactionId) {
+        mutableStateOf<String?>(null)
     }
     var pendingMatchCount by remember(transactionId) {
         mutableStateOf(0)
@@ -90,19 +96,22 @@ fun TransactionDetailScreen(
 
     fun classifyOnly(
         current: StoredTransaction,
-        category: TransactionCategory
+        categoryId: String
     ) {
-        val direction = directionForCategory(
-            category = category,
-            existingDirection = runCatching {
-                MoneyDirection.valueOf(current.direction)
-            }.getOrDefault(MoneyDirection.NEUTRAL)
+        val existingDirection = runCatching {
+            MoneyDirection.valueOf(current.direction)
+        }.getOrDefault(MoneyDirection.NEUTRAL)
+        val canonicalId = categoryStore.canonicalId(categoryId)
+        val direction = categoryStore.directionFor(
+            categoryId = canonicalId,
+            existingDirection = existingDirection
         )
         store.classifyManually(
             id = current.id,
-            category = category,
+            categoryId = canonicalId,
             direction = direction,
-            markTransfer = category == TransactionCategory.TRANSFER
+            markTransfer =
+                canonicalId == TransactionCategory.TRANSFER.name
         )
         refresh()
     }
@@ -112,8 +121,8 @@ fun TransactionDetailScreen(
         category: TransactionCategory,
         id: String = "preview"
     ): SmartRule {
-        val direction = directionForCategory(
-            category = category,
+        val direction = categoryStore.directionFor(
+            categoryId = category.name,
             existingDirection = runCatching {
                 MoneyDirection.valueOf(current.direction)
             }.getOrDefault(MoneyDirection.NEUTRAL)
@@ -125,44 +134,58 @@ fun TransactionDetailScreen(
             counterpartyPhoneEquals = current.counterpartyPhone.orEmpty(),
             category = category,
             direction = direction,
-            name = current.counterparty?.let { "Always classify " + it } ?: "Learned rule",
+            name = current.counterparty?.let {
+                "Always classify " + it
+            } ?: "Learned rule",
             displayLabel = current.counterparty,
             accountId = current.accountId
         )
     }
 
-    fun applyCategory(category: TransactionCategory) {
+    fun applyCategory(categoryId: String) {
         val current = transaction ?: return
+        val canonicalId = categoryStore.canonicalId(categoryId)
+        val builtIn = runCatching {
+            TransactionCategory.valueOf(canonicalId)
+        }.getOrNull()
+
         val teachableState =
             current.reviewState == ReviewState.NEEDS_REVIEW.name ||
                 (
-                    current.reviewState == ReviewState.AUTO_CLASSIFIED.name &&
-                        current.category == TransactionCategory.OTHER.name
+                    current.reviewState ==
+                        ReviewState.AUTO_CLASSIFIED.name &&
+                        current.category ==
+                            TransactionCategory.OTHER.name
                 )
         val shouldOfferLearning =
-            current.ruleId == null &&
+            builtIn != null &&
+                current.ruleId == null &&
                 teachableState &&
-                category != TransactionCategory.UNCATEGORIZED &&
+                builtIn != TransactionCategory.UNCATEGORIZED &&
                 canLearnIdentity(current)
 
         if (shouldOfferLearning) {
-            val preview = learningRule(current, category)
+            val preview = learningRule(current, builtIn!!)
             pendingMatchCount = store.matchingPendingCount(
                 rule = preview,
                 excludingId = current.id
             )
-            pendingCategory = category
+            pendingCategoryId = canonicalId
         } else {
-            classifyOnly(current, category)
+            classifyOnly(current, canonicalId)
         }
     }
 
     val current = transaction
 
-    if (current != null && pendingCategory != null) {
-        val category = pendingCategory!!
+    if (current != null && pendingCategoryId != null) {
+        val categoryId = pendingCategoryId!!
+        val category = runCatching {
+            TransactionCategory.valueOf(categoryId)
+        }.getOrNull()
+        if (category != null) {
         AlertDialog(
-            onDismissRequest = { pendingCategory = null },
+            onDismissRequest = { pendingCategoryId = null },
             title = {
                 Text("Remember this for next time?")
             },
@@ -172,7 +195,7 @@ fun TransactionDetailScreen(
                         append("Use “")
                         append(current.counterparty ?: current.counterpartyPhone ?: "this identity")
                         append("” as ")
-                        append(category.prettyName())
+                        append(categoryStore.labelFor(categoryId))
                         append(".")
                         if (pendingMatchCount > 0) {
                             append(" This can also classify ")
@@ -187,8 +210,8 @@ fun TransactionDetailScreen(
             dismissButton = {
                 androidx.compose.material3.TextButton(
                     onClick = {
-                        classifyOnly(current, category)
-                        pendingCategory = null
+                        classifyOnly(current, categoryId)
+                        pendingCategoryId = null
                     }
                 ) {
                     Text("Only this one")
@@ -197,8 +220,8 @@ fun TransactionDetailScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val direction = directionForCategory(
-                            category = category,
+                        val direction = categoryStore.directionFor(
+                            categoryId = category.name,
                             existingDirection = runCatching {
                                 MoneyDirection.valueOf(current.direction)
                             }.getOrDefault(MoneyDirection.NEUTRAL)
@@ -226,7 +249,7 @@ fun TransactionDetailScreen(
                         } else {
                             "Rule saved for future matching transactions."
                         }
-                        pendingCategory = null
+                        pendingCategoryId = null
                         refresh()
                     }
                 ) {
@@ -234,6 +257,7 @@ fun TransactionDetailScreen(
                 }
             }
         )
+        }
     }
 
     LazyColumn(
@@ -318,9 +342,8 @@ fun TransactionDetailScreen(
             SectionHeader("Choose a category")
             Spacer(Modifier.height(8.dp))
             CategoryGrid(
-                current = runCatching {
-                    TransactionCategory.valueOf(current.category)
-                }.getOrDefault(TransactionCategory.UNCATEGORIZED),
+                currentCategoryId =
+                    categoryStore.canonicalId(current.category),
                 onSelected = ::applyCategory
             )
         }
@@ -600,11 +623,11 @@ private fun FulizaFundingCard(item: StoredTransaction) {
 
 @Composable
 private fun ClassificationCard(item: StoredTransaction) {
+    val context = LocalContext.current
+    val categoryStore = remember { CategoryStore.get(context) }
     val needsReview = item.reviewState == ReviewState.NEEDS_REVIEW.name
     val excluded = item.reviewState == ReviewState.EXCLUDED.name
-    val category = runCatching {
-        TransactionCategory.valueOf(item.category)
-    }.getOrDefault(TransactionCategory.UNCATEGORIZED)
+    val categoryLabel = categoryStore.labelFor(item.category)
 
     val tone = when {
         needsReview -> "amber"
@@ -624,9 +647,14 @@ private fun ClassificationCard(item: StoredTransaction) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconBubble(
-                if (needsReview) Icons.Rounded.Tune else Icons.Rounded.CheckCircle,
+                if (needsReview) {
+                    Icons.Rounded.Tune
+                } else {
+                    Icons.Rounded.CheckCircle
+                },
                 size = 46.dp,
-                background = MaterialTheme.colorScheme.surface.copy(alpha = .7f),
+                background =
+                    MaterialTheme.colorScheme.surface.copy(alpha = .7f),
                 tint = pesaToneContent(tone)
             )
             Column(
@@ -638,15 +666,19 @@ private fun ClassificationCard(item: StoredTransaction) {
                     when {
                         needsReview -> "Needs review"
                         excluded -> "Excluded from budget"
-                        else -> category.prettyName()
+                        else -> categoryLabel
                     },
                     style = MaterialTheme.typography.titleLarge
                 )
                 Text(
                     when {
-                        needsReview -> "Choose what this transaction was. PesaTrack will not guess."
-                        item.ruleId != null -> "Automatically classified by a saved smart rule."
-                        item.reviewState == ReviewState.USER_CLASSIFIED.name -> "Classified by you."
+                        needsReview ->
+                            "Choose what this transaction was. PesaTrack will not guess."
+                        item.ruleId != null ->
+                            "Automatically classified by a saved smart rule."
+                        item.reviewState ==
+                            ReviewState.USER_CLASSIFIED.name ->
+                            "Classified by you."
                         else -> "Classified automatically."
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -661,22 +693,70 @@ private fun ClassificationCard(item: StoredTransaction) {
 
 @Composable
 private fun CategoryGrid(
-    current: TransactionCategory,
-    onSelected: (TransactionCategory) -> Unit
+    currentCategoryId: String,
+    onSelected: (String) -> Unit
 ) {
-    val categories = listOf(
-        TransactionCategory.LUNCH,
-        TransactionCategory.SHOPPING,
-        TransactionCategory.FAMILY,
-        TransactionCategory.TRANSPORT,
-        TransactionCategory.RENT,
-        TransactionCategory.INTERNET,
-        TransactionCategory.ELECTRICITY,
-        TransactionCategory.PHONE_AND_DATA,
-        TransactionCategory.SAVINGS,
-        TransactionCategory.INCOME,
-        TransactionCategory.OTHER
-    )
+    val context = LocalContext.current
+    val categoryStore = remember { CategoryStore.get(context) }
+    val ledgerState by com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
+        .state
+        .collectAsState()
+    val categories = remember(ledgerState.revision) {
+        categoryStore.activityCategories()
+    }
+    var showAddCategory by remember { mutableStateOf(false) }
+    var customName by remember { mutableStateOf("") }
+
+    if (showAddCategory) {
+        AlertDialog(
+            onDismissRequest = {
+                showAddCategory = false
+                customName = ""
+            },
+            title = { Text("Add category") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "It will also be available when you create a budget.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    androidx.compose.material3.OutlinedTextField(
+                        value = customName,
+                        onValueChange = { customName = it },
+                        label = { Text("Category name") },
+                        placeholder = { Text("Example: Pets") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAddCategory = false
+                        customName = ""
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        runCatching {
+                            categoryStore.addCustom(customName)
+                        }.onSuccess {
+                            showAddCategory = false
+                            customName = ""
+                            onSelected(it.id)
+                        }
+                    }
+                ) {
+                    Text("Add category")
+                }
+            }
+        )
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         categories.chunked(2).forEach { rowItems ->
@@ -685,19 +765,26 @@ private fun CategoryGrid(
                     Surface(
                         modifier = Modifier
                             .weight(1f)
-                            .clickable { onSelected(category) },
+                            .clickable { onSelected(category.id) },
                         shape = RoundedCornerShape(16.dp),
-                        color = if (current == category) {
+                        color = if (
+                            currentCategoryId == category.id
+                        ) {
                             MaterialTheme.colorScheme.primaryContainer
                         } else {
                             MaterialTheme.colorScheme.surface
                         }
                     ) {
                         Text(
-                            category.prettyName(),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 13.dp),
+                            category.label,
+                            modifier = Modifier.padding(
+                                horizontal = 12.dp,
+                                vertical = 13.dp
+                            ),
                             style = MaterialTheme.typography.labelLarge,
-                            color = if (current == category) {
+                            color = if (
+                                currentCategoryId == category.id
+                            ) {
                                 MaterialTheme.colorScheme.onPrimaryContainer
                             } else {
                                 MaterialTheme.colorScheme.onSurface
@@ -705,7 +792,22 @@ private fun CategoryGrid(
                         )
                     }
                 }
+                if (rowItems.size == 1) {
+                    Spacer(Modifier.weight(1f))
+                }
             }
+        }
+
+        OutlinedButton(
+            onClick = { showAddCategory = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Icon(Icons.Rounded.Add, contentDescription = null)
+            Text(
+                "Add category",
+                modifier = Modifier.padding(start = 6.dp)
+            )
         }
     }
 }
@@ -776,7 +878,9 @@ private fun directionForCategory(
         category == TransactionCategory.INCOME -> MoneyDirection.INCOME
         category == TransactionCategory.TRANSFER ||
             category == TransactionCategory.CASH ||
-            category == TransactionCategory.SAVINGS -> MoneyDirection.TRANSFER
+            category == TransactionCategory.SAVINGS ||
+            category == TransactionCategory.INVESTMENT ->
+            MoneyDirection.TRANSFER
         existingDirection == MoneyDirection.INCOME -> MoneyDirection.INCOME
         else -> MoneyDirection.EXPENSE
     }

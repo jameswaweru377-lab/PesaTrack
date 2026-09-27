@@ -192,6 +192,7 @@ fun MoneySummaryTile(
     label: String,
     amount: String,
     incoming: Boolean,
+    helper: String = "This month",
     modifier: Modifier = Modifier
 ) {
     val tone = if (incoming) "green" else "red"
@@ -228,9 +229,11 @@ fun MoneySummaryTile(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    "This month",
+                    helper,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

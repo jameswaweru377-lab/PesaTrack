@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Business
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Lock
@@ -93,6 +94,7 @@ private enum class SetupStage {
     ROUTES,
     HISTORY,
     IDENTIFY,
+    PAY_WINDOW,
     SALARY_HISTORY,
     ACCOUNTS
 }
@@ -114,6 +116,19 @@ private enum class ArrivalChoice(
     BANK("Bank account", "Money lands in a bank account"),
     MPESA("M-Pesa", "Money arrives directly in M-Pesa"),
     CASH("Cash", "Money is received physically")
+}
+
+private enum class OnboardingPayWindowChoice(
+    val label: String,
+    val helper: String,
+    val startDay: Int?,
+    val endDay: Int?
+) {
+    VARIES("My payday varies", "Don't assume a fixed payday.", null, null),
+    LATE_MONTH("Usually 24th–28th", "Salary normally arrives near month end.", 24, 28),
+    MONTH_END("Around month end", "Usually between the 24th and the 1st.", 24, 1),
+    MID_MONTH("Usually 14th–18th", "Salary normally arrives mid-month.", 14, 18),
+    CUSTOM("Choose my own range", "Set the earliest and latest usual payday.", null, null)
 }
 
 private data class IncomeRouteDraft(
@@ -178,6 +193,9 @@ fun InitialMoneySetupScreen(
     var activeManualSalaryMonthKey by remember {
         mutableStateOf<String?>(null)
     }
+    var payWindowChoice by remember { mutableStateOf(OnboardingPayWindowChoice.VARIES) }
+    var customPayWindowStart by remember { mutableStateOf("") }
+    var customPayWindowEnd by remember { mutableStateOf("") }
     var mpesaPhone by remember { mutableStateOf("") }
     var mpesaOpeningBalance by remember { mutableStateOf("") }
     var salaryAccountOpeningBalance by remember { mutableStateOf("") }
@@ -310,6 +328,27 @@ fun InitialMoneySetupScreen(
         return true
     }
 
+    fun resolvedPayWindow(): Pair<Int?, Int?> =
+        if (payWindowChoice == OnboardingPayWindowChoice.CUSTOM) {
+            customPayWindowStart.toIntOrNull() to
+                customPayWindowEnd.toIntOrNull()
+        } else {
+            payWindowChoice.startDay to payWindowChoice.endDay
+        }
+
+    fun validatePayWindow(): Boolean {
+        if (payWindowChoice != OnboardingPayWindowChoice.CUSTOM) return true
+        val (startDay, endDay) = resolvedPayWindow()
+        if (
+            startDay == null || endDay == null ||
+            startDay !in 1..31 || endDay !in 1..31
+        ) {
+            error = "Enter a valid payday range using days 1 to 31."
+            return false
+        }
+        return true
+    }
+
     fun goForward() {
         error = null
 
@@ -343,6 +382,11 @@ fun InitialMoneySetupScreen(
 
             SetupStage.IDENTIFY -> {
                 if (!validateSalaryIdentity()) return
+                stage = SetupStage.PAY_WINDOW
+            }
+
+            SetupStage.PAY_WINDOW -> {
+                if (!validatePayWindow()) return
                 if (needsManualSalaryHistory()) {
                     activeManualSalaryMonthKey =
                         eligibleManualSalaryMonths
@@ -386,8 +430,11 @@ fun InitialMoneySetupScreen(
             SetupStage.IDENTIFY -> {
                 stage = SetupStage.HISTORY
             }
-            SetupStage.SALARY_HISTORY -> {
+            SetupStage.PAY_WINDOW -> {
                 stage = SetupStage.IDENTIFY
+            }
+            SetupStage.SALARY_HISTORY -> {
+                stage = SetupStage.PAY_WINDOW
             }
             SetupStage.ACCOUNTS -> {
                 stage = if (
@@ -396,7 +443,7 @@ fun InitialMoneySetupScreen(
                     if (needsManualSalaryHistory()) {
                         SetupStage.SALARY_HISTORY
                     } else {
-                        SetupStage.IDENTIFY
+                        SetupStage.PAY_WINDOW
                     }
                 } else {
                     SetupStage.HISTORY
@@ -604,6 +651,9 @@ fun InitialMoneySetupScreen(
             val salaryAccount = accounts[IncomeSourceChoice.SALARY]
                 ?: return
 
+            val (payWindowStartDay, payWindowEndDay) =
+                resolvedPayWindow()
+
             val salaryRule = when (salaryRouteValue.arrival) {
                 ArrivalChoice.BANK -> {
                     val title = selectedCandidate?.address
@@ -626,7 +676,9 @@ fun InitialMoneySetupScreen(
                         displayLabel = "Salary",
                         preset = RulePreset.SALARY,
                         startsPayCycle = true,
-                        accountId = salaryAccount.id
+                        accountId = salaryAccount.id,
+                        payWindowStartDay = payWindowStartDay,
+                        payWindowEndDay = payWindowEndDay
                     )
                 }
 
@@ -640,7 +692,9 @@ fun InitialMoneySetupScreen(
                         displayLabel = "Salary",
                         preset = RulePreset.SALARY,
                         startsPayCycle = true,
-                        accountId = salaryAccount.id
+                        accountId = salaryAccount.id,
+                        payWindowStartDay = payWindowStartDay,
+                        payWindowEndDay = payWindowEndDay
                     )
 
                 ArrivalChoice.CASH ->
@@ -653,7 +707,9 @@ fun InitialMoneySetupScreen(
                         displayLabel = "Salary",
                         preset = RulePreset.SALARY,
                         startsPayCycle = true,
-                        accountId = salaryAccount.id
+                        accountId = salaryAccount.id,
+                        payWindowStartDay = payWindowStartDay,
+                        payWindowEndDay = payWindowEndDay
                     )
 
                 null -> return
@@ -716,14 +772,15 @@ fun InitialMoneySetupScreen(
 
     val salarySelected =
         IncomeSourceChoice.SALARY in selectedSources
-    val totalStages = if (salarySelected) 6 else 4
+    val totalStages = if (salarySelected) 7 else 4
     val stageNumber = when (stage) {
         SetupStage.SOURCES -> 1
         SetupStage.ROUTES -> 2
         SetupStage.HISTORY -> 3
         SetupStage.IDENTIFY -> 4
-        SetupStage.SALARY_HISTORY -> 5
-        SetupStage.ACCOUNTS -> if (salarySelected) 6 else 4
+        SetupStage.PAY_WINDOW -> 5
+        SetupStage.SALARY_HISTORY -> 6
+        SetupStage.ACCOUNTS -> if (salarySelected) 7 else 4
     }
 
     LazyColumn(
@@ -892,6 +949,26 @@ fun InitialMoneySetupScreen(
                     onManualHistory = {
                         selectedCandidate = null
                         manualHistoryEnabled = true
+                    }
+                )
+            }
+
+            SetupStage.PAY_WINDOW -> item {
+                PaydayWindowStep(
+                    selected = payWindowChoice,
+                    customStart = customPayWindowStart,
+                    customEnd = customPayWindowEnd,
+                    onSelected = { choice ->
+                        payWindowChoice = choice
+                        error = null
+                    },
+                    onCustomStartChanged = {
+                        customPayWindowStart = it
+                        error = null
+                    },
+                    onCustomEndChanged = {
+                        customPayWindowEnd = it
+                        error = null
                     }
                 )
             }
@@ -1132,7 +1209,7 @@ private fun HistoryChoiceStep(
 ) {
     SetupQuestion(
         title = "Use recent SMS history?",
-        body = "This is optional. Choose how far back PesaTrack may look. The maximum is three months."
+        body = "This is optional. Choose up to three calendar months including the current month. If this month's salary has not arrived, leave it unadded."
     ) {
         (0..3).forEach { count ->
             val months = HistoryImportWindow.months(count)
@@ -1363,6 +1440,58 @@ private fun IdentifyIncomeStep(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PaydayWindowStep(
+    selected: OnboardingPayWindowChoice,
+    customStart: String,
+    customEnd: String,
+    onSelected: (OnboardingPayWindowChoice) -> Unit,
+    onCustomStartChanged: (String) -> Unit,
+    onCustomEndChanged: (String) -> Unit
+) {
+    SetupQuestion(
+        title = "When do you usually get paid?",
+        body = "Optional. This is only an expected window; PesaTrack never counts salary until the money is actually detected or you add it."
+    ) {
+        OnboardingPayWindowChoice.entries.forEach { choice ->
+            SetupChoice(
+                icon = Icons.Rounded.CalendarMonth,
+                title = choice.label,
+                helper = choice.helper,
+                selected = selected == choice,
+                onClick = { onSelected(choice) }
+            )
+        }
+
+        if (selected == OnboardingPayWindowChoice.CUSTOM) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = customStart,
+                    onValueChange = onCustomStartChanged,
+                    label = { Text("Earliest day") },
+                    placeholder = { Text("24") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = customEnd,
+                    onValueChange = onCustomEndChanged,
+                    label = { Text("Latest day") },
+                    placeholder = { Text("28") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+            }
+        }
+
+        Text(
+            "If the window passes without a recognized salary, the current pay cycle continues until a real salary arrives.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

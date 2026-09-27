@@ -2,10 +2,9 @@ package com.kedevjimmy.pesatrack.data.local
 
 import android.content.ContentValues
 import android.content.Context
-import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 
 data class MonthlyBudget(
-    val category: TransactionCategory,
+    val categoryId: String,
     val limitMinor: Long
 )
 
@@ -24,12 +23,9 @@ class BudgetStore private constructor(context: Context) {
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
-                    val category = runCatching {
-                        TransactionCategory.valueOf(cursor.getString(0))
-                    }.getOrNull() ?: continue
                     add(
                         MonthlyBudget(
-                            category = category,
+                            categoryId = cursor.getString(0),
                             limitMinor = cursor.getLong(1)
                         )
                     )
@@ -39,16 +35,22 @@ class BudgetStore private constructor(context: Context) {
 
     @Synchronized
     fun save(
-        category: TransactionCategory,
+        categoryId: String,
         limitMinor: Long
     ) {
         require(limitMinor > 0L) {
             "Budget amount must be greater than zero."
         }
 
+        val category = CategoryStore.get(appContext).find(categoryId)
+            ?: error("Unknown category.")
+        require(category.budgetable) {
+            "This category cannot have a monthly budget."
+        }
+
         val now = System.currentTimeMillis()
         val values = ContentValues().apply {
-            put("category", category.name)
+            put("category", category.id)
             put("limit_minor", limitMinor)
             put("updated_at_epoch_ms", now)
             put("created_at_epoch_ms", now)
@@ -64,14 +66,16 @@ class BudgetStore private constructor(context: Context) {
     }
 
     @Synchronized
-    fun delete(category: TransactionCategory) {
+    fun delete(categoryId: String) {
         database.writableDatabase.delete(
             "category_budgets",
             "category = ?",
-            arrayOf(category.name)
+            arrayOf(categoryId)
         )
         LedgerUpdateBus.notifyChanged()
     }
+
+    private val appContext: Context = context.applicationContext
 
     companion object {
         @Volatile

@@ -842,14 +842,25 @@ private fun CategoryChooser(
     onSelected: (TransactionCategory) -> Unit
 ) {
     val categories = listOf(
-        TransactionCategory.RENT,
-        TransactionCategory.LUNCH,
-        TransactionCategory.ELECTRICITY,
-        TransactionCategory.INTERNET,
+        TransactionCategory.GROCERIES,
+        TransactionCategory.EATING_OUT,
         TransactionCategory.TRANSPORT,
+        TransactionCategory.RENT,
+        TransactionCategory.ELECTRICITY,
+        TransactionCategory.WATER,
+        TransactionCategory.INTERNET,
+        TransactionCategory.PHONE_AND_DATA,
+        TransactionCategory.HOME_HOUSEHOLD,
         TransactionCategory.SHOPPING,
+        TransactionCategory.HEALTH,
+        TransactionCategory.EDUCATION,
+        TransactionCategory.ENTERTAINMENT,
+        TransactionCategory.PERSONAL_CARE,
         TransactionCategory.FAMILY,
+        TransactionCategory.FEES,
+        TransactionCategory.DEBT_LOAN,
         TransactionCategory.SAVINGS,
+        TransactionCategory.INVESTMENT,
         TransactionCategory.OTHER
     )
 
@@ -975,13 +986,35 @@ private fun presetConfig(
         RulePreset.RENT -> PresetConfig("Rent", TransactionCategory.RENT, MoneyDirection.EXPENSE)
         RulePreset.INTERNET -> PresetConfig("Internet", TransactionCategory.INTERNET, MoneyDirection.EXPENSE)
         RulePreset.ELECTRICITY -> PresetConfig("Electricity", TransactionCategory.ELECTRICITY, MoneyDirection.EXPENSE)
-        RulePreset.FOOD -> PresetConfig("Food / lunch", TransactionCategory.LUNCH, MoneyDirection.EXPENSE)
+        RulePreset.FOOD -> PresetConfig("Eating out", TransactionCategory.EATING_OUT, MoneyDirection.EXPENSE)
         RulePreset.TRANSPORT -> PresetConfig("Transport", TransactionCategory.TRANSPORT, MoneyDirection.EXPENSE)
         RulePreset.FAMILY_SUPPORT -> PresetConfig("Family support", TransactionCategory.FAMILY, MoneyDirection.EXPENSE)
         RulePreset.SAVINGS -> PresetConfig("Savings", TransactionCategory.SAVINGS, MoneyDirection.TRANSFER)
         RulePreset.OWN_TRANSFER -> PresetConfig("My own transfer", TransactionCategory.TRANSFER, MoneyDirection.TRANSFER)
         RulePreset.OTHER_RECURRING -> PresetConfig("Other recurring", TransactionCategory.OTHER, MoneyDirection.EXPENSE)
-        RulePreset.CUSTOM -> PresetConfig("Custom", customCategory, customDirection)
+        RulePreset.CUSTOM -> PresetConfig(
+            "Custom",
+            customCategory,
+            directionForCustomCategory(
+                customCategory,
+                customDirection
+            )
+        )
+    }
+
+private fun directionForCustomCategory(
+    category: TransactionCategory,
+    fallback: MoneyDirection
+): MoneyDirection =
+    when (category) {
+        TransactionCategory.INCOME ->
+            MoneyDirection.INCOME
+        TransactionCategory.TRANSFER,
+        TransactionCategory.CASH,
+        TransactionCategory.SAVINGS,
+        TransactionCategory.INVESTMENT ->
+            MoneyDirection.TRANSFER
+        else -> fallback
     }
 
 private fun rulePresetOptions(): List<Pair<RulePreset, String>> =
@@ -1003,9 +1036,19 @@ private fun RulePreset.prettyName(): String =
     presetConfig(this, TransactionCategory.OTHER, MoneyDirection.EXPENSE).label
 
 private fun TransactionCategory.prettyName(): String =
-    name.lowercase()
-        .replace('_', ' ')
-        .replaceFirstChar { it.uppercase() }
+    when (this) {
+        TransactionCategory.PHONE_AND_DATA -> "Phone & data"
+        TransactionCategory.HOME_HOUSEHOLD -> "Home & household"
+        TransactionCategory.DEBT_LOAN -> "Debt & loans"
+        TransactionCategory.FAMILY -> "Family support"
+        TransactionCategory.INVESTMENT -> "Investments"
+        TransactionCategory.LUNCH,
+        TransactionCategory.EATING_OUT -> "Eating out"
+        else ->
+            name.lowercase()
+                .replace('_', ' ')
+                .replaceFirstChar { it.uppercase() }
+    }
 
 private fun accountTypeLabel(type: AccountType): String =
     when (type) {

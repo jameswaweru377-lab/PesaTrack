@@ -1386,15 +1386,55 @@ class TransactionStore private constructor(context: Context) {
         direction: MoneyDirection,
         planningMonth: String? = null,
         markTransfer: Boolean = false
+    ) = classifyManually(
+        id = id,
+        categoryId = category.name,
+        direction = direction,
+        planningMonth = planningMonth,
+        markTransfer = markTransfer
+    )
+
+    @Synchronized
+    fun classifyManually(
+        id: Long,
+        categoryId: String,
+        direction: MoneyDirection,
+        planningMonth: String? = null,
+        markTransfer: Boolean = false
     ) {
+        val canonicalCategory = CategoryStore
+            .get(appContext)
+            .canonicalId(categoryId)
         val values = ContentValues().apply {
-            put("category", if (markTransfer) TransactionCategory.TRANSFER.name else category.name)
-            put("direction", if (markTransfer) MoneyDirection.TRANSFER.name else direction.name)
+            put(
+                "category",
+                if (markTransfer) {
+                    TransactionCategory.TRANSFER.name
+                } else {
+                    canonicalCategory
+                }
+            )
+            put(
+                "direction",
+                if (markTransfer) {
+                    MoneyDirection.TRANSFER.name
+                } else {
+                    direction.name
+                }
+            )
             put("review_state", ReviewState.USER_CLASSIFIED.name)
-            if (planningMonth != null) put("planning_month", planningMonth)
+            if (planningMonth != null) {
+                put("planning_month", planningMonth)
+            }
         }
-        database.writableDatabase.update("transactions", values, "id = ?", arrayOf(id.toString()))
+        database.writableDatabase.update(
+            "transactions",
+            values,
+            "id = ?",
+            arrayOf(id.toString())
+        )
         PayCycleStore.get(appContext).rebuild()
+        LedgerUpdateBus.notifyChanged()
     }
 
     @Synchronized

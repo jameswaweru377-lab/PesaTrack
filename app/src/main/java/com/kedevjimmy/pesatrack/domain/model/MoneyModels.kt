@@ -2,18 +2,29 @@ package com.kedevjimmy.pesatrack.domain.model
 
 enum class TransactionCategory {
     RENT,
+    GROCERIES,
+    EATING_OUT,
+    @Deprecated("Use EATING_OUT")
     LUNCH,
     ELECTRICITY,
+    WATER,
     INTERNET,
     TRANSPORT,
+    HOME_HOUSEHOLD,
     SHOPPING,
+    HEALTH,
+    EDUCATION,
+    ENTERTAINMENT,
+    PERSONAL_CARE,
     FAMILY,
     FEES,
     PHONE_AND_DATA,
+    DEBT_LOAN,
     INCOME,
     TRANSFER,
     CASH,
     SAVINGS,
+    INVESTMENT,
     OTHER,
     UNCATEGORIZED
 }
