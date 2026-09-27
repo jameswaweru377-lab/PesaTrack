@@ -164,6 +164,51 @@ object FinancialMessageFixtureCorpus {
             )
         ),
         FinancialMessageFixture(
+            id = "mpesa_buy_goods_paid_to",
+            title = "MPESA",
+            body =
+                "TST12ABC11 Confirmed. Ksh 850.00 paid to SAMPLE SHOP on 28/9/26 at 7:25 PM. New M-PESA balance is Ksh 8,800.00. Transaction cost, Ksh 0.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC11",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.PAYMENT
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 880_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "mpesa_paybill_paid_to",
+            title = "MPESA",
+            body =
+                "TST12ABC12 Confirmed. Ksh 1,200.00 paid to SAMPLE UTILITY for account 123456 on 28/9/26 at 7:28 PM. New M-PESA balance is Ksh 7,600.00. Transaction cost, Ksh 20.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC12",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.PAYMENT,
+                CanonicalFinancialRecordKind.FEE
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 760_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
             id = "fuliza_drawdown",
             title = "MPESA",
             body =
