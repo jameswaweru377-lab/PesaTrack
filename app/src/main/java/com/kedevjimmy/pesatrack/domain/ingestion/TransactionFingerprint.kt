@@ -4,7 +4,19 @@ import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import java.security.MessageDigest
 
 object TransactionFingerprint {
-    fun of(parsed: ParsedMpesaTransaction): String {
+    fun of(parsed: ParsedMpesaTransaction): String =
+        build(parsed, occurredAtEpochMs = null)
+
+    fun of(
+        parsed: ParsedMpesaTransaction,
+        occurredAtEpochMs: Long
+    ): String =
+        build(parsed, occurredAtEpochMs)
+
+    private fun build(
+        parsed: ParsedMpesaTransaction,
+        occurredAtEpochMs: Long?
+    ): String {
         parsed.transactionCode?.trim()?.uppercase()?.takeIf { it.isNotBlank() }?.let {
             return "code:$it"
         }
@@ -21,6 +33,10 @@ object TransactionFingerprint {
             append(parsed.counterparty.orEmpty().trim().uppercase())
             append('|')
             append(parsed.occurredAtText.orEmpty().trim().uppercase())
+            if (occurredAtEpochMs != null) {
+                append('|')
+                append(occurredAtEpochMs)
+            }
             append('|')
             append(parsed.rawMessage.replace(Regex("""\s+"""), " ").trim().uppercase())
         }

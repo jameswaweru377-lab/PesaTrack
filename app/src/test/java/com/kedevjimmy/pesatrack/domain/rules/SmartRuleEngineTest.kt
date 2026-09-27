@@ -121,6 +121,25 @@ class SmartRuleEngineTest {
         )
     }
 
+
+    @Test
+    fun nameNormalizationPreservesLetterS() {
+        val rule = SmartRule(
+            id = "sasha",
+            counterpartyContains = "",
+            counterpartyExact = "Sasha",
+            category = TransactionCategory.SHOPPING
+        )
+
+        assertEquals(
+            TransactionCategory.UNCATEGORIZED,
+            SmartRuleEngine.categorize(
+                sample(counterparty = "Aha"),
+                listOf(rule)
+            )
+        )
+    }
+
     @Test
     fun phoneIdentityWinsWhenAvailable() {
         val rule = SmartRule(

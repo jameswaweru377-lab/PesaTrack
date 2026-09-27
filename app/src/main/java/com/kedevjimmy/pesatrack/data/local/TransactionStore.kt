@@ -30,7 +30,16 @@ class TransactionStore private constructor(context: Context) {
         matchedRule: SmartRule? = null,
         rebuildPayCycles: Boolean = true
     ): Boolean {
-        val fingerprint = TransactionFingerprint.of(parsed)
+        val fingerprint = TransactionFingerprint.of(parsed, occurredAtEpochMs)
+        if (parsed.transactionCode.isNullOrBlank()) {
+            val legacyFingerprint = TransactionFingerprint.of(parsed)
+            if (
+                legacyFingerprint != fingerprint &&
+                hasLegacyFingerprintAt(legacyFingerprint, occurredAtEpochMs)
+            ) {
+                return false
+            }
+        }
         val classification = classify(parsed, matchedRule, occurredAtEpochMs)
         val displayCounterparty = parsed.counterparty
             ?: matchedRule?.displayLabel?.takeIf { it.isNotBlank() }
@@ -196,9 +205,6 @@ class TransactionStore private constructor(context: Context) {
     ): ActivityLedgerSnapshot {
         reconcileRecentReviewTriage(nowEpochMs, timeZone)
 
-        val now = Calendar.getInstance(timeZone).apply { timeInMillis = nowEpochMs }
-        val currentYear = now.get(Calendar.YEAR)
-        val currentMonth = now.get(Calendar.MONTH)
         val monthStart = Calendar.getInstance(timeZone).apply {
             timeInMillis = nowEpochMs
             set(Calendar.DAY_OF_MONTH, 1)
@@ -212,14 +218,10 @@ class TransactionStore private constructor(context: Context) {
         }
         val transactions = recent(200)
         val reversedCodes = reversedTransactionCodes()
-
-        val monthTransactions = transactions.filter { item ->
-            val occurred = Calendar.getInstance(timeZone).apply {
-                timeInMillis = item.occurredAtEpochMs
-            }
-            occurred.get(Calendar.YEAR) == currentYear &&
-                occurred.get(Calendar.MONTH) == currentMonth
-        }
+        val monthTransactions = transactionsBetween(
+            startEpochMs = monthStart.timeInMillis,
+            endEpochMsExclusive = nextMonthStart.timeInMillis
+        )
 
         val effective = monthTransactions.filter { item ->
             item.transactionCode !in reversedCodes &&
@@ -290,11 +292,22 @@ class TransactionStore private constructor(context: Context) {
         epochMs: Long,
         timeZone: TimeZone = TimeZone.getDefault()
     ): Int {
-        val target = Calendar.getInstance(timeZone).apply { timeInMillis = epochMs }
-        val year = target.get(Calendar.YEAR)
-        val month = target.get(Calendar.MONTH)
+        val monthStart = Calendar.getInstance(timeZone).apply {
+            timeInMillis = epochMs
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val nextMonthStart = (monthStart.clone() as Calendar).apply {
+            add(Calendar.MONTH, 1)
+        }
 
-        val eligible = recent(500).filter { item ->
+        val eligible = transactionsBetween(
+            startEpochMs = monthStart.timeInMillis,
+            endEpochMsExclusive = nextMonthStart.timeInMillis
+        ).filter { item ->
             if (item.ruleId != null) return@filter false
             if (
                 item.reviewState == ReviewState.USER_CLASSIFIED.name ||
@@ -303,16 +316,10 @@ class TransactionStore private constructor(context: Context) {
             if (item.direction != MoneyDirection.EXPENSE.name) return@filter false
             if (item.type !in OUTGOING_REVIEW_TYPES) return@filter false
 
-            val occurred = Calendar.getInstance(timeZone).apply {
-                timeInMillis = item.occurredAtEpochMs
-            }
-
-            occurred.get(Calendar.YEAR) == year &&
-                occurred.get(Calendar.MONTH) == month &&
-                ReviewTriagePolicy.identityKey(
-                    item.counterparty,
-                    item.counterpartyPhone
-                ) != null
+            ReviewTriagePolicy.identityKey(
+                item.counterparty,
+                item.counterpartyPhone
+            ) != null
         }
 
         val db = database.writableDatabase
@@ -525,6 +532,38 @@ class TransactionStore private constructor(context: Context) {
         )
         PayCycleStore.get(appContext).rebuild()
     }
+
+    private fun transactionsBetween(
+        startEpochMs: Long,
+        endEpochMsExclusive: Long
+    ): List<StoredTransaction> =
+        database.readableDatabase.rawQuery(
+            BASE_SELECT +
+                " WHERE occurred_at_epoch_ms >= ? AND occurred_at_epoch_ms < ?" +
+                " ORDER BY occurred_at_epoch_ms DESC, id DESC",
+            arrayOf(startEpochMs.toString(), endEpochMsExclusive.toString())
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(cursor.toStoredTransaction())
+            }
+        }
+
+    private fun hasLegacyFingerprintAt(
+        fingerprint: String,
+        occurredAtEpochMs: Long
+    ): Boolean =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT 1
+            FROM transactions
+            WHERE fingerprint = ?
+              AND occurred_at_epoch_ms = ?
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(fingerprint, occurredAtEpochMs.toString())
+        ).use { cursor ->
+            cursor.moveToFirst()
+        }
 
     private fun reversedTransactionCodes(): Set<String> =
         database.readableDatabase.rawQuery(

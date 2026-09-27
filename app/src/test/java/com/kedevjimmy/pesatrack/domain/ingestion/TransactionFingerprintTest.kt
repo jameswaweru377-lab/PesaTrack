@@ -23,6 +23,29 @@ class TransactionFingerprintTest {
         assertNotEquals(TransactionFingerprint.of(first), TransactionFingerprint.of(other))
     }
 
+
+    @Test
+    fun fallbackFingerprintSeparatesRecurringMessagesByOccurrence() {
+        val parsed = sample(code = null)
+
+        val first = TransactionFingerprint.of(parsed, 1_000L)
+        val duplicate = TransactionFingerprint.of(parsed, 1_000L)
+        val nextOccurrence = TransactionFingerprint.of(parsed, 2_000L)
+
+        assertEquals(first, duplicate)
+        assertNotEquals(first, nextOccurrence)
+    }
+
+    @Test
+    fun transactionCodeStillDeduplicatesAcrossObservationTimes() {
+        val parsed = sample(code = "TQK12ABC34")
+
+        assertEquals(
+            TransactionFingerprint.of(parsed, 1_000L),
+            TransactionFingerprint.of(parsed, 2_000L)
+        )
+    }
+
     private fun sample(
         code: String?,
         amount: Long = 45_000L
