@@ -116,7 +116,7 @@ object FinancialCandidateExtractor {
         RegexOption.IGNORE_CASE
     )
     private val debtDrawdownRegex = Regex(
-        """([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,4})\s+amount\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:^|[.!?]\s+)([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,4})\s+amount\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
     private val outstandingDebtRegex = Regex(
