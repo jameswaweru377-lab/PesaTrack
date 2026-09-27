@@ -90,6 +90,40 @@ class FinancialMessageFixtureCorpusTest {
     }
 
     @Test
+    fun corpusMakesMigrationTargetExplicit() {
+        FinancialMessageFixtureCorpus.all.forEach { fixture ->
+            when (fixture.coverage) {
+                FixtureCoverage.GENERIC_COMPLETE ->
+                    assertEquals(
+                        fixture.id +
+                            ": generic-complete fixture must already match its target",
+                        fixture.targetKinds,
+                        fixture.expectedKinds
+                    )
+                FixtureCoverage.LEGACY_REQUIRED -> {
+                    assertTrue(
+                        fixture.id +
+                            ": legacy fixture needs a non-empty canonical target",
+                        fixture.targetKinds.isNotEmpty()
+                    )
+                    assertTrue(
+                        fixture.id +
+                            ": legacy fixture should expose a remaining semantic gap",
+                        fixture.targetKinds !=
+                            fixture.expectedKinds
+                    )
+                }
+                FixtureCoverage.NON_FINANCIAL ->
+                    assertTrue(
+                        fixture.id +
+                            ": non-financial fixture must have no target records",
+                        fixture.targetKinds.isEmpty()
+                    )
+            }
+        }
+    }
+
+    @Test
     fun genericFixturesCarryFieldLevelEvidenceWithoutMessageCopies() {
         FinancialMessageFixtureCorpus.all
             .filter {
