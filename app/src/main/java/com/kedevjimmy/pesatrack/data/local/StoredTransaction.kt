@@ -48,7 +48,17 @@ data class ActivitySummary(
     val needsReviewCount: Int
 )
 
+data class ReviewGroup(
+    val key: String,
+    val label: String,
+    val representativeTransactionId: Long,
+    val transactionCount: Int,
+    val totalMinor: Long,
+    val latestEpochMs: Long
+)
+
 data class ActivityLedgerSnapshot(
     val transactions: List<StoredTransaction>,
-    val summary: ActivitySummary
+    val summary: ActivitySummary,
+    val reviewGroups: List<ReviewGroup> = emptyList()
 )
