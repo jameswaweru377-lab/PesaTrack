@@ -34,7 +34,7 @@ data class DebtMessageCandidates(
 
 object DebtCandidateExtractor {
     private val productAmountRegex = Regex(
-        """(?:^|[.!?]\s+)([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,5})\s+amount\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:^|[.!?]\s+)([A-Za-z][A-Za-z0-9&'’-]*(?:\s+[A-Za-z0-9&'’-]+){0,5})\s+amount\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.MULTILINE
@@ -42,7 +42,7 @@ object DebtCandidateExtractor {
     )
 
     private val outstandingRegex = Regex(
-        """(?:^|[.!?]\s+)(?:Total\s+)?([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,5})\s+outstanding\s+(?:amount|balance)\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:^|[.!?]\s+)(?:Total\s+)?([A-Za-z][A-Za-z0-9&'’-]*(?:\s+[A-Za-z0-9&'’-]+){0,5})\s+outstanding\s+(?:amount|balance)\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.MULTILINE
@@ -50,7 +50,7 @@ object DebtCandidateExtractor {
     )
 
     private val availableCreditRegex = Regex(
-        """(?:^|[.!?]\s+)(?:Your\s+)?available\s+([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,5})\s+(?:balance\s+)?(?:limit|credit\s+limit)\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:^|[.!?]\s+)(?:Your\s+)?available\s+([A-Za-z][A-Za-z0-9&'’-]*(?:\s+[A-Za-z0-9&'’-]+){0,5})\s+(?:balance\s+)?(?:limit|credit\s+limit)\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.MULTILINE
@@ -58,7 +58,7 @@ object DebtCandidateExtractor {
     )
 
     private val repaymentRegex = Regex(
-        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+your\s+([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,5})\s+has\s+been\s+used\s+to\s+(?:(partially|fully)\s+)?pay\s+your\s+outstanding\s+([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,5})(?=\.|$)""",
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+your\s+([A-Za-z][A-Za-z0-9&'’-]*(?:\s+[A-Za-z0-9&'’-]+){0,5})\s+has\s+been\s+used\s+to\s+(?:(partially|fully)\s+)?pay\s+your\s+outstanding\s+([A-Za-z][A-Za-z0-9&'’-]*(?:\s+[A-Za-z0-9&'’-]+){0,5})(?=\.|$)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.MULTILINE
