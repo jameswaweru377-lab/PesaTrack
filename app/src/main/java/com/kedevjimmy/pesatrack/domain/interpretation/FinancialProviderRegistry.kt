@@ -12,6 +12,38 @@ data class FinancialProviderAccountKnowledge(
 
 object FinancialProviderRegistry {
     private val known = listOf(
+        // Specific products must come before broader family names.
+        FinancialProviderAccountKnowledge(
+            providerKey = "NCBA_MSHWARI_LOCK_SAVINGS",
+            canonicalName = "M-Shwari Lock Savings",
+            accountType = AccountType.SAVINGS,
+            ownershipHint = AccountOwnershipHint.USER_OWNED,
+            aliases = setOf(
+                "M SHWARI LOCK SAVINGS",
+                "MSHWARI LOCK SAVINGS"
+            )
+        ),
+        FinancialProviderAccountKnowledge(
+            providerKey = "NCBA_MSHWARI_LOAN",
+            canonicalName = "M-Shwari Loan",
+            accountType = AccountType.OTHER,
+            ownershipHint = AccountOwnershipHint.UNKNOWN,
+            aliases = setOf(
+                "M SHWARI LOAN",
+                "MSHWARI LOAN"
+            )
+        ),
+        FinancialProviderAccountKnowledge(
+            providerKey = "SAFARICOM_FULIZA",
+            canonicalName = "Fuliza M-PESA",
+            accountType = AccountType.OTHER,
+            ownershipHint = AccountOwnershipHint.UNKNOWN,
+            aliases = setOf(
+                "FULIZA M PESA",
+                "FULIZA MPESA",
+                "FULIZA"
+            )
+        ),
         FinancialProviderAccountKnowledge(
             providerKey = "SAFARICOM_MPESA",
             canonicalName = "M-Pesa",
@@ -41,8 +73,7 @@ object FinancialProviderRegistry {
         val match = known.firstOrNull { provider ->
             provider.aliases.any { alias ->
                 normalized == alias ||
-                    normalized.startsWith("$alias ") ||
-                    normalized.endsWith(" $alias")
+                    normalized.startsWith("$alias ")
             }
         }
 
