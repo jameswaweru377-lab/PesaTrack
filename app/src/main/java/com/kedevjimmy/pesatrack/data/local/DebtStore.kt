@@ -117,8 +117,10 @@ class DebtStore private constructor(context: Context) {
         val insert = insertEvent(
             eventKey = debtEventKey(
                 prefix =
-                    "debt-drawdown:" +
-                        identity.providerKey,
+                    debtEventPrefix(
+                        reference = event.liability,
+                        suffix = "drawdown"
+                    ),
                 transactionCode =
                     transactionCode,
                 rawMessage =
@@ -216,8 +218,10 @@ class DebtStore private constructor(context: Context) {
         val insert = insertEvent(
             eventKey = debtEventKey(
                 prefix =
-                    "debt-repayment:" +
-                        identity.providerKey,
+                    debtEventPrefix(
+                        reference = event.liability,
+                        suffix = "repayment"
+                    ),
                 transactionCode =
                     transactionCode,
                 rawMessage =
@@ -1694,6 +1698,25 @@ class DebtStore private constructor(context: Context) {
                 null
             }
         }
+
+    private fun debtEventPrefix(
+        reference: FinancialAccountReference,
+        suffix: String
+    ): String {
+        val behavior =
+            FinancialProviderRegistry
+                .debtBehaviorFor(reference)
+        val namespace =
+            behavior?.eventNamespace
+                ?: (
+                    "debt-" +
+                        (
+                            reference.providerKey
+                                ?: reference.entityKey
+                            )
+                )
+        return namespace + "-" + suffix
+    }
 
     private fun debtEventKey(
         prefix: String,
