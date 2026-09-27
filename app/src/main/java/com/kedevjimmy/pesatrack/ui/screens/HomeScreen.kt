@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality
+import com.kedevjimmy.pesatrack.data.local.DebtEventRecord
+import com.kedevjimmy.pesatrack.data.local.DebtEventType
 import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
@@ -138,6 +140,19 @@ fun HomeScreen(
     LaunchedEffect(ledgerUpdateState.revision) {
         if (ledgerUpdateState.revision > 0L) {
             refresh()
+        }
+    }
+
+    val latestDebtEvents = remember(
+        debtAccounts,
+        ledgerUpdateState.revision
+    ) {
+        debtAccounts.associate { account ->
+            account.id to
+                debtStore.recentEvents(
+                    debtAccountId = account.id,
+                    limit = 1
+                ).firstOrNull()
         }
     }
 
@@ -418,7 +433,8 @@ fun HomeScreen(
                 DebtOverviewCard(
                     accounts = debtAccounts.filter {
                         it.outstandingMinor > 0L
-                    }
+                    },
+                    latestEvents = latestDebtEvents
                 )
             }
         }
@@ -520,7 +536,8 @@ fun HomeScreen(
 
 @Composable
 private fun DebtOverviewCard(
-    accounts: List<com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot>
+    accounts: List<com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot>,
+    latestEvents: Map<String, DebtEventRecord?>
 ) {
     PesaCard {
         Column(Modifier.padding(15.dp)) {
@@ -561,6 +578,14 @@ private fun DebtOverviewCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        latestEvents[account.id]?.let { event ->
+                            Text(
+                                debtEventLabel(event),
+                                modifier = Modifier.padding(top = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                     Text(
                         formatMoney(account.outstandingMinor),
@@ -572,6 +597,20 @@ private fun DebtOverviewCard(
         }
     }
 }
+
+private fun debtEventLabel(
+    event: DebtEventRecord
+): String =
+    when (event.type) {
+        DebtEventType.DRAWDOWN ->
+            "Borrowed " + formatMoney(event.amountMinor)
+        DebtEventType.REPAYMENT ->
+            "Repaid " + formatMoney(event.amountMinor)
+        DebtEventType.FEE ->
+            "Finance cost " + formatMoney(event.feeMinor)
+        DebtEventType.ADJUSTMENT ->
+            "Debt adjusted " + formatMoney(event.amountMinor)
+    }
 
 @Composable
 private fun GreetingBlock(
