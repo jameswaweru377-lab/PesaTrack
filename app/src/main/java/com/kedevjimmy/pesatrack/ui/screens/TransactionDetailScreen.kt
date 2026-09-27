@@ -466,19 +466,24 @@ fun TransactionDetailScreen(
                             }
                         )
                     }
-                    ActionRow(
-                        icon = Icons.Rounded.SwapHoriz,
-                        label = "Mark as own-account transfer",
-                        onClick = {
-                            store.classifyManually(
-                                id = current.id,
-                                category = TransactionCategory.TRANSFER,
-                                direction = MoneyDirection.TRANSFER,
-                                markTransfer = true
-                            )
-                            refresh()
-                        }
-                    )
+                    if (
+                        current.relationType !=
+                        TransactionStore.RELATION_REFUND
+                    ) {
+                        ActionRow(
+                            icon = Icons.Rounded.SwapHoriz,
+                            label = "Mark as own-account transfer",
+                            onClick = {
+                                store.classifyManually(
+                                    id = current.id,
+                                    category = TransactionCategory.TRANSFER,
+                                    direction = MoneyDirection.TRANSFER,
+                                    markTransfer = true
+                                )
+                                refresh()
+                            }
+                        )
+                    }
                     ActionRow(
                         icon = Icons.Rounded.Block,
                         label = "Exclude from budget",
