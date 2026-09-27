@@ -22,7 +22,15 @@ object FinancialMessageInterpreter {
     )
 
     private val transferFromRegex = Regex(
-        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?transferred\s+from\s+(.+?)\s+account\b""",
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:transferred|withdrawn|moved)\s+from\s+(.+?)\s+account\b""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
+
+    private val receivedFromAccountRegex = Regex(
+        """(?:received\s+)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+(.+?)\s+account\b""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.DOT_MATCHES_ALL
@@ -30,7 +38,7 @@ object FinancialMessageInterpreter {
     )
 
     private val transferToRegex = Regex(
-        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?transferred\s+to\s+(.+?)\s+account\b""",
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:transferred|deposited|moved)\s+to\s+(.+?)\s+account\b""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.DOT_MATCHES_ALL
@@ -120,8 +128,10 @@ object FinancialMessageInterpreter {
         message: String,
         observedAccount: FinancialAccountReference?
     ): TransferEventFact? {
-        val match = transferFromRegex.find(message)
-            ?: return null
+        val match =
+            transferFromRegex.find(message)
+                ?: receivedFromAccountRegex.find(message)
+                ?: return null
         val destination = observedAccount ?: return null
         val source = FinancialProviderRegistry.resolveAccount(
             match.groupValues[2]
