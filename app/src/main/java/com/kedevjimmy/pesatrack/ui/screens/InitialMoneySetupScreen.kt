@@ -92,7 +92,9 @@ private enum class SetupStage {
     SOURCES,
     ROUTES,
     HISTORY,
-    IDENTIFY
+    IDENTIFY,
+    SALARY_HISTORY,
+    ACCOUNTS
 }
 
 private enum class IncomeSourceChoice(
@@ -170,6 +172,12 @@ fun InitialMoneySetupScreen(
     var manualSalaryDrafts by remember {
         mutableStateOf(mapOf<String, ManualSalaryDraft>())
     }
+    var confirmedManualSalaryMonths by remember {
+        mutableStateOf(setOf<String>())
+    }
+    var activeManualSalaryMonthKey by remember {
+        mutableStateOf<String?>(null)
+    }
     var mpesaPhone by remember { mutableStateOf("") }
     var mpesaOpeningBalance by remember { mutableStateOf("") }
     var salaryAccountOpeningBalance by remember { mutableStateOf("") }
@@ -182,6 +190,9 @@ fun InitialMoneySetupScreen(
     }
     val currentRouteSource = orderedSources.getOrNull(routeIndex)
     val selectedHistoryMonths = HistoryImportWindow.months(historyMonthsCount)
+    val eligibleManualSalaryMonths = selectedHistoryMonths
+        .filter { it.startEpochMs <= System.currentTimeMillis() }
+        .sortedBy(HistoryMonth::startEpochMs)
     val salaryRoute = routes[IncomeSourceChoice.SALARY]
     val salaryBank = salaryRoute?.bankForSearch()
     val salaryBankKey = salaryBank?.name.orEmpty()
@@ -270,6 +281,35 @@ fun InitialMoneySetupScreen(
         return true
     }
 
+    fun needsManualSalaryHistory(): Boolean =
+        IncomeSourceChoice.SALARY in selectedSources &&
+            eligibleManualSalaryMonths.isNotEmpty() &&
+            (
+                manualHistoryEnabled ||
+                    !smsGranted ||
+                    salaryRoute?.arrival != ArrivalChoice.BANK ||
+                    (
+                        !loadingCandidates &&
+                            candidates.isEmpty()
+                        )
+                )
+
+    fun validateSalaryIdentity(): Boolean {
+        if (IncomeSourceChoice.SALARY !in selectedSources) return true
+        if (salaryRoute?.arrival == ArrivalChoice.CASH) return true
+
+        val identity = employer.trim().takeIf { it.isNotBlank() }
+            ?: selectedCandidate?.originator?.takeIf {
+                !it.isNullOrBlank()
+            }
+
+        if (identity == null) {
+            error = "Tell PesaTrack who normally pays your salary."
+            return false
+        }
+        return true
+    }
+
     fun goForward() {
         error = null
 
@@ -294,10 +334,36 @@ fun InitialMoneySetupScreen(
             }
 
             SetupStage.HISTORY -> {
-                stage = SetupStage.IDENTIFY
+                stage = if (IncomeSourceChoice.SALARY in selectedSources) {
+                    SetupStage.IDENTIFY
+                } else {
+                    SetupStage.ACCOUNTS
+                }
             }
 
-            SetupStage.IDENTIFY -> Unit
+            SetupStage.IDENTIFY -> {
+                if (!validateSalaryIdentity()) return
+                if (needsManualSalaryHistory()) {
+                    activeManualSalaryMonthKey =
+                        eligibleManualSalaryMonths
+                            .firstOrNull {
+                                it.key() !in confirmedManualSalaryMonths
+                            }
+                            ?.key()
+                            ?: eligibleManualSalaryMonths
+                                .firstOrNull()
+                                ?.key()
+                    stage = SetupStage.SALARY_HISTORY
+                } else {
+                    stage = SetupStage.ACCOUNTS
+                }
+            }
+
+            SetupStage.SALARY_HISTORY -> {
+                stage = SetupStage.ACCOUNTS
+            }
+
+            SetupStage.ACCOUNTS -> Unit
         }
     }
 
@@ -320,49 +386,106 @@ fun InitialMoneySetupScreen(
             SetupStage.IDENTIFY -> {
                 stage = SetupStage.HISTORY
             }
+            SetupStage.SALARY_HISTORY -> {
+                stage = SetupStage.IDENTIFY
+            }
+            SetupStage.ACCOUNTS -> {
+                stage = if (
+                    IncomeSourceChoice.SALARY in selectedSources
+                ) {
+                    if (needsManualSalaryHistory()) {
+                        SetupStage.SALARY_HISTORY
+                    } else {
+                        SetupStage.IDENTIFY
+                    }
+                } else {
+                    SetupStage.HISTORY
+                }
+            }
         }
     }
 
     fun validateManualSalaryEntries():
         Pair<List<ManualSalaryEntry>, String?> {
-        if (!manualHistoryEnabled || selectedHistoryMonths.isEmpty()) {
+        if (confirmedManualSalaryMonths.isEmpty()) {
             return emptyList<ManualSalaryEntry>() to null
         }
 
         val entries = mutableListOf<ManualSalaryEntry>()
+        val now = System.currentTimeMillis()
 
-        selectedHistoryMonths.forEach { month ->
-            val draft = manualSalaryDrafts[month.key()]
-                ?: ManualSalaryDraft()
+        eligibleManualSalaryMonths
+            .filter { it.key() in confirmedManualSalaryMonths }
+            .forEach { month ->
+                val draft = manualSalaryDrafts[month.key()]
+                    ?: ManualSalaryDraft()
 
-            if (draft.amount.isBlank() && draft.day.isBlank()) {
-                return@forEach
+                val amountMinor = parseMoneyMinor(draft.amount)
+                    ?: return emptyList<ManualSalaryEntry>() to
+                        ("Enter a valid salary amount for " + month.label + ".")
+
+                if (amountMinor <= 0L) {
+                    return emptyList<ManualSalaryEntry>() to
+                        ("Salary for " + month.label + " must be above zero.")
+                }
+
+                val day = draft.day.toIntOrNull()
+                    ?: return emptyList<ManualSalaryEntry>() to
+                        ("Enter the day salary arrived in " + month.label + ".")
+
+                val occurred = HistoryImportWindow.epochForDay(month, day)
+                    ?: return emptyList<ManualSalaryEntry>() to
+                        ("That day does not exist in " + month.label + ".")
+
+                if (occurred > now) {
+                    return emptyList<ManualSalaryEntry>() to
+                        ("Salary date for " + month.label + " cannot be in the future.")
+                }
+
+                entries += ManualSalaryEntry(
+                    amountMinor = amountMinor,
+                    occurredAtEpochMs = occurred
+                )
             }
-
-            val amountMinor = parseMoneyMinor(draft.amount)
-                ?: return emptyList<ManualSalaryEntry>() to
-                    ("Enter a valid salary amount for " + month.label + ".")
-
-            if (amountMinor <= 0L) {
-                return emptyList<ManualSalaryEntry>() to
-                    ("Salary for " + month.label + " must be above zero.")
-            }
-
-            val day = draft.day.toIntOrNull()
-                ?: return emptyList<ManualSalaryEntry>() to
-                    ("Enter the day salary arrived in " + month.label + ".")
-
-            val occurred = HistoryImportWindow.epochForDay(month, day)
-                ?: return emptyList<ManualSalaryEntry>() to
-                    ("That day does not exist in " + month.label + ".")
-
-            entries += ManualSalaryEntry(
-                amountMinor = amountMinor,
-                occurredAtEpochMs = occurred
-            )
-        }
 
         return entries to null
+    }
+
+    fun confirmManualSalaryMonth(month: HistoryMonth) {
+        val draft = manualSalaryDrafts[month.key()] ?: ManualSalaryDraft()
+        val amountMinor = parseMoneyMinor(draft.amount)
+        if (amountMinor == null || amountMinor <= 0L) {
+            error = "Enter a valid salary amount for " + month.label + "."
+            return
+        }
+
+        val day = draft.day.toIntOrNull()
+        if (day == null) {
+            error = "Enter the day salary arrived in " + month.label + "."
+            return
+        }
+
+        val occurred = HistoryImportWindow.epochForDay(month, day)
+        if (occurred == null) {
+            error = "That day does not exist in " + month.label + "."
+            return
+        }
+
+        if (occurred > System.currentTimeMillis()) {
+            error = "Salary date for " + month.label + " cannot be in the future."
+            return
+        }
+
+        confirmedManualSalaryMonths =
+            confirmedManualSalaryMonths + month.key()
+        activeManualSalaryMonthKey =
+            eligibleManualSalaryMonths
+                .firstOrNull {
+                    it.key() !in confirmedManualSalaryMonths
+                }
+                ?.key()
+                ?: month.key()
+        error = null
     }
 
     suspend fun finishSetup() {
@@ -722,6 +845,8 @@ fun InitialMoneySetupScreen(
                         historyMonthsCount = count
                         manualHistoryEnabled = false
                         manualSalaryDrafts = emptyMap()
+                        confirmedManualSalaryMonths = emptySet()
+                        activeManualSalaryMonthKey = null
                         error = null
                     },
                     onRequestSms = {
