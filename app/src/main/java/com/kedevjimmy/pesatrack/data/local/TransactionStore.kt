@@ -48,6 +48,17 @@ class TransactionStore private constructor(context: Context) {
             ) {
                 return false
             }
+        } else if (evidence != null) {
+            val existing = getByTransactionCode(parsed.transactionCode)
+            if (existing != null) {
+                updateExistingDuplicateWithEvidence(
+                    stored = existing,
+                    parsed = parsed,
+                    matchedRule = matchedRule,
+                    evidence = evidence
+                )
+                return false
+            }
         }
         val accounts = AccountStore.get(appContext).listAccounts()
         val ownTransfer = OwnAccountTransferDetector.matchMpesa(
@@ -803,6 +814,70 @@ class TransactionStore private constructor(context: Context) {
             "id = ?",
             arrayOf(existing.id.toString())
         )
+    }
+
+    private fun getByTransactionCode(code: String): StoredTransaction? =
+        database.readableDatabase.rawQuery(
+            BASE_SELECT + " WHERE transaction_code = ? LIMIT 1",
+            arrayOf(code.trim().uppercase())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.toStoredTransaction() else null
+        }
+
+    private fun updateExistingDuplicateWithEvidence(
+        stored: StoredTransaction,
+        parsed: ParsedMpesaTransaction,
+        matchedRule: SmartRule?,
+        evidence: TransactionEvidenceMatch
+    ) {
+        val protected =
+            stored.reviewState == ReviewState.USER_CLASSIFIED.name ||
+                stored.reviewState == ReviewState.EXCLUDED.name
+
+        val values = ContentValues().apply {
+            put("evidence_label", evidence.label)
+            put("evidence_source", evidence.sourceLabel)
+            put("evidence_confidence", evidence.confidence.name)
+            put("evidence_time_delta_ms", evidence.timeDeltaMs)
+
+            if (
+                !protected &&
+                evidence.confidence == EvidenceConfidence.HIGH &&
+                stored.counterparty.isNullOrBlank()
+            ) {
+                parsed.counterparty?.let { put("counterparty", it) }
+                parsed.counterpartyPhone?.let { put("counterparty_phone", it) }
+
+                if (matchedRule != null) {
+                    val classification = classify(
+                        parsed = parsed,
+                        matchedRule = matchedRule,
+                        occurredAtEpochMs = stored.occurredAtEpochMs
+                    )
+                    put("direction", classification.direction.name)
+                    put("category", classification.category.name)
+                    put("review_state", classification.reviewState.name)
+                    put("rule_id", classification.ruleId)
+                    put("planning_month", classification.planningMonth)
+                }
+            }
+        }
+
+        database.writableDatabase.update(
+            "transactions",
+            values,
+            "id = ?",
+            arrayOf(stored.id.toString())
+        )
+
+        if (
+            !protected &&
+            evidence.confidence == EvidenceConfidence.HIGH &&
+            stored.counterparty.isNullOrBlank()
+        ) {
+            reconcileReviewTriageForMonth(stored.occurredAtEpochMs)
+            PayCycleStore.get(appContext).rebuild()
+        }
     }
 
     @Synchronized
