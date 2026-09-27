@@ -33,7 +33,9 @@ data class StoredTransaction(
     val evidenceLabel: String? = null,
     val evidenceSource: String? = null,
     val evidenceConfidence: String? = null,
-    val evidenceTimeDeltaMs: Long? = null
+    val evidenceTimeDeltaMs: Long? = null,
+    val relationType: String? = null,
+    val relatedTransactionId: Long? = null
 )
 
 data class LedgerSnapshot(
@@ -49,7 +51,8 @@ data class ActivitySummary(
     val feesMinor: Long,
     val transferMinor: Long,
     val netMinor: Long,
-    val needsReviewCount: Int
+    val needsReviewCount: Int,
+    val refundMinor: Long = 0L
 )
 
 data class ReviewGroup(
