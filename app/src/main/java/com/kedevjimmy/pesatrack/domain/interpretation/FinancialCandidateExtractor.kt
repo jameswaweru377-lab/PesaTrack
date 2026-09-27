@@ -281,8 +281,17 @@ object FinancialCandidateExtractor {
     ): DebtDrawdownCandidate? {
         val liability = match.groups[1] ?: return null
         val amount = match.groups[2] ?: return null
+        val label = liability.value.trim()
+        if (
+            label.contains(
+                "outstanding",
+                ignoreCase = true
+            )
+        ) {
+            return null
+        }
         return DebtDrawdownCandidate(
-            rawLiabilityLabel = liability.value.trim(),
+            rawLiabilityLabel = label,
             liabilitySpan = liability.range.toSpan(),
             amountMinor = amountToMinor(amount.value),
             amountSpan = amount.range.toSpan(),
