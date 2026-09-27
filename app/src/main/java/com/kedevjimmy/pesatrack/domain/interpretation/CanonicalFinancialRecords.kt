@@ -5,6 +5,7 @@ enum class FinancialField {
     OCCURRED_AT,
     AMOUNT,
     FEE,
+    ACCOUNT,
     SOURCE_ACCOUNT,
     DESTINATION_ACCOUNT,
     COUNTERPARTY,
