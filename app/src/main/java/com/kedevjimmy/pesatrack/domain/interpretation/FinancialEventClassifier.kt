@@ -65,6 +65,54 @@ object FinancialEventClassifier {
                             relationship.evidence
                     )
                 )
+            is ResolvedDebtDrawdownRelationship ->
+                listOf(
+                    DebtDrawdownEventFact(
+                        amountMinor =
+                            relationship.amountMinor,
+                        liability =
+                            relationship.liability,
+                        feeMinor =
+                            relationship.feeMinor,
+                        outstandingAfterMinor =
+                            relationship
+                                .outstandingAfterMinor,
+                        availableCreditAfterMinor =
+                            relationship
+                                .availableCreditAfterMinor,
+                        confidence =
+                            relationship.confidence,
+                        evidence =
+                            relationship.evidence
+                    )
+                )
+            is ResolvedDebtRepaymentRelationship ->
+                listOf(
+                    DebtRepaymentEventFact(
+                        amountMinor =
+                            relationship.amountMinor,
+                        liability =
+                            relationship.liability,
+                        fundingAccount =
+                            relationship
+                                .fundingAccount,
+                        completion =
+                            relationship.completion,
+                        outstandingAfterMinor =
+                            relationship
+                                .outstandingAfterMinor,
+                        availableCreditAfterMinor =
+                            relationship
+                                .availableCreditAfterMinor,
+                        walletBalanceAfterMinor =
+                            relationship
+                                .walletBalanceAfterMinor,
+                        confidence =
+                            relationship.confidence,
+                        evidence =
+                            relationship.evidence
+                    )
+                )
             null -> emptyList()
         }
 
