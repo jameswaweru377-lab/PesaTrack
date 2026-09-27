@@ -703,9 +703,19 @@ private fun RefundLinkCard(
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        "Not counted as income. It reduces " +
-                            categoryLabel +
-                            " spending.",
+                        if (
+                            original != null &&
+                            original.reviewState !=
+                                ReviewState.NEEDS_REVIEW.name &&
+                            original.reviewState !=
+                                ReviewState.EXCLUDED.name
+                        ) {
+                            "Not counted as income. It reduces " +
+                                categoryLabel +
+                                " spending."
+                        } else {
+                            "Not counted as income. Review the original purchase before this refund changes trusted spending totals."
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color =
                             MaterialTheme.colorScheme
