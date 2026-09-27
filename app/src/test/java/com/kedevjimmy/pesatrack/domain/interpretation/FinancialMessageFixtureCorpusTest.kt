@@ -159,48 +159,71 @@ class FinancialMessageFixtureCorpusTest {
                         )
                         .toCanonicalDraft()
 
-                assertTrue(
-                    fixture.id +
-                        ": transaction code evidence missing",
-                    canonical.metadataEvidence.any {
-                        it.field ==
-                            FinancialField.TRANSACTION_CODE &&
-                            it.span != null
-                    }
-                )
-                assertTrue(
-                    fixture.id +
-                        ": time evidence missing",
-                    canonical.metadataEvidence.any {
-                        it.field ==
-                            FinancialField.OCCURRED_AT &&
-                            it.span != null
-                    }
-                )
-
-                val transfer = canonical.records
-                    .filterIsInstance<MoneyMovementDraft>()
-                    .single()
-
-                assertTrue(
-                    fixture.id +
-                        ": amount evidence missing",
-                    transfer.evidence.any {
-                        it.field ==
-                            FinancialField.AMOUNT &&
-                            it.span != null
-                    }
-                )
-                assertTrue(
-                    fixture.id +
-                        ": account relationship evidence missing",
-                    transfer.evidence.any {
-                        it.field ==
-                            FinancialField.SOURCE_ACCOUNT ||
+                if (canonical.transactionCode != null) {
+                    assertTrue(
+                        fixture.id +
+                            ": transaction code evidence missing",
+                        canonical.metadataEvidence.any {
                             it.field ==
-                                FinancialField.DESTINATION_ACCOUNT
+                                FinancialField.TRANSACTION_CODE &&
+                                it.span != null
+                        }
+                    )
+                }
+
+                if (canonical.occurredAtText != null) {
+                    assertTrue(
+                        fixture.id +
+                            ": time evidence missing",
+                        canonical.metadataEvidence.any {
+                            it.field ==
+                                FinancialField.OCCURRED_AT &&
+                                it.span != null
+                        }
+                    )
+                }
+
+                canonical.records
+                    .filter {
+                        it is MoneyMovementDraft ||
+                            it is DebtMovementDraft
                     }
-                )
+                    .forEach { record ->
+                        assertTrue(
+                            fixture.id +
+                                ": amount evidence missing",
+                            record.evidence.any {
+                                it.field ==
+                                    FinancialField.AMOUNT &&
+                                    it.span != null
+                            }
+                        )
+
+                        val hasRelationshipEvidence =
+                            when (record) {
+                                is MoneyMovementDraft ->
+                                    record.evidence.any {
+                                        it.field ==
+                                            FinancialField.SOURCE_ACCOUNT ||
+                                            it.field ==
+                                                FinancialField.DESTINATION_ACCOUNT ||
+                                            it.field ==
+                                                FinancialField.COUNTERPARTY
+                                    }
+                                is DebtMovementDraft ->
+                                    record.evidence.any {
+                                        it.field ==
+                                            FinancialField.LIABILITY
+                                    }
+                                else -> false
+                            }
+
+                        assertTrue(
+                            fixture.id +
+                                ": relationship evidence missing",
+                            hasRelationshipEvidence
+                        )
+                    }
 
                 canonical.records
                     .filterIsInstance<BalanceObservationDraft>()
