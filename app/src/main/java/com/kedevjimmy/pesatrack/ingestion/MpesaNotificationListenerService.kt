@@ -4,6 +4,7 @@ import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.FulizaStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
@@ -64,6 +65,21 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                     ) {
                         PayCycleStore.get(applicationContext).rebuild()
                     }
+                    changed = true
+                    return@execute
+                }
+
+                val fulizaRepayment =
+                    FulizaParser.parseRepayment(body)
+                if (fulizaRepayment != null) {
+                    DebtStore.get(applicationContext)
+                        .recordFulizaRepayment(
+                            parsed = fulizaRepayment,
+                            sourcePackage = packageName,
+                            sourceKind = SOURCE_FULIZA_NOTIFICATION,
+                            occurredAtEpochMs = receivedAt
+                        )
+                    PayCycleStore.get(applicationContext).rebuild()
                     changed = true
                     return@execute
                 }
