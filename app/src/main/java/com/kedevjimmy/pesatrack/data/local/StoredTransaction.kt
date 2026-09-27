@@ -64,8 +64,19 @@ data class ReviewGroup(
 data class ActivityLedgerSnapshot(
     val transactions: List<StoredTransaction>,
     val summary: ActivitySummary,
-    val reviewGroups: List<ReviewGroup> = emptyList()
+    val reviewGroups: List<ReviewGroup> = emptyList(),
+    val possibleDuplicates: List<PossibleDuplicateGroup> = emptyList()
 )
+
+data class PossibleDuplicateGroup(
+    val key: String,
+    val first: StoredTransaction,
+    val second: StoredTransaction,
+    val timeDeltaMs: Long
+) {
+    val amountMinor: Long
+        get() = first.amountMinor
+}
 
 data class ActivityMonthBucket(
     val monthStartEpochMs: Long,

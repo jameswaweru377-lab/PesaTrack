@@ -16,6 +16,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createAccountsTable(db)
         createPayCyclesTable(db)
         createFulizaEventsTable(db)
+        createDuplicateResolutionsTable(db)
         seedDefaultAccounts(db)
         createIndexes(db)
     }
@@ -111,6 +112,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             db.execSQL("ALTER TABLE transactions ADD COLUMN evidence_source TEXT")
             db.execSQL("ALTER TABLE transactions ADD COLUMN evidence_confidence TEXT")
             db.execSQL("ALTER TABLE transactions ADD COLUMN evidence_time_delta_ms INTEGER")
+        }
+
+        if (oldVersion < 9) {
+            createDuplicateResolutionsTable(db)
         }
 
         createIndexes(db)
@@ -248,6 +253,21 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createDuplicateResolutionsTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS duplicate_resolutions (
+                pair_key TEXT PRIMARY KEY,
+                first_transaction_id INTEGER NOT NULL,
+                second_transaction_id INTEGER NOT NULL,
+                decision TEXT NOT NULL,
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun seedDefaultAccounts(db: SQLiteDatabase) {
         val now = System.currentTimeMillis()
         db.execSQL(
@@ -300,10 +320,16 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_fuliza_linked_transaction ON fuliza_events(linked_transaction_id)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_duplicate_resolution_first ON duplicate_resolutions(first_transaction_id)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_duplicate_resolution_second ON duplicate_resolutions(second_transaction_id)"
+        )
     }
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 8
+        private const val DATABASE_VERSION = 9
     }
 }
