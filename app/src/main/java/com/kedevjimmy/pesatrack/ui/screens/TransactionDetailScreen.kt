@@ -46,6 +46,7 @@ import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
@@ -467,7 +468,15 @@ private fun TransactionHero(item: StoredTransaction) {
                 }
                 Text(
                     signedMoney(item.amountMinor, direction, item.type),
-                    style = MaterialTheme.typography.headlineMedium
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = when {
+                        direction == MoneyDirection.INCOME ||
+                            item.type == MpesaTransactionType.REVERSAL.name ->
+                            MaterialTheme.colorScheme.primary
+                        direction == MoneyDirection.EXPENSE ->
+                            MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurface
+                    }
                 )
             }
 
