@@ -102,7 +102,19 @@ fun BudgetScreen(
             }
             .groupBy { categoryStore.canonicalId(it.category) }
             .mapValues { (_, transactions) ->
-                transactions.sumOf { it.amountMinor + it.feeMinor }
+                maxOf(
+                    0L,
+                    transactions.sumOf { item ->
+                        if (
+                            item.relationType ==
+                            TransactionStore.RELATION_REFUND
+                        ) {
+                            -item.amountMinor
+                        } else {
+                            item.amountMinor + item.feeMinor
+                        }
+                    }
+                )
             }
     }
 
