@@ -21,7 +21,7 @@ data class RepaymentFundingMatch(
     val reason: String
 )
 
-object FulizaRepaymentChainPolicy {
+object DebtRepaymentChainPolicy {
     const val MAX_LINK_DISTANCE_MS =
         10L * 60L * 1000L
     private const val STRONG_TIME_DISTANCE_MS =
@@ -71,7 +71,7 @@ object FulizaRepaymentChainPolicy {
                     confidence =
                         RepaymentChainConfidence.HIGH,
                     reason =
-                        "M-PESA balance equation matched incoming funds, Fuliza repayment and final wallet balance."
+                        "M-PESA balance equation matched incoming funds, debt repayment and final wallet balance."
                 )
             }
 
@@ -93,7 +93,7 @@ object FulizaRepaymentChainPolicy {
                     confidence =
                         RepaymentChainConfidence.HIGH,
                     reason =
-                        "Incoming M-PESA balance minus the Fuliza repayment equals the final wallet balance."
+                        "Incoming M-PESA balance minus the debt repayment equals the final wallet balance."
                 )
             }
         }
@@ -109,7 +109,7 @@ object FulizaRepaymentChainPolicy {
                 confidence =
                     RepaymentChainConfidence.MEDIUM,
                 reason =
-                    "Only one nearby incoming transaction matched the Fuliza repayment amount."
+                    "Only one nearby incoming transaction matched the debt repayment amount."
             )
         }
 
@@ -127,7 +127,7 @@ object FulizaRepaymentChainPolicy {
                 confidence =
                     RepaymentChainConfidence.MEDIUM,
                 reason =
-                    "Only one incoming transaction occurred within two minutes of the automatic Fuliza repayment."
+                    "Only one incoming transaction occurred within two minutes of the automatic debt repayment."
             )
         }
 
@@ -151,4 +151,30 @@ object FulizaRepaymentChainPolicy {
             expected - walletBalanceAfterMinor
         ) <= BALANCE_TOLERANCE_MINOR
     }
+}
+
+
+/**
+ * Compatibility alias while Fuliza-specific callers are migrated.
+ */
+object FulizaRepaymentChainPolicy {
+    const val MAX_LINK_DISTANCE_MS =
+        DebtRepaymentChainPolicy.MAX_LINK_DISTANCE_MS
+
+    fun chooseFundingTransaction(
+        repaymentAmountMinor: Long,
+        walletBalanceAfterMinor: Long?,
+        repaymentAtEpochMs: Long,
+        candidates: List<RepaymentFundingCandidate>
+    ): RepaymentFundingMatch? =
+        DebtRepaymentChainPolicy
+            .chooseFundingTransaction(
+                repaymentAmountMinor =
+                    repaymentAmountMinor,
+                walletBalanceAfterMinor =
+                    walletBalanceAfterMinor,
+                repaymentAtEpochMs =
+                    repaymentAtEpochMs,
+                candidates = candidates
+            )
 }
