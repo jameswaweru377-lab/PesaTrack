@@ -6,23 +6,37 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Chair
+import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.FamilyRestroom
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.LocalGroceryStore
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.Paid
 import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.ShoppingBag
+import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,6 +46,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,42 +57,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
+import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
+import com.kedevjimmy.pesatrack.data.local.PesaCategory
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
-import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
-import com.kedevjimmy.pesatrack.ui.components.premiumCategoryColor
 import java.math.RoundingMode
 import java.text.NumberFormat
 import java.util.Locale
-
-private data class BudgetCategoryOption(
-    val category: TransactionCategory,
-    val label: String,
-    val icon: ImageVector
-)
-
-private val budgetCategoryOptions = listOf(
-    BudgetCategoryOption(TransactionCategory.RENT, "Rent", Icons.Rounded.Home),
-    BudgetCategoryOption(TransactionCategory.LUNCH, "Food & dining", Icons.Rounded.Restaurant),
-    BudgetCategoryOption(TransactionCategory.TRANSPORT, "Transport", Icons.Rounded.DirectionsBus),
-    BudgetCategoryOption(TransactionCategory.SHOPPING, "Shopping", Icons.Rounded.ShoppingBag),
-    BudgetCategoryOption(TransactionCategory.ELECTRICITY, "Electricity", Icons.Rounded.Bolt),
-    BudgetCategoryOption(TransactionCategory.INTERNET, "Internet", Icons.Rounded.Wifi),
-    BudgetCategoryOption(TransactionCategory.PHONE_AND_DATA, "Phone & data", Icons.Rounded.PhoneAndroid),
-    BudgetCategoryOption(TransactionCategory.FAMILY, "Family", Icons.Rounded.FamilyRestroom),
-    BudgetCategoryOption(TransactionCategory.FEES, "Fees", Icons.Rounded.ReceiptLong),
-    BudgetCategoryOption(TransactionCategory.OTHER, "Other", Icons.Rounded.MoreHoriz)
-)
 
 @Composable
 fun BudgetScreen(
@@ -86,36 +80,36 @@ fun BudgetScreen(
 ) {
     val context = LocalContext.current
     val budgetStore = remember { BudgetStore.get(context) }
+    val categoryStore = remember { CategoryStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
 
-    var selectedCategory by remember {
-        mutableStateOf<TransactionCategory?>(null)
-    }
+    var selectedCategoryId by remember { mutableStateOf<String?>(null) }
     var amount by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var showAddCategory by remember { mutableStateOf(false) }
+    var customCategoryName by remember { mutableStateOf("") }
 
-    // Reading the revision makes this screen recompose when a budget or ledger changes.
     val revision = ledgerUpdateState.revision
     val budgets = remember(revision) { budgetStore.list() }
+    val categories = remember(revision) { categoryStore.budgetCategories() }
     val activity = remember(revision) { transactionStore.activitySnapshot() }
-    val spentByCategory = remember(activity) {
+    val trackedByCategory = remember(activity) {
         activity.transactions
             .filter {
-                it.direction == MoneyDirection.EXPENSE.name &&
-                    it.reviewState != ReviewState.EXCLUDED.name &&
+                it.reviewState != ReviewState.EXCLUDED.name &&
                     it.reviewState != ReviewState.NEEDS_REVIEW.name
             }
-            .groupBy { it.category }
+            .groupBy { categoryStore.canonicalId(it.category) }
             .mapValues { (_, transactions) ->
                 transactions.sumOf { it.amountMinor + it.feeMinor }
             }
     }
 
-    fun selectCategory(category: TransactionCategory) {
-        selectedCategory = category
+    fun selectCategory(category: PesaCategory) {
+        selectedCategoryId = category.id
         amount = budgets
-            .firstOrNull { it.category == category }
+            .firstOrNull { it.categoryId == category.id }
             ?.limitMinor
             ?.let(::formatEditableMoney)
             .orEmpty()
@@ -123,8 +117,8 @@ fun BudgetScreen(
     }
 
     fun saveBudget() {
-        val category = selectedCategory
-        if (category == null) {
+        val categoryId = selectedCategoryId
+        if (categoryId == null) {
             error = "Choose a category for this budget."
             return
         }
@@ -135,10 +129,64 @@ fun BudgetScreen(
             return
         }
 
-        budgetStore.save(category, limitMinor)
+        budgetStore.save(categoryId, limitMinor)
         amount = ""
-        selectedCategory = null
+        selectedCategoryId = null
         error = null
+    }
+
+    if (showAddCategory) {
+        AlertDialog(
+            onDismissRequest = {
+                showAddCategory = false
+                customCategoryName = ""
+            },
+            title = { Text("Add category") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "This category will appear in both Activity and Budgets.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = customCategoryName,
+                        onValueChange = { customCategoryName = it },
+                        label = { Text("Category name") },
+                        placeholder = { Text("Example: Pets") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAddCategory = false
+                        customCategoryName = ""
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        runCatching {
+                            categoryStore.addCustom(customCategoryName)
+                        }.onSuccess { category ->
+                            selectCategory(category)
+                            showAddCategory = false
+                            customCategoryName = ""
+                        }.onFailure {
+                            error = it.message ?: "Could not add category."
+                            showAddCategory = false
+                        }
+                    }
+                ) {
+                    Text("Add category")
+                }
+            }
+        )
     }
 
     LazyColumn(
@@ -151,16 +199,10 @@ fun BudgetScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(
-                        Icons.Rounded.ArrowBack,
-                        contentDescription = "Back"
-                    )
+                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        "Budgets",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
+                    Text("Budgets", style = MaterialTheme.typography.headlineMedium)
                     Text(
                         "Set a monthly limit. Activity does the tracking.",
                         style = MaterialTheme.typography.bodySmall,
@@ -176,47 +218,55 @@ fun BudgetScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        "Add monthly budget",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                    Text(
-                        "Choose one of the same categories used in Activity.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Add monthly budget",
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                            Text(
+                                "Choose the same category you use in Activity.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showAddCategory = true },
+                            shape = RoundedCornerShape(999.dp)
+                        ) {
+                            Icon(
+                                Icons.Rounded.Add,
+                                contentDescription = null
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Category")
+                        }
+                    }
 
-                    budgetCategoryOptions
-                        .chunked(2)
-                        .forEach { rowOptions ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                rowOptions.forEach { option ->
-                                    BudgetCategoryTile(
-                                        option = option,
-                                        selected =
-                                            selectedCategory == option.category,
-                                        modifier = Modifier.weight(1f),
-                                        onClick = {
-                                            selectCategory(option.category)
-                                        }
-                                    )
-                                }
-                                if (rowOptions.size == 1) {
-                                    androidx.compose.foundation.layout.Spacer(
-                                        Modifier.weight(1f)
-                                    )
-                                }
+                    categories.chunked(2).forEach { rowOptions ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            rowOptions.forEach { category ->
+                                BudgetCategoryTile(
+                                    category = category,
+                                    selected =
+                                        selectedCategoryId == category.id,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { selectCategory(category) }
+                                )
+                            }
+                            if (rowOptions.size == 1) {
+                                Spacer(Modifier.weight(1f))
                             }
                         }
+                    }
 
-                    selectedCategory?.let { category ->
-                        val option = budgetCategoryOptions.first {
-                            it.category == category
-                        }
-                        val spent = spentByCategory[category.name] ?: 0L
+                    selectedCategoryId?.let { categoryId ->
+                        val category = categoryStore.find(categoryId)
+                            ?: return@let
+                        val spent = trackedByCategory[category.id] ?: 0L
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
@@ -224,12 +274,13 @@ fun BudgetScreen(
                         ) {
                             Column(Modifier.padding(13.dp)) {
                                 Text(
-                                    option.label,
+                                    category.label,
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                                 Text(
-                                    "Spent this month: " + formatBudgetMoney(spent),
+                                    "Tracked this month: " +
+                                        formatBudgetMoney(spent),
                                     modifier = Modifier.padding(top = 2.dp),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -261,7 +312,11 @@ fun BudgetScreen(
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Text(
-                                if (budgets.any { it.category == category }) {
+                                if (
+                                    budgets.any {
+                                        it.categoryId == categoryId
+                                    }
+                                ) {
                                     "Update budget"
                                 } else {
                                     "Add budget"
@@ -296,7 +351,7 @@ fun BudgetScreen(
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Text(
-                        "No budgets yet. Add one above and PesaTrack will compare it with trusted Activity spending automatically.",
+                        "No budgets yet. Add one above and PesaTrack will compare it with trusted Activity transactions automatically.",
                         modifier = Modifier.padding(15.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -306,19 +361,32 @@ fun BudgetScreen(
         } else {
             items(
                 count = budgets.size,
-                key = { index -> budgets[index].category.name }
+                key = { index -> budgets[index].categoryId }
             ) { index ->
                 ExistingBudgetRow(
                     budget = budgets[index],
+                    categoryLabel =
+                        categoryStore.labelFor(
+                            budgets[index].categoryId
+                        ),
                     spentMinor =
-                        spentByCategory[budgets[index].category.name] ?: 0L,
+                        trackedByCategory[
+                            budgets[index].categoryId
+                        ] ?: 0L,
                     onEdit = {
-                        selectCategory(budgets[index].category)
+                        categoryStore.find(
+                            budgets[index].categoryId
+                        )?.let(::selectCategory)
                     },
                     onDelete = {
-                        budgetStore.delete(budgets[index].category)
-                        if (selectedCategory == budgets[index].category) {
-                            selectedCategory = null
+                        budgetStore.delete(
+                            budgets[index].categoryId
+                        )
+                        if (
+                            selectedCategoryId ==
+                            budgets[index].categoryId
+                        ) {
+                            selectedCategoryId = null
                             amount = ""
                         }
                     }
@@ -330,7 +398,7 @@ fun BudgetScreen(
 
 @Composable
 private fun BudgetCategoryTile(
-    option: BudgetCategoryOption,
+    category: PesaCategory,
     selected: Boolean,
     modifier: Modifier,
     onClick: () -> Unit
@@ -351,11 +419,11 @@ private fun BudgetCategoryTile(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconBubble(
-                icon = option.icon,
+                icon = categoryIcon(category.id),
                 size = 36.dp
             )
             Text(
-                option.label,
+                category.label,
                 modifier = Modifier.padding(start = 9.dp),
                 style = MaterialTheme.typography.labelLarge,
                 color = if (selected) {
@@ -371,14 +439,11 @@ private fun BudgetCategoryTile(
 @Composable
 private fun ExistingBudgetRow(
     budget: MonthlyBudget,
+    categoryLabel: String,
     spentMinor: Long,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val label = budgetCategoryOptions
-        .firstOrNull { it.category == budget.category }
-        ?.label
-        ?: budget.category.name
     val remaining = (budget.limitMinor - spentMinor).coerceAtLeast(0L)
     val progress = if (budget.limitMinor <= 0L) {
         0f
@@ -393,7 +458,7 @@ private fun ExistingBudgetRow(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    label,
+                    categoryLabel,
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium
                 )
@@ -413,8 +478,9 @@ private fun ExistingBudgetRow(
 
             Text(
                 if (spentMinor > budget.limitMinor) {
-                    formatBudgetMoney(spentMinor - budget.limitMinor) +
-                        " over budget"
+                    formatBudgetMoney(
+                        spentMinor - budget.limitMinor
+                    ) + " over budget"
                 } else {
                     formatBudgetMoney(remaining) + " remaining"
                 },
@@ -443,6 +509,47 @@ private fun ExistingBudgetRow(
         }
     }
 }
+
+private fun categoryIcon(id: String): ImageVector =
+    when (id) {
+        TransactionCategory.GROCERIES.name ->
+            Icons.Rounded.LocalGroceryStore
+        TransactionCategory.EATING_OUT.name ->
+            Icons.Rounded.Restaurant
+        TransactionCategory.TRANSPORT.name ->
+            Icons.Rounded.DirectionsBus
+        TransactionCategory.RENT.name ->
+            Icons.Rounded.Home
+        TransactionCategory.ELECTRICITY.name ->
+            Icons.Rounded.Bolt
+        TransactionCategory.WATER.name ->
+            Icons.Rounded.WaterDrop
+        TransactionCategory.INTERNET.name ->
+            Icons.Rounded.Wifi
+        TransactionCategory.PHONE_AND_DATA.name ->
+            Icons.Rounded.PhoneAndroid
+        TransactionCategory.HOME_HOUSEHOLD.name ->
+            Icons.Rounded.Chair
+        TransactionCategory.SHOPPING.name ->
+            Icons.Rounded.ShoppingBag
+        TransactionCategory.HEALTH.name ->
+            Icons.Rounded.Favorite
+        TransactionCategory.EDUCATION.name ->
+            Icons.Rounded.School
+        TransactionCategory.ENTERTAINMENT.name ->
+            Icons.Rounded.Movie
+        TransactionCategory.FAMILY.name ->
+            Icons.Rounded.FamilyRestroom
+        TransactionCategory.DEBT_LOAN.name ->
+            Icons.Rounded.CreditCard
+        TransactionCategory.SAVINGS.name ->
+            Icons.Rounded.Savings
+        TransactionCategory.INVESTMENT.name ->
+            Icons.Rounded.TrendingUp
+        TransactionCategory.FEES.name ->
+            Icons.Rounded.Paid
+        else -> Icons.Rounded.MoreHoriz
+    }
 
 private fun parseBudgetMoneyMinor(raw: String): Long? =
     runCatching {
