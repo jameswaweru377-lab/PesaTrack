@@ -212,7 +212,7 @@ fun HomeScreen(
                 subtitle = if (cycleSnapshot.cycle == null) {
                     "PesaTrack will calculate this from real salary-cycle data."
                 } else {
-                    "After tracked spending, savings and protected commitments."
+                    "After tracked spending, savings, investments and protected commitments."
                 },
                 footer = cycleSnapshot.safeTodayMinor?.let {
                     "Safe today " + formatMoney(it)
