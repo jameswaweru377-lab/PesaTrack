@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.interpretation.AccountOwnershipHint
 import com.kedevjimmy.pesatrack.domain.interpretation.BalanceObservationFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialEventKind
 import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
@@ -22,6 +23,7 @@ data class DiscoveredFinancialEntity(
     val providerKey: String?,
     val accountTypeHint: String,
     val ownershipHint: AccountOwnershipHint,
+    val natureHint: FinancialAccountNature,
     val confirmedAccountId: String?,
     val firstSeenEpochMs: Long,
     val lastSeenEpochMs: Long
@@ -79,6 +81,7 @@ class FinancialUnderstandingStore private constructor(
                 "ownership_hint",
                 reference.ownershipHint.name
             )
+            put("nature_hint", reference.nature.name)
             if (accountId != null) {
                 put("confirmed_account_id", accountId)
             } else {
@@ -112,6 +115,12 @@ class FinancialUnderstandingStore private constructor(
                     "ownership_hint",
                     reference.ownershipHint.name
                 )
+            }
+            if (
+                reference.nature !=
+                FinancialAccountNature.UNKNOWN
+            ) {
+                put("nature_hint", reference.nature.name)
             }
             if (accountId != null) {
                 put("confirmed_account_id", accountId)
@@ -290,14 +299,18 @@ class FinancialUnderstandingStore private constructor(
             """
             SELECT entity_key, display_name, provider_key,
                    account_type_hint, ownership_hint,
-                   confirmed_account_id,
+                   nature_hint, confirmed_account_id,
                    first_seen_epoch_ms, last_seen_epoch_ms
             FROM financial_entities
             WHERE confirmed_account_id IS NULL
               AND ownership_hint = ?
+              AND nature_hint != ?
             ORDER BY last_seen_epoch_ms DESC
             """.trimIndent(),
-            arrayOf(AccountOwnershipHint.UNKNOWN.name)
+            arrayOf(
+                AccountOwnershipHint.UNKNOWN.name,
+                FinancialAccountNature.LIABILITY.name
+            )
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
@@ -316,14 +329,18 @@ class FinancialUnderstandingStore private constructor(
                                 AccountOwnershipHint.valueOf(
                                     cursor.getString(4)
                                 ),
+                            natureHint =
+                                FinancialAccountNature.valueOf(
+                                    cursor.getString(5)
+                                ),
                             confirmedAccountId =
-                                if (cursor.isNull(5)) {
+                                if (cursor.isNull(6)) {
                                     null
                                 } else {
-                                    cursor.getString(5)
+                                    cursor.getString(6)
                                 },
-                            firstSeenEpochMs = cursor.getLong(6),
-                            lastSeenEpochMs = cursor.getLong(7)
+                            firstSeenEpochMs = cursor.getLong(7),
+                            lastSeenEpochMs = cursor.getLong(8)
                         )
                     )
                 }
@@ -388,6 +405,12 @@ class FinancialUnderstandingStore private constructor(
         entityKey: String
     ): String? {
         val entity = entityByKey(entityKey) ?: return null
+        require(
+            entity.natureHint !=
+                FinancialAccountNature.LIABILITY
+        ) {
+            "Debt products cannot be added as cash or savings accounts."
+        }
         val accountType = runCatching {
             com.kedevjimmy.pesatrack.domain.model.AccountType
                 .valueOf(entity.accountTypeHint)
@@ -484,7 +507,7 @@ class FinancialUnderstandingStore private constructor(
             """
             SELECT entity_key, display_name, provider_key,
                    account_type_hint, ownership_hint,
-                   confirmed_account_id,
+                   nature_hint, confirmed_account_id,
                    first_seen_epoch_ms, last_seen_epoch_ms
             FROM financial_entities
             WHERE entity_key = ?
@@ -506,11 +529,15 @@ class FinancialUnderstandingStore private constructor(
                         AccountOwnershipHint.valueOf(
                             cursor.getString(4)
                         ),
+                    natureHint =
+                        FinancialAccountNature.valueOf(
+                            cursor.getString(5)
+                        ),
                     confirmedAccountId =
-                        if (cursor.isNull(5)) null
-                        else cursor.getString(5),
-                    firstSeenEpochMs = cursor.getLong(6),
-                    lastSeenEpochMs = cursor.getLong(7)
+                        if (cursor.isNull(6)) null
+                        else cursor.getString(6),
+                    firstSeenEpochMs = cursor.getLong(7),
+                    lastSeenEpochMs = cursor.getLong(8)
                 )
             }
         }
