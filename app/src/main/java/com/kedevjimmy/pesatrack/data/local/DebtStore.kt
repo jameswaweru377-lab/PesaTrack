@@ -390,15 +390,20 @@ class DebtStore private constructor(context: Context) {
                 """
                 SELECT id
                 FROM debt_events
-                WHERE debt_account_id = ?
-                  AND event_type = ?
+                WHERE event_type = ?
                   AND linked_transaction_id IS NULL
+                  AND (
+                        funding_account_key IS NULL
+                        OR funding_account_key = ?
+                      )
                   AND occurred_at_epoch_ms BETWEEN ? AND ?
                 ORDER BY occurred_at_epoch_ms ASC, id ASC
                 """.trimIndent(),
                 arrayOf(
-                    FULIZA_ACCOUNT_ID,
                     DebtEventType.REPAYMENT.name,
+                    FinancialProviderRegistry
+                        .mpesaAccount()
+                        .entityKey,
                     (
                         occurredAtEpochMs -
                             REPAYMENT_LINK_WINDOW_MS
@@ -427,6 +432,7 @@ class DebtStore private constructor(context: Context) {
                 """
                 SELECT amount_minor,
                        wallet_balance_after_minor,
+                       funding_account_key,
                        occurred_at_epoch_ms
                 FROM debt_events
                 WHERE id = ?
@@ -450,8 +456,14 @@ class DebtStore private constructor(context: Context) {
                             } else {
                                 cursor.getLong(1)
                             },
+                        fundingAccountKey =
+                            if (cursor.isNull(2)) {
+                                null
+                            } else {
+                                cursor.getString(2)
+                            },
                         occurredAtEpochMs =
-                            cursor.getLong(2)
+                            cursor.getLong(3)
                     )
                 }
             } ?: return
@@ -518,8 +530,18 @@ class DebtStore private constructor(context: Context) {
                 }
             }
 
+        if (
+            repayment.fundingAccountKey != null &&
+            repayment.fundingAccountKey !=
+                FinancialProviderRegistry
+                    .mpesaAccount()
+                    .entityKey
+        ) {
+            return
+        }
+
         val match =
-            FulizaRepaymentChainPolicy
+            DebtRepaymentChainPolicy
                 .chooseFundingTransaction(
                     repaymentAmountMinor =
                         repayment.amountMinor,
@@ -1282,6 +1304,7 @@ class DebtStore private constructor(context: Context) {
     private data class RepaymentEventForLinking(
         val amountMinor: Long,
         val walletBalanceAfterMinor: Long?,
+        val fundingAccountKey: String?,
         val occurredAtEpochMs: Long
     )
 
