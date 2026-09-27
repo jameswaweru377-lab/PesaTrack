@@ -196,7 +196,16 @@ fun HomeScreen(
                             item.relationType ==
                             TransactionStore.RELATION_REFUND
                         ) {
-                            -item.amountMinor
+                            if (
+                                refundCountsInTrustedTotals(
+                                    item = item,
+                                    store = transactionStore
+                                )
+                            ) {
+                                -item.amountMinor
+                            } else {
+                                0L
+                            }
                         } else {
                             item.amountMinor + item.feeMinor
                         }
@@ -232,7 +241,16 @@ fun HomeScreen(
                             item.relationType ==
                             TransactionStore.RELATION_REFUND
                         ) {
-                            -item.amountMinor
+                            if (
+                                refundCountsInTrustedTotals(
+                                    item = item,
+                                    store = transactionStore
+                                )
+                            ) {
+                                -item.amountMinor
+                            } else {
+                                0L
+                            }
                         } else {
                             item.amountMinor + item.feeMinor
                         }
@@ -596,6 +614,20 @@ private fun DebtOverviewCard(
             }
         }
     }
+}
+
+private fun refundCountsInTrustedTotals(
+    item: com.kedevjimmy.pesatrack.data.local.StoredTransaction,
+    store: TransactionStore
+): Boolean {
+    val originalId = item.relatedTransactionId ?: return false
+    val original = store.getById(originalId) ?: return false
+    return original.direction == MoneyDirection.EXPENSE.name &&
+        original.reviewState != ReviewState.EXCLUDED.name &&
+        original.reviewState != ReviewState.NEEDS_REVIEW.name &&
+        original.type !=
+            com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
+                .REVERSAL.name
 }
 
 private fun debtEventLabel(
