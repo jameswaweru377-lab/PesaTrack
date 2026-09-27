@@ -48,12 +48,51 @@ data class FinancialActionCandidate(
     val ruleId: String
 )
 
+data class DebtDrawdownCandidate(
+    val rawLiabilityLabel: String,
+    val liabilitySpan: MessageSpan,
+    val amountMinor: Long,
+    val amountSpan: MessageSpan,
+    val ruleId: String
+)
+
+data class DebtRepaymentCandidate(
+    val amountMinor: Long,
+    val amountSpan: MessageSpan,
+    val rawFundingLabel: String,
+    val fundingSpan: MessageSpan,
+    val rawLiabilityLabel: String,
+    val liabilitySpan: MessageSpan,
+    val completion: DebtCompletion,
+    val ruleId: String
+)
+
+data class OutstandingDebtCandidate(
+    val rawLiabilityLabel: String,
+    val liabilitySpan: MessageSpan,
+    val outstandingMinor: Long,
+    val amountSpan: MessageSpan,
+    val ruleId: String
+)
+
+data class AvailableCreditCandidate(
+    val rawLiabilityLabel: String,
+    val liabilitySpan: MessageSpan,
+    val availableCreditMinor: Long,
+    val amountSpan: MessageSpan,
+    val ruleId: String
+)
+
 data class FinancialMessageCandidates(
     val transactionCode: TextValueCandidate?,
     val occurredAt: TextValueCandidate?,
     val balances: List<BalanceCandidate>,
     val fee: FeeCandidate?,
-    val actions: List<FinancialActionCandidate>
+    val actions: List<FinancialActionCandidate>,
+    val debtDrawdowns: List<DebtDrawdownCandidate>,
+    val debtRepayments: List<DebtRepaymentCandidate>,
+    val outstandingDebts: List<OutstandingDebtCandidate>,
+    val availableCredits: List<AvailableCreditCandidate>
 )
 
 object FinancialCandidateExtractor {
@@ -73,8 +112,27 @@ object FinancialCandidateExtractor {
         )
     )
     private val feeRegex = Regex(
-        """(?:transaction\s+(?:cost|fee)|access\s+fee|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?|charge)\s*[,.:]?\s*(?:Ksh|KES)?\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
+    )
+    private val debtDrawdownRegex = Regex(
+        """([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,4})\s+amount\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val outstandingDebtRegex = Regex(
+        """(?:Total\s+)?([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,5})\s+outstanding\s+amount\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val availableCreditRegex = Regex(
+        """(?:Your\s+)?available\s+([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,5}?)\s+(?:balance\s+)?limit\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val debtRepaymentRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+your\s+(.+?)\s+has\s+been\s+used\s+to\s+(?:(partially|fully)\s+)?pay\s+your\s+outstanding\s+(.+?)(?=\.|$)""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
     )
     private val transferFromRegex = Regex(
         """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:transferred|withdrawn|moved)\s+from\s+(.+?)\s+account\b""",
@@ -151,7 +209,11 @@ object FinancialCandidateExtractor {
                 occurredAt = null,
                 balances = emptyList(),
                 fee = null,
-                actions = emptyList()
+                actions = emptyList(),
+                debtDrawdowns = emptyList(),
+                debtRepayments = emptyList(),
+                outstandingDebts = emptyList(),
+                availableCredits = emptyList()
             )
         }
 
@@ -194,7 +256,91 @@ object FinancialCandidateExtractor {
                         ruleId = it.ruleId
                     )
                 },
-            actions = actions
+            actions = actions,
+            debtDrawdowns = debtDrawdownRegex
+                .findAll(body)
+                .mapNotNull(::debtDrawdownCandidate)
+                .toList(),
+            debtRepayments = debtRepaymentRegex
+                .findAll(body)
+                .mapNotNull(::debtRepaymentCandidate)
+                .toList(),
+            outstandingDebts = outstandingDebtRegex
+                .findAll(body)
+                .mapNotNull(::outstandingDebtCandidate)
+                .toList(),
+            availableCredits = availableCreditRegex
+                .findAll(body)
+                .mapNotNull(::availableCreditCandidate)
+                .toList()
+        )
+    }
+
+    private fun debtDrawdownCandidate(
+        match: MatchResult
+    ): DebtDrawdownCandidate? {
+        val liability = match.groups[1] ?: return null
+        val amount = match.groups[2] ?: return null
+        return DebtDrawdownCandidate(
+            rawLiabilityLabel = liability.value.trim(),
+            liabilitySpan = liability.range.toSpan(),
+            amountMinor = amountToMinor(amount.value),
+            amountSpan = amount.range.toSpan(),
+            ruleId = "debt.drawdown"
+        )
+    }
+
+    private fun debtRepaymentCandidate(
+        match: MatchResult
+    ): DebtRepaymentCandidate? {
+        val amount = match.groups[1] ?: return null
+        val funding = match.groups[2] ?: return null
+        val liability = match.groups[4] ?: return null
+        val completion = when (
+            match.groups[3]?.value?.lowercase()
+        ) {
+            "partially" -> DebtCompletion.PARTIAL
+            "fully" -> DebtCompletion.FULL
+            else -> DebtCompletion.UNKNOWN
+        }
+        return DebtRepaymentCandidate(
+            amountMinor = amountToMinor(amount.value),
+            amountSpan = amount.range.toSpan(),
+            rawFundingLabel = funding.value.trim(),
+            fundingSpan = funding.range.toSpan(),
+            rawLiabilityLabel = liability.value.trim(),
+            liabilitySpan = liability.range.toSpan(),
+            completion = completion,
+            ruleId = "debt.repayment"
+        )
+    }
+
+    private fun outstandingDebtCandidate(
+        match: MatchResult
+    ): OutstandingDebtCandidate? {
+        val liability = match.groups[1] ?: return null
+        val amount = match.groups[2] ?: return null
+        return OutstandingDebtCandidate(
+            rawLiabilityLabel = liability.value.trim(),
+            liabilitySpan = liability.range.toSpan(),
+            outstandingMinor = amountToMinor(amount.value),
+            amountSpan = amount.range.toSpan(),
+            ruleId = "debt.outstanding"
+        )
+    }
+
+    private fun availableCreditCandidate(
+        match: MatchResult
+    ): AvailableCreditCandidate? {
+        val liability = match.groups[1] ?: return null
+        val amount = match.groups[2] ?: return null
+        return AvailableCreditCandidate(
+            rawLiabilityLabel = liability.value.trim(),
+            liabilitySpan = liability.range.toSpan(),
+            availableCreditMinor =
+                amountToMinor(amount.value),
+            amountSpan = amount.range.toSpan(),
+            ruleId = "debt.available_credit"
         )
     }
 
