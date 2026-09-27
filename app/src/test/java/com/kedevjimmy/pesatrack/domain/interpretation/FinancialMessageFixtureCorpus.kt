@@ -1,0 +1,212 @@
+package com.kedevjimmy.pesatrack.domain.interpretation
+
+enum class FixtureCoverage {
+    GENERIC_COMPLETE,
+    LEGACY_REQUIRED,
+    NON_FINANCIAL
+}
+
+data class ExpectedBalanceFixture(
+    val providerKey: String?,
+    val displayName: String,
+    val amountMinor: Long
+)
+
+data class FinancialMessageFixture(
+    val id: String,
+    val title: String?,
+    val body: String,
+    val coverage: FixtureCoverage,
+    val transactionCode: String?,
+    val expectedKinds: List<CanonicalFinancialRecordKind>,
+    val expectedBalances: List<ExpectedBalanceFixture>
+)
+
+object FinancialMessageFixtureCorpus {
+    val all = listOf(
+        FinancialMessageFixture(
+            id = "mshwari_to_mpesa",
+            title = "MPESA",
+            body =
+                "TST12ABC01 Confirmed. Ksh 7,000.00 transferred from M-Shwari account on 28/9/26 at 6:00 PM. M-Shwari balance is Ksh 543.00. M-PESA balance is Ksh 7,789.00.",
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
+            transactionCode = "TST12ABC01",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.TRANSFER
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "NCBA_MSHWARI_SAVINGS",
+                    displayName = "M-Shwari",
+                    amountMinor = 54_300L
+                ),
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 778_900L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "mpesa_to_mshwari",
+            title = "MPESA",
+            body =
+                "TST12ABC02 Confirmed. Ksh 2,500.00 transferred to M-Shwari account on 28/9/26 at 6:15 PM. M-Shwari balance is Ksh 3,043.00. New M-PESA balance is Ksh 5,289.00.",
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
+            transactionCode = "TST12ABC02",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.TRANSFER
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "NCBA_MSHWARI_SAVINGS",
+                    displayName = "M-Shwari",
+                    amountMinor = 304_300L
+                ),
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 528_900L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "unknown_account_to_mpesa",
+            title = "MPESA",
+            body =
+                "TST12ABC03 Confirmed. Ksh 5,000.00 transferred from PesaNova account on 28/9/26 at 7:00 PM. PesaNova balance is Ksh 12,400.00. M-PESA balance is Ksh 8,100.00.",
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
+            transactionCode = "TST12ABC03",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.TRANSFER
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = null,
+                    displayName = "PesaNova",
+                    amountMinor = 1_240_000L
+                ),
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 810_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "ordinary_mpesa_payment",
+            title = "MPESA",
+            body =
+                "TST12ABC04 Confirmed. Ksh 450.00 sent to SAMPLE PERSON 0712000000 on 28/9/26 at 7:10 PM. New M-PESA balance is Ksh 7,650.00. Transaction cost, Ksh 7.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC04",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 765_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "ordinary_mpesa_receipt",
+            title = "MPESA",
+            body =
+                "TST12ABC05 Confirmed. You have received Ksh 2,000.00 from SAMPLE PERSON 0712000001 on 28/9/26 at 7:20 PM. New M-PESA balance is Ksh 9,650.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC05",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 965_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "fuliza_drawdown",
+            title = "MPESA",
+            body =
+                "TST12ABC06 Confirmed. Fuliza M-PESA amount is KSh 167.00. Access Fee charged KSh 1.67. Total Fuliza M-PESA outstanding amount is KSh 1086.51 due on 18/10/26.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC06",
+            expectedKinds = emptyList(),
+            expectedBalances = emptyList()
+        ),
+        FinancialMessageFixture(
+            id = "fuliza_partial_repayment",
+            title = "MPESA",
+            body =
+                "TST12ABC07 Confirmed. Ksh 220.00 from your M-PESA has been used to partially pay your outstanding Fuliza M-PESA. Your available Fuliza M-PESA limit is Ksh 589.09. Your M-PESA balance is Ksh 0.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC07",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 0L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "fuliza_full_repayment",
+            title = "MPESA",
+            body =
+                "TST12ABC08 Confirmed. Ksh 1,381.00 from your M-PESA has been used to fully pay your outstanding Fuliza M-PESA. Available Fuliza balance limit is Ksh 1,440.00. Your M-PESA balance is Ksh 13,000.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC08",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 1_300_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "merchant_refund",
+            title = "MPESA",
+            body =
+                "TST12ABC09 Confirmed. You have received Ksh 220.00 from SAMPLE RIDE LIMITED 3000000 on 28/9/26 at 7:30 PM. New M-PESA balance is Ksh 220.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC09",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 22_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "airtime_balance_only",
+            title = "Safaricom",
+            body = "Your airtime balance is Ksh 73.00.",
+            coverage = FixtureCoverage.NON_FINANCIAL,
+            transactionCode = null,
+            expectedKinds = emptyList(),
+            expectedBalances = emptyList()
+        )
+    )
+}
