@@ -362,6 +362,10 @@ fun ActivityScreen(
                             financialStore.markEntityExternal(
                                 entity.entityKey
                             )
+                            financialCoordinator
+                                .reconcileExternalEntity(
+                                    entity.entityKey
+                                )
                             refresh()
                         }
                     )
