@@ -6,7 +6,6 @@ import com.kedevjimmy.pesatrack.data.local.FinancialEventStatus
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
-import com.kedevjimmy.pesatrack.domain.interpretation.AccountOwnershipHint
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
@@ -86,24 +85,32 @@ class FinancialMessageIngestionCoordinator private constructor(
         interpretation.events.forEach { event ->
             when (event) {
                 is TransferEventFact -> {
+                    understandingStore.observeEntity(
+                        reference = event.source,
+                        observedAtEpochMs =
+                            occurredAtEpochMs
+                    )
+                    understandingStore.observeEntity(
+                        reference = event.destination,
+                        observedAtEpochMs =
+                            occurredAtEpochMs
+                    )
                     val sourceAccountId =
-                        understandingStore.observeEntity(
-                            reference = event.source,
-                            observedAtEpochMs =
-                                occurredAtEpochMs
+                        understandingStore.accountIdFor(
+                            event.source
                         )
                     val destinationAccountId =
-                        understandingStore.observeEntity(
-                            reference = event.destination,
-                            observedAtEpochMs =
-                                occurredAtEpochMs
+                        understandingStore.accountIdFor(
+                            event.destination
                         )
 
                     val canApply =
-                        event.source.ownershipHint ==
-                            AccountOwnershipHint.USER_OWNED &&
-                            event.destination.ownershipHint ==
-                            AccountOwnershipHint.USER_OWNED &&
+                        understandingStore.isUserOwned(
+                            event.source.entityKey
+                        ) &&
+                            understandingStore.isUserOwned(
+                                event.destination.entityKey
+                            ) &&
                             sourceAccountId != null &&
                             destinationAccountId != null
 
@@ -245,6 +252,118 @@ class FinancialMessageIngestionCoordinator private constructor(
                 MpesaTransactionType.RECEIVED
             else -> MpesaTransactionType.OTHER
         }
+
+    @Synchronized
+    fun reconcilePendingTransfers(
+        entityKey: String
+    ): Int {
+        val pending =
+            understandingStore.pendingTransfersForEntity(
+                entityKey
+            )
+        var applied = 0
+
+        pending.forEach { event ->
+            val source =
+                understandingStore.entityByKey(
+                    event.sourceEntityKey
+                ) ?: return@forEach
+            val destination =
+                understandingStore.entityByKey(
+                    event.destinationEntityKey
+                ) ?: return@forEach
+
+            if (
+                !understandingStore.isUserOwned(
+                    source.entityKey
+                ) ||
+                !understandingStore.isUserOwned(
+                    destination.entityKey
+                )
+            ) {
+                return@forEach
+            }
+
+            val sourceAccountId =
+                source.confirmedAccountId
+                    ?: return@forEach
+            val destinationAccountId =
+                destination.confirmedAccountId
+                    ?: return@forEach
+
+            val parsed = ParsedMpesaTransaction(
+                transactionCode = null,
+                type = transactionTypeFor(
+                    sourceAccountId,
+                    destinationAccountId
+                ),
+                amountMinor = event.amountMinor,
+                counterparty =
+                    if (
+                        destinationAccountId ==
+                        AccountStore.DEFAULT_MPESA_ID
+                    ) {
+                        source.displayName
+                    } else {
+                        destination.displayName
+                    },
+                counterpartyPhone = null,
+                feeMinor = event.feeMinor,
+                balanceMinor = null,
+                occurredAtText = null,
+                rawMessage =
+                    "interpreted-event|" +
+                        event.eventKey,
+                reversalOfCode = null
+            )
+
+            val inserted =
+                transactionStore.insertIfNew(
+                    parsed = parsed,
+                    sourcePackage =
+                        event.sourcePackage,
+                    sourceKind =
+                        SOURCE_INTERPRETED_PREFIX +
+                            event.sourceKind,
+                    receivedAtEpochMs =
+                        event.occurredAtEpochMs,
+                    occurredAtEpochMs =
+                        event.occurredAtEpochMs,
+                    matchedRule = null,
+                    rebuildPayCycles = false,
+                    evidence = null,
+                    accountTransferOverride =
+                        OwnAccountTransferMatch(
+                            sourceAccountId =
+                                sourceAccountId,
+                            sourceName =
+                                source.displayName,
+                            destinationAccountId =
+                                destinationAccountId,
+                            destinationName =
+                                destination.displayName,
+                            evidence =
+                                OwnTransferEvidence.ACCOUNT_NAME
+                        )
+                )
+
+            understandingStore.markEventApplied(
+                eventKey = event.eventKey,
+                linkedTransactionId = null
+            )
+            if (inserted) {
+                applied += 1
+            }
+        }
+
+        if (pending.isNotEmpty()) {
+            com.kedevjimmy.pesatrack.data.local.PayCycleStore
+                .get(appContext)
+                .rebuild()
+        }
+
+        return applied
+    }
 
     companion object {
         const val SOURCE_INTERPRETED_PREFIX =
