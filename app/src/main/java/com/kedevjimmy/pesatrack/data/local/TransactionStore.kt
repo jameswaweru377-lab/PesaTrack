@@ -439,7 +439,7 @@ class TransactionStore private constructor(context: Context) {
         excludingId: Long? = null
     ): Int =
         recent(500).count { stored ->
-            stored.reviewState == ReviewState.NEEDS_REVIEW.name &&
+            isLearnableHistoricalMatch(stored) &&
                 stored.id != excludingId &&
                 SmartRuleEngine.matchTransaction(
                     stored.toParsedTransaction(),
@@ -453,7 +453,7 @@ class TransactionStore private constructor(context: Context) {
         var changed = 0
 
         recent(500).forEach { stored ->
-            if (stored.reviewState != ReviewState.NEEDS_REVIEW.name) return@forEach
+            if (!isLearnableHistoricalMatch(stored)) return@forEach
             val parsed = stored.toParsedTransaction()
             if (SmartRuleEngine.matchTransaction(parsed, listOf(rule)) == null) return@forEach
 
@@ -483,6 +483,16 @@ class TransactionStore private constructor(context: Context) {
         }
         return changed
     }
+
+    private fun isLearnableHistoricalMatch(
+        stored: StoredTransaction
+    ): Boolean =
+        stored.reviewState == ReviewState.NEEDS_REVIEW.name ||
+            (
+                stored.reviewState == ReviewState.AUTO_CLASSIFIED.name &&
+                    stored.ruleId == null &&
+                    stored.category == TransactionCategory.OTHER.name
+            )
 
     @Synchronized
     fun classifyManually(
