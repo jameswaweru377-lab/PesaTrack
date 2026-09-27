@@ -386,17 +386,37 @@ fun BudgetProgressCard(
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleLarge
                 )
+                if (items.isNotEmpty()) {
+                    Text(
+                        "View all",
+                        modifier = Modifier.clickable(onClick = onManageClick),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .padding(top = 9.dp)
+                    .clickable(onClick = onManageClick),
+                shape = RoundedCornerShape(999.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
                 Text(
-                    if (items.isEmpty()) "Set up" else "View all",
-                    modifier = Modifier.clickable(onClick = onManageClick),
+                    "+ Add budget",
+                    modifier = Modifier.padding(
+                        horizontal = 12.dp,
+                        vertical = 7.dp
+                    ),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
 
             if (items.isEmpty()) {
                 Text(
-                    "Add planned amounts in Rules and your budget progress will appear here.",
+                    "Choose a category and monthly limit. Activity will track the spending automatically.",
                     modifier = Modifier.padding(top = 10.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
