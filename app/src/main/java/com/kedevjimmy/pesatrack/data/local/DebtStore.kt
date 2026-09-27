@@ -9,6 +9,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.DebtFundingBehavior
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
+import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.parser.FulizaRepaymentCompletion
 import com.kedevjimmy.pesatrack.domain.parser.ParsedFulizaEvent
 import com.kedevjimmy.pesatrack.domain.parser.ParsedFulizaRepayment
@@ -60,9 +61,236 @@ data class DebtEventRecord(
     val occurredAtEpochMs: Long
 )
 
+data class DebtWriteResult(
+    val eventId: Long,
+    val inserted: Boolean,
+    val linkedTransactionId: Long?
+)
+
+
 class DebtStore private constructor(context: Context) {
     private val appContext = context.applicationContext
     private val database = PesaTrackDatabase(appContext)
+
+    @Synchronized
+    fun recordDrawdown(
+        event: DebtDrawdownEventFact,
+        transactionCode: String?,
+        messageFingerprint: String,
+        sourcePackage: String?,
+        sourceKind: String,
+        occurredAtEpochMs: Long,
+        linkedTransactionIdOverride: Long? = null
+    ): DebtWriteResult {
+        val identity =
+            debtAccountIdentity(event.liability)
+        ensureAccount(
+            id = identity.id,
+            providerKey = identity.providerKey,
+            name = identity.name
+        )
+
+        val behavior =
+            FinancialProviderRegistry.debtBehaviorFor(
+                event.liability
+            )
+        val linkedTransactionId =
+            linkedTransactionIdOverride
+                ?: when (
+                    behavior?.fundingBehavior
+                        ?: DebtFundingBehavior.UNKNOWN
+                ) {
+                    DebtFundingBehavior
+                        .TRANSACTION_SHORTFALL ->
+                        findDrawdownFundingTransaction(
+                            financedAmountMinor =
+                                event.amountMinor,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs
+                        )
+                    DebtFundingBehavior.CASH_DISBURSEMENT,
+                    DebtFundingBehavior.UNKNOWN ->
+                        null
+                }
+
+        val insert = insertEvent(
+            eventKey = debtEventKey(
+                prefix =
+                    "debt-drawdown:" +
+                        identity.providerKey,
+                transactionCode =
+                    transactionCode,
+                rawMessage =
+                    messageFingerprint
+            ),
+            debtAccountId = identity.id,
+            type = DebtEventType.DRAWDOWN,
+            amountMinor = event.amountMinor,
+            feeMinor = event.feeMinor,
+            outstandingAfterMinor =
+                event.outstandingAfterMinor,
+            linkedTransactionId =
+                linkedTransactionId,
+            walletBalanceAfterMinor = null,
+            fundingAccountKey = null,
+            availableCreditAfterMinor =
+                event.availableCreditAfterMinor,
+            repaymentCompletion = null,
+            fundingLinkConfidence = null,
+            fundingLinkReason = null,
+            sourcePackage = sourcePackage,
+            sourceKind = sourceKind,
+            occurredAtEpochMs = occurredAtEpochMs
+        )
+
+        event.availableCreditAfterMinor?.let {
+            updateAvailableCredit(
+                accountId = identity.id,
+                availableCreditMinor = it,
+                observedAtEpochMs = occurredAtEpochMs
+            )
+        }
+
+        event.outstandingAfterMinor?.let {
+            updateBalance(
+                accountId = identity.id,
+                outstandingMinor = it,
+                quality =
+                    DebtBalanceQuality.OBSERVED,
+                observedAtEpochMs =
+                    occurredAtEpochMs
+            )
+        } ?: if (insert.inserted) {
+            applyEstimatedDelta(
+                accountId = identity.id,
+                deltaMinor =
+                    event.amountMinor +
+                        event.feeMinor,
+                occurredAtEpochMs =
+                    occurredAtEpochMs
+            )
+        }
+
+        if (
+            linkedTransactionId != null &&
+            behavior
+                ?.preserveLegacyTransactionMetadata ==
+                true
+        ) {
+            applyLegacyTransactionFundingMetadata(
+                transactionId =
+                    linkedTransactionId,
+                event = event,
+                transactionCode =
+                    transactionCode
+            )
+        }
+
+        LedgerUpdateBus.notifyChanged()
+        return DebtWriteResult(
+            eventId = insert.id,
+            inserted = insert.inserted,
+            linkedTransactionId =
+                linkedTransactionId
+        )
+    }
+
+    @Synchronized
+    fun recordRepayment(
+        event: DebtRepaymentEventFact,
+        transactionCode: String?,
+        messageFingerprint: String,
+        sourcePackage: String?,
+        sourceKind: String,
+        occurredAtEpochMs: Long
+    ): DebtWriteResult {
+        val identity =
+            debtAccountIdentity(event.liability)
+        ensureAccount(
+            id = identity.id,
+            providerKey = identity.providerKey,
+            name = identity.name
+        )
+
+        val insert = insertEvent(
+            eventKey = debtEventKey(
+                prefix =
+                    "debt-repayment:" +
+                        identity.providerKey,
+                transactionCode =
+                    transactionCode,
+                rawMessage =
+                    messageFingerprint
+            ),
+            debtAccountId = identity.id,
+            type = DebtEventType.REPAYMENT,
+            amountMinor = event.amountMinor,
+            feeMinor = 0L,
+            outstandingAfterMinor =
+                event.outstandingAfterMinor,
+            linkedTransactionId = null,
+            walletBalanceAfterMinor =
+                event.walletBalanceAfterMinor,
+            fundingAccountKey =
+                event.fundingAccount?.entityKey,
+            availableCreditAfterMinor =
+                event.availableCreditAfterMinor,
+            repaymentCompletion =
+                event.completion,
+            fundingLinkConfidence = null,
+            fundingLinkReason = null,
+            sourcePackage = sourcePackage,
+            sourceKind = sourceKind,
+            occurredAtEpochMs = occurredAtEpochMs
+        )
+
+        event.availableCreditAfterMinor?.let {
+            updateAvailableCredit(
+                accountId = identity.id,
+                availableCreditMinor = it,
+                observedAtEpochMs = occurredAtEpochMs
+            )
+        }
+
+        when (event.completion) {
+            DebtCompletion.FULL ->
+                updateBalance(
+                    accountId = identity.id,
+                    outstandingMinor = 0L,
+                    quality =
+                        DebtBalanceQuality.OBSERVED,
+                    observedAtEpochMs =
+                        occurredAtEpochMs
+                )
+            DebtCompletion.PARTIAL,
+            DebtCompletion.UNKNOWN -> {
+                if (insert.inserted) {
+                    applyEstimatedDelta(
+                        accountId = identity.id,
+                        deltaMinor =
+                            -event.amountMinor,
+                        occurredAtEpochMs =
+                            occurredAtEpochMs
+                    )
+                }
+            }
+        }
+
+        if (
+            event.fundingAccount?.providerKey ==
+                MPESA_PROVIDER_KEY
+        ) {
+            reconcileRepaymentEvent(insert.id)
+        }
+
+        val linked = linkedTransactionId(insert.id)
+        LedgerUpdateBus.notifyChanged()
+        return DebtWriteResult(
+            eventId = insert.id,
+            inserted = insert.inserted,
+            linkedTransactionId = linked
+        )
+    }
 
     @Synchronized
     fun recordFulizaDrawdown(
@@ -72,60 +300,35 @@ class DebtStore private constructor(context: Context) {
         occurredAtEpochMs: Long,
         linkedTransactionId: Long?
     ) {
-        ensureAccount(
-            id = FULIZA_ACCOUNT_ID,
-            providerKey = FULIZA_PROVIDER_KEY,
-            name = "Fuliza M-PESA"
-        )
-
-        val outstanding = parsed.outstandingAmountMinor
-        val insert = insertEvent(
-            eventKey = debtEventKey(
-                prefix = "fuliza-drawdown",
-                transactionCode = parsed.transactionCode,
-                rawMessage = parsed.rawMessage
+        recordDrawdown(
+            event = DebtDrawdownEventFact(
+                amountMinor =
+                    parsed.financedAmountMinor,
+                liability =
+                    FinancialProviderRegistry
+                        .resolveAccount(
+                            "Fuliza M-PESA"
+                        ),
+                feeMinor =
+                    parsed.accessFeeMinor,
+                outstandingAfterMinor =
+                    parsed.outstandingAmountMinor,
+                availableCreditAfterMinor =
+                    parsed.availableLimitMinor,
+                confidence =
+                    InterpretationConfidence.HIGH
             ),
-            debtAccountId = FULIZA_ACCOUNT_ID,
-            type = DebtEventType.DRAWDOWN,
-            amountMinor = parsed.financedAmountMinor,
-            feeMinor = parsed.accessFeeMinor,
-            outstandingAfterMinor = outstanding,
-            linkedTransactionId = linkedTransactionId,
-            walletBalanceAfterMinor = null,
-            availableCreditAfterMinor =
-                parsed.availableLimitMinor,
-            repaymentCompletion = null,
-            fundingLinkConfidence = null,
-            fundingLinkReason = null,
+            transactionCode =
+                parsed.transactionCode,
+            messageFingerprint =
+                parsed.rawMessage,
             sourcePackage = sourcePackage,
             sourceKind = sourceKind,
-            occurredAtEpochMs = occurredAtEpochMs
+            occurredAtEpochMs =
+                occurredAtEpochMs,
+            linkedTransactionIdOverride =
+                linkedTransactionId
         )
-
-        parsed.availableLimitMinor?.let { available ->
-            updateAvailableCredit(
-                accountId = FULIZA_ACCOUNT_ID,
-                availableCreditMinor = available,
-                observedAtEpochMs = occurredAtEpochMs
-            )
-        }
-
-        if (outstanding != null) {
-            updateBalance(
-                accountId = FULIZA_ACCOUNT_ID,
-                outstandingMinor = outstanding,
-                quality = DebtBalanceQuality.OBSERVED,
-                observedAtEpochMs = occurredAtEpochMs
-            )
-        } else if (insert.inserted) {
-            applyEstimatedDelta(
-                accountId = FULIZA_ACCOUNT_ID,
-                deltaMinor =
-                    parsed.financedAmountMinor +
-                        parsed.accessFeeMinor,
-                occurredAtEpochMs = occurredAtEpochMs
-            )
-        }
     }
 
     @Synchronized
@@ -135,69 +338,47 @@ class DebtStore private constructor(context: Context) {
         sourceKind: String,
         occurredAtEpochMs: Long
     ): Long {
-        ensureAccount(
-            id = FULIZA_ACCOUNT_ID,
-            providerKey = FULIZA_PROVIDER_KEY,
-            name = "Fuliza M-PESA"
-        )
-
-        val insert = insertEvent(
-            eventKey = debtEventKey(
-                prefix = "fuliza-repayment",
-                transactionCode = parsed.transactionCode,
-                rawMessage = parsed.rawMessage
+        val result = recordRepayment(
+            event = DebtRepaymentEventFact(
+                amountMinor =
+                    parsed.repaidAmountMinor,
+                liability =
+                    FinancialProviderRegistry
+                        .resolveAccount(
+                            "Fuliza M-PESA"
+                        ),
+                fundingAccount =
+                    FinancialProviderRegistry
+                        .mpesaAccount(),
+                completion = when (
+                    parsed.completion
+                ) {
+                    FulizaRepaymentCompletion.PARTIAL ->
+                        DebtCompletion.PARTIAL
+                    FulizaRepaymentCompletion.FULL ->
+                        DebtCompletion.FULL
+                    FulizaRepaymentCompletion.UNKNOWN ->
+                        DebtCompletion.UNKNOWN
+                },
+                outstandingAfterMinor =
+                    parsed.outstandingAfterMinor,
+                availableCreditAfterMinor =
+                    parsed.availableLimitMinor,
+                walletBalanceAfterMinor =
+                    parsed.mpesaBalanceMinor,
+                confidence =
+                    InterpretationConfidence.HIGH
             ),
-            debtAccountId = FULIZA_ACCOUNT_ID,
-            type = DebtEventType.REPAYMENT,
-            amountMinor = parsed.repaidAmountMinor,
-            feeMinor = 0L,
-            outstandingAfterMinor =
-                parsed.outstandingAfterMinor,
-            linkedTransactionId = null,
-            walletBalanceAfterMinor =
-                parsed.mpesaBalanceMinor,
-            availableCreditAfterMinor =
-                parsed.availableLimitMinor,
-            repaymentCompletion = parsed.completion,
-            fundingLinkConfidence = null,
-            fundingLinkReason = null,
+            transactionCode =
+                parsed.transactionCode,
+            messageFingerprint =
+                parsed.rawMessage,
             sourcePackage = sourcePackage,
             sourceKind = sourceKind,
-            occurredAtEpochMs = occurredAtEpochMs
+            occurredAtEpochMs =
+                occurredAtEpochMs
         )
-
-        parsed.availableLimitMinor?.let { available ->
-            updateAvailableCredit(
-                accountId = FULIZA_ACCOUNT_ID,
-                availableCreditMinor = available,
-                observedAtEpochMs = occurredAtEpochMs
-            )
-        }
-
-        when (parsed.completion) {
-            FulizaRepaymentCompletion.FULL ->
-                updateBalance(
-                    accountId = FULIZA_ACCOUNT_ID,
-                    outstandingMinor = 0L,
-                    quality = DebtBalanceQuality.OBSERVED,
-                    observedAtEpochMs = occurredAtEpochMs
-                )
-            FulizaRepaymentCompletion.PARTIAL,
-            FulizaRepaymentCompletion.UNKNOWN -> {
-                if (insert.inserted) {
-                    applyEstimatedDelta(
-                        accountId = FULIZA_ACCOUNT_ID,
-                        deltaMinor =
-                            -parsed.repaidAmountMinor,
-                        occurredAtEpochMs =
-                            occurredAtEpochMs
-                    )
-                }
-            }
-        }
-
-        reconcileRepaymentEvent(insert.id)
-        return insert.id
+        return result.eventId
     }
 
     @Synchronized
