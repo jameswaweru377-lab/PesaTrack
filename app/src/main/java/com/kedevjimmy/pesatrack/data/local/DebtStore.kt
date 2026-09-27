@@ -1251,12 +1251,9 @@ class DebtStore private constructor(context: Context) {
     private fun debtAccountReferenceForProvider(
         providerKey: String
     ): FinancialAccountReference =
-        if (
-            providerKey.startsWith(
-                "discovered:"
-            )
-        ) {
-            FinancialProviderRegistry
+        FinancialProviderRegistry
+            .referenceForProviderKey(providerKey)
+            ?: FinancialProviderRegistry
                 .resolveAccount(
                     providerKey
                         .removePrefix(
@@ -1270,16 +1267,6 @@ class DebtStore private constructor(context: Context) {
                             .interpretation
                             .FinancialAccountNature.LIABILITY
                 )
-        } else {
-            FinancialProviderRegistry
-                .resolveAccount(
-                    when (providerKey) {
-                        FULIZA_PROVIDER_KEY ->
-                            "Fuliza M-PESA"
-                        else -> providerKey
-                    }
-                )
-        }
 
     private fun sha256(
         value: String
