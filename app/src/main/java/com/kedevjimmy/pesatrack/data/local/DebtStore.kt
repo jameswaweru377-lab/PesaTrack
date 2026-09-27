@@ -156,7 +156,7 @@ class DebtStore private constructor(context: Context) {
               AND amount_minor = ?
               AND occurred_at_epoch_ms BETWEEN ? AND ?
             ORDER BY ABS(occurred_at_epoch_ms - ?) ASC
-            LIMIT 1
+            LIMIT 2
             """.trimIndent(),
             arrayOf(
                 FULIZA_ACCOUNT_ID,
@@ -169,7 +169,11 @@ class DebtStore private constructor(context: Context) {
                 occurredAtEpochMs.toString()
             )
         ).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getLong(0) else null
+            val ids = mutableListOf<Long>()
+            while (cursor.moveToNext()) {
+                ids += cursor.getLong(0)
+            }
+            ids.singleOrNull()
         } ?: return
 
         ContentValues().apply {
@@ -285,7 +289,7 @@ class DebtStore private constructor(context: Context) {
               AND occurred_at_epoch_ms BETWEEN ? AND ?
               AND review_state != ?
             ORDER BY ABS(occurred_at_epoch_ms - ?) ASC
-            LIMIT 1
+            LIMIT 2
             """.trimIndent(),
             arrayOf(
                 amountMinor.toString(),
@@ -302,7 +306,11 @@ class DebtStore private constructor(context: Context) {
                 occurredAtEpochMs.toString()
             )
         ).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getLong(0) else null
+            val ids = mutableListOf<Long>()
+            while (cursor.moveToNext()) {
+                ids += cursor.getLong(0)
+            }
+            ids.singleOrNull()
         }
 
     private fun ensureAccount(
