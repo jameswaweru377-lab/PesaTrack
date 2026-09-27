@@ -676,7 +676,9 @@ fun InitialMoneySetupScreen(
                         displayLabel = "Salary",
                         preset = RulePreset.SALARY,
                         startsPayCycle = true,
-                        accountId = salaryAccount.id
+                        accountId = salaryAccount.id,
+                        payWindowStartDay = payWindowStartDay,
+                        payWindowEndDay = payWindowEndDay
                     )
                 }
 
@@ -690,7 +692,9 @@ fun InitialMoneySetupScreen(
                         displayLabel = "Salary",
                         preset = RulePreset.SALARY,
                         startsPayCycle = true,
-                        accountId = salaryAccount.id
+                        accountId = salaryAccount.id,
+                        payWindowStartDay = payWindowStartDay,
+                        payWindowEndDay = payWindowEndDay
                     )
 
                 ArrivalChoice.CASH ->
@@ -703,7 +707,9 @@ fun InitialMoneySetupScreen(
                         displayLabel = "Salary",
                         preset = RulePreset.SALARY,
                         startsPayCycle = true,
-                        accountId = salaryAccount.id
+                        accountId = salaryAccount.id,
+                        payWindowStartDay = payWindowStartDay,
+                        payWindowEndDay = payWindowEndDay
                     )
 
                 null -> return
