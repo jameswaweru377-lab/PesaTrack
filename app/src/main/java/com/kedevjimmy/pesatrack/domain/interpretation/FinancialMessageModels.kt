@@ -21,6 +21,8 @@ enum class FinancialAccountNature {
 }
 
 enum class FinancialEventKind {
+    PAYMENT,
+    RECEIPT,
     TRANSFER,
     INCOME,
     EXPENSE,
@@ -61,6 +63,32 @@ data class TransferEventFact(
 ) : FinancialEventFact {
     override val kind: FinancialEventKind =
         FinancialEventKind.TRANSFER
+}
+
+data class PaymentEventFact(
+    val amountMinor: Long,
+    val source: FinancialAccountReference,
+    val counterparty: String,
+    val counterpartyPhone: String?,
+    val feeMinor: Long,
+    override val confidence: InterpretationConfidence,
+    val evidence: List<FieldEvidence> = emptyList()
+) : FinancialEventFact {
+    override val kind: FinancialEventKind =
+        FinancialEventKind.PAYMENT
+}
+
+data class ReceiptEventFact(
+    val amountMinor: Long,
+    val destination: FinancialAccountReference,
+    val counterparty: String,
+    val counterpartyPhone: String?,
+    val feeMinor: Long,
+    override val confidence: InterpretationConfidence,
+    val evidence: List<FieldEvidence> = emptyList()
+) : FinancialEventFact {
+    override val kind: FinancialEventKind =
+        FinancialEventKind.RECEIPT
 }
 
 data class FinancialMessageInterpretation(
