@@ -1327,7 +1327,7 @@ private fun ActivitySummaryCard(
                             .padding(start = 10.dp)
                     ) {
                         Text(
-                            "Saved this month",
+                            "Saved & invested",
                             style =
                                 MaterialTheme
                                     .typography
@@ -1563,8 +1563,10 @@ private fun monthSavings(
 ): Long =
     snapshot.transactions
         .filter {
-            it.category ==
-                TransactionCategory.SAVINGS.name &&
+            it.category in setOf(
+                TransactionCategory.SAVINGS.name,
+                TransactionCategory.INVESTMENT.name
+            ) &&
                 it.reviewState !=
                     ReviewState.EXCLUDED.name &&
                 it.reviewState !=
