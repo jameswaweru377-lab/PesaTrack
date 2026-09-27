@@ -23,6 +23,10 @@ object MpesaParser {
         """paid\s+to\s+(.+?)(?=\s+for\s+account|\s+on\s+\d|\.\s*New\s+M-PESA|$)""",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
     )
+    private val transferredToRegex = Regex(
+        """(?:transferred|transfer)\s+to\s+(.+?)(?=\s+(?:\+?254|0)\d{8,9}\b|\s+on\s+\d|\.\s*New\s+M-PESA|$)""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+    )
     private val receivedFromRegex = Regex(
         """received\s+(?:Ksh|KES)\s*[0-9,]+(?:\.\d{1,2})?\s+from\s+(.+?)(?=\s+(?:\+?254|0)\d{8,9}\b|\s+on\s+\d|\.\s*New\s+M-PESA|$)""",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
@@ -88,6 +92,8 @@ object MpesaParser {
             "paid to" in lower && ("paybill" in lower || "account" in lower) -> MpesaTransactionType.PAY_BILL
             "paid to" in lower -> MpesaTransactionType.BUY_GOODS
             "sent to" in lower -> MpesaTransactionType.SENT_MONEY
+            "transferred to" in lower || "transfer to" in lower ->
+                MpesaTransactionType.SENT_MONEY
             "airtime" in lower -> MpesaTransactionType.AIRTIME
             "deposit" in lower -> MpesaTransactionType.DEPOSIT
             else -> MpesaTransactionType.OTHER
@@ -96,7 +102,9 @@ object MpesaParser {
 
     private fun extractCounterparty(message: String, type: MpesaTransactionType): String? {
         val raw = when (type) {
-            MpesaTransactionType.SENT_MONEY -> sentToRegex.find(message)?.groupValues?.get(1)
+            MpesaTransactionType.SENT_MONEY ->
+                sentToRegex.find(message)?.groupValues?.get(1)
+                    ?: transferredToRegex.find(message)?.groupValues?.get(1)
             MpesaTransactionType.PAY_BILL,
             MpesaTransactionType.BUY_GOODS -> paidToRegex.find(message)?.groupValues?.get(1)
             MpesaTransactionType.RECEIVED -> receivedFromRegex.find(message)?.groupValues?.get(1)

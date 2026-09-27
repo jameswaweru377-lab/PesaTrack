@@ -29,7 +29,11 @@ data class StoredTransaction(
     val fulizaFinancedMinor: Long = 0L,
     val fulizaAccessFeeMinor: Long = 0L,
     val fulizaOutstandingMinor: Long? = null,
-    val fulizaEventCode: String? = null
+    val fulizaEventCode: String? = null,
+    val evidenceLabel: String? = null,
+    val evidenceSource: String? = null,
+    val evidenceConfidence: String? = null,
+    val evidenceTimeDeltaMs: Long? = null
 )
 
 data class LedgerSnapshot(

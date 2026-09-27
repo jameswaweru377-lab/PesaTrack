@@ -70,6 +70,17 @@ class MpesaParserTest {
     }
 
     @Test
+    fun parsesTransferredToCounterpartyVariant() {
+        val message = "TQK77ABC99 Confirmed. Ksh10,000.00 transferred to KCB ACCOUNT on 24/9/26 at 9:54 PM. New M-PESA balance is Ksh2,500.00."
+
+        val parsed = MpesaParser.parse(message)
+
+        assertNotNull(parsed)
+        assertEquals(MpesaTransactionType.SENT_MONEY, parsed?.type)
+        assertEquals("KCB ACCOUNT", parsed?.counterparty)
+    }
+
+    @Test
     fun leavesFulizaConfirmationForDedicatedParser() {
         val message = "UFAGA7JQOD Confirmed. Fuliza M-PESA amount is KSh 167.00. Access Fee charged KSh 1.67. Total Fuliza M-PESA outstanding amount is KSh 1086.51 due on 18/05/26."
 
