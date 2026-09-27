@@ -3,10 +3,18 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import com.kedevjimmy.pesatrack.domain.interpretation.DebtCompletion
+import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.DebtFundingBehavior
+import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.parser.FulizaRepaymentCompletion
 import com.kedevjimmy.pesatrack.domain.parser.ParsedFulizaEvent
 import com.kedevjimmy.pesatrack.domain.parser.ParsedFulizaRepayment
-import com.kedevjimmy.pesatrack.domain.rules.FulizaRepaymentChainPolicy
+import com.kedevjimmy.pesatrack.domain.rules.DebtFundingCandidate
+import com.kedevjimmy.pesatrack.domain.rules.DebtFundingPairingPolicy
+import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentChainPolicy
 import com.kedevjimmy.pesatrack.domain.rules.RepaymentChainConfidence
 import com.kedevjimmy.pesatrack.domain.rules.RepaymentFundingCandidate
 import java.security.MessageDigest
@@ -44,8 +52,9 @@ data class DebtEventRecord(
     val outstandingAfterMinor: Long?,
     val linkedTransactionId: Long?,
     val walletBalanceAfterMinor: Long?,
+    val fundingAccountKey: String?,
     val availableCreditAfterMinor: Long?,
-    val repaymentCompletion: FulizaRepaymentCompletion?,
+    val repaymentCompletion: DebtCompletion?,
     val fundingLinkConfidence: RepaymentChainConfidence?,
     val fundingLinkReason: String?,
     val occurredAtEpochMs: Long
