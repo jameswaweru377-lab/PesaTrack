@@ -481,6 +481,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 provider_key TEXT,
                 account_type_hint TEXT NOT NULL,
                 ownership_hint TEXT NOT NULL,
+                nature_hint TEXT NOT NULL,
                 confirmed_account_id TEXT,
                 first_seen_epoch_ms INTEGER NOT NULL,
                 last_seen_epoch_ms INTEGER NOT NULL
