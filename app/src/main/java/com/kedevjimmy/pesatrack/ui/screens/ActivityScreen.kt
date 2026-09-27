@@ -85,6 +85,8 @@ import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivityMonthBucket
 import com.kedevjimmy.pesatrack.data.local.ActivityReviewOverview
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
+import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
+import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PossibleDuplicateGroup
 import com.kedevjimmy.pesatrack.data.local.ReviewGroup
@@ -94,6 +96,7 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.ingestion.FinancialMessageIngestionCoordinator
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.PesaTrackTopBar
@@ -115,6 +118,12 @@ fun ActivityScreen(
 ) {
     val context = LocalContext.current
     val store = remember { TransactionStore.get(context) }
+    val financialStore = remember {
+        FinancialUnderstandingStore.get(context)
+    }
+    val financialCoordinator = remember {
+        FinancialMessageIngestionCoordinator.get(context)
+    }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
     val currentMonthEpochMs = remember {
         monthStart(System.currentTimeMillis())
@@ -169,6 +178,9 @@ fun ActivityScreen(
     var globalOverview by remember {
         mutableStateOf(store.activityReviewOverview())
     }
+    var pendingFinancialEntities by remember {
+        mutableStateOf(financialStore.pendingEntities())
+    }
     var selectedFilter by remember {
         mutableStateOf("All")
     }
@@ -208,6 +220,8 @@ fun ActivityScreen(
             )
         )
         globalOverview = store.activityReviewOverview()
+        pendingFinancialEntities =
+            financialStore.pendingEntities()
     }
 
     LaunchedEffect(ledgerUpdateState.revision) {
@@ -321,6 +335,37 @@ fun ActivityScreen(
                     previousSnapshot = previousSnapshot,
                     monthLabel = selectedMonthLabel
                 )
+            }
+
+            if (pendingFinancialEntities.isNotEmpty()) {
+                item {
+                    FinancialAccountDiscoveryCard(
+                        entity =
+                            pendingFinancialEntities.first(),
+                        remainingCount =
+                            pendingFinancialEntities.size - 1,
+                        onConfirmOwned = {
+                            val entity =
+                                pendingFinancialEntities.first()
+                            financialStore.confirmEntityOwned(
+                                entity.entityKey
+                            )
+                            financialCoordinator
+                                .reconcilePendingTransfers(
+                                    entity.entityKey
+                                )
+                            refresh()
+                        },
+                        onNotMine = {
+                            val entity =
+                                pendingFinancialEntities.first()
+                            financialStore.markEntityExternal(
+                                entity.entityKey
+                            )
+                            refresh()
+                        }
+                    )
+                }
             }
 
             item {
@@ -597,6 +642,81 @@ fun ActivityScreen(
                 showMonthPicker = false
             }
         )
+    }
+}
+
+@Composable
+private fun FinancialAccountDiscoveryCard(
+    entity: DiscoveredFinancialEntity,
+    remainingCount: Int,
+    onConfirmOwned: () -> Unit,
+    onNotMine: () -> Unit
+) {
+    PesaCard {
+        Column(
+            modifier = Modifier.padding(15.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconBubble(
+                    icon = Icons.Rounded.AccountBalance,
+                    size = 44.dp,
+                    background = pesaToneContainer("blue"),
+                    tint = pesaToneContent("blue")
+                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp)
+                ) {
+                    Text(
+                        "New financial account found",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        entity.displayName,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+                SmallStatusPill("Review")
+            }
+
+            Text(
+                "A financial message looks like it refers to this account. PesaTrack has not assumed it belongs to you.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (remainingCount > 0) {
+                Text(
+                    "+" + remainingCount +
+                        " more account" +
+                        if (remainingCount == 1) "" else "s" +
+                        " waiting for review",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onNotMine,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Not mine")
+                }
+                Button(
+                    onClick = onConfirmOwned,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("My account")
+                }
+            }
+        }
     }
 }
 
