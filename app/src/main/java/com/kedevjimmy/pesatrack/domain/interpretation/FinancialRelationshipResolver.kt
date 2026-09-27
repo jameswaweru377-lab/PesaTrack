@@ -38,6 +38,15 @@ data class ResolvedReceiptRelationship(
     override val evidence: List<FieldEvidence>
 ) : ResolvedFinancialRelationship
 
+data class ResolvedReversalRelationship(
+    override val amountMinor: Long,
+    val account: FinancialAccountReference?,
+    val originalTransactionCode: String,
+    override val feeMinor: Long = 0L,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence>
+) : ResolvedFinancialRelationship
+
 data class ResolvedDebtDrawdownRelationship(
     override val amountMinor: Long,
     val liability: FinancialAccountReference,
@@ -101,6 +110,14 @@ object FinancialRelationshipResolver {
                 null
             }
 
+        val reversalRelationship =
+            candidates.reversal?.let {
+                resolveReversal(
+                    candidate = it,
+                    observedAccount = observedWallet
+                )
+            }
+
         val debtRelationship =
             resolveDebt(
                 candidates = candidates,
@@ -110,7 +127,8 @@ object FinancialRelationshipResolver {
         val prioritized = candidates.actions
             .sortedBy(::priority)
 
-        val relationship = debtRelationship ?:
+        val relationship = reversalRelationship ?:
+            debtRelationship ?:
             prioritized.firstNotNullOfOrNull { action ->
                 resolveAction(
                     action = action,
@@ -172,6 +190,64 @@ object FinancialRelationshipResolver {
             )
         )
     }
+
+    private fun resolveReversal(
+        candidate: ReversalCandidate,
+        observedAccount: FinancialAccountReference?
+    ): ResolvedReversalRelationship =
+        ResolvedReversalRelationship(
+            amountMinor = candidate.amountMinor,
+            account = observedAccount,
+            originalTransactionCode =
+                candidate.originalTransactionCode,
+            confidence =
+                InterpretationConfidence.HIGH,
+            evidence = buildList {
+                add(
+                    evidence(
+                        field = FinancialField.AMOUNT,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId + ".amount",
+                        span = candidate.amountSpan,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+                add(
+                    evidence(
+                        field =
+                            FinancialField.RELATIONSHIP,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId +
+                                ".original_code",
+                        span =
+                            candidate
+                                .originalTransactionCodeSpan,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+                if (observedAccount != null) {
+                    add(
+                        evidence(
+                            field = FinancialField.ACCOUNT,
+                            origin =
+                                EvidenceOrigin.PROVIDER_PROFILE,
+                            ruleId =
+                                candidate.ruleId +
+                                    ".observed_account",
+                            span = null,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
+            }
+        )
 
     private fun resolveDebt(
         candidates: FinancialMessageCandidates,
