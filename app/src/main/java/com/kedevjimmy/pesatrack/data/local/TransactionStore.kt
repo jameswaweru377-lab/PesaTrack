@@ -586,6 +586,7 @@ class TransactionStore private constructor(context: Context) {
                 it.reviewState != ReviewState.EXCLUDED.name
         }
         val db = database.writableDatabase
+        val claimedDuplicateIds = mutableSetOf<Long>()
         var removed = 0
 
         mpesaCanonical.forEach { canonical ->
@@ -593,6 +594,7 @@ class TransactionStore private constructor(context: Context) {
             val candidate = duplicates
                 .asSequence()
                 .filter { it.id != canonical.id }
+                .filter { it.id !in claimedDuplicateIds }
                 .filter { it.amountMinor == canonical.amountMinor }
                 .filter {
                     kotlin.math.abs(
@@ -610,6 +612,8 @@ class TransactionStore private constructor(context: Context) {
                         it.receivedAtEpochMs - canonical.receivedAtEpochMs
                     )
                 } ?: return@forEach
+
+            claimedDuplicateIds += candidate.id
 
             if (canonical.ruleId == null && candidate.ruleId != null) {
                 val values = ContentValues().apply {
