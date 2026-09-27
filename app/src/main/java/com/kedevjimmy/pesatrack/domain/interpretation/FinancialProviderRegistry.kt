@@ -142,6 +142,29 @@ object FinancialProviderRegistry {
             }?.debtBehavior
         }
 
+    fun referenceForProviderKey(
+        providerKey: String
+    ): FinancialAccountReference? =
+        known.firstOrNull {
+            it.providerKey == providerKey
+        }?.let { provider ->
+            FinancialAccountReference(
+                entityKey =
+                    "provider:" +
+                        provider.providerKey,
+                displayName =
+                    provider.canonicalName,
+                providerKey =
+                    provider.providerKey,
+                accountTypeHint =
+                    provider.accountType,
+                ownershipHint =
+                    provider.ownershipHint,
+                nature =
+                    provider.nature
+            )
+        }
+
 
     fun looksLikeNonFinancialBalanceLabel(rawLabel: String): Boolean {
         val normalized = normalize(rawLabel)
