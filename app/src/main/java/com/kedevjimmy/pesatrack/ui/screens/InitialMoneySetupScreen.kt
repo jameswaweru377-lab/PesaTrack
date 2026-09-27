@@ -1444,6 +1444,58 @@ private fun IdentifyIncomeStep(
 }
 
 @Composable
+private fun PaydayWindowStep(
+    selected: PayWindowChoice,
+    customStart: String,
+    customEnd: String,
+    onSelected: (PayWindowChoice) -> Unit,
+    onCustomStartChanged: (String) -> Unit,
+    onCustomEndChanged: (String) -> Unit
+) {
+    SetupQuestion(
+        title = "When do you usually get paid?",
+        body = "Optional. This is only an expected window; PesaTrack never counts salary until the money is actually detected or you add it."
+    ) {
+        PayWindowChoice.entries.forEach { choice ->
+            SetupChoice(
+                icon = Icons.Rounded.CalendarMonth,
+                title = choice.label,
+                helper = choice.helper,
+                selected = selected == choice,
+                onClick = { onSelected(choice) }
+            )
+        }
+
+        if (selected == PayWindowChoice.CUSTOM) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = customStart,
+                    onValueChange = onCustomStartChanged,
+                    label = { Text("Earliest day") },
+                    placeholder = { Text("24") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = customEnd,
+                    onValueChange = onCustomEndChanged,
+                    label = { Text("Latest day") },
+                    placeholder = { Text("28") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+            }
+        }
+
+        Text(
+            "If the window passes without a recognized salary, the current pay cycle continues until a real salary arrives.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
 private fun ManualSalaryHistoryStep(
     months: List<HistoryMonth>,
     drafts: Map<String, ManualSalaryDraft>,
