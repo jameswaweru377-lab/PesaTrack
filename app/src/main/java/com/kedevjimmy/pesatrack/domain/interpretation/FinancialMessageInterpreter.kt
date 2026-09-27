@@ -266,7 +266,7 @@ object FinancialMessageInterpreter {
                             EvidenceOrigin.PROVIDER_PROFILE
                     )
                 )
-                fee?.second?.let(::add)
+                fee?.second?.let { add(it) }
             }
         )
     }
@@ -332,7 +332,7 @@ object FinancialMessageInterpreter {
                         )
                     )
                 }
-                fee?.second?.let(::add)
+                fee?.second?.let { add(it) }
             }
         )
     }
