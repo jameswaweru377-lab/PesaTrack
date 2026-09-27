@@ -758,44 +758,28 @@ private fun CategoryGrid(
         )
     }
 
+    val compactCategories = categories.filter {
+        it.label.length <= 11
+    }
+    val wideCategories = categories.filter {
+        it.label.length > 11
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        categories.chunked(2).forEach { rowItems ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                rowItems.forEach { category ->
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { onSelected(category.id) },
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (
-                            currentCategoryId == category.id
-                        ) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surface
-                        }
-                    ) {
-                        Text(
-                            category.label,
-                            modifier = Modifier.padding(
-                                horizontal = 12.dp,
-                                vertical = 13.dp
-                            ),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (
-                                currentCategoryId == category.id
-                            ) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            }
-                        )
-                    }
-                }
-                if (rowItems.size == 1) {
-                    Spacer(Modifier.weight(1f))
-                }
-            }
+        CategoryGridRows(
+            categories = compactCategories,
+            columns = 3,
+            currentCategoryId = currentCategoryId,
+            onSelected = onSelected
+        )
+
+        if (wideCategories.isNotEmpty()) {
+            CategoryGridRows(
+                categories = wideCategories,
+                columns = 2,
+                currentCategoryId = currentCategoryId,
+                onSelected = onSelected
+            )
         }
 
         OutlinedButton(
@@ -808,6 +792,62 @@ private fun CategoryGrid(
                 "Add category",
                 modifier = Modifier.padding(start = 6.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun CategoryGridRows(
+    categories: List<com.kedevjimmy.pesatrack.data.local.PesaCategory>,
+    columns: Int,
+    currentCategoryId: String,
+    onSelected: (String) -> Unit
+) {
+    categories.chunked(columns).forEach { rowItems ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            rowItems.forEach { category ->
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelected(category.id) },
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (
+                        currentCategoryId == category.id
+                    ) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    }
+                ) {
+                    Text(
+                        category.label,
+                        modifier = Modifier.padding(
+                            horizontal = if (columns == 3) {
+                                10.dp
+                            } else {
+                                12.dp
+                            },
+                            vertical = 12.dp
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        color = if (
+                            currentCategoryId == category.id
+                        ) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+                }
+            }
+
+            repeat(columns - rowItems.size) {
+                Spacer(Modifier.weight(1f))
+            }
         }
     }
 }
