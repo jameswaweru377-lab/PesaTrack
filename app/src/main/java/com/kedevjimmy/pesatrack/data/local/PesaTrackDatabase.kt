@@ -164,28 +164,76 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         if (oldVersion < 14) {
-            db.execSQL(
-                "ALTER TABLE debt_accounts ADD COLUMN available_credit_minor INTEGER"
+            addColumnIfMissing(
+                db,
+                "debt_accounts",
+                "available_credit_minor",
+                "INTEGER"
             )
-            db.execSQL(
-                "ALTER TABLE debt_accounts ADD COLUMN available_credit_observed_at_epoch_ms INTEGER"
+            addColumnIfMissing(
+                db,
+                "debt_accounts",
+                "available_credit_observed_at_epoch_ms",
+                "INTEGER"
             )
-            db.execSQL(
-                "ALTER TABLE debt_events ADD COLUMN available_credit_after_minor INTEGER"
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "available_credit_after_minor",
+                "INTEGER"
             )
-            db.execSQL(
-                "ALTER TABLE debt_events ADD COLUMN repayment_completion TEXT"
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "repayment_completion",
+                "TEXT"
             )
-            db.execSQL(
-                "ALTER TABLE debt_events ADD COLUMN funding_link_confidence TEXT"
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "funding_link_confidence",
+                "TEXT"
             )
-            db.execSQL(
-                "ALTER TABLE debt_events ADD COLUMN funding_link_reason TEXT"
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "funding_link_reason",
+                "TEXT"
             )
         }
 
         createIndexes(db)
         createTriggers(db)
+    }
+
+    private fun addColumnIfMissing(
+        db: SQLiteDatabase,
+        table: String,
+        column: String,
+        definition: String
+    ) {
+        val exists = db.rawQuery(
+            "PRAGMA table_info($table)",
+            null
+        ).use { cursor ->
+            val nameIndex =
+                cursor.getColumnIndexOrThrow("name")
+            var found = false
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameIndex) == column) {
+                    found = true
+                    break
+                }
+            }
+            found
+        }
+
+        if (!exists) {
+            db.execSQL(
+                "ALTER TABLE $table ADD COLUMN " +
+                    "$column $definition"
+            )
+        }
     }
 
     private fun createTransactionsTable(db: SQLiteDatabase) {
