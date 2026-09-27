@@ -329,6 +329,12 @@ class FinancialMessageIngestionCoordinator private constructor(
                         changed = true
                     }
                 }
+                else -> {
+                    // Semantics are understood, but this event
+                    // family still uses a legacy persistence
+                    // adapter until its ledger migration is
+                    // complete.
+                }
             }
         }
 
