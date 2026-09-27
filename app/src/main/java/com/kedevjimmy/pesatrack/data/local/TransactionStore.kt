@@ -302,6 +302,38 @@ class TransactionStore private constructor(context: Context) {
         }
 
     @Synchronized
+    fun activityMonths(
+        timeZone: TimeZone = TimeZone.getDefault()
+    ): List<ActivityMonthBucket> {
+        val counts = linkedMapOf<Long, Int>()
+
+        database.readableDatabase.rawQuery(
+            "SELECT occurred_at_epoch_ms FROM transactions ORDER BY occurred_at_epoch_ms DESC, id DESC",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val monthStart = Calendar.getInstance(timeZone).apply {
+                    timeInMillis = cursor.getLong(0)
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+
+                counts[monthStart] = (counts[monthStart] ?: 0) + 1
+            }
+        }
+
+        return counts.map { (monthStart, count) ->
+            ActivityMonthBucket(
+                monthStartEpochMs = monthStart,
+                transactionCount = count
+            )
+        }
+    }
+
+    @Synchronized
     fun activitySnapshot(
         nowEpochMs: Long = System.currentTimeMillis(),
         timeZone: TimeZone = TimeZone.getDefault()

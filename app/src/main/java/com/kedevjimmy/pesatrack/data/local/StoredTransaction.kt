@@ -66,3 +66,8 @@ data class ActivityLedgerSnapshot(
     val summary: ActivitySummary,
     val reviewGroups: List<ReviewGroup> = emptyList()
 )
+
+data class ActivityMonthBucket(
+    val monthStartEpochMs: Long,
+    val transactionCount: Int
+)
