@@ -6,6 +6,9 @@ import com.kedevjimmy.pesatrack.data.local.FinancialEventStatus
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
+import com.kedevjimmy.pesatrack.domain.interpretation.AvailableCreditObservationFact
+import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
@@ -328,6 +331,14 @@ class FinancialMessageIngestionCoordinator private constructor(
                         insertedTransactions += 1
                         changed = true
                     }
+                }
+                is DebtDrawdownEventFact,
+                is DebtRepaymentEventFact,
+                is AvailableCreditObservationFact -> {
+                    // Semantics are understood by the generic
+                    // interpreter, but runtime persistence still
+                    // falls through to the legacy debt adapter in
+                    // this migration phase.
                 }
             }
         }
