@@ -31,6 +31,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.CommitmentProgress
+import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.SalaryCycleCandidate
@@ -66,6 +69,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val cycleStore = remember { PayCycleStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
+    val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
 
     var cycleSnapshot by remember {
         cycleStore.rebuild()
@@ -82,6 +86,12 @@ fun HomeScreen(
         cycleSnapshot = cycleStore.snapshot()
         ledgerSnapshot = transactionStore.snapshot()
         activitySnapshot = transactionStore.activitySnapshot()
+    }
+
+    LaunchedEffect(ledgerUpdateState.revision) {
+        if (ledgerUpdateState.revision > 0L) {
+            refresh()
+        }
     }
 
     LazyColumn(

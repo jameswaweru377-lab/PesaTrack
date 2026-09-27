@@ -44,11 +44,14 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
+import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.ReviewGroup
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
@@ -86,6 +90,7 @@ fun ActivityScreen(
 ) {
     val context = LocalContext.current
     val store = remember { TransactionStore.get(context) }
+    val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
     val currentMonthEpochMs = remember { monthStart(System.currentTimeMillis()) }
     var selectedMonthEpochMs by rememberSaveable {
         mutableStateOf(currentMonthEpochMs)
@@ -106,6 +111,12 @@ fun ActivityScreen(
 
     fun refresh() {
         snapshot = store.activitySnapshot(nowEpochMs = selectedMonthEpochMs)
+    }
+
+    LaunchedEffect(ledgerUpdateState.revision) {
+        if (ledgerUpdateState.revision > 0L) {
+            refresh()
+        }
     }
 
     val selectedMonthLabel = monthLabel(selectedMonthEpochMs)
@@ -146,6 +157,12 @@ fun ActivityScreen(
                         Icon(Icons.Rounded.Refresh, contentDescription = "Refresh")
                     }
                 }
+            }
+        }
+
+        if (ledgerUpdateState.isProcessing) {
+            item {
+                LiveActivityUpdateStatus()
             }
         }
 
@@ -285,6 +302,34 @@ fun ActivityScreen(
                 showMonthPicker = false
             }
         )
+    }
+}
+
+@Composable
+private fun LiveActivityUpdateStatus() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
+            Text(
+                "Updating activity…",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Text(
+                "A financial notification is being checked and reconciled.",
+                modifier = Modifier.padding(top = 2.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            )
+        }
     }
 }
 
@@ -827,6 +872,8 @@ private fun ActivityRow(
                             MaterialTheme.colorScheme.primary
                         direction == MoneyDirection.EXPENSE ->
                             MaterialTheme.colorScheme.error
+                        needsReview || direction == MoneyDirection.NEUTRAL ->
+                            pesaToneContent("amber")
                         else -> MaterialTheme.colorScheme.onSurface
                     }
                 )

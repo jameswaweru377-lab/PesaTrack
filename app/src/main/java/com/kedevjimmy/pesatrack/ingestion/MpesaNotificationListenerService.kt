@@ -5,6 +5,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.FulizaStore
+import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
@@ -35,11 +36,20 @@ class MpesaNotificationListenerService : NotificationListenerService() {
         val packageName = sbn.packageName
         val receivedAt = sbn.postTime.takeIf { it > 0L } ?: System.currentTimeMillis()
 
-        executor.execute {
-            val rules = RuleStore.get(applicationContext).listRules(enabledOnly = true)
-            val store = TransactionStore.get(applicationContext)
+        val likelyMpesa = MpesaMessageDetector.isLikelyMpesa(title, body)
+        if (likelyMpesa) {
+            LedgerUpdateBus.processingStarted()
+        }
 
-            if (MpesaMessageDetector.isLikelyMpesa(title, body)) {
+        executor.execute {
+            var processingStarted = likelyMpesa
+            var changed = false
+
+            try {
+                val rules = RuleStore.get(applicationContext).listRules(enabledOnly = true)
+                val store = TransactionStore.get(applicationContext)
+
+                if (likelyMpesa) {
                 val fuliza = FulizaParser.parse(body)
                 if (fuliza != null) {
                     val result = FulizaStore.get(applicationContext).insertOrUpdate(
@@ -54,6 +64,7 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                     ) {
                         PayCycleStore.get(applicationContext).rebuild()
                     }
+                    changed = true
                     return@execute
                 }
 
@@ -92,6 +103,7 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                     matchedRule = matchedRule,
                     evidence = evidence
                 )
+                changed = true
                 return@execute
             }
 
@@ -102,11 +114,15 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                 sourceFallback = packageName
             )
             if (evidenceCandidate != null) {
+                if (!processingStarted) {
+                    LedgerUpdateBus.processingStarted()
+                    processingStarted = true
+                }
                 rememberEvidence(evidenceCandidate)
-                store.attachEvidenceToNearbyUnknown(
+                changed = store.attachEvidenceToNearbyUnknown(
                     evidence = evidenceCandidate,
                     rules = rules
-                )
+                ) || changed
             }
 
             val accounts = AccountStore.get(applicationContext).listAccounts()
@@ -126,6 +142,11 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                 return@execute
             }
 
+            if (!processingStarted) {
+                LedgerUpdateBus.processingStarted()
+                processingStarted = true
+            }
+
             val parsed = ConfiguredMoneyParser.parse(
                 title = title,
                 body = body,
@@ -140,7 +161,13 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                 occurredAtEpochMs = receivedAt,
                 matchedRule = configuredRule
             )
+            changed = true
+        } finally {
+            if (processingStarted) {
+                LedgerUpdateBus.processingFinished(changed)
+            }
         }
+    }
     }
 
     private fun rememberEvidence(evidence: FinancialMessageEvidence) {

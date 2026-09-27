@@ -114,7 +114,8 @@ class TransactionStore private constructor(context: Context) {
             sourcePackage = sourcePackage,
             sourceKind = sourceKind,
             receivedAtEpochMs = receivedAtEpochMs,
-            occurredAtEpochMs = occurredAtEpochMs
+            occurredAtEpochMs = occurredAtEpochMs,
+            direction = classification.direction.name
         )
         if (mirrorCandidate != null) {
             if (parsed.transactionCode.isNullOrBlank()) {
@@ -706,7 +707,8 @@ class TransactionStore private constructor(context: Context) {
         sourcePackage: String?,
         sourceKind: String,
         receivedAtEpochMs: Long,
-        occurredAtEpochMs: Long
+        occurredAtEpochMs: Long,
+        direction: String
     ): StoredTransaction? {
         if (parsed.type == MpesaTransactionType.REVERSAL) return null
 
@@ -719,7 +721,8 @@ class TransactionStore private constructor(context: Context) {
             transactionCode = parsed.transactionCode,
             type = parsed.type.name,
             counterparty = parsed.counterparty,
-            counterpartyPhone = parsed.counterpartyPhone
+            counterpartyPhone = parsed.counterpartyPhone,
+            direction = direction
         )
 
         return database.readableDatabase.rawQuery(
@@ -1239,7 +1242,7 @@ class TransactionStore private constructor(context: Context) {
 
     companion object {
         private const val MIRROR_RECONCILIATION_KEY =
-            "mirror_transaction_reconciliation_v1"
+            "mirror_transaction_reconciliation_v2"
 
         private val OUTGOING_REVIEW_TYPES = setOf(
             MpesaTransactionType.SENT_MONEY.name,
@@ -1322,7 +1325,8 @@ private fun StoredTransaction.toMirrorObservation(): MirrorTransactionObservatio
         transactionCode = transactionCode,
         type = type,
         counterparty = counterparty,
-        counterpartyPhone = counterpartyPhone
+        counterpartyPhone = counterpartyPhone,
+        direction = direction
     )
 
 private fun StoredTransaction.toParsedTransaction(): ParsedMpesaTransaction =
