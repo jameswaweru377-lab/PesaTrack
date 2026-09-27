@@ -19,6 +19,19 @@ class FulizaParserTest {
     }
 
     @Test
+    fun parsesAutomaticFulizaRepayment() {
+        val message =
+            "UIQFT85YNE Confirmed. Ksh 220.00 from your M-PESA has been used to partially pay your outstanding Fuliza M-PESA. Your available Fuliza M-PESA limit is Ksh 589.09. Your M-PESA balance is 0.00."
+
+        val parsed = FulizaParser.parseRepayment(message)
+
+        assertNotNull(parsed)
+        assertEquals("UIQFT85YNE", parsed?.transactionCode)
+        assertEquals(22_000L, parsed?.repaidAmountMinor)
+        assertEquals(58_909L, parsed?.availableLimitMinor)
+    }
+
+    @Test
     fun acceptsAccessFeeChargeOfVariant() {
         val message = "ABCD12EFGH Confirmed. Fuliza M-PESA amount Ksh90.00. Access Fee charge of Ksh0.90. Total Fuliza M-PESA outstanding amount is Ksh90.90."
 
