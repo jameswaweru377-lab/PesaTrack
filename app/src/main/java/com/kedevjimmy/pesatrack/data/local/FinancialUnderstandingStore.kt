@@ -36,6 +36,18 @@ data class ObservedAccountBalance(
     val observedAtEpochMs: Long
 )
 
+data class PendingFinancialTransfer(
+    val eventKey: String,
+    val amountMinor: Long,
+    val feeMinor: Long,
+    val sourceEntityKey: String,
+    val destinationEntityKey: String,
+    val confidence: InterpretationConfidence,
+    val occurredAtEpochMs: Long,
+    val sourcePackage: String?,
+    val sourceKind: String
+)
+
 class FinancialUnderstandingStore private constructor(
     context: Context
 ) {
@@ -370,6 +382,208 @@ class FinancialUnderstandingStore private constructor(
                 }
             }
         }
+
+    @Synchronized
+    fun confirmEntityOwned(
+        entityKey: String
+    ): String? {
+        val entity = entityByKey(entityKey) ?: return null
+        val accountType = runCatching {
+            com.kedevjimmy.pesatrack.domain.model.AccountType
+                .valueOf(entity.accountTypeHint)
+        }.getOrDefault(
+            com.kedevjimmy.pesatrack.domain.model.AccountType.OTHER
+        )
+        val account = accountStore.findOrCreate(
+            name = entity.displayName,
+            type = accountType
+        )
+
+        val values = ContentValues().apply {
+            put(
+                "ownership_hint",
+                AccountOwnershipHint.USER_OWNED.name
+            )
+            put("confirmed_account_id", account.id)
+            put(
+                "last_seen_epoch_ms",
+                maxOf(
+                    entity.lastSeenEpochMs,
+                    System.currentTimeMillis()
+                )
+            )
+        }
+        database.writableDatabase.update(
+            "financial_entities",
+            values,
+            "entity_key = ?",
+            arrayOf(entityKey)
+        )
+        LedgerUpdateBus.notifyChanged()
+        return account.id
+    }
+
+    @Synchronized
+    fun markEntityExternal(
+        entityKey: String
+    ): Boolean {
+        val values = ContentValues().apply {
+            put(
+                "ownership_hint",
+                AccountOwnershipHint.EXTERNAL.name
+            )
+            putNull("confirmed_account_id")
+        }
+        val changed = database.writableDatabase.update(
+            "financial_entities",
+            values,
+            "entity_key = ?",
+            arrayOf(entityKey)
+        ) > 0
+        if (changed) {
+            LedgerUpdateBus.notifyChanged()
+        }
+        return changed
+    }
+
+    @Synchronized
+    fun isUserOwned(
+        entityKey: String
+    ): Boolean =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT ownership_hint, confirmed_account_id
+            FROM financial_entities
+            WHERE entity_key = ?
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(entityKey)
+        ).use { cursor ->
+            cursor.moveToFirst() &&
+                cursor.getString(0) ==
+                    AccountOwnershipHint.USER_OWNED.name &&
+                !cursor.isNull(1)
+        }
+
+    @Synchronized
+    fun entityByKey(
+        entityKey: String
+    ): DiscoveredFinancialEntity? =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT entity_key, display_name, provider_key,
+                   account_type_hint, ownership_hint,
+                   confirmed_account_id,
+                   first_seen_epoch_ms, last_seen_epoch_ms
+            FROM financial_entities
+            WHERE entity_key = ?
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(entityKey)
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) {
+                null
+            } else {
+                DiscoveredFinancialEntity(
+                    entityKey = cursor.getString(0),
+                    displayName = cursor.getString(1),
+                    providerKey =
+                        if (cursor.isNull(2)) null
+                        else cursor.getString(2),
+                    accountTypeHint = cursor.getString(3),
+                    ownershipHint =
+                        AccountOwnershipHint.valueOf(
+                            cursor.getString(4)
+                        ),
+                    confirmedAccountId =
+                        if (cursor.isNull(5)) null
+                        else cursor.getString(5),
+                    firstSeenEpochMs = cursor.getLong(6),
+                    lastSeenEpochMs = cursor.getLong(7)
+                )
+            }
+        }
+
+    @Synchronized
+    fun pendingTransfersForEntity(
+        entityKey: String
+    ): List<PendingFinancialTransfer> =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT event_key, amount_minor, fee_minor,
+                   source_entity_key,
+                   destination_entity_key,
+                   confidence, occurred_at_epoch_ms,
+                   source_package, source_kind
+            FROM financial_events
+            WHERE status = ?
+              AND event_type = ?
+              AND (
+                    source_entity_key = ?
+                    OR destination_entity_key = ?
+                  )
+            ORDER BY occurred_at_epoch_ms ASC, id ASC
+            """.trimIndent(),
+            arrayOf(
+                FinancialEventStatus.PENDING_REVIEW.name,
+                FinancialEventKind.TRANSFER.name,
+                entityKey,
+                entityKey
+            )
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        PendingFinancialTransfer(
+                            eventKey = cursor.getString(0),
+                            amountMinor = cursor.getLong(1),
+                            feeMinor = cursor.getLong(2),
+                            sourceEntityKey =
+                                cursor.getString(3),
+                            destinationEntityKey =
+                                cursor.getString(4),
+                            confidence =
+                                InterpretationConfidence
+                                    .valueOf(
+                                        cursor.getString(5)
+                                    ),
+                            occurredAtEpochMs =
+                                cursor.getLong(6),
+                            sourcePackage =
+                                if (cursor.isNull(7)) null
+                                else cursor.getString(7),
+                            sourceKind = cursor.getString(8)
+                        )
+                    )
+                }
+            }
+        }
+
+    @Synchronized
+    fun markEventApplied(
+        eventKey: String,
+        linkedTransactionId: Long?
+    ) {
+        val values = ContentValues().apply {
+            put(
+                "status",
+                FinancialEventStatus.APPLIED.name
+            )
+            if (linkedTransactionId != null) {
+                put(
+                    "linked_transaction_id",
+                    linkedTransactionId
+                )
+            }
+        }
+        database.writableDatabase.update(
+            "financial_events",
+            values,
+            "event_key = ?",
+            arrayOf(eventKey)
+        )
+        LedgerUpdateBus.notifyChanged()
+    }
 
     @Synchronized
     fun accountIdFor(
