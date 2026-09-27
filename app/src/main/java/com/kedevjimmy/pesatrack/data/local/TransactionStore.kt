@@ -368,7 +368,8 @@ class TransactionStore private constructor(context: Context) {
             .toSet()
 
         val effective = monthTransactions.filter { item ->
-            item.transactionCode !in reversedCodes &&
+            item.id !in possibleDuplicateIds &&
+                item.transactionCode !in reversedCodes &&
                 item.type != MpesaTransactionType.REVERSAL.name &&
                 item.reviewState != ReviewState.EXCLUDED.name &&
                 item.reviewState != ReviewState.NEEDS_REVIEW.name &&

@@ -42,6 +42,12 @@ object PossibleDuplicatePolicy {
         ) {
             return false
         }
+        if (
+            first.reviewState != "NEEDS_REVIEW" ||
+            second.reviewState != "NEEDS_REVIEW"
+        ) {
+            return false
+        }
 
         val firstCode = normalized(first.transactionCode)
         val secondCode = normalized(second.transactionCode)
