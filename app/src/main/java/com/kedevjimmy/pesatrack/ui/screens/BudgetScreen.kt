@@ -20,6 +20,8 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Chair
 import androidx.compose.material.icons.rounded.CreditCard
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.FamilyRestroom
 import androidx.compose.material.icons.rounded.Favorite
@@ -41,7 +43,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -73,6 +77,7 @@ import java.math.RoundingMode
 import java.text.NumberFormat
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BudgetScreen(
     scaffoldPadding: PaddingValues,
@@ -89,6 +94,8 @@ fun BudgetScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var showAddCategory by remember { mutableStateOf(false) }
     var customCategoryName by remember { mutableStateOf("") }
+    var categoryExpanded by remember { mutableStateOf(false) }
+    var showBudgetSheet by remember { mutableStateOf(false) }
 
     val revision = ledgerUpdateState.revision
     val budgets = remember(revision) { budgetStore.list() }
@@ -133,7 +140,10 @@ fun BudgetScreen(
             }
     }
 
-    fun selectCategory(category: PesaCategory) {
+    fun selectCategory(
+        category: PesaCategory,
+        openEditor: Boolean = true
+    ) {
         selectedCategoryId = category.id
         amount = budgets
             .firstOrNull { it.categoryId == category.id }
@@ -141,25 +151,30 @@ fun BudgetScreen(
             ?.let(::formatEditableMoney)
             .orEmpty()
         error = null
+        categoryExpanded = false
+        if (openEditor) {
+            showBudgetSheet = true
+        }
     }
 
-    fun saveBudget() {
+    fun saveBudget(): Boolean {
         val categoryId = selectedCategoryId
         if (categoryId == null) {
             error = "Choose a category for this budget."
-            return
+            return false
         }
 
         val limitMinor = parseBudgetMoneyMinor(amount)
         if (limitMinor == null || limitMinor <= 0L) {
             error = "Enter a budget amount above zero."
-            return
+            return false
         }
 
         budgetStore.save(categoryId, limitMinor)
         amount = ""
         selectedCategoryId = null
         error = null
+        return true
     }
 
     if (showAddCategory) {
@@ -201,9 +216,9 @@ fun BudgetScreen(
                         runCatching {
                             categoryStore.addCustom(customCategoryName)
                         }.onSuccess { category ->
-                            selectCategory(category)
                             showAddCategory = false
                             customCategoryName = ""
+                            selectCategory(category)
                         }.onFailure {
                             error = it.message ?: "Could not add category."
                             showAddCategory = false
@@ -214,6 +229,43 @@ fun BudgetScreen(
                 }
             }
         )
+    }
+
+    val selectedCategory = selectedCategoryId
+        ?.let(categoryStore::find)
+
+    if (showBudgetSheet && selectedCategory != null) {
+        val currentSpent =
+            trackedByCategory[selectedCategory.id] ?: 0L
+        val existingBudget = budgets.firstOrNull {
+            it.categoryId == selectedCategory.id
+        }
+
+        ModalBottomSheet(
+            onDismissRequest = {
+                showBudgetSheet = false
+                selectedCategoryId = null
+                amount = ""
+                error = null
+            }
+        ) {
+            BudgetEditorSheet(
+                category = selectedCategory,
+                spentMinor = currentSpent,
+                amount = amount,
+                isEditing = existingBudget != null,
+                error = error,
+                onAmountChanged = {
+                    amount = it
+                    error = null
+                },
+                onSave = {
+                    if (saveBudget()) {
+                        showBudgetSheet = false
+                    }
+                }
+            )
+        }
     }
 
     LazyColumn(
@@ -245,119 +297,111 @@ fun BudgetScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                "Add monthly budget",
-                                style = MaterialTheme.typography.titleLarge
-                            )
-                            Text(
-                                "Choose the same category you use in Activity.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        OutlinedButton(
-                            onClick = { showAddCategory = true },
-                            shape = RoundedCornerShape(999.dp)
+                    Text(
+                        "Add monthly budget",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        "Choose a category. Activity will track the spending automatically.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                categoryExpanded = !categoryExpanded
+                            },
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(
+                                horizontal = 14.dp,
+                                vertical = 13.dp
+                            ),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 Icons.Rounded.Add,
-                                contentDescription = null
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(Modifier.width(4.dp))
-                            Text("Category")
-                        }
-                    }
-
-                    categories.chunked(2).forEach { rowOptions ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            rowOptions.forEach { category ->
-                                BudgetCategoryTile(
-                                    category = category,
-                                    selected =
-                                        selectedCategoryId == category.id,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { selectCategory(category) }
-                                )
-                            }
-                            if (rowOptions.size == 1) {
-                                Spacer(Modifier.weight(1f))
-                            }
-                        }
-                    }
-
-                    selectedCategoryId?.let { categoryId ->
-                        val category = categoryStore.find(categoryId)
-                            ?: return@let
-                        val spent = trackedByCategory[category.id] ?: 0L
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Column(Modifier.padding(13.dp)) {
-                                Text(
-                                    category.label,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Text(
-                                    "Tracked this month: " +
-                                        formatBudgetMoney(spent),
-                                    modifier = Modifier.padding(top = 2.dp),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = amount,
-                            onValueChange = {
-                                amount = it
-                                error = null
-                            },
-                            label = { Text("Monthly budget amount") },
-                            prefix = { Text("KES ") },
-                            placeholder = { Text("2,500") },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        Button(
-                            onClick = ::saveBudget,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 52.dp),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
                             Text(
-                                if (
-                                    budgets.any {
-                                        it.categoryId == categoryId
-                                    }
-                                ) {
-                                    "Update budget"
+                                "Choose a category",
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 10.dp),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Icon(
+                                if (categoryExpanded) {
+                                    Icons.Rounded.ExpandLess
                                 } else {
-                                    "Add budget"
-                                }
+                                    Icons.Rounded.ExpandMore
+                                },
+                                contentDescription = if (categoryExpanded) {
+                                    "Collapse categories"
+                                } else {
+                                    "Expand categories"
+                                },
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    error?.let { message ->
-                        Text(
-                            message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                    if (categoryExpanded) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Categories",
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                OutlinedButton(
+                                    onClick = {
+                                        showAddCategory = true
+                                    },
+                                    shape = RoundedCornerShape(999.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Add,
+                                        contentDescription = null
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("New")
+                                }
+                            }
+
+                            categories.chunked(2).forEach { rowOptions ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement =
+                                        Arrangement.spacedBy(10.dp)
+                                ) {
+                                    rowOptions.forEach { category ->
+                                        BudgetCategoryTile(
+                                            category = category,
+                                            selected = false,
+                                            modifier = Modifier.weight(1f),
+                                            onClick = {
+                                                selectCategory(category)
+                                            }
+                                        )
+                                    }
+                                    if (rowOptions.size == 1) {
+                                        Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -457,6 +501,103 @@ private fun BudgetCategoryTile(
                     MaterialTheme.colorScheme.onPrimaryContainer
                 } else {
                     MaterialTheme.colorScheme.onSurface
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun BudgetEditorSheet(
+    category: PesaCategory,
+    spentMinor: Long,
+    amount: String,
+    isEditing: Boolean,
+    error: String?,
+    onAmountChanged: (String) -> Unit,
+    onSave: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = 20.dp,
+                end = 20.dp,
+                bottom = 28.dp
+            ),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBubble(
+                icon = categoryIcon(category.id),
+                size = 48.dp
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)
+            ) {
+                Text(
+                    category.label,
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Text(
+                    "Tracked this month: " +
+                        formatBudgetMoney(spentMinor),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Text(
+                "Set the most you want to use for " +
+                    category.label.lowercase() +
+                    " this month. PesaTrack will compare it with trusted Activity transactions.",
+                modifier = Modifier.padding(14.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+
+        OutlinedTextField(
+            value = amount,
+            onValueChange = onAmountChanged,
+            label = { Text("Monthly budget") },
+            prefix = { Text("KES ") },
+            placeholder = { Text("2,500") },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Decimal
+            ),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        error?.let { message ->
+            Text(
+                message,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        Button(
+            onClick = onSave,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 54.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(
+                if (isEditing) {
+                    "Update budget"
+                } else {
+                    "Add budget"
                 }
             )
         }
