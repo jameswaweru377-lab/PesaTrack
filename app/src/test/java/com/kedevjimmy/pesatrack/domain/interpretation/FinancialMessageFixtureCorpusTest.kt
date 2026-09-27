@@ -71,6 +71,19 @@ class FinancialMessageFixtureCorpusTest {
                         canonical.records.isNotEmpty()
                     )
                 }
+                FixtureCoverage.GENERIC_SEMANTICS_LEGACY_RUNTIME -> {
+                    assertTrue(
+                        fixture.id +
+                            ": semantics are generic but persistence still needs the compatibility adapter",
+                        canonical.requiresLegacyFallback
+                    )
+                    assertEquals(
+                        fixture.id +
+                            ": generic semantics must match target meaning",
+                        fixture.targetKinds,
+                        canonical.records.map { it.kind }
+                    )
+                }
                 FixtureCoverage.LEGACY_REQUIRED -> {
                     assertTrue(
                         fixture.id +
@@ -97,6 +110,13 @@ class FinancialMessageFixtureCorpusTest {
                     assertEquals(
                         fixture.id +
                             ": generic-complete fixture must already match its target",
+                        fixture.targetKinds,
+                        fixture.expectedKinds
+                    )
+                FixtureCoverage.GENERIC_SEMANTICS_LEGACY_RUNTIME ->
+                    assertEquals(
+                        fixture.id +
+                            ": semantics should already match target",
                         fixture.targetKinds,
                         fixture.expectedKinds
                     )
