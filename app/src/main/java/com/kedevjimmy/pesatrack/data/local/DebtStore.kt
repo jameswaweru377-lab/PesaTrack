@@ -99,7 +99,7 @@ class DebtStore private constructor(context: Context) {
         sourcePackage: String?,
         sourceKind: String,
         occurredAtEpochMs: Long
-    ): DebtEventInsertResult {
+    ): Long {
         ensureAccount(
             id = FULIZA_ACCOUNT_ID,
             providerKey = FULIZA_PROVIDER_KEY,
