@@ -40,5 +40,6 @@ data class PayCycleSnapshot(
     val safeTodayMinor: Long?,
     val estimatedDaysRemaining: Int?,
     val commitments: List<CommitmentProgress>,
-    val pendingSalary: SalaryCycleCandidate?
+    val pendingSalary: SalaryCycleCandidate?,
+    val unexplainedFundingGapMinor: Long = 0L
 )

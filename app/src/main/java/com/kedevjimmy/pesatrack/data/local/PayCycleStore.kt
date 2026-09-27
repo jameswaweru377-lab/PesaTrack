@@ -6,6 +6,7 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.rules.PayCyclePolicy
+import com.kedevjimmy.pesatrack.domain.rules.FundingGapPolicy
 import kotlin.math.max
 import java.util.Calendar
 import java.util.TimeZone
@@ -162,7 +163,8 @@ class PayCycleStore private constructor(context: Context) {
                 safeTodayMinor = null,
                 estimatedDaysRemaining = null,
                 commitments = emptyList(),
-                pendingSalary = pending
+                pendingSalary = pending,
+                unexplainedFundingGapMinor = 0L
             )
         }
 
@@ -176,6 +178,12 @@ class PayCycleStore private constructor(context: Context) {
             totals.feesMinor -
             totals.savingsMinor -
             remainingCommitments
+        val unexplainedFundingGap = FundingGapPolicy.unexplainedGap(
+            startingFundsMinor = startingFunds,
+            additionalIncomeMinor = totals.additionalIncomeMinor,
+            spentMinor = totals.spentMinor,
+            feesMinor = totals.feesMinor
+        )
 
         val averageLength = averageCompletedCycleLengthDays()
         val daysRemaining = averageLength?.let { average ->
@@ -202,7 +210,8 @@ class PayCycleStore private constructor(context: Context) {
             safeTodayMinor = safeToday,
             estimatedDaysRemaining = daysRemaining,
             commitments = commitments,
-            pendingSalary = pending
+            pendingSalary = pending,
+            unexplainedFundingGapMinor = unexplainedFundingGap
         )
     }
 
@@ -325,6 +334,7 @@ class PayCycleStore private constructor(context: Context) {
             append("occurred_at_epoch_ms >= ? ")
             if (endEpochMs != null) append("AND occurred_at_epoch_ms < ? ")
             append("AND review_state != ? ")
+            append("AND review_state != ? ")
             append("AND type != ? ")
             append("AND cycle_candidate_reason IS NULL ")
             append("AND (transaction_code IS NULL OR transaction_code NOT IN (")
@@ -335,6 +345,7 @@ class PayCycleStore private constructor(context: Context) {
             add(startEpochMs.toString())
             if (endEpochMs != null) add(endEpochMs.toString())
             add(ReviewState.EXCLUDED.name)
+            add(ReviewState.NEEDS_REVIEW.name)
             add(MpesaTransactionType.REVERSAL.name)
         }.toTypedArray()
 
