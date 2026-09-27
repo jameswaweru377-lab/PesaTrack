@@ -26,7 +26,7 @@ enum class FinancialEventKind {
     TRANSFER,
     INCOME,
     EXPENSE,
-    LOAN_DRAWDOWN,
+    DEBT_DRAWDOWN,
     DEBT_REPAYMENT,
     REFUND,
     FEE
@@ -51,6 +51,12 @@ data class BalanceObservationFact(
 sealed interface FinancialEventFact {
     val kind: FinancialEventKind
     val confidence: InterpretationConfidence
+
+    // Semantic understanding can arrive before the generic
+    // persistence path is migrated. Legacy adapters remain a
+    // temporary safety net for those event families.
+    val genericIngestionReady: Boolean
+        get() = false
 }
 
 data class TransferEventFact(
@@ -61,6 +67,8 @@ data class TransferEventFact(
     override val confidence: InterpretationConfidence,
     val evidence: List<FieldEvidence> = emptyList()
 ) : FinancialEventFact {
+    override val genericIngestionReady: Boolean =
+        true
     override val kind: FinancialEventKind =
         FinancialEventKind.TRANSFER
 }
@@ -82,6 +90,8 @@ data class PaymentEventFact(
     override val confidence: InterpretationConfidence,
     val evidence: List<FieldEvidence> = emptyList()
 ) : FinancialEventFact {
+    override val genericIngestionReady: Boolean =
+        true
     override val kind: FinancialEventKind =
         FinancialEventKind.PAYMENT
 }
@@ -95,8 +105,38 @@ data class ReceiptEventFact(
     override val confidence: InterpretationConfidence,
     val evidence: List<FieldEvidence> = emptyList()
 ) : FinancialEventFact {
+    override val genericIngestionReady: Boolean =
+        true
     override val kind: FinancialEventKind =
         FinancialEventKind.RECEIPT
+}
+
+data class DebtDrawdownEventFact(
+    val amountMinor: Long,
+    val liability: FinancialAccountReference,
+    val feeMinor: Long,
+    val outstandingAfterMinor: Long?,
+    val availableCreditAfterMinor: Long?,
+    override val confidence: InterpretationConfidence,
+    val evidence: List<FieldEvidence> = emptyList()
+) : FinancialEventFact {
+    override val kind: FinancialEventKind =
+        FinancialEventKind.DEBT_DRAWDOWN
+}
+
+data class DebtRepaymentEventFact(
+    val amountMinor: Long,
+    val liability: FinancialAccountReference,
+    val fundingAccount: FinancialAccountReference?,
+    val completion: DebtCompletion,
+    val outstandingAfterMinor: Long?,
+    val availableCreditAfterMinor: Long?,
+    val walletBalanceAfterMinor: Long?,
+    override val confidence: InterpretationConfidence,
+    val evidence: List<FieldEvidence> = emptyList()
+) : FinancialEventFact {
+    override val kind: FinancialEventKind =
+        FinancialEventKind.DEBT_REPAYMENT
 }
 
 data class FinancialMessageInterpretation(
@@ -110,5 +150,9 @@ data class FinancialMessageInterpretation(
         get() = balances.isNotEmpty() || events.isNotEmpty()
 
     val consumesLegacyTransactionParsing: Boolean
-        get() = events.isNotEmpty()
+        get() =
+            events.isNotEmpty() &&
+                events.all {
+                    it.genericIngestionReady
+                }
 }

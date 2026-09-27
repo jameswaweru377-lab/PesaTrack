@@ -9,7 +9,7 @@ data class NormalizedFinancialMessage(
 object FinancialMessageNormalizer {
     private val whitespaceRegex = Regex("""\s+""")
     private val currencyHintRegex = Regex(
-        """\b(?:Ksh|KES)\b""",
+        """\b(?:Ksh|KES)(?=\s*[0-9])""",
         RegexOption.IGNORE_CASE
     )
 

@@ -38,6 +38,29 @@ data class ResolvedReceiptRelationship(
     override val evidence: List<FieldEvidence>
 ) : ResolvedFinancialRelationship
 
+data class ResolvedDebtDrawdownRelationship(
+    override val amountMinor: Long,
+    val liability: FinancialAccountReference,
+    override val feeMinor: Long,
+    val outstandingAfterMinor: Long?,
+    val availableCreditAfterMinor: Long?,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence>
+) : ResolvedFinancialRelationship
+
+data class ResolvedDebtRepaymentRelationship(
+    override val amountMinor: Long,
+    val liability: FinancialAccountReference,
+    val fundingAccount: FinancialAccountReference?,
+    override val feeMinor: Long,
+    val completion: DebtCompletion,
+    val outstandingAfterMinor: Long?,
+    val availableCreditAfterMinor: Long?,
+    val walletBalanceAfterMinor: Long?,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence>
+) : ResolvedFinancialRelationship
+
 data class ResolvedFinancialMessage(
     val transactionCode: TextValueCandidate?,
     val occurredAt: TextValueCandidate?,
@@ -78,11 +101,17 @@ object FinancialRelationshipResolver {
                 null
             }
 
+        val debtRelationship =
+            resolveDebt(
+                candidates = candidates,
+                balances = balances
+            )
+
         val prioritized = candidates.actions
             .sortedBy(::priority)
 
-        val relationship = prioritized
-            .firstNotNullOfOrNull { action ->
+        val relationship = debtRelationship ?:
+            prioritized.firstNotNullOfOrNull { action ->
                 resolveAction(
                     action = action,
                     observedWallet = observedWallet,
@@ -142,6 +171,252 @@ object FinancialRelationshipResolver {
                 )
             )
         )
+    }
+
+    private fun resolveDebt(
+        candidates: FinancialMessageCandidates,
+        balances: List<BalanceObservationFact>
+    ): ResolvedFinancialRelationship? {
+        candidates.debt.repayment?.let { repayment ->
+            val liability =
+                resolveLiability(
+                    repayment.liabilityLabel
+                )
+            val funding =
+                FinancialProviderRegistry.resolveAccount(
+                    repayment.fundingAccountLabel
+                )
+            val walletBalance =
+                balances.firstOrNull {
+                    it.account.entityKey ==
+                        funding.entityKey
+                }?.balanceMinor
+
+            val evidence = buildList {
+                add(
+                    evidence(
+                        field = FinancialField.AMOUNT,
+                        origin = EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            repayment.ruleId + ".amount",
+                        span = repayment.amountSpan,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+                add(
+                    evidence(
+                        field =
+                            FinancialField.SOURCE_ACCOUNT,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            repayment.ruleId +
+                                ".funding_account",
+                        span =
+                            repayment.fundingAccountSpan,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+                add(
+                    evidence(
+                        field = FinancialField.LIABILITY,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            repayment.ruleId +
+                                ".liability",
+                        span = repayment.liabilitySpan,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+                add(
+                    evidence(
+                        field =
+                            FinancialField.COMPLETION,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            repayment.ruleId +
+                                ".completion",
+                        span = null,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+                repayment.availableCreditSpan?.let {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField
+                                    .AVAILABLE_CREDIT,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId =
+                                repayment.ruleId +
+                                    ".available_credit",
+                            span = it,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
+            }
+
+            return ResolvedDebtRepaymentRelationship(
+                amountMinor =
+                    repayment.amountMinor,
+                liability = liability,
+                fundingAccount = funding,
+                feeMinor = 0L,
+                completion =
+                    repayment.completion,
+                outstandingAfterMinor =
+                    if (
+                        repayment.completion ==
+                        DebtCompletion.FULL
+                    ) {
+                        0L
+                    } else {
+                        null
+                    },
+                availableCreditAfterMinor =
+                    repayment
+                        .availableCreditAfterMinor,
+                walletBalanceAfterMinor =
+                    walletBalance,
+                confidence =
+                    InterpretationConfidence.HIGH,
+                evidence = evidence
+            )
+        }
+
+        candidates.debt.drawdown?.let { drawdown ->
+            val liability =
+                resolveLiability(
+                    drawdown.liabilityLabel
+                )
+            val fee =
+                candidates.fee?.amountMinor
+                    ?: 0L
+
+            val evidence = buildList {
+                add(
+                    evidence(
+                        field = FinancialField.AMOUNT,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            drawdown.ruleId + ".amount",
+                        span = drawdown.amountSpan,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+                add(
+                    evidence(
+                        field = FinancialField.LIABILITY,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            drawdown.ruleId +
+                                ".liability",
+                        span = drawdown.liabilitySpan,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+                drawdown.outstandingSpan?.let {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField
+                                    .OUTSTANDING_BALANCE,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId =
+                                drawdown.ruleId +
+                                    ".outstanding",
+                            span = it,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
+                drawdown.availableCreditSpan?.let {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField
+                                    .AVAILABLE_CREDIT,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId =
+                                drawdown.ruleId +
+                                    ".available_credit",
+                            span = it,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
+                candidates.fee?.let {
+                    add(
+                        evidence(
+                            field = FinancialField.FEE,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId = it.ruleId,
+                            span = it.amountSpan,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
+            }
+
+            return ResolvedDebtDrawdownRelationship(
+                amountMinor =
+                    drawdown.amountMinor,
+                liability = liability,
+                feeMinor = fee,
+                outstandingAfterMinor =
+                    drawdown
+                        .outstandingAfterMinor,
+                availableCreditAfterMinor =
+                    drawdown
+                        .availableCreditAfterMinor,
+                confidence =
+                    InterpretationConfidence.HIGH,
+                evidence = evidence
+            )
+        }
+
+        return null
+    }
+
+    private fun resolveLiability(
+        rawLabel: String
+    ): FinancialAccountReference {
+        val resolved =
+            FinancialProviderRegistry
+                .resolveAccount(rawLabel)
+
+        return if (
+            resolved.nature ==
+                FinancialAccountNature.LIABILITY
+        ) {
+            resolved
+        } else {
+            resolved.copy(
+                ownershipHint =
+                    AccountOwnershipHint.USER_OWNED,
+                nature =
+                    FinancialAccountNature.LIABILITY
+            )
+        }
     }
 
     private fun resolveAction(

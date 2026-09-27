@@ -53,7 +53,8 @@ data class FinancialMessageCandidates(
     val occurredAt: TextValueCandidate?,
     val balances: List<BalanceCandidate>,
     val fee: FeeCandidate?,
-    val actions: List<FinancialActionCandidate>
+    val actions: List<FinancialActionCandidate>,
+    val debt: DebtMessageCandidates
 )
 
 object FinancialCandidateExtractor {
@@ -73,7 +74,7 @@ object FinancialCandidateExtractor {
         )
     )
     private val feeRegex = Regex(
-        """(?:transaction\s+(?:cost|fee)|access\s+fee|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
     private val transferFromRegex = Regex(
@@ -151,7 +152,11 @@ object FinancialCandidateExtractor {
                 occurredAt = null,
                 balances = emptyList(),
                 fee = null,
-                actions = emptyList()
+                actions = emptyList(),
+                debt = DebtMessageCandidates(
+                    drawdown = null,
+                    repayment = null
+                )
             )
         }
 
@@ -194,7 +199,10 @@ object FinancialCandidateExtractor {
                         ruleId = it.ruleId
                     )
                 },
-            actions = actions
+            actions = actions,
+            debt = DebtCandidateExtractor.extract(
+                message
+            )
         )
     }
 
