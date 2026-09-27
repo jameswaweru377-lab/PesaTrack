@@ -2,10 +2,13 @@ package com.kedevjimmy.pesatrack.ingestion
 
 import android.content.Context
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.FinancialEventStatus
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
+import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
@@ -21,6 +24,7 @@ data class FinancialMessageIngestionResult(
     val consumesLegacyTransactionParsing: Boolean,
     val changed: Boolean,
     val insertedTransactions: Int,
+    val insertedFinancialEvents: Int,
     val pendingReviewEvents: Int
 )
 
@@ -54,6 +58,7 @@ class FinancialMessageIngestionCoordinator private constructor(
                 consumesLegacyTransactionParsing = false,
                 changed = false,
                 insertedTransactions = 0,
+                insertedFinancialEvents = 0,
                 pendingReviewEvents = 0
             )
         }
@@ -83,6 +88,7 @@ class FinancialMessageIngestionCoordinator private constructor(
         }
 
         var insertedTransactions = 0
+        var insertedFinancialEvents = 0
         var pendingReviewEvents = 0
 
         interpretation.events.forEach { event ->
@@ -329,11 +335,57 @@ class FinancialMessageIngestionCoordinator private constructor(
                         changed = true
                     }
                 }
-                else -> {
-                    // Semantics are understood, but this event
-                    // family still uses a legacy persistence
-                    // adapter until its ledger migration is
-                    // complete.
+                is DebtDrawdownEventFact -> {
+                    val result =
+                        DebtStore.get(appContext)
+                            .recordDrawdown(
+                                event = event,
+                                transactionCode =
+                                    interpretation
+                                        .transactionCode,
+                                messageFingerprint =
+                                    fingerprint,
+                                sourcePackage =
+                                    sourcePackage,
+                                sourceKind =
+                                    SOURCE_INTERPRETED_PREFIX +
+                                        sourceKind,
+                                occurredAtEpochMs =
+                                    occurredAtEpochMs
+                            )
+                    if (result.inserted) {
+                        insertedFinancialEvents += 1
+                    }
+                    changed =
+                        result.inserted ||
+                            result.linkedTransactionId != null ||
+                            changed
+                }
+                is DebtRepaymentEventFact -> {
+                    val result =
+                        DebtStore.get(appContext)
+                            .recordRepayment(
+                                event = event,
+                                transactionCode =
+                                    interpretation
+                                        .transactionCode,
+                                messageFingerprint =
+                                    fingerprint,
+                                sourcePackage =
+                                    sourcePackage,
+                                sourceKind =
+                                    SOURCE_INTERPRETED_PREFIX +
+                                        sourceKind,
+                                occurredAtEpochMs =
+                                    occurredAtEpochMs
+                            )
+                    if (result.inserted) {
+                        insertedFinancialEvents += 1
+                    }
+                    changed =
+                        result.inserted ||
+                            result.linkedTransactionId != null ||
+                            changed
                 }
             }
         }
@@ -346,6 +398,8 @@ class FinancialMessageIngestionCoordinator private constructor(
             changed = changed,
             insertedTransactions =
                 insertedTransactions,
+            insertedFinancialEvents =
+                insertedFinancialEvents,
             pendingReviewEvents =
                 pendingReviewEvents
         )
