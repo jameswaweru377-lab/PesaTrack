@@ -18,6 +18,16 @@ class MpesaParserTest {
 
 
     @Test
+    fun ignoresFullFulizaRepaymentAsOrdinaryMpesaTransaction() {
+        val message =
+            "UIQFT85YNF Confirmed. Ksh 1,381.00 from your M-PESA has been used to fully pay your outstanding Fuliza M-PESA. Available Fuliza balance limit is Ksh 1,440.00. Your M-PESA balance is Ksh 13,000.00."
+
+        val parsed = MpesaParser.parse(message)
+
+        org.junit.Assert.assertNull(parsed)
+    }
+
+    @Test
     fun parsesSentMoneyMessage() {
         val message = "TQK12ABC34 Confirmed. Ksh450.00 sent to ELIZABETH W. 0712345678 on 21/9/26 at 1:24 PM. New M-PESA balance is Ksh12,850.00. Transaction cost, Ksh0.00."
 
