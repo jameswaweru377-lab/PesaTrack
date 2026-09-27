@@ -11,7 +11,8 @@ enum class DebtFundingBehavior {
 data class DebtProductBehavior(
     val fundingBehavior: DebtFundingBehavior,
     val fundingAccountProviderKey: String? = null,
-    val preserveLegacyTransactionMetadata: Boolean = false
+    val preserveLegacyTransactionMetadata: Boolean = false,
+    val eventNamespace: String? = null
 )
 
 data class FinancialProviderAccountKnowledge(
@@ -71,7 +72,8 @@ object FinancialProviderRegistry {
                     DebtFundingBehavior.TRANSACTION_SHORTFALL,
                 fundingAccountProviderKey =
                     "SAFARICOM_MPESA",
-                preserveLegacyTransactionMetadata = true
+                preserveLegacyTransactionMetadata = true,
+                eventNamespace = "fuliza"
             )
         ),
         FinancialProviderAccountKnowledge(
