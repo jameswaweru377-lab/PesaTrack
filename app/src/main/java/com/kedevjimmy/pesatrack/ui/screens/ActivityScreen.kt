@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
+import com.kedevjimmy.pesatrack.data.local.ReviewGroup
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
@@ -92,7 +93,7 @@ fun ActivityScreen(
             "Expenses" -> item.direction == MoneyDirection.EXPENSE.name
             "Income" -> item.direction == MoneyDirection.INCOME.name
             "Transfers" -> item.direction == MoneyDirection.TRANSFER.name
-            "Needs review" -> item.reviewState == ReviewState.NEEDS_REVIEW.name
+            "Review" -> item.reviewState == ReviewState.NEEDS_REVIEW.name
             else -> true
         }
     }
@@ -128,7 +129,7 @@ fun ActivityScreen(
 
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("All", "Expenses", "Income", "Transfers", "Needs review").forEach { label ->
+                listOf("All", "Review", "Expenses", "Income", "Transfers").forEach { label ->
                     item {
                         FilterChip(
                             selected = selectedFilter == label,
@@ -148,14 +149,59 @@ fun ActivityScreen(
             ActivitySummaryCard(snapshot)
         }
 
-        if (filtered.isEmpty()) {
+        if (selectedFilter == "All" && snapshot.reviewGroups.isNotEmpty()) {
+            item {
+                ReviewQueueCallout(
+                    groupCount = snapshot.reviewGroups.size,
+                    transactionCount = snapshot.summary.needsReviewCount,
+                    onClick = { selectedFilter = "Review" }
+                )
+            }
+        }
+
+        if (selectedFilter == "Review") {
+            if (snapshot.reviewGroups.isEmpty()) {
+                item {
+                    EmptyActivityState(
+                        selectedFilter = "Review",
+                        capturedCount = snapshot.transactions.size
+                    )
+                }
+            } else {
+                item {
+                    Column {
+                        Text(
+                            "Review by identity",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Text(
+                            "Teach one repeated name or number once. Matching pending transactions will update together.",
+                            modifier = Modifier.padding(top = 3.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                items(snapshot.reviewGroups.size) { index ->
+                    ReviewGroupRow(
+                        group = snapshot.reviewGroups[index],
+                        onClick = {
+                            onTransactionClick(
+                                snapshot.reviewGroups[index].representativeTransactionId
+                            )
+                        }
+                    )
+                }
+            }
+        } else if (filtered.isEmpty()) {
             item {
                 EmptyActivityState(
                     selectedFilter = selectedFilter,
                     capturedCount = snapshot.transactions.size
                 )
             }
-        } else {
+        } else if (selectedFilter != "Review") {
             item {
                 Row(
                     Modifier
@@ -202,9 +248,10 @@ private fun ActivitySummaryCard(snapshot: ActivityLedgerSnapshot) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (summary.needsReviewCount > 0) {
+                if (snapshot.reviewGroups.isNotEmpty()) {
                     SmallStatusPill(
-                        "${summary.needsReviewCount} need review",
+                        "${snapshot.reviewGroups.size} review group" +
+                            if (snapshot.reviewGroups.size == 1) "" else "s",
                         "amber"
                     )
                 }
@@ -318,7 +365,7 @@ private fun EmptyActivityState(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             IconBubble(
-                if (selectedFilter == "Needs review") Icons.Rounded.HelpOutline else Icons.Rounded.ReceiptLong,
+                if (selectedFilter == "Review") Icons.Rounded.HelpOutline else Icons.Rounded.ReceiptLong,
                 size = 52.dp,
                 background = pesaToneContainer(if (selectedFilter == "Needs review") "amber" else "green"),
                 tint = pesaToneContent(if (selectedFilter == "Needs review") "amber" else "green")
@@ -335,7 +382,7 @@ private fun EmptyActivityState(
             Text(
                 if (capturedCount == 0) {
                     "Once Notification Access is enabled, new M-Pesa confirmations and configured money alerts will appear here."
-                } else if (selectedFilter == "Needs review") {
+                } else if (selectedFilter == "Review") {
                     "Good — every captured transaction currently has a classification."
                 } else {
                     "Try another filter to see your captured activity."
@@ -343,6 +390,112 @@ private fun EmptyActivityState(
                 modifier = Modifier.padding(top = 5.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReviewQueueCallout(
+    groupCount: Int,
+    transactionCount: Int,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        color = pesaToneContainer("amber")
+    ) {
+        Row(
+            Modifier.padding(15.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconBubble(
+                Icons.Rounded.HelpOutline,
+                size = 42.dp,
+                background = MaterialTheme.colorScheme.surface.copy(alpha = .7f),
+                tint = pesaToneContent("amber")
+            )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 11.dp)
+            ) {
+                Text(
+                    "$groupCount group" +
+                        if (groupCount == 1) " to review" else "s to review",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    "$transactionCount pending transaction" +
+                        if (transactionCount == 1) "" else "s" +
+                        " collapsed by full name or phone.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReviewGroupRow(
+    group: ReviewGroup,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Row(
+            Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconBubble(
+                Icons.Rounded.HelpOutline,
+                size = 42.dp,
+                background = pesaToneContainer("amber"),
+                tint = pesaToneContent("amber")
+            )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 11.dp)
+            ) {
+                Text(
+                    group.label,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    "${group.transactionCount} transaction" +
+                        if (group.transactionCount == 1) "" else "s" +
+                        " • ${formatMoney(group.totalMinor)} total",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Tap once to classify and optionally remember this identity.",
+                    modifier = Modifier.padding(top = 2.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = pesaToneContent("amber")
+                )
+            }
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
