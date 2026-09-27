@@ -70,6 +70,7 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.RulePreset
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.HistoryImportWindow
+import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.HistoryMonth
 import com.kedevjimmy.pesatrack.ingestion.HistoricalSmsImporter
 import com.kedevjimmy.pesatrack.ingestion.SalarySmsCandidate
@@ -169,6 +170,9 @@ fun InitialMoneySetupScreen(
     var manualSalaryDrafts by remember {
         mutableStateOf(mapOf<String, ManualSalaryDraft>())
     }
+    var mpesaPhone by remember { mutableStateOf("") }
+    var mpesaOpeningBalance by remember { mutableStateOf("") }
+    var salaryAccountOpeningBalance by remember { mutableStateOf("") }
 
     var finishing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -375,6 +379,37 @@ fun InitialMoneySetupScreen(
             IncomeSourceChoice.SALARY in selectedSources
         val salaryRouteValue = routes[IncomeSourceChoice.SALARY]
 
+        val normalizedMpesaPhone = mpesaPhone
+            .trim()
+            .takeIf { it.isNotBlank() }
+            ?.let(OwnAccountTransferDetector::normalizeKenyanPhone)
+
+        if (mpesaPhone.isNotBlank() && normalizedMpesaPhone == null) {
+            error = "Enter a valid Kenyan M-Pesa number, for example 0712345678."
+            return
+        }
+
+        val mpesaOpeningMinor = mpesaOpeningBalance
+            .trim()
+            .takeIf { it.isNotBlank() }
+            ?.let(::parseMoneyMinor)
+        if (mpesaOpeningBalance.isNotBlank() && mpesaOpeningMinor == null) {
+            error = "Enter the current M-Pesa balance as a number."
+            return
+        }
+
+        val salaryAccountOpeningMinor = salaryAccountOpeningBalance
+            .trim()
+            .takeIf { it.isNotBlank() }
+            ?.let(::parseMoneyMinor)
+        if (
+            salaryAccountOpeningBalance.isNotBlank() &&
+            salaryAccountOpeningMinor == null
+        ) {
+            error = "Enter the current bank balance as a number."
+            return
+        }
+
         val salaryIdentifier = employer.trim().takeIf {
             it.isNotBlank()
         } ?: selectedCandidate?.originator?.takeIf {
@@ -413,6 +448,27 @@ fun InitialMoneySetupScreen(
             }
             accounts[source] = account
         }
+
+        val setupObservedAt = System.currentTimeMillis()
+        accountStore.updateDetails(
+            id = AccountStore.DEFAULT_MPESA_ID,
+            identifier = normalizedMpesaPhone,
+            openingBalanceMinor = mpesaOpeningMinor,
+            openingBalanceAsOfEpochMs = setupObservedAt
+        )
+
+        if (salaryRouteValue?.arrival == ArrivalChoice.BANK) {
+            accounts[IncomeSourceChoice.SALARY]?.let { salaryAccount ->
+                accountStore.updateDetails(
+                    id = salaryAccount.id,
+                    identifier = salaryAccount.identifier,
+                    openingBalanceMinor = salaryAccountOpeningMinor,
+                    openingBalanceAsOfEpochMs = setupObservedAt
+                )
+            }
+        }
+
+        transactionStore.reconcileOwnAccountTransfers()
 
         saveSetupPreferences(
             context = context,
@@ -695,6 +751,16 @@ fun InitialMoneySetupScreen(
                     employer = employer,
                     manualHistoryEnabled = manualHistoryEnabled,
                     manualSalaryDrafts = manualSalaryDrafts,
+                    mpesaPhone = mpesaPhone,
+                    mpesaOpeningBalance = mpesaOpeningBalance,
+                    salaryAccountOpeningBalance = salaryAccountOpeningBalance,
+                    onMpesaPhoneChanged = { mpesaPhone = it },
+                    onMpesaOpeningBalanceChanged = {
+                        mpesaOpeningBalance = it
+                    },
+                    onSalaryAccountOpeningBalanceChanged = {
+                        salaryAccountOpeningBalance = it
+                    },
                     onEmployerChanged = {
                         employer = it
                     },
@@ -1032,6 +1098,12 @@ private fun IdentifyIncomeStep(
     employer: String,
     manualHistoryEnabled: Boolean,
     manualSalaryDrafts: Map<String, ManualSalaryDraft>,
+    mpesaPhone: String,
+    mpesaOpeningBalance: String,
+    salaryAccountOpeningBalance: String,
+    onMpesaPhoneChanged: (String) -> Unit,
+    onMpesaOpeningBalanceChanged: (String) -> Unit,
+    onSalaryAccountOpeningBalanceChanged: (String) -> Unit,
     onEmployerChanged: (String) -> Unit,
     onCandidateSelected: (SalarySmsCandidate) -> Unit,
     onManualHistory: () -> Unit,
@@ -1057,6 +1129,16 @@ private fun IdentifyIncomeStep(
                 )
             }
         }
+        OwnedAccountsSetupFields(
+            salaryRoute = salaryRoute,
+            mpesaPhone = mpesaPhone,
+            mpesaOpeningBalance = mpesaOpeningBalance,
+            salaryAccountOpeningBalance = salaryAccountOpeningBalance,
+            onMpesaPhoneChanged = onMpesaPhoneChanged,
+            onMpesaOpeningBalanceChanged = onMpesaOpeningBalanceChanged,
+            onSalaryAccountOpeningBalanceChanged =
+                onSalaryAccountOpeningBalanceChanged
+        )
         return
     }
 
@@ -1213,6 +1295,78 @@ private fun IdentifyIncomeStep(
                 )
             }
         }
+    }
+
+    OwnedAccountsSetupFields(
+        salaryRoute = salaryRoute,
+        mpesaPhone = mpesaPhone,
+        mpesaOpeningBalance = mpesaOpeningBalance,
+        salaryAccountOpeningBalance = salaryAccountOpeningBalance,
+        onMpesaPhoneChanged = onMpesaPhoneChanged,
+        onMpesaOpeningBalanceChanged = onMpesaOpeningBalanceChanged,
+        onSalaryAccountOpeningBalanceChanged =
+            onSalaryAccountOpeningBalanceChanged
+    )
+}
+
+@Composable
+private fun OwnedAccountsSetupFields(
+    salaryRoute: IncomeRouteDraft?,
+    mpesaPhone: String,
+    mpesaOpeningBalance: String,
+    salaryAccountOpeningBalance: String,
+    onMpesaPhoneChanged: (String) -> Unit,
+    onMpesaOpeningBalanceChanged: (String) -> Unit,
+    onSalaryAccountOpeningBalanceChanged: (String) -> Unit
+) {
+    SetupQuestion(
+        title = "Which money is already yours?",
+        body = "This helps PesaTrack separate real income from money moving between your own accounts."
+    ) {
+        OutlinedTextField(
+            value = mpesaPhone,
+            onValueChange = onMpesaPhoneChanged,
+            label = { Text("Your M-Pesa number (recommended)") },
+            placeholder = { Text("0712345678") },
+            supportingText = {
+                Text(
+                    "If a bank sends money to this number, PesaTrack can treat it as an internal transfer instead of new income."
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        OutlinedTextField(
+            value = mpesaOpeningBalance,
+            onValueChange = onMpesaOpeningBalanceChanged,
+            label = { Text("Current M-Pesa balance (optional)") },
+            placeholder = { Text("Example: 2,450") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        if (salaryRoute?.arrival == ArrivalChoice.BANK) {
+            OutlinedTextField(
+                value = salaryAccountOpeningBalance,
+                onValueChange = onSalaryAccountOpeningBalanceChanged,
+                label = {
+                    Text(
+                        salaryRoute.bankName() +
+                            " current balance (optional)"
+                    )
+                },
+                placeholder = { Text("Example: 8,000") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        }
+
+        Text(
+            "Current balances are recorded as money you already had. They are never counted as salary or new income.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
