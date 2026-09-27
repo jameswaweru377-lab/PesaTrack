@@ -37,6 +37,7 @@ data class DebtEventRecord(
     val feeMinor: Long,
     val outstandingAfterMinor: Long?,
     val linkedTransactionId: Long?,
+    val walletBalanceAfterMinor: Long?,
     val occurredAtEpochMs: Long
 )
 
@@ -70,6 +71,7 @@ class DebtStore private constructor(context: Context) {
             feeMinor = parsed.accessFeeMinor,
             outstandingAfterMinor = outstanding,
             linkedTransactionId = linkedTransactionId,
+            walletBalanceAfterMinor = null,
             sourcePackage = sourcePackage,
             sourceKind = sourceKind,
             occurredAtEpochMs = occurredAtEpochMs
@@ -124,6 +126,8 @@ class DebtStore private constructor(context: Context) {
             feeMinor = 0L,
             outstandingAfterMinor = null,
             linkedTransactionId = linkedTransactionId,
+            walletBalanceAfterMinor =
+                parsed.mpesaBalanceMinor,
             sourcePackage = sourcePackage,
             sourceKind = sourceKind,
             occurredAtEpochMs = occurredAtEpochMs
@@ -235,7 +239,9 @@ class DebtStore private constructor(context: Context) {
             """
             SELECT id, debt_account_id, event_type, amount_minor,
                    fee_minor, outstanding_after_minor,
-                   linked_transaction_id, occurred_at_epoch_ms
+                   linked_transaction_id,
+                   wallet_balance_after_minor,
+                   occurred_at_epoch_ms
             FROM debt_events
             WHERE debt_account_id = ?
             ORDER BY occurred_at_epoch_ms DESC, id DESC
@@ -269,7 +275,13 @@ class DebtStore private constructor(context: Context) {
                                 } else {
                                     cursor.getLong(6)
                                 },
-                            occurredAtEpochMs = cursor.getLong(7)
+                            walletBalanceAfterMinor =
+                                if (cursor.isNull(7)) {
+                                    null
+                                } else {
+                                    cursor.getLong(7)
+                                },
+                            occurredAtEpochMs = cursor.getLong(8)
                         )
                     )
                 }
@@ -345,6 +357,7 @@ class DebtStore private constructor(context: Context) {
         feeMinor: Long,
         outstandingAfterMinor: Long?,
         linkedTransactionId: Long?,
+        walletBalanceAfterMinor: Long?,
         sourcePackage: String?,
         sourceKind: String,
         occurredAtEpochMs: Long
@@ -401,6 +414,14 @@ class DebtStore private constructor(context: Context) {
                 )
             } else {
                 putNull("linked_transaction_id")
+            }
+            if (walletBalanceAfterMinor != null) {
+                put(
+                    "wallet_balance_after_minor",
+                    walletBalanceAfterMinor
+                )
+            } else {
+                putNull("wallet_balance_after_minor")
             }
             if (sourcePackage != null) {
                 put("source_package", sourcePackage)
