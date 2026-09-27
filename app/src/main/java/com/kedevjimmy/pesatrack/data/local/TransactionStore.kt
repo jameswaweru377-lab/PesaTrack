@@ -10,6 +10,7 @@ import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.rules.KenyanTransactionRecognizer
 import com.kedevjimmy.pesatrack.domain.rules.MirrorTransactionMatcher
 import com.kedevjimmy.pesatrack.domain.rules.MirrorTransactionObservation
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
@@ -245,6 +246,7 @@ class TransactionStore private constructor(context: Context) {
     @Synchronized
     fun snapshot(): LedgerSnapshot {
         ensureMirrorReconciled()
+        ensureBuiltInRecognitionReconciled()
         val db = database.readableDatabase
 
         val count = db.rawQuery("SELECT COUNT(*) FROM transactions", null).use { cursor ->
@@ -305,6 +307,7 @@ class TransactionStore private constructor(context: Context) {
         timeZone: TimeZone = TimeZone.getDefault()
     ): ActivityLedgerSnapshot {
         ensureMirrorReconciled()
+        ensureBuiltInRecognitionReconciled()
         reconcileRecentReviewTriage(nowEpochMs, timeZone)
 
         val monthStart = Calendar.getInstance(timeZone).apply {
@@ -699,6 +702,61 @@ class TransactionStore private constructor(context: Context) {
         reconcileMirrorDuplicates()
         preferences.edit()
             .putBoolean(MIRROR_RECONCILIATION_KEY, true)
+            .apply()
+    }
+
+    private fun ensureBuiltInRecognitionReconciled() {
+        val preferences = appContext.getSharedPreferences(
+            "pesatrack_preferences",
+            Context.MODE_PRIVATE
+        )
+        if (
+            preferences.getBoolean(
+                BUILT_IN_RECOGNITION_RECONCILIATION_KEY,
+                false
+            )
+        ) {
+            return
+        }
+
+        val db = database.writableDatabase
+        var changed = false
+        allTransactions().forEach { stored ->
+            if (
+                stored.reviewState == ReviewState.USER_CLASSIFIED.name ||
+                stored.reviewState == ReviewState.EXCLUDED.name
+            ) {
+                return@forEach
+            }
+
+            val recognized = KenyanTransactionRecognizer.classify(
+                stored.toParsedTransaction()
+            ) ?: return@forEach
+
+            val values = ContentValues().apply {
+                put("direction", recognized.direction.name)
+                put("category", recognized.category.name)
+                put("review_state", ReviewState.AUTO_CLASSIFIED.name)
+                putNull("rule_id")
+            }
+            changed =
+                db.update(
+                    "transactions",
+                    values,
+                    "id = ?",
+                    arrayOf(stored.id.toString())
+                ) > 0 || changed
+        }
+
+        if (changed) {
+            PayCycleStore.get(appContext).rebuild()
+        }
+
+        preferences.edit()
+            .putBoolean(
+                BUILT_IN_RECOGNITION_RECONCILIATION_KEY,
+                true
+            )
             .apply()
     }
 
@@ -1187,6 +1245,19 @@ class TransactionStore private constructor(context: Context) {
             )
         }
 
+        KenyanTransactionRecognizer.classify(parsed)?.let { recognized ->
+            return Classification(
+                direction = recognized.direction,
+                category = recognized.category,
+                reviewState = ReviewState.AUTO_CLASSIFIED,
+                ruleId = null,
+                planningMonth = PlanningPeriodResolver.resolve(
+                    occurredAtEpochMs,
+                    0
+                )
+            )
+        }
+
         val fallback = when (parsed.type) {
             MpesaTransactionType.WITHDRAWAL -> Triple(
                 MoneyDirection.TRANSFER,
@@ -1243,6 +1314,8 @@ class TransactionStore private constructor(context: Context) {
     companion object {
         private const val MIRROR_RECONCILIATION_KEY =
             "mirror_transaction_reconciliation_v2"
+        private const val BUILT_IN_RECOGNITION_RECONCILIATION_KEY =
+            "built_in_recognition_reconciliation_v1"
 
         private val OUTGOING_REVIEW_TYPES = setOf(
             MpesaTransactionType.SENT_MONEY.name,

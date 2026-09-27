@@ -18,6 +18,7 @@ import com.kedevjimmy.pesatrack.ui.screens.InitialMoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
+import com.kedevjimmy.pesatrack.ui.screens.PermissionSetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
 import com.kedevjimmy.pesatrack.ui.screens.ProfileScreen
 import com.kedevjimmy.pesatrack.ui.screens.SettingsScreen
@@ -57,6 +58,17 @@ fun PesaTrackApp(
     ) {
         composable("onboarding") {
             OnboardingScreen(
+                onContinue = {
+                    navController.navigate("permission-setup")
+                },
+                onSkip = {
+                    navController.navigate("permission-setup")
+                }
+            )
+        }
+
+        composable("permission-setup") {
+            PermissionSetupScreen(
                 onContinue = {
                     navController.navigate("money-setup-initial")
                 },
