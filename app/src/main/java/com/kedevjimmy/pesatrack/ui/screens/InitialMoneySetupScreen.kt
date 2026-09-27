@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Business
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Lock
@@ -93,6 +94,7 @@ private enum class SetupStage {
     ROUTES,
     HISTORY,
     IDENTIFY,
+    PAY_WINDOW,
     SALARY_HISTORY,
     ACCOUNTS
 }
@@ -114,6 +116,19 @@ private enum class ArrivalChoice(
     BANK("Bank account", "Money lands in a bank account"),
     MPESA("M-Pesa", "Money arrives directly in M-Pesa"),
     CASH("Cash", "Money is received physically")
+}
+
+private enum class PayWindowChoice(
+    val label: String,
+    val helper: String,
+    val startDay: Int?,
+    val endDay: Int?
+) {
+    VARIES("My payday varies", "Don't assume a fixed payday.", null, null),
+    LATE_MONTH("Usually 24th–28th", "Salary normally arrives near month end.", 24, 28),
+    MONTH_END("Around month end", "Usually between the 24th and the 1st.", 24, 1),
+    MID_MONTH("Usually 14th–18th", "Salary normally arrives mid-month.", 14, 18),
+    CUSTOM("Choose my own range", "Set the earliest and latest usual payday.", null, null)
 }
 
 private data class IncomeRouteDraft(
@@ -178,6 +193,9 @@ fun InitialMoneySetupScreen(
     var activeManualSalaryMonthKey by remember {
         mutableStateOf<String?>(null)
     }
+    var payWindowChoice by remember { mutableStateOf(PayWindowChoice.VARIES) }
+    var customPayWindowStart by remember { mutableStateOf("") }
+    var customPayWindowEnd by remember { mutableStateOf("") }
     var mpesaPhone by remember { mutableStateOf("") }
     var mpesaOpeningBalance by remember { mutableStateOf("") }
     var salaryAccountOpeningBalance by remember { mutableStateOf("") }
@@ -310,6 +328,27 @@ fun InitialMoneySetupScreen(
         return true
     }
 
+    fun resolvedPayWindow(): Pair<Int?, Int?> =
+        if (payWindowChoice == PayWindowChoice.CUSTOM) {
+            customPayWindowStart.toIntOrNull() to
+                customPayWindowEnd.toIntOrNull()
+        } else {
+            payWindowChoice.startDay to payWindowChoice.endDay
+        }
+
+    fun validatePayWindow(): Boolean {
+        if (payWindowChoice != PayWindowChoice.CUSTOM) return true
+        val (startDay, endDay) = resolvedPayWindow()
+        if (
+            startDay == null || endDay == null ||
+            startDay !in 1..31 || endDay !in 1..31
+        ) {
+            error = "Enter a valid payday range using days 1 to 31."
+            return false
+        }
+        return true
+    }
+
     fun goForward() {
         error = null
 
@@ -343,6 +382,11 @@ fun InitialMoneySetupScreen(
 
             SetupStage.IDENTIFY -> {
                 if (!validateSalaryIdentity()) return
+                stage = SetupStage.PAY_WINDOW
+            }
+
+            SetupStage.PAY_WINDOW -> {
+                if (!validatePayWindow()) return
                 if (needsManualSalaryHistory()) {
                     activeManualSalaryMonthKey =
                         eligibleManualSalaryMonths
@@ -386,8 +430,11 @@ fun InitialMoneySetupScreen(
             SetupStage.IDENTIFY -> {
                 stage = SetupStage.HISTORY
             }
-            SetupStage.SALARY_HISTORY -> {
+            SetupStage.PAY_WINDOW -> {
                 stage = SetupStage.IDENTIFY
+            }
+            SetupStage.SALARY_HISTORY -> {
+                stage = SetupStage.PAY_WINDOW
             }
             SetupStage.ACCOUNTS -> {
                 stage = if (
@@ -396,7 +443,7 @@ fun InitialMoneySetupScreen(
                     if (needsManualSalaryHistory()) {
                         SetupStage.SALARY_HISTORY
                     } else {
-                        SetupStage.IDENTIFY
+                        SetupStage.PAY_WINDOW
                     }
                 } else {
                     SetupStage.HISTORY
