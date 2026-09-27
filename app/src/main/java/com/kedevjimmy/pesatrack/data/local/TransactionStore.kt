@@ -459,7 +459,10 @@ class TransactionStore private constructor(context: Context) {
             .sumOf { it.amountMinor }
 
         val refunds = effective
-            .filter { it.relationType == RELATION_REFUND }
+            .filter {
+                it.relationType == RELATION_REFUND &&
+                    refundOriginalIsTrusted(it)
+            }
             .sumOf { it.amountMinor }
 
         val spent = maxOf(0L, grossSpent - refunds)
@@ -892,6 +895,18 @@ class TransactionStore private constructor(context: Context) {
                 true
             )
             .apply()
+    }
+
+    private fun refundOriginalIsTrusted(
+        refund: StoredTransaction
+    ): Boolean {
+        val originalId =
+            refund.relatedTransactionId ?: return false
+        val original = getById(originalId) ?: return false
+        return original.direction == MoneyDirection.EXPENSE.name &&
+            original.reviewState != ReviewState.EXCLUDED.name &&
+            original.reviewState != ReviewState.NEEDS_REVIEW.name &&
+            original.type != MpesaTransactionType.REVERSAL.name
     }
 
     private fun ensureRefundsReconciled() {
