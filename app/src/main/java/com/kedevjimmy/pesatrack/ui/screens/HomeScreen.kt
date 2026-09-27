@@ -446,11 +446,17 @@ fun HomeScreen(
             }
         }
 
-        if (debtAccounts.any { it.outstandingMinor > 0L }) {
+        if (
+            debtAccounts.any {
+                it.outstandingMinor > 0L ||
+                    it.availableCreditMinor != null
+            }
+        ) {
             item {
                 DebtOverviewCard(
                     accounts = debtAccounts.filter {
-                        it.outstandingMinor > 0L
+                        it.outstandingMinor > 0L ||
+                            it.availableCreditMinor != null
                     },
                     latestEvents = latestDebtEvents
                 )
@@ -596,6 +602,16 @@ private fun DebtOverviewCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        account.availableCreditMinor?.let { available ->
+                            Text(
+                                "Available credit " +
+                                    formatMoney(available) +
+                                    " • not cash",
+                                modifier = Modifier.padding(top = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         latestEvents[account.id]?.let { event ->
                             Text(
                                 debtEventLabel(event),
@@ -637,7 +653,17 @@ private fun debtEventLabel(
         DebtEventType.DRAWDOWN ->
             "Borrowed " + formatMoney(event.amountMinor)
         DebtEventType.REPAYMENT ->
-            "Repaid " + formatMoney(event.amountMinor)
+            buildString {
+                if (event.outstandingAfterMinor == 0L) {
+                    append("Fully repaid ")
+                } else {
+                    append("Repaid ")
+                }
+                append(formatMoney(event.amountMinor))
+                if (event.linkedTransactionId != null) {
+                    append(" • linked to incoming funds")
+                }
+            }
         DebtEventType.FEE ->
             "Finance cost " + formatMoney(event.feeMinor)
         DebtEventType.ADJUSTMENT ->

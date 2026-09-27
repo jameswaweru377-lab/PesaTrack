@@ -2,9 +2,17 @@ package com.kedevjimmy.pesatrack.domain.parser
 
 import java.math.RoundingMode
 
+enum class FulizaRepaymentCompletion {
+    PARTIAL,
+    FULL,
+    UNKNOWN
+}
+
 data class ParsedFulizaRepayment(
     val transactionCode: String?,
     val repaidAmountMinor: Long,
+    val completion: FulizaRepaymentCompletion,
+    val outstandingAfterMinor: Long?,
     val availableLimitMinor: Long?,
     val mpesaBalanceMinor: Long?,
     val rawMessage: String
@@ -37,11 +45,11 @@ object FulizaParser {
         RegexOption.IGNORE_CASE
     )
     private val availableLimitRegex = Regex(
-        """Available\s+Fuliza\s+M-PESA\s+limit\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """Available\s+Fuliza(?:\s+M-PESA)?\s+(?:balance\s+)?limit\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
     private val repaymentRegex = Regex(
-        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+your\s+M-PESA\s+has\s+been\s+used\s+to\s+(?:partially\s+)?pay\s+your\s+outstanding\s+Fuliza\s+M-PESA""",
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+your\s+M-PESA\s+has\s+been\s+used\s+to\s+(?:(partially|fully)\s+)?pay\s+your\s+outstanding\s+Fuliza\s+M-PESA""",
         RegexOption.IGNORE_CASE
     )
     private val mpesaBalanceRegex = Regex(
@@ -77,11 +85,22 @@ object FulizaParser {
         val normalized = message
             .replace(Regex("""\s+"""), " ")
             .trim()
-        val repaid = repaymentRegex
-            .find(normalized)
-            ?.groupValues
-            ?.get(1)
-            ?: return null
+        val repaymentMatch =
+            repaymentRegex.find(normalized)
+                ?: return null
+        val repaid = repaymentMatch.groupValues[1]
+        val completion = when (
+            repaymentMatch.groupValues
+                .getOrNull(2)
+                ?.lowercase()
+        ) {
+            "partially" ->
+                FulizaRepaymentCompletion.PARTIAL
+            "fully" ->
+                FulizaRepaymentCompletion.FULL
+            else ->
+                FulizaRepaymentCompletion.UNKNOWN
+        }
 
         return ParsedFulizaRepayment(
             transactionCode = codeRegex
@@ -90,6 +109,16 @@ object FulizaParser {
                 ?.get(1)
                 ?.uppercase(),
             repaidAmountMinor = amountToMinor(repaid),
+            completion = completion,
+            outstandingAfterMinor =
+                if (
+                    completion ==
+                    FulizaRepaymentCompletion.FULL
+                ) {
+                    0L
+                } else {
+                    null
+                },
             availableLimitMinor = availableLimitRegex
                 .find(normalized)
                 ?.groupValues
