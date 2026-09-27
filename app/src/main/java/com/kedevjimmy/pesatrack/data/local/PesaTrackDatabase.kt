@@ -22,6 +22,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createDebtTables(db)
         seedDefaultAccounts(db)
         createIndexes(db)
+        createTriggers(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -158,6 +159,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         createIndexes(db)
+        createTriggers(db)
     }
 
     private fun createTransactionsTable(db: SQLiteDatabase) {
@@ -526,6 +528,22 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_debt_events_linked_transaction ON debt_events(linked_transaction_id)"
+        )
+    }
+
+    private fun createTriggers(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TRIGGER IF NOT EXISTS trg_sync_refund_category
+            AFTER UPDATE OF category ON transactions
+            WHEN NEW.category != OLD.category
+            BEGIN
+                UPDATE transactions
+                SET category = NEW.category
+                WHERE relation_type = 'REFUND'
+                  AND related_transaction_id = NEW.id;
+            END
+            """.trimIndent()
         )
     }
 
