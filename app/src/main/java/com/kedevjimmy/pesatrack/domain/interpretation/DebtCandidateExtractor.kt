@@ -273,6 +273,8 @@ object DebtCandidateExtractor {
                 " "
             )
             .trim()
+            .removeSuffix(" BALANCE")
+            .trim()
 
     private fun IntRange.toSpan(): MessageSpan =
         MessageSpan(
