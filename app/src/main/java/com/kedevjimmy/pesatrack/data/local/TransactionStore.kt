@@ -297,15 +297,30 @@ class TransactionStore private constructor(context: Context) {
 
         val balance = db.rawQuery(
             """
-            SELECT balance_minor, occurred_at_epoch_ms
-            FROM transactions
-            WHERE balance_minor IS NOT NULL
-            ORDER BY occurred_at_epoch_ms DESC, id DESC
+            SELECT balance_minor, observed_at
+            FROM (
+                SELECT balance_minor,
+                       occurred_at_epoch_ms AS observed_at
+                FROM transactions
+                WHERE balance_minor IS NOT NULL
+
+                UNION ALL
+
+                SELECT wallet_balance_after_minor AS balance_minor,
+                       occurred_at_epoch_ms AS observed_at
+                FROM debt_events
+                WHERE wallet_balance_after_minor IS NOT NULL
+            )
+            ORDER BY observed_at DESC
             LIMIT 1
             """.trimIndent(),
             null
         ).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getLong(0) to cursor.getLong(1) else null
+            if (cursor.moveToFirst()) {
+                cursor.getLong(0) to cursor.getLong(1)
+            } else {
+                null
+            }
         }
 
         return LedgerSnapshot(
