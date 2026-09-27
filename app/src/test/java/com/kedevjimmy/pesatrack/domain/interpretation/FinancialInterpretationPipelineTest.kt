@@ -145,6 +145,80 @@ class FinancialInterpretationPipelineTest {
     }
 
     @Test
+    fun genericDebtGrammarUnderstandsUnknownLiabilityProvider() {
+        val message =
+            "TST12PIPE6 Confirmed. FlexiCash Loan amount is Ksh 500.00. Access Fee charged Ksh 5.00. Total FlexiCash Loan outstanding amount is Ksh 505.00."
+
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "MPESA",
+                body = message
+            )
+        val canonical =
+            interpretation.toCanonicalDraft()
+
+        val debt = canonical.records
+            .filterIsInstance<DebtMovementDraft>()
+            .single()
+
+        assertEquals(
+            CanonicalFinancialRecordKind.DEBT_DRAWDOWN,
+            debt.kind
+        )
+        assertEquals(50_000L, debt.amountMinor)
+        assertEquals(
+            "FlexiCash Loan",
+            debt.liability.displayName
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            debt.liability.ownershipHint
+        )
+        assertEquals(50_500L, debt.outstandingAfterMinor)
+        assertEquals(
+            500L,
+            canonical.records
+                .filterIsInstance<FeeDraft>()
+                .single()
+                .amountMinor
+        )
+        assertTrue(canonical.requiresLegacyFallback)
+    }
+
+    @Test
+    fun genericDebtGrammarSeparatesRepaymentCreditAndWalletBalance() {
+        val message =
+            "TST12PIPE7 Confirmed. Ksh 1,381.00 from your M-PESA has been used to fully pay your outstanding Fuliza M-PESA. Available Fuliza balance limit is Ksh 1,440.00. Your M-PESA balance is Ksh 13,000.00."
+
+        val canonical =
+            FinancialMessageInterpreter.interpret(
+                title = "MPESA",
+                body = message
+            ).toCanonicalDraft()
+
+        val repayment = canonical.records
+            .filterIsInstance<DebtMovementDraft>()
+            .single()
+        val credit = canonical.records
+            .filterIsInstance<
+                AvailableCreditObservationDraft
+            >()
+            .single()
+        val balance = canonical.records
+            .filterIsInstance<BalanceObservationDraft>()
+            .single()
+
+        assertEquals(
+            CanonicalFinancialRecordKind.DEBT_REPAYMENT,
+            repayment.kind
+        )
+        assertEquals(DebtCompletion.FULL, repayment.completion)
+        assertEquals(0L, repayment.outstandingAfterMinor)
+        assertEquals(144_000L, credit.availableCreditMinor)
+        assertEquals(1_300_000L, balance.balanceMinor)
+    }
+
+    @Test
     fun classifierCreatesReceiptWithoutCallingItIncome() {
         val normalized =
             FinancialMessageNormalizer.normalize(
