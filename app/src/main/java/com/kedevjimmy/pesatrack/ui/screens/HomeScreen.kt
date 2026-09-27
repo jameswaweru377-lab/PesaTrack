@@ -569,6 +569,244 @@ private fun PendingSalaryCard(
     }
 }
 
+private data class ExpectedSalaryPrompt(
+    val windowStartEpochMs: Long,
+    val windowEndEpochMs: Long,
+    val currentCycleStartEpochMs: Long
+)
+
+private fun expectedSalaryPrompt(
+    cycleSnapshot: PayCycleSnapshot,
+    salaryRule: SmartRule?,
+    nowEpochMs: Long,
+    deferredUntilEpochMs: Long
+): ExpectedSalaryPrompt? {
+    val cycle = cycleSnapshot.cycle ?: return null
+    if (cycleSnapshot.pendingSalary != null) return null
+    if (nowEpochMs < deferredUntilEpochMs) return null
+
+    val startDay = salaryRule?.payWindowStartDay ?: return null
+    val endDay = salaryRule.payWindowEndDay ?: return null
+
+    val start = Calendar.getInstance().apply {
+        timeInMillis = cycle.startEpochMs
+        add(Calendar.MONTH, 1)
+        set(Calendar.DAY_OF_MONTH, 1)
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        set(
+            Calendar.DAY_OF_MONTH,
+            startDay.coerceAtMost(
+                getActualMaximum(Calendar.DAY_OF_MONTH)
+            )
+        )
+    }
+
+    val end = (start.clone() as Calendar).apply {
+        if (endDay < startDay) {
+            add(Calendar.MONTH, 1)
+        }
+        set(Calendar.DAY_OF_MONTH, 1)
+        set(
+            Calendar.DAY_OF_MONTH,
+            endDay.coerceAtMost(
+                getActualMaximum(Calendar.DAY_OF_MONTH)
+            )
+        )
+        set(Calendar.HOUR_OF_DAY, 23)
+        set(Calendar.MINUTE, 59)
+        set(Calendar.SECOND, 59)
+        set(Calendar.MILLISECOND, 999)
+    }
+
+    if (nowEpochMs <= end.timeInMillis) return null
+
+    return ExpectedSalaryPrompt(
+        windowStartEpochMs = start.timeInMillis,
+        windowEndEpochMs = end.timeInMillis,
+        currentCycleStartEpochMs = cycle.startEpochMs
+    )
+}
+
+@Composable
+private fun ExpectedSalaryCard(
+    prompt: ExpectedSalaryPrompt,
+    onAddSalary: () -> Unit,
+    onNotPaidYet: () -> Unit
+) {
+    PesaCard {
+        Column(Modifier.padding(15.dp)) {
+            Text(
+                "Salary not detected",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.secondary
+            )
+            Text(
+                "Your usual payday window ended " +
+                    formatShortDate(prompt.windowEndEpochMs) +
+                    ".",
+                modifier = Modifier.padding(top = 6.dp),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                "PesaTrack is still using the pay cycle that started " +
+                    formatShortDate(prompt.currentCycleStartEpochMs) +
+                    ". No future salary has been added.",
+                modifier = Modifier.padding(top = 4.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.padding(top = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onNotPaidYet,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Not paid yet")
+                }
+                Button(
+                    onClick = onAddSalary,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Add salary")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ManualSalaryEntryDialog(
+    prompt: ExpectedSalaryPrompt,
+    onDismiss: () -> Unit,
+    onSave: (Long, Long) -> Boolean
+) {
+    var amount by remember(prompt.windowEndEpochMs) {
+        mutableStateOf("")
+    }
+    var date by remember(prompt.windowEndEpochMs) {
+        mutableStateOf(
+            SimpleDateFormat(
+                "dd/MM/yyyy",
+                Locale.getDefault()
+            ).format(Date(prompt.windowEndEpochMs))
+        )
+    }
+    var error by remember(prompt.windowEndEpochMs) {
+        mutableStateOf<String?>(null)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add salary manually") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Only add this if the salary actually arrived. The date you enter becomes the start of the new pay cycle.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = {
+                        amount = it
+                        error = null
+                    },
+                    label = { Text("Salary amount") },
+                    prefix = { Text("KES ") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = date,
+                    onValueChange = {
+                        date = it
+                        error = null
+                    },
+                    label = { Text("Date salary arrived") },
+                    placeholder = { Text("25/09/2026") },
+                    supportingText = {
+                        Text("Day / month / year")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                error?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amountMinor =
+                        parseHomeMoneyMinor(amount)
+                    val occurredAt =
+                        parseHomeDate(date)
+
+                    error = when {
+                        amountMinor == null ||
+                            amountMinor <= 0L ->
+                            "Enter a salary amount above zero."
+                        occurredAt == null ->
+                            "Enter a valid date, for example 25/09/2026."
+                        occurredAt >
+                            System.currentTimeMillis() ->
+                            "Salary cannot be dated in the future."
+                        occurredAt <=
+                            prompt.currentCycleStartEpochMs ->
+                            "The new salary must be after the current cycle started."
+                        !onSave(
+                            amountMinor,
+                            occurredAt
+                        ) ->
+                            "That salary entry is already recorded."
+                        else -> null
+                    }
+                }
+            ) {
+                Text("Add salary")
+            }
+        }
+    )
+}
+
+private fun parseHomeMoneyMinor(raw: String): Long? =
+    runCatching {
+        raw.replace(",", "")
+            .trim()
+            .toBigDecimal()
+            .movePointRight(2)
+            .setScale(0, RoundingMode.HALF_UP)
+            .longValueExact()
+    }.getOrNull()
+
+private fun parseHomeDate(raw: String): Long? =
+    runCatching {
+        SimpleDateFormat(
+            "d/M/yyyy",
+            Locale.getDefault()
+        ).apply {
+            isLenient = false
+        }.parse(raw.trim())?.time
+    }.getOrNull()
+
 private fun homeInsight(
     cycleSnapshot: PayCycleSnapshot,
     needsReviewCount: Int
