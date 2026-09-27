@@ -71,6 +71,7 @@ data class MoneyMovementDraft(
     val source: FinancialAccountReference?,
     val destination: FinancialAccountReference?,
     val counterparty: String? = null,
+    val relatedTransactionCode: String? = null,
     val feeMinor: Long = 0L,
     override val confidence: InterpretationConfidence,
     override val evidence: List<FieldEvidence> = emptyList()
