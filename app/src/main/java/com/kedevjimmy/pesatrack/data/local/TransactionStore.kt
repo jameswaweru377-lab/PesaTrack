@@ -323,11 +323,19 @@ class TransactionStore private constructor(context: Context) {
                        1 AS priority
                 FROM debt_events
                 WHERE wallet_balance_after_minor IS NOT NULL
+
+                UNION ALL
+
+                SELECT balance_minor,
+                       observed_at_epoch_ms AS observed_at,
+                       2 AS priority
+                FROM account_balance_observations
+                WHERE account_id = ?
             )
             ORDER BY observed_at DESC, priority DESC
             LIMIT 1
             """.trimIndent(),
-            null
+            arrayOf(AccountStore.DEFAULT_MPESA_ID)
         ).use { cursor ->
             if (cursor.moveToFirst()) {
                 cursor.getLong(0) to cursor.getLong(1)
