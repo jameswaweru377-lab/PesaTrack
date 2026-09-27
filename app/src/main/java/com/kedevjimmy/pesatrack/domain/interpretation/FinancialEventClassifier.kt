@@ -65,6 +65,22 @@ object FinancialEventClassifier {
                             relationship.evidence
                     )
                 )
+            is ResolvedReversalRelationship ->
+                listOf(
+                    ReversalEventFact(
+                        amountMinor =
+                            relationship.amountMinor,
+                        account =
+                            relationship.account,
+                        originalTransactionCode =
+                            relationship
+                                .originalTransactionCode,
+                        confidence =
+                            relationship.confidence,
+                        evidence =
+                            relationship.evidence
+                    )
+                )
             is ResolvedDebtDrawdownRelationship ->
                 listOf(
                     DebtDrawdownEventFact(
