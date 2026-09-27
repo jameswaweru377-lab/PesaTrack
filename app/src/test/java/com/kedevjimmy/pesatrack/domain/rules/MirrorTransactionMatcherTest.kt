@@ -24,18 +24,98 @@ class MirrorTransactionMatcherTest {
     }
 
     @Test
-    fun matchesUltraCloseMirrorEvenWhenLabelsDiffer() {
+    fun matchesCodedAndCodeLessCopiesWithinTwentySeconds() {
         assertTrue(
             MirrorTransactionMatcher.isMirror(
                 mpesa(
-                    amount = 50_000L,
+                    amount = 98_500L,
                     receivedAt = 1_000_000L,
-                    counterparty = "JOHN MWANGI"
+                    counterparty = null
                 ),
                 bank(
-                    amount = 50_000L,
+                    amount = 98_500L,
+                    receivedAt = 1_018_000L,
+                    counterparty = null
+                )
+            )
+        )
+    }
+
+    @Test
+    fun complementaryDirectionsExtendSafeCorrelationWindow() {
+        assertTrue(
+            MirrorTransactionMatcher.isMirror(
+                mpesa(
+                    amount = 12_500L,
+                    receivedAt = 1_000_000L,
+                    counterparty = null,
+                    direction = "EXPENSE"
+                ),
+                bank(
+                    amount = 12_500L,
+                    receivedAt = 1_052_000L,
+                    counterparty = null,
+                    direction = "INCOME"
+                )
+            )
+        )
+    }
+
+    @Test
+    fun sameAmountWithoutEvidenceOutsideStrongWindowDoesNotMerge() {
+        assertFalse(
+            MirrorTransactionMatcher.isMirror(
+                mpesa(
+                    amount = 98_500L,
+                    receivedAt = 1_000_000L,
+                    counterparty = null,
+                    direction = "EXPENSE"
+                ),
+                bank(
+                    amount = 98_500L,
+                    receivedAt = 1_090_000L,
+                    counterparty = null,
+                    direction = "NEUTRAL"
+                )
+            )
+        )
+    }
+
+    @Test
+    fun codeLessCopiesFromDifferentAppsCanMergeWhenUltraClose() {
+        assertTrue(
+            MirrorTransactionMatcher.isMirror(
+                bank(
+                    amount = 2_000L,
+                    receivedAt = 1_000_000L,
+                    counterparty = null,
+                    sourcePackage = "com.google.android.apps.messaging"
+                ),
+                bank(
+                    amount = 2_000L,
                     receivedAt = 1_003_000L,
-                    counterparty = "Mobile transfer"
+                    counterparty = null,
+                    sourcePackage = "com.truecaller"
+                )
+            )
+        )
+    }
+
+    @Test
+    fun codeLessCopiesFromSameSourceDoNotMergeOnTimeAlone() {
+        assertFalse(
+            MirrorTransactionMatcher.isMirror(
+                bank(
+                    amount = 2_000L,
+                    receivedAt = 1_000_000L,
+                    counterparty = null,
+                    sourcePackage = "com.bank.app"
+                ),
+                bank(
+                    amount = 2_000L,
+                    receivedAt = 1_003_000L,
+                    counterparty = null,
+                    sourcePackage = "com.bank.app"
                 )
             )
         )
@@ -60,7 +140,7 @@ class MirrorTransactionMatcherTest {
     }
 
     @Test
-    fun doesNotMergeTwoRealMpesaTransactions() {
+    fun doesNotMergeTwoRealMpesaTransactionsWithDifferentCodes() {
         assertFalse(
             MirrorTransactionMatcher.isMirror(
                 mpesa(
@@ -80,18 +160,20 @@ class MirrorTransactionMatcherTest {
     }
 
     @Test
-    fun doesNotMergeTwoCodeLessBankNotifications() {
-        assertFalse(
+    fun sameTransactionCodeIsAlwaysTheSameObservation() {
+        assertTrue(
             MirrorTransactionMatcher.isMirror(
-                bank(
+                mpesa(
                     amount = 10_000L,
                     receivedAt = 1_000_000L,
-                    counterparty = "KCB"
+                    counterparty = "KCB",
+                    code = "AAA111"
                 ),
-                bank(
+                mpesa(
                     amount = 10_000L,
-                    receivedAt = 1_002_000L,
-                    counterparty = "KCB"
+                    receivedAt = 1_040_000L,
+                    counterparty = null,
+                    code = "AAA111"
                 )
             )
         )
@@ -100,8 +182,9 @@ class MirrorTransactionMatcherTest {
     private fun mpesa(
         amount: Long,
         receivedAt: Long,
-        counterparty: String,
-        code: String = "TQK12ABC34"
+        counterparty: String?,
+        code: String = "TQK12ABC34",
+        direction: String = "EXPENSE"
     ) = MirrorTransactionObservation(
         amountMinor = amount,
         occurredAtEpochMs = receivedAt,
@@ -111,22 +194,26 @@ class MirrorTransactionMatcherTest {
         transactionCode = code,
         type = "PAY_BILL",
         counterparty = counterparty,
-        counterpartyPhone = null
+        counterpartyPhone = null,
+        direction = direction
     )
 
     private fun bank(
         amount: Long,
         receivedAt: Long,
-        counterparty: String
+        counterparty: String?,
+        direction: String = "NEUTRAL",
+        sourcePackage: String = "com.kcb.bank"
     ) = MirrorTransactionObservation(
         amountMinor = amount,
         occurredAtEpochMs = receivedAt,
         receivedAtEpochMs = receivedAt,
         sourceKind = "configured_notification",
-        sourcePackage = "com.kcb.bank",
+        sourcePackage = sourcePackage,
         transactionCode = null,
         type = "OTHER",
         counterparty = counterparty,
-        counterpartyPhone = null
+        counterpartyPhone = null,
+        direction = direction
     )
 }

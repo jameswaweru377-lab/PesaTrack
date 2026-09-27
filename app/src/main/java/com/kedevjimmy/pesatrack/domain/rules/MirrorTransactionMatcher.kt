@@ -11,12 +11,15 @@ data class MirrorTransactionObservation(
     val transactionCode: String?,
     val type: String,
     val counterparty: String?,
-    val counterpartyPhone: String?
+    val counterpartyPhone: String?,
+    val direction: String? = null
 )
 
 object MirrorTransactionMatcher {
     const val MAX_TIME_DELTA_MS = 120_000L
-    private const val ULTRA_CLOSE_MS = 5_000L
+    private const val VERY_CLOSE_MS = 20_000L
+    private const val COMPLEMENTARY_DIRECTION_MS = 60_000L
+    private const val CODELESS_ULTRA_CLOSE_MS = 5_000L
 
     private val ignoredIdentityTokens = setOf(
         "account",
@@ -49,23 +52,26 @@ object MirrorTransactionMatcher {
             return false
         }
 
-        val firstHasCode = !first.transactionCode.isNullOrBlank()
-        val secondHasCode = !second.transactionCode.isNullOrBlank()
-        if (firstHasCode == secondHasCode) {
-            return false
-        }
-
         val receivedDelta = abs(
             first.receivedAtEpochMs - second.receivedAtEpochMs
         )
         val occurredDelta = abs(
             first.occurredAtEpochMs - second.occurredAtEpochMs
         )
-        if (
-            receivedDelta > MAX_TIME_DELTA_MS &&
-            occurredDelta > MAX_TIME_DELTA_MS
-        ) {
-            return false
+        val bestDelta = minOf(receivedDelta, occurredDelta)
+        if (bestDelta > MAX_TIME_DELTA_MS) return false
+
+        val firstCode = first.transactionCode
+            ?.trim()
+            ?.uppercase()
+            ?.takeIf(String::isNotBlank)
+        val secondCode = second.transactionCode
+            ?.trim()
+            ?.uppercase()
+            ?.takeIf(String::isNotBlank)
+
+        if (firstCode != null && secondCode != null) {
+            return firstCode == secondCode
         }
 
         val samePhone = normalizePhone(first.counterpartyPhone) != null &&
@@ -77,10 +83,58 @@ object MirrorTransactionMatcher {
                 .intersect(identityTokens(second.counterparty))
                 .isNotEmpty()
 
-        val ultraClose = receivedDelta <= ULTRA_CLOSE_MS
+        val distinctSources = hasDistinctSources(first, second)
+        val complementaryDirections =
+            areComplementaryDirections(first.direction, second.direction)
 
-        return samePhone || sharedIdentityToken || ultraClose
+        val exactlyOneHasCode = (firstCode == null) != (secondCode == null)
+        if (exactlyOneHasCode) {
+            return samePhone ||
+                sharedIdentityToken ||
+                bestDelta <= VERY_CLOSE_MS ||
+                (
+                    complementaryDirections &&
+                        bestDelta <= COMPLEMENTARY_DIRECTION_MS
+                    )
+        }
+
+        return distinctSources &&
+            (
+                samePhone ||
+                    sharedIdentityToken ||
+                    bestDelta <= CODELESS_ULTRA_CLOSE_MS
+                )
     }
+
+    private fun hasDistinctSources(
+        first: MirrorTransactionObservation,
+        second: MirrorTransactionObservation
+    ): Boolean {
+        val firstPackage = first.sourcePackage
+            ?.trim()
+            ?.lowercase()
+            ?.takeIf(String::isNotBlank)
+        val secondPackage = second.sourcePackage
+            ?.trim()
+            ?.lowercase()
+            ?.takeIf(String::isNotBlank)
+
+        if (
+            firstPackage != null &&
+            secondPackage != null &&
+            firstPackage != secondPackage
+        ) {
+            return true
+        }
+
+        return first.sourceKind != second.sourceKind
+    }
+
+    private fun areComplementaryDirections(
+        first: String?,
+        second: String?
+    ): Boolean =
+        setOf(first, second) == setOf("INCOME", "EXPENSE")
 
     private fun identityTokens(value: String?): Set<String> =
         value.orEmpty()
