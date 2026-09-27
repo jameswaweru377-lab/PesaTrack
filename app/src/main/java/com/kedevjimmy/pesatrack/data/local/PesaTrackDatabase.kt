@@ -147,6 +147,14 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             )
             createDebtTables(db)
             migrateFulizaEventsToDebtLedger(db)
+            db.execSQL(
+                """
+                UPDATE transactions
+                SET direction = 'TRANSFER'
+                WHERE category = 'DEBT_LOAN'
+                  AND direction = 'EXPENSE'
+                """.trimIndent()
+            )
         }
 
         createIndexes(db)
