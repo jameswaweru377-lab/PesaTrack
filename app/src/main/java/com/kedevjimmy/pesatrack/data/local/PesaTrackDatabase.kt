@@ -202,6 +202,15 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             )
         }
 
+        if (oldVersion < 15) {
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "funding_account_key",
+                "TEXT"
+            )
+        }
+
         createIndexes(db)
         createTriggers(db)
     }
@@ -441,6 +450,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 outstanding_after_minor INTEGER,
                 linked_transaction_id INTEGER,
                 wallet_balance_after_minor INTEGER,
+                funding_account_key TEXT,
                 available_credit_after_minor INTEGER,
                 repayment_completion TEXT,
                 funding_link_confidence TEXT,
@@ -705,6 +715,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 14
+        private const val DATABASE_VERSION = 15
     }
 }

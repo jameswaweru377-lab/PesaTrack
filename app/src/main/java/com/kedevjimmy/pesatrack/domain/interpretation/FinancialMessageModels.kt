@@ -120,6 +120,8 @@ data class DebtDrawdownEventFact(
     override val confidence: InterpretationConfidence,
     val evidence: List<FieldEvidence> = emptyList()
 ) : FinancialEventFact {
+    override val genericIngestionReady: Boolean =
+        true
     override val kind: FinancialEventKind =
         FinancialEventKind.DEBT_DRAWDOWN
 }
@@ -135,6 +137,8 @@ data class DebtRepaymentEventFact(
     override val confidence: InterpretationConfidence,
     val evidence: List<FieldEvidence> = emptyList()
 ) : FinancialEventFact {
+    override val genericIngestionReady: Boolean =
+        true
     override val kind: FinancialEventKind =
         FinancialEventKind.DEBT_REPAYMENT
 }

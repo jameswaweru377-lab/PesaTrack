@@ -152,11 +152,12 @@ class TransactionStore private constructor(context: Context) {
                 linkedAccountId = linkedAccountId,
                 evidence = evidence
             )
-            FulizaStore.get(appContext).linkPendingForTransaction(
-                transactionId = mirrorCandidate.id,
-                parsed = parsed,
-                occurredAtEpochMs = occurredAtEpochMs
-            )
+            DebtStore.get(appContext)
+                .reconcilePendingDrawdownsForTransaction(
+                    transactionId = mirrorCandidate.id,
+                    parsed = parsed,
+                    occurredAtEpochMs = occurredAtEpochMs
+                )
             if (
                 parsed.type == MpesaTransactionType.RECEIVED ||
                 parsed.type == MpesaTransactionType.DEPOSIT
@@ -226,11 +227,12 @@ class TransactionStore private constructor(context: Context) {
 
         val inserted = rowId != -1L
         if (inserted) {
-            FulizaStore.get(appContext).linkPendingForTransaction(
-                transactionId = rowId,
-                parsed = parsed,
-                occurredAtEpochMs = occurredAtEpochMs
-            )
+            DebtStore.get(appContext)
+                .reconcilePendingDrawdownsForTransaction(
+                    transactionId = rowId,
+                    parsed = parsed,
+                    occurredAtEpochMs = occurredAtEpochMs
+                )
             if (
                 parsed.type == MpesaTransactionType.RECEIVED ||
                 parsed.type == MpesaTransactionType.DEPOSIT
@@ -510,7 +512,7 @@ class TransactionStore private constructor(context: Context) {
             .sumOf { it.amountMinor }
 
         val fees = effective.sumOf { it.feeMinor } +
-            FulizaStore.get(appContext).sumAccessFeesBetween(
+            DebtStore.get(appContext).sumFeesBetween(
                 startEpochMs = monthStart.timeInMillis,
                 endEpochMsExclusive = nextMonthStart.timeInMillis
             )

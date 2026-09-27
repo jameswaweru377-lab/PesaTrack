@@ -2,13 +2,27 @@ package com.kedevjimmy.pesatrack.domain.interpretation
 
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 
+enum class DebtFundingBehavior {
+    TRANSACTION_SHORTFALL,
+    CASH_DISBURSEMENT,
+    UNKNOWN
+}
+
+data class DebtProductBehavior(
+    val fundingBehavior: DebtFundingBehavior,
+    val fundingAccountProviderKey: String? = null,
+    val preserveLegacyTransactionMetadata: Boolean = false,
+    val eventNamespace: String? = null
+)
+
 data class FinancialProviderAccountKnowledge(
     val providerKey: String,
     val canonicalName: String,
     val accountType: AccountType,
     val ownershipHint: AccountOwnershipHint,
     val nature: FinancialAccountNature,
-    val aliases: Set<String>
+    val aliases: Set<String>,
+    val debtBehavior: DebtProductBehavior? = null
 )
 
 object FinancialProviderRegistry {
@@ -34,6 +48,12 @@ object FinancialProviderRegistry {
             aliases = setOf(
                 "M SHWARI LOAN",
                 "MSHWARI LOAN"
+            ),
+            debtBehavior = DebtProductBehavior(
+                fundingBehavior =
+                    DebtFundingBehavior.CASH_DISBURSEMENT,
+                fundingAccountProviderKey =
+                    "SAFARICOM_MPESA"
             )
         ),
         FinancialProviderAccountKnowledge(
@@ -46,6 +66,14 @@ object FinancialProviderRegistry {
                 "FULIZA M PESA",
                 "FULIZA MPESA",
                 "FULIZA"
+            ),
+            debtBehavior = DebtProductBehavior(
+                fundingBehavior =
+                    DebtFundingBehavior.TRANSACTION_SHORTFALL,
+                fundingAccountProviderKey =
+                    "SAFARICOM_MPESA",
+                preserveLegacyTransactionMetadata = true,
+                eventNamespace = "fuliza"
             )
         ),
         FinancialProviderAccountKnowledge(
@@ -106,6 +134,39 @@ object FinancialProviderRegistry {
 
     fun mpesaAccount(): FinancialAccountReference =
         resolveAccount("M-Pesa")
+
+    fun debtBehaviorFor(
+        reference: FinancialAccountReference
+    ): DebtProductBehavior? =
+        reference.providerKey?.let { providerKey ->
+            known.firstOrNull {
+                it.providerKey == providerKey
+            }?.debtBehavior
+        }
+
+    fun referenceForProviderKey(
+        providerKey: String
+    ): FinancialAccountReference? =
+        known.firstOrNull {
+            it.providerKey == providerKey
+        }?.let { provider ->
+            FinancialAccountReference(
+                entityKey =
+                    "provider:" +
+                        provider.providerKey,
+                displayName =
+                    provider.canonicalName,
+                providerKey =
+                    provider.providerKey,
+                accountTypeHint =
+                    provider.accountType,
+                ownershipHint =
+                    provider.ownershipHint,
+                nature =
+                    provider.nature
+            )
+        }
+
 
     fun looksLikeNonFinancialBalanceLabel(rawLabel: String): Boolean {
         val normalized = normalize(rawLabel)

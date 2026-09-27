@@ -94,9 +94,11 @@ class HistoricalSmsImporter(
                 ) {
                     matched += 1
                     inserted +=
-                        interpreted.insertedTransactions
+                        interpreted.insertedTransactions +
+                            interpreted.insertedFinancialEvents
                     if (
                         interpreted.insertedTransactions == 0 &&
+                        interpreted.insertedFinancialEvents == 0 &&
                         interpreted.pendingReviewEvents == 0
                     ) {
                         duplicates += 1

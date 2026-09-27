@@ -217,7 +217,7 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC06 Confirmed. Fuliza M-PESA amount is KSh 167.00. Access Fee charged KSh 1.67. Total Fuliza M-PESA outstanding amount is KSh 1086.51 due on 18/10/26.",
-            coverage = FixtureCoverage.GENERIC_SEMANTICS_LEGACY_PERSISTENCE,
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC06",
             expectedKinds = listOf(
                 CanonicalFinancialRecordKind.DEBT_DRAWDOWN,
@@ -234,7 +234,7 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC07 Confirmed. Ksh 220.00 from your M-PESA has been used to partially pay your outstanding Fuliza M-PESA. Your available Fuliza M-PESA limit is Ksh 589.09. Your M-PESA balance is Ksh 0.00.",
-            coverage = FixtureCoverage.GENERIC_SEMANTICS_LEGACY_PERSISTENCE,
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC07",
             expectedKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
@@ -259,7 +259,7 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC08 Confirmed. Ksh 1,381.00 from your M-PESA has been used to fully pay your outstanding Fuliza M-PESA. Available Fuliza balance limit is Ksh 1,440.00. Your M-PESA balance is Ksh 13,000.00.",
-            coverage = FixtureCoverage.GENERIC_SEMANTICS_LEGACY_PERSISTENCE,
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC08",
             expectedKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
