@@ -456,13 +456,21 @@ private fun homeInsight(
 }
 
 private fun friendlyCategory(raw: String): String =
-    raw.lowercase()
-        .split("_")
-        .joinToString(" ") { word ->
-            word.replaceFirstChar {
-                if (it.isLowerCase()) it.titlecase() else it.toString()
+    when (raw.uppercase()) {
+        "LUNCH" -> "Food & dining"
+        "PHONE_AND_DATA" -> "Phone & data"
+        else -> raw.lowercase()
+            .split("_")
+            .joinToString(" ") { word ->
+                word.replaceFirstChar {
+                    if (it.isLowerCase()) {
+                        it.titlecase()
+                    } else {
+                        it.toString()
+                    }
+                }
             }
-        }
+    }
 
 private fun formatMoney(minor: Long): String {
     val formatter = NumberFormat.getNumberInstance(Locale.US).apply {
