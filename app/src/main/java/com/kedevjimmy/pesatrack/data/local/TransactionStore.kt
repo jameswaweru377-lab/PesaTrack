@@ -162,10 +162,9 @@ class TransactionStore private constructor(context: Context) {
                 parsed.type == MpesaTransactionType.DEPOSIT
             ) {
                 DebtStore.get(appContext)
-                    .linkPendingRepaymentForTransaction(
-                        transactionId = mirrorCandidate.id,
-                        amountMinor = parsed.amountMinor,
-                        occurredAtEpochMs = occurredAtEpochMs
+                    .reconcilePendingRepaymentsAround(
+                        occurredAtEpochMs =
+                            occurredAtEpochMs
                     )
                 if (matchedRule == null) {
                     tryLinkRefund(mirrorCandidate.id)
@@ -237,10 +236,9 @@ class TransactionStore private constructor(context: Context) {
                 parsed.type == MpesaTransactionType.DEPOSIT
             ) {
                 DebtStore.get(appContext)
-                    .linkPendingRepaymentForTransaction(
-                        transactionId = rowId,
-                        amountMinor = parsed.amountMinor,
-                        occurredAtEpochMs = occurredAtEpochMs
+                    .reconcilePendingRepaymentsAround(
+                        occurredAtEpochMs =
+                            occurredAtEpochMs
                     )
                 if (matchedRule == null) {
                     tryLinkRefund(rowId)
