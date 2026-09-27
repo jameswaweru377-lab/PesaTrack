@@ -390,7 +390,8 @@ class PayCycleStore private constructor(context: Context) {
                     direction == MoneyDirection.TRANSFER.name &&
                         category in setOf(
                             "SAVINGS",
-                            "INVESTMENT"
+                            "INVESTMENT",
+                            "DEBT_LOAN"
                         ) ->
                         savings += amount
                 }
