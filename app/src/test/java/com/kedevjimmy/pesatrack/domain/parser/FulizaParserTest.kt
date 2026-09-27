@@ -28,8 +28,31 @@ class FulizaParserTest {
         assertNotNull(parsed)
         assertEquals("UIQFT85YNE", parsed?.transactionCode)
         assertEquals(22_000L, parsed?.repaidAmountMinor)
+        assertEquals(
+            FulizaRepaymentCompletion.PARTIAL,
+            parsed?.completion
+        )
+        assertEquals(null, parsed?.outstandingAfterMinor)
         assertEquals(58_909L, parsed?.availableLimitMinor)
         assertEquals(0L, parsed?.mpesaBalanceMinor)
+    }
+
+    @Test
+    fun parsesFullRepaymentAndSeparatesAvailableLimit() {
+        val message =
+            "UIQFT85YNF Confirmed. Ksh 1,381.00 from your M-PESA has been used to fully pay your outstanding Fuliza M-PESA. Available Fuliza balance limit is Ksh 1,440.00. Your M-PESA balance is Ksh 13,000.00."
+
+        val parsed = FulizaParser.parseRepayment(message)
+
+        assertNotNull(parsed)
+        assertEquals(138_100L, parsed?.repaidAmountMinor)
+        assertEquals(
+            FulizaRepaymentCompletion.FULL,
+            parsed?.completion
+        )
+        assertEquals(0L, parsed?.outstandingAfterMinor)
+        assertEquals(144_000L, parsed?.availableLimitMinor)
+        assertEquals(1_300_000L, parsed?.mpesaBalanceMinor)
     }
 
     @Test
