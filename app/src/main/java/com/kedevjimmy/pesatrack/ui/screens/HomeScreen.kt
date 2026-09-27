@@ -213,6 +213,39 @@ fun HomeScreen(
             .take(4)
     }
 
+    if (
+        showManualSalaryDialog &&
+        salaryRule != null &&
+        expectedSalaryPrompt != null
+    ) {
+        ManualSalaryEntryDialog(
+            prompt = expectedSalaryPrompt,
+            onDismiss = {
+                showManualSalaryDialog = false
+            },
+            onSave = { amountMinor, occurredAtEpochMs ->
+                val inserted = transactionStore.insertManualIncome(
+                    amountMinor = amountMinor,
+                    occurredAtEpochMs = occurredAtEpochMs,
+                    label =
+                        salaryRule.displayLabel
+                            ?: salaryRule.name
+                            .ifBlank { "Salary" },
+                    matchedRule = salaryRule
+                )
+                if (inserted) {
+                    preferences.edit()
+                        .remove("salary_prompt_deferred_until")
+                        .apply()
+                    salaryPromptDeferredUntil = 0L
+                    showManualSalaryDialog = false
+                    refresh()
+                }
+                inserted
+            }
+        )
+    }
+
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
@@ -242,6 +275,32 @@ fun HomeScreen(
                     onKeepAsIncome = {
                         cycleStore.keepAsAdditionalIncome(candidate.transactionId)
                         refresh()
+                    }
+                )
+            }
+        }
+
+        if (
+            cycleSnapshot.pendingSalary == null &&
+            expectedSalaryPrompt != null
+        ) {
+            item {
+                ExpectedSalaryCard(
+                    prompt = expectedSalaryPrompt,
+                    onAddSalary = {
+                        showManualSalaryDialog = true
+                    },
+                    onNotPaidYet = {
+                        val deferUntil =
+                            System.currentTimeMillis() +
+                                24L * 60L * 60L * 1000L
+                        preferences.edit()
+                            .putLong(
+                                "salary_prompt_deferred_until",
+                                deferUntil
+                            )
+                            .apply()
+                        salaryPromptDeferredUntil = deferUntil
                     }
                 )
             }
