@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ingestion
 import android.content.Context
 import android.provider.Telephony
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.FulizaStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
@@ -86,6 +87,21 @@ class HistoricalSmsImporter(
                         matched += 1
                         fulizaMessages += 1
                         if (!fulizaResult.inserted) duplicates += 1
+                        continue
+                    }
+
+                    val fulizaRepayment =
+                        FulizaParser.parseRepayment(body)
+                    if (fulizaRepayment != null) {
+                        DebtStore.get(context).recordFulizaRepayment(
+                            parsed = fulizaRepayment,
+                            sourcePackage = null,
+                            sourceKind =
+                                SOURCE_HISTORICAL_FULIZA_SMS,
+                            occurredAtEpochMs = smsDate
+                        )
+                        matched += 1
+                        fulizaMessages += 1
                         continue
                     }
 
