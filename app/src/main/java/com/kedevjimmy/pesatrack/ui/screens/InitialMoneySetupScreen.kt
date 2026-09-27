@@ -763,14 +763,15 @@ fun InitialMoneySetupScreen(
 
     val salarySelected =
         IncomeSourceChoice.SALARY in selectedSources
-    val totalStages = if (salarySelected) 6 else 4
+    val totalStages = if (salarySelected) 7 else 4
     val stageNumber = when (stage) {
         SetupStage.SOURCES -> 1
         SetupStage.ROUTES -> 2
         SetupStage.HISTORY -> 3
         SetupStage.IDENTIFY -> 4
-        SetupStage.SALARY_HISTORY -> 5
-        SetupStage.ACCOUNTS -> if (salarySelected) 6 else 4
+        SetupStage.PAY_WINDOW -> 5
+        SetupStage.SALARY_HISTORY -> 6
+        SetupStage.ACCOUNTS -> if (salarySelected) 7 else 4
     }
 
     LazyColumn(
