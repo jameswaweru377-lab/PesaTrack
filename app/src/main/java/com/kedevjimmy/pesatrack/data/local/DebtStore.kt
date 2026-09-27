@@ -420,6 +420,33 @@ class DebtStore private constructor(context: Context) {
         quality: DebtBalanceQuality,
         observedAtEpochMs: Long
     ) {
+        val latestObservedAt =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT last_observed_at_epoch_ms
+                FROM debt_accounts
+                WHERE id = ?
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf(accountId)
+            ).use { cursor ->
+                if (
+                    cursor.moveToFirst() &&
+                    !cursor.isNull(0)
+                ) {
+                    cursor.getLong(0)
+                } else {
+                    null
+                }
+            }
+
+        if (
+            latestObservedAt != null &&
+            observedAtEpochMs < latestObservedAt
+        ) {
+            return
+        }
+
         ContentValues().apply {
             put(
                 "outstanding_minor",
@@ -452,19 +479,36 @@ class DebtStore private constructor(context: Context) {
     ) {
         val current = database.readableDatabase.rawQuery(
             """
-            SELECT outstanding_minor
+            SELECT outstanding_minor, last_observed_at_epoch_ms
             FROM debt_accounts
             WHERE id = ?
             LIMIT 1
             """.trimIndent(),
             arrayOf(accountId)
         ).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getLong(0) else 0L
+            if (!cursor.moveToFirst()) {
+                0L to null
+            } else {
+                cursor.getLong(0) to
+                    if (cursor.isNull(1)) {
+                        null
+                    } else {
+                        cursor.getLong(1)
+                    }
+            }
+        }
+
+        if (
+            current.second != null &&
+            occurredAtEpochMs < current.second!!
+        ) {
+            return
         }
 
         updateBalance(
             accountId = accountId,
-            outstandingMinor = max(0L, current + deltaMinor),
+            outstandingMinor =
+                max(0L, current.first + deltaMinor),
             quality = DebtBalanceQuality.ESTIMATED,
             observedAtEpochMs = occurredAtEpochMs
         )
