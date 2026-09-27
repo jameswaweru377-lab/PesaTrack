@@ -42,7 +42,9 @@ class TransactionStore private constructor(context: Context) {
         occurredAtEpochMs: Long = receivedAtEpochMs,
         matchedRule: SmartRule? = null,
         rebuildPayCycles: Boolean = true,
-        evidence: TransactionEvidenceMatch? = null
+        evidence: TransactionEvidenceMatch? = null,
+        accountTransferOverride:
+            com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null
     ): Boolean {
         val fingerprint = TransactionFingerprint.of(parsed, occurredAtEpochMs)
         if (parsed.transactionCode.isNullOrBlank()) {
@@ -66,16 +68,25 @@ class TransactionStore private constructor(context: Context) {
             }
         }
         val accounts = AccountStore.get(appContext).listAccounts()
-        val ownTransfer = OwnAccountTransferDetector.matchMpesa(
-            parsed = parsed,
-            accounts = accounts,
-            observedWalletId = AccountStore.DEFAULT_MPESA_ID
-        )
-        val useOwnTransfer = ownTransfer != null &&
-            (
-                matchedRule == null ||
-                    ownTransfer.evidence == OwnTransferEvidence.EXACT_IDENTIFIER
-                )
+        val detectedOwnTransfer =
+            OwnAccountTransferDetector.matchMpesa(
+                parsed = parsed,
+                accounts = accounts,
+                observedWalletId =
+                    AccountStore.DEFAULT_MPESA_ID
+            )
+        val ownTransfer =
+            accountTransferOverride ?: detectedOwnTransfer
+        val useOwnTransfer =
+            accountTransferOverride != null ||
+                (
+                    ownTransfer != null &&
+                    (
+                        matchedRule == null ||
+                            ownTransfer.evidence ==
+                                OwnTransferEvidence.EXACT_IDENTIFIER
+                        )
+                    )
 
         val classification = if (useOwnTransfer) {
             Classification(
@@ -312,11 +323,19 @@ class TransactionStore private constructor(context: Context) {
                        1 AS priority
                 FROM debt_events
                 WHERE wallet_balance_after_minor IS NOT NULL
+
+                UNION ALL
+
+                SELECT balance_minor,
+                       observed_at_epoch_ms AS observed_at,
+                       2 AS priority
+                FROM account_balance_observations
+                WHERE account_id = ?
             )
             ORDER BY observed_at DESC, priority DESC
             LIMIT 1
             """.trimIndent(),
-            null
+            arrayOf(AccountStore.DEFAULT_MPESA_ID)
         ).use { cursor ->
             if (cursor.moveToFirst()) {
                 cursor.getLong(0) to cursor.getLong(1)
@@ -340,6 +359,22 @@ class TransactionStore private constructor(context: Context) {
             arrayOf(id.toString())
         ).use { cursor ->
             if (cursor.moveToFirst()) cursor.toStoredTransaction() else null
+        }
+
+    @Synchronized
+    fun findByTransactionCode(
+        transactionCode: String
+    ): StoredTransaction? =
+        database.readableDatabase.rawQuery(
+            BASE_SELECT +
+                " WHERE transaction_code = ? LIMIT 1",
+            arrayOf(transactionCode.uppercase())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.toStoredTransaction()
+            } else {
+                null
+            }
         }
 
     @Synchronized

@@ -20,6 +20,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createCategoryBudgetsTable(db)
         createCustomCategoriesTable(db)
         createDebtTables(db)
+        createFinancialUnderstandingTables(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -156,6 +157,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                   AND direction = 'EXPENSE'
                 """.trimIndent()
             )
+        }
+
+        if (oldVersion < 13) {
+            createFinancialUnderstandingTables(db)
         }
 
         createIndexes(db)
@@ -465,6 +470,64 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createFinancialUnderstandingTables(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS financial_entities (
+                entity_key TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL,
+                provider_key TEXT,
+                account_type_hint TEXT NOT NULL,
+                ownership_hint TEXT NOT NULL,
+                nature_hint TEXT NOT NULL,
+                confirmed_account_id TEXT,
+                first_seen_epoch_ms INTEGER NOT NULL,
+                last_seen_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS account_balance_observations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                observation_key TEXT NOT NULL UNIQUE,
+                entity_key TEXT NOT NULL,
+                account_id TEXT,
+                balance_minor INTEGER NOT NULL,
+                confidence TEXT NOT NULL,
+                observed_at_epoch_ms INTEGER NOT NULL,
+                source_package TEXT,
+                source_kind TEXT NOT NULL,
+                created_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS financial_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_key TEXT NOT NULL UNIQUE,
+                event_type TEXT NOT NULL,
+                amount_minor INTEGER NOT NULL,
+                fee_minor INTEGER NOT NULL DEFAULT 0,
+                source_entity_key TEXT,
+                destination_entity_key TEXT,
+                confidence TEXT NOT NULL,
+                status TEXT NOT NULL,
+                linked_transaction_id INTEGER,
+                occurred_at_epoch_ms INTEGER NOT NULL,
+                source_package TEXT,
+                source_kind TEXT NOT NULL,
+                created_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun seedDefaultAccounts(db: SQLiteDatabase) {
         val now = System.currentTimeMillis()
         db.execSQL(
@@ -532,6 +595,21 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_debt_events_linked_transaction ON debt_events(linked_transaction_id)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_financial_entities_provider ON financial_entities(provider_key)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_balance_observations_account_time ON account_balance_observations(account_id, observed_at_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_balance_observations_entity_time ON account_balance_observations(entity_key, observed_at_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_financial_events_status_time ON financial_events(status, occurred_at_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_financial_events_linked_transaction ON financial_events(linked_transaction_id)"
+        )
     }
 
     private fun createTriggers(db: SQLiteDatabase) {
@@ -552,6 +630,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 12
+        private const val DATABASE_VERSION = 13
     }
 }

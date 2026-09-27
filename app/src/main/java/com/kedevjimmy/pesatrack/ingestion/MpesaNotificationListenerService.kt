@@ -50,6 +50,35 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                 val rules = RuleStore.get(applicationContext).listRules(enabledOnly = true)
                 val store = TransactionStore.get(applicationContext)
 
+                val interpreted =
+                    FinancialMessageIngestionCoordinator
+                        .get(applicationContext)
+                        .ingest(
+                            title = title,
+                            body = body,
+                            sourcePackage = packageName,
+                            sourceKind =
+                                SOURCE_FINANCIAL_NOTIFICATION,
+                            receivedAtEpochMs = receivedAt
+                        )
+
+                if (
+                    interpreted.recognized &&
+                    !processingStarted
+                ) {
+                    LedgerUpdateBus.processingStarted()
+                    processingStarted = true
+                }
+                changed =
+                    interpreted.changed || changed
+
+                if (
+                    interpreted
+                        .consumesLegacyTransactionParsing
+                ) {
+                    return@execute
+                }
+
                 if (likelyMpesa) {
                 val fuliza = FulizaParser.parse(body)
                 if (fuliza != null) {
@@ -237,5 +266,7 @@ class MpesaNotificationListenerService : NotificationListenerService() {
         const val SOURCE_MPESA_NOTIFICATION = "mpesa_notification"
         const val SOURCE_FULIZA_NOTIFICATION = "fuliza_notification"
         const val SOURCE_CONFIGURED_NOTIFICATION = "configured_notification"
+        const val SOURCE_FINANCIAL_NOTIFICATION =
+            "financial_notification"
     }
 }
