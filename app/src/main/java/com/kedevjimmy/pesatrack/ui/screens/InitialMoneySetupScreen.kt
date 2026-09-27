@@ -92,7 +92,9 @@ private enum class SetupStage {
     SOURCES,
     ROUTES,
     HISTORY,
-    IDENTIFY
+    IDENTIFY,
+    SALARY_HISTORY,
+    ACCOUNTS
 }
 
 private enum class IncomeSourceChoice(
@@ -170,6 +172,12 @@ fun InitialMoneySetupScreen(
     var manualSalaryDrafts by remember {
         mutableStateOf(mapOf<String, ManualSalaryDraft>())
     }
+    var confirmedManualSalaryMonths by remember {
+        mutableStateOf(setOf<String>())
+    }
+    var activeManualSalaryMonthKey by remember {
+        mutableStateOf<String?>(null)
+    }
     var mpesaPhone by remember { mutableStateOf("") }
     var mpesaOpeningBalance by remember { mutableStateOf("") }
     var salaryAccountOpeningBalance by remember { mutableStateOf("") }
@@ -182,6 +190,9 @@ fun InitialMoneySetupScreen(
     }
     val currentRouteSource = orderedSources.getOrNull(routeIndex)
     val selectedHistoryMonths = HistoryImportWindow.months(historyMonthsCount)
+    val eligibleManualSalaryMonths = selectedHistoryMonths
+        .filter { it.startEpochMs <= System.currentTimeMillis() }
+        .sortedBy(HistoryMonth::startEpochMs)
     val salaryRoute = routes[IncomeSourceChoice.SALARY]
     val salaryBank = salaryRoute?.bankForSearch()
     val salaryBankKey = salaryBank?.name.orEmpty()
@@ -270,6 +281,35 @@ fun InitialMoneySetupScreen(
         return true
     }
 
+    fun needsManualSalaryHistory(): Boolean =
+        IncomeSourceChoice.SALARY in selectedSources &&
+            eligibleManualSalaryMonths.isNotEmpty() &&
+            (
+                manualHistoryEnabled ||
+                    !smsGranted ||
+                    salaryRoute?.arrival != ArrivalChoice.BANK ||
+                    (
+                        !loadingCandidates &&
+                            candidates.isEmpty()
+                        )
+                )
+
+    fun validateSalaryIdentity(): Boolean {
+        if (IncomeSourceChoice.SALARY !in selectedSources) return true
+        if (salaryRoute?.arrival == ArrivalChoice.CASH) return true
+
+        val identity = employer.trim().takeIf { it.isNotBlank() }
+            ?: selectedCandidate?.originator?.takeIf {
+                !it.isNullOrBlank()
+            }
+
+        if (identity == null) {
+            error = "Tell PesaTrack who normally pays your salary."
+            return false
+        }
+        return true
+    }
+
     fun goForward() {
         error = null
 
@@ -294,10 +334,36 @@ fun InitialMoneySetupScreen(
             }
 
             SetupStage.HISTORY -> {
-                stage = SetupStage.IDENTIFY
+                stage = if (IncomeSourceChoice.SALARY in selectedSources) {
+                    SetupStage.IDENTIFY
+                } else {
+                    SetupStage.ACCOUNTS
+                }
             }
 
-            SetupStage.IDENTIFY -> Unit
+            SetupStage.IDENTIFY -> {
+                if (!validateSalaryIdentity()) return
+                if (needsManualSalaryHistory()) {
+                    activeManualSalaryMonthKey =
+                        eligibleManualSalaryMonths
+                            .firstOrNull {
+                                it.key() !in confirmedManualSalaryMonths
+                            }
+                            ?.key()
+                            ?: eligibleManualSalaryMonths
+                                .firstOrNull()
+                                ?.key()
+                    stage = SetupStage.SALARY_HISTORY
+                } else {
+                    stage = SetupStage.ACCOUNTS
+                }
+            }
+
+            SetupStage.SALARY_HISTORY -> {
+                stage = SetupStage.ACCOUNTS
+            }
+
+            SetupStage.ACCOUNTS -> Unit
         }
     }
 
@@ -320,49 +386,106 @@ fun InitialMoneySetupScreen(
             SetupStage.IDENTIFY -> {
                 stage = SetupStage.HISTORY
             }
+            SetupStage.SALARY_HISTORY -> {
+                stage = SetupStage.IDENTIFY
+            }
+            SetupStage.ACCOUNTS -> {
+                stage = if (
+                    IncomeSourceChoice.SALARY in selectedSources
+                ) {
+                    if (needsManualSalaryHistory()) {
+                        SetupStage.SALARY_HISTORY
+                    } else {
+                        SetupStage.IDENTIFY
+                    }
+                } else {
+                    SetupStage.HISTORY
+                }
+            }
         }
     }
 
     fun validateManualSalaryEntries():
         Pair<List<ManualSalaryEntry>, String?> {
-        if (!manualHistoryEnabled || selectedHistoryMonths.isEmpty()) {
+        if (confirmedManualSalaryMonths.isEmpty()) {
             return emptyList<ManualSalaryEntry>() to null
         }
 
         val entries = mutableListOf<ManualSalaryEntry>()
+        val now = System.currentTimeMillis()
 
-        selectedHistoryMonths.forEach { month ->
-            val draft = manualSalaryDrafts[month.key()]
-                ?: ManualSalaryDraft()
+        eligibleManualSalaryMonths
+            .filter { it.key() in confirmedManualSalaryMonths }
+            .forEach { month ->
+                val draft = manualSalaryDrafts[month.key()]
+                    ?: ManualSalaryDraft()
 
-            if (draft.amount.isBlank() && draft.day.isBlank()) {
-                return@forEach
+                val amountMinor = parseMoneyMinor(draft.amount)
+                    ?: return emptyList<ManualSalaryEntry>() to
+                        ("Enter a valid salary amount for " + month.label + ".")
+
+                if (amountMinor <= 0L) {
+                    return emptyList<ManualSalaryEntry>() to
+                        ("Salary for " + month.label + " must be above zero.")
+                }
+
+                val day = draft.day.toIntOrNull()
+                    ?: return emptyList<ManualSalaryEntry>() to
+                        ("Enter the day salary arrived in " + month.label + ".")
+
+                val occurred = HistoryImportWindow.epochForDay(month, day)
+                    ?: return emptyList<ManualSalaryEntry>() to
+                        ("That day does not exist in " + month.label + ".")
+
+                if (occurred > now) {
+                    return emptyList<ManualSalaryEntry>() to
+                        ("Salary date for " + month.label + " cannot be in the future.")
+                }
+
+                entries += ManualSalaryEntry(
+                    amountMinor = amountMinor,
+                    occurredAtEpochMs = occurred
+                )
             }
-
-            val amountMinor = parseMoneyMinor(draft.amount)
-                ?: return emptyList<ManualSalaryEntry>() to
-                    ("Enter a valid salary amount for " + month.label + ".")
-
-            if (amountMinor <= 0L) {
-                return emptyList<ManualSalaryEntry>() to
-                    ("Salary for " + month.label + " must be above zero.")
-            }
-
-            val day = draft.day.toIntOrNull()
-                ?: return emptyList<ManualSalaryEntry>() to
-                    ("Enter the day salary arrived in " + month.label + ".")
-
-            val occurred = HistoryImportWindow.epochForDay(month, day)
-                ?: return emptyList<ManualSalaryEntry>() to
-                    ("That day does not exist in " + month.label + ".")
-
-            entries += ManualSalaryEntry(
-                amountMinor = amountMinor,
-                occurredAtEpochMs = occurred
-            )
-        }
 
         return entries to null
+    }
+
+    fun confirmManualSalaryMonth(month: HistoryMonth) {
+        val draft = manualSalaryDrafts[month.key()] ?: ManualSalaryDraft()
+        val amountMinor = parseMoneyMinor(draft.amount)
+        if (amountMinor == null || amountMinor <= 0L) {
+            error = "Enter a valid salary amount for " + month.label + "."
+            return
+        }
+
+        val day = draft.day.toIntOrNull()
+        if (day == null) {
+            error = "Enter the day salary arrived in " + month.label + "."
+            return
+        }
+
+        val occurred = HistoryImportWindow.epochForDay(month, day)
+        if (occurred == null) {
+            error = "That day does not exist in " + month.label + "."
+            return
+        }
+
+        if (occurred > System.currentTimeMillis()) {
+            error = "Salary date for " + month.label + " cannot be in the future."
+            return
+        }
+
+        confirmedManualSalaryMonths =
+            confirmedManualSalaryMonths + month.key()
+        activeManualSalaryMonthKey =
+            eligibleManualSalaryMonths
+                .firstOrNull {
+                    it.key() !in confirmedManualSalaryMonths
+                }
+                ?.key()
+                ?: month.key()
+        error = null
     }
 
     suspend fun finishSetup() {
@@ -591,11 +714,16 @@ fun InitialMoneySetupScreen(
         onDone()
     }
 
+    val salarySelected =
+        IncomeSourceChoice.SALARY in selectedSources
+    val totalStages = if (salarySelected) 6 else 4
     val stageNumber = when (stage) {
         SetupStage.SOURCES -> 1
         SetupStage.ROUTES -> 2
         SetupStage.HISTORY -> 3
         SetupStage.IDENTIFY -> 4
+        SetupStage.SALARY_HISTORY -> 5
+        SetupStage.ACCOUNTS -> if (salarySelected) 6 else 4
     }
 
     LazyColumn(
@@ -625,13 +753,13 @@ fun InitialMoneySetupScreen(
                     )
                     Text(
                         if (stage == SetupStage.ROUTES) {
-                            "Step 2 of 4 • " +
+                            "Step 2 of " + totalStages + " • " +
                                 (routeIndex + 1) +
                                 " of " +
                                 orderedSources.size +
                                 " income sources"
                         } else {
-                            "Step " + stageNumber + " of 4"
+                            "Step " + stageNumber + " of " + totalStages
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -640,7 +768,7 @@ fun InitialMoneySetupScreen(
             }
 
             LinearProgressIndicator(
-                progress = { stageNumber / 4f },
+                progress = { stageNumber / totalStages.toFloat() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 10.dp)
@@ -722,6 +850,8 @@ fun InitialMoneySetupScreen(
                         historyMonthsCount = count
                         manualHistoryEnabled = false
                         manualSalaryDrafts = emptyMap()
+                        confirmedManualSalaryMonths = emptySet()
+                        activeManualSalaryMonthKey = null
                         error = null
                     },
                     onRequestSms = {
@@ -739,34 +869,22 @@ fun InitialMoneySetupScreen(
 
             SetupStage.IDENTIFY -> item {
                 IdentifyIncomeStep(
-                    salarySelected =
-                        IncomeSourceChoice.SALARY in selectedSources,
                     salaryRoute = salaryRoute,
                     historyMonthsCount = historyMonthsCount,
-                    selectedHistoryMonths = selectedHistoryMonths,
                     smsGranted = smsGranted,
                     loadingCandidates = loadingCandidates,
                     candidates = candidates,
                     selectedCandidate = selectedCandidate,
                     employer = employer,
-                    manualHistoryEnabled = manualHistoryEnabled,
-                    manualSalaryDrafts = manualSalaryDrafts,
-                    mpesaPhone = mpesaPhone,
-                    mpesaOpeningBalance = mpesaOpeningBalance,
-                    salaryAccountOpeningBalance = salaryAccountOpeningBalance,
-                    onMpesaPhoneChanged = { mpesaPhone = it },
-                    onMpesaOpeningBalanceChanged = {
-                        mpesaOpeningBalance = it
-                    },
-                    onSalaryAccountOpeningBalanceChanged = {
-                        salaryAccountOpeningBalance = it
-                    },
                     onEmployerChanged = {
                         employer = it
                     },
                     onCandidateSelected = { candidate ->
                         selectedCandidate = candidate
                         manualHistoryEnabled = false
+                        manualSalaryDrafts = emptyMap()
+                        confirmedManualSalaryMonths = emptySet()
+                        activeManualSalaryMonthKey = null
                         candidate.originator
                             ?.takeIf { it.isNotBlank() }
                             ?.let { employer = it }
@@ -774,11 +892,43 @@ fun InitialMoneySetupScreen(
                     onManualHistory = {
                         selectedCandidate = null
                         manualHistoryEnabled = true
+                    }
+                )
+            }
+
+            SetupStage.SALARY_HISTORY -> item {
+                ManualSalaryHistoryStep(
+                    months = eligibleManualSalaryMonths,
+                    drafts = manualSalaryDrafts,
+                    confirmedMonthKeys = confirmedManualSalaryMonths,
+                    activeMonthKey = activeManualSalaryMonthKey,
+                    onMonthSelected = { month ->
+                        activeManualSalaryMonthKey = month.key()
+                        error = null
                     },
-                    onManualDraftChanged = { month, draft ->
+                    onDraftChanged = { month, draft ->
                         manualSalaryDrafts =
                             manualSalaryDrafts +
                                 (month.key() to draft)
+                        error = null
+                    },
+                    onConfirmMonth = ::confirmManualSalaryMonth
+                )
+            }
+
+            SetupStage.ACCOUNTS -> item {
+                OwnedAccountsSetupFields(
+                    salaryRoute = salaryRoute,
+                    mpesaPhone = mpesaPhone,
+                    mpesaOpeningBalance = mpesaOpeningBalance,
+                    salaryAccountOpeningBalance =
+                        salaryAccountOpeningBalance,
+                    onMpesaPhoneChanged = { mpesaPhone = it },
+                    onMpesaOpeningBalanceChanged = {
+                        mpesaOpeningBalance = it
+                    },
+                    onSalaryAccountOpeningBalanceChanged = {
+                        salaryAccountOpeningBalance = it
                     }
                 )
             }
@@ -801,7 +951,7 @@ fun InitialMoneySetupScreen(
         }
 
         item {
-            if (stage != SetupStage.IDENTIFY) {
+            if (stage != SetupStage.ACCOUNTS) {
                 Button(
                     onClick = ::goForward,
                     modifier = Modifier
@@ -1076,7 +1226,7 @@ private fun HistoryChoiceStep(
                 }
 
                 Text(
-                    "You can still press Next without granting access. The final step will offer manual salary history instead.",
+                    "You can still press Next without granting access. If salary history is needed, PesaTrack will give it its own simple step.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1087,64 +1237,20 @@ private fun HistoryChoiceStep(
 
 @Composable
 private fun IdentifyIncomeStep(
-    salarySelected: Boolean,
     salaryRoute: IncomeRouteDraft?,
     historyMonthsCount: Int,
-    selectedHistoryMonths: List<HistoryMonth>,
     smsGranted: Boolean,
     loadingCandidates: Boolean,
     candidates: List<SalarySmsCandidate>,
     selectedCandidate: SalarySmsCandidate?,
     employer: String,
-    manualHistoryEnabled: Boolean,
-    manualSalaryDrafts: Map<String, ManualSalaryDraft>,
-    mpesaPhone: String,
-    mpesaOpeningBalance: String,
-    salaryAccountOpeningBalance: String,
-    onMpesaPhoneChanged: (String) -> Unit,
-    onMpesaOpeningBalanceChanged: (String) -> Unit,
-    onSalaryAccountOpeningBalanceChanged: (String) -> Unit,
     onEmployerChanged: (String) -> Unit,
     onCandidateSelected: (SalarySmsCandidate) -> Unit,
-    onManualHistory: () -> Unit,
-    onManualDraftChanged: (
-        HistoryMonth,
-        ManualSalaryDraft
-    ) -> Unit
+    onManualHistory: () -> Unit
 ) {
-    if (!salarySelected) {
-        SetupQuestion(
-            title = "You're ready to start",
-            body = "Your selected income routes are saved. You can teach detailed Business, Freelance or Other income patterns later from real transactions."
-        ) {
-            if (historyMonthsCount > 0 && smsGranted) {
-                Text(
-                    "Your selected SMS history will be imported when setup finishes.",
-                    color = MaterialTheme.colorScheme.primary
-                )
-            } else {
-                Text(
-                    "No message-history import is required.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        OwnedAccountsSetupFields(
-            salaryRoute = salaryRoute,
-            mpesaPhone = mpesaPhone,
-            mpesaOpeningBalance = mpesaOpeningBalance,
-            salaryAccountOpeningBalance = salaryAccountOpeningBalance,
-            onMpesaPhoneChanged = onMpesaPhoneChanged,
-            onMpesaOpeningBalanceChanged = onMpesaOpeningBalanceChanged,
-            onSalaryAccountOpeningBalanceChanged =
-                onSalaryAccountOpeningBalanceChanged
-        )
-        return
-    }
-
     SetupQuestion(
-        title = "Let's identify your salary",
-        body = "PesaTrack needs a stable payer identity, not a fixed amount or payday."
+        title = "Who pays your salary?",
+        body = "Keep this step focused on the payer. Salary history and account details come next."
     ) {
         if (
             salaryRoute?.arrival == ArrivalChoice.BANK &&
@@ -1171,7 +1277,7 @@ private fun IdentifyIncomeStep(
 
                 candidates.isNotEmpty() -> {
                     Text(
-                        "Which one is your salary?",
+                        "Did PesaTrack find it?",
                         style = MaterialTheme.typography.titleMedium
                     )
                     candidates.take(5).forEach { candidate ->
@@ -1190,7 +1296,7 @@ private fun IdentifyIncomeStep(
                         onClick = onManualHistory,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Add salary history manually instead")
+                        Text("None of these — I'll add salary history")
                     }
                 }
 
@@ -1201,10 +1307,7 @@ private fun IdentifyIncomeStep(
                         color = pesaToneContainer("amber")
                     ) {
                         Text(
-                            "No clear incoming salary was found in the selected " +
-                                historyMonthsCount +
-                                " month" +
-                                if (historyMonthsCount == 1) "." else "s.",
+                            "No clear salary payment was found. Type the payer below, then add only the salary months that actually arrived.",
                             modifier = Modifier.padding(14.dp),
                             color = pesaToneContent("amber")
                         )
@@ -1217,13 +1320,13 @@ private fun IdentifyIncomeStep(
             OutlinedTextField(
                 value = employer,
                 onValueChange = onEmployerChanged,
-                label = { Text("Who pays you?") },
+                label = { Text("Employer or regular payer") },
                 placeholder = {
-                    Text("Employer or regular payer name")
+                    Text("Example: Braeburn")
                 },
                 supportingText = {
                     Text(
-                        "Used to recognize future salary payments. Salary amount and payday may change."
+                        "Used to recognize future salary payments. The amount and payday can change."
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -1236,44 +1339,9 @@ private fun IdentifyIncomeStep(
                 color = pesaToneContainer("amber")
             ) {
                 Text(
-                    "Cash salary cannot be detected from phone messages. You can add recent salary history manually below.",
+                    "Cash salary cannot be detected from phone messages. On the next step, add the months that were actually paid.",
                     modifier = Modifier.padding(14.dp),
                     color = pesaToneContent("amber")
-                )
-            }
-        }
-
-        val showManualHistory =
-            selectedHistoryMonths.isNotEmpty() &&
-                (
-                    manualHistoryEnabled ||
-                        !smsGranted ||
-                        salaryRoute?.arrival != ArrivalChoice.BANK ||
-                        (
-                            !loadingCandidates &&
-                                candidates.isEmpty()
-                            )
-                    )
-
-        if (showManualHistory) {
-            Text(
-                "Add missing salary history",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                "Only the months you chose are shown. Leave a month blank if salary had not arrived yet or you do not want to add it.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            selectedHistoryMonths.forEach { month ->
-                ManualSalaryMonthCard(
-                    month = month,
-                    draft = manualSalaryDrafts[month.key()]
-                        ?: ManualSalaryDraft(),
-                    onChanged = {
-                        onManualDraftChanged(month, it)
-                    }
                 )
             }
         }
@@ -1289,24 +1357,221 @@ private fun IdentifyIncomeStep(
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    "This example will teach future matching salary payments automatically.",
+                    "Salary example selected. PesaTrack will use it to learn the payer.",
                     modifier = Modifier.padding(start = 8.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
     }
+}
 
-    OwnedAccountsSetupFields(
-        salaryRoute = salaryRoute,
-        mpesaPhone = mpesaPhone,
-        mpesaOpeningBalance = mpesaOpeningBalance,
-        salaryAccountOpeningBalance = salaryAccountOpeningBalance,
-        onMpesaPhoneChanged = onMpesaPhoneChanged,
-        onMpesaOpeningBalanceChanged = onMpesaOpeningBalanceChanged,
-        onSalaryAccountOpeningBalanceChanged =
-            onSalaryAccountOpeningBalanceChanged
-    )
+@Composable
+private fun ManualSalaryHistoryStep(
+    months: List<HistoryMonth>,
+    drafts: Map<String, ManualSalaryDraft>,
+    confirmedMonthKeys: Set<String>,
+    activeMonthKey: String?,
+    onMonthSelected: (HistoryMonth) -> Unit,
+    onDraftChanged: (HistoryMonth, ManualSalaryDraft) -> Unit,
+    onConfirmMonth: (HistoryMonth) -> Unit
+) {
+    SetupQuestion(
+        title = "Add salary history",
+        body = "Add one paid month at a time. A month that has not been paid yet should stay unadded."
+    ) {
+        if (months.isEmpty()) {
+            Text(
+                "You did not choose any history months.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            return@SetupQuestion
+        }
+
+        Text(
+            "Choose month",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            months.forEach { month ->
+                val key = month.key()
+                val selected = key == activeMonthKey
+                val confirmed = key in confirmedMonthKeys
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 58.dp)
+                        .clickable { onMonthSelected(month) },
+                    shape = RoundedCornerShape(16.dp),
+                    color = when {
+                        selected -> MaterialTheme.colorScheme.primaryContainer
+                        confirmed -> pesaToneContainer("green")
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    }
+                ) {
+                    Column(
+                        modifier = Modifier.padding(
+                            horizontal = 8.dp,
+                            vertical = 10.dp
+                        ),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            month.shortLabel(),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Text(
+                            month.year.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (confirmed) {
+                            Icon(
+                                Icons.Rounded.CheckCircle,
+                                contentDescription = "Added",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 3.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        val activeMonth = months.firstOrNull {
+            it.key() == activeMonthKey
+        } ?: months.first()
+
+        ManualSalaryMonthEditor(
+            month = activeMonth,
+            draft = drafts[activeMonth.key()]
+                ?: ManualSalaryDraft(),
+            confirmed = activeMonth.key() in confirmedMonthKeys,
+            onChanged = {
+                onDraftChanged(activeMonth, it)
+            },
+            onConfirm = {
+                onConfirmMonth(activeMonth)
+            }
+        )
+
+        if (confirmedMonthKeys.isNotEmpty()) {
+            Text(
+                "Added",
+                style = MaterialTheme.typography.titleMedium
+            )
+            months
+                .filter { it.key() in confirmedMonthKeys }
+                .forEach { month ->
+                    val draft = drafts[month.key()] ?: return@forEach
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = pesaToneContainer("green")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                tint = pesaToneContent("green")
+                            )
+                            Column(
+                                modifier = Modifier.padding(start = 10.dp)
+                            ) {
+                                Text(
+                                    month.label,
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                                val amount = parseMoneyMinor(draft.amount)
+                                Text(
+                                    (amount?.let(::formatWizardMoney)
+                                        ?: "Salary") +
+                                        " • paid day " +
+                                        draft.day,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+        }
+
+        Text(
+            "A salary starts a pay cycle on the day it was actually paid. Spending after that date stays in that cycle until the next salary arrives.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun ManualSalaryMonthEditor(
+    month: HistoryMonth,
+    draft: ManualSalaryDraft,
+    confirmed: Boolean,
+    onChanged: (ManualSalaryDraft) -> Unit,
+    onConfirm: () -> Unit
+) {
+    PesaCard {
+        Column(
+            Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Text(
+                month.label,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = draft.amount,
+                    onValueChange = {
+                        onChanged(draft.copy(amount = it))
+                    },
+                    label = { Text("Salary amount") },
+                    prefix = { Text("KES ") },
+                    modifier = Modifier.weight(1.5f),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = draft.day,
+                    onValueChange = {
+                        onChanged(draft.copy(day = it))
+                    },
+                    label = { Text("Paid day") },
+                    placeholder = { Text("25") },
+                    modifier = Modifier.weight(0.8f),
+                    singleLine = true
+                )
+            }
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(15.dp)
+            ) {
+                Text(
+                    if (confirmed) {
+                        "Update " + month.shortLabel() + " salary"
+                    } else {
+                        "Add " + month.shortLabel() + " salary"
+                    }
+                )
+            }
+            Text(
+                "Do not add this month if salary has not arrived yet. Future dates are blocked.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @Composable
@@ -1367,51 +1632,6 @@ private fun OwnedAccountsSetupFields(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-    }
-}
-
-@Composable
-private fun ManualSalaryMonthCard(
-    month: HistoryMonth,
-    draft: ManualSalaryDraft,
-    onChanged: (ManualSalaryDraft) -> Unit
-) {
-    PesaCard {
-        Column(
-            Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(9.dp)
-        ) {
-            Text(
-                month.label,
-                style = MaterialTheme.typography.titleMedium
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = draft.amount,
-                    onValueChange = {
-                        onChanged(draft.copy(amount = it))
-                    },
-                    label = { Text("Amount KES") },
-                    modifier = Modifier.weight(1.5f),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = draft.day,
-                    onValueChange = {
-                        onChanged(draft.copy(day = it))
-                    },
-                    label = { Text("Day") },
-                    placeholder = { Text("24") },
-                    modifier = Modifier.weight(0.8f),
-                    singleLine = true
-                )
-            }
-            Text(
-                "Enter the day the salary actually arrived so the pay cycle starts on the correct date.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }
 

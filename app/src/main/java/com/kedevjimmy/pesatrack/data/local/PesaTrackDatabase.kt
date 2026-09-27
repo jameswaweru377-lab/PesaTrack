@@ -17,6 +17,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createPayCyclesTable(db)
         createFulizaEventsTable(db)
         createDuplicateResolutionsTable(db)
+        createCategoryBudgetsTable(db)
         seedDefaultAccounts(db)
         createIndexes(db)
     }
@@ -116,6 +117,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 9) {
             createDuplicateResolutionsTable(db)
+        }
+
+        if (oldVersion < 10) {
+            createCategoryBudgetsTable(db)
         }
 
         createIndexes(db)
@@ -268,6 +273,19 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createCategoryBudgetsTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS category_budgets (
+                category TEXT PRIMARY KEY,
+                limit_minor INTEGER NOT NULL,
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun seedDefaultAccounts(db: SQLiteDatabase) {
         val now = System.currentTimeMillis()
         db.execSQL(
@@ -330,6 +348,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 9
+        private const val DATABASE_VERSION = 10
     }
 }
