@@ -145,7 +145,21 @@ fun PesaTrackApp(
             ) { padding ->
                 HomeScreen(
                     scaffoldPadding = padding,
-                    onProfileClick = { navController.navigate("profile") }
+                    onProfileClick = {
+                        navController.navigate("profile")
+                    },
+                    onReviewClick = {
+                        navigateToTab(MainTab.ACTIVITY)
+                    },
+                    onImportClick = {
+                        navController.navigate("historical-import")
+                    },
+                    onRulesClick = {
+                        navController.navigate("smart-rules")
+                    },
+                    onGoalsClick = {
+                        navigateToTab(MainTab.GOALS)
+                    }
                 )
             }
         }
