@@ -39,7 +39,7 @@ object TransactionEvidenceResolver {
     private val phoneRegex = Regex("""(?:\+?254|0)[17]\d{8}""")
     private val explicitLabelPatterns = listOf(
         Regex(
-            """\b(?:to|from|at|merchant)\s+([A-Za-z0-9][A-Za-z0-9 &.'_-]{2,48}?)(?=\s+(?:on|at|for|account|ref|reference|balance|KES|Ksh)\b|[.,;]|$)""",
+            """\b(?:to|from|at|merchant)\s+([A-Za-z0-9][A-Za-z0-9 &.'_-]{2,48}?)(?=\s+(?:on|at|for|ref|reference|balance|KES|Ksh)\b|[.,;]|$)""",
             RegexOption.IGNORE_CASE
         ),
         Regex(

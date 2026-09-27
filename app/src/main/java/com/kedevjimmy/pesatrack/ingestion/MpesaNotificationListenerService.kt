@@ -59,11 +59,20 @@ class MpesaNotificationListenerService : NotificationListenerService() {
 
                 val parsed = MpesaParser.parse(body) ?: return@execute
                 pruneEvidence(receivedAt)
+                val inlineEvidence = TransactionEvidenceResolver.parseEvidence(
+                    title = title,
+                    body = body,
+                    observedAtEpochMs = receivedAt,
+                    sourceFallback = packageName
+                )
                 val evidence = if (parsed.counterparty.isNullOrBlank()) {
                     TransactionEvidenceResolver.chooseBest(
                         parsed = parsed,
                         transactionObservedAtEpochMs = receivedAt,
-                        evidence = recentEvidence
+                        evidence = buildList {
+                            inlineEvidence?.let(::add)
+                            addAll(recentEvidence)
+                        }
                     )
                 } else {
                     null
