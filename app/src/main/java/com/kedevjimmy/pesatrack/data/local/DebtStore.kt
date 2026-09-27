@@ -843,7 +843,7 @@ class DebtStore private constructor(context: Context) {
         walletBalanceAfterMinor: Long?,
         availableCreditAfterMinor: Long?,
         repaymentCompletion:
-            FulizaRepaymentCompletion?,
+            DebtCompletion?,
         fundingLinkConfidence:
             RepaymentChainConfidence?,
         fundingLinkReason: String?,
