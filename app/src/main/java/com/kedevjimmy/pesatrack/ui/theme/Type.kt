@@ -12,37 +12,43 @@ val PesaTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = AppFont,
         fontWeight = FontWeight.Bold,
-        fontSize = 46.sp,
-        lineHeight = 50.sp,
-        letterSpacing = (-1.2).sp
+        fontSize = 34.sp,
+        lineHeight = 39.sp,
+        letterSpacing = (-0.7).sp
     ),
     displaySmall = TextStyle(
         fontFamily = AppFont,
         fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
-        lineHeight = 40.sp,
-        letterSpacing = (-0.8).sp
+        fontSize = 30.sp,
+        lineHeight = 35.sp,
+        letterSpacing = (-0.55).sp
     ),
     headlineLarge = TextStyle(
         fontFamily = AppFont,
         fontWeight = FontWeight.Bold,
-        fontSize = 31.sp,
-        lineHeight = 36.sp,
-        letterSpacing = (-0.6).sp
+        fontSize = 26.sp,
+        lineHeight = 31.sp,
+        letterSpacing = (-0.4).sp
     ),
     headlineMedium = TextStyle(
         fontFamily = AppFont,
         fontWeight = FontWeight.Bold,
-        fontSize = 27.sp,
-        lineHeight = 32.sp,
-        letterSpacing = (-0.45).sp
+        fontSize = 22.sp,
+        lineHeight = 27.sp,
+        letterSpacing = (-0.25).sp
+    ),
+    headlineSmall = TextStyle(
+        fontFamily = AppFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 20.sp,
+        lineHeight = 25.sp
     ),
     titleLarge = TextStyle(
         fontFamily = AppFont,
-        fontWeight = FontWeight.Bold,
-        fontSize = 21.sp,
-        lineHeight = 26.sp,
-        letterSpacing = (-0.2).sp
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 18.sp,
+        lineHeight = 23.sp,
+        letterSpacing = (-0.1).sp
     ),
     titleMedium = TextStyle(
         fontFamily = AppFont,
@@ -59,8 +65,8 @@ val PesaTypography = Typography(
     bodyLarge = TextStyle(
         fontFamily = AppFont,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 23.sp
+        fontSize = 15.sp,
+        lineHeight = 21.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = AppFont,
@@ -77,13 +83,19 @@ val PesaTypography = Typography(
     labelLarge = TextStyle(
         fontFamily = AppFont,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp,
-        lineHeight = 18.sp
+        fontSize = 13.sp,
+        lineHeight = 17.sp
     ),
     labelMedium = TextStyle(
         fontFamily = AppFont,
         fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp
+        fontSize = 11.sp,
+        lineHeight = 15.sp
+    ),
+    labelSmall = TextStyle(
+        fontFamily = AppFont,
+        fontWeight = FontWeight.Medium,
+        fontSize = 10.sp,
+        lineHeight = 14.sp
     )
 )
