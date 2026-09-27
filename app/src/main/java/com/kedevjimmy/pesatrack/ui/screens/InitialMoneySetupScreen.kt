@@ -651,6 +651,9 @@ fun InitialMoneySetupScreen(
             val salaryAccount = accounts[IncomeSourceChoice.SALARY]
                 ?: return
 
+            val (payWindowStartDay, payWindowEndDay) =
+                resolvedPayWindow()
+
             val salaryRule = when (salaryRouteValue.arrival) {
                 ArrivalChoice.BANK -> {
                     val title = selectedCandidate?.address
