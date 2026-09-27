@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
+import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
@@ -74,6 +75,7 @@ fun HomeScreen(
     val cycleStore = remember { PayCycleStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
     val budgetStore = remember { BudgetStore.get(context) }
+    val categoryStore = remember { CategoryStore.get(context) }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
 
     var cycleSnapshot by remember {
@@ -110,7 +112,9 @@ fun HomeScreen(
                     it.reviewState != ReviewState.EXCLUDED.name &&
                     it.reviewState != ReviewState.NEEDS_REVIEW.name
             }
-            .groupBy { friendlyCategory(it.category) }
+            .groupBy {
+                categoryStore.canonicalId(it.category)
+            }
             .mapValues { (_, items) ->
                 items.sumOf { it.amountMinor + it.feeMinor }
             }
@@ -118,7 +122,7 @@ fun HomeScreen(
             .sortedByDescending { it.value }
             .mapIndexed { index, entry ->
                 SpendingSlice(
-                    label = entry.key,
+                    label = categoryStore.labelFor(entry.key),
                     amountMinor = entry.value,
                     color = premiumCategoryColor(index)
                 )
@@ -126,25 +130,26 @@ fun HomeScreen(
     }
 
     val budgetItems = remember(monthlyBudgets, activitySnapshot) {
-        val trustedExpenseByCategory = activitySnapshot.transactions
+        val trustedByCategory = activitySnapshot.transactions
             .filter {
-                it.direction == MoneyDirection.EXPENSE.name &&
-                    it.reviewState != ReviewState.EXCLUDED.name &&
+                it.reviewState != ReviewState.EXCLUDED.name &&
                     it.reviewState != ReviewState.NEEDS_REVIEW.name
             }
-            .groupBy { it.category }
+            .groupBy {
+                categoryStore.canonicalId(it.category)
+            }
             .mapValues { (_, items) ->
                 items.sumOf { it.amountMinor + it.feeMinor }
             }
 
         monthlyBudgets
             .mapIndexed { index, budget ->
-                val spentMinor =
-                    trustedExpenseByCategory[budget.category.name] ?: 0L
-                val difference = budget.limitMinor - spentMinor
+                val trackedMinor =
+                    trustedByCategory[budget.categoryId] ?: 0L
+                val difference = budget.limitMinor - trackedMinor
                 BudgetProgressItem(
-                    label = friendlyCategory(budget.category.name),
-                    spentLabel = formatMoney(spentMinor),
+                    label = categoryStore.labelFor(budget.categoryId),
+                    spentLabel = formatMoney(trackedMinor),
                     limitLabel = formatMoney(budget.limitMinor),
                     remainingLabel = if (difference >= 0L) {
                         formatMoney(difference) + " remaining"
@@ -155,7 +160,7 @@ fun HomeScreen(
                     progress = if (budget.limitMinor <= 0L) {
                         0f
                     } else {
-                        spentMinor.toFloat() / budget.limitMinor.toFloat()
+                        trackedMinor.toFloat() / budget.limitMinor.toFloat()
                     },
                     color = premiumCategoryColor(index)
                 )
@@ -216,20 +221,47 @@ fun HomeScreen(
         }
 
         item {
+            val cycle = cycleSnapshot.cycle
+            val helper = cycle?.let {
+                "Since " + formatShortDate(it.startEpochMs)
+            } ?: "This month"
+            val cycleIncome =
+                if (cycle != null) {
+                    cycle.openingIncomeMinor +
+                        cycleSnapshot.additionalIncomeMinor
+                } else {
+                    activitySnapshot.summary.incomeMinor
+                }
+            val cycleSpent =
+                if (cycle != null) {
+                    cycleSnapshot.spentMinor +
+                        cycleSnapshot.feesMinor
+                } else {
+                    activitySnapshot.summary.spentMinor +
+                        activitySnapshot.summary.feesMinor
+                }
+
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MoneySummaryTile(
-                    label = "Money in",
-                    amount = formatMoney(activitySnapshot.summary.incomeMinor),
+                    label = if (cycle != null) {
+                        "Cycle income"
+                    } else {
+                        "Money in"
+                    },
+                    amount = formatMoney(cycleIncome),
                     incoming = true,
+                    helper = helper,
                     modifier = Modifier.weight(1f)
                 )
                 MoneySummaryTile(
-                    label = "Money spent",
-                    amount = formatMoney(
-                        activitySnapshot.summary.spentMinor +
-                            activitySnapshot.summary.feesMinor
-                    ),
+                    label = if (cycle != null) {
+                        "Cycle spent"
+                    } else {
+                        "Money spent"
+                    },
+                    amount = formatMoney(cycleSpent),
                     incoming = false,
+                    helper = helper,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -455,23 +487,6 @@ private fun homeInsight(
         "Your tracked commitments for this cycle are covered. Keep reviewing new transactions as they arrive."
 }
 
-private fun friendlyCategory(raw: String): String =
-    when (raw.uppercase()) {
-        "LUNCH" -> "Food & dining"
-        "PHONE_AND_DATA" -> "Phone & data"
-        else -> raw.lowercase()
-            .split("_")
-            .joinToString(" ") { word ->
-                word.replaceFirstChar {
-                    if (it.isLowerCase()) {
-                        it.titlecase()
-                    } else {
-                        it.toString()
-                    }
-                }
-            }
-    }
-
 private fun formatMoney(minor: Long): String {
     val formatter = NumberFormat.getNumberInstance(Locale.US).apply {
         maximumFractionDigits = 0
@@ -482,6 +497,9 @@ private fun formatMoney(minor: Long): String {
         "KES " + formatter.format(minor / 100.0)
     }
 }
+
+private fun formatShortDate(epochMs: Long): String =
+    SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(epochMs))
 
 private fun formatDateTime(epochMs: Long): String =
     SimpleDateFormat("d MMM, h:mm a", Locale.getDefault()).format(Date(epochMs))
