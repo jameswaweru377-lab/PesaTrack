@@ -882,6 +882,9 @@ fun InitialMoneySetupScreen(
                     onCandidateSelected = { candidate ->
                         selectedCandidate = candidate
                         manualHistoryEnabled = false
+                        manualSalaryDrafts = emptyMap()
+                        confirmedManualSalaryMonths = emptySet()
+                        activeManualSalaryMonthKey = null
                         candidate.originator
                             ?.takeIf { it.isNotBlank() }
                             ?.let { employer = it }
@@ -1223,7 +1226,7 @@ private fun HistoryChoiceStep(
                 }
 
                 Text(
-                    "You can still press Next without granting access. The final step will offer manual salary history instead.",
+                    "You can still press Next without granting access. If salary history is needed, PesaTrack will give it its own simple step.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
