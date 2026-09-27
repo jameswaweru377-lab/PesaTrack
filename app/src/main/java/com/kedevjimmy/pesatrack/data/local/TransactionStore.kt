@@ -17,6 +17,10 @@ import com.kedevjimmy.pesatrack.domain.rules.OwnTransferEvidence
 import com.kedevjimmy.pesatrack.domain.rules.PlanningPeriodResolver
 import com.kedevjimmy.pesatrack.domain.rules.ReviewTriagePolicy
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
+import com.kedevjimmy.pesatrack.domain.rules.EvidenceConfidence
+import com.kedevjimmy.pesatrack.domain.rules.FinancialMessageEvidence
+import com.kedevjimmy.pesatrack.domain.rules.TransactionEvidenceMatch
+import com.kedevjimmy.pesatrack.domain.rules.TransactionEvidenceResolver
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -32,7 +36,8 @@ class TransactionStore private constructor(context: Context) {
         receivedAtEpochMs: Long,
         occurredAtEpochMs: Long = receivedAtEpochMs,
         matchedRule: SmartRule? = null,
-        rebuildPayCycles: Boolean = true
+        rebuildPayCycles: Boolean = true,
+        evidence: TransactionEvidenceMatch? = null
     ): Boolean {
         val fingerprint = TransactionFingerprint.of(parsed, occurredAtEpochMs)
         if (parsed.transactionCode.isNullOrBlank()) {
@@ -116,7 +121,8 @@ class TransactionStore private constructor(context: Context) {
                 classification = classification,
                 displayCounterparty = displayCounterparty,
                 accountId = accountId,
-                linkedAccountId = linkedAccountId
+                linkedAccountId = linkedAccountId,
+                evidence = evidence
             )
             FulizaStore.get(appContext).linkPendingForTransaction(
                 transactionId = mirrorCandidate.id,
@@ -155,6 +161,17 @@ class TransactionStore private constructor(context: Context) {
             putNull("pay_cycle_id")
             putNull("cycle_candidate_reason")
             putNull("cycle_override")
+            if (evidence != null) {
+                put("evidence_label", evidence.label)
+                put("evidence_source", evidence.sourceLabel)
+                put("evidence_confidence", evidence.confidence.name)
+                put("evidence_time_delta_ms", evidence.timeDeltaMs)
+            } else {
+                putNull("evidence_label")
+                putNull("evidence_source")
+                putNull("evidence_confidence")
+                putNull("evidence_time_delta_ms")
+            }
         }
 
         val rowId = database.writableDatabase.insertWithOnConflict(
@@ -728,7 +745,8 @@ class TransactionStore private constructor(context: Context) {
         classification: Classification,
         displayCounterparty: String?,
         accountId: String?,
-        linkedAccountId: String?
+        linkedAccountId: String?,
+        evidence: TransactionEvidenceMatch?
     ) {
         val keepExistingRule =
             existing.ruleId != null && classification.ruleId == null
@@ -769,6 +787,12 @@ class TransactionStore private constructor(context: Context) {
 
             if (accountId != null) put("account_id", accountId)
             if (linkedAccountId != null) put("linked_account_id", linkedAccountId)
+            if (evidence != null) {
+                put("evidence_label", evidence.label)
+                put("evidence_source", evidence.sourceLabel)
+                put("evidence_confidence", evidence.confidence.name)
+                put("evidence_time_delta_ms", evidence.timeDeltaMs)
+            }
             putNull("pay_cycle_id")
             putNull("cycle_candidate_reason")
         }
@@ -779,6 +803,144 @@ class TransactionStore private constructor(context: Context) {
             "id = ?",
             arrayOf(existing.id.toString())
         )
+    }
+
+    @Synchronized
+    fun attachEvidenceToNearbyUnknown(
+        evidence: FinancialMessageEvidence,
+        rules: List<SmartRule>
+    ): Boolean {
+        val start = evidence.observedAtEpochMs - TransactionEvidenceResolver.MAX_WINDOW_MS
+        val end = evidence.observedAtEpochMs + TransactionEvidenceResolver.MAX_WINDOW_MS
+        val candidates = database.readableDatabase.rawQuery(
+            BASE_SELECT +
+                " WHERE transaction_code IS NOT NULL" +
+                " AND amount_minor = ?" +
+                " AND received_at_epoch_ms >= ?" +
+                " AND received_at_epoch_ms <= ?" +
+                " AND (counterparty IS NULL OR TRIM(counterparty) = '')" +
+                " ORDER BY ABS(received_at_epoch_ms - ?) ASC" +
+                " LIMIT 8",
+            arrayOf(
+                evidence.amountMinor.toString(),
+                start.toString(),
+                end.toString(),
+                evidence.observedAtEpochMs.toString()
+            )
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    val item = cursor.toStoredTransaction()
+                    if (
+                        item.reviewState != ReviewState.USER_CLASSIFIED.name &&
+                        item.reviewState != ReviewState.EXCLUDED.name
+                    ) add(item)
+                }
+            }
+        }
+
+        val matches = candidates.mapNotNull { candidate ->
+            TransactionEvidenceResolver.match(
+                parsed = candidate.toParsedTransaction(),
+                transactionObservedAtEpochMs = candidate.receivedAtEpochMs,
+                evidence = evidence
+            )?.let { candidate to it }
+        }
+        if (matches.isEmpty()) return false
+
+        val exactReference = matches.firstOrNull { (candidate, match) ->
+            match.confidence == EvidenceConfidence.HIGH &&
+                !candidate.transactionCode.isNullOrBlank() &&
+                candidate.transactionCode.equals(
+                    evidence.referenceCode,
+                    ignoreCase = true
+                )
+        }
+
+        val selected = exactReference ?: when {
+            matches.size == 1 -> matches.first()
+            else -> {
+                val high = matches.filter {
+                    it.second.confidence == EvidenceConfidence.HIGH
+                }
+                if (high.size == 1) high.first() else return false
+            }
+        }
+
+        applyEvidence(selected.first, selected.second, rules)
+        return true
+    }
+
+    @Synchronized
+    fun acceptEvidenceIdentity(id: Long): Boolean {
+        val stored = getById(id) ?: return false
+        val label = stored.evidenceLabel?.trim()?.takeIf { it.isNotBlank() }
+            ?: return false
+        if (!stored.counterparty.isNullOrBlank()) return false
+
+        val rules = RuleStore.get(appContext).listRules(enabledOnly = true)
+        applyEvidence(
+            stored = stored,
+            match = TransactionEvidenceMatch(
+                label = label,
+                phone = null,
+                sourceLabel = stored.evidenceSource ?: "Nearby financial message",
+                confidence = EvidenceConfidence.HIGH,
+                timeDeltaMs = stored.evidenceTimeDeltaMs ?: 0L
+            ),
+            rules = rules,
+            acceptedByUser = true
+        )
+        return true
+    }
+
+    private fun applyEvidence(
+        stored: StoredTransaction,
+        match: TransactionEvidenceMatch,
+        rules: List<SmartRule>,
+        acceptedByUser: Boolean = false
+    ) {
+        val values = ContentValues().apply {
+            put("evidence_label", match.label)
+            put("evidence_source", match.sourceLabel)
+            put(
+                "evidence_confidence",
+                if (acceptedByUser) "USER_ACCEPTED" else match.confidence.name
+            )
+            put("evidence_time_delta_ms", match.timeDeltaMs)
+        }
+
+        if (match.confidence == EvidenceConfidence.HIGH || acceptedByUser) {
+            val enriched = TransactionEvidenceResolver.enrich(
+                stored.toParsedTransaction(),
+                match
+            )
+            values.put("counterparty", enriched.counterparty)
+            if (!enriched.counterpartyPhone.isNullOrBlank()) {
+                values.put("counterparty_phone", enriched.counterpartyPhone)
+            }
+
+            SmartRuleEngine.matchTransaction(enriched, rules)?.let { rule ->
+                val classification = classify(enriched, rule, stored.occurredAtEpochMs)
+                values.put("direction", classification.direction.name)
+                values.put("category", classification.category.name)
+                values.put("review_state", classification.reviewState.name)
+                values.put("rule_id", classification.ruleId)
+                values.put("planning_month", classification.planningMonth)
+            }
+        }
+
+        database.writableDatabase.update(
+            "transactions",
+            values,
+            "id = ?",
+            arrayOf(stored.id.toString())
+        )
+
+        if (match.confidence == EvidenceConfidence.HIGH || acceptedByUser) {
+            reconcileReviewTriageForMonth(stored.occurredAtEpochMs)
+            PayCycleStore.get(appContext).rebuild()
+        }
     }
 
     @Synchronized
@@ -1003,7 +1165,8 @@ class TransactionStore private constructor(context: Context) {
                    direction, category, review_state, rule_id, planning_month, reversal_of_code,
                    account_id, linked_account_id, pay_cycle_id, cycle_candidate_reason,
                    cycle_override, fuliza_financed_minor, fuliza_access_fee_minor,
-                   fuliza_outstanding_minor, fuliza_event_code
+                   fuliza_outstanding_minor, fuliza_event_code, evidence_label,
+                   evidence_source, evidence_confidence, evidence_time_delta_ms
             FROM transactions
         """
 
@@ -1047,7 +1210,11 @@ private fun android.database.Cursor.toStoredTransaction(): StoredTransaction =
         fulizaFinancedMinor = getLong(25),
         fulizaAccessFeeMinor = getLong(26),
         fulizaOutstandingMinor = getLongOrNull(27),
-        fulizaEventCode = getStringOrNull(28)
+        fulizaEventCode = getStringOrNull(28),
+        evidenceLabel = getStringOrNull(29),
+        evidenceSource = getStringOrNull(30),
+        evidenceConfidence = getStringOrNull(31),
+        evidenceTimeDeltaMs = getLongOrNull(32)
     )
 
 private fun android.database.Cursor.getStringOrNull(index: Int): String? =

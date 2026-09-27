@@ -106,6 +106,13 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             db.execSQL("ALTER TABLE money_accounts ADD COLUMN opening_balance_as_of_epoch_ms INTEGER")
         }
 
+        if (oldVersion < 8) {
+            db.execSQL("ALTER TABLE transactions ADD COLUMN evidence_label TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN evidence_source TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN evidence_confidence TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN evidence_time_delta_ms INTEGER")
+        }
+
         createIndexes(db)
     }
 
@@ -142,7 +149,11 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 fuliza_financed_minor INTEGER NOT NULL DEFAULT 0,
                 fuliza_access_fee_minor INTEGER NOT NULL DEFAULT 0,
                 fuliza_outstanding_minor INTEGER,
-                fuliza_event_code TEXT
+                fuliza_event_code TEXT,
+                evidence_label TEXT,
+                evidence_source TEXT,
+                evidence_confidence TEXT,
+                evidence_time_delta_ms INTEGER
             )
             """.trimIndent()
         )
@@ -293,6 +304,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 7
+        private const val DATABASE_VERSION = 8
     }
 }
