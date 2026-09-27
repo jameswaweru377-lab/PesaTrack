@@ -19,6 +19,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createDuplicateResolutionsTable(db)
         createCategoryBudgetsTable(db)
         createCustomCategoriesTable(db)
+        createDebtTables(db)
         seedDefaultAccounts(db)
         createIndexes(db)
     }
@@ -137,6 +138,17 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             )
         }
 
+        if (oldVersion < 12) {
+            db.execSQL(
+                "ALTER TABLE transactions ADD COLUMN relation_type TEXT"
+            )
+            db.execSQL(
+                "ALTER TABLE transactions ADD COLUMN related_transaction_id INTEGER"
+            )
+            createDebtTables(db)
+            migrateFulizaEventsToDebtLedger(db)
+        }
+
         createIndexes(db)
     }
 
@@ -177,7 +189,9 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 evidence_label TEXT,
                 evidence_source TEXT,
                 evidence_confidence TEXT,
-                evidence_time_delta_ms INTEGER
+                evidence_time_delta_ms INTEGER,
+                relation_type TEXT,
+                related_transaction_id INTEGER
             )
             """.trimIndent()
         )
@@ -314,6 +328,130 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createDebtTables(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS debt_accounts (
+                id TEXT PRIMARY KEY,
+                provider_key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                outstanding_minor INTEGER NOT NULL DEFAULT 0,
+                balance_quality TEXT NOT NULL DEFAULT 'ESTIMATED',
+                last_observed_at_epoch_ms INTEGER,
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS debt_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_key TEXT NOT NULL UNIQUE,
+                debt_account_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                amount_minor INTEGER NOT NULL,
+                fee_minor INTEGER NOT NULL DEFAULT 0,
+                outstanding_after_minor INTEGER,
+                linked_transaction_id INTEGER,
+                source_package TEXT,
+                source_kind TEXT NOT NULL,
+                occurred_at_epoch_ms INTEGER NOT NULL,
+                created_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        val now = System.currentTimeMillis()
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO debt_accounts(
+                id, provider_key, name, outstanding_minor,
+                balance_quality, created_at_epoch_ms,
+                updated_at_epoch_ms
+            ) VALUES(
+                'debt-fuliza-mpesa',
+                'SAFARICOM_FULIZA',
+                'Fuliza M-PESA',
+                0,
+                'ESTIMATED',
+                $now,
+                $now
+            )
+            """.trimIndent()
+        )
+    }
+
+    private fun migrateFulizaEventsToDebtLedger(
+        db: SQLiteDatabase
+    ) {
+        val now = System.currentTimeMillis()
+
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO debt_events(
+                event_key,
+                debt_account_id,
+                event_type,
+                amount_minor,
+                fee_minor,
+                outstanding_after_minor,
+                linked_transaction_id,
+                source_package,
+                source_kind,
+                occurred_at_epoch_ms,
+                created_at_epoch_ms
+            )
+            SELECT
+                'fuliza-drawdown:' || event_key,
+                'debt-fuliza-mpesa',
+                'DRAWDOWN',
+                financed_amount_minor,
+                access_fee_minor,
+                outstanding_amount_minor,
+                linked_transaction_id,
+                source_package,
+                source_kind,
+                occurred_at_epoch_ms,
+                $now
+            FROM fuliza_events
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            UPDATE debt_accounts
+            SET outstanding_minor = COALESCE(
+                    (
+                        SELECT outstanding_amount_minor
+                        FROM fuliza_events
+                        WHERE outstanding_amount_minor IS NOT NULL
+                        ORDER BY occurred_at_epoch_ms DESC, id DESC
+                        LIMIT 1
+                    ),
+                    outstanding_minor
+                ),
+                balance_quality = CASE
+                    WHEN EXISTS(
+                        SELECT 1
+                        FROM fuliza_events
+                        WHERE outstanding_amount_minor IS NOT NULL
+                    ) THEN 'OBSERVED'
+                    ELSE balance_quality
+                END,
+                last_observed_at_epoch_ms = (
+                    SELECT occurred_at_epoch_ms
+                    FROM fuliza_events
+                    WHERE outstanding_amount_minor IS NOT NULL
+                    ORDER BY occurred_at_epoch_ms DESC, id DESC
+                    LIMIT 1
+                ),
+                updated_at_epoch_ms = $now
+            WHERE id = 'debt-fuliza-mpesa'
+            """.trimIndent()
+        )
+    }
+
     private fun seedDefaultAccounts(db: SQLiteDatabase) {
         val now = System.currentTimeMillis()
         db.execSQL(
@@ -372,10 +510,19 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_duplicate_resolution_second ON duplicate_resolutions(second_transaction_id)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_transactions_related ON transactions(related_transaction_id)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_debt_events_account_time ON debt_events(debt_account_id, occurred_at_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_debt_events_linked_transaction ON debt_events(linked_transaction_id)"
+        )
     }
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 11
+        private const val DATABASE_VERSION = 12
     }
 }
