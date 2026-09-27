@@ -94,18 +94,56 @@ object FinancialMessageInterpreter {
             observedMpesa
         )
 
+        val codeMatch = codeRegex.find(normalized)
+        val occurredAtMatch =
+            occurredAtRegex.find(normalized)
+
         return FinancialMessageInterpretation(
-            transactionCode = codeRegex
-                .find(normalized)
+            transactionCode = codeMatch
                 ?.groupValues
                 ?.get(1)
                 ?.uppercase(),
-            occurredAtText = occurredAtRegex
-                .find(normalized)
+            occurredAtText = occurredAtMatch
                 ?.groupValues
                 ?.get(1),
             balances = balances,
-            events = listOfNotNull(event)
+            events = listOfNotNull(event),
+            metadataEvidence = buildList {
+                codeMatch
+                    ?.groups
+                    ?.get(1)
+                    ?.range
+                    ?.let { range ->
+                        add(
+                            evidence(
+                                field =
+                                    FinancialField.TRANSACTION_CODE,
+                                ruleId =
+                                    "transaction_code.confirmed",
+                                range = range,
+                                confidence =
+                                    InterpretationConfidence.HIGH
+                            )
+                        )
+                    }
+                occurredAtMatch
+                    ?.groups
+                    ?.get(1)
+                    ?.range
+                    ?.let { range ->
+                        add(
+                            evidence(
+                                field =
+                                    FinancialField.OCCURRED_AT,
+                                ruleId =
+                                    "transaction_time.on_at",
+                                range = range,
+                                confidence =
+                                    InterpretationConfidence.HIGH
+                            )
+                        )
+                    }
+            }
         )
     }
 
@@ -130,7 +168,35 @@ object FinancialMessageInterpreter {
                         match.groupValues[2]
                     ),
                     confidence =
-                        InterpretationConfidence.HIGH
+                        InterpretationConfidence.HIGH,
+                    evidence = buildList {
+                        match.groups[1]?.range?.let {
+                            add(
+                                evidence(
+                                    field =
+                                        FinancialField.SOURCE_ACCOUNT,
+                                    ruleId =
+                                        "balance.account_label",
+                                    range = it,
+                                    confidence =
+                                        InterpretationConfidence.HIGH
+                                )
+                            )
+                        }
+                        match.groups[2]?.range?.let {
+                            add(
+                                evidence(
+                                    field =
+                                        FinancialField.BALANCE,
+                                    ruleId =
+                                        "balance.amount",
+                                    range = it,
+                                    confidence =
+                                        InterpretationConfidence.HIGH
+                                )
+                            )
+                        }
+                    }
                 )
             }
             .distinctBy {
@@ -155,12 +221,53 @@ object FinancialMessageInterpreter {
             return null
         }
 
+        val confidence =
+            confidenceFor(source, destination)
+        val fee = feeMatch(message)
+
         return TransferEventFact(
             amountMinor = amountToMinor(match.groupValues[1]),
             source = source,
             destination = destination,
-            feeMinor = feeMinor(message),
-            confidence = confidenceFor(source, destination)
+            feeMinor = fee?.first ?: 0L,
+            confidence = confidence,
+            evidence = buildList {
+                match.groups[1]?.range?.let {
+                    add(
+                        evidence(
+                            field = FinancialField.AMOUNT,
+                            ruleId = "transfer_from.amount",
+                            range = it,
+                            confidence = confidence
+                        )
+                    )
+                }
+                match.groups[2]?.range?.let {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField.SOURCE_ACCOUNT,
+                            ruleId =
+                                "transfer_from.source_account",
+                            range = it,
+                            confidence = confidence
+                        )
+                    )
+                }
+                add(
+                    evidence(
+                        field =
+                            FinancialField.DESTINATION_ACCOUNT,
+                        ruleId =
+                            "transfer_from.observed_destination",
+                        range = null,
+                        confidence = confidence,
+                        origin =
+                            EvidenceOrigin.PROVIDER_PROFILE
+                    )
+                )
+                fee?.second?.let(::add)
+            }
         )
     }
 
@@ -180,12 +287,53 @@ object FinancialMessageInterpreter {
             return null
         }
 
+        val confidence =
+            confidenceFor(source, destination)
+        val fee = feeMatch(message)
+
         return TransferEventFact(
             amountMinor = amountToMinor(match.groupValues[1]),
             source = source,
             destination = destination,
-            feeMinor = feeMinor(message),
-            confidence = confidenceFor(source, destination)
+            feeMinor = fee?.first ?: 0L,
+            confidence = confidence,
+            evidence = buildList {
+                match.groups[1]?.range?.let {
+                    add(
+                        evidence(
+                            field = FinancialField.AMOUNT,
+                            ruleId = "transfer_to.amount",
+                            range = it,
+                            confidence = confidence
+                        )
+                    )
+                }
+                add(
+                    evidence(
+                        field =
+                            FinancialField.SOURCE_ACCOUNT,
+                        ruleId =
+                            "transfer_to.observed_source",
+                        range = null,
+                        confidence = confidence,
+                        origin =
+                            EvidenceOrigin.PROVIDER_PROFILE
+                    )
+                )
+                match.groups[2]?.range?.let {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField.DESTINATION_ACCOUNT,
+                            ruleId =
+                                "transfer_to.destination_account",
+                            range = it,
+                            confidence = confidence
+                        )
+                    )
+                }
+                fee?.second?.let(::add)
+            }
         )
     }
 
@@ -204,12 +352,43 @@ object FinancialMessageInterpreter {
             InterpretationConfidence.MEDIUM
         }
 
-    private fun feeMinor(message: String): Long =
-        feeRegex.find(message)
-            ?.groupValues
-            ?.get(1)
+    private fun feeMatch(
+        message: String
+    ): Pair<Long, FieldEvidence>? {
+        val match = feeRegex.find(message) ?: return null
+        val amount = match.groupValues
+            .getOrNull(1)
             ?.let(::amountToMinor)
-            ?: 0L
+            ?: return null
+        val range = match.groups[1]?.range
+        return amount to evidence(
+            field = FinancialField.FEE,
+            ruleId = "fee.amount",
+            range = range,
+            confidence = InterpretationConfidence.HIGH
+        )
+    }
+
+    private fun evidence(
+        field: FinancialField,
+        ruleId: String,
+        range: IntRange?,
+        confidence: InterpretationConfidence,
+        origin: EvidenceOrigin =
+            EvidenceOrigin.MESSAGE_TEXT
+    ): FieldEvidence =
+        FieldEvidence(
+            field = field,
+            origin = origin,
+            ruleId = ruleId,
+            span = range?.let {
+                MessageSpan(
+                    startOffset = it.first,
+                    endOffsetExclusive = it.last + 1
+                )
+            },
+            confidence = confidence
+        )
 
     private fun amountToMinor(raw: String): Long =
         raw.replace(",", "")
