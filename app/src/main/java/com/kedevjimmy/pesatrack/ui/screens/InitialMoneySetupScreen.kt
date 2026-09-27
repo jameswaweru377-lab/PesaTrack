@@ -714,11 +714,16 @@ fun InitialMoneySetupScreen(
         onDone()
     }
 
+    val salarySelected =
+        IncomeSourceChoice.SALARY in selectedSources
+    val totalStages = if (salarySelected) 6 else 4
     val stageNumber = when (stage) {
         SetupStage.SOURCES -> 1
         SetupStage.ROUTES -> 2
         SetupStage.HISTORY -> 3
         SetupStage.IDENTIFY -> 4
+        SetupStage.SALARY_HISTORY -> 5
+        SetupStage.ACCOUNTS -> if (salarySelected) 6 else 4
     }
 
     LazyColumn(
@@ -748,13 +753,13 @@ fun InitialMoneySetupScreen(
                     )
                     Text(
                         if (stage == SetupStage.ROUTES) {
-                            "Step 2 of 4 • " +
+                            "Step 2 of " + totalStages + " • " +
                                 (routeIndex + 1) +
                                 " of " +
                                 orderedSources.size +
                                 " income sources"
                         } else {
-                            "Step " + stageNumber + " of 4"
+                            "Step " + stageNumber + " of " + totalStages
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -763,7 +768,7 @@ fun InitialMoneySetupScreen(
             }
 
             LinearProgressIndicator(
-                progress = { stageNumber / 4f },
+                progress = { stageNumber / totalStages.toFloat() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 10.dp)
@@ -864,28 +869,13 @@ fun InitialMoneySetupScreen(
 
             SetupStage.IDENTIFY -> item {
                 IdentifyIncomeStep(
-                    salarySelected =
-                        IncomeSourceChoice.SALARY in selectedSources,
                     salaryRoute = salaryRoute,
                     historyMonthsCount = historyMonthsCount,
-                    selectedHistoryMonths = selectedHistoryMonths,
                     smsGranted = smsGranted,
                     loadingCandidates = loadingCandidates,
                     candidates = candidates,
                     selectedCandidate = selectedCandidate,
                     employer = employer,
-                    manualHistoryEnabled = manualHistoryEnabled,
-                    manualSalaryDrafts = manualSalaryDrafts,
-                    mpesaPhone = mpesaPhone,
-                    mpesaOpeningBalance = mpesaOpeningBalance,
-                    salaryAccountOpeningBalance = salaryAccountOpeningBalance,
-                    onMpesaPhoneChanged = { mpesaPhone = it },
-                    onMpesaOpeningBalanceChanged = {
-                        mpesaOpeningBalance = it
-                    },
-                    onSalaryAccountOpeningBalanceChanged = {
-                        salaryAccountOpeningBalance = it
-                    },
                     onEmployerChanged = {
                         employer = it
                     },
@@ -899,15 +889,47 @@ fun InitialMoneySetupScreen(
                     onManualHistory = {
                         selectedCandidate = null
                         manualHistoryEnabled = true
-                    },
-                    onManualDraftChanged = { month, draft ->
-                        manualSalaryDrafts =
-                            manualSalaryDrafts +
-                                (month.key() to draft)
                     }
                 )
             }
-        }
+
+            SetupStage.SALARY_HISTORY -> item {
+                ManualSalaryHistoryStep(
+                    months = eligibleManualSalaryMonths,
+                    drafts = manualSalaryDrafts,
+                    confirmedMonthKeys = confirmedManualSalaryMonths,
+                    activeMonthKey = activeManualSalaryMonthKey,
+                    onMonthSelected = { month ->
+                        activeManualSalaryMonthKey = month.key()
+                        error = null
+                    },
+                    onDraftChanged = { month, draft ->
+                        manualSalaryDrafts =
+                            manualSalaryDrafts +
+                                (month.key() to draft)
+                        error = null
+                    },
+                    onConfirmMonth = ::confirmManualSalaryMonth
+                )
+            }
+
+            SetupStage.ACCOUNTS -> item {
+                OwnedAccountsSetupFields(
+                    salaryRoute = salaryRoute,
+                    mpesaPhone = mpesaPhone,
+                    mpesaOpeningBalance = mpesaOpeningBalance,
+                    salaryAccountOpeningBalance =
+                        salaryAccountOpeningBalance,
+                    onMpesaPhoneChanged = { mpesaPhone = it },
+                    onMpesaOpeningBalanceChanged = {
+                        mpesaOpeningBalance = it
+                    },
+                    onSalaryAccountOpeningBalanceChanged = {
+                        salaryAccountOpeningBalance = it
+                    }
+                )
+            }
+        }        }
 
         error?.let { message ->
             item {
@@ -926,7 +948,7 @@ fun InitialMoneySetupScreen(
         }
 
         item {
-            if (stage != SetupStage.IDENTIFY) {
+            if (stage != SetupStage.ACCOUNTS) {
                 Button(
                     onClick = ::goForward,
                     modifier = Modifier
