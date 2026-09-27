@@ -94,6 +94,25 @@ class FinancialMessageInterpreterTest {
     }
 
     @Test
+    fun understandsReceivedFromNamedAccountGrammar() {
+        val message =
+            "RQK12ABC38 Confirmed. Received Ksh 4,000.00 from PesaNova account on 28/9/26 at 7:05 PM. M-PESA balance is Ksh 12,100.00."
+
+        val result = FinancialMessageInterpreter.interpret(
+            title = "MPESA",
+            body = message
+        )
+
+        val transfer = result.events.single() as TransferEventFact
+        assertEquals("PesaNova", transfer.source.displayName)
+        assertEquals(
+            "SAFARICOM_MPESA",
+            transfer.destination.providerKey
+        )
+        assertEquals(400_000L, transfer.amountMinor)
+    }
+
+    @Test
     fun normalMpesaPaymentOnlyContributesBalanceAndFallsBackToLegacyParser() {
         val message =
             "RQK12ABC37 Confirmed. Ksh 450.00 sent to ELIZABETH W. 0712345678 on 28/9/26 at 7:10 PM. New M-PESA balance is Ksh 7,650.00."
