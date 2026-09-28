@@ -24,6 +24,8 @@ enum class FinancialEventKind {
     PAYMENT,
     RECEIPT,
     TRANSFER,
+    CASH_WITHDRAWAL,
+    CASH_DEPOSIT,
     REVERSAL,
     INCOME,
     EXPENSE,
@@ -77,7 +79,8 @@ data class TransferEventFact(
 enum class PaymentRouteHint {
     PERSON_TO_PERSON,
     MERCHANT,
-    BILL
+    BILL,
+    AIRTIME
 }
 
 data class PaymentEventFact(
@@ -110,6 +113,36 @@ data class ReceiptEventFact(
         true
     override val kind: FinancialEventKind =
         FinancialEventKind.RECEIPT
+}
+
+data class CashWithdrawalEventFact(
+    val amountMinor: Long,
+    val source: FinancialAccountReference,
+    val cashDestination: FinancialAccountReference,
+    val counterparty: String?,
+    val feeMinor: Long,
+    override val confidence: InterpretationConfidence,
+    val evidence: List<FieldEvidence> = emptyList()
+) : FinancialEventFact {
+    override val genericIngestionReady: Boolean =
+        true
+    override val kind: FinancialEventKind =
+        FinancialEventKind.CASH_WITHDRAWAL
+}
+
+data class CashDepositEventFact(
+    val amountMinor: Long,
+    val cashSource: FinancialAccountReference,
+    val destination: FinancialAccountReference,
+    val counterparty: String?,
+    val feeMinor: Long,
+    override val confidence: InterpretationConfidence,
+    val evidence: List<FieldEvidence> = emptyList()
+) : FinancialEventFact {
+    override val genericIngestionReady: Boolean =
+        true
+    override val kind: FinancialEventKind =
+        FinancialEventKind.CASH_DEPOSIT
 }
 
 data class ReversalEventFact(
