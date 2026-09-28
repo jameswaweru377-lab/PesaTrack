@@ -178,4 +178,53 @@ class FinancialInterpretationPipelineTest {
             }
         )
     }
+
+    @Test
+    fun maskedPhoneIsNotPartOfPersonCounterpartyName() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "MPESA",
+                body =
+                    "TST12PIPE6 Confirmed. Ksh 900.00 sent to SAMPLE PERSON 2547****321 on 28/9/26 at 8:10 AM. New M-PESA balance is Ksh 11,950.00."
+            )
+
+        val payment =
+            interpretation.events.single() as
+                PaymentEventFact
+
+        assertEquals(
+            "SAMPLE PERSON",
+            payment.counterparty
+        )
+        assertEquals(null, payment.counterpartyPhone)
+    }
+
+    @Test
+    fun transferredToUnknownAccountStaysTransferForReview() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "MPESA",
+                body =
+                    "TST12PIPE7 Confirmed. Ksh 10,000.00 transferred to KCB ACCOUNT on 28/9/26 at 9:54 PM. New M-PESA balance is Ksh 2,500.00."
+            )
+
+        val transfer =
+            interpretation.events.single() as
+                TransferEventFact
+
+        assertEquals(
+            "SAFARICOM_MPESA",
+            transfer.source.providerKey
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            transfer.destination.ownershipHint
+        )
+        assertEquals("KCB", transfer.destination.displayName)
+        assertTrue(
+            interpretation
+                .consumesLegacyTransactionParsing
+        )
+    }
+
 }
