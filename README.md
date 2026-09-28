@@ -34,7 +34,7 @@ The initial application shell includes:
 - M-Pesa parser prototype
 - smart categorization rule engine
 - unit tests
-- Android CI with debug APK build; see PROJECT_CONTEXT.md for the temporary rolling GitHub Release fallback when Actions artifact storage is quota-blocked
+- Android CI with debug APK build and an active rolling GitHub prerelease (`ci-apk`) that publishes the latest successful `PesaTrack-debug.apk` while Actions artifact storage is quota-blocked
 
 Preview amounts currently shown in the UI are explicitly demo data.
 
