@@ -36,6 +36,28 @@ data class FeeCandidate(
     val ruleId: String
 )
 
+enum class CashMovementCandidateKind {
+    WITHDRAWAL,
+    DEPOSIT
+}
+
+data class CashMovementCandidate(
+    val kind: CashMovementCandidateKind,
+    val amountMinor: Long,
+    val amountSpan: MessageSpan,
+    val accountLabel: String,
+    val accountSpan: MessageSpan,
+    val counterparty: String? = null,
+    val counterpartySpan: MessageSpan? = null,
+    val ruleId: String
+)
+
+data class AirtimePurchaseCandidate(
+    val amountMinor: Long,
+    val amountSpan: MessageSpan,
+    val ruleId: String
+)
+
 data class FinancialActionCandidate(
     val kind: FinancialActionCandidateKind,
     val amountMinor: Long,
@@ -62,6 +84,8 @@ data class FinancialMessageCandidates(
     val balances: List<BalanceCandidate>,
     val fee: FeeCandidate?,
     val reversal: ReversalCandidate?,
+    val cashMovement: CashMovementCandidate?,
+    val airtimePurchase: AirtimePurchaseCandidate?,
     val actions: List<FinancialActionCandidate>,
     val debt: DebtMessageCandidates
 )
@@ -154,6 +178,31 @@ object FinancialCandidateExtractor {
         """received\s+(?:Ksh|KES)\s*[0-9,]+(?:\.\d{1,2})?\s+from\s+.+?\s+((?:\+?254|0)\d{9})\b""",
         RegexOption.IGNORE_CASE
     )
+    private val cashWithdrawalRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?withdrawn\s+from\s+(.+?)(?=\s+at\s+|\s+on\s+\d|\.|$)""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
+    private val withdrawalAgentRegex = Regex(
+        """\bwithdrawn\s+from\s+.+?\s+at\s+(.+?)(?=\s+on\s+\d|\.|$)""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
+    private val cashDepositRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?deposited\s+into\s+(?:your\s+)?(.+?)(?=\s+on\s+\d|\.|$)""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
+    private val airtimePurchaseRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:worth\s+of\s+)?airtime\s+(?:has\s+been\s+)?(?:purchased|bought)\b""",
+        RegexOption.IGNORE_CASE
+    )
     private val reversalOfTransactionRegex = Regex(
         """\breversal\s+of\s+(?:transaction\s+)?([A-Z0-9]{10})\s+(?:of|for)\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
@@ -176,6 +225,8 @@ object FinancialCandidateExtractor {
                 balances = emptyList(),
                 fee = null,
                 reversal = null,
+                cashMovement = null,
+                airtimePurchase = null,
                 actions = emptyList(),
                 debt = DebtMessageCandidates(
                     drawdown = null,
@@ -224,10 +275,74 @@ object FinancialCandidateExtractor {
                     )
                 },
             reversal = reversalCandidate(body),
+            cashMovement = cashMovementCandidate(body),
+            airtimePurchase = airtimePurchaseCandidate(body),
             actions = actions,
             debt = DebtCandidateExtractor.extract(
                 message
             )
+        )
+    }
+
+    private fun cashMovementCandidate(
+        body: String
+    ): CashMovementCandidate? {
+        cashWithdrawalRegex.find(body)?.let { match ->
+            val amount = match.groups[1] ?: return@let
+            val account = match.groups[2] ?: return@let
+            val agent =
+                withdrawalAgentRegex.find(body)
+                    ?.groups
+                    ?.get(1)
+
+            return CashMovementCandidate(
+                kind =
+                    CashMovementCandidateKind.WITHDRAWAL,
+                amountMinor =
+                    amountToMinor(amount.value),
+                amountSpan = amount.range.toSpan(),
+                accountLabel = account.value.trim(),
+                accountSpan = account.range.toSpan(),
+                counterparty =
+                    agent?.value?.trim(),
+                counterpartySpan =
+                    agent?.range?.toSpan(),
+                ruleId = "cash.withdrawal"
+            )
+        }
+
+        cashDepositRegex.find(body)?.let { match ->
+            val amount = match.groups[1] ?: return@let
+            val account = match.groups[2] ?: return@let
+
+            return CashMovementCandidate(
+                kind =
+                    CashMovementCandidateKind.DEPOSIT,
+                amountMinor =
+                    amountToMinor(amount.value),
+                amountSpan = amount.range.toSpan(),
+                accountLabel = account.value.trim(),
+                accountSpan = account.range.toSpan(),
+                ruleId = "cash.deposit"
+            )
+        }
+
+        return null
+    }
+
+    private fun airtimePurchaseCandidate(
+        body: String
+    ): AirtimePurchaseCandidate? {
+        val match =
+            airtimePurchaseRegex.find(body)
+                ?: return null
+        val amount = match.groups[1] ?: return null
+
+        return AirtimePurchaseCandidate(
+            amountMinor =
+                amountToMinor(amount.value),
+            amountSpan = amount.range.toSpan(),
+            ruleId = "payment.airtime"
         )
     }
 
