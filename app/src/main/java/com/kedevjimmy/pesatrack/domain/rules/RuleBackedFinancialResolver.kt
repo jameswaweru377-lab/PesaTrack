@@ -38,15 +38,6 @@ object RuleBackedFinancialResolver {
                 )
                 ?: return null
 
-        val balance =
-            candidates.balances
-                .distinctBy {
-                    it.amountSpan.startOffset to
-                        it.amountSpan.endOffsetExclusive
-                }
-                .singleOrNull()
-                ?.amountMinor
-
         val label = rule.displayLabel
             ?.trim()
             ?.takeIf { it.isNotBlank() }
@@ -67,7 +58,11 @@ object RuleBackedFinancialResolver {
             counterparty = label,
             feeMinor =
                 candidates.fee?.amountMinor ?: 0L,
-            balanceMinor = balance,
+            // Account-specific balances are persisted by the
+            // interpretation layer. Do not copy a bank balance
+            // into the legacy transaction balance field, which
+            // is still used for the M-PESA home snapshot.
+            balanceMinor = null,
             occurredAtText =
                 candidates.occurredAt?.value,
             rawMessage = body
