@@ -10,7 +10,6 @@ import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
 import com.kedevjimmy.pesatrack.domain.parser.ConfiguredMoneyParser
-import com.kedevjimmy.pesatrack.domain.parser.MpesaParser
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import com.kedevjimmy.pesatrack.domain.rules.FinancialMessageEvidence
@@ -76,44 +75,14 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                 }
 
                 if (likelyMpesa) {
-                val parsed = MpesaParser.parse(body) ?: return@execute
-                pruneEvidence(receivedAt)
-                val inlineEvidence = TransactionEvidenceResolver.parseEvidence(
-                    title = title,
-                    body = body,
-                    observedAtEpochMs = receivedAt,
-                    sourceFallback = packageName
-                )
-                val evidence = if (parsed.counterparty.isNullOrBlank()) {
-                    TransactionEvidenceResolver.chooseBest(
-                        parsed = parsed,
-                        transactionObservedAtEpochMs = receivedAt,
-                        evidence = buildList {
-                            inlineEvidence?.let(::add)
-                            addAll(recentEvidence)
-                        }
-                    )
-                } else {
-                    null
+                    // The generic interpreter is authoritative
+                    // for M-PESA transaction meaning. If the
+                    // wording is still unknown, preserve any
+                    // already-recorded balance facts but do not
+                    // invent a transaction from the first KES
+                    // amount in the message.
+                    return@execute
                 }
-                val enriched = TransactionEvidenceResolver.enrich(parsed, evidence)
-                val matchedRule = SmartRuleEngine.matchTransaction(enriched, rules)
-
-                store.insertIfNew(
-                    parsed = enriched,
-                    sourcePackage = packageName,
-                    sourceKind = SOURCE_MPESA_NOTIFICATION,
-                    receivedAtEpochMs = receivedAt,
-                    occurredAtEpochMs = TransactionDateResolver.resolve(
-                        occurredAtText = parsed.occurredAtText,
-                        fallbackEpochMs = receivedAt
-                    ),
-                    matchedRule = matchedRule,
-                    evidence = evidence
-                )
-                changed = true
-                return@execute
-            }
 
             val evidenceCandidate = TransactionEvidenceResolver.parseEvidence(
                 title = title,
