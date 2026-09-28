@@ -34,7 +34,7 @@ The initial application shell includes:
 - M-Pesa parser prototype
 - smart categorization rule engine
 - unit tests
-- Android CI with APK artifact generation
+- Android CI with debug APK build; see PROJECT_CONTEXT.md for the temporary rolling GitHub Release fallback when Actions artifact storage is quota-blocked
 
 Preview amounts currently shown in the UI are explicitly demo data.
 
