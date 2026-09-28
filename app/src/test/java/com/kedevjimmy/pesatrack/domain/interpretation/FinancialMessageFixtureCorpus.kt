@@ -326,6 +326,118 @@ object FinancialMessageFixtureCorpus {
             )
         ),
         FinancialMessageFixture(
+            id = "mpesa_transferred_to_unknown_account",
+            title = "MPESA",
+            body =
+                "TST12ABC13 Confirmed. Ksh 10,000.00 transferred to KCB ACCOUNT on 28/9/26 at 9:54 PM. New M-PESA balance is Ksh 2,500.00.",
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
+            transactionCode = "TST12ABC13",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.TRANSFER
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.TRANSFER
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 250_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "mpesa_sent_to_masked_phone",
+            title = "MPESA",
+            body =
+                "TST12ABC14 Confirmed. Ksh 900.00 sent to SAMPLE PERSON 2547****321 on 28/9/26 at 8:10 AM. New M-PESA balance is Ksh 11,950.00.",
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
+            transactionCode = "TST12ABC14",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.PAYMENT
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.PAYMENT
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 1_195_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "mpesa_cash_withdrawal",
+            title = "MPESA",
+            body =
+                "TST12ABC15 Confirmed. Ksh 1,000.00 withdrawn from M-PESA at SAMPLE AGENT on 28/9/26 at 8:20 AM. New M-PESA balance is Ksh 10,950.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC15",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.CASH_WITHDRAWAL
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 1_095_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "mpesa_cash_deposit",
+            title = "MPESA",
+            body =
+                "TST12ABC16 Confirmed. Ksh 2,000.00 deposited into your M-PESA on 28/9/26 at 8:30 AM. New M-PESA balance is Ksh 12,950.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC16",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.CASH_DEPOSIT
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 1_295_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
+            id = "mpesa_airtime_purchase",
+            title = "MPESA",
+            body =
+                "TST12ABC17 Confirmed. Ksh 100.00 airtime purchased on 28/9/26 at 8:40 AM. New M-PESA balance is Ksh 12,850.00.",
+            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            transactionCode = "TST12ABC17",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.PAYMENT
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 1_285_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
             id = "airtime_balance_only",
             title = "Safaricom",
             body = "Your airtime balance is Ksh 73.00.",
