@@ -481,9 +481,7 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 event.source.entityKey
                             ) &&
                             understandingStore.isUserOwned(
-                                event
-                                    .cashDestination
-                                    .entityKey
+                                event.cashDestination.entityKey
                             )
 
                     if (!canApply) {
@@ -507,80 +505,71 @@ class FinancialMessageIngestionCoordinator private constructor(
                     }
 
                     val observedBalance =
-                        interpretation.balances
-                            .firstOrNull {
-                                it.account.entityKey ==
-                                    event.source.entityKey
-                            }
-                            ?.balanceMinor
-
-                    val parsed =
-                        ParsedMpesaTransaction(
-                            transactionCode =
-                                interpretation
-                                    .transactionCode,
-                            type =
-                                if (
-                                    sourceAccountId ==
-                                    AccountStore
-                                        .DEFAULT_MPESA_ID
-                                ) {
-                                    MpesaTransactionType
-                                        .WITHDRAWAL
-                                } else {
-                                    MpesaTransactionType
-                                        .OTHER
-                                },
-                            amountMinor =
-                                event.amountMinor,
-                            counterparty =
-                                event.counterparty,
-                            counterpartyPhone = null,
-                            feeMinor = event.feeMinor,
-                            balanceMinor =
-                                observedBalance,
-                            occurredAtText =
-                                interpretation
-                                    .occurredAtText,
-                            rawMessage = body,
-                            reversalOfCode = null
+                        balanceForAccount(
+                            interpretation,
+                            event.source
+                        )
+                    val legacyWalletBalance =
+                        if (
+                            sourceAccountId ==
+                            AccountStore.DEFAULT_MPESA_ID
+                        ) {
+                            observedBalance
+                        } else {
+                            null
+                        }
+                    val ownTransfer =
+                        OwnAccountTransferMatch(
+                            sourceAccountId =
+                                sourceAccountId,
+                            sourceName =
+                                event.source.displayName,
+                            destinationAccountId =
+                                destinationAccountId,
+                            destinationName =
+                                event
+                                    .cashDestination
+                                    .displayName,
+                            evidence =
+                                OwnTransferEvidence
+                                    .ACCOUNT_NAME
                         )
 
                     val inserted =
-                        transactionStore.insertIfNew(
-                            parsed = parsed,
-                            sourcePackage =
-                                sourcePackage,
-                            sourceKind =
-                                SOURCE_INTERPRETED_PREFIX +
-                                    sourceKind,
-                            receivedAtEpochMs =
-                                receivedAtEpochMs,
-                            occurredAtEpochMs =
-                                occurredAtEpochMs,
-                            matchedRule = null,
-                            rebuildPayCycles =
-                                rebuildPayCycles,
-                            evidence = null,
-                            accountTransferOverride =
-                                OwnAccountTransferMatch(
-                                    sourceAccountId =
-                                        sourceAccountId,
-                                    sourceName =
-                                        event
-                                            .source
-                                            .displayName,
-                                    destinationAccountId =
-                                        destinationAccountId,
-                                    destinationName =
-                                        event
-                                            .cashDestination
-                                            .displayName,
-                                    evidence =
-                                        OwnTransferEvidence
-                                            .ACCOUNT_NAME
-                                )
-                        )
+                        transactionStore
+                            .insertInterpretedMoneyMovementIfNew(
+                                kind =
+                                    CanonicalFinancialRecordKind
+                                        .CASH_WITHDRAWAL,
+                                transactionCode =
+                                    interpretation.transactionCode,
+                                amountMinor =
+                                    event.amountMinor,
+                                counterparty =
+                                    event.counterparty,
+                                counterpartyPhone = null,
+                                feeMinor =
+                                    event.feeMinor,
+                                balanceMinor =
+                                    legacyWalletBalance,
+                                occurredAtText =
+                                    interpretation.occurredAtText,
+                                rawMessage = body,
+                                sourcePackage =
+                                    sourcePackage,
+                                sourceKind =
+                                    SOURCE_INTERPRETED_PREFIX +
+                                        sourceKind,
+                                receivedAtEpochMs =
+                                    receivedAtEpochMs,
+                                occurredAtEpochMs =
+                                    occurredAtEpochMs,
+                                matchedRule = null,
+                                rebuildPayCycles =
+                                    rebuildPayCycles,
+                                accountTransferOverride =
+                                    ownTransfer
+                            )
 
                     if (inserted) {
                         insertedTransactions += 1
@@ -644,9 +633,7 @@ class FinancialMessageIngestionCoordinator private constructor(
                         sourceAccountId != null &&
                             destinationAccountId != null &&
                             understandingStore.isUserOwned(
-                                event
-                                    .cashSource
-                                    .entityKey
+                                event.cashSource.entityKey
                             ) &&
                             understandingStore.isUserOwned(
                                 event.destination.entityKey
@@ -673,82 +660,69 @@ class FinancialMessageIngestionCoordinator private constructor(
                     }
 
                     val observedBalance =
-                        interpretation.balances
-                            .firstOrNull {
-                                it.account.entityKey ==
-                                    event
-                                        .destination
-                                        .entityKey
-                            }
-                            ?.balanceMinor
-
-                    val parsed =
-                        ParsedMpesaTransaction(
-                            transactionCode =
-                                interpretation
-                                    .transactionCode,
-                            type =
-                                if (
-                                    destinationAccountId ==
-                                    AccountStore
-                                        .DEFAULT_MPESA_ID
-                                ) {
-                                    MpesaTransactionType
-                                        .DEPOSIT
-                                } else {
-                                    MpesaTransactionType
-                                        .OTHER
-                                },
-                            amountMinor =
-                                event.amountMinor,
-                            counterparty =
-                                event.counterparty,
-                            counterpartyPhone = null,
-                            feeMinor = event.feeMinor,
-                            balanceMinor =
-                                observedBalance,
-                            occurredAtText =
-                                interpretation
-                                    .occurredAtText,
-                            rawMessage = body,
-                            reversalOfCode = null
+                        balanceForAccount(
+                            interpretation,
+                            event.destination
+                        )
+                    val legacyWalletBalance =
+                        if (
+                            destinationAccountId ==
+                            AccountStore.DEFAULT_MPESA_ID
+                        ) {
+                            observedBalance
+                        } else {
+                            null
+                        }
+                    val ownTransfer =
+                        OwnAccountTransferMatch(
+                            sourceAccountId =
+                                sourceAccountId,
+                            sourceName =
+                                event.cashSource.displayName,
+                            destinationAccountId =
+                                destinationAccountId,
+                            destinationName =
+                                event.destination.displayName,
+                            evidence =
+                                OwnTransferEvidence
+                                    .ACCOUNT_NAME
                         )
 
                     val inserted =
-                        transactionStore.insertIfNew(
-                            parsed = parsed,
-                            sourcePackage =
-                                sourcePackage,
-                            sourceKind =
-                                SOURCE_INTERPRETED_PREFIX +
-                                    sourceKind,
-                            receivedAtEpochMs =
-                                receivedAtEpochMs,
-                            occurredAtEpochMs =
-                                occurredAtEpochMs,
-                            matchedRule = null,
-                            rebuildPayCycles =
-                                rebuildPayCycles,
-                            evidence = null,
-                            accountTransferOverride =
-                                OwnAccountTransferMatch(
-                                    sourceAccountId =
-                                        sourceAccountId,
-                                    sourceName =
-                                        event
-                                            .cashSource
-                                            .displayName,
-                                    destinationAccountId =
-                                        destinationAccountId,
-                                    destinationName =
-                                        event
-                                            .destination
-                                            .displayName,
-                                    evidence =
-                                        OwnTransferEvidence
-                                            .ACCOUNT_NAME
-                                )
-                        )
+                        transactionStore
+                            .insertInterpretedMoneyMovementIfNew(
+                                kind =
+                                    CanonicalFinancialRecordKind
+                                        .CASH_DEPOSIT,
+                                transactionCode =
+                                    interpretation.transactionCode,
+                                amountMinor =
+                                    event.amountMinor,
+                                counterparty =
+                                    event.counterparty,
+                                counterpartyPhone = null,
+                                feeMinor =
+                                    event.feeMinor,
+                                balanceMinor =
+                                    legacyWalletBalance,
+                                occurredAtText =
+                                    interpretation.occurredAtText,
+                                rawMessage = body,
+                                sourcePackage =
+                                    sourcePackage,
+                                sourceKind =
+                                    SOURCE_INTERPRETED_PREFIX +
+                                        sourceKind,
+                                receivedAtEpochMs =
+                                    receivedAtEpochMs,
+                                occurredAtEpochMs =
+                                    occurredAtEpochMs,
+                                matchedRule = null,
+                                rebuildPayCycles =
+                                    rebuildPayCycles,
+                                accountTransferOverride =
+                                    ownTransfer
+                            )
 
                     if (inserted) {
                         insertedTransactions += 1
