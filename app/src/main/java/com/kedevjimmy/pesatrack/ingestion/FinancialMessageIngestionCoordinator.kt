@@ -5,6 +5,7 @@ import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.FinancialEventStatus
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
+import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
 import com.kedevjimmy.pesatrack.domain.interpretation.CashDepositEventFact
@@ -19,6 +20,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.ReversalEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
+import com.kedevjimmy.pesatrack.domain.rules.InterpretedRuleResolver
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch
 import com.kedevjimmy.pesatrack.domain.rules.OwnTransferEvidence
 
@@ -65,6 +67,10 @@ class FinancialMessageIngestionCoordinator private constructor(
                 pendingReviewEvents = 0
             )
         }
+
+        val rules =
+            RuleStore.get(appContext)
+                .listRules(enabledOnly = true)
 
         val occurredAtEpochMs =
             TransactionDateResolver.resolve(
@@ -281,7 +287,15 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 receivedAtEpochMs,
                             occurredAtEpochMs =
                                 occurredAtEpochMs,
-                            matchedRule = null,
+                            matchedRule =
+                                InterpretedRuleResolver
+                                    .match(
+                                        transaction =
+                                            parsed,
+                                        title = title,
+                                        body = body,
+                                        rules = rules
+                                    ),
                             rebuildPayCycles =
                                 rebuildPayCycles,
                             evidence = null
@@ -329,7 +343,15 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 receivedAtEpochMs,
                             occurredAtEpochMs =
                                 occurredAtEpochMs,
-                            matchedRule = null,
+                            matchedRule =
+                                InterpretedRuleResolver
+                                    .match(
+                                        transaction =
+                                            parsed,
+                                        title = title,
+                                        body = body,
+                                        rules = rules
+                                    ),
                             rebuildPayCycles =
                                 rebuildPayCycles,
                             evidence = null
