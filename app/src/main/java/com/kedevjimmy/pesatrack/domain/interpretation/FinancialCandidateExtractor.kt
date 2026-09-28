@@ -8,7 +8,8 @@ enum class FinancialActionCandidateKind {
     PAYMENT_SENT_TO,
     PAYMENT_PAID_TO,
     AIRTIME_PURCHASE,
-    RECEIPT_FROM
+    RECEIPT_FROM,
+    RECEIPT_CREDITED_FROM
 }
 
 data class TextValueCandidate(
@@ -25,7 +26,7 @@ data class MoneyValueCandidate(
 
 data class BalanceCandidate(
     val rawAccountLabel: String,
-    val accountSpan: MessageSpan,
+    val accountSpan: MessageSpan?,
     val amountMinor: Long,
     val amountSpan: MessageSpan,
     val ruleId: String
@@ -105,6 +106,13 @@ object FinancialCandidateExtractor {
             RegexOption.MULTILINE
         )
     )
+    private val availableBalanceRegex = Regex(
+        """(?:^|[.!?]\s+)(?:available|current|closing)\s+balance\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.MULTILINE
+        )
+    )
     private val feeRegex = Regex(
         """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
@@ -171,6 +179,29 @@ object FinancialCandidateExtractor {
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.DOT_MATCHES_ALL
+        )
+    )
+    private val creditedFromRegexes = listOf(
+        Regex(
+            """\bcredited\s+(?:with\s+)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:from|by)\s+(.+?)(?=\s+(?:on|ref|reference|available|current|closing|a/c)\b|[.;]|$)""",
+            setOf(
+                RegexOption.IGNORE_CASE,
+                RegexOption.DOT_MATCHES_ALL
+            )
+        ),
+        Regex(
+            """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?credited(?:\s+to\s+(?:your\s+)?account)?\s+(?:from|by)\s+(.+?)(?=\s+(?:on|ref|reference|available|current|closing|a/c)\b|[.;]|$)""",
+            setOf(
+                RegexOption.IGNORE_CASE,
+                RegexOption.DOT_MATCHES_ALL
+            )
+        ),
+        Regex(
+            """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?received\s+from\s+(.+?)(?=\s+(?:on|ref|reference|available|current|closing|a/c)\b|[.;]|$)""",
+            setOf(
+                RegexOption.IGNORE_CASE,
+                RegexOption.DOT_MATCHES_ALL
+            )
         )
     )
     private val receivedPhoneRegex = Regex(
@@ -250,6 +281,7 @@ object FinancialCandidateExtractor {
             paidToCandidate(body)?.let(::add)
             airtimePurchaseCandidate(body)?.let(::add)
             receiptCandidate(body)?.let(::add)
+            creditedReceiptCandidate(body)?.let(::add)
         }
 
         return FinancialMessageCandidates(
@@ -274,10 +306,16 @@ object FinancialCandidateExtractor {
                     )
                 }
                 .toList(),
-            balances = balanceRegex
-                .findAll(body)
-                .mapNotNull(::balanceCandidate)
-                .toList(),
+            balances = buildList {
+                addAll(
+                    balanceRegex
+                        .findAll(body)
+                        .mapNotNull(::balanceCandidate)
+                )
+                availableBalanceCandidate(
+                    message = message
+                )?.let(::add)
+            },
             fee = feeRegex
                 .find(body)
                 ?.moneyCandidate(
@@ -389,6 +427,31 @@ object FinancialCandidateExtractor {
             amountMinor = amountToMinor(amount.value),
             amountSpan = amount.range.toSpan(),
             ruleId = "balance.account_amount"
+        )
+    }
+
+    private fun availableBalanceCandidate(
+        message: NormalizedFinancialMessage
+    ): BalanceCandidate? {
+        val match =
+            availableBalanceRegex.find(message.body)
+                ?: return null
+        val amount = match.groups[1]
+            ?: return null
+        val title = message.title
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: "Account"
+
+        return BalanceCandidate(
+            rawAccountLabel = title,
+            accountSpan = null,
+            amountMinor = amountToMinor(
+                amount.value
+            ),
+            amountSpan = amount.range.toSpan(),
+            ruleId =
+                "balance.message_source_available"
         )
     }
 
@@ -524,6 +587,26 @@ object FinancialCandidateExtractor {
                 ?.get(1)
                 ?.value
                 ?.let(::normalizeKenyanPhone),
+            cleanPersonParty = true
+        )
+    }
+
+    private fun creditedReceiptCandidate(
+        body: String
+    ): FinancialActionCandidate? {
+        val match = creditedFromRegexes
+            .asSequence()
+            .mapNotNull { it.find(body) }
+            .firstOrNull()
+            ?: return null
+
+        return actionCandidate(
+            match = match,
+            kind =
+                FinancialActionCandidateKind
+                    .RECEIPT_CREDITED_FROM,
+            ruleId =
+                "receipt.credited_from",
             cleanPersonParty = true
         )
     }

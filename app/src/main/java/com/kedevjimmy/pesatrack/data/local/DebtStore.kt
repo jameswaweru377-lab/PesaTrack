@@ -8,7 +8,6 @@ import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtFundingBehavior
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
-import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.rules.DebtFundingCandidate
@@ -492,7 +491,6 @@ class DebtStore private constructor(context: Context) {
 
     @Synchronized
     fun accounts(): List<DebtAccountSnapshot> {
-        ensureLegacyFulizaRepaymentsReconciled()
         return database.readableDatabase.rawQuery(
             """
             SELECT id, provider_key, name, outstanding_minor,
@@ -647,139 +645,6 @@ class DebtStore private constructor(context: Context) {
                 }
             }
         }
-
-    private fun ensureLegacyFulizaRepaymentsReconciled() {
-        val preferences =
-            appContext.getSharedPreferences(
-                "pesatrack_preferences",
-                Context.MODE_PRIVATE
-            )
-        if (
-            preferences.getBoolean(
-                LEGACY_FULIZA_REPAYMENT_RECONCILIATION_KEY,
-                false
-            )
-        ) {
-            return
-        }
-
-        val legacyRows =
-            database.readableDatabase.rawQuery(
-                """
-                SELECT id, raw_message,
-                       occurred_at_epoch_ms,
-                       source_package
-                FROM transactions
-                WHERE review_state != ?
-                  AND UPPER(raw_message)
-                      LIKE '%FROM YOUR M-PESA HAS BEEN USED TO%PAY YOUR OUTSTANDING FULIZA M-PESA%'
-                ORDER BY occurred_at_epoch_ms ASC, id ASC
-                """.trimIndent(),
-                arrayOf(
-                    com.kedevjimmy.pesatrack.domain.model
-                        .ReviewState.EXCLUDED.name
-                )
-            ).use { cursor ->
-                buildList {
-                    while (cursor.moveToNext()) {
-                        add(
-                            LegacyFulizaRepaymentRow(
-                                transactionId =
-                                    cursor.getLong(0),
-                                rawMessage =
-                                    cursor.getString(1),
-                                occurredAtEpochMs =
-                                    cursor.getLong(2),
-                                sourcePackage =
-                                    if (cursor.isNull(3)) {
-                                        null
-                                    } else {
-                                        cursor.getString(3)
-                                    }
-                            )
-                        )
-                    }
-                }
-            }
-
-        var changed = false
-        legacyRows.forEach { row ->
-            val interpretation =
-                FinancialMessageInterpreter.interpret(
-                    title = "MPESA",
-                    body = row.rawMessage
-                )
-            val event =
-                interpretation.events
-                    .filterIsInstance<
-                        DebtRepaymentEventFact
-                    >()
-                    .firstOrNull {
-                        it.liability.providerKey ==
-                            LEGACY_FULIZA_PROVIDER_KEY
-                    }
-                    ?: return@forEach
-
-            val excluded = ContentValues().apply {
-                put(
-                    "review_state",
-                    com.kedevjimmy.pesatrack.domain.model
-                        .ReviewState.EXCLUDED.name
-                )
-                put(
-                    "direction",
-                    com.kedevjimmy.pesatrack.domain.model
-                        .MoneyDirection.NEUTRAL.name
-                )
-                put(
-                    "category",
-                    com.kedevjimmy.pesatrack.domain.model
-                        .TransactionCategory.DEBT_LOAN.name
-                )
-                put(
-                    "evidence_label",
-                    "Fuliza repayment moved to debt ledger"
-                )
-                put(
-                    "evidence_source",
-                    "fuliza_debt_reconciliation"
-                )
-            }
-            database.writableDatabase.update(
-                "transactions",
-                excluded,
-                "id = ?",
-                arrayOf(
-                    row.transactionId.toString()
-                )
-            )
-
-            recordRepayment(
-                event = event,
-                transactionCode =
-                    interpretation.transactionCode,
-                messageFingerprint = row.rawMessage,
-                sourcePackage = row.sourcePackage,
-                sourceKind =
-                    "legacy_fuliza_repayment_reconciliation",
-                occurredAtEpochMs =
-                    row.occurredAtEpochMs
-            )
-            changed = true
-        }
-
-        preferences.edit()
-            .putBoolean(
-                LEGACY_FULIZA_REPAYMENT_RECONCILIATION_KEY,
-                true
-            )
-            .apply()
-
-        if (changed) {
-            PayCycleStore.get(appContext).rebuild()
-            LedgerUpdateBus.notifyChanged()
-        }
-    }
 
     @Synchronized
     fun sumFeesBetween(
@@ -1686,13 +1551,6 @@ class DebtStore private constructor(context: Context) {
         val providerKey: String
     )
 
-    private data class LegacyFulizaRepaymentRow(
-        val transactionId: Long,
-        val rawMessage: String,
-        val occurredAtEpochMs: Long,
-        val sourcePackage: String?
-    )
-
     private data class RepaymentEventForLinking(
         val amountMinor: Long,
         val walletBalanceAfterMinor: Long?,
@@ -1712,11 +1570,6 @@ class DebtStore private constructor(context: Context) {
             3L * 60L * 1000L
         private const val MPESA_PROVIDER_KEY =
             "SAFARICOM_MPESA"
-        private const val LEGACY_FULIZA_PROVIDER_KEY =
-            "SAFARICOM_FULIZA"
-        private const val LEGACY_FULIZA_REPAYMENT_RECONCILIATION_KEY =
-            "legacy_fuliza_repayment_reconciliation_v1"
-
         @Volatile
         private var instance: DebtStore? = null
 

@@ -3,7 +3,8 @@ package com.kedevjimmy.pesatrack.ingestion
 import android.content.Context
 import android.provider.Telephony
 import com.kedevjimmy.pesatrack.domain.model.KenyanBank
-import com.kedevjimmy.pesatrack.domain.parser.BankCreditCandidateParser
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
+import com.kedevjimmy.pesatrack.domain.interpretation.ReceiptEventFact
 
 data class SalarySmsCandidate(
     val smsId: Long,
@@ -55,15 +56,28 @@ class SalarySmsCandidateFinder(
                     continue
                 }
 
-                val body = cursor.getString(bodyIndex)?.trim().orEmpty()
-                val parsed = BankCreditCandidateParser.parse(body) ?: continue
+                val body =
+                    cursor.getString(bodyIndex)
+                        ?.trim()
+                        .orEmpty()
+                val receipt =
+                    FinancialMessageInterpreter
+                        .interpret(
+                            title = address,
+                            body = body
+                        )
+                        .events
+                        .filterIsInstance<ReceiptEventFact>()
+                        .singleOrNull()
+                        ?: continue
 
                 candidates += SalarySmsCandidate(
                     smsId = cursor.getLong(idIndex),
                     address = address,
-                    receivedAtEpochMs = cursor.getLong(dateIndex),
-                    amountMinor = parsed.amountMinor,
-                    originator = parsed.originator,
+                    receivedAtEpochMs =
+                        cursor.getLong(dateIndex),
+                    amountMinor = receipt.amountMinor,
+                    originator = receipt.counterparty,
                     rawBody = body
                 )
             }
