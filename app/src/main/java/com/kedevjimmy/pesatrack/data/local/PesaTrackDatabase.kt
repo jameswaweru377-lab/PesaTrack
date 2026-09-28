@@ -15,7 +15,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createRulesTable(db)
         createAccountsTable(db)
         createPayCyclesTable(db)
-        createFulizaEventsTable(db)
         createDuplicateResolutionsTable(db)
         createCategoryBudgetsTable(db)
         createCustomCategoriesTable(db)
@@ -208,6 +207,15 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 "debt_events",
                 "funding_account_key",
                 "TEXT"
+            )
+        }
+
+        if (oldVersion < 16) {
+            // Legacy Fuliza rows were migrated into the generic
+            // debt ledger in schema v12. The provider-specific
+            // staging table is no longer used at runtime.
+            db.execSQL(
+                "DROP TABLE IF EXISTS fuliza_events"
             )
         }
 
@@ -660,12 +668,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             "CREATE INDEX IF NOT EXISTS idx_pay_cycles_start ON pay_cycles(start_epoch_ms DESC)"
         )
         db.execSQL(
-            "CREATE INDEX IF NOT EXISTS idx_fuliza_occurred_at ON fuliza_events(occurred_at_epoch_ms DESC)"
-        )
-        db.execSQL(
-            "CREATE INDEX IF NOT EXISTS idx_fuliza_linked_transaction ON fuliza_events(linked_transaction_id)"
-        )
-        db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_duplicate_resolution_first ON duplicate_resolutions(first_transaction_id)"
         )
         db.execSQL(
@@ -715,6 +717,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 15
+        private const val DATABASE_VERSION = 16
     }
 }
