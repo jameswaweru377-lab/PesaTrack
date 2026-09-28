@@ -40,11 +40,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
-import com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality
-import com.kedevjimmy.pesatrack.data.local.DebtEventRecord
-import com.kedevjimmy.pesatrack.data.local.DebtEventType
 import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
@@ -89,6 +87,7 @@ fun HomeScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val cycleStore = remember { PayCycleStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
+    val accountStore = remember { AccountStore.get(context) }
     val budgetStore = remember { BudgetStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
     val debtStore = remember { DebtStore.get(context) }
@@ -128,6 +127,13 @@ fun HomeScreen(
     var debtAccounts by remember {
         mutableStateOf(debtStore.accounts())
     }
+    var trackedAccounts by remember {
+        mutableStateOf(
+            accountStore.listAccounts(
+                enabledOnly = true
+            )
+        )
+    }
 
     fun refresh() {
         cycleSnapshot = cycleStore.snapshot()
@@ -135,24 +141,15 @@ fun HomeScreen(
         activitySnapshot = transactionStore.activitySnapshot()
         monthlyBudgets = budgetStore.list()
         debtAccounts = debtStore.accounts()
+        trackedAccounts =
+            accountStore.listAccounts(
+                enabledOnly = true
+            )
     }
 
     LaunchedEffect(ledgerUpdateState.revision) {
         if (ledgerUpdateState.revision > 0L) {
             refresh()
-        }
-    }
-
-    val latestDebtEvents = remember(
-        debtAccounts,
-        ledgerUpdateState.revision
-    ) {
-        debtAccounts.associate { account ->
-            account.id to
-                debtStore.recentEvents(
-                    debtAccountId = account.id,
-                    limit = 1
-                ).firstOrNull()
         }
     }
 
@@ -284,6 +281,69 @@ fun HomeScreen(
             .take(4)
     }
 
+    val spentTodayMinor = remember(
+        activitySnapshot,
+        ledgerUpdateState.revision
+    ) {
+        val startCalendar =
+            Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+        val startOfToday =
+            startCalendar.timeInMillis
+        val startOfTomorrow =
+            (startCalendar.clone() as Calendar)
+                .apply {
+                    add(Calendar.DAY_OF_MONTH, 1)
+                }
+                .timeInMillis
+
+        maxOf(
+            0L,
+            activitySnapshot.transactions
+                .filter {
+                    it.occurredAtEpochMs >=
+                        startOfToday &&
+                        it.occurredAtEpochMs <
+                            startOfTomorrow &&
+                        it.reviewState !=
+                            ReviewState.EXCLUDED.name &&
+                        it.reviewState !=
+                            ReviewState.NEEDS_REVIEW.name &&
+                        (
+                            it.direction ==
+                                MoneyDirection.EXPENSE.name ||
+                                it.relationType ==
+                                    TransactionStore
+                                        .RELATION_REFUND
+                            )
+                }
+                .sumOf { item ->
+                    if (
+                        item.relationType ==
+                        TransactionStore.RELATION_REFUND
+                    ) {
+                        if (
+                            refundCountsInTrustedTotals(
+                                item = item,
+                                store = transactionStore
+                            )
+                        ) {
+                            -item.amountMinor
+                        } else {
+                            0L
+                        }
+                    } else {
+                        item.amountMinor +
+                            item.feeMinor
+                    }
+                }
+        )
+    }
+
     if (
         showManualSalaryDialog &&
         salaryRule != null &&
@@ -379,19 +439,28 @@ fun HomeScreen(
 
         item {
             AvailableToLiveHero(
-                amount = if (cycleSnapshot.cycle == null) {
-                    "Waiting for salary"
-                } else {
-                    formatMoney(cycleSnapshot.availableToLiveMinor)
-                },
-                subtitle = if (cycleSnapshot.cycle == null) {
-                    "PesaTrack will calculate this from real salary-cycle data."
-                } else {
-                    "After tracked spending, savings, investments, debt repayments and protected commitments."
-                },
-                footer = cycleSnapshot.safeTodayMinor?.let {
-                    "Safe today " + formatMoney(it)
-                }
+                amount =
+                    if (cycleSnapshot.cycle == null) {
+                        "Waiting for salary"
+                    } else {
+                        formatMoney(
+                            cycleSnapshot
+                                .availableToLiveMinor
+                        )
+                    },
+                subtitle =
+                    if (cycleSnapshot.cycle == null) {
+                        "PesaTrack will calculate this from real salary-cycle data."
+                    } else {
+                        "After bills, debt repayments, goals and protected commitments."
+                    },
+                footer = null,
+                title = "Available after commitments",
+                spentToday =
+                    formatMoney(spentTodayMinor),
+                safeToday =
+                    cycleSnapshot.safeTodayMinor
+                        ?.let(::formatMoney)
             )
         }
 
@@ -446,23 +515,6 @@ fun HomeScreen(
             }
         }
 
-        if (
-            debtAccounts.any {
-                it.outstandingMinor > 0L ||
-                    it.availableCreditMinor != null
-            }
-        ) {
-            item {
-                DebtOverviewCard(
-                    accounts = debtAccounts.filter {
-                        it.outstandingMinor > 0L ||
-                            it.availableCreditMinor != null
-                    },
-                    latestEvents = latestDebtEvents
-                )
-            }
-        }
-
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -491,6 +543,14 @@ fun HomeScreen(
                     icon = Icons.Rounded.TrackChanges,
                     tone = "green",
                     onClick = onGoalsClick
+                )
+            }
+        }
+
+        if (debtAccounts.isNotEmpty()) {
+            item {
+                DebtOverviewCard(
+                    accounts = debtAccounts
                 )
             }
         }
@@ -528,105 +588,340 @@ fun HomeScreen(
             )
         }
 
-        ledgerSnapshot.latestBalanceMinor?.let { balance ->
-            item {
-                PesaCard {
-                    Column(Modifier.padding(15.dp)) {
-                        Text(
-                            "Last known M-Pesa balance",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            formatMoney(balance),
-                            modifier = Modifier.padding(top = 3.dp),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        ledgerSnapshot.latestBalanceObservedAtEpochMs?.let { observed ->
-                            Text(
-                                "Observed " + formatDateTime(observed) +
-                                    " • not a live bank balance",
-                                modifier = Modifier.padding(top = 3.dp),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+        item {
+            WalletsAndBalancesCard(
+                mpesaBalanceMinor =
+                    ledgerSnapshot.latestBalanceMinor,
+                mpesaObservedAtEpochMs =
+                    ledgerSnapshot
+                        .latestBalanceObservedAtEpochMs,
+                trackedAccountCount =
+                    trackedAccounts.count {
+                        it.id !=
+                            AccountStore.DEFAULT_CASH_ID
                     }
-                }
-            }
+            )
         }
     }
 }
 
 @Composable
 private fun DebtOverviewCard(
-    accounts: List<com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot>,
-    latestEvents: Map<String, DebtEventRecord?>
+    accounts: List<
+        com.kedevjimmy.pesatrack.data.local
+            .DebtAccountSnapshot
+        >
+) {
+    val displayAccounts =
+        accounts.sortedWith(
+            compareByDescending<
+                com.kedevjimmy.pesatrack.data.local
+                    .DebtAccountSnapshot
+                > {
+                it.outstandingMinor
+            }.thenBy {
+                it.name.lowercase()
+            }
+        ).take(3)
+    val totalOutstanding =
+        accounts.sumOf {
+            it.outstandingMinor
+        }.coerceAtLeast(0L)
+
+    PesaCard {
+        Column(Modifier.padding(15.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Debt overview",
+                        style =
+                            MaterialTheme.typography
+                                .titleLarge
+                    )
+                    Text(
+                        "Borrowed money is tracked separately from spending.",
+                        modifier =
+                            Modifier.padding(top = 2.dp),
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+                Text(
+                    formatMoney(totalOutstanding),
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            if (displayAccounts.isNotEmpty()) {
+                Row(
+                    modifier =
+                        Modifier.padding(top = 12.dp),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+                    displayAccounts.forEach {
+                        account ->
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape =
+                                androidx.compose.foundation
+                                    .shape.RoundedCornerShape(
+                                        18.dp
+                                    ),
+                            color =
+                                MaterialTheme.colorScheme
+                                    .surfaceVariant
+                                    .copy(alpha = .55f)
+                        ) {
+                            Column(
+                                modifier =
+                                    Modifier.padding(
+                                        horizontal = 11.dp,
+                                        vertical = 10.dp
+                                    )
+                            ) {
+                                Text(
+                                    account.name,
+                                    style =
+                                        MaterialTheme.typography
+                                            .labelMedium,
+                                    maxLines = 1,
+                                    overflow =
+                                        androidx.compose.ui.text
+                                            .style.TextOverflow
+                                            .Ellipsis
+                                )
+                                Text(
+                                    formatMoney(
+                                        account
+                                            .outstandingMinor
+                                    ),
+                                    modifier =
+                                        Modifier.padding(
+                                            top = 3.dp
+                                        ),
+                                    style =
+                                        MaterialTheme.typography
+                                            .titleSmall,
+                                    fontWeight =
+                                        FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 11.dp),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Text(
+                    "View all debt",
+                    modifier = Modifier.weight(1f),
+                    style =
+                        MaterialTheme.typography
+                            .labelLarge,
+                    color =
+                        MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "›",
+                    style =
+                        MaterialTheme.typography
+                            .titleLarge,
+                    color =
+                        MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WalletsAndBalancesCard(
+    mpesaBalanceMinor: Long?,
+    mpesaObservedAtEpochMs: Long?,
+    trackedAccountCount: Int
 ) {
     PesaCard {
         Column(Modifier.padding(15.dp)) {
-            Text(
-                "Debt",
-                style = MaterialTheme.typography.titleLarge
-            )
-            Text(
-                "Borrowed money is tracked separately from spending.",
-                modifier = Modifier.padding(top = 2.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            accounts.take(3).forEachIndexed { index, account ->
-                if (index > 0) {
-                    androidx.compose.material3.HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 10.dp)
-                    )
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Text(
+                    "Wallets & balances",
+                    modifier = Modifier.weight(1f),
+                    style =
+                        MaterialTheme.typography
+                            .titleLarge
+                )
+                Text(
+                    "See all",
+                    style =
+                        MaterialTheme.typography
+                            .labelMedium,
+                    color =
+                        MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 11.dp),
+                shape =
+                    androidx.compose.foundation.shape
+                        .RoundedCornerShape(18.dp),
+                color =
+                    MaterialTheme.colorScheme
+                        .surfaceVariant
+                        .copy(alpha = .55f)
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.padding(
+                        horizontal = 13.dp,
+                        vertical = 11.dp
+                    ),
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            account.name,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            if (
-                                account.balanceQuality ==
-                                DebtBalanceQuality.OBSERVED
-                            ) {
-                                "Observed outstanding balance"
-                            } else {
-                                "Estimated after repayments"
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        account.availableCreditMinor?.let { available ->
+                    Surface(
+                        modifier = Modifier.size(38.dp),
+                        shape = CircleShape,
+                        color =
+                            MaterialTheme.colorScheme
+                                .primaryContainer
+                    ) {
+                        Box(
+                            contentAlignment =
+                                Alignment.Center
+                        ) {
                             Text(
-                                "Available credit " +
-                                    formatMoney(available) +
-                                    " • not cash",
-                                modifier = Modifier.padding(top = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        latestEvents[account.id]?.let { event ->
-                            Text(
-                                debtEventLabel(event),
-                                modifier = Modifier.padding(top = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                "M",
+                                style =
+                                    MaterialTheme.typography
+                                        .titleMedium,
+                                fontWeight =
+                                    FontWeight.Bold,
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .primary
                             )
                         }
                     }
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 11.dp)
+                    ) {
+                        Text(
+                            "M-PESA balance",
+                            style =
+                                MaterialTheme.typography
+                                    .titleMedium
+                        )
+                        Text(
+                            if (
+                                mpesaObservedAtEpochMs !=
+                                null
+                            ) {
+                                "Last observed " +
+                                    formatDateTime(
+                                        mpesaObservedAtEpochMs
+                                    )
+                            } else {
+                                "Waiting for a balance observation"
+                            },
+                            modifier =
+                                Modifier.padding(top = 2.dp),
+                            style =
+                                MaterialTheme.typography
+                                    .labelSmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant,
+                            maxLines = 1,
+                            overflow =
+                                androidx.compose.ui.text
+                                    .style.TextOverflow
+                                    .Ellipsis
+                        )
+                    }
+
                     Text(
-                        formatMoney(account.outstandingMinor),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        mpesaBalanceMinor
+                            ?.let(::formatMoney)
+                            ?: "—",
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
                     )
                 }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 4.dp,
+                        vertical = 11.dp
+                    ),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Text(
+                    "Tracked accounts",
+                    modifier = Modifier.weight(1f),
+                    style =
+                        MaterialTheme.typography
+                            .bodyMedium,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+                Text(
+                    trackedAccountCount.toString() +
+                        if (trackedAccountCount == 1) {
+                            " account"
+                        } else {
+                            " accounts"
+                        },
+                    style =
+                        MaterialTheme.typography
+                            .labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    "  ›",
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
             }
         }
     }
@@ -645,33 +940,6 @@ private fun refundCountsInTrustedTotals(
             com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
                 .REVERSAL.name
 }
-
-private fun debtEventLabel(
-    event: DebtEventRecord
-): String =
-    when (event.type) {
-        DebtEventType.DRAWDOWN ->
-            "Borrowed " + formatMoney(event.amountMinor)
-        DebtEventType.REPAYMENT ->
-            buildString {
-                if (event.outstandingAfterMinor == 0L) {
-                    append("Fully repaid ")
-                } else {
-                    append("Repaid ")
-                }
-                append(formatMoney(event.amountMinor))
-                when {
-                    event.relatedDebtEventId != null ->
-                        append(" • linked to loan proceeds")
-                    event.linkedTransactionId != null ->
-                        append(" • linked to incoming funds")
-                }
-            }
-        DebtEventType.FEE ->
-            "Finance cost " + formatMoney(event.feeMinor)
-        DebtEventType.ADJUSTMENT ->
-            "Debt adjusted " + formatMoney(event.amountMinor)
-    }
 
 @Composable
 private fun GreetingBlock(
