@@ -38,6 +38,26 @@ data class ResolvedReceiptRelationship(
     override val evidence: List<FieldEvidence>
 ) : ResolvedFinancialRelationship
 
+data class ResolvedCashWithdrawalRelationship(
+    override val amountMinor: Long,
+    val source: FinancialAccountReference,
+    val cashDestination: FinancialAccountReference,
+    val counterparty: String?,
+    override val feeMinor: Long,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence>
+) : ResolvedFinancialRelationship
+
+data class ResolvedCashDepositRelationship(
+    override val amountMinor: Long,
+    val cashSource: FinancialAccountReference,
+    val destination: FinancialAccountReference,
+    val counterparty: String?,
+    override val feeMinor: Long,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence>
+) : ResolvedFinancialRelationship
+
 data class ResolvedReversalRelationship(
     override val amountMinor: Long,
     val referencedTransactionCode: String,
@@ -120,6 +140,12 @@ object FinancialRelationshipResolver {
                 candidate = candidates.reversal,
                 observedAccount = observedWallet
             )
+        val cashRelationship =
+            resolveCashMovement(
+                candidates.cashMovements
+                    .firstOrNull(),
+                fee = candidates.fee
+            )
 
         val prioritized = candidates.actions
             .sortedBy(::priority)
@@ -127,6 +153,7 @@ object FinancialRelationshipResolver {
         val relationship =
             debtRelationship
                 ?: reversalRelationship
+                ?: cashRelationship
                 ?: prioritized.firstNotNullOfOrNull { action ->
                 resolveAction(
                     action = action,
@@ -187,6 +214,131 @@ object FinancialRelationshipResolver {
                 )
             )
         )
+    }
+
+    private fun resolveCashMovement(
+        candidate: CashMovementCandidate?,
+        fee: FeeCandidate?
+    ): ResolvedFinancialRelationship? {
+        candidate ?: return null
+        val account =
+            FinancialProviderRegistry.resolveAccount(
+                candidate.accountLabel
+            )
+        val cash =
+            FinancialProviderRegistry.cashAccount()
+        val confidence =
+            if (
+                account.ownershipHint ==
+                    AccountOwnershipHint.USER_OWNED
+            ) {
+                InterpretationConfidence.HIGH
+            } else {
+                InterpretationConfidence.MEDIUM
+            }
+
+        val evidence = buildList {
+            add(
+                evidence(
+                    field = FinancialField.AMOUNT,
+                    origin = EvidenceOrigin.MESSAGE_TEXT,
+                    ruleId =
+                        candidate.ruleId + ".amount",
+                    span = candidate.amountSpan,
+                    confidence = confidence
+                )
+            )
+            add(
+                evidence(
+                    field =
+                        if (
+                            candidate.kind ==
+                                CashMovementCandidateKind.WITHDRAWAL
+                        ) {
+                            FinancialField.SOURCE_ACCOUNT
+                        } else {
+                            FinancialField.DESTINATION_ACCOUNT
+                        },
+                    origin = EvidenceOrigin.MESSAGE_TEXT,
+                    ruleId =
+                        candidate.ruleId + ".account",
+                    span = candidate.accountSpan,
+                    confidence = confidence
+                )
+            )
+            add(
+                evidence(
+                    field =
+                        if (
+                            candidate.kind ==
+                                CashMovementCandidateKind.WITHDRAWAL
+                        ) {
+                            FinancialField.DESTINATION_ACCOUNT
+                        } else {
+                            FinancialField.SOURCE_ACCOUNT
+                        },
+                    origin =
+                        EvidenceOrigin.FINANCIAL_GRAMMAR,
+                    ruleId =
+                        candidate.ruleId + ".cash",
+                    span = null,
+                    confidence = confidence
+                )
+            )
+            candidate.counterpartySpan?.let {
+                add(
+                    evidence(
+                        field =
+                            FinancialField.COUNTERPARTY,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId +
+                                ".counterparty",
+                        span = it,
+                        confidence = confidence
+                    )
+                )
+            }
+            fee?.let {
+                add(
+                    evidence(
+                        field = FinancialField.FEE,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId = it.ruleId,
+                        span = it.amountSpan,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+            }
+        }
+
+        return when (candidate.kind) {
+            CashMovementCandidateKind.WITHDRAWAL ->
+                ResolvedCashWithdrawalRelationship(
+                    amountMinor = candidate.amountMinor,
+                    source = account,
+                    cashDestination = cash,
+                    counterparty =
+                        candidate.counterpartyLabel,
+                    feeMinor = fee?.amountMinor ?: 0L,
+                    confidence = confidence,
+                    evidence = evidence
+                )
+            CashMovementCandidateKind.DEPOSIT ->
+                ResolvedCashDepositRelationship(
+                    amountMinor = candidate.amountMinor,
+                    cashSource = cash,
+                    destination = account,
+                    counterparty =
+                        candidate.counterpartyLabel,
+                    feeMinor = fee?.amountMinor ?: 0L,
+                    confidence = confidence,
+                    evidence = evidence
+                )
+        }
     }
 
     private fun resolveReversal(
@@ -540,6 +692,14 @@ object FinancialRelationshipResolver {
                     }
                 )
             FinancialActionCandidateKind
+                .AIRTIME_PURCHASE ->
+                resolvePayment(
+                    action,
+                    observedWallet,
+                    fee,
+                    PaymentRouteHint.AIRTIME
+                )
+            FinancialActionCandidateKind
                 .RECEIPT_FROM ->
                 resolveReceipt(
                     action,
@@ -840,6 +1000,8 @@ object FinancialRelationshipResolver {
                 .PAYMENT_SENT_TO -> 2
             FinancialActionCandidateKind
                 .PAYMENT_PAID_TO -> 2
+            FinancialActionCandidateKind
+                .AIRTIME_PURCHASE -> 2
             FinancialActionCandidateKind
                 .RECEIPT_FROM -> 3
         }

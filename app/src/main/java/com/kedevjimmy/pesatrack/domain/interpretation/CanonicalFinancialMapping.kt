@@ -96,6 +96,75 @@ fun FinancialMessageInterpretation.toCanonicalDraft():
                         )
                     }
                 }
+                is CashWithdrawalEventFact -> {
+                    add(
+                        MoneyMovementDraft(
+                            kind =
+                                CanonicalFinancialRecordKind.CASH_WITHDRAWAL,
+                            amountMinor = event.amountMinor,
+                            source = event.source,
+                            destination =
+                                event.cashDestination,
+                            counterparty =
+                                event.counterparty,
+                            feeMinor = event.feeMinor,
+                            confidence =
+                                event.confidence,
+                            evidence = event.evidence
+                        )
+                    )
+                    if (event.feeMinor > 0L) {
+                        add(
+                            FeeDraft(
+                                amountMinor =
+                                    event.feeMinor,
+                                chargedTo = event.source,
+                                confidence =
+                                    event.confidence,
+                                evidence =
+                                    event.evidence.filter {
+                                        it.field ==
+                                            FinancialField.FEE
+                                    }
+                            )
+                        )
+                    }
+                }
+                is CashDepositEventFact -> {
+                    add(
+                        MoneyMovementDraft(
+                            kind =
+                                CanonicalFinancialRecordKind.CASH_DEPOSIT,
+                            amountMinor = event.amountMinor,
+                            source = event.cashSource,
+                            destination =
+                                event.destination,
+                            counterparty =
+                                event.counterparty,
+                            feeMinor = event.feeMinor,
+                            confidence =
+                                event.confidence,
+                            evidence = event.evidence
+                        )
+                    )
+                    if (event.feeMinor > 0L) {
+                        add(
+                            FeeDraft(
+                                amountMinor =
+                                    event.feeMinor,
+                                chargedTo =
+                                    event.destination,
+                                confidence =
+                                    event.confidence,
+                                evidence =
+                                    event.evidence.filter {
+                                        it.field ==
+                                            FinancialField.FEE
+                                    }
+                            )
+                        )
+                    }
+                }
                 is ReversalEventFact -> {
                     add(
                         ReversalDraft(

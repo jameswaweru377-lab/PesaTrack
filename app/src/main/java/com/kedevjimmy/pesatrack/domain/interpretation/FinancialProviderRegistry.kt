@@ -137,6 +137,17 @@ object FinancialProviderRegistry {
     fun mpesaAccount(): FinancialAccountReference =
         resolveAccount("M-Pesa")
 
+    fun cashAccount(): FinancialAccountReference =
+        FinancialAccountReference(
+            entityKey = "system:cash",
+            displayName = "Cash",
+            providerKey = null,
+            accountTypeHint = AccountType.CASH,
+            ownershipHint = AccountOwnershipHint.USER_OWNED,
+            nature = FinancialAccountNature.ASSET
+        )
+
+
     fun debtBehaviorFor(
         reference: FinancialAccountReference
     ): DebtProductBehavior? =

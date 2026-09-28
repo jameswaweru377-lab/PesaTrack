@@ -376,10 +376,11 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC15 Confirmed. Ksh 1,000.00 withdrawn from M-PESA at SAMPLE AGENT on 28/9/26 at 8:20 AM. New M-PESA balance is Ksh 10,950.00.",
-            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC15",
             expectedKinds = listOf(
-                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.CASH_WITHDRAWAL
             ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
@@ -398,10 +399,11 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC16 Confirmed. Ksh 2,000.00 deposited into your M-PESA on 28/9/26 at 8:30 AM. New M-PESA balance is Ksh 12,950.00.",
-            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC16",
             expectedKinds = listOf(
-                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.CASH_DEPOSIT
             ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
@@ -420,10 +422,11 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC17 Confirmed. Ksh 100.00 airtime purchased on 28/9/26 at 8:40 AM. New M-PESA balance is Ksh 12,850.00.",
-            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC17",
             expectedKinds = listOf(
-                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.PAYMENT
             ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
