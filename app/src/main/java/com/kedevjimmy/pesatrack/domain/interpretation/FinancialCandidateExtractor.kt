@@ -96,7 +96,7 @@ object FinancialCandidateExtractor {
         RegexOption.IGNORE_CASE
     )
     private val occurredAtRegex = Regex(
-        """\bon\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+at\s+\d{1,2}:\d{2}\s*(?:AM|PM)?)""",
+        """\bon\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+(?:at\s+)?\d{1,2}:\d{2}\s*(?:AM|PM)?)""",
         RegexOption.IGNORE_CASE
     )
     private val balanceRegex = Regex(
