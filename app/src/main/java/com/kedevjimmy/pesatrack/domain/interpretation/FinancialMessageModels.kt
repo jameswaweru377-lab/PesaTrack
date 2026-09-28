@@ -176,6 +176,8 @@ data class ReversalEventFact(
 data class DebtDrawdownEventFact(
     val amountMinor: Long,
     val liability: FinancialAccountReference,
+    val proceedsAccount: FinancialAccountReference? = null,
+    val amountIsNetProceeds: Boolean = false,
     val feeMinor: Long,
     val outstandingAfterMinor: Long?,
     val availableCreditAfterMinor: Long?,
