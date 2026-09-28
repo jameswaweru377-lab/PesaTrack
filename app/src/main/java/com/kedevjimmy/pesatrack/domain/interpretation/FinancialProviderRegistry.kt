@@ -12,7 +12,8 @@ data class DebtProductBehavior(
     val fundingBehavior: DebtFundingBehavior,
     val fundingAccountProviderKey: String? = null,
     val preserveLegacyTransactionMetadata: Boolean = false,
-    val eventNamespace: String? = null
+    val eventNamespace: String? = null,
+    val stableDebtAccountId: String? = null
 )
 
 data class FinancialProviderAccountKnowledge(
@@ -73,7 +74,8 @@ object FinancialProviderRegistry {
                 fundingAccountProviderKey =
                     "SAFARICOM_MPESA",
                 preserveLegacyTransactionMetadata = true,
-                eventNamespace = "fuliza"
+                eventNamespace = "fuliza",
+                stableDebtAccountId = "debt-fuliza-mpesa"
             )
         ),
         FinancialProviderAccountKnowledge(
