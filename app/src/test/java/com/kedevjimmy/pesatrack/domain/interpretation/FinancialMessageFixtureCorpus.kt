@@ -307,10 +307,11 @@ object FinancialMessageFixtureCorpus {
             title = "MPESA",
             body =
                 "TST12ABC10 Confirmed. The reversal of transaction TST12ABC04 of Ksh 450.00 has been completed on 28/9/26 at 7:40 PM. New M-PESA balance is Ksh 8,100.00.",
-            coverage = FixtureCoverage.LEGACY_REQUIRED,
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
             transactionCode = "TST12ABC10",
             expectedKinds = listOf(
-                CanonicalFinancialRecordKind.BALANCE_OBSERVATION
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.REVERSAL
             ),
             targetKinds = listOf(
                 CanonicalFinancialRecordKind.BALANCE_OBSERVATION,

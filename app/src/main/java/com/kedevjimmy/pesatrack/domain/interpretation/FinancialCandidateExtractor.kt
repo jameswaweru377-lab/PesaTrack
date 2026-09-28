@@ -48,11 +48,20 @@ data class FinancialActionCandidate(
     val ruleId: String
 )
 
+data class ReversalCandidate(
+    val amountMinor: Long,
+    val amountSpan: MessageSpan,
+    val referencedTransactionCode: String,
+    val referencedCodeSpan: MessageSpan,
+    val ruleId: String
+)
+
 data class FinancialMessageCandidates(
     val transactionCode: TextValueCandidate?,
     val occurredAt: TextValueCandidate?,
     val balances: List<BalanceCandidate>,
     val fee: FeeCandidate?,
+    val reversal: ReversalCandidate?,
     val actions: List<FinancialActionCandidate>,
     val debt: DebtMessageCandidates
 )
@@ -142,6 +151,17 @@ object FinancialCandidateExtractor {
         """received\s+(?:Ksh|KES)\s*[0-9,]+(?:\.\d{1,2})?\s+from\s+.+?\s+((?:\+?254|0)\d{9})\b""",
         RegexOption.IGNORE_CASE
     )
+    private val reversalOfTransactionRegex = Regex(
+        """\breversal\s+of\s+(?:transaction\s+)?([A-Z0-9]{10})\s+(?:of|for)\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val transactionReversedRegex = Regex(
+        """\b(?:transaction\s+)?([A-Z0-9]{10})\s+(?:of\s+)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?).{0,80}?\b(?:has\s+been\s+)?reversed\b""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
 
     fun extract(
         message: NormalizedFinancialMessage
@@ -152,6 +172,7 @@ object FinancialCandidateExtractor {
                 occurredAt = null,
                 balances = emptyList(),
                 fee = null,
+                reversal = null,
                 actions = emptyList(),
                 debt = DebtMessageCandidates(
                     drawdown = null,
@@ -199,10 +220,34 @@ object FinancialCandidateExtractor {
                         ruleId = it.ruleId
                     )
                 },
+            reversal = reversalCandidate(body),
             actions = actions,
             debt = DebtCandidateExtractor.extract(
                 message
             )
+        )
+    }
+
+    private fun reversalCandidate(
+        body: String
+    ): ReversalCandidate? {
+        val match =
+            reversalOfTransactionRegex.find(body)
+                ?: transactionReversedRegex.find(body)
+                ?: return null
+        val referenced =
+            match.groups[1] ?: return null
+        val amount =
+            match.groups[2] ?: return null
+
+        return ReversalCandidate(
+            amountMinor = amountToMinor(amount.value),
+            amountSpan = amount.range.toSpan(),
+            referencedTransactionCode =
+                referenced.value.uppercase(),
+            referencedCodeSpan =
+                referenced.range.toSpan(),
+            ruleId = "reversal.transaction"
         )
     }
 

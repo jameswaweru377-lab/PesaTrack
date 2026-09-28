@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.domain.interpretation
 
 enum class FinancialField {
     TRANSACTION_CODE,
+    RELATED_TRANSACTION_CODE,
     OCCURRED_AT,
     AMOUNT,
     FEE,
@@ -96,6 +97,21 @@ enum class DebtCompletion {
     PARTIAL,
     FULL,
     UNKNOWN
+}
+
+data class ReversalDraft(
+    val amountMinor: Long,
+    val referencedTransactionCode: String?,
+    val observedAccount: FinancialAccountReference?,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence> = emptyList()
+) : CanonicalFinancialRecord {
+    override val kind: CanonicalFinancialRecordKind =
+        CanonicalFinancialRecordKind.REVERSAL
+
+    init {
+        require(amountMinor >= 0L)
+    }
 }
 
 data class DebtMovementDraft(

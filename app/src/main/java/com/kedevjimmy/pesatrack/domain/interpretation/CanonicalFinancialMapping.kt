@@ -96,6 +96,19 @@ fun FinancialMessageInterpretation.toCanonicalDraft():
                         )
                     }
                 }
+                is ReversalEventFact -> {
+                    add(
+                        ReversalDraft(
+                            amountMinor = event.amountMinor,
+                            referencedTransactionCode =
+                                event.referencedTransactionCode,
+                            observedAccount =
+                                event.observedAccount,
+                            confidence = event.confidence,
+                            evidence = event.evidence
+                        )
+                    )
+                }
                 is DebtDrawdownEventFact -> {
                     add(
                         DebtMovementDraft(
