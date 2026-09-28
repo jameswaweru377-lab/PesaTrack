@@ -197,6 +197,10 @@ class RealFinancialMessageRegressionTest {
             "PesaNova",
             event.proceedsAccount?.displayName
         )
+        assertEquals(
+            AccountType.MOBILE_WALLET,
+            event.proceedsAccount?.accountTypeHint
+        )
         assertTrue(event.amountIsNetProceeds)
     }
 
