@@ -146,7 +146,10 @@ object FinancialProviderRegistry {
             entityKey = "discovered:" + slug(normalized),
             displayName = cleaned,
             providerKey = null,
-            accountTypeHint = inferAccountType(normalized),
+            accountTypeHint =
+                inferAccountType(
+                    normalize(rawLabel)
+                ),
             ownershipHint = AccountOwnershipHint.UNKNOWN,
             nature = FinancialAccountNature.UNKNOWN
         )
