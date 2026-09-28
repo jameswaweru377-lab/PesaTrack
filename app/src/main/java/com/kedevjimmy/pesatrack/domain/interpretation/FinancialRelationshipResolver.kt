@@ -108,10 +108,17 @@ data class ResolvedFinancialMessage(
 object FinancialRelationshipResolver {
     fun resolve(
         message: NormalizedFinancialMessage,
-        candidates: FinancialMessageCandidates
+        candidates: FinancialMessageCandidates,
+        context: FinancialInterpretationContext =
+            FinancialInterpretationContext.EMPTY
     ): ResolvedFinancialMessage {
         val balances = candidates.balances
-            .mapNotNull(::resolveBalance)
+            .mapNotNull {
+                resolveBalance(
+                    candidate = it,
+                    context = context
+                )
+            }
             .distinctBy {
                 it.account.entityKey to
                     it.balanceMinor
@@ -121,13 +128,15 @@ object FinancialRelationshipResolver {
             FinancialProviderRegistry
                 .resolveObservedAccount(
                     title = message.title,
-                    balances = balances
+                    balances = balances,
+                    context = context
                 )
 
         val debtRelationship =
             resolveDebt(
                 candidates = candidates,
-                balances = balances
+                balances = balances,
+                context = context
             )
         val reversalRelationship =
             resolveReversal(
@@ -136,9 +145,10 @@ object FinancialRelationshipResolver {
             )
         val cashRelationship =
             resolveCashMovement(
-                candidates.cashMovements
+                candidate = candidates.cashMovements
                     .firstOrNull(),
-                fee = candidates.fee
+                fee = candidates.fee,
+                context = context
             )
 
         val prioritized = candidates.actions
@@ -152,7 +162,8 @@ object FinancialRelationshipResolver {
                     resolveAction(
                         action = action,
                         observedAccount = observedAccount,
-                        fee = candidates.fee
+                        fee = candidates.fee,
+                        context = context
                     )
                 }
 
