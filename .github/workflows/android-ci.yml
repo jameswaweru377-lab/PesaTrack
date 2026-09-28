@@ -61,6 +61,11 @@ jobs:
               --prerelease
           fi
 
+          cp "$apk" PesaTrack-debug.apk
+
+          # Remove the first workaround asset if it exists under the Gradle filename.
+          gh release delete-asset ci-apk app-debug.apk --yes >/dev/null 2>&1 || true
+
           gh release upload ci-apk \
-            "$apk#PesaTrack-debug.apk" \
+            PesaTrack-debug.apk \
             --clobber
