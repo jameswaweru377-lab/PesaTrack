@@ -7,13 +7,9 @@ import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
-import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
 import com.kedevjimmy.pesatrack.domain.parser.ConfiguredMoneyParser
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
-import com.kedevjimmy.pesatrack.domain.rules.FinancialMessageEvidence
-import com.kedevjimmy.pesatrack.domain.rules.TransactionEvidenceMatch
-import com.kedevjimmy.pesatrack.domain.rules.TransactionEvidenceResolver
 
 data class HistoricalImportResult(
     val scanned: Int,
@@ -40,7 +36,6 @@ class HistoricalSmsImporter(
         var fulizaMessages = 0
 
         val projection = arrayOf(
-            Telephony.Sms._ID,
             Telephony.Sms.ADDRESS,
             Telephony.Sms.BODY,
             Telephony.Sms.DATE
@@ -53,7 +48,6 @@ class HistoricalSmsImporter(
             arrayOf(sinceEpochMs.toString()),
             Telephony.Sms.DATE + " ASC"
         )?.use { cursor ->
-            val idIndex = cursor.getColumnIndexOrThrow(Telephony.Sms._ID)
             val addressIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
             val bodyIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.BODY)
             val dateIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.DATE)
@@ -61,7 +55,6 @@ class HistoricalSmsImporter(
             while (cursor.moveToNext()) {
                 scanned += 1
 
-                val smsId = cursor.getLong(idIndex)
                 val address = cursor.getString(addressIndex)?.trim()
                 val body = cursor.getString(bodyIndex)?.trim()
                 val smsDate = cursor.getLong(dateIndex)
@@ -168,57 +161,6 @@ class HistoricalSmsImporter(
             duplicates = duplicates,
             ignored = ignored,
             fulizaMessages = fulizaMessages
-        )
-    }
-
-    private fun findNearbyEvidence(
-        smsId: Long,
-        parsed: com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction,
-        smsDate: Long
-    ): TransactionEvidenceMatch? {
-        val candidates = mutableListOf<FinancialMessageEvidence>()
-        val projection = arrayOf(
-            Telephony.Sms._ID,
-            Telephony.Sms.ADDRESS,
-            Telephony.Sms.BODY,
-            Telephony.Sms.DATE
-        )
-        val start = smsDate - TransactionEvidenceResolver.MAX_WINDOW_MS
-        val end = smsDate + TransactionEvidenceResolver.MAX_WINDOW_MS
-
-        context.contentResolver.query(
-            Telephony.Sms.CONTENT_URI,
-            projection,
-            Telephony.Sms.DATE + " >= ? AND " + Telephony.Sms.DATE + " <= ?",
-            arrayOf(start.toString(), end.toString()),
-            Telephony.Sms.DATE + " ASC"
-        )?.use { cursor ->
-            val idIndex = cursor.getColumnIndexOrThrow(Telephony.Sms._ID)
-            val addressIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-            val bodyIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.BODY)
-            val dateIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.DATE)
-
-            while (cursor.moveToNext()) {
-                if (cursor.getLong(idIndex) == smsId) continue
-                val address = cursor.getString(addressIndex)?.trim()
-                val body = cursor.getString(bodyIndex)?.trim()
-                val date = cursor.getLong(dateIndex)
-                if (body.isNullOrBlank() || date <= 0L) continue
-                if (MpesaMessageDetector.isLikelyMpesa(address, body)) continue
-
-                TransactionEvidenceResolver.parseEvidence(
-                    title = address,
-                    body = body,
-                    observedAtEpochMs = date,
-                    sourceFallback = address
-                )?.let(candidates::add)
-            }
-        }
-
-        return TransactionEvidenceResolver.chooseBest(
-            parsed = parsed,
-            transactionObservedAtEpochMs = smsDate,
-            evidence = candidates
         )
     }
 
