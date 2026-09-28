@@ -441,6 +441,29 @@ object FinancialMessageFixtureCorpus {
             )
         ),
         FinancialMessageFixture(
+            id = "unknown_wording_single_amount",
+            title = "MPESA",
+            body =
+                "TST12ABC18 Confirmed. Ksh 640.00 processed through M-PESA on 28/9/26 at 9:10 AM. New M-PESA balance is Ksh 12,210.00.",
+            coverage = FixtureCoverage.GENERIC_COMPLETE,
+            transactionCode = "TST12ABC18",
+            expectedKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.UNRESOLVED_MOVEMENT
+            ),
+            targetKinds = listOf(
+                CanonicalFinancialRecordKind.BALANCE_OBSERVATION,
+                CanonicalFinancialRecordKind.UNRESOLVED_MOVEMENT
+            ),
+            expectedBalances = listOf(
+                ExpectedBalanceFixture(
+                    providerKey = "SAFARICOM_MPESA",
+                    displayName = "M-Pesa",
+                    amountMinor = 1_221_000L
+                )
+            )
+        ),
+        FinancialMessageFixture(
             id = "airtime_balance_only",
             title = "Safaricom",
             body = "Your airtime balance is Ksh 73.00.",
