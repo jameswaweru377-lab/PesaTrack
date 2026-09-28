@@ -137,6 +137,8 @@ data class DebtMovementDraft(
     val amountMinor: Long,
     val liability: FinancialAccountReference,
     val fundingAccount: FinancialAccountReference?,
+    val proceedsAccount: FinancialAccountReference? = null,
+    val amountIsNetProceeds: Boolean = false,
     val completion: DebtCompletion = DebtCompletion.UNKNOWN,
     val outstandingAfterMinor: Long? = null,
     override val confidence: InterpretationConfidence,
