@@ -56,6 +56,12 @@ class FinancialUnderstandingStore private constructor(
     private val appContext = context.applicationContext
     private val database = PesaTrackDatabase(appContext)
     private val accountStore = AccountStore.get(appContext)
+    private val stableOwnedAccountIds = mapOf(
+        "system:cash" to
+            AccountStore.DEFAULT_CASH_ID,
+        "provider:SAFARICOM_MPESA" to
+            AccountStore.DEFAULT_MPESA_ID
+    )
 
     @Synchronized
     fun observeEntity(
@@ -658,22 +664,12 @@ class FinancialUnderstandingStore private constructor(
             return null
         }
 
-        return when {
-            reference.entityKey == "system:cash" ->
-                AccountStore.DEFAULT_CASH_ID
-            reference.providerKey == "SAFARICOM_MPESA" ->
-                AccountStore.DEFAULT_MPESA_ID
-            reference.providerKey == "NCBA_MSHWARI_SAVINGS" ->
-                accountStore.findOrCreate(
-                    name = "M-Shwari",
-                    type = reference.accountTypeHint
-                ).id
-            else ->
-                accountStore.findOrCreate(
-                    name = reference.displayName,
-                    type = reference.accountTypeHint
-                ).id
-        }
+        return stableOwnedAccountIds[
+            reference.entityKey
+        ] ?: accountStore.findOrCreate(
+            name = reference.displayName,
+            type = reference.accountTypeHint
+        ).id
     }
 
     companion object {
