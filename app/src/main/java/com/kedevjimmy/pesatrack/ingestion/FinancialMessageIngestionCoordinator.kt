@@ -57,7 +57,10 @@ class FinancialMessageIngestionCoordinator private constructor(
         val interpretation =
             FinancialMessageInterpreter.interpret(
                 title = title,
-                body = body
+                body = body,
+                context =
+                    understandingStore
+                        .interpretationContext()
             )
 
         if (!interpretation.recognized) {
