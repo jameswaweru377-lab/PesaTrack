@@ -122,6 +122,9 @@ object FinancialCandidateExtractor {
         """sent\s+to\s+.+?\s+((?:\+?254|0)\d{9})\b""",
         RegexOption.IGNORE_CASE
     )
+    private val trailingMaskedPhoneRegex = Regex(
+        """\s+(?:(?:\+?254|0)?[0-9xX*\-\s]{7,})$"""
+    )
     private val paidAmountRegex = Regex(
         """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+paid\s+to\b""",
         RegexOption.IGNORE_CASE
@@ -313,7 +316,10 @@ object FinancialCandidateExtractor {
                     .PAYMENT_SENT_TO,
             amountMinor = amountToMinor(amount.value),
             amountSpan = amount.range.toSpan(),
-            partyLabel = party.value.trim(),
+            partyLabel =
+                cleanPersonPartyLabel(
+                    party.value
+                ),
             partySpan = party.range.toSpan(),
             partyPhone = sentPhoneRegex.find(body)
                 ?.groups
@@ -372,7 +378,8 @@ object FinancialCandidateExtractor {
                 ?.groups
                 ?.get(1)
                 ?.value
-                ?.let(::normalizeKenyanPhone)
+                ?.let(::normalizeKenyanPhone),
+            cleanPersonParty = true
         )
     }
 
@@ -380,7 +387,8 @@ object FinancialCandidateExtractor {
         match: MatchResult,
         kind: FinancialActionCandidateKind,
         ruleId: String,
-        partyPhone: String? = null
+        partyPhone: String? = null,
+        cleanPersonParty: Boolean = false
     ): FinancialActionCandidate? {
         val amount = match.groups[1] ?: return null
         val party = match.groups[2] ?: return null
@@ -388,7 +396,14 @@ object FinancialCandidateExtractor {
             kind = kind,
             amountMinor = amountToMinor(amount.value),
             amountSpan = amount.range.toSpan(),
-            partyLabel = party.value.trim(),
+            partyLabel =
+                if (cleanPersonParty) {
+                    cleanPersonPartyLabel(
+                        party.value
+                    )
+                } else {
+                    party.value.trim()
+                },
             partySpan = party.range.toSpan(),
             partyPhone = partyPhone,
             ruleId = ruleId
@@ -424,6 +439,17 @@ object FinancialCandidateExtractor {
             startOffset = first,
             endOffsetExclusive = last + 1
         )
+
+    private fun cleanPersonPartyLabel(
+        raw: String
+    ): String =
+        raw.trim()
+            .replace(
+                trailingMaskedPhoneRegex,
+                ""
+            )
+            .trim()
+            .trimEnd('.', ',')
 
     private fun normalizeKenyanPhone(
         raw: String
