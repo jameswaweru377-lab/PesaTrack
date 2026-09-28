@@ -8,12 +8,9 @@ import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtFundingBehavior
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
-import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
-import com.kedevjimmy.pesatrack.domain.parser.FulizaRepaymentCompletion
-import com.kedevjimmy.pesatrack.domain.parser.ParsedFulizaEvent
-import com.kedevjimmy.pesatrack.domain.parser.ParsedFulizaRepayment
 import com.kedevjimmy.pesatrack.domain.rules.DebtFundingCandidate
 import com.kedevjimmy.pesatrack.domain.rules.DebtFundingPairingPolicy
 import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentChainPolicy
@@ -296,95 +293,6 @@ class DebtStore private constructor(context: Context) {
             inserted = insert.inserted,
             linkedTransactionId = linked
         )
-    }
-
-    @Synchronized
-    fun recordFulizaDrawdown(
-        parsed: ParsedFulizaEvent,
-        sourcePackage: String?,
-        sourceKind: String,
-        occurredAtEpochMs: Long,
-        linkedTransactionId: Long?
-    ) {
-        recordDrawdown(
-            event = DebtDrawdownEventFact(
-                amountMinor =
-                    parsed.financedAmountMinor,
-                liability =
-                    FinancialProviderRegistry
-                        .resolveAccount(
-                            "Fuliza M-PESA"
-                        ),
-                feeMinor =
-                    parsed.accessFeeMinor,
-                outstandingAfterMinor =
-                    parsed.outstandingAmountMinor,
-                availableCreditAfterMinor =
-                    parsed.availableLimitMinor,
-                confidence =
-                    InterpretationConfidence.HIGH
-            ),
-            transactionCode =
-                parsed.transactionCode,
-            messageFingerprint =
-                parsed.rawMessage,
-            sourcePackage = sourcePackage,
-            sourceKind = sourceKind,
-            occurredAtEpochMs =
-                occurredAtEpochMs,
-            linkedTransactionIdOverride =
-                linkedTransactionId
-        )
-    }
-
-    @Synchronized
-    fun recordFulizaRepayment(
-        parsed: ParsedFulizaRepayment,
-        sourcePackage: String?,
-        sourceKind: String,
-        occurredAtEpochMs: Long
-    ): Long {
-        val result = recordRepayment(
-            event = DebtRepaymentEventFact(
-                amountMinor =
-                    parsed.repaidAmountMinor,
-                liability =
-                    FinancialProviderRegistry
-                        .resolveAccount(
-                            "Fuliza M-PESA"
-                        ),
-                fundingAccount =
-                    FinancialProviderRegistry
-                        .mpesaAccount(),
-                completion = when (
-                    parsed.completion
-                ) {
-                    FulizaRepaymentCompletion.PARTIAL ->
-                        DebtCompletion.PARTIAL
-                    FulizaRepaymentCompletion.FULL ->
-                        DebtCompletion.FULL
-                    FulizaRepaymentCompletion.UNKNOWN ->
-                        DebtCompletion.UNKNOWN
-                },
-                outstandingAfterMinor =
-                    parsed.outstandingAfterMinor,
-                availableCreditAfterMinor =
-                    parsed.availableLimitMinor,
-                walletBalanceAfterMinor =
-                    parsed.mpesaBalanceMinor,
-                confidence =
-                    InterpretationConfidence.HIGH
-            ),
-            transactionCode =
-                parsed.transactionCode,
-            messageFingerprint =
-                parsed.rawMessage,
-            sourcePackage = sourcePackage,
-            sourceKind = sourceKind,
-            occurredAtEpochMs =
-                occurredAtEpochMs
-        )
-        return result.eventId
     }
 
     @Synchronized
@@ -796,10 +704,20 @@ class DebtStore private constructor(context: Context) {
 
         var changed = false
         legacyRows.forEach { row ->
-            val parsed =
-                com.kedevjimmy.pesatrack.domain.parser
-                    .FulizaParser
-                    .parseRepayment(row.rawMessage)
+            val interpretation =
+                FinancialMessageInterpreter.interpret(
+                    title = "MPESA",
+                    body = row.rawMessage
+                )
+            val event =
+                interpretation.events
+                    .filterIsInstance<
+                        DebtRepaymentEventFact
+                    >()
+                    .firstOrNull {
+                        it.liability.providerKey ==
+                            LEGACY_FULIZA_PROVIDER_KEY
+                    }
                     ?: return@forEach
 
             val excluded = ContentValues().apply {
@@ -836,8 +754,11 @@ class DebtStore private constructor(context: Context) {
                 )
             )
 
-            recordFulizaRepayment(
-                parsed = parsed,
+            recordRepayment(
+                event = event,
+                transactionCode =
+                    interpretation.transactionCode,
+                messageFingerprint = row.rawMessage,
                 sourcePackage = row.sourcePackage,
                 sourceKind =
                     "legacy_fuliza_repayment_reconciliation",
@@ -1236,15 +1157,15 @@ class DebtStore private constructor(context: Context) {
             reference.providerKey
                 ?: reference.entityKey
 
-        val id = if (
-            providerKey == FULIZA_PROVIDER_KEY
-        ) {
-            FULIZA_ACCOUNT_ID
-        } else {
-            "debt-" +
-                sha256(providerKey)
-                    .take(20)
-        }
+        val id =
+            FinancialProviderRegistry
+                .debtBehaviorFor(reference)
+                ?.stableDebtAccountId
+                ?: (
+                    "debt-" +
+                        sha256(providerKey)
+                            .take(20)
+                    )
 
         return DebtAccountIdentity(
             id = id,
@@ -1785,15 +1706,14 @@ class DebtStore private constructor(context: Context) {
     )
 
     companion object {
-        const val FULIZA_ACCOUNT_ID = "debt-fuliza-mpesa"
-        const val FULIZA_PROVIDER_KEY = "SAFARICOM_FULIZA"
-
         private const val REPAYMENT_LINK_WINDOW_MS =
             10L * 60L * 1000L
         private const val DRAW_DOWN_LINK_WINDOW_MS =
             3L * 60L * 1000L
         private const val MPESA_PROVIDER_KEY =
             "SAFARICOM_MPESA"
+        private const val LEGACY_FULIZA_PROVIDER_KEY =
+            "SAFARICOM_FULIZA"
         private const val LEGACY_FULIZA_REPAYMENT_RECONCILIATION_KEY =
             "legacy_fuliza_repayment_reconciliation_v1"
 
