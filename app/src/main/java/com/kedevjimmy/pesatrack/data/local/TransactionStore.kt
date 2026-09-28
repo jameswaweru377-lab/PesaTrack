@@ -412,6 +412,7 @@ class TransactionStore private constructor(context: Context) {
                        0 AS priority
                 FROM transactions
                 WHERE balance_minor IS NOT NULL
+                  AND account_id = ?
 
                 UNION ALL
 
@@ -432,7 +433,10 @@ class TransactionStore private constructor(context: Context) {
             ORDER BY observed_at DESC, priority DESC
             LIMIT 1
             """.trimIndent(),
-            arrayOf(AccountStore.DEFAULT_MPESA_ID)
+            arrayOf(
+                AccountStore.DEFAULT_MPESA_ID,
+                AccountStore.DEFAULT_MPESA_ID
+            )
         ).use { cursor ->
             if (cursor.moveToFirst()) {
                 cursor.getLong(0) to cursor.getLong(1)

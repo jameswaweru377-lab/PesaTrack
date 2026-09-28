@@ -903,6 +903,14 @@ class FinancialMessageIngestionCoordinator private constructor(
                     }
                 }
                 is DebtDrawdownEventFact -> {
+                    event.proceedsAccount?.let { account ->
+                        understandingStore.observeEntity(
+                            reference = account,
+                            observedAtEpochMs =
+                                occurredAtEpochMs
+                        )
+                    }
+
                     val result =
                         DebtStore.get(appContext)
                             .recordDrawdown(
