@@ -1,0 +1,44 @@
+name: Cleanup old workflow runs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/cleanup-old-runs.yml"
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    if: github.event.head_commit.message == 'chore: clean old workflow runs'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete completed workflow runs older than 3 days
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cutoff_epoch="$(date -u -d '3 days ago' +%s)"
+          repo="$GITHUB_REPOSITORY"
+          tmp="$(mktemp)"
+
+          gh api --paginate "repos/$repo/actions/runs?per_page=100" \
+            --jq '.workflow_runs[] | [.id, .created_at, .status] | @tsv' > "$tmp"
+
+          deleted=0
+          kept=0
+          while IFS=$'\t' read -r run_id created_at status; do
+            created_epoch="$(date -u -d "$created_at" +%s)"
+            if [[ "$status" == "completed" && "$created_epoch" -lt "$cutoff_epoch" ]]; then
+              echo "Deleting run $run_id created $created_at"
+              gh api --method DELETE "repos/$repo/actions/runs/$run_id"
+              deleted=$((deleted + 1))
+            else
+              kept=$((kept + 1))
+            fi
+          done < "$tmp"
+
+          echo "Deleted $deleted old completed workflow runs; kept $kept newer/active runs."
