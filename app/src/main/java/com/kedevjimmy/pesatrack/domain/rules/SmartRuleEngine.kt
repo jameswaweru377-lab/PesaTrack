@@ -15,9 +15,24 @@ object SmartRuleEngine {
     fun matchTransaction(
         transaction: ParsedMpesaTransaction,
         rules: List<SmartRule>
+    ): SmartRule? =
+        matchTransaction(
+            counterparty = transaction.counterparty,
+            counterpartyPhone = transaction.counterpartyPhone,
+            amountMinor = transaction.amountMinor,
+            rules = rules
+        )
+
+    fun matchTransaction(
+        counterparty: String?,
+        counterpartyPhone: String?,
+        amountMinor: Long,
+        rules: List<SmartRule>
     ): SmartRule? {
-        val counterparty = transaction.counterparty?.normalizeName()
-        val phone = normalizePhone(transaction.counterpartyPhone.orEmpty())
+        val normalizedCounterparty =
+            counterparty?.normalizeName()
+        val phone =
+            normalizePhone(counterpartyPhone.orEmpty())
 
         return rules
             .asSequence()
@@ -25,27 +40,39 @@ object SmartRuleEngine {
             .filter { rule ->
                 when {
                     rule.counterpartyPhoneEquals.isNotBlank() -> {
-                        val expectedPhone = normalizePhone(rule.counterpartyPhoneEquals)
+                        val expectedPhone =
+                            normalizePhone(
+                                rule.counterpartyPhoneEquals
+                            )
                         if (phone.isNotBlank()) {
                             phone == expectedPhone
                         } else {
                             rule.counterpartyExact.isNotBlank() &&
-                                counterparty == rule.counterpartyExact.normalizeName()
+                                normalizedCounterparty ==
+                                rule.counterpartyExact
+                                    .normalizeName()
                         }
                     }
 
                     rule.counterpartyExact.isNotBlank() ->
-                        counterparty != null &&
-                            counterparty == rule.counterpartyExact.normalizeName()
+                        normalizedCounterparty != null &&
+                            normalizedCounterparty ==
+                            rule.counterpartyExact
+                                .normalizeName()
 
                     rule.counterpartyContains.isNotBlank() ->
-                        counterparty?.contains(rule.counterpartyContains.normalizeName()) == true
+                        normalizedCounterparty?.contains(
+                            rule.counterpartyContains
+                                .normalizeName()
+                        ) == true
 
                     else -> false
                 }
             }
             .filter { rule ->
-                rule.maximumAmountMinor == null || transaction.amountMinor <= rule.maximumAmountMinor
+                rule.maximumAmountMinor == null ||
+                    amountMinor <=
+                    rule.maximumAmountMinor
             }
             .firstOrNull()
     }
