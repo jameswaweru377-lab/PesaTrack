@@ -478,7 +478,7 @@ Android CI run #52 passed unit tests, debug APK assembly and artifact upload bef
 
 ## Temporary APK delivery while GitHub Actions artifact quota is blocked
 
-Status on 2026-09-28: **decision documented; workflow change not yet implemented**.
+Status on 2026-09-28: **implemented and verified**.
 
 Current problem:
 
@@ -490,9 +490,9 @@ Current problem:
 
 Temporary delivery decision:
 
-Until the Actions artifact quota has recalculated, keep CI building and testing normally but **do not depend on Actions artifact storage for the APK**. Publish the successful debug APK as a GitHub **Release asset** instead.
+Until the Actions artifact quota has recalculated, CI builds and tests normally but **does not depend on Actions artifact storage for the APK**. Successful `main` builds publish the debug APK as a GitHub **Release asset** instead.
 
-Recommended temporary model:
+Implemented temporary model:
 
 1. Keep the existing `Android CI` trigger and all normal unit-test / debug-build steps.
 2. On a successful push to `main`, skip or temporarily disable `actions/upload-artifact@v4`.
@@ -523,9 +523,9 @@ permissions:
 
 Important setup note:
 
-- Create the `ci-apk` prerelease once before relying on the upload step. Keeping a pre-created rolling release avoids unnecessary release creation on every build.
+- The workflow creates the `ci-apk` prerelease automatically if it does not already exist, then reuses it.
 - The release description should explicitly say that it is a **rolling CI APK** and that the attached APK is the authoritative current asset; the source archive attached to the static release tag is not the authoritative build source.
-- If another chat implements this workaround, it should verify the exact CI run is green and confirm the Release asset was replaced successfully before calling the change complete.
+- Verification completed on Android CI run #259: unit tests passed, debug APK assembly passed, and the rolling Release upload passed.
 - Do not create a new release for every commit; that would just create another form of build clutter.
 - GitHub Release assets are separate from Actions artifacts. GitHub currently allows up to 1000 assets per release, each asset under 2 GiB, with no stated total release-size or bandwidth limit.
 
@@ -540,8 +540,10 @@ How the user gets the APK during this workaround:
 Handoff rule for future chats:
 
 - Read this section before changing CI.
-- Do not assume the Release workaround is already active until `.github/workflows/android-ci.yml` actually contains the Release upload step.
-- If Actions artifact uploads are working again, prefer the normal 3-day artifact retention unless the user explicitly wants the rolling Release workflow to remain permanent.
+- The Release workaround is active in `.github/workflows/android-ci.yml`.
+- Current rolling release: tag `ci-apk`, prerelease title `PesaTrack Rolling CI APK`, asset `PesaTrack-debug.apk`.
+- The verified release asset from run #259 is about 19.8 MB and is replaced with `--clobber` after each successful `main` build.
+- If Actions artifact uploads are working again, the project may return to the normal 3-day artifact retention unless the user explicitly wants the rolling Release workflow to remain permanent.
 
 ## Current implementation
 
