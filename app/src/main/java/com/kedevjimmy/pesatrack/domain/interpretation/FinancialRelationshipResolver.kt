@@ -113,7 +113,12 @@ object FinancialRelationshipResolver {
         candidates: FinancialMessageCandidates
     ): ResolvedFinancialMessage {
         val balances = candidates.balances
-            .mapNotNull(::resolveBalance)
+            .mapNotNull { candidate ->
+                resolveBalance(
+                    candidate = candidate,
+                    actions = candidates.actions
+                )
+            }
             .distinctBy {
                 it.account.entityKey to
                     it.balanceMinor
@@ -244,7 +249,8 @@ object FinancialRelationshipResolver {
     }
 
     private fun resolveBalance(
-        candidate: BalanceCandidate
+        candidate: BalanceCandidate,
+        actions: List<FinancialActionCandidate>
     ): BalanceObservationFact? {
         if (
             FinancialProviderRegistry
@@ -255,10 +261,37 @@ object FinancialRelationshipResolver {
             return null
         }
 
-        val account =
+        val direct =
             FinancialProviderRegistry.resolveAccount(
                 candidate.rawAccountLabel
             )
+        val contextual =
+            if (direct.providerKey != null) {
+                null
+            } else {
+                actions.asSequence()
+                    .filter {
+                        it.kind ==
+                            FinancialActionCandidateKind
+                                .TRANSFER_FROM_ACCOUNT ||
+                            it.kind ==
+                            FinancialActionCandidateKind
+                                .TRANSFER_TO_ACCOUNT
+                    }
+                    .map { it.partyLabel }
+                    .filter {
+                        labelsReferToSameAccount(
+                            candidate.rawAccountLabel,
+                            it
+                        )
+                    }
+                    .maxByOrNull { it.length }
+                    ?.let(
+                        FinancialProviderRegistry::
+                            resolveAccount
+                    )
+            }
+        val account = contextual ?: direct
 
         return BalanceObservationFact(
             account = account,
@@ -288,6 +321,56 @@ object FinancialRelationshipResolver {
             )
         )
     }
+
+    private fun labelsReferToSameAccount(
+        first: String,
+        second: String
+    ): Boolean {
+        val left = normalizeAccountWords(first)
+        val right = normalizeAccountWords(second)
+        if (left.isBlank() || right.isBlank()) {
+            return false
+        }
+        if (left == right) {
+            return true
+        }
+
+        val shorter =
+            if (left.length <= right.length) {
+                left
+            } else {
+                right
+            }
+        val longer =
+            if (left.length > right.length) {
+                left
+            } else {
+                right
+            }
+        val meaningfulWords =
+            shorter.split(" ")
+                .filter { it.isNotBlank() }
+
+        return meaningfulWords.size >= 2 &&
+            longer.endsWith(" $shorter")
+    }
+
+    private fun normalizeAccountWords(
+        raw: String
+    ): String =
+        raw.uppercase()
+            .replace(
+                Regex("""[^A-Z0-9]+"""),
+                " "
+            )
+            .replace(
+                Regex("""\s+"""),
+                " "
+            )
+            .trim()
+            .removeSuffix(" ACCOUNT")
+            .removeSuffix(" WALLET")
+            .trim()
 
     private fun resolveCashMovement(
         candidate: CashMovementCandidate?,
