@@ -9,7 +9,7 @@ import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
-import com.kedevjimmy.pesatrack.domain.parser.ConfiguredMoneyParser
+import com.kedevjimmy.pesatrack.domain.rules.RuleBackedFinancialResolver
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import com.kedevjimmy.pesatrack.domain.rules.FinancialMessageEvidence
@@ -124,7 +124,7 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                 processingStarted = true
             }
 
-            val parsed = ConfiguredMoneyParser.parse(
+            val parsed = RuleBackedFinancialResolver.resolve(
                 title = title,
                 body = body,
                 rule = configuredRule
