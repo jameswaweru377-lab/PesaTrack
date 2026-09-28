@@ -120,4 +120,27 @@ class LegacyTransactionTypeCompatibilityTest {
         )
     }
 
+    @Test
+    fun unresolvedMovementStaysGenericAtLegacyBoundary() {
+        assertEquals(
+            MpesaTransactionType.OTHER,
+            LegacyTransactionTypeCompatibility.resolve(
+                kind =
+                    CanonicalFinancialRecordKind
+                        .UNRESOLVED_MOVEMENT
+            )
+        )
+    }
+
+    @Test
+    fun reversalKeepsLegacyReversalTypeOnlyAtStorageBoundary() {
+        assertEquals(
+            MpesaTransactionType.REVERSAL,
+            LegacyTransactionTypeCompatibility.resolve(
+                kind =
+                    CanonicalFinancialRecordKind.REVERSAL
+            )
+        )
+    }
+
 }
