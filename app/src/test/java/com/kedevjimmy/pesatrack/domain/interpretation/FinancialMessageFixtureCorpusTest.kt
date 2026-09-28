@@ -249,6 +249,19 @@ class FinancialMessageFixtureCorpusTest {
     }
 
     @Test
+    fun currentCorpusHasNoLegacyTransactionParserDependency() {
+        assertFalse(
+            FinancialMessageFixtureCorpus.all.any {
+                it.coverage ==
+                    FixtureCoverage.LEGACY_REQUIRED ||
+                    it.coverage ==
+                        FixtureCoverage
+                            .GENERIC_SEMANTICS_LEGACY_PERSISTENCE
+            }
+        )
+    }
+
+    @Test
     fun corpusUsesSanitizedSyntheticIdentifiers() {
         FinancialMessageFixtureCorpus.all.forEach { fixture ->
             assertFalse(
