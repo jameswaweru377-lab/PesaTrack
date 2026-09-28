@@ -350,48 +350,73 @@ class FinancialMessageIngestionCoordinator private constructor(
                         observedAtEpochMs =
                             occurredAtEpochMs
                     )
-                    val destinationAccountId =
-                        understandingStore.accountIdFor(
-                            event.destination
-                        )
-                    if (destinationAccountId == null) {
-                        pendingReviewEvents += 1
-                        changed = true
-                        return@forEach
-                    }
 
                     val observedBalance =
                         balanceForAccount(
                             interpretation,
                             event.destination
                         )
-                    val legacyWalletBalance =
-                        if (
-                            destinationAccountId ==
-                            AccountStore.DEFAULT_MPESA_ID
-                        ) {
-                            observedBalance
-                        } else {
-                            null
-                        }
 
-                    val parsed = ParsedMpesaTransaction(
-                        transactionCode =
-                            interpretation.transactionCode,
-                        type =
-                            MpesaTransactionType.RECEIVED,
-                        amountMinor = event.amountMinor,
-                        counterparty = event.counterparty,
-                        counterpartyPhone =
-                            event.counterpartyPhone,
-                        feeMinor = event.feeMinor,
-                        balanceMinor =
-                            legacyWalletBalance,
-                        occurredAtText =
-                            interpretation.occurredAtText,
-                        rawMessage = body,
-                        reversalOfCode = null
-                    )
+                    val preliminary =
+                        ParsedMpesaTransaction(
+                            transactionCode =
+                                interpretation.transactionCode,
+                            type =
+                                if (
+                                    event.destination.providerKey ==
+                                    "SAFARICOM_MPESA"
+                                ) {
+                                    MpesaTransactionType.RECEIVED
+                                } else {
+                                    MpesaTransactionType.OTHER
+                                },
+                            amountMinor = event.amountMinor,
+                            counterparty =
+                                event.counterparty,
+                            counterpartyPhone =
+                                event.counterpartyPhone,
+                            feeMinor = event.feeMinor,
+                            balanceMinor = null,
+                            occurredAtText =
+                                interpretation.occurredAtText,
+                            rawMessage = body,
+                            reversalOfCode = null
+                        )
+
+                    val matchedRule =
+                        InterpretedRuleResolver.match(
+                            transaction = preliminary,
+                            title = title,
+                            body = body,
+                            rules = rules
+                        )
+
+                    val destinationAccountId =
+                        understandingStore.accountIdFor(
+                            event.destination
+                        ) ?: matchedRule?.accountId
+
+                    val isMpesaDestination =
+                        destinationAccountId ==
+                            AccountStore.DEFAULT_MPESA_ID ||
+                            event.destination.providerKey ==
+                                "SAFARICOM_MPESA"
+
+                    val parsed =
+                        preliminary.copy(
+                            type =
+                                if (isMpesaDestination) {
+                                    MpesaTransactionType.RECEIVED
+                                } else {
+                                    MpesaTransactionType.OTHER
+                                },
+                            balanceMinor =
+                                if (isMpesaDestination) {
+                                    observedBalance
+                                } else {
+                                    null
+                                }
+                        )
 
                     val inserted =
                         transactionStore.insertIfNew(
@@ -404,15 +429,7 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 receivedAtEpochMs,
                             occurredAtEpochMs =
                                 occurredAtEpochMs,
-                            matchedRule =
-                                InterpretedRuleResolver
-                                    .match(
-                                        transaction =
-                                            parsed,
-                                        title = title,
-                                        body = body,
-                                        rules = rules
-                                    ),
+                            matchedRule = matchedRule,
                             rebuildPayCycles =
                                 rebuildPayCycles,
                             evidence = null,
@@ -422,6 +439,11 @@ class FinancialMessageIngestionCoordinator private constructor(
 
                     if (inserted) {
                         insertedTransactions += 1
+                        if (
+                            destinationAccountId == null
+                        ) {
+                            pendingReviewEvents += 1
+                        }
                         changed = true
                     }
                 }
