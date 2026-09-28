@@ -64,6 +64,12 @@ object LegacyTransactionTypeCompatibility {
                     MpesaTransactionType.OTHER
                 }
 
+            CanonicalFinancialRecordKind.UNRESOLVED_MOVEMENT ->
+                MpesaTransactionType.OTHER
+
+            CanonicalFinancialRecordKind.REVERSAL ->
+                MpesaTransactionType.REVERSAL
+
             else ->
                 error(
                     "Unsupported canonical movement kind: $kind"
