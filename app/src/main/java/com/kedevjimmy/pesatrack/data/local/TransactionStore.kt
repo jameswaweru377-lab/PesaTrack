@@ -4,6 +4,8 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionFingerprint
+import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKind
+import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
@@ -32,6 +34,100 @@ import java.util.TimeZone
 class TransactionStore private constructor(context: Context) {
     private val appContext = context.applicationContext
     private val database = PesaTrackDatabase(appContext)
+
+    /**
+     * Provider-neutral entry point for financial movements that were
+     * already understood by FinancialMessageInterpreter. The old
+     * ParsedMpesaTransaction shape is now confined to this storage
+     * compatibility boundary while the legacy transactions table is
+     * migrated incrementally.
+     */
+    @Synchronized
+    fun insertInterpretedMoneyMovementIfNew(
+        kind: CanonicalFinancialRecordKind,
+        paymentRouteHint: PaymentRouteHint? = null,
+        transactionCode: String?,
+        amountMinor: Long,
+        counterparty: String?,
+        counterpartyPhone: String?,
+        feeMinor: Long,
+        balanceMinor: Long?,
+        occurredAtText: String?,
+        rawMessage: String,
+        sourcePackage: String?,
+        sourceKind: String,
+        receivedAtEpochMs: Long,
+        occurredAtEpochMs: Long = receivedAtEpochMs,
+        matchedRule: SmartRule? = null,
+        rebuildPayCycles: Boolean = true,
+        accountIdOverride: String? = null
+    ): Boolean {
+        val legacyType =
+            when (kind) {
+                CanonicalFinancialRecordKind.PAYMENT ->
+                    when (
+                        requireNotNull(paymentRouteHint) {
+                            "Payment movement requires a route hint."
+                        }
+                    ) {
+                        PaymentRouteHint.PERSON_TO_PERSON ->
+                            MpesaTransactionType.SENT_MONEY
+                        PaymentRouteHint.MERCHANT ->
+                            MpesaTransactionType.BUY_GOODS
+                        PaymentRouteHint.BILL ->
+                            MpesaTransactionType.PAY_BILL
+                        PaymentRouteHint.AIRTIME ->
+                            MpesaTransactionType.AIRTIME
+                    }
+
+                CanonicalFinancialRecordKind.RECEIPT ->
+                    if (
+                        accountIdOverride ==
+                        AccountStore.DEFAULT_MPESA_ID
+                    ) {
+                        MpesaTransactionType.RECEIVED
+                    } else {
+                        MpesaTransactionType.OTHER
+                    }
+
+                else ->
+                    error(
+                        "Only payment and receipt movements " +
+                            "are supported by this migration boundary."
+                    )
+            }
+
+        val legacyParsed =
+            ParsedMpesaTransaction(
+                transactionCode = transactionCode,
+                type = legacyType,
+                amountMinor = amountMinor,
+                counterparty = counterparty,
+                counterpartyPhone =
+                    counterpartyPhone,
+                feeMinor = feeMinor,
+                balanceMinor = balanceMinor,
+                occurredAtText = occurredAtText,
+                rawMessage = rawMessage,
+                reversalOfCode = null
+            )
+
+        return insertIfNew(
+            parsed = legacyParsed,
+            sourcePackage = sourcePackage,
+            sourceKind = sourceKind,
+            receivedAtEpochMs =
+                receivedAtEpochMs,
+            occurredAtEpochMs =
+                occurredAtEpochMs,
+            matchedRule = matchedRule,
+            rebuildPayCycles =
+                rebuildPayCycles,
+            evidence = null,
+            accountIdOverride =
+                accountIdOverride
+        )
+    }
 
     @Synchronized
     fun insertIfNew(
