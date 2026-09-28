@@ -3,7 +3,9 @@ package com.kedevjimmy.pesatrack.domain.interpretation
 object FinancialMessageInterpreter {
     fun interpret(
         title: String?,
-        body: String
+        body: String,
+        context: FinancialInterpretationContext =
+            FinancialInterpretationContext.EMPTY
     ): FinancialMessageInterpretation {
         val normalized =
             FinancialMessageNormalizer.normalize(
@@ -27,7 +29,8 @@ object FinancialMessageInterpreter {
         val resolved =
             FinancialRelationshipResolver.resolve(
                 message = normalized,
-                candidates = candidates
+                candidates = candidates,
+                context = context
             )
         return FinancialEventClassifier.classify(
             resolved
