@@ -8,8 +8,10 @@ import com.kedevjimmy.pesatrack.domain.interpretation.BalanceObservationFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialEventKind
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialInterpretationContext
 import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 import java.security.MessageDigest
 
 enum class FinancialEventStatus {
@@ -627,6 +629,90 @@ class FinancialUnderstandingStore private constructor(
             arrayOf(eventKey)
         )
         LedgerUpdateBus.notifyChanged()
+    }
+
+    @Synchronized
+    fun interpretationContext():
+        FinancialInterpretationContext {
+        val learnedAccounts =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT entity_key, display_name, provider_key,
+                       account_type_hint, ownership_hint,
+                       nature_hint, confirmed_account_id
+                FROM financial_entities
+                WHERE ownership_hint != ?
+                ORDER BY last_seen_epoch_ms DESC
+                """.trimIndent(),
+                arrayOf(
+                    AccountOwnershipHint.UNKNOWN.name
+                )
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        val ownership =
+                            runCatching {
+                                AccountOwnershipHint
+                                    .valueOf(
+                                        cursor.getString(4)
+                                    )
+                            }.getOrDefault(
+                                AccountOwnershipHint.UNKNOWN
+                            )
+                        val confirmedAccountId =
+                            if (cursor.isNull(6)) {
+                                null
+                            } else {
+                                cursor.getString(6)
+                            }
+
+                        if (
+                            ownership ==
+                                AccountOwnershipHint.USER_OWNED &&
+                            confirmedAccountId == null
+                        ) {
+                            continue
+                        }
+
+                        add(
+                            FinancialAccountReference(
+                                entityKey =
+                                    cursor.getString(0),
+                                displayName =
+                                    cursor.getString(1),
+                                providerKey =
+                                    if (cursor.isNull(2)) {
+                                        null
+                                    } else {
+                                        cursor.getString(2)
+                                    },
+                                accountTypeHint =
+                                    runCatching {
+                                        AccountType.valueOf(
+                                            cursor.getString(3)
+                                        )
+                                    }.getOrDefault(
+                                        AccountType.OTHER
+                                    ),
+                                ownershipHint = ownership,
+                                nature =
+                                    runCatching {
+                                        FinancialAccountNature
+                                            .valueOf(
+                                                cursor.getString(5)
+                                            )
+                                    }.getOrDefault(
+                                        FinancialAccountNature.UNKNOWN
+                                    )
+                            )
+                        )
+                    }
+                }
+            }
+
+        return FinancialInterpretationContext(
+            learnedAccounts = learnedAccounts
+        )
     }
 
     @Synchronized
