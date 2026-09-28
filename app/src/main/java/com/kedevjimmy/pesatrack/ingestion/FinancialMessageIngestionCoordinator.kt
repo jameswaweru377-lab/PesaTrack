@@ -18,6 +18,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
 import com.kedevjimmy.pesatrack.domain.interpretation.ReceiptEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.ReversalEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.UnresolvedFinancialEventFact
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import com.kedevjimmy.pesatrack.domain.rules.InterpretedRuleResolver
@@ -695,6 +696,85 @@ class FinancialMessageIngestionCoordinator private constructor(
                         linkedTransactionId =
                             linkedTransactionId
                     )
+                }
+                is UnresolvedFinancialEventFact -> {
+                    val accountId =
+                        event.observedAccount?.let { account ->
+                            understandingStore.observeEntity(
+                                reference = account,
+                                observedAtEpochMs =
+                                    occurredAtEpochMs
+                            )
+                            understandingStore.accountIdFor(
+                                account
+                            )
+                        }
+                    val observedBalance =
+                        interpretation.balances
+                            .firstOrNull { balance ->
+                                event.observedAccount != null &&
+                                    balance.account.entityKey ==
+                                        event.observedAccount
+                                            .entityKey
+                            }
+                            ?.balanceMinor
+
+                    val parsed =
+                        ParsedMpesaTransaction(
+                            transactionCode =
+                                interpretation
+                                    .transactionCode,
+                            type =
+                                MpesaTransactionType.OTHER,
+                            amountMinor =
+                                event.amountMinor,
+                            counterparty = null,
+                            counterpartyPhone = null,
+                            feeMinor = event.feeMinor,
+                            balanceMinor =
+                                observedBalance,
+                            occurredAtText =
+                                interpretation
+                                    .occurredAtText,
+                            rawMessage = body,
+                            reversalOfCode = null
+                        )
+
+                    val matchedRule =
+                        InterpretedRuleResolver.match(
+                            transaction = parsed,
+                            title = title,
+                            body = body,
+                            rules = rules
+                        )
+
+                    val inserted =
+                        transactionStore.insertIfNew(
+                            parsed = parsed,
+                            sourcePackage =
+                                sourcePackage,
+                            sourceKind =
+                                SOURCE_INTERPRETED_PREFIX +
+                                    sourceKind,
+                            receivedAtEpochMs =
+                                receivedAtEpochMs,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs,
+                            matchedRule = matchedRule,
+                            rebuildPayCycles =
+                                rebuildPayCycles,
+                            evidence = null,
+                            accountIdOverride =
+                                accountId
+                        )
+
+                    if (inserted) {
+                        insertedTransactions += 1
+                        if (matchedRule == null) {
+                            pendingReviewEvents += 1
+                        }
+                        changed = true
+                    }
                 }
                 is ReversalEventFact -> {
                     val observedBalance =
