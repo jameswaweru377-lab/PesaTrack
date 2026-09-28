@@ -658,10 +658,12 @@ class FinancialUnderstandingStore private constructor(
             return null
         }
 
-        return when (reference.providerKey) {
-            "SAFARICOM_MPESA" ->
+        return when {
+            reference.entityKey == "system:cash" ->
+                AccountStore.DEFAULT_CASH_ID
+            reference.providerKey == "SAFARICOM_MPESA" ->
                 AccountStore.DEFAULT_MPESA_ID
-            "NCBA_MSHWARI_SAVINGS" ->
+            reference.providerKey == "NCBA_MSHWARI_SAVINGS" ->
                 accountStore.findOrCreate(
                     name = "M-Shwari",
                     type = reference.accountTypeHint
