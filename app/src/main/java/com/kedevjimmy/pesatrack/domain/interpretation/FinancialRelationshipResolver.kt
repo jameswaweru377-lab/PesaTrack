@@ -38,6 +38,17 @@ data class ResolvedReceiptRelationship(
     override val evidence: List<FieldEvidence>
 ) : ResolvedFinancialRelationship
 
+data class ResolvedCashMovementRelationship(
+    val movementKind: CashMovementCandidateKind,
+    override val amountMinor: Long,
+    val source: FinancialAccountReference?,
+    val destination: FinancialAccountReference?,
+    val counterparty: String?,
+    override val feeMinor: Long,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence>
+) : ResolvedFinancialRelationship
+
 data class ResolvedReversalRelationship(
     override val amountMinor: Long,
     val referencedTransactionCode: String,
@@ -120,6 +131,17 @@ object FinancialRelationshipResolver {
                 candidate = candidates.reversal,
                 observedAccount = observedWallet
             )
+        val cashRelationship =
+            resolveCashMovement(
+                candidate = candidates.cashMovement,
+                fee = candidates.fee
+            )
+        val airtimeRelationship =
+            resolveAirtimePurchase(
+                candidate = candidates.airtimePurchase,
+                observedWallet = observedWallet,
+                fee = candidates.fee
+            )
 
         val prioritized = candidates.actions
             .sortedBy(::priority)
@@ -127,6 +149,8 @@ object FinancialRelationshipResolver {
         val relationship =
             debtRelationship
                 ?: reversalRelationship
+                ?: cashRelationship
+                ?: airtimeRelationship
                 ?: prioritized.firstNotNullOfOrNull { action ->
                 resolveAction(
                     action = action,
@@ -247,6 +271,168 @@ object FinancialRelationshipResolver {
                     )
                 }
             }
+        )
+    }
+
+    private fun resolveCashMovement(
+        candidate: CashMovementCandidate?,
+        fee: FeeCandidate?
+    ): ResolvedFinancialRelationship? {
+        candidate ?: return null
+        val account =
+            FinancialProviderRegistry.resolveAccount(
+                candidate.accountLabel
+            )
+        val confidence =
+            if (
+                account.ownershipHint ==
+                    AccountOwnershipHint.USER_OWNED
+            ) {
+                InterpretationConfidence.HIGH
+            } else {
+                InterpretationConfidence.MEDIUM
+            }
+
+        val evidence = buildList {
+            add(
+                evidence(
+                    field = FinancialField.AMOUNT,
+                    origin = EvidenceOrigin.MESSAGE_TEXT,
+                    ruleId =
+                        candidate.ruleId + ".amount",
+                    span = candidate.amountSpan,
+                    confidence = confidence
+                )
+            )
+            add(
+                evidence(
+                    field =
+                        if (
+                            candidate.kind ==
+                                CashMovementCandidateKind.WITHDRAWAL
+                        ) {
+                            FinancialField.SOURCE_ACCOUNT
+                        } else {
+                            FinancialField.DESTINATION_ACCOUNT
+                        },
+                    origin = EvidenceOrigin.MESSAGE_TEXT,
+                    ruleId =
+                        candidate.ruleId + ".account",
+                    span = candidate.accountSpan,
+                    confidence = confidence
+                )
+            )
+            candidate.counterpartySpan?.let {
+                add(
+                    evidence(
+                        field = FinancialField.COUNTERPARTY,
+                        origin = EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId +
+                                ".counterparty",
+                        span = it,
+                        confidence = confidence
+                    )
+                )
+            }
+            fee?.let {
+                add(
+                    evidence(
+                        field = FinancialField.FEE,
+                        origin = EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId = it.ruleId,
+                        span = it.amountSpan,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+            }
+        }
+
+        return ResolvedCashMovementRelationship(
+            movementKind = candidate.kind,
+            amountMinor = candidate.amountMinor,
+            source =
+                if (
+                    candidate.kind ==
+                        CashMovementCandidateKind.WITHDRAWAL
+                ) {
+                    account
+                } else {
+                    null
+                },
+            destination =
+                if (
+                    candidate.kind ==
+                        CashMovementCandidateKind.DEPOSIT
+                ) {
+                    account
+                } else {
+                    null
+                },
+            counterparty = candidate.counterparty,
+            feeMinor = fee?.amountMinor ?: 0L,
+            confidence = confidence,
+            evidence = evidence
+        )
+    }
+
+    private fun resolveAirtimePurchase(
+        candidate: AirtimePurchaseCandidate?,
+        observedWallet: FinancialAccountReference?,
+        fee: FeeCandidate?
+    ): ResolvedFinancialRelationship? {
+        candidate ?: return null
+        val source = observedWallet ?: return null
+        val evidence = buildList {
+            add(
+                evidence(
+                    field = FinancialField.AMOUNT,
+                    origin = EvidenceOrigin.MESSAGE_TEXT,
+                    ruleId =
+                        candidate.ruleId + ".amount",
+                    span = candidate.amountSpan,
+                    confidence =
+                        InterpretationConfidence.HIGH
+                )
+            )
+            add(
+                evidence(
+                    field = FinancialField.SOURCE_ACCOUNT,
+                    origin =
+                        EvidenceOrigin.PROVIDER_PROFILE,
+                    ruleId =
+                        candidate.ruleId +
+                            ".observed_wallet",
+                    span = null,
+                    confidence =
+                        InterpretationConfidence.HIGH
+                )
+            )
+            fee?.let {
+                add(
+                    evidence(
+                        field = FinancialField.FEE,
+                        origin = EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId = it.ruleId,
+                        span = it.amountSpan,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    )
+                )
+            }
+        }
+
+        return ResolvedPaymentRelationship(
+            amountMinor = candidate.amountMinor,
+            source = source,
+            counterparty = "Airtime",
+            counterpartyPhone = null,
+            routeHint = PaymentRouteHint.AIRTIME,
+            accountReference = null,
+            feeMinor = fee?.amountMinor ?: 0L,
+            confidence = InterpretationConfidence.HIGH,
+            evidence = evidence
         )
     }
 
