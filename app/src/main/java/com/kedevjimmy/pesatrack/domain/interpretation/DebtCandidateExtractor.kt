@@ -69,7 +69,7 @@ object DebtCandidateExtractor {
     )
 
     private val approvedLoanRegex = Regex(
-        """(?:^|[.!?]\s+)(?:Your\s+)?([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,5}\s+loan)\s+has\s+been\s+(?:approved|disbursed)\b""",
+        """(?:^|[.!?]\s+)(?:Your\s+)?([A-Za-z][A-Za-z0-9&'’-]*(?:\s+[A-Za-z0-9&'’-]+){0,5}\s+loan)\s+has\s+been\s+(?:approved|disbursed)\b""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.MULTILINE
