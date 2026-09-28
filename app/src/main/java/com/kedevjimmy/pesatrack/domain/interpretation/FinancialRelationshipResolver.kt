@@ -182,39 +182,9 @@ object FinancialRelationshipResolver {
             return null
         }
 
-        val explainedSpans = buildList {
-            candidates.balances.forEach {
-                add(it.amountSpan)
-            }
-            candidates.fee?.let {
-                add(it.amountSpan)
-            }
-            candidates.reversal?.let {
-                add(it.amountSpan)
-            }
-            candidates.cashMovements.forEach {
-                add(it.amountSpan)
-            }
-            candidates.actions.forEach {
-                add(it.amountSpan)
-            }
-            candidates.debt.drawdown?.let {
-                add(it.amountSpan)
-                it.outstandingSpan?.let(::add)
-                it.availableCreditSpan?.let(::add)
-            }
-            candidates.debt.repayment?.let {
-                add(it.amountSpan)
-                it.availableCreditSpan?.let(::add)
-            }
-        }
-
         val unexplained =
-            candidates.moneyValues.filter { money ->
-                explainedSpans.none { span ->
-                    money.span.overlaps(span)
-                }
-            }
+            FinancialAmountRoleResolver
+                .unexplainedMoney(candidates)
 
         if (unexplained.size != 1) {
             return null
@@ -270,12 +240,6 @@ object FinancialRelationshipResolver {
             }
         )
     }
-
-    private fun MessageSpan.overlaps(
-        other: MessageSpan
-    ): Boolean =
-        startOffset < other.endOffsetExclusive &&
-            other.startOffset < endOffsetExclusive
 
     private fun resolveBalance(
         candidate: BalanceCandidate
