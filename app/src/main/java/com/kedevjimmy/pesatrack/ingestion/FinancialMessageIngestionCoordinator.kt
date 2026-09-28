@@ -763,63 +763,68 @@ class FinancialMessageIngestionCoordinator private constructor(
                             )
                         }
                     val observedBalance =
-                        interpretation.balances
-                            .firstOrNull { balance ->
-                                event.observedAccount != null &&
-                                    balance.account.entityKey ==
-                                        event.observedAccount
-                                            .entityKey
-                            }
-                            ?.balanceMinor
-
-                    val parsed =
-                        ParsedMpesaTransaction(
-                            transactionCode =
-                                interpretation
-                                    .transactionCode,
-                            type =
-                                MpesaTransactionType.OTHER,
-                            amountMinor =
-                                event.amountMinor,
-                            counterparty = null,
-                            counterpartyPhone = null,
-                            feeMinor = event.feeMinor,
-                            balanceMinor =
-                                observedBalance,
-                            occurredAtText =
-                                interpretation
-                                    .occurredAtText,
-                            rawMessage = body,
-                            reversalOfCode = null
-                        )
+                        event.observedAccount?.let { account ->
+                            balanceForAccount(
+                                interpretation,
+                                account
+                            )
+                        }
+                    val legacyWalletBalance =
+                        if (
+                            accountId ==
+                            AccountStore.DEFAULT_MPESA_ID
+                        ) {
+                            observedBalance
+                        } else {
+                            null
+                        }
 
                     val matchedRule =
                         InterpretedRuleResolver.match(
-                            transaction = parsed,
+                            counterparty = null,
+                            counterpartyPhone = null,
+                            amountMinor =
+                                event.amountMinor,
                             title = title,
                             body = body,
                             rules = rules
                         )
 
                     val inserted =
-                        transactionStore.insertIfNew(
-                            parsed = parsed,
-                            sourcePackage =
-                                sourcePackage,
-                            sourceKind =
-                                SOURCE_INTERPRETED_PREFIX +
-                                    sourceKind,
-                            receivedAtEpochMs =
-                                receivedAtEpochMs,
-                            occurredAtEpochMs =
-                                occurredAtEpochMs,
-                            matchedRule = matchedRule,
-                            rebuildPayCycles =
-                                rebuildPayCycles,
-                            evidence = null,
-                            accountIdOverride =
-                                accountId
-                        )
+                        transactionStore
+                            .insertInterpretedMoneyMovementIfNew(
+                                kind =
+                                    CanonicalFinancialRecordKind
+                                        .UNRESOLVED_MOVEMENT,
+                                transactionCode =
+                                    interpretation.transactionCode,
+                                amountMinor =
+                                    event.amountMinor,
+                                counterparty = null,
+                                counterpartyPhone = null,
+                                feeMinor =
+                                    event.feeMinor,
+                                balanceMinor =
+                                    legacyWalletBalance,
+                                occurredAtText =
+                                    interpretation.occurredAtText,
+                                rawMessage = body,
+                                sourcePackage =
+                                    sourcePackage,
+                                sourceKind =
+                                    SOURCE_INTERPRETED_PREFIX +
+                                        sourceKind,
+                                receivedAtEpochMs =
+                                    receivedAtEpochMs,
+                                occurredAtEpochMs =
+                                    occurredAtEpochMs,
+                                matchedRule =
+                                    matchedRule,
+                                rebuildPayCycles =
+                                    rebuildPayCycles,
+                                accountIdOverride =
+                                    accountId
+                            )
 
                     if (inserted) {
                         insertedTransactions += 1
@@ -830,50 +835,69 @@ class FinancialMessageIngestionCoordinator private constructor(
                     }
                 }
                 is ReversalEventFact -> {
+                    val accountId =
+                        event.observedAccount?.let { account ->
+                            understandingStore.observeEntity(
+                                reference = account,
+                                observedAtEpochMs =
+                                    occurredAtEpochMs
+                            )
+                            understandingStore.accountIdFor(
+                                account
+                            )
+                        }
                     val observedBalance =
-                        interpretation.balances
-                            .firstOrNull {
-                                event.observedAccount == null ||
-                                    it.account.entityKey ==
-                                        event
-                                            .observedAccount
-                                            .entityKey
-                            }
-                            ?.balanceMinor
-
-                    val parsed = ParsedMpesaTransaction(
-                        transactionCode =
-                            interpretation.transactionCode,
-                        type =
-                            MpesaTransactionType.REVERSAL,
-                        amountMinor = event.amountMinor,
-                        counterparty = null,
-                        counterpartyPhone = null,
-                        feeMinor = 0L,
-                        balanceMinor = observedBalance,
-                        occurredAtText =
-                            interpretation.occurredAtText,
-                        rawMessage = body,
-                        reversalOfCode =
-                            event.referencedTransactionCode
-                    )
+                        event.observedAccount?.let { account ->
+                            balanceForAccount(
+                                interpretation,
+                                account
+                            )
+                        }
+                    val legacyWalletBalance =
+                        if (
+                            accountId ==
+                            AccountStore.DEFAULT_MPESA_ID
+                        ) {
+                            observedBalance
+                        } else {
+                            null
+                        }
 
                     val inserted =
-                        transactionStore.insertIfNew(
-                            parsed = parsed,
-                            sourcePackage = sourcePackage,
-                            sourceKind =
-                                SOURCE_INTERPRETED_PREFIX +
-                                    sourceKind,
-                            receivedAtEpochMs =
-                                receivedAtEpochMs,
-                            occurredAtEpochMs =
-                                occurredAtEpochMs,
-                            matchedRule = null,
-                            rebuildPayCycles =
-                                rebuildPayCycles,
-                            evidence = null
-                        )
+                        transactionStore
+                            .insertInterpretedMoneyMovementIfNew(
+                                kind =
+                                    CanonicalFinancialRecordKind
+                                        .REVERSAL,
+                                transactionCode =
+                                    interpretation.transactionCode,
+                                amountMinor =
+                                    event.amountMinor,
+                                counterparty = null,
+                                counterpartyPhone = null,
+                                feeMinor = 0L,
+                                balanceMinor =
+                                    legacyWalletBalance,
+                                occurredAtText =
+                                    interpretation.occurredAtText,
+                                rawMessage = body,
+                                sourcePackage =
+                                    sourcePackage,
+                                sourceKind =
+                                    SOURCE_INTERPRETED_PREFIX +
+                                        sourceKind,
+                                receivedAtEpochMs =
+                                    receivedAtEpochMs,
+                                occurredAtEpochMs =
+                                    occurredAtEpochMs,
+                                matchedRule = null,
+                                rebuildPayCycles =
+                                    rebuildPayCycles,
+                                reversalOfCode =
+                                    event.referencedTransactionCode,
+                                accountIdOverride =
+                                    accountId
+                            )
 
                     if (inserted) {
                         insertedTransactions += 1
