@@ -96,16 +96,28 @@ fun AvailableToLiveHero(
     amount: String,
     subtitle: String,
     footer: String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    title: String = "Available to live",
+    spentToday: String? = null,
+    safeToday: String? = null
 ) {
     val dark = isPesaDarkTheme()
     val start = if (dark) Color(0xFF06453E) else Color(0xFF087A5B)
     val end = if (dark) Color(0xFF0A6A59) else Color(0xFF0A9B73)
+    val showDailyMetrics =
+        !spentToday.isNullOrBlank() ||
+            !safeToday.isNullOrBlank()
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(150.dp)
+            .height(
+                if (showDailyMetrics) {
+                    198.dp
+                } else {
+                    150.dp
+                }
+            )
             .clip(RoundedCornerShape(24.dp))
             .background(Brush.linearGradient(listOf(start, end)))
     ) {
@@ -115,8 +127,16 @@ fun AvailableToLiveHero(
                 radius = size.minDimension * .46f,
                 center = Offset(size.width * .98f, size.height * .08f)
             )
-            val stemStart = Offset(size.width * .72f, size.height * .88f)
-            val stemEnd = Offset(size.width * .90f, size.height * .42f)
+            val stemStart =
+                Offset(
+                    size.width * .72f,
+                    size.height * .88f
+                )
+            val stemEnd =
+                Offset(
+                    size.width * .90f,
+                    size.height * .42f
+                )
             drawLine(
                 color = Color.White.copy(alpha = .16f),
                 start = stemStart,
@@ -126,27 +146,42 @@ fun AvailableToLiveHero(
             )
             drawOval(
                 color = Color.White.copy(alpha = .07f),
-                topLeft = Offset(size.width * .79f, size.height * .29f),
-                size = androidx.compose.ui.geometry.Size(
-                    size.width * .17f,
-                    size.height * .22f
-                )
+                topLeft =
+                    Offset(
+                        size.width * .79f,
+                        size.height * .29f
+                    ),
+                size =
+                    androidx.compose.ui.geometry.Size(
+                        size.width * .17f,
+                        size.height * .22f
+                    )
             )
             drawOval(
                 color = PremiumGold.copy(alpha = .11f),
-                topLeft = Offset(size.width * .73f, size.height * .57f),
-                size = androidx.compose.ui.geometry.Size(
-                    size.width * .14f,
-                    size.height * .22f
-                )
+                topLeft =
+                    Offset(
+                        size.width * .73f,
+                        size.height * .57f
+                    ),
+                size =
+                    androidx.compose.ui.geometry.Size(
+                        size.width * .14f,
+                        size.height * .22f
+                    )
             )
             drawOval(
                 color = Color.White.copy(alpha = .055f),
-                topLeft = Offset(size.width * .87f, size.height * .48f),
-                size = androidx.compose.ui.geometry.Size(
-                    size.width * .12f,
-                    size.height * .18f
-                )
+                topLeft =
+                    Offset(
+                        size.width * .87f,
+                        size.height * .48f
+                    ),
+                size =
+                    androidx.compose.ui.geometry.Size(
+                        size.width * .12f,
+                        size.height * .18f
+                    )
             )
         }
 
@@ -156,29 +191,124 @@ fun AvailableToLiveHero(
                 .padding(16.dp)
         ) {
             Text(
-                "Available to live",
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White.copy(alpha = .88f)
+                title,
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                color =
+                    Color.White.copy(alpha = .88f)
             )
             Text(
                 amount,
                 modifier = Modifier.padding(top = 2.dp),
-                style = MaterialTheme.typography.displaySmall,
+                style =
+                    MaterialTheme.typography
+                        .displaySmall,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
             Text(
                 subtitle,
                 modifier = Modifier.padding(top = 3.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = .82f)
+                style =
+                    MaterialTheme.typography
+                        .bodyMedium,
+                color =
+                    Color.White.copy(alpha = .82f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(Modifier.weight(1f))
-            if (!footer.isNullOrBlank()) {
+
+            if (showDailyMetrics) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+                    DailyHeroMetric(
+                        label = "Spent today",
+                        amount = spentToday ?: "—",
+                        symbol = "↘",
+                        modifier = Modifier.weight(1f)
+                    )
+                    DailyHeroMetric(
+                        label = "Safe today",
+                        amount = safeToday ?: "—",
+                        symbol = "✓",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            } else if (!footer.isNullOrBlank()) {
                 Text(
                     footer,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = .72f),
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        Color.White.copy(alpha = .72f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyHeroMetric(
+    label: String,
+    amount: String,
+    symbol: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = Color.Black.copy(alpha = .16f)
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 11.dp,
+                vertical = 9.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(34.dp),
+                shape = CircleShape,
+                color = Color.White.copy(alpha = .10f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        symbol,
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.padding(start = 9.dp)
+            ) {
+                Text(
+                    label,
+                    style =
+                        MaterialTheme.typography
+                            .labelSmall,
+                    color =
+                        Color.White.copy(alpha = .72f),
+                    maxLines = 1
+                )
+                Text(
+                    amount,
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
