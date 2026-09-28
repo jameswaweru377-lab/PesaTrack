@@ -1,6 +1,6 @@
 # PesaTrack Project Context
 
-Updated: 2026-09-26
+Updated: 2026-09-28
 
 ## Purpose
 
@@ -475,6 +475,73 @@ Tests added:
 - repeated identity -> teaching/review
 
 Android CI run #52 passed unit tests, debug APK assembly and artifact upload before this documentation update.
+
+## Temporary APK delivery while GitHub Actions artifact quota is blocked
+
+Status on 2026-09-28: **decision documented; workflow change not yet implemented**.
+
+Current problem:
+
+- GitHub Actions can successfully build/test PesaTrack, but the final `actions/upload-artifact` step can fail with `Failed to CreateArtifact: Artifact storage quota has been hit`.
+- PesaTrack already uses `retention-days: 3` for its debug APK artifact.
+- Old workflow runs were checked on 2026-09-28. PesaTrack itself had no completed runs older than the three-day cutoff to remove.
+- The account-level storage pressure was also affected by NSE-Watcher; its old runs were cleaned separately.
+- GitHub's Actions artifact-storage accounting can lag after deletion, so waiting for the usage counter to recalculate should not block PesaTrack development.
+
+Temporary delivery decision:
+
+Until the Actions artifact quota has recalculated, keep CI building and testing normally but **do not depend on Actions artifact storage for the APK**. Publish the successful debug APK as a GitHub **Release asset** instead.
+
+Recommended temporary model:
+
+1. Keep the existing `Android CI` trigger and all normal unit-test / debug-build steps.
+2. On a successful push to `main`, skip or temporarily disable `actions/upload-artifact@v4`.
+3. Use one rolling private prerelease/tag, recommended name: `ci-apk`.
+4. The release should contain one current asset, recommended name: `PesaTrack-debug.apk`.
+5. Each successful `main` build replaces that same asset rather than creating a new release per commit.
+6. A failed build must never replace the existing known-good APK.
+7. Pull-request builds should test/build but should not publish or replace the rolling release APK.
+8. Once GitHub Actions artifact quota reporting has recovered, the project may return to the normal 3-day `upload-artifact` path and remove the temporary Release upload.
+
+Recommended implementation shape:
+
+```yaml
+permissions:
+  contents: write
+
+# ...existing tests/build steps...
+
+- name: Publish rolling debug APK
+  if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+  env:
+    GH_TOKEN: ${{ github.token }}
+  run: |
+    gh release upload ci-apk \
+      app/build/outputs/apk/debug/app-debug.apk#PesaTrack-debug.apk \
+      --clobber
+```
+
+Important setup note:
+
+- Create the `ci-apk` prerelease once before relying on the upload step. Keeping a pre-created rolling release avoids unnecessary release creation on every build.
+- The release description should explicitly say that it is a **rolling CI APK** and that the attached APK is the authoritative current asset; the source archive attached to the static release tag is not the authoritative build source.
+- If another chat implements this workaround, it should verify the exact CI run is green and confirm the Release asset was replaced successfully before calling the change complete.
+- Do not create a new release for every commit; that would just create another form of build clutter.
+- GitHub Release assets are separate from Actions artifacts. GitHub currently allows up to 1000 assets per release, each asset under 2 GiB, with no stated total release-size or bandwidth limit.
+
+How the user gets the APK during this workaround:
+
+1. Open the PesaTrack repository.
+2. Open **Releases**.
+3. Open the rolling `ci-apk` prerelease.
+4. Download `PesaTrack-debug.apk`.
+5. The file should always be the APK from the latest successful `main` build that completed the publish step.
+
+Handoff rule for future chats:
+
+- Read this section before changing CI.
+- Do not assume the Release workaround is already active until `.github/workflows/android-ci.yml` actually contains the Release upload step.
+- If Actions artifact uploads are working again, prefer the normal 3-day artifact retention unless the user explicitly wants the rolling Release workflow to remain permanent.
 
 ## Current implementation
 
