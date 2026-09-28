@@ -26,6 +26,7 @@ enum class FinancialEventKind {
     TRANSFER,
     CASH_WITHDRAWAL,
     CASH_DEPOSIT,
+    UNRESOLVED,
     REVERSAL,
     INCOME,
     EXPENSE,
@@ -143,6 +144,20 @@ data class CashDepositEventFact(
         true
     override val kind: FinancialEventKind =
         FinancialEventKind.CASH_DEPOSIT
+}
+
+data class UnresolvedFinancialEventFact(
+    val amountMinor: Long,
+    val observedAccount: FinancialAccountReference?,
+    val feeMinor: Long,
+    override val confidence: InterpretationConfidence =
+        InterpretationConfidence.LOW,
+    val evidence: List<FieldEvidence> = emptyList()
+) : FinancialEventFact {
+    override val genericIngestionReady: Boolean =
+        true
+    override val kind: FinancialEventKind =
+        FinancialEventKind.UNRESOLVED
 }
 
 data class ReversalEventFact(
