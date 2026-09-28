@@ -96,6 +96,42 @@ fun FinancialMessageInterpretation.toCanonicalDraft():
                         )
                     }
                 }
+                is CashMovementEventFact -> {
+                    add(
+                        MoneyMovementDraft(
+                            kind =
+                                when (event.kind) {
+                                    FinancialEventKind.CASH_WITHDRAWAL ->
+                                        CanonicalFinancialRecordKind.CASH_WITHDRAWAL
+                                    FinancialEventKind.CASH_DEPOSIT ->
+                                        CanonicalFinancialRecordKind.CASH_DEPOSIT
+                                    else ->
+                                        error("Unsupported cash movement kind")
+                                },
+                            amountMinor = event.amountMinor,
+                            source = event.source,
+                            destination = event.destination,
+                            counterparty = event.counterparty,
+                            feeMinor = event.feeMinor,
+                            confidence = event.confidence,
+                            evidence = event.evidence
+                        )
+                    )
+                    if (event.feeMinor > 0L) {
+                        add(
+                            FeeDraft(
+                                amountMinor = event.feeMinor,
+                                chargedTo =
+                                    event.source ?:
+                                        event.destination,
+                                confidence = event.confidence,
+                                evidence = event.evidence.filter {
+                                    it.field == FinancialField.FEE
+                                }
+                            )
+                        )
+                    }
+                }
                 is ReversalEventFact -> {
                     add(
                         ReversalDraft(
