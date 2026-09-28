@@ -165,6 +165,36 @@ fun FinancialMessageInterpretation.toCanonicalDraft():
                         )
                     }
                 }
+                is UnresolvedFinancialEventFact -> {
+                    add(
+                        UnresolvedMovementDraft(
+                            amountMinor = event.amountMinor,
+                            observedAccount =
+                                event.observedAccount,
+                            feeMinor = event.feeMinor,
+                            confidence =
+                                event.confidence,
+                            evidence = event.evidence
+                        )
+                    )
+                    if (event.feeMinor > 0L) {
+                        add(
+                            FeeDraft(
+                                amountMinor =
+                                    event.feeMinor,
+                                chargedTo =
+                                    event.observedAccount,
+                                confidence =
+                                    event.confidence,
+                                evidence =
+                                    event.evidence.filter {
+                                        it.field ==
+                                            FinancialField.FEE
+                                    }
+                            )
+                        )
+                    }
+                }
                 is ReversalEventFact -> {
                     add(
                         ReversalDraft(
