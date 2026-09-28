@@ -16,9 +16,30 @@ object InterpretedRuleResolver {
         body: String,
         rules: List<SmartRule>
     ): SmartRule? =
+        match(
+            counterparty = transaction.counterparty,
+            counterpartyPhone =
+                transaction.counterpartyPhone,
+            amountMinor = transaction.amountMinor,
+            title = title,
+            body = body,
+            rules = rules
+        )
+
+    fun match(
+        counterparty: String?,
+        counterpartyPhone: String?,
+        amountMinor: Long,
+        title: String?,
+        body: String,
+        rules: List<SmartRule>
+    ): SmartRule? =
         SmartRuleEngine.matchTransaction(
-            transaction,
-            rules
+            counterparty = counterparty,
+            counterpartyPhone =
+                counterpartyPhone,
+            amountMinor = amountMinor,
+            rules = rules
         ) ?: SmartRuleEngine.matchNotification(
             title = title,
             body = body,
