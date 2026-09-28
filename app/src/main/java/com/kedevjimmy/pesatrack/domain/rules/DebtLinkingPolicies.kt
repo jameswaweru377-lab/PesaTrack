@@ -28,6 +28,72 @@ data class DebtFundingCandidate(
     val transactionFeeMinor: Long
 )
 
+data class DebtProceedsEventCandidate(
+    val debtEventId: Long,
+    val amountMinor: Long,
+    val occurredAtEpochMs: Long
+)
+
+data class DebtProceedsEventMatch(
+    val debtEventId: Long,
+    val confidence: RepaymentChainConfidence,
+    val reason: String
+)
+
+object DebtProceedsRepaymentLinkPolicy {
+    const val MAX_LINK_DISTANCE_MS =
+        10L * 60L * 1000L
+    private const val STRONG_DISTANCE_MS =
+        2L * 60L * 1000L
+
+    fun choose(
+        repaymentAmountMinor: Long,
+        repaymentAtEpochMs: Long,
+        candidates: List<DebtProceedsEventCandidate>
+    ): DebtProceedsEventMatch? {
+        if (repaymentAmountMinor <= 0L) {
+            return null
+        }
+
+        val exact =
+            candidates.filter { candidate ->
+                candidate.amountMinor ==
+                    repaymentAmountMinor &&
+                    abs(
+                        repaymentAtEpochMs -
+                            candidate.occurredAtEpochMs
+                    ) <= MAX_LINK_DISTANCE_MS
+            }
+
+        if (exact.size != 1) {
+            return null
+        }
+
+        val candidate = exact.single()
+        val distance =
+            abs(
+                repaymentAtEpochMs -
+                    candidate.occurredAtEpochMs
+            )
+
+        return DebtProceedsEventMatch(
+            debtEventId = candidate.debtEventId,
+            confidence =
+                if (distance <= STRONG_DISTANCE_MS) {
+                    RepaymentChainConfidence.HIGH
+                } else {
+                    RepaymentChainConfidence.MEDIUM
+                },
+            reason =
+                if (distance <= STRONG_DISTANCE_MS) {
+                    "Only one nearby loan disbursement into the funding account matched the debt repayment amount."
+                } else {
+                    "Only one loan disbursement into the funding account matched the debt repayment amount within ten minutes."
+                }
+        )
+    }
+}
+
 object DebtFundingPairingPolicy {
     private const val MAX_DISTANCE_MS =
         3L * 60L * 1000L
