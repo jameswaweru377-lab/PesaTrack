@@ -186,7 +186,8 @@ class FinancialMessageFixtureCorpusTest {
                 canonical.records
                     .filter {
                         it is MoneyMovementDraft ||
-                            it is DebtMovementDraft
+                            it is DebtMovementDraft ||
+                            it is ReversalDraft
                     }
                     .forEach { record ->
                         assertTrue(
@@ -214,6 +215,12 @@ class FinancialMessageFixtureCorpusTest {
                                     record.evidence.any {
                                         it.field ==
                                             FinancialField.LIABILITY
+                                    }
+                                is ReversalDraft ->
+                                    record.evidence.any {
+                                        it.field ==
+                                            FinancialField
+                                                .RELATED_TRANSACTION_CODE
                                     }
                                 else -> false
                             }
