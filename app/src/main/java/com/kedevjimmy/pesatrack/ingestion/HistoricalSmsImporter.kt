@@ -9,7 +9,6 @@ import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
 import com.kedevjimmy.pesatrack.domain.parser.ConfiguredMoneyParser
-import com.kedevjimmy.pesatrack.domain.parser.MpesaParser
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import com.kedevjimmy.pesatrack.domain.rules.FinancialMessageEvidence
@@ -103,40 +102,17 @@ class HistoricalSmsImporter(
                     continue
                 }
 
-                if (MpesaMessageDetector.isLikelyMpesa(address, body)) {
-                    val parsed = MpesaParser.parse(body)
-                    if (parsed == null) {
-                        ignored += 1
-                        continue
-                    }
-
-                    val evidence = if (parsed.counterparty.isNullOrBlank()) {
-                        findNearbyEvidence(
-                            smsId = smsId,
-                            parsed = parsed,
-                            smsDate = smsDate
-                        )
-                    } else {
-                        null
-                    }
-                    val enriched = TransactionEvidenceResolver.enrich(parsed, evidence)
-                    val rule = SmartRuleEngine.matchTransaction(enriched, rules)
-                    val didInsert = store.insertIfNew(
-                        parsed = enriched,
-                        sourcePackage = null,
-                        sourceKind = SOURCE_HISTORICAL_SMS,
-                        receivedAtEpochMs = smsDate,
-                        occurredAtEpochMs = TransactionDateResolver.resolve(
-                            occurredAtText = parsed.occurredAtText,
-                            fallbackEpochMs = smsDate
-                        ),
-                        matchedRule = rule,
-                        rebuildPayCycles = false,
-                        evidence = evidence
+                if (
+                    MpesaMessageDetector.isLikelyMpesa(
+                        address,
+                        body
                     )
-
-                    matched += 1
-                    if (didInsert) inserted += 1 else duplicates += 1
+                ) {
+                    // The generic interpreter is authoritative
+                    // for M-PESA transaction meaning. Unknown
+                    // wording is ignored rather than converted
+                    // into an arbitrary OTHER transaction.
+                    ignored += 1
                     continue
                 }
 
