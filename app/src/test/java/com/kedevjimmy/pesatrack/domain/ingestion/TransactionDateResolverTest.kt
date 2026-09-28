@@ -40,4 +40,23 @@ class TransactionDateResolverTest {
             )
         )
     }
+    @Test
+    fun parsesTransactionDateWhenMessageOmitsAtKeyword() {
+        val resolved = TransactionDateResolver.resolve(
+            occurredAtText = "23/9/26 5:27 PM",
+            fallbackEpochMs = 1L,
+            timeZone = utc
+        )
+
+        val calendar = Calendar.getInstance(utc).apply {
+            timeInMillis = resolved
+        }
+
+        assertEquals(2026, calendar.get(Calendar.YEAR))
+        assertEquals(Calendar.SEPTEMBER, calendar.get(Calendar.MONTH))
+        assertEquals(23, calendar.get(Calendar.DAY_OF_MONTH))
+        assertEquals(17, calendar.get(Calendar.HOUR_OF_DAY))
+        assertEquals(27, calendar.get(Calendar.MINUTE))
+    }
+
 }
