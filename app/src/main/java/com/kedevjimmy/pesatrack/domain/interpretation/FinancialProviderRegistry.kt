@@ -187,7 +187,6 @@ object FinancialProviderRegistry {
             }
 
         return ownedAssets.singleOrNull()
-            ?: distinctAccounts.singleOrNull()
     }
 
     fun resolveMessageSourceAccount(
