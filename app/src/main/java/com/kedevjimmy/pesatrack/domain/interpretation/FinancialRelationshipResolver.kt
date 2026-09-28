@@ -38,6 +38,15 @@ data class ResolvedReceiptRelationship(
     override val evidence: List<FieldEvidence>
 ) : ResolvedFinancialRelationship
 
+data class ResolvedReversalRelationship(
+    override val amountMinor: Long,
+    val referencedTransactionCode: String,
+    val observedAccount: FinancialAccountReference?,
+    override val feeMinor: Long = 0L,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence>
+) : ResolvedFinancialRelationship
+
 data class ResolvedDebtDrawdownRelationship(
     override val amountMinor: Long,
     val liability: FinancialAccountReference,
@@ -106,12 +115,19 @@ object FinancialRelationshipResolver {
                 candidates = candidates,
                 balances = balances
             )
+        val reversalRelationship =
+            resolveReversal(
+                candidate = candidates.reversal,
+                observedAccount = observedWallet
+            )
 
         val prioritized = candidates.actions
             .sortedBy(::priority)
 
-        val relationship = debtRelationship ?:
-            prioritized.firstNotNullOfOrNull { action ->
+        val relationship =
+            debtRelationship
+                ?: reversalRelationship
+                ?: prioritized.firstNotNullOfOrNull { action ->
                 resolveAction(
                     action = action,
                     observedWallet = observedWallet,
@@ -170,6 +186,67 @@ object FinancialRelationshipResolver {
                         InterpretationConfidence.HIGH
                 )
             )
+        )
+    }
+
+    private fun resolveReversal(
+        candidate: ReversalCandidate?,
+        observedAccount: FinancialAccountReference?
+    ): ResolvedFinancialRelationship? {
+        candidate ?: return null
+        val confidence =
+            if (observedAccount != null) {
+                InterpretationConfidence.HIGH
+            } else {
+                InterpretationConfidence.MEDIUM
+            }
+
+        return ResolvedReversalRelationship(
+            amountMinor = candidate.amountMinor,
+            referencedTransactionCode =
+                candidate.referencedTransactionCode,
+            observedAccount = observedAccount,
+            confidence = confidence,
+            evidence = buildList {
+                add(
+                    evidence(
+                        field = FinancialField.AMOUNT,
+                        origin = EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId + ".amount",
+                        span = candidate.amountSpan,
+                        confidence = confidence
+                    )
+                )
+                add(
+                    evidence(
+                        field =
+                            FinancialField
+                                .RELATED_TRANSACTION_CODE,
+                        origin = EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId +
+                                ".referenced_transaction",
+                        span =
+                            candidate.referencedCodeSpan,
+                        confidence = confidence
+                    )
+                )
+                if (observedAccount != null) {
+                    add(
+                        evidence(
+                            field = FinancialField.ACCOUNT,
+                            origin =
+                                EvidenceOrigin.PROVIDER_PROFILE,
+                            ruleId =
+                                candidate.ruleId +
+                                    ".observed_account",
+                            span = null,
+                            confidence = confidence
+                        )
+                    )
+                }
+            }
         )
     }
 
