@@ -187,6 +187,36 @@ object FinancialProviderRegistry {
             }
 
         return ownedAssets.singleOrNull()
+            ?: distinctAccounts.singleOrNull()
+    }
+
+    fun resolveMessageSourceAccount(
+        title: String?
+    ): FinancialAccountReference? {
+        val sourceTitle = title
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+
+        val profile =
+            messageSourceProfileFor(sourceTitle)
+        if (profile != null) {
+            return referenceForProviderKey(
+                profile.defaultObservedAccountProviderKey
+            )
+        }
+
+        val resolved = resolveAccount(sourceTitle)
+        return if (
+            resolved.nature ==
+                FinancialAccountNature.UNKNOWN
+        ) {
+            resolved.copy(
+                nature = FinancialAccountNature.ASSET
+            )
+        } else {
+            resolved
+        }
     }
 
     private fun messageSourceProfileFor(
