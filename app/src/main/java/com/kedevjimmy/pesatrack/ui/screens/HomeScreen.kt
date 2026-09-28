@@ -660,8 +660,11 @@ private fun debtEventLabel(
                     append("Repaid ")
                 }
                 append(formatMoney(event.amountMinor))
-                if (event.linkedTransactionId != null) {
-                    append(" • linked to incoming funds")
+                when {
+                    event.relatedDebtEventId != null ->
+                        append(" • linked to loan proceeds")
+                    event.linkedTransactionId != null ->
+                        append(" • linked to incoming funds")
                 }
             }
         DebtEventType.FEE ->
