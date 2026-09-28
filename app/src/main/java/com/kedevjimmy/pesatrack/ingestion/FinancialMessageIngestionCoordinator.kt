@@ -7,6 +7,7 @@ import com.kedevjimmy.pesatrack.data.local.FinancialEventStatus
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
+import com.kedevjimmy.pesatrack.domain.interpretation.CashMovementEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
@@ -253,6 +254,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     MpesaTransactionType.BUY_GOODS
                                 PaymentRouteHint.BILL ->
                                     MpesaTransactionType.PAY_BILL
+                                PaymentRouteHint.AIRTIME ->
+                                    MpesaTransactionType.AIRTIME
                             },
                         amountMinor = event.amountMinor,
                         counterparty = event.counterparty,
@@ -308,6 +311,66 @@ class FinancialMessageIngestionCoordinator private constructor(
                             event.counterpartyPhone,
                         feeMinor = event.feeMinor,
                         balanceMinor = mpesaBalance,
+                        occurredAtText =
+                            interpretation.occurredAtText,
+                        rawMessage = body,
+                        reversalOfCode = null
+                    )
+
+                    val inserted =
+                        transactionStore.insertIfNew(
+                            parsed = parsed,
+                            sourcePackage = sourcePackage,
+                            sourceKind =
+                                SOURCE_INTERPRETED_PREFIX +
+                                    sourceKind,
+                            receivedAtEpochMs =
+                                receivedAtEpochMs,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs,
+                            matchedRule = null,
+                            rebuildPayCycles =
+                                rebuildPayCycles,
+                            evidence = null
+                        )
+
+                    if (inserted) {
+                        insertedTransactions += 1
+                        changed = true
+                    }
+                }
+                is CashMovementEventFact -> {
+                    val observedBalance =
+                        interpretation.balances
+                            .firstOrNull {
+                                val account =
+                                    event.source ?:
+                                        event.destination
+                                account == null ||
+                                    it.account.entityKey ==
+                                        account.entityKey
+                            }
+                            ?.balanceMinor
+
+                    val parsed = ParsedMpesaTransaction(
+                        transactionCode =
+                            interpretation.transactionCode,
+                        type =
+                            when (event.kind) {
+                                com.kedevjimmy.pesatrack.domain.interpretation
+                                    .FinancialEventKind.CASH_WITHDRAWAL ->
+                                    MpesaTransactionType.WITHDRAWAL
+                                com.kedevjimmy.pesatrack.domain.interpretation
+                                    .FinancialEventKind.CASH_DEPOSIT ->
+                                    MpesaTransactionType.DEPOSIT
+                                else ->
+                                    MpesaTransactionType.OTHER
+                            },
+                        amountMinor = event.amountMinor,
+                        counterparty = event.counterparty,
+                        counterpartyPhone = null,
+                        feeMinor = event.feeMinor,
+                        balanceMinor = observedBalance,
                         occurredAtText =
                             interpretation.occurredAtText,
                         rawMessage = body,
