@@ -44,7 +44,8 @@ class TransactionStore private constructor(context: Context) {
         rebuildPayCycles: Boolean = true,
         evidence: TransactionEvidenceMatch? = null,
         accountTransferOverride:
-            com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null
+            com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null,
+        accountIdOverride: String? = null
     ): Boolean {
         val fingerprint = TransactionFingerprint.of(parsed, occurredAtEpochMs)
         if (parsed.transactionCode.isNullOrBlank()) {
@@ -110,11 +111,16 @@ class TransactionStore private constructor(context: Context) {
         val accountId = if (useOwnTransfer) {
             ownTransfer!!.sourceAccountId
         } else {
-            matchedRule?.accountId ?: when {
-                parsed.type == MpesaTransactionType.WITHDRAWAL -> AccountStore.DEFAULT_MPESA_ID
-                defaultMpesa -> AccountStore.DEFAULT_MPESA_ID
-                else -> null
-            }
+            accountIdOverride
+                ?: matchedRule?.accountId
+                ?: when {
+                    parsed.type ==
+                        MpesaTransactionType.WITHDRAWAL ->
+                        AccountStore.DEFAULT_MPESA_ID
+                    defaultMpesa ->
+                        AccountStore.DEFAULT_MPESA_ID
+                    else -> null
+                }
         }
         val linkedAccountId = if (useOwnTransfer) {
             ownTransfer!!.destinationAccountId

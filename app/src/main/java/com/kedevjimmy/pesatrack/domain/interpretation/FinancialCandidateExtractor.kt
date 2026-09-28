@@ -76,6 +76,7 @@ data class ReversalCandidate(
 data class FinancialMessageCandidates(
     val transactionCode: TextValueCandidate?,
     val occurredAt: TextValueCandidate?,
+    val moneyValues: List<MoneyValueCandidate>,
     val balances: List<BalanceCandidate>,
     val fee: FeeCandidate?,
     val reversal: ReversalCandidate?,
@@ -85,6 +86,10 @@ data class FinancialMessageCandidates(
 )
 
 object FinancialCandidateExtractor {
+    private val moneyRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
     private val codeRegex = Regex(
         """\b([A-Z0-9]{10})\s+Confirmed\b""",
         RegexOption.IGNORE_CASE
@@ -224,6 +229,7 @@ object FinancialCandidateExtractor {
             return FinancialMessageCandidates(
                 transactionCode = null,
                 occurredAt = null,
+                moneyValues = emptyList(),
                 balances = emptyList(),
                 fee = null,
                 reversal = null,
@@ -259,6 +265,15 @@ object FinancialCandidateExtractor {
                     groupIndex = 1,
                     ruleId = "transaction_time.on_at"
                 ),
+            moneyValues = moneyRegex
+                .findAll(body)
+                .mapNotNull {
+                    it.moneyCandidate(
+                        groupIndex = 1,
+                        ruleId = "money.amount"
+                    )
+                }
+                .toList(),
             balances = balanceRegex
                 .findAll(body)
                 .mapNotNull(::balanceCandidate)

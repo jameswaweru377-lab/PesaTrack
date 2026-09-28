@@ -52,6 +52,7 @@ enum class CanonicalFinancialRecordKind {
     TRANSFER,
     CASH_WITHDRAWAL,
     CASH_DEPOSIT,
+    UNRESOLVED_MOVEMENT,
     REFUND,
     REVERSAL,
     DEBT_DRAWDOWN,
@@ -98,6 +99,22 @@ enum class DebtCompletion {
     PARTIAL,
     FULL,
     UNKNOWN
+}
+
+data class UnresolvedMovementDraft(
+    val amountMinor: Long,
+    val observedAccount: FinancialAccountReference?,
+    val feeMinor: Long = 0L,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence> = emptyList()
+) : CanonicalFinancialRecord {
+    override val kind: CanonicalFinancialRecordKind =
+        CanonicalFinancialRecordKind.UNRESOLVED_MOVEMENT
+
+    init {
+        require(amountMinor >= 0L)
+        require(feeMinor >= 0L)
+    }
 }
 
 data class ReversalDraft(

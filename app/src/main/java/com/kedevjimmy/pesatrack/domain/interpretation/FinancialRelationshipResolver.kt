@@ -58,6 +58,14 @@ data class ResolvedCashDepositRelationship(
     override val evidence: List<FieldEvidence>
 ) : ResolvedFinancialRelationship
 
+data class ResolvedUnresolvedMovementRelationship(
+    override val amountMinor: Long,
+    val observedAccount: FinancialAccountReference?,
+    override val feeMinor: Long,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence>
+) : ResolvedFinancialRelationship
+
 data class ResolvedReversalRelationship(
     override val amountMinor: Long,
     val referencedTransactionCode: String,
@@ -150,17 +158,24 @@ object FinancialRelationshipResolver {
         val prioritized = candidates.actions
             .sortedBy(::priority)
 
-        val relationship =
+        val knownRelationship =
             debtRelationship
                 ?: reversalRelationship
                 ?: cashRelationship
                 ?: prioritized.firstNotNullOfOrNull { action ->
-                resolveAction(
-                    action = action,
-                    observedWallet = observedWallet,
-                    fee = candidates.fee
+                    resolveAction(
+                        action = action,
+                        observedWallet = observedWallet,
+                        fee = candidates.fee
+                    )
+                }
+
+        val relationship =
+            knownRelationship
+                ?: resolveUnresolvedMovement(
+                    candidates = candidates,
+                    observedAccount = observedWallet
                 )
-            }
 
         return ResolvedFinancialMessage(
             transactionCode = candidates.transactionCode,
@@ -169,6 +184,111 @@ object FinancialRelationshipResolver {
             relationship = relationship
         )
     }
+
+    private fun resolveUnresolvedMovement(
+        candidates: FinancialMessageCandidates,
+        observedAccount: FinancialAccountReference?
+    ): ResolvedFinancialRelationship? {
+        // A transaction reference is our minimum safety signal:
+        // do not turn arbitrary currency text into a ledger row.
+        if (candidates.transactionCode == null) {
+            return null
+        }
+
+        val explainedSpans = buildList {
+            candidates.balances.forEach {
+                add(it.amountSpan)
+            }
+            candidates.fee?.let {
+                add(it.amountSpan)
+            }
+            candidates.reversal?.let {
+                add(it.amountSpan)
+            }
+            candidates.cashMovements.forEach {
+                add(it.amountSpan)
+            }
+            candidates.actions.forEach {
+                add(it.amountSpan)
+            }
+            candidates.debt.drawdown?.let {
+                add(it.amountSpan)
+                it.outstandingSpan?.let(::add)
+                it.availableCreditSpan?.let(::add)
+            }
+            candidates.debt.repayment?.let {
+                add(it.amountSpan)
+                it.availableCreditSpan?.let(::add)
+            }
+        }
+
+        val unexplained =
+            candidates.moneyValues.filter { money ->
+                explainedSpans.none { span ->
+                    money.span.overlaps(span)
+                }
+            }
+
+        if (unexplained.size != 1) {
+            return null
+        }
+
+        val amount = unexplained.single()
+        val fee = candidates.fee?.amountMinor ?: 0L
+
+        return ResolvedUnresolvedMovementRelationship(
+            amountMinor = amount.amountMinor,
+            observedAccount = observedAccount,
+            feeMinor = fee,
+            confidence = InterpretationConfidence.LOW,
+            evidence = buildList {
+                add(
+                    evidence(
+                        field = FinancialField.AMOUNT,
+                        origin = EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            "unresolved.unique_amount",
+                        span = amount.span,
+                        confidence =
+                            InterpretationConfidence.LOW
+                    )
+                )
+                if (observedAccount != null) {
+                    add(
+                        evidence(
+                            field = FinancialField.ACCOUNT,
+                            origin =
+                                EvidenceOrigin.PROVIDER_PROFILE,
+                            ruleId =
+                                "unresolved.observed_account",
+                            span = null,
+                            confidence =
+                                InterpretationConfidence.LOW
+                        )
+                    )
+                }
+                candidates.fee?.let {
+                    add(
+                        evidence(
+                            field = FinancialField.FEE,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId = it.ruleId,
+                            span = it.amountSpan,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
+            }
+        )
+    }
+
+    private fun MessageSpan.overlaps(
+        other: MessageSpan
+    ): Boolean =
+        startOffset < other.endOffsetExclusive &&
+            other.startOffset < endOffsetExclusive
 
     private fun resolveBalance(
         candidate: BalanceCandidate
