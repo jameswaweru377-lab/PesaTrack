@@ -79,4 +79,126 @@ class DebtLinkingPoliciesTest {
             match?.confidence
         )
     }
+
+    @Test
+    fun pairsExactTransactionFunding() {
+        val result =
+            DebtFundingPairingPolicy
+                .chooseTransactionShortfallCandidate(
+                    financedMinor = 16_700L,
+                    financedAtEpochMs = 100_000L,
+                    candidates = listOf(
+                        DebtFundingCandidate(
+                            transactionId = 7L,
+                            occurredAtEpochMs = 90_000L,
+                            amountMinor = 16_000L,
+                            transactionFeeMinor = 700L
+                        )
+                    )
+                )
+
+        assertEquals(7L, result)
+    }
+
+    @Test
+    fun refusesDistantTransactionFunding() {
+        val result =
+            DebtFundingPairingPolicy
+                .chooseTransactionShortfallCandidate(
+                    financedMinor = 16_700L,
+                    financedAtEpochMs = 500_000L,
+                    candidates = listOf(
+                        DebtFundingCandidate(
+                            transactionId = 7L,
+                            occurredAtEpochMs = 100_000L,
+                            amountMinor = 16_000L,
+                            transactionFeeMinor = 700L
+                        )
+                    )
+                )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun linksRepaymentWhenIncomingBalanceBeforeRepaymentIsKnown() {
+        val match =
+            DebtRepaymentChainPolicy
+                .chooseFundingTransaction(
+                    repaymentAmountMinor = 22_000L,
+                    walletBalanceAfterMinor = 0L,
+                    repaymentAtEpochMs = 600_000L,
+                    candidates = listOf(
+                        RepaymentFundingCandidate(
+                            transactionId = 41L,
+                            amountMinor = 22_000L,
+                            occurredAtEpochMs = 590_000L,
+                            balanceAfterMinor = 22_000L,
+                            priorBalanceMinor = 0L
+                        )
+                    )
+                )
+
+        assertEquals(41L, match?.transactionId)
+        assertEquals(
+            RepaymentChainConfidence.HIGH,
+            match?.confidence
+        )
+    }
+
+    @Test
+    fun usesUniqueVeryCloseIncomingTransactionWhenBalanceHistoryMissing() {
+        val match =
+            DebtRepaymentChainPolicy
+                .chooseFundingTransaction(
+                    repaymentAmountMinor = 138_100L,
+                    walletBalanceAfterMinor =
+                        1_300_000L,
+                    repaymentAtEpochMs = 600_000L,
+                    candidates = listOf(
+                        RepaymentFundingCandidate(
+                            transactionId = 91L,
+                            amountMinor = 1_438_100L,
+                            occurredAtEpochMs = 570_000L,
+                            balanceAfterMinor = null,
+                            priorBalanceMinor = null
+                        )
+                    )
+                )
+
+        assertEquals(91L, match?.transactionId)
+        assertEquals(
+            RepaymentChainConfidence.MEDIUM,
+            match?.confidence
+        )
+    }
+
+    @Test
+    fun refusesAmbiguousNearbyRepaymentFunding() {
+        val match =
+            DebtRepaymentChainPolicy
+                .chooseFundingTransaction(
+                    repaymentAmountMinor = 138_100L,
+                    walletBalanceAfterMinor = null,
+                    repaymentAtEpochMs = 600_000L,
+                    candidates = listOf(
+                        RepaymentFundingCandidate(
+                            91L,
+                            1_438_100L,
+                            570_000L,
+                            null,
+                            null
+                        ),
+                        RepaymentFundingCandidate(
+                            92L,
+                            5_000_000L,
+                            575_000L,
+                            null,
+                            null
+                        )
+                    )
+                )
+
+        assertNull(match)
+    }
 }
