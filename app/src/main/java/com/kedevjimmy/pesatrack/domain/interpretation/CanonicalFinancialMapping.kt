@@ -216,6 +216,10 @@ fun FinancialMessageInterpretation.toCanonicalDraft():
                             amountMinor = event.amountMinor,
                             liability = event.liability,
                             fundingAccount = null,
+                            proceedsAccount =
+                                event.proceedsAccount,
+                            amountIsNetProceeds =
+                                event.amountIsNetProceeds,
                             completion =
                                 DebtCompletion.UNKNOWN,
                             outstandingAfterMinor =
