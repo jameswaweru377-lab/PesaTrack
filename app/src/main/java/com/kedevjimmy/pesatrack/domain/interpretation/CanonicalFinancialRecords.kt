@@ -21,6 +21,7 @@ enum class FinancialField {
 
 enum class EvidenceOrigin {
     MESSAGE_TEXT,
+    FINANCIAL_GRAMMAR,
     PROVIDER_PROFILE,
     USER_CONFIRMED,
     RECONCILIATION,
