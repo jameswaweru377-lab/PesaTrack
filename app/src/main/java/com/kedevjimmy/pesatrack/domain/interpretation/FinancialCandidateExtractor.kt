@@ -124,6 +124,13 @@ object FinancialCandidateExtractor {
             RegexOption.DOT_MATCHES_ALL
         )
     )
+    private val transferFromNamedSourceRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:transferred|moved)\s+from\s+(.+?)(?=\s+on\s+\d{1,2}[/-]|\.\s*(?:New\s+|Your\s+)?[A-Za-z]|$)""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
     private val receivedFromAccountRegex = Regex(
         """(?:received\s+)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+(.+?)\s+account\b""",
         setOf(
@@ -133,6 +140,13 @@ object FinancialCandidateExtractor {
     )
     private val transferToRegex = Regex(
         """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:transferred|deposited|moved)\s+to\s+(.+?)\s+account\b""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
+    private val transferToNamedDestinationRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:transferred|moved)\s+to\s+(.+?)(?=\s+on\s+\d{1,2}[/-]|\.\s*(?:New\s+|Your\s+)?[A-Za-z]|$)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.DOT_MATCHES_ALL
@@ -247,6 +261,21 @@ object FinancialCandidateExtractor {
     )
     private val transactionReversedRegex = Regex(
         """\b(?:transaction\s+)?([A-Z0-9]{10})\s+(?:of\s+)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?).{0,80}?\b(?:has\s+been\s+)?reversed\b""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
+    private val reversalReferenceRegex = Regex(
+        """\breversal\s+of\s+(?:transaction\s+)?([A-Z0-9]{10})\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val reversedTransactionReferenceRegex = Regex(
+        """\b(?:transaction\s+)?([A-Z0-9]{10})\s+has\s+been\s+(?:successfully\s+)?reversed\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val reversalCreditedAmountRegex = Regex(
+        """\breversed\b.*?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:is|has\s+been)\s+credited\b""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.DOT_MATCHES_ALL
@@ -396,23 +425,50 @@ object FinancialCandidateExtractor {
     private fun reversalCandidate(
         body: String
     ): ReversalCandidate? {
-        val match =
+        val directMatch =
             reversalOfTransactionRegex.find(body)
                 ?: transactionReversedRegex.find(body)
-                ?: return null
+
+        if (directMatch != null) {
+            val referenced =
+                directMatch.groups[1] ?: return null
+            val amount =
+                directMatch.groups[2] ?: return null
+
+            return ReversalCandidate(
+                amountMinor = amountToMinor(amount.value),
+                amountSpan = amount.range.toSpan(),
+                referencedTransactionCode =
+                    referenced.value.uppercase(),
+                referencedCodeSpan =
+                    referenced.range.toSpan(),
+                ruleId = "reversal.transaction"
+            )
+        }
+
         val referenced =
-            match.groups[1] ?: return null
-        val amount =
-            match.groups[2] ?: return null
+            reversalReferenceRegex.find(body)
+                ?.groups?.get(1)
+                ?: reversedTransactionReferenceRegex
+                    .find(body)
+                    ?.groups?.get(1)
+                ?: return null
+        val creditedAmount =
+            reversalCreditedAmountRegex.find(body)
+                ?.groups?.get(1)
+                ?: return null
 
         return ReversalCandidate(
-            amountMinor = amountToMinor(amount.value),
-            amountSpan = amount.range.toSpan(),
+            amountMinor =
+                amountToMinor(creditedAmount.value),
+            amountSpan =
+                creditedAmount.range.toSpan(),
             referencedTransactionCode =
                 referenced.value.uppercase(),
             referencedCodeSpan =
                 referenced.range.toSpan(),
-            ruleId = "reversal.transaction"
+            ruleId =
+                "reversal.transaction.credited_after_reversal"
         )
     }
 
@@ -461,6 +517,7 @@ object FinancialCandidateExtractor {
         val match =
             transferFromRegex.find(body)
                 ?: receivedFromAccountRegex.find(body)
+                ?: transferFromNamedSourceRegex.find(body)
                 ?: return null
         return actionCandidate(
             match = match,
@@ -474,8 +531,10 @@ object FinancialCandidateExtractor {
     private fun transferToCandidate(
         body: String
     ): FinancialActionCandidate? {
-        val match = transferToRegex.find(body)
-            ?: return null
+        val match =
+            transferToRegex.find(body)
+                ?: transferToNamedDestinationRegex.find(body)
+                ?: return null
         return actionCandidate(
             match = match,
             kind =
