@@ -13,6 +13,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterprete
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
 import com.kedevjimmy.pesatrack.domain.interpretation.ReceiptEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.ReversalEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
@@ -311,6 +312,57 @@ class FinancialMessageIngestionCoordinator private constructor(
                             interpretation.occurredAtText,
                         rawMessage = body,
                         reversalOfCode = null
+                    )
+
+                    val inserted =
+                        transactionStore.insertIfNew(
+                            parsed = parsed,
+                            sourcePackage = sourcePackage,
+                            sourceKind =
+                                SOURCE_INTERPRETED_PREFIX +
+                                    sourceKind,
+                            receivedAtEpochMs =
+                                receivedAtEpochMs,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs,
+                            matchedRule = null,
+                            rebuildPayCycles =
+                                rebuildPayCycles,
+                            evidence = null
+                        )
+
+                    if (inserted) {
+                        insertedTransactions += 1
+                        changed = true
+                    }
+                }
+                is ReversalEventFact -> {
+                    val observedBalance =
+                        interpretation.balances
+                            .firstOrNull {
+                                event.observedAccount == null ||
+                                    it.account.entityKey ==
+                                        event
+                                            .observedAccount
+                                            .entityKey
+                            }
+                            ?.balanceMinor
+
+                    val parsed = ParsedMpesaTransaction(
+                        transactionCode =
+                            interpretation.transactionCode,
+                        type =
+                            MpesaTransactionType.REVERSAL,
+                        amountMinor = event.amountMinor,
+                        counterparty = null,
+                        counterpartyPhone = null,
+                        feeMinor = 0L,
+                        balanceMinor = observedBalance,
+                        occurredAtText =
+                            interpretation.occurredAtText,
+                        rawMessage = body,
+                        reversalOfCode =
+                            event.referencedTransactionCode
                     )
 
                     val inserted =
