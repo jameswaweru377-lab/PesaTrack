@@ -201,4 +201,72 @@ class DebtLinkingPoliciesTest {
 
         assertNull(match)
     }
+    @Test
+    fun linksDebtRepaymentToUniqueMatchingLoanProceeds() {
+        val match =
+            DebtProceedsRepaymentLinkPolicy.choose(
+                repaymentAmountMinor = 98_500L,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(
+                    DebtProceedsEventCandidate(
+                        debtEventId = 17L,
+                        amountMinor = 98_500L,
+                        occurredAtEpochMs = 570_000L
+                    )
+                )
+            )
+
+        assertEquals(17L, match?.debtEventId)
+        assertEquals(
+            RepaymentChainConfidence.HIGH,
+            match?.confidence
+        )
+    }
+
+    @Test
+    fun refusesAmbiguousLoanProceedsForDebtRepayment() {
+        val match =
+            DebtProceedsRepaymentLinkPolicy.choose(
+                repaymentAmountMinor = 98_500L,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(
+                    DebtProceedsEventCandidate(
+                        debtEventId = 17L,
+                        amountMinor = 98_500L,
+                        occurredAtEpochMs = 570_000L
+                    ),
+                    DebtProceedsEventCandidate(
+                        debtEventId = 18L,
+                        amountMinor = 98_500L,
+                        occurredAtEpochMs = 580_000L
+                    )
+                )
+            )
+
+        assertNull(match)
+    }
+
+    @Test
+    fun ignoresLoanProceedsWithDifferentAmountOrDistantTime() {
+        val match =
+            DebtProceedsRepaymentLinkPolicy.choose(
+                repaymentAmountMinor = 98_500L,
+                repaymentAtEpochMs = 900_000L,
+                candidates = listOf(
+                    DebtProceedsEventCandidate(
+                        debtEventId = 17L,
+                        amountMinor = 90_000L,
+                        occurredAtEpochMs = 899_000L
+                    ),
+                    DebtProceedsEventCandidate(
+                        debtEventId = 18L,
+                        amountMinor = 98_500L,
+                        occurredAtEpochMs = 100_000L
+                    )
+                )
+            )
+
+        assertNull(match)
+    }
+
 }
