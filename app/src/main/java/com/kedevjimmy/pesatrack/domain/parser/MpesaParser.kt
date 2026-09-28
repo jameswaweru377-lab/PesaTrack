@@ -1,5 +1,8 @@
 package com.kedevjimmy.pesatrack.domain.parser
 
+import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import java.math.RoundingMode
@@ -53,7 +56,17 @@ object MpesaParser {
 
     fun parse(message: String): ParsedMpesaTransaction? {
         val normalized = message.replace(Regex("""\s+"""), " ").trim()
-        if (FulizaParser.isFulizaDebtEvent(normalized)) {
+        val interpreted =
+            FinancialMessageInterpreter.interpret(
+                title = "MPESA",
+                body = normalized
+            )
+        if (
+            interpreted.events.any {
+                it is DebtDrawdownEventFact ||
+                    it is DebtRepaymentEventFact
+            }
+        ) {
             return null
         }
         if (!normalized.contains("M-PESA", ignoreCase = true) &&
