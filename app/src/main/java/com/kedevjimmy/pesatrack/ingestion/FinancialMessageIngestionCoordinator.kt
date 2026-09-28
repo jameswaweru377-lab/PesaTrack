@@ -170,32 +170,6 @@ class FinancialMessageIngestionCoordinator private constructor(
                             )
                         }
 
-                    val parsed = ParsedMpesaTransaction(
-                        transactionCode =
-                            interpretation.transactionCode,
-                        type = transactionTypeFor(
-                            sourceAccountId,
-                            destinationAccountId
-                        ),
-                        amountMinor = event.amountMinor,
-                        counterparty =
-                            if (
-                                destinationAccountId ==
-                                AccountStore.DEFAULT_MPESA_ID
-                            ) {
-                                event.source.displayName
-                            } else {
-                                event.destination.displayName
-                            },
-                        counterpartyPhone = null,
-                        feeMinor = event.feeMinor,
-                        balanceMinor = legacyWalletBalance,
-                        occurredAtText =
-                            interpretation.occurredAtText,
-                        rawMessage = body,
-                        reversalOfCode = null
-                    )
-
                     val ownTransfer =
                         OwnAccountTransferMatch(
                             sourceAccountId =
@@ -210,24 +184,51 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 OwnTransferEvidence.ACCOUNT_NAME
                         )
 
+                    val counterparty =
+                        if (
+                            destinationAccountId ==
+                            AccountStore.DEFAULT_MPESA_ID
+                        ) {
+                            event.source.displayName
+                        } else {
+                            event.destination.displayName
+                        }
+
                     val inserted =
-                        transactionStore.insertIfNew(
-                            parsed = parsed,
-                            sourcePackage = sourcePackage,
-                            sourceKind =
-                                SOURCE_INTERPRETED_PREFIX +
-                                    sourceKind,
-                            receivedAtEpochMs =
-                                receivedAtEpochMs,
-                            occurredAtEpochMs =
-                                occurredAtEpochMs,
-                            matchedRule = null,
-                            rebuildPayCycles =
-                                rebuildPayCycles,
-                            evidence = null,
-                            accountTransferOverride =
-                                ownTransfer
-                        )
+                        transactionStore
+                            .insertInterpretedMoneyMovementIfNew(
+                                kind =
+                                    CanonicalFinancialRecordKind
+                                        .TRANSFER,
+                                transactionCode =
+                                    interpretation.transactionCode,
+                                amountMinor =
+                                    event.amountMinor,
+                                counterparty =
+                                    counterparty,
+                                counterpartyPhone = null,
+                                feeMinor =
+                                    event.feeMinor,
+                                balanceMinor =
+                                    legacyWalletBalance,
+                                occurredAtText =
+                                    interpretation.occurredAtText,
+                                rawMessage = body,
+                                sourcePackage =
+                                    sourcePackage,
+                                sourceKind =
+                                    SOURCE_INTERPRETED_PREFIX +
+                                        sourceKind,
+                                receivedAtEpochMs =
+                                    receivedAtEpochMs,
+                                occurredAtEpochMs =
+                                    occurredAtEpochMs,
+                                matchedRule = null,
+                                rebuildPayCycles =
+                                    rebuildPayCycles,
+                                accountTransferOverride =
+                                    ownTransfer
+                            )
 
                     if (inserted) {
                         insertedTransactions += 1

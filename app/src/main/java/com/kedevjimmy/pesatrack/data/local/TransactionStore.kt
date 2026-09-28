@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import com.kedevjimmy.pesatrack.domain.ingestion.LegacyTransactionTypeCompatibility
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionFingerprint
 import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKind
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
@@ -60,42 +61,24 @@ class TransactionStore private constructor(context: Context) {
         occurredAtEpochMs: Long = receivedAtEpochMs,
         matchedRule: SmartRule? = null,
         rebuildPayCycles: Boolean = true,
-        accountIdOverride: String? = null
+        accountIdOverride: String? = null,
+        accountTransferOverride:
+            com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null
     ): Boolean {
         val legacyType =
-            when (kind) {
-                CanonicalFinancialRecordKind.PAYMENT ->
-                    when (
-                        requireNotNull(paymentRouteHint) {
-                            "Payment movement requires a route hint."
-                        }
-                    ) {
-                        PaymentRouteHint.PERSON_TO_PERSON ->
-                            MpesaTransactionType.SENT_MONEY
-                        PaymentRouteHint.MERCHANT ->
-                            MpesaTransactionType.BUY_GOODS
-                        PaymentRouteHint.BILL ->
-                            MpesaTransactionType.PAY_BILL
-                        PaymentRouteHint.AIRTIME ->
-                            MpesaTransactionType.AIRTIME
-                    }
-
-                CanonicalFinancialRecordKind.RECEIPT ->
-                    if (
-                        accountIdOverride ==
+            LegacyTransactionTypeCompatibility.resolve(
+                kind = kind,
+                paymentRouteHint = paymentRouteHint,
+                sourceIsMpesa =
+                    accountTransferOverride?.sourceAccountId ==
+                        AccountStore.DEFAULT_MPESA_ID,
+                destinationIsMpesa =
+                    accountIdOverride ==
+                        AccountStore.DEFAULT_MPESA_ID ||
+                        accountTransferOverride
+                            ?.destinationAccountId ==
                         AccountStore.DEFAULT_MPESA_ID
-                    ) {
-                        MpesaTransactionType.RECEIVED
-                    } else {
-                        MpesaTransactionType.OTHER
-                    }
-
-                else ->
-                    error(
-                        "Only payment and receipt movements " +
-                            "are supported by this migration boundary."
-                    )
-            }
+            )
 
         val legacyParsed =
             ParsedMpesaTransaction(
@@ -124,6 +107,8 @@ class TransactionStore private constructor(context: Context) {
             rebuildPayCycles =
                 rebuildPayCycles,
             evidence = null,
+            accountTransferOverride =
+                accountTransferOverride,
             accountIdOverride =
                 accountIdOverride
         )
