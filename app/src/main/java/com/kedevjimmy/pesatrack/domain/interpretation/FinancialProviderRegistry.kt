@@ -120,7 +120,11 @@ object FinancialProviderRegistry {
         )
     )
 
-    fun resolveAccount(rawLabel: String): FinancialAccountReference {
+    fun resolveAccount(
+        rawLabel: String,
+        context: FinancialInterpretationContext =
+            FinancialInterpretationContext.EMPTY
+    ): FinancialAccountReference {
         val cleaned = cleanAccountLabel(rawLabel)
         val normalized = normalize(cleaned)
 
@@ -142,6 +146,9 @@ object FinancialProviderRegistry {
             )
         }
 
+        context.resolveLearnedAccount(cleaned)
+            ?.let { return it }
+
         return FinancialAccountReference(
             entityKey = "discovered:" + slug(normalized),
             displayName = cleaned,
@@ -154,7 +161,9 @@ object FinancialProviderRegistry {
 
     fun resolveObservedAccount(
         title: String?,
-        balances: List<BalanceObservationFact>
+        balances: List<BalanceObservationFact>,
+        context: FinancialInterpretationContext =
+            FinancialInterpretationContext.EMPTY
     ): FinancialAccountReference? {
         val distinctAccounts =
             balances.map { it.account }
@@ -177,6 +186,9 @@ object FinancialProviderRegistry {
                     ?: preferred
             }
         }
+
+        context.observedAccountForTitle(title)
+            ?.let { return it }
 
         val ownedAssets =
             distinctAccounts.filter {
