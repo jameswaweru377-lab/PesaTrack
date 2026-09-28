@@ -11,6 +11,9 @@ data class DebtDrawdownCandidate(
     val outstandingSpan: MessageSpan?,
     val availableCreditAfterMinor: Long?,
     val availableCreditSpan: MessageSpan?,
+    val proceedsAccountLabel: String? = null,
+    val proceedsAccountSpan: MessageSpan? = null,
+    val amountIsNetProceeds: Boolean = false,
     val ruleId: String
 )
 
@@ -62,6 +65,22 @@ object DebtCandidateExtractor {
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.MULTILINE
+        )
+    )
+
+    private val approvedLoanRegex = Regex(
+        """(?:^|[.!?]\s+)(?:Your\s+)?([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,5}\s+loan)\s+has\s+been\s+(?:approved|disbursed)\b""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.MULTILINE
+        )
+    )
+
+    private val loanProceedsRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)(?:\s+less\s+[^.!?]{1,80})?\s+has\s+been\s+(?:deposited|credited|disbursed)\s+(?:into|to)\s+(?:your\s+)?(.+?)(?=\s+account\b|[.!?]|$)""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
         )
     )
 
@@ -146,6 +165,71 @@ object DebtCandidateExtractor {
             return DebtMessageCandidates(
                 drawdown = null,
                 repayment = repayment
+            )
+        }
+
+        val approvedLoan =
+            approvedLoanRegex.find(body)
+        val loanProceeds =
+            loanProceedsRegex.find(body)
+
+        if (
+            approvedLoan != null &&
+            loanProceeds != null
+        ) {
+            val liability =
+                approvedLoan.groups[1]
+                    ?: return DebtMessageCandidates(
+                        null,
+                        null
+                    )
+            val amount =
+                loanProceeds.groups[1]
+                    ?: return DebtMessageCandidates(
+                        null,
+                        null
+                    )
+            val destination =
+                loanProceeds.groups[2]
+                    ?: return DebtMessageCandidates(
+                        null,
+                        null
+                    )
+
+            return DebtMessageCandidates(
+                drawdown =
+                    DebtDrawdownCandidate(
+                        amountMinor =
+                            amountToMinor(amount.value),
+                        amountSpan =
+                            amount.range.toSpan(),
+                        liabilityLabel =
+                            liability.value.trim(),
+                        liabilitySpan =
+                            liability.range.toSpan(),
+                        outstandingAfterMinor = null,
+                        outstandingSpan = null,
+                        availableCreditAfterMinor =
+                            available
+                                ?.groups
+                                ?.get(2)
+                                ?.value
+                                ?.let(::amountToMinor),
+                        availableCreditSpan =
+                            available
+                                ?.groups
+                                ?.get(2)
+                                ?.range
+                                ?.toSpan(),
+                        proceedsAccountLabel =
+                            destination.value.trim(),
+                        proceedsAccountSpan =
+                            destination.range.toSpan(),
+                        amountIsNetProceeds = true,
+                        ruleId =
+                            "debt.drawdown.approved_disbursement"
+                    ),
+                repayment = null
             )
         }
 
