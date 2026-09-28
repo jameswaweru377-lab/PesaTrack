@@ -26,6 +26,12 @@ data class FinancialProviderAccountKnowledge(
     val debtBehavior: DebtProductBehavior? = null
 )
 
+data class FinancialMessageSourceProfile(
+    val profileKey: String,
+    val titleAliases: Set<String>,
+    val defaultObservedAccountProviderKey: String
+)
+
 object FinancialProviderRegistry {
     private val known = listOf(
         // Specific products must come before broader family names.
@@ -102,6 +108,18 @@ object FinancialProviderRegistry {
         )
     )
 
+    private val messageSources = listOf(
+        FinancialMessageSourceProfile(
+            profileKey = "SAFARICOM_MPESA_MESSAGES",
+            titleAliases = setOf(
+                "M PESA",
+                "MPESA"
+            ),
+            defaultObservedAccountProviderKey =
+                "SAFARICOM_MPESA"
+        )
+    )
+
     fun resolveAccount(rawLabel: String): FinancialAccountReference {
         val cleaned = cleanAccountLabel(rawLabel)
         val normalized = normalize(cleaned)
@@ -132,6 +150,61 @@ object FinancialProviderRegistry {
             ownershipHint = AccountOwnershipHint.UNKNOWN,
             nature = FinancialAccountNature.UNKNOWN
         )
+    }
+
+    fun resolveObservedAccount(
+        title: String?,
+        balances: List<BalanceObservationFact>
+    ): FinancialAccountReference? {
+        val distinctAccounts =
+            balances.map { it.account }
+                .distinctBy { it.entityKey }
+
+        val sourceProfile =
+            messageSourceProfileFor(title)
+        if (sourceProfile != null) {
+            val preferred =
+                referenceForProviderKey(
+                    sourceProfile
+                        .defaultObservedAccountProviderKey
+                )
+            if (preferred != null) {
+                return distinctAccounts
+                    .firstOrNull {
+                        it.providerKey ==
+                            preferred.providerKey
+                    }
+                    ?: preferred
+            }
+        }
+
+        val ownedAssets =
+            distinctAccounts.filter {
+                it.ownershipHint ==
+                    AccountOwnershipHint.USER_OWNED &&
+                    it.nature ==
+                        FinancialAccountNature.ASSET
+            }
+
+        return ownedAssets.singleOrNull()
+    }
+
+    private fun messageSourceProfileFor(
+        title: String?
+    ): FinancialMessageSourceProfile? {
+        val normalizedTitle =
+            title?.let(::normalize)
+                ?.takeIf { it.isNotBlank() }
+                ?: return null
+
+        return messageSources.firstOrNull { profile ->
+            profile.titleAliases.any { alias ->
+                normalizedTitle == alias ||
+                    normalizedTitle.startsWith(
+                        "$alias "
+                    )
+            }
+        }
     }
 
     fun mpesaAccount(): FinancialAccountReference =
