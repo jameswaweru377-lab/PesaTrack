@@ -98,6 +98,10 @@ class FinancialProviderRegistryTest {
             "fuliza",
             behavior?.eventNamespace
         )
+        assertEquals(
+            "debt-fuliza-mpesa",
+            behavior?.stableDebtAccountId
+        )
     }
 
     @Test
