@@ -50,6 +50,20 @@ object LegacyTransactionTypeCompatibility {
                         MpesaTransactionType.OTHER
                 }
 
+            CanonicalFinancialRecordKind.CASH_WITHDRAWAL ->
+                if (sourceIsMpesa) {
+                    MpesaTransactionType.WITHDRAWAL
+                } else {
+                    MpesaTransactionType.OTHER
+                }
+
+            CanonicalFinancialRecordKind.CASH_DEPOSIT ->
+                if (destinationIsMpesa) {
+                    MpesaTransactionType.DEPOSIT
+                } else {
+                    MpesaTransactionType.OTHER
+                }
+
             else ->
                 error(
                     "Unsupported canonical movement kind: $kind"
