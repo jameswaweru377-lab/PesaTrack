@@ -65,6 +65,33 @@ object FinancialEventClassifier {
                             relationship.evidence
                     )
                 )
+            is ResolvedCashMovementRelationship ->
+                listOf(
+                    CashMovementEventFact(
+                        kind =
+                            when (
+                                relationship.movementKind
+                            ) {
+                                CashMovementCandidateKind.WITHDRAWAL ->
+                                    FinancialEventKind.CASH_WITHDRAWAL
+                                CashMovementCandidateKind.DEPOSIT ->
+                                    FinancialEventKind.CASH_DEPOSIT
+                            },
+                        amountMinor =
+                            relationship.amountMinor,
+                        source = relationship.source,
+                        destination =
+                            relationship.destination,
+                        counterparty =
+                            relationship.counterparty,
+                        feeMinor =
+                            relationship.feeMinor,
+                        confidence =
+                            relationship.confidence,
+                        evidence =
+                            relationship.evidence
+                    )
+                )
             is ResolvedReversalRelationship ->
                 listOf(
                     ReversalEventFact(
