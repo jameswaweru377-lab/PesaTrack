@@ -1,10 +1,12 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,9 +16,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.FactCheck
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
@@ -58,6 +65,7 @@ import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
 import com.kedevjimmy.pesatrack.ui.components.BudgetProgressCard
 import com.kedevjimmy.pesatrack.ui.components.BudgetProgressItem
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
+import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.MoneySummaryTile
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.PesaTrackTopBar
@@ -612,7 +620,7 @@ private fun DebtOverviewCard(
             .DebtAccountSnapshot
         >
 ) {
-    val displayAccounts =
+    val sortedAccounts =
         accounts.sortedWith(
             compareByDescending<
                 com.kedevjimmy.pesatrack.data.local
@@ -622,11 +630,7 @@ private fun DebtOverviewCard(
             }.thenBy {
                 it.name.lowercase()
             }
-        ).take(3)
-    val totalOutstanding =
-        accounts.sumOf {
-            it.outstandingMinor
-        }.coerceAtLeast(0L)
+        )
 
     PesaCard {
         Column(Modifier.padding(15.dp)) {
@@ -635,7 +639,20 @@ private fun DebtOverviewCard(
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
-                Column(Modifier.weight(1f)) {
+                IconBubble(
+                    icon = Icons.Rounded.CreditCard,
+                    size = 42.dp,
+                    background =
+                        MaterialTheme.colorScheme
+                            .primaryContainer,
+                    tint =
+                        MaterialTheme.colorScheme.primary
+                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 11.dp)
+                ) {
                     Text(
                         "Debt overview",
                         style =
@@ -654,26 +671,85 @@ private fun DebtOverviewCard(
                                 .onSurfaceVariant
                     )
                 }
-                Text(
-                    formatMoney(totalOutstanding),
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Surface(
+                    shape =
+                        androidx.compose.foundation.shape
+                            .RoundedCornerShape(999.dp),
+                    color = androidx.compose.ui.graphics.Color.Transparent,
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme
+                            .outlineVariant
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(
+                            horizontal = 12.dp,
+                            vertical = 8.dp
+                        ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "View all debt",
+                            style =
+                                MaterialTheme.typography
+                                    .labelMedium,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .primary
+                        )
+                        Icon(
+                            Icons.Rounded.ChevronRight,
+                            contentDescription = null,
+                            tint =
+                                MaterialTheme.colorScheme
+                                    .primary,
+                            modifier = Modifier
+                                .padding(start = 2.dp)
+                                .size(17.dp)
+                        )
+                    }
+                }
             }
 
-            if (displayAccounts.isNotEmpty()) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+            ) {
+                val visibleCount =
+                    if (maxWidth >= 600.dp) {
+                        3
+                    } else {
+                        2
+                    }
+                val displayAccounts =
+                    sortedAccounts.take(visibleCount)
+
                 Row(
-                    modifier =
-                        Modifier.padding(top = 12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement =
                         Arrangement.spacedBy(8.dp)
                 ) {
-                    displayAccounts.forEach {
-                        account ->
+                    displayAccounts.forEachIndexed {
+                            index,
+                            account ->
+                        val icon =
+                            when (index % 3) {
+                                0 ->
+                                    Icons.Rounded.CreditCard
+                                1 ->
+                                    Icons.Rounded.Savings
+                                else ->
+                                    Icons.Rounded.AccountBalance
+                            }
+                        val tone =
+                            premiumCategoryColor(index)
+
                         Surface(
-                            modifier = Modifier.weight(1f),
+                            modifier =
+                                Modifier.weight(1f),
                             shape =
                                 androidx.compose.foundation
                                     .shape.RoundedCornerShape(
@@ -684,71 +760,71 @@ private fun DebtOverviewCard(
                                     .surfaceVariant
                                     .copy(alpha = .55f)
                         ) {
-                            Column(
+                            Row(
                                 modifier =
                                     Modifier.padding(
-                                        horizontal = 11.dp,
+                                        horizontal = 10.dp,
                                         vertical = 10.dp
-                                    )
-                            ) {
-                                Text(
-                                    account.name,
-                                    style =
-                                        MaterialTheme.typography
-                                            .labelMedium,
-                                    maxLines = 1,
-                                    overflow =
-                                        androidx.compose.ui.text
-                                            .style.TextOverflow
-                                            .Ellipsis
-                                )
-                                Text(
-                                    formatMoney(
-                                        account
-                                            .outstandingMinor
                                     ),
+                                verticalAlignment =
+                                    Alignment.CenterVertically
+                            ) {
+                                IconBubble(
+                                    icon = icon,
+                                    size = 36.dp,
+                                    background =
+                                        tone.copy(alpha = .16f),
+                                    tint = tone
+                                )
+                                Column(
                                     modifier =
-                                        Modifier.padding(
-                                            top = 3.dp
+                                        Modifier
+                                            .weight(1f)
+                                            .padding(
+                                                start = 8.dp
+                                            )
+                                ) {
+                                    Text(
+                                        account.name,
+                                        style =
+                                            MaterialTheme.typography
+                                                .labelMedium,
+                                        maxLines = 1,
+                                        overflow =
+                                            androidx.compose.ui.text
+                                                .style.TextOverflow
+                                                .Ellipsis
+                                    )
+                                    Text(
+                                        formatMoney(
+                                            account
+                                                .outstandingMinor
                                         ),
-                                    style =
-                                        MaterialTheme.typography
-                                            .titleSmall,
-                                    fontWeight =
-                                        FontWeight.Bold,
-                                    maxLines = 1
+                                        modifier =
+                                            Modifier.padding(
+                                                top = 2.dp
+                                            ),
+                                        style =
+                                            MaterialTheme.typography
+                                                .titleSmall,
+                                        fontWeight =
+                                            FontWeight.Bold,
+                                        maxLines = 1
+                                    )
+                                }
+                                Icon(
+                                    Icons.Rounded.ChevronRight,
+                                    contentDescription = null,
+                                    tint =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant,
+                                    modifier =
+                                        Modifier.size(17.dp)
                                 )
                             }
                         }
                     }
                 }
-            }
-
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 11.dp),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                Text(
-                    "View all debt",
-                    modifier = Modifier.weight(1f),
-                    style =
-                        MaterialTheme.typography
-                            .labelLarge,
-                    color =
-                        MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    "›",
-                    style =
-                        MaterialTheme.typography
-                            .titleLarge,
-                    color =
-                        MaterialTheme.colorScheme.primary
-                )
             }
         }
     }
@@ -784,145 +860,132 @@ private fun WalletsAndBalancesCard(
                 )
             }
 
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 11.dp),
-                shape =
-                    androidx.compose.foundation.shape
-                        .RoundedCornerShape(18.dp),
-                color =
-                    MaterialTheme.colorScheme
-                        .surfaceVariant
-                        .copy(alpha = .55f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(
-                        horizontal = 13.dp,
-                        vertical = 11.dp
-                    ),
-                    verticalAlignment =
-                        Alignment.CenterVertically
-                ) {
-                    Surface(
-                        modifier = Modifier.size(38.dp),
-                        shape = CircleShape,
-                        color =
-                            MaterialTheme.colorScheme
-                                .primaryContainer
+            WalletBalanceRow(
+                icon = Icons.Rounded.AccountBalanceWallet,
+                label = "M-PESA balance",
+                supportingText =
+                    if (
+                        mpesaObservedAtEpochMs != null
                     ) {
-                        Box(
-                            contentAlignment =
-                                Alignment.Center
-                        ) {
-                            Text(
-                                "M",
-                                style =
-                                    MaterialTheme.typography
-                                        .titleMedium,
-                                fontWeight =
-                                    FontWeight.Bold,
-                                color =
-                                    MaterialTheme.colorScheme
-                                        .primary
+                        "Last observed " +
+                            formatDateTime(
+                                mpesaObservedAtEpochMs
                             )
-                        }
-                    }
+                    } else {
+                        "Waiting for a balance observation"
+                    },
+                value =
+                    mpesaBalanceMinor
+                        ?.let(::formatMoney)
+                        ?: "—",
+                tone = 0,
+                modifier = Modifier.padding(top = 11.dp)
+            )
 
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 11.dp)
-                    ) {
-                        Text(
-                            "M-PESA balance",
-                            style =
-                                MaterialTheme.typography
-                                    .titleMedium
-                        )
-                        Text(
-                            if (
-                                mpesaObservedAtEpochMs !=
-                                null
-                            ) {
-                                "Last observed " +
-                                    formatDateTime(
-                                        mpesaObservedAtEpochMs
-                                    )
-                            } else {
-                                "Waiting for a balance observation"
-                            },
-                            modifier =
-                                Modifier.padding(top = 2.dp),
-                            style =
-                                MaterialTheme.typography
-                                    .labelSmall,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant,
-                            maxLines = 1,
-                            overflow =
-                                androidx.compose.ui.text
-                                    .style.TextOverflow
-                                    .Ellipsis
-                        )
-                    }
-
-                    Text(
-                        mpesaBalanceMinor
-                            ?.let(::formatMoney)
-                            ?: "—",
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        horizontal = 4.dp,
-                        vertical = 11.dp
-                    ),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                Text(
-                    "Tracked accounts",
-                    modifier = Modifier.weight(1f),
-                    style =
-                        MaterialTheme.typography
-                            .bodyMedium,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
-                Text(
+            WalletBalanceRow(
+                icon = Icons.Rounded.AccountBalance,
+                label = "Tracked accounts",
+                supportingText = null,
+                value =
                     trackedAccountCount.toString() +
                         if (trackedAccountCount == 1) {
                             " account"
                         } else {
                             " accounts"
                         },
-                    style =
-                        MaterialTheme.typography
-                            .labelLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
+                tone = 1,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun WalletBalanceRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    supportingText: String?,
+    value: String,
+    tone: Int,
+    modifier: Modifier = Modifier
+) {
+    val accent = premiumCategoryColor(tone)
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape =
+            androidx.compose.foundation.shape
+                .RoundedCornerShape(18.dp),
+        color =
+            MaterialTheme.colorScheme
+                .surfaceVariant
+                .copy(alpha = .55f)
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 13.dp,
+                vertical = 11.dp
+            ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            IconBubble(
+                icon = icon,
+                size = 38.dp,
+                background =
+                    accent.copy(alpha = .16f),
+                tint = accent
+            )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 11.dp)
+            ) {
                 Text(
-                    "  ›",
+                    label,
                     style =
                         MaterialTheme.typography
-                            .titleMedium,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
+                            .titleMedium
                 )
+                if (!supportingText.isNullOrBlank()) {
+                    Text(
+                        supportingText,
+                        modifier =
+                            Modifier.padding(top = 2.dp),
+                        style =
+                            MaterialTheme.typography
+                                .labelSmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant,
+                        maxLines = 1,
+                        overflow =
+                            androidx.compose.ui.text
+                                .style.TextOverflow
+                                .Ellipsis
+                    )
+                }
             }
+
+            Text(
+                value,
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant,
+                modifier = Modifier
+                    .padding(start = 5.dp)
+                    .size(18.dp)
+            )
         }
     }
 }

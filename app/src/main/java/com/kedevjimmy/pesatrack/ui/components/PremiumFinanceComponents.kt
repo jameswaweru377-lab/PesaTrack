@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.TrendingDown
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.Icon
@@ -229,13 +230,13 @@ fun AvailableToLiveHero(
                     DailyHeroMetric(
                         label = "Spent today",
                         amount = spentToday ?: "—",
-                        symbol = "↘",
+                        icon = Icons.Rounded.TrendingDown,
                         modifier = Modifier.weight(1f)
                     )
                     DailyHeroMetric(
                         label = "Safe today",
                         amount = safeToday ?: "—",
-                        symbol = "✓",
+                        icon = Icons.Rounded.Shield,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -259,7 +260,7 @@ fun AvailableToLiveHero(
 private fun DailyHeroMetric(
     label: String,
     amount: String,
-    symbol: String,
+    icon: ImageVector,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -280,13 +281,11 @@ private fun DailyHeroMetric(
                 color = Color.White.copy(alpha = .10f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        symbol,
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Color.White
                     )
                 }
             }
