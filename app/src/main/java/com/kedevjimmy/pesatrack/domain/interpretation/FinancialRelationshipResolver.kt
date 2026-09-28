@@ -78,6 +78,8 @@ data class ResolvedReversalRelationship(
 data class ResolvedDebtDrawdownRelationship(
     override val amountMinor: Long,
     val liability: FinancialAccountReference,
+    val proceedsAccount: FinancialAccountReference?,
+    val amountIsNetProceeds: Boolean,
     override val feeMinor: Long,
     val outstandingAfterMinor: Long?,
     val availableCreditAfterMinor: Long?,
@@ -598,6 +600,12 @@ object FinancialRelationshipResolver {
                 resolveLiability(
                     drawdown.liabilityLabel
                 )
+            val proceedsAccount =
+                drawdown.proceedsAccountLabel
+                    ?.let(
+                        FinancialProviderRegistry::
+                            resolveAccount
+                    )
             val fee =
                 candidates.fee?.amountMinor
                     ?: 0L
@@ -628,6 +636,26 @@ object FinancialRelationshipResolver {
                             InterpretationConfidence.HIGH
                     )
                 )
+                if (
+                    proceedsAccount != null &&
+                    drawdown.proceedsAccountSpan != null
+                ) {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField.DESTINATION_ACCOUNT,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId =
+                                drawdown.ruleId +
+                                    ".proceeds_account",
+                            span =
+                                drawdown.proceedsAccountSpan,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
                 drawdown.outstandingSpan?.let {
                     add(
                         evidence(
@@ -681,6 +709,10 @@ object FinancialRelationshipResolver {
                 amountMinor =
                     drawdown.amountMinor,
                 liability = liability,
+                proceedsAccount =
+                    proceedsAccount,
+                amountIsNetProceeds =
+                    drawdown.amountIsNetProceeds,
                 feeMinor = fee,
                 outstandingAfterMinor =
                     drawdown
