@@ -200,6 +200,82 @@ class FinancialInterpretationPipelineTest {
     }
 
     @Test
+    fun cashWithdrawalResolvesSourceAndAgentWithoutProviderBranch() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "MPESA",
+                body =
+                    "TST12PIPE8 Confirmed. Ksh 1,000.00 withdrawn from M-PESA at SAMPLE AGENT on 28/9/26 at 8:20 AM. New M-PESA balance is Ksh 10,950.00."
+            )
+
+        val cash =
+            interpretation.events.single() as
+                CashMovementEventFact
+
+        assertEquals(
+            FinancialEventKind.CASH_WITHDRAWAL,
+            cash.kind
+        )
+        assertEquals(
+            "SAFARICOM_MPESA",
+            cash.source?.providerKey
+        )
+        assertEquals(null, cash.destination)
+        assertEquals("SAMPLE AGENT", cash.counterparty)
+        assertEquals(100_000L, cash.amountMinor)
+    }
+
+    @Test
+    fun cashDepositResolvesDestinationWithoutInventingSender() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "MPESA",
+                body =
+                    "TST12PIPE9 Confirmed. Ksh 2,000.00 deposited into your M-PESA on 28/9/26 at 8:30 AM. New M-PESA balance is Ksh 12,950.00."
+            )
+
+        val cash =
+            interpretation.events.single() as
+                CashMovementEventFact
+
+        assertEquals(
+            FinancialEventKind.CASH_DEPOSIT,
+            cash.kind
+        )
+        assertEquals(null, cash.source)
+        assertEquals(
+            "SAFARICOM_MPESA",
+            cash.destination?.providerKey
+        )
+        assertEquals(null, cash.counterparty)
+    }
+
+    @Test
+    fun airtimePurchaseIsPaymentNotSpecialCompanyParser() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "MPESA",
+                body =
+                    "TST12PIP10 Confirmed. Ksh 100.00 airtime purchased on 28/9/26 at 8:40 AM. New M-PESA balance is Ksh 12,850.00."
+            )
+
+        val payment =
+            interpretation.events.single() as
+                PaymentEventFact
+
+        assertEquals(
+            PaymentRouteHint.AIRTIME,
+            payment.routeHint
+        )
+        assertEquals("Airtime", payment.counterparty)
+        assertEquals(
+            "SAFARICOM_MPESA",
+            payment.source.providerKey
+        )
+        assertEquals(10_000L, payment.amountMinor)
+    }
+
+    @Test
     fun transferredToUnknownAccountStaysTransferForReview() {
         val interpretation =
             FinancialMessageInterpreter.interpret(
