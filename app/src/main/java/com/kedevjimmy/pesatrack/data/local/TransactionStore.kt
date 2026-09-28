@@ -61,6 +61,7 @@ class TransactionStore private constructor(context: Context) {
         occurredAtEpochMs: Long = receivedAtEpochMs,
         matchedRule: SmartRule? = null,
         rebuildPayCycles: Boolean = true,
+        reversalOfCode: String? = null,
         accountIdOverride: String? = null,
         accountTransferOverride:
             com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null
@@ -92,7 +93,7 @@ class TransactionStore private constructor(context: Context) {
                 balanceMinor = balanceMinor,
                 occurredAtText = occurredAtText,
                 rawMessage = rawMessage,
-                reversalOfCode = null
+                reversalOfCode = reversalOfCode
             )
 
         return insertIfNew(
@@ -110,7 +111,8 @@ class TransactionStore private constructor(context: Context) {
             accountTransferOverride =
                 accountTransferOverride,
             accountIdOverride =
-                accountIdOverride
+                accountIdOverride,
+            allowLegacyAccountFallback = false
         )
     }
 
@@ -126,7 +128,8 @@ class TransactionStore private constructor(context: Context) {
         evidence: TransactionEvidenceMatch? = null,
         accountTransferOverride:
             com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null,
-        accountIdOverride: String? = null
+        accountIdOverride: String? = null,
+        allowLegacyAccountFallback: Boolean = true
     ): Boolean {
         val fingerprint = TransactionFingerprint.of(parsed, occurredAtEpochMs)
         if (parsed.transactionCode.isNullOrBlank()) {
@@ -187,8 +190,15 @@ class TransactionStore private constructor(context: Context) {
             ?: matchedRule?.name?.takeIf { it.isNotBlank() }
 
         val defaultMpesa =
-            sourceKind.contains("mpesa", ignoreCase = true) ||
-                parsed.type != MpesaTransactionType.OTHER
+            allowLegacyAccountFallback &&
+                (
+                    sourceKind.contains(
+                        "mpesa",
+                        ignoreCase = true
+                    ) ||
+                        parsed.type !=
+                        MpesaTransactionType.OTHER
+                    )
         val accountId = if (useOwnTransfer) {
             ownTransfer!!.sourceAccountId
         } else {
