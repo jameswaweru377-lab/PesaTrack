@@ -115,4 +115,37 @@ class GenericDebtInterpretationTest {
                 TransferEventFact
         )
     }
+
+    @Test
+    fun knownProviderAccessFeeVariantUsesSameGenericDebtGrammar() {
+        val message =
+            "ABCD12EFGH Confirmed. Fuliza M-PESA amount Ksh90.00. Access Fee charge of Ksh0.90. Total Fuliza M-PESA outstanding amount is Ksh90.90."
+
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "MPESA",
+                body = message
+            )
+
+        val event =
+            interpretation.events.single() as
+                DebtDrawdownEventFact
+
+        assertEquals(9_000L, event.amountMinor)
+        assertEquals(90L, event.feeMinor)
+        assertEquals(
+            9_090L,
+            event.outstandingAfterMinor
+        )
+        assertEquals(
+            "SAFARICOM_FULIZA",
+            event.liability.providerKey
+        )
+        assertFalse(
+            interpretation
+                .toCanonicalDraft()
+                .requiresLegacyFallback
+        )
+    }
+
 }

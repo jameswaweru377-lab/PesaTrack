@@ -2,6 +2,25 @@ package com.kedevjimmy.pesatrack.domain.rules
 
 import kotlin.math.abs
 
+enum class RepaymentChainConfidence {
+    HIGH,
+    MEDIUM
+}
+
+data class RepaymentFundingCandidate(
+    val transactionId: Long,
+    val amountMinor: Long,
+    val occurredAtEpochMs: Long,
+    val balanceAfterMinor: Long?,
+    val priorBalanceMinor: Long?
+)
+
+data class RepaymentFundingMatch(
+    val transactionId: Long,
+    val confidence: RepaymentChainConfidence,
+    val reason: String
+)
+
 data class DebtFundingCandidate(
     val transactionId: Long,
     val occurredAtEpochMs: Long,

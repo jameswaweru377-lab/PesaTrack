@@ -3,15 +3,12 @@ package com.kedevjimmy.pesatrack.ingestion
 import android.content.Context
 import android.provider.Telephony
 import com.kedevjimmy.pesatrack.data.local.AccountStore
-import com.kedevjimmy.pesatrack.data.local.DebtStore
-import com.kedevjimmy.pesatrack.data.local.FulizaStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
 import com.kedevjimmy.pesatrack.domain.parser.ConfiguredMoneyParser
-import com.kedevjimmy.pesatrack.domain.parser.FulizaParser
 import com.kedevjimmy.pesatrack.domain.parser.MpesaParser
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
@@ -107,35 +104,6 @@ class HistoricalSmsImporter(
                 }
 
                 if (MpesaMessageDetector.isLikelyMpesa(address, body)) {
-                    val fuliza = FulizaParser.parse(body)
-                    if (fuliza != null) {
-                        val fulizaResult = FulizaStore.get(context).insertOrUpdate(
-                            parsed = fuliza,
-                            sourcePackage = null,
-                            sourceKind = SOURCE_HISTORICAL_FULIZA_SMS,
-                            occurredAtEpochMs = smsDate
-                        )
-                        matched += 1
-                        fulizaMessages += 1
-                        if (!fulizaResult.inserted) duplicates += 1
-                        continue
-                    }
-
-                    val fulizaRepayment =
-                        FulizaParser.parseRepayment(body)
-                    if (fulizaRepayment != null) {
-                        DebtStore.get(context).recordFulizaRepayment(
-                            parsed = fulizaRepayment,
-                            sourcePackage = null,
-                            sourceKind =
-                                SOURCE_HISTORICAL_FULIZA_SMS,
-                            occurredAtEpochMs = smsDate
-                        )
-                        matched += 1
-                        fulizaMessages += 1
-                        continue
-                    }
-
                     val parsed = MpesaParser.parse(body)
                     if (parsed == null) {
                         ignored += 1
@@ -280,7 +248,6 @@ class HistoricalSmsImporter(
 
     companion object {
         const val SOURCE_HISTORICAL_SMS = "historical_sms"
-        const val SOURCE_HISTORICAL_FULIZA_SMS = "historical_fuliza_sms"
         const val SOURCE_HISTORICAL_FINANCIAL_MESSAGE =
             "historical_financial_message"
     }

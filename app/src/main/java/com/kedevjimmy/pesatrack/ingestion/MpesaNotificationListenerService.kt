@@ -4,16 +4,12 @@ import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.kedevjimmy.pesatrack.data.local.AccountStore
-import com.kedevjimmy.pesatrack.data.local.DebtStore
-import com.kedevjimmy.pesatrack.data.local.FulizaStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
-import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
 import com.kedevjimmy.pesatrack.domain.parser.ConfiguredMoneyParser
-import com.kedevjimmy.pesatrack.domain.parser.FulizaParser
 import com.kedevjimmy.pesatrack.domain.parser.MpesaParser
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
@@ -80,39 +76,6 @@ class MpesaNotificationListenerService : NotificationListenerService() {
                 }
 
                 if (likelyMpesa) {
-                val fuliza = FulizaParser.parse(body)
-                if (fuliza != null) {
-                    val result = FulizaStore.get(applicationContext).insertOrUpdate(
-                        parsed = fuliza,
-                        sourcePackage = packageName,
-                        sourceKind = SOURCE_FULIZA_NOTIFICATION,
-                        occurredAtEpochMs = receivedAt
-                    )
-                    if (
-                        result.linkedTransactionId != null ||
-                        result.repairedLegacyTransaction
-                    ) {
-                        PayCycleStore.get(applicationContext).rebuild()
-                    }
-                    changed = true
-                    return@execute
-                }
-
-                val fulizaRepayment =
-                    FulizaParser.parseRepayment(body)
-                if (fulizaRepayment != null) {
-                    DebtStore.get(applicationContext)
-                        .recordFulizaRepayment(
-                            parsed = fulizaRepayment,
-                            sourcePackage = packageName,
-                            sourceKind = SOURCE_FULIZA_NOTIFICATION,
-                            occurredAtEpochMs = receivedAt
-                        )
-                    PayCycleStore.get(applicationContext).rebuild()
-                    changed = true
-                    return@execute
-                }
-
                 val parsed = MpesaParser.parse(body) ?: return@execute
                 pruneEvidence(receivedAt)
                 val inlineEvidence = TransactionEvidenceResolver.parseEvidence(
@@ -264,7 +227,6 @@ class MpesaNotificationListenerService : NotificationListenerService() {
 
     companion object {
         const val SOURCE_MPESA_NOTIFICATION = "mpesa_notification"
-        const val SOURCE_FULIZA_NOTIFICATION = "fuliza_notification"
         const val SOURCE_CONFIGURED_NOTIFICATION = "configured_notification"
         const val SOURCE_FINANCIAL_NOTIFICATION =
             "financial_notification"
