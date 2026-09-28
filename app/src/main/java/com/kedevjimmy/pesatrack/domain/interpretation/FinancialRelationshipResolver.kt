@@ -117,26 +117,12 @@ object FinancialRelationshipResolver {
                     it.balanceMinor
             }
 
-        val observedWallet =
-            balances.firstOrNull {
-                it.account.providerKey ==
-                    "SAFARICOM_MPESA"
-            }?.account ?: if (
-                message.title.orEmpty()
-                    .contains(
-                        "MPESA",
-                        ignoreCase = true
-                    ) ||
-                message.title.orEmpty()
-                    .contains(
-                        "M-PESA",
-                        ignoreCase = true
-                    )
-            ) {
-                FinancialProviderRegistry.mpesaAccount()
-            } else {
-                null
-            }
+        val observedAccount =
+            FinancialProviderRegistry
+                .resolveObservedAccount(
+                    title = message.title,
+                    balances = balances
+                )
 
         val debtRelationship =
             resolveDebt(
@@ -146,7 +132,7 @@ object FinancialRelationshipResolver {
         val reversalRelationship =
             resolveReversal(
                 candidate = candidates.reversal,
-                observedAccount = observedWallet
+                observedAccount = observedAccount
             )
         val cashRelationship =
             resolveCashMovement(
@@ -165,7 +151,7 @@ object FinancialRelationshipResolver {
                 ?: prioritized.firstNotNullOfOrNull { action ->
                     resolveAction(
                         action = action,
-                        observedWallet = observedWallet,
+                        observedAccount = observedAccount,
                         fee = candidates.fee
                     )
                 }
@@ -174,7 +160,7 @@ object FinancialRelationshipResolver {
             knownRelationship
                 ?: resolveUnresolvedMovement(
                     candidates = candidates,
-                    observedAccount = observedWallet
+                    observedAccount = observedAccount
                 )
 
         return ResolvedFinancialMessage(
@@ -770,7 +756,7 @@ object FinancialRelationshipResolver {
 
     private fun resolveAction(
         action: FinancialActionCandidate,
-        observedWallet: FinancialAccountReference?,
+        observedAccount: FinancialAccountReference?,
         fee: FeeCandidate?
     ): ResolvedFinancialRelationship? =
         when (action.kind) {
@@ -778,21 +764,21 @@ object FinancialRelationshipResolver {
                 .TRANSFER_FROM_ACCOUNT ->
                 resolveTransferFrom(
                     action,
-                    observedWallet,
+                    observedAccount,
                     fee
                 )
             FinancialActionCandidateKind
                 .TRANSFER_TO_ACCOUNT ->
                 resolveTransferTo(
                     action,
-                    observedWallet,
+                    observedAccount,
                     fee
                 )
             FinancialActionCandidateKind
                 .PAYMENT_SENT_TO ->
                 resolvePayment(
                     action,
-                    observedWallet,
+                    observedAccount,
                     fee,
                     PaymentRouteHint.PERSON_TO_PERSON
                 )
@@ -800,7 +786,7 @@ object FinancialRelationshipResolver {
                 .PAYMENT_PAID_TO ->
                 resolvePayment(
                     action,
-                    observedWallet,
+                    observedAccount,
                     fee,
                     if (
                         action.accountReference
@@ -815,7 +801,7 @@ object FinancialRelationshipResolver {
                 .AIRTIME_PURCHASE ->
                 resolvePayment(
                     action,
-                    observedWallet,
+                    observedAccount,
                     fee,
                     PaymentRouteHint.AIRTIME
                 )
@@ -823,17 +809,17 @@ object FinancialRelationshipResolver {
                 .RECEIPT_FROM ->
                 resolveReceipt(
                     action,
-                    observedWallet,
+                    observedAccount,
                     fee
                 )
         }
 
     private fun resolveTransferFrom(
         action: FinancialActionCandidate,
-        observedWallet: FinancialAccountReference?,
+        observedAccount: FinancialAccountReference?,
         fee: FeeCandidate?
     ): ResolvedFinancialRelationship? {
-        val destination = observedWallet ?: return null
+        val destination = observedAccount ?: return null
         val source =
             FinancialProviderRegistry.resolveAccount(
                 action.partyLabel
@@ -866,10 +852,10 @@ object FinancialRelationshipResolver {
 
     private fun resolveTransferTo(
         action: FinancialActionCandidate,
-        observedWallet: FinancialAccountReference?,
+        observedAccount: FinancialAccountReference?,
         fee: FeeCandidate?
     ): ResolvedFinancialRelationship? {
-        val source = observedWallet ?: return null
+        val source = observedAccount ?: return null
         val destination =
             FinancialProviderRegistry.resolveAccount(
                 action.partyLabel
@@ -902,11 +888,11 @@ object FinancialRelationshipResolver {
 
     private fun resolvePayment(
         action: FinancialActionCandidate,
-        observedWallet: FinancialAccountReference?,
+        observedAccount: FinancialAccountReference?,
         fee: FeeCandidate?,
         routeHint: PaymentRouteHint
     ): ResolvedFinancialRelationship? {
-        val source = observedWallet ?: return null
+        val source = observedAccount ?: return null
         return ResolvedPaymentRelationship(
             amountMinor = action.amountMinor,
             source = source,
@@ -928,10 +914,10 @@ object FinancialRelationshipResolver {
 
     private fun resolveReceipt(
         action: FinancialActionCandidate,
-        observedWallet: FinancialAccountReference?,
+        observedAccount: FinancialAccountReference?,
         fee: FeeCandidate?
     ): ResolvedFinancialRelationship? {
-        val destination = observedWallet ?: return null
+        val destination = observedAccount ?: return null
 
         // Explicit "from X account" is an account transfer, not
         // a generic receipt. Transfer candidates have higher

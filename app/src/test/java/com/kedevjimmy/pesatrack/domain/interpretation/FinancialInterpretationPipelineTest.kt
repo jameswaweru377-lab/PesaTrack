@@ -145,6 +145,29 @@ class FinancialInterpretationPipelineTest {
     }
 
     @Test
+    fun paymentCanResolveFromKnownOwnedBalanceWithoutMpesaTitle() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "NCBA",
+                body =
+                    "TST12ACCT1 Confirmed. Ksh 400.00 sent to SAMPLE PERSON 0712000000 on 28/9/26 at 7:10 PM. M-Shwari balance is Ksh 5,000.00."
+            )
+
+        val payment =
+            interpretation.events.single() as
+                PaymentEventFact
+
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            payment.source.providerKey
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            payment.source.ownershipHint
+        )
+    }
+
+    @Test
     fun classifierCreatesReceiptWithoutCallingItIncome() {
         val normalized =
             FinancialMessageNormalizer.normalize(

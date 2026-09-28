@@ -125,6 +125,74 @@ class FinancialProviderRegistryTest {
     }
 
     @Test
+    fun messageSourceProfileAnchorsMpesaWithoutBalanceText() {
+        val account =
+            FinancialProviderRegistry
+                .resolveObservedAccount(
+                    title = "M-PESA",
+                    balances = emptyList()
+                )
+
+        assertEquals(
+            "SAFARICOM_MPESA",
+            account?.providerKey
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            account?.ownershipHint
+        )
+    }
+
+    @Test
+    fun singleKnownOwnedBalanceCanAnchorUnknownMessageSource() {
+        val mshwari =
+            FinancialProviderRegistry.resolveAccount(
+                "M-Shwari"
+            )
+        val account =
+            FinancialProviderRegistry
+                .resolveObservedAccount(
+                    title = "NCBA",
+                    balances = listOf(
+                        BalanceObservationFact(
+                            account = mshwari,
+                            balanceMinor = 500_000L,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                )
+
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            account?.providerKey
+        )
+    }
+
+    @Test
+    fun unknownBalanceDoesNotBecomeOwnedAccountByInference() {
+        val unknown =
+            FinancialProviderRegistry.resolveAccount(
+                "PesaNova"
+            )
+        val account =
+            FinancialProviderRegistry
+                .resolveObservedAccount(
+                    title = "PesaNova",
+                    balances = listOf(
+                        BalanceObservationFact(
+                            account = unknown,
+                            balanceMinor = 500_000L,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                )
+
+        assertEquals(null, account)
+    }
+
+    @Test
     fun preservesUnknownInstitutionWithoutClaimingOwnership() {
         val account =
             FinancialProviderRegistry.resolveAccount(
