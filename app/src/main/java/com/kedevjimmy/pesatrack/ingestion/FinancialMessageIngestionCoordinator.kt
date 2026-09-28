@@ -7,6 +7,8 @@ import com.kedevjimmy.pesatrack.data.local.FinancialEventStatus
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
+import com.kedevjimmy.pesatrack.domain.interpretation.CashDepositEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.CashWithdrawalEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
@@ -253,6 +255,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     MpesaTransactionType.BUY_GOODS
                                 PaymentRouteHint.BILL ->
                                     MpesaTransactionType.PAY_BILL
+                                PaymentRouteHint.AIRTIME ->
+                                    MpesaTransactionType.AIRTIME
                             },
                         amountMinor = event.amountMinor,
                         counterparty = event.counterparty,
@@ -335,6 +339,340 @@ class FinancialMessageIngestionCoordinator private constructor(
                         insertedTransactions += 1
                         changed = true
                     }
+                }
+                is CashWithdrawalEventFact -> {
+                    understandingStore.observeEntity(
+                        reference = event.source,
+                        observedAtEpochMs =
+                            occurredAtEpochMs
+                    )
+                    understandingStore.observeEntity(
+                        reference = event.cashDestination,
+                        observedAtEpochMs =
+                            occurredAtEpochMs
+                    )
+                    val sourceAccountId =
+                        understandingStore.accountIdFor(
+                            event.source
+                        )
+                    val destinationAccountId =
+                        understandingStore.accountIdFor(
+                            event.cashDestination
+                        )
+
+                    val transfer =
+                        TransferEventFact(
+                            amountMinor = event.amountMinor,
+                            source = event.source,
+                            destination =
+                                event.cashDestination,
+                            feeMinor = event.feeMinor,
+                            confidence =
+                                event.confidence,
+                            evidence = event.evidence
+                        )
+
+                    val canApply =
+                        sourceAccountId != null &&
+                            destinationAccountId != null &&
+                            understandingStore.isUserOwned(
+                                event.source.entityKey
+                            ) &&
+                            understandingStore.isUserOwned(
+                                event
+                                    .cashDestination
+                                    .entityKey
+                            )
+
+                    if (!canApply) {
+                        understandingStore.recordTransfer(
+                            event = transfer,
+                            messageFingerprint =
+                                fingerprint,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs,
+                            sourcePackage =
+                                sourcePackage,
+                            sourceKind =
+                                sourceKind,
+                            status =
+                                FinancialEventStatus
+                                    .PENDING_REVIEW
+                        )
+                        pendingReviewEvents += 1
+                        changed = true
+                        return@forEach
+                    }
+
+                    val observedBalance =
+                        interpretation.balances
+                            .firstOrNull {
+                                it.account.entityKey ==
+                                    event.source.entityKey
+                            }
+                            ?.balanceMinor
+
+                    val parsed =
+                        ParsedMpesaTransaction(
+                            transactionCode =
+                                interpretation
+                                    .transactionCode,
+                            type =
+                                if (
+                                    sourceAccountId ==
+                                    AccountStore
+                                        .DEFAULT_MPESA_ID
+                                ) {
+                                    MpesaTransactionType
+                                        .WITHDRAWAL
+                                } else {
+                                    MpesaTransactionType
+                                        .OTHER
+                                },
+                            amountMinor =
+                                event.amountMinor,
+                            counterparty =
+                                event.counterparty,
+                            counterpartyPhone = null,
+                            feeMinor = event.feeMinor,
+                            balanceMinor =
+                                observedBalance,
+                            occurredAtText =
+                                interpretation
+                                    .occurredAtText,
+                            rawMessage = body,
+                            reversalOfCode = null
+                        )
+
+                    val inserted =
+                        transactionStore.insertIfNew(
+                            parsed = parsed,
+                            sourcePackage =
+                                sourcePackage,
+                            sourceKind =
+                                SOURCE_INTERPRETED_PREFIX +
+                                    sourceKind,
+                            receivedAtEpochMs =
+                                receivedAtEpochMs,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs,
+                            matchedRule = null,
+                            rebuildPayCycles =
+                                rebuildPayCycles,
+                            evidence = null,
+                            accountTransferOverride =
+                                OwnAccountTransferMatch(
+                                    sourceAccountId =
+                                        sourceAccountId,
+                                    sourceName =
+                                        event
+                                            .source
+                                            .displayName,
+                                    destinationAccountId =
+                                        destinationAccountId,
+                                    destinationName =
+                                        event
+                                            .cashDestination
+                                            .displayName,
+                                    evidence =
+                                        OwnTransferEvidence
+                                            .ACCOUNT_NAME
+                                )
+                        )
+
+                    if (inserted) {
+                        insertedTransactions += 1
+                        changed = true
+                    }
+
+                    val linkedTransactionId =
+                        interpretation.transactionCode
+                            ?.let(
+                                transactionStore::
+                                    findByTransactionCode
+                            )
+                            ?.id
+                    understandingStore.recordTransfer(
+                        event = transfer,
+                        messageFingerprint =
+                            fingerprint,
+                        occurredAtEpochMs =
+                            occurredAtEpochMs,
+                        sourcePackage = sourcePackage,
+                        sourceKind = sourceKind,
+                        status =
+                            FinancialEventStatus.APPLIED,
+                        linkedTransactionId =
+                            linkedTransactionId
+                    )
+                }
+                is CashDepositEventFact -> {
+                    understandingStore.observeEntity(
+                        reference = event.cashSource,
+                        observedAtEpochMs =
+                            occurredAtEpochMs
+                    )
+                    understandingStore.observeEntity(
+                        reference = event.destination,
+                        observedAtEpochMs =
+                            occurredAtEpochMs
+                    )
+                    val sourceAccountId =
+                        understandingStore.accountIdFor(
+                            event.cashSource
+                        )
+                    val destinationAccountId =
+                        understandingStore.accountIdFor(
+                            event.destination
+                        )
+
+                    val transfer =
+                        TransferEventFact(
+                            amountMinor = event.amountMinor,
+                            source = event.cashSource,
+                            destination =
+                                event.destination,
+                            feeMinor = event.feeMinor,
+                            confidence =
+                                event.confidence,
+                            evidence = event.evidence
+                        )
+
+                    val canApply =
+                        sourceAccountId != null &&
+                            destinationAccountId != null &&
+                            understandingStore.isUserOwned(
+                                event
+                                    .cashSource
+                                    .entityKey
+                            ) &&
+                            understandingStore.isUserOwned(
+                                event.destination.entityKey
+                            )
+
+                    if (!canApply) {
+                        understandingStore.recordTransfer(
+                            event = transfer,
+                            messageFingerprint =
+                                fingerprint,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs,
+                            sourcePackage =
+                                sourcePackage,
+                            sourceKind =
+                                sourceKind,
+                            status =
+                                FinancialEventStatus
+                                    .PENDING_REVIEW
+                        )
+                        pendingReviewEvents += 1
+                        changed = true
+                        return@forEach
+                    }
+
+                    val observedBalance =
+                        interpretation.balances
+                            .firstOrNull {
+                                it.account.entityKey ==
+                                    event
+                                        .destination
+                                        .entityKey
+                            }
+                            ?.balanceMinor
+
+                    val parsed =
+                        ParsedMpesaTransaction(
+                            transactionCode =
+                                interpretation
+                                    .transactionCode,
+                            type =
+                                if (
+                                    destinationAccountId ==
+                                    AccountStore
+                                        .DEFAULT_MPESA_ID
+                                ) {
+                                    MpesaTransactionType
+                                        .DEPOSIT
+                                } else {
+                                    MpesaTransactionType
+                                        .OTHER
+                                },
+                            amountMinor =
+                                event.amountMinor,
+                            counterparty =
+                                event.counterparty,
+                            counterpartyPhone = null,
+                            feeMinor = event.feeMinor,
+                            balanceMinor =
+                                observedBalance,
+                            occurredAtText =
+                                interpretation
+                                    .occurredAtText,
+                            rawMessage = body,
+                            reversalOfCode = null
+                        )
+
+                    val inserted =
+                        transactionStore.insertIfNew(
+                            parsed = parsed,
+                            sourcePackage =
+                                sourcePackage,
+                            sourceKind =
+                                SOURCE_INTERPRETED_PREFIX +
+                                    sourceKind,
+                            receivedAtEpochMs =
+                                receivedAtEpochMs,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs,
+                            matchedRule = null,
+                            rebuildPayCycles =
+                                rebuildPayCycles,
+                            evidence = null,
+                            accountTransferOverride =
+                                OwnAccountTransferMatch(
+                                    sourceAccountId =
+                                        sourceAccountId,
+                                    sourceName =
+                                        event
+                                            .cashSource
+                                            .displayName,
+                                    destinationAccountId =
+                                        destinationAccountId,
+                                    destinationName =
+                                        event
+                                            .destination
+                                            .displayName,
+                                    evidence =
+                                        OwnTransferEvidence
+                                            .ACCOUNT_NAME
+                                )
+                        )
+
+                    if (inserted) {
+                        insertedTransactions += 1
+                        changed = true
+                    }
+
+                    val linkedTransactionId =
+                        interpretation.transactionCode
+                            ?.let(
+                                transactionStore::
+                                    findByTransactionCode
+                            )
+                            ?.id
+                    understandingStore.recordTransfer(
+                        event = transfer,
+                        messageFingerprint =
+                            fingerprint,
+                        occurredAtEpochMs =
+                            occurredAtEpochMs,
+                        sourcePackage = sourcePackage,
+                        sourceKind = sourceKind,
+                        status =
+                            FinancialEventStatus.APPLIED,
+                        linkedTransactionId =
+                            linkedTransactionId
+                    )
                 }
                 is ReversalEventFact -> {
                     val observedBalance =
