@@ -7,7 +7,7 @@ import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
-import com.kedevjimmy.pesatrack.domain.parser.ConfiguredMoneyParser
+import com.kedevjimmy.pesatrack.domain.rules.RuleBackedFinancialResolver
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 
@@ -126,7 +126,7 @@ class HistoricalSmsImporter(
                     continue
                 }
 
-                val parsed = ConfiguredMoneyParser.parse(
+                val parsed = RuleBackedFinancialResolver.resolve(
                     title = address,
                     body = body,
                     rule = configuredRule
