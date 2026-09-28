@@ -12,6 +12,8 @@ import com.kedevjimmy.pesatrack.domain.interpretation.CashDepositEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.CashWithdrawalEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpretation
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
@@ -149,13 +151,23 @@ class FinancialMessageIngestionCoordinator private constructor(
                         return@forEach
                     }
 
-                    val mpesaBalance =
-                        interpretation.balances
-                            .firstOrNull {
-                                it.account.providerKey ==
-                                    "SAFARICOM_MPESA"
-                            }
-                            ?.balanceMinor
+                    val legacyBalanceAccount =
+                        when {
+                            sourceAccountId ==
+                                AccountStore.DEFAULT_MPESA_ID ->
+                                event.source
+                            destinationAccountId ==
+                                AccountStore.DEFAULT_MPESA_ID ->
+                                event.destination
+                            else -> null
+                        }
+                    val legacyWalletBalance =
+                        legacyBalanceAccount?.let {
+                            balanceForAccount(
+                                interpretation,
+                                it
+                            )
+                        }
 
                     val parsed = ParsedMpesaTransaction(
                         transactionCode =
@@ -176,7 +188,7 @@ class FinancialMessageIngestionCoordinator private constructor(
                             },
                         counterpartyPhone = null,
                         feeMinor = event.feeMinor,
-                        balanceMinor = mpesaBalance,
+                        balanceMinor = legacyWalletBalance,
                         occurredAtText =
                             interpretation.occurredAtText,
                         rawMessage = body,
@@ -243,13 +255,35 @@ class FinancialMessageIngestionCoordinator private constructor(
                     )
                 }
             is PaymentEventFact -> {
-                    val mpesaBalance =
-                        interpretation.balances
-                            .firstOrNull {
-                                it.account.providerKey ==
-                                    "SAFARICOM_MPESA"
-                            }
-                            ?.balanceMinor
+                    understandingStore.observeEntity(
+                        reference = event.source,
+                        observedAtEpochMs =
+                            occurredAtEpochMs
+                    )
+                    val sourceAccountId =
+                        understandingStore.accountIdFor(
+                            event.source
+                        )
+                    if (sourceAccountId == null) {
+                        pendingReviewEvents += 1
+                        changed = true
+                        return@forEach
+                    }
+
+                    val observedBalance =
+                        balanceForAccount(
+                            interpretation,
+                            event.source
+                        )
+                    val legacyWalletBalance =
+                        if (
+                            sourceAccountId ==
+                            AccountStore.DEFAULT_MPESA_ID
+                        ) {
+                            observedBalance
+                        } else {
+                            null
+                        }
 
                     val parsed = ParsedMpesaTransaction(
                         transactionCode =
@@ -270,7 +304,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                         counterpartyPhone =
                             event.counterpartyPhone,
                         feeMinor = event.feeMinor,
-                        balanceMinor = mpesaBalance,
+                        balanceMinor =
+                            legacyWalletBalance,
                         occurredAtText =
                             interpretation.occurredAtText,
                         rawMessage = body,
@@ -299,7 +334,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     ),
                             rebuildPayCycles =
                                 rebuildPayCycles,
-                            evidence = null
+                            evidence = null,
+                            accountIdOverride =
+                                sourceAccountId
                         )
 
                     if (inserted) {
@@ -308,13 +345,35 @@ class FinancialMessageIngestionCoordinator private constructor(
                     }
                 }
                 is ReceiptEventFact -> {
-                    val mpesaBalance =
-                        interpretation.balances
-                            .firstOrNull {
-                                it.account.providerKey ==
-                                    "SAFARICOM_MPESA"
-                            }
-                            ?.balanceMinor
+                    understandingStore.observeEntity(
+                        reference = event.destination,
+                        observedAtEpochMs =
+                            occurredAtEpochMs
+                    )
+                    val destinationAccountId =
+                        understandingStore.accountIdFor(
+                            event.destination
+                        )
+                    if (destinationAccountId == null) {
+                        pendingReviewEvents += 1
+                        changed = true
+                        return@forEach
+                    }
+
+                    val observedBalance =
+                        balanceForAccount(
+                            interpretation,
+                            event.destination
+                        )
+                    val legacyWalletBalance =
+                        if (
+                            destinationAccountId ==
+                            AccountStore.DEFAULT_MPESA_ID
+                        ) {
+                            observedBalance
+                        } else {
+                            null
+                        }
 
                     val parsed = ParsedMpesaTransaction(
                         transactionCode =
@@ -326,7 +385,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                         counterpartyPhone =
                             event.counterpartyPhone,
                         feeMinor = event.feeMinor,
-                        balanceMinor = mpesaBalance,
+                        balanceMinor =
+                            legacyWalletBalance,
                         occurredAtText =
                             interpretation.occurredAtText,
                         rawMessage = body,
@@ -355,7 +415,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     ),
                             rebuildPayCycles =
                                 rebuildPayCycles,
-                            evidence = null
+                            evidence = null,
+                            accountIdOverride =
+                                destinationAccountId
                         )
 
                     if (inserted) {
@@ -896,6 +958,17 @@ class FinancialMessageIngestionCoordinator private constructor(
                 pendingReviewEvents
         )
     }
+
+    private fun balanceForAccount(
+        interpretation: FinancialMessageInterpretation,
+        account: FinancialAccountReference
+    ): Long? =
+        interpretation.balances
+            .firstOrNull {
+                it.account.entityKey ==
+                    account.entityKey
+            }
+            ?.balanceMinor
 
     private fun transactionTypeFor(
         sourceAccountId: String,
