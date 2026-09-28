@@ -152,6 +152,7 @@ object FinancialRelationshipResolver {
                     resolveAction(
                         action = action,
                         observedAccount = observedAccount,
+                        messageTitle = message.title,
                         fee = candidates.fee
                     )
                 }
@@ -757,6 +758,7 @@ object FinancialRelationshipResolver {
     private fun resolveAction(
         action: FinancialActionCandidate,
         observedAccount: FinancialAccountReference?,
+        messageTitle: String?,
         fee: FeeCandidate?
     ): ResolvedFinancialRelationship? =
         when (action.kind) {
@@ -806,10 +808,16 @@ object FinancialRelationshipResolver {
                     PaymentRouteHint.AIRTIME
                 )
             FinancialActionCandidateKind
-                .RECEIPT_FROM ->
+                .RECEIPT_FROM,
+            FinancialActionCandidateKind
+                .RECEIPT_CREDITED_FROM ->
                 resolveReceipt(
                     action,
-                    observedAccount,
+                    observedAccount
+                        ?: FinancialProviderRegistry
+                            .resolveMessageSourceAccount(
+                                messageTitle
+                            ),
                     fee
                 )
         }
@@ -932,18 +940,29 @@ object FinancialRelationshipResolver {
             return null
         }
 
+        val confidence =
+            if (
+                destination.ownershipHint ==
+                    AccountOwnershipHint.USER_OWNED
+            ) {
+                InterpretationConfidence.HIGH
+            } else {
+                InterpretationConfidence.MEDIUM
+            }
+
         return ResolvedReceiptRelationship(
             amountMinor = action.amountMinor,
             destination = destination,
             counterparty = action.partyLabel,
             counterpartyPhone = action.partyPhone,
             feeMinor = fee?.amountMinor ?: 0L,
-            confidence = InterpretationConfidence.HIGH,
+            confidence = confidence,
             evidence = counterpartyEvidence(
                 action = action,
                 observedField =
                     FinancialField.DESTINATION_ACCOUNT,
-                fee = fee
+                fee = fee,
+                confidence = confidence
             )
         )
     }
@@ -1006,7 +1025,9 @@ object FinancialRelationshipResolver {
     private fun counterpartyEvidence(
         action: FinancialActionCandidate,
         observedField: FinancialField,
-        fee: FeeCandidate?
+        fee: FeeCandidate?,
+        confidence: InterpretationConfidence =
+            InterpretationConfidence.HIGH
     ): List<FieldEvidence> =
         buildList {
             add(
@@ -1016,8 +1037,7 @@ object FinancialRelationshipResolver {
                     ruleId =
                         action.ruleId + ".amount",
                     span = action.amountSpan,
-                    confidence =
-                        InterpretationConfidence.HIGH
+                    confidence = confidence
                 )
             )
             add(
@@ -1028,8 +1048,7 @@ object FinancialRelationshipResolver {
                         action.ruleId +
                             ".counterparty",
                     span = action.partySpan,
-                    confidence =
-                        InterpretationConfidence.HIGH
+                    confidence = confidence
                 )
             )
             add(
@@ -1041,8 +1060,7 @@ object FinancialRelationshipResolver {
                         action.ruleId +
                             ".observed_wallet",
                     span = null,
-                    confidence =
-                        InterpretationConfidence.HIGH
+                    confidence = confidence
                 )
             )
             if (
@@ -1109,7 +1127,9 @@ object FinancialRelationshipResolver {
             FinancialActionCandidateKind
                 .AIRTIME_PURCHASE -> 2
             FinancialActionCandidateKind
-                .RECEIPT_FROM -> 3
+                .RECEIPT_FROM,
+            FinancialActionCandidateKind
+                .RECEIPT_CREDITED_FROM -> 3
         }
 
     private fun evidence(
