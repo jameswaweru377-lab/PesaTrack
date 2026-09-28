@@ -131,7 +131,8 @@ class DebtStore private constructor(context: Context) {
             linkedTransactionId =
                 linkedTransactionId,
             walletBalanceAfterMinor = null,
-            fundingAccountKey = null,
+            fundingAccountKey =
+                event.proceedsAccount?.entityKey,
             availableCreditAfterMinor =
                 event.availableCreditAfterMinor,
             repaymentCompletion = null,
@@ -160,7 +161,10 @@ class DebtStore private constructor(context: Context) {
                 observedAtEpochMs =
                     occurredAtEpochMs
             )
-        } else if (insert.inserted) {
+        } else if (
+            insert.inserted &&
+            !event.amountIsNetProceeds
+        ) {
             applyEstimatedDelta(
                 accountId = identity.id,
                 deltaMinor =
