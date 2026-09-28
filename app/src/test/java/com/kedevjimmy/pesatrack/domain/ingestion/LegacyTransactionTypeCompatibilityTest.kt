@@ -68,4 +68,56 @@ class LegacyTransactionTypeCompatibilityTest {
             )
         )
     }
+    @Test
+    fun mpesaCashWithdrawalKeepsLegacyWithdrawalType() {
+        assertEquals(
+            MpesaTransactionType.WITHDRAWAL,
+            LegacyTransactionTypeCompatibility.resolve(
+                kind =
+                    CanonicalFinancialRecordKind
+                        .CASH_WITHDRAWAL,
+                sourceIsMpesa = true
+            )
+        )
+    }
+
+    @Test
+    fun bankCashWithdrawalDoesNotPretendToBeMpesa() {
+        assertEquals(
+            MpesaTransactionType.OTHER,
+            LegacyTransactionTypeCompatibility.resolve(
+                kind =
+                    CanonicalFinancialRecordKind
+                        .CASH_WITHDRAWAL,
+                sourceIsMpesa = false
+            )
+        )
+    }
+
+    @Test
+    fun cashDepositIntoMpesaKeepsLegacyDepositType() {
+        assertEquals(
+            MpesaTransactionType.DEPOSIT,
+            LegacyTransactionTypeCompatibility.resolve(
+                kind =
+                    CanonicalFinancialRecordKind
+                        .CASH_DEPOSIT,
+                destinationIsMpesa = true
+            )
+        )
+    }
+
+    @Test
+    fun cashDepositIntoBankStaysGenericInLegacyColumn() {
+        assertEquals(
+            MpesaTransactionType.OTHER,
+            LegacyTransactionTypeCompatibility.resolve(
+                kind =
+                    CanonicalFinancialRecordKind
+                        .CASH_DEPOSIT,
+                destinationIsMpesa = false
+            )
+        )
+    }
+
 }
