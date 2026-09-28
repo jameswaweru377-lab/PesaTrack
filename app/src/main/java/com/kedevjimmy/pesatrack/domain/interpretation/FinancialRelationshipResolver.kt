@@ -288,7 +288,8 @@ object FinancialRelationshipResolver {
             other.startOffset < endOffsetExclusive
 
     private fun resolveBalance(
-        candidate: BalanceCandidate
+        candidate: BalanceCandidate,
+        context: FinancialInterpretationContext
     ): BalanceObservationFact? {
         if (
             FinancialProviderRegistry
@@ -301,7 +302,8 @@ object FinancialRelationshipResolver {
 
         val account =
             FinancialProviderRegistry.resolveAccount(
-                candidate.rawAccountLabel
+                rawLabel = candidate.rawAccountLabel,
+                context = context
             )
 
         return BalanceObservationFact(
@@ -335,12 +337,14 @@ object FinancialRelationshipResolver {
 
     private fun resolveCashMovement(
         candidate: CashMovementCandidate?,
-        fee: FeeCandidate?
+        fee: FeeCandidate?,
+        context: FinancialInterpretationContext
     ): ResolvedFinancialRelationship? {
         candidate ?: return null
         val account =
             FinancialProviderRegistry.resolveAccount(
-                candidate.accountLabel
+                rawLabel = candidate.accountLabel,
+                context = context
             )
         val cash =
             FinancialProviderRegistry.cashAccount()
@@ -521,16 +525,21 @@ object FinancialRelationshipResolver {
 
     private fun resolveDebt(
         candidates: FinancialMessageCandidates,
-        balances: List<BalanceObservationFact>
+        balances: List<BalanceObservationFact>,
+        context: FinancialInterpretationContext
     ): ResolvedFinancialRelationship? {
         candidates.debt.repayment?.let { repayment ->
             val liability =
                 resolveLiability(
-                    repayment.liabilityLabel
+                    rawLabel =
+                        repayment.liabilityLabel,
+                    context = context
                 )
             val funding =
                 FinancialProviderRegistry.resolveAccount(
-                    repayment.fundingAccountLabel
+                    rawLabel =
+                        repayment.fundingAccountLabel,
+                    context = context
                 )
             val walletBalance =
                 balances.firstOrNull {
@@ -642,7 +651,9 @@ object FinancialRelationshipResolver {
         candidates.debt.drawdown?.let { drawdown ->
             val liability =
                 resolveLiability(
-                    drawdown.liabilityLabel
+                    rawLabel =
+                        drawdown.liabilityLabel,
+                    context = context
                 )
             val fee =
                 candidates.fee?.amountMinor
@@ -744,11 +755,15 @@ object FinancialRelationshipResolver {
     }
 
     private fun resolveLiability(
-        rawLabel: String
+        rawLabel: String,
+        context: FinancialInterpretationContext
     ): FinancialAccountReference {
         val resolved =
             FinancialProviderRegistry
-                .resolveAccount(rawLabel)
+                .resolveAccount(
+                    rawLabel = rawLabel,
+                    context = context
+                )
 
         return if (
             resolved.nature ==
@@ -768,7 +783,8 @@ object FinancialRelationshipResolver {
     private fun resolveAction(
         action: FinancialActionCandidate,
         observedAccount: FinancialAccountReference?,
-        fee: FeeCandidate?
+        fee: FeeCandidate?,
+        context: FinancialInterpretationContext
     ): ResolvedFinancialRelationship? =
         when (action.kind) {
             FinancialActionCandidateKind
@@ -776,14 +792,16 @@ object FinancialRelationshipResolver {
                 resolveTransferFrom(
                     action,
                     observedAccount,
-                    fee
+                    fee,
+                    context
                 )
             FinancialActionCandidateKind
                 .TRANSFER_TO_ACCOUNT ->
                 resolveTransferTo(
                     action,
                     observedAccount,
-                    fee
+                    fee,
+                    context
                 )
             FinancialActionCandidateKind
                 .PAYMENT_SENT_TO ->
@@ -828,12 +846,14 @@ object FinancialRelationshipResolver {
     private fun resolveTransferFrom(
         action: FinancialActionCandidate,
         observedAccount: FinancialAccountReference?,
-        fee: FeeCandidate?
+        fee: FeeCandidate?,
+        context: FinancialInterpretationContext
     ): ResolvedFinancialRelationship? {
         val destination = observedAccount ?: return null
         val source =
             FinancialProviderRegistry.resolveAccount(
-                action.partyLabel
+                rawLabel = action.partyLabel,
+                context = context
             )
         if (source.entityKey == destination.entityKey) {
             return null
@@ -864,12 +884,14 @@ object FinancialRelationshipResolver {
     private fun resolveTransferTo(
         action: FinancialActionCandidate,
         observedAccount: FinancialAccountReference?,
-        fee: FeeCandidate?
+        fee: FeeCandidate?,
+        context: FinancialInterpretationContext
     ): ResolvedFinancialRelationship? {
         val source = observedAccount ?: return null
         val destination =
             FinancialProviderRegistry.resolveAccount(
-                action.partyLabel
+                rawLabel = action.partyLabel,
+                context = context
             )
         if (source.entityKey == destination.entityKey) {
             return null
