@@ -43,10 +43,10 @@ class FinancialIngestionDiagnosticsStore private constructor(
         sourcePackage: String?,
         sourceKind: String,
         receivedAtEpochMs: Long,
-        hasCurrencyHint: Boolean,
+        financialCandidate: Boolean,
         result: FinancialMessageIngestionResult
     ) {
-        if (!hasCurrencyHint && !result.recognized) {
+        if (!financialCandidate && !result.recognized) {
             return
         }
 
