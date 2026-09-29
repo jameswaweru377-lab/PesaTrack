@@ -193,7 +193,8 @@ object FinancialProviderRegistry {
     }
 
     fun resolveMessageSourceAccount(
-        title: String?
+        title: String?,
+        bankLike: Boolean = false
     ): FinancialAccountReference? {
         val sourceTitle = title
             ?.trim()
@@ -208,23 +209,46 @@ object FinancialProviderRegistry {
             )
         }
 
-        val resolved = resolveAccount(sourceTitle)
+        val cleanedSourceTitle =
+            cleanMessageSourceTitle(sourceTitle)
+        val resolved = resolveAccount(cleanedSourceTitle)
+        val bankResolved =
+            if (
+                bankLike &&
+                resolved.providerKey == null
+            ) {
+                resolved.copy(
+                    displayName =
+                        bankDisplayName(
+                            resolved.displayName
+                        ),
+                    accountTypeHint =
+                        AccountType.BANK
+                )
+            } else {
+                resolved
+            }
+
         return if (
-            resolved.nature ==
+            bankResolved.nature ==
                 FinancialAccountNature.UNKNOWN
         ) {
-            resolved.copy(
+            bankResolved.copy(
                 nature = FinancialAccountNature.ASSET
             )
         } else {
-            resolved
+            bankResolved
         }
     }
 
     fun resolveOwnedMessageSourceAccount(
-        title: String?
+        title: String?,
+        bankLike: Boolean = false
     ): FinancialAccountReference? =
-        resolveMessageSourceAccount(title)
+        resolveMessageSourceAccount(
+            title = title,
+            bankLike = bankLike
+        )
             ?.takeIf {
                 it.nature != FinancialAccountNature.LIABILITY
             }
@@ -233,6 +257,15 @@ object FinancialProviderRegistry {
                     AccountOwnershipHint.USER_OWNED,
                 nature = FinancialAccountNature.ASSET
             )
+
+    fun messageSourceDisplayName(
+        title: String?,
+        bankLike: Boolean = false
+    ): String? =
+        resolveMessageSourceAccount(
+            title = title,
+            bankLike = bankLike
+        )?.displayName
 
     private fun messageSourceProfileFor(
         title: String?
@@ -326,6 +359,29 @@ object FinancialProviderRegistry {
             .trim()
             .ifBlank { "Unknown account" }
 
+    private fun cleanMessageSourceTitle(
+        raw: String
+    ): String =
+        raw.trim()
+            .replace(
+                MESSAGE_CHANNEL_SUFFIX_REGEX,
+                ""
+            )
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+            .ifBlank { raw.trim() }
+
+    private fun bankDisplayName(
+        raw: String
+    ): String =
+        if (
+            normalize(raw).endsWith(" BANK")
+        ) {
+            raw
+        } else {
+            "$raw Bank"
+        }
+
     private fun inferAccountType(normalized: String): AccountType =
         when {
             "BANK" in normalized ||
@@ -366,6 +422,12 @@ object FinancialProviderRegistry {
             .trim('-')
             .ifBlank { "unknown" }
             .take(64)
+
+    private val MESSAGE_CHANNEL_SUFFIX_REGEX =
+        Regex(
+            """\s+(?:BULK(?:\s+SMS)?|ALERTS?|SMS|NOTIFICATIONS?)\s*$""",
+            RegexOption.IGNORE_CASE
+        )
 
     private val NON_FINANCIAL_BALANCE_WORDS = setOf(
         "AIRTIME",
