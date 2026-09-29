@@ -372,8 +372,10 @@ class TransactionStore private constructor(context: Context) {
 
             if (
                 matchedRule == null &&
-                parsed.type.name in
-                    OUTGOING_REVIEW_TYPES &&
+                RemoteEntityEligibilityPolicy
+                    .canSendOnline(
+                        parsed.type.name
+                    ) &&
                 ReviewTriagePolicy
                     .shouldTriageCategory(
                         classification.category.name
@@ -1988,8 +1990,10 @@ class TransactionStore private constructor(context: Context) {
                 ReviewState.USER_CLASSIFIED.name ||
             current.reviewState ==
                 ReviewState.EXCLUDED.name ||
-            current.type !in
-                REMOTE_ENRICHMENT_TYPES ||
+            !RemoteEntityEligibilityPolicy
+                .canSendOnline(
+                    current.type
+                ) ||
             current.direction !=
                 MoneyDirection.EXPENSE.name ||
             !ReviewTriagePolicy
