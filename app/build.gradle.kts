@@ -3,12 +3,25 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val entityEnrichmentUrl = providers
+    .gradleProperty("PESATRACK_ENTITY_ENRICHMENT_URL")
+    .orElse("")
+    .get()
+
+
 android {
     namespace = "com.kedevjimmy.pesatrack"
     compileSdk = 36
 
     defaultConfig {
         applicationId = "com.kedevjimmy.pesatrack"
+        buildConfigField(
+            "String",
+            "ENTITY_ENRICHMENT_URL",
+            "\"${entityEnrichmentUrl
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")}\""
+        )
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -18,6 +31,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {

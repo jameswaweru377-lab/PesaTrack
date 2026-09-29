@@ -20,6 +20,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createCustomCategoriesTable(db)
         createDebtTables(db)
         createFinancialUnderstandingTables(db)
+        createEntityEnrichmentCacheTable(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -226,6 +227,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 "related_debt_event_id",
                 "INTEGER"
             )
+        }
+
+        if (oldVersion < 18) {
+            createEntityEnrichmentCacheTable(db)
         }
 
         createIndexes(db)
@@ -631,6 +636,26 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createEntityEnrichmentCacheTable(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS entity_enrichment_cache (
+                descriptor_key TEXT PRIMARY KEY,
+                canonical_name TEXT NOT NULL,
+                domain TEXT,
+                logo_url TEXT,
+                category_hint TEXT,
+                confidence TEXT NOT NULL,
+                source TEXT NOT NULL,
+                fetched_at_epoch_ms INTEGER NOT NULL,
+                expires_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun seedDefaultAccounts(db: SQLiteDatabase) {
         val now = System.currentTimeMillis()
         db.execSQL(
@@ -707,6 +732,9 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_financial_events_linked_transaction ON financial_events(linked_transaction_id)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_entity_enrichment_expiry ON entity_enrichment_cache(expires_at_epoch_ms)"
+        )
     }
 
     private fun createTriggers(db: SQLiteDatabase) {
@@ -727,6 +755,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 17
+        private const val DATABASE_VERSION = 18
     }
 }

@@ -35,6 +35,9 @@ jobs:
         with:
           gradle-version: "9.5.0"
 
+      - name: Validate entity enrichment Worker
+        run: node --check worker/entity-enrichment/src/index.js
+
       - name: Unit tests and debug APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
 

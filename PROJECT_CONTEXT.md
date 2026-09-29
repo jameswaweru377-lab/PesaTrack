@@ -545,6 +545,79 @@ Handoff rule for future chats:
 - The verified release asset from run #259 is about 19.8 MB and is replaced with `--clobber` after each successful `main` build.
 - If Actions artifact uploads are working again, the project may return to the normal 3-day artifact retention unless the user explicitly wants the rolling Release workflow to remain permanent.
 
+## Entity intelligence and automatic Activity review
+
+Status on 2026-09-29: **local intelligence is merged; privacy-safe remote enrichment plumbing is implemented but requires deployment/configuration before online lookup is active**.
+
+### Local entity intelligence already merged
+
+PR #66 introduced the first automatic-review layer:
+
+- Generic `EntityIntelligence` and pluggable `EntityEnrichmentProvider` architecture.
+- Local/offline Kenyan seed profiles for representative merchants and financial entities.
+- High-confidence eligible merchant payments can auto-classify without user review.
+- Current trusted examples include:
+  - Kenya Power / KPLC -> Electricity
+  - Naivas / Quickmart / Carrefour -> Groceries
+  - Java House -> Eating out
+  - Uber / Bolt -> Transport
+  - Netflix / Showmax -> Entertainment
+- Financial names such as M-Shwari, Branch, Tala, Equity and KCB are identity/enrichment knowledge only. Their names alone must never turn a transaction into an expense.
+- Personal names are not resolved by the entity registry.
+- Activity no longer contains a company-by-company merchant badge if/else chain; canonical entity evidence and generic category icons are used instead.
+- Review triage only touches unresolved `Other` / `Uncategorized` transactions, so a confident automatic category is not overwritten later.
+- PR #66 CI #269 passed; post-merge main CI #270 passed and updated the rolling Release APK.
+
+### Privacy-safe online enrichment boundary
+
+PR #68 adds the second layer:
+
+Android side:
+
+- `PESATRACK_ENTITY_ENRICHMENT_URL` is a build-time endpoint. It defaults to blank, so ordinary CI builds do not perform remote enrichment until a real endpoint is deliberately configured.
+- Only the extracted counterparty/merchant descriptor is considered for remote lookup.
+- Before networking, `EntityDescriptorPrivacyPolicy` rejects:
+  - likely personal names
+  - Kenyan phone numbers
+  - M-PESA-style 10-character transaction codes
+  - long account/reference numbers
+  - email addresses
+- The full SMS body, amount, balance, transaction code, phone number and account number must never be sent to the enrichment service.
+- Lookup runs asynchronously after local ingestion; failures/timeouts never block storing the transaction.
+- Successful results are cached locally for 30 days in `entity_enrichment_cache` (database schema v18).
+- In-flight requests are deduplicated.
+- Opening Activity Review can enqueue older unresolved merchant transactions as well as new transactions.
+- Remote enrichment may auto-review only when all of these are true:
+  - transaction is still unresolved
+  - outgoing merchant/payment type
+  - no saved Smart Rule controls it
+  - user has not manually classified or excluded it
+  - remote confidence is HIGH
+  - returned category is in the conservative safe expense allow-list
+- Finance/loan categories, ambiguous matches, generic utilities and uncertain results remain in normal Review.
+
+Worker side:
+
+- Source: `worker/entity-enrichment/`.
+- Endpoint contract: `POST /v1/entity/resolve` with only `{"descriptor":"..."}`.
+- The Worker repeats the same privacy checks before contacting any external provider.
+- Current adapter uses Logo.dev transaction enrichment with server-side secret `LOGO_DEV_SECRET_KEY`.
+- The Worker intentionally does not map generic `Utilities` automatically because that does not safely distinguish electricity, water and internet.
+- The app remains the final auto-review policy gate even when the Worker returns a category.
+- CI now runs `node --check worker/entity-enrichment/src/index.js` before Android tests.
+- PR #68 CI #273 passed Worker syntax validation, unit tests and debug APK assembly before this documentation update.
+
+Activation still required:
+
+1. Obtain/configure a Logo.dev secret key outside the repository.
+2. Deploy `worker/entity-enrichment` to Cloudflare Workers.
+3. Set the Worker secret with `npx wrangler secret put LOGO_DEV_SECRET_KEY`.
+4. Build PesaTrack with:
+   `PESATRACK_ENTITY_ENRICHMENT_URL=https://<worker-host>/v1/entity/resolve`
+5. Verify real Kenyan descriptors on-device before expanding the automatic allow-list.
+
+Never commit a provider secret to GitHub, put it in Gradle source, or embed it in the APK.
+
 ## Current implementation
 
 Baseline: `main` after the verified reference UI merge
