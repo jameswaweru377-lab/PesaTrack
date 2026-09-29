@@ -278,6 +278,8 @@ export default {
         status: "ok",
         service: "pesatrack-entity-enrichment",
         privacyMode: "sanitized-descriptor-only",
+        providerConfigured:
+          Boolean(env.LOGO_DEV_SECRET_KEY),
       });
     }
 
