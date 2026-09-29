@@ -142,8 +142,29 @@ object FinancialSemanticAnalyzer {
         RegexOption.IGNORE_CASE
     )
 
-    private val receiptRegex = Regex(
-        """\b(?:received|credited)\b""",
+    private val receivedRegex = Regex(
+        """\breceived\b""",
+        RegexOption.IGNORE_CASE
+    )
+
+    private val creditedToOwnAccountRegex = Regex(
+        """\bcredited\s+(?:to\s+)?(?:your\s+)?(?:a/?c|account|wallet)\b|\b(?:your\s+)?(?:a/?c|account|wallet)\b.{0,40}\bcredited\b""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
+
+    private val creditedFromRegex = Regex(
+        """\bcredited\b.{0,60}\b(?:from|by)\b""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
+
+    private val creditedToExternalRegex = Regex(
+        """\bcredited\s+to\s+(?!your\s+(?:a/?c|account|wallet)\b)([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,80})""",
         RegexOption.IGNORE_CASE
     )
 
@@ -346,8 +367,32 @@ object FinancialSemanticAnalyzer {
             )
         }
 
+        val externalCredit =
+            creditedToExternalRegex
+                .containsMatchIn(body)
+
         if (
-            receiptRegex.containsMatchIn(body) &&
+            externalCredit &&
+            (
+                hasMoney ||
+                    message.hasCurrencyHint
+                )
+        ) {
+            addIntent(
+                FinancialSemanticIntent.TRANSFER,
+                "semantic.credit_to_destination"
+            )
+        }
+
+        if (
+            (
+                receivedRegex.containsMatchIn(body) ||
+                    creditedToOwnAccountRegex
+                        .containsMatchIn(body) ||
+                    creditedFromRegex
+                        .containsMatchIn(body)
+                ) &&
+            !externalCredit &&
             (
                 hasMoney ||
                     hasFinancialNoun ||
@@ -413,9 +458,8 @@ object FinancialSemanticAnalyzer {
             primaryIntent ==
                 FinancialSemanticIntent.UNKNOWN ->
                 FinancialSemanticRole.NEEDS_REVIEW
-            primaryIntent ==
-                FinancialSemanticIntent
-                    .CONFIRMATION_ONLY ->
+            FinancialSemanticIntent
+                .CONFIRMATION_ONLY in intents ->
                 FinancialSemanticRole.CONFIRMATION
             reminderRegex.containsMatchIn(body) &&
                 primaryIntent in setOf(
