@@ -84,6 +84,7 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivityMonthBucket
 import com.kedevjimmy.pesatrack.data.local.ActivityReviewOverview
+import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
@@ -97,6 +98,10 @@ import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageIngestionCoordinator
+import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnostic
+import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticCode
+import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.PesaTrackTopBar
@@ -123,6 +128,12 @@ fun ActivityScreen(
     }
     val financialCoordinator = remember {
         FinancialMessageIngestionCoordinator.get(context)
+    }
+    val diagnosticsStore = remember {
+        FinancialIngestionDiagnosticsStore.get(context)
+    }
+    val accountStore = remember {
+        AccountStore.get(context)
     }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
     val currentMonthEpochMs = remember {
@@ -184,6 +195,18 @@ fun ActivityScreen(
     var selectedFilter by remember {
         mutableStateOf("All")
     }
+    var selectedFinancialSource by rememberSaveable {
+        mutableStateOf<String?>(null)
+    }
+    var financialDiagnostics by remember {
+        mutableStateOf(diagnosticsStore.recent(500))
+    }
+    var accountsById by remember {
+        mutableStateOf(
+            accountStore.listAccounts(enabledOnly = false)
+                .associateBy { it.id }
+        )
+    }
     var selectedGlobalQueue by rememberSaveable {
         mutableStateOf<String?>(null)
     }
@@ -196,6 +219,7 @@ fun ActivityScreen(
         selectedMonthEpochMs = normalizedMonth
         expandedMonthEpochMs = normalizedMonth
         selectedFilter = "All"
+        selectedFinancialSource = null
         selectedGlobalQueue = null
         snapshot = store.activitySnapshot(
             nowEpochMs = normalizedMonth
@@ -222,6 +246,12 @@ fun ActivityScreen(
         globalOverview = store.activityReviewOverview()
         pendingFinancialEntities =
             financialStore.pendingEntities()
+        financialDiagnostics =
+            diagnosticsStore.recent(500)
+        accountsById =
+            accountStore.listAccounts(
+                enabledOnly = false
+            ).associateBy { it.id }
     }
 
     LaunchedEffect(ledgerUpdateState.revision) {
@@ -232,6 +262,63 @@ fun ActivityScreen(
 
     val selectedMonthLabel =
         monthLabel(selectedMonthEpochMs)
+    val nextMonthEpochMs =
+        shiftMonth(selectedMonthEpochMs, 1)
+    val monthDiagnostics =
+        financialDiagnostics.filter { diagnostic ->
+            diagnostic.receivedAtEpochMs >=
+                selectedMonthEpochMs &&
+                diagnostic.receivedAtEpochMs <
+                    nextMonthEpochMs
+        }
+    val sourceSummaries =
+        monthDiagnostics
+            .groupBy { diagnostic ->
+                financialSourceKey(
+                    financialSourceDisplayName(
+                        diagnostic
+                    )
+                )
+            }
+            .mapNotNull { (key, entries) ->
+                val displayName =
+                    entries.firstOrNull()
+                        ?.let(
+                            ::financialSourceDisplayName
+                        )
+                        ?: return@mapNotNull null
+                FinancialSourceSummary(
+                    key = key,
+                    displayName = displayName,
+                    sourceType =
+                        entries.firstOrNull()
+                            ?.sourceType
+                            ?.takeIf {
+                                it.isNotBlank()
+                            }
+                            ?: "Financial",
+                    messageCount = entries.size
+                )
+            }
+            .sortedWith(
+                compareByDescending<
+                    FinancialSourceSummary
+                > { it.messageCount }
+                    .thenBy { it.displayName }
+            )
+    val selectedSourceDiagnostics =
+        selectedFinancialSource
+            ?.let { selectedKey ->
+                monthDiagnostics.filter {
+                    financialSourceKey(
+                        financialSourceDisplayName(it)
+                    ) == selectedKey
+                }
+            }
+            .orEmpty()
+            .sortedByDescending {
+                it.receivedAtEpochMs
+            }
     val possibleDuplicateIds = snapshot.possibleDuplicates
         .flatMap { listOf(it.first.id, it.second.id) }
         .toSet()
@@ -572,7 +659,107 @@ fun ActivityScreen(
                         }
                     }
 
-                    if (filtered.isEmpty()) {
+                    if (sourceSummaries.isNotEmpty()) {
+                        item(
+                            key =
+                                "financial-sources-" +
+                                    bucket.monthStartEpochMs
+                        ) {
+                            FinancialSourceNavigator(
+                                sources = sourceSummaries,
+                                selectedSourceKey =
+                                    selectedFinancialSource,
+                                onSourceSelected = { key ->
+                                    selectedFinancialSource =
+                                        key
+                                    selectedFilter = "All"
+                                }
+                            )
+                        }
+                    }
+
+                    if (selectedFinancialSource != null) {
+                        item(
+                            key =
+                                "source-feed-header-" +
+                                    bucket.monthStartEpochMs
+                        ) {
+                            FinancialSourceFeedHeader(
+                                source =
+                                    sourceSummaries
+                                        .firstOrNull {
+                                            it.key ==
+                                                selectedFinancialSource
+                                        },
+                                messageCount =
+                                    selectedSourceDiagnostics
+                                        .size
+                            )
+                        }
+
+                        if (
+                            selectedSourceDiagnostics
+                                .isEmpty()
+                        ) {
+                            item(
+                                key =
+                                    "source-feed-empty-" +
+                                        bucket
+                                            .monthStartEpochMs
+                            ) {
+                                EmptyFinancialSourceFeed()
+                            }
+                        } else {
+                            selectedSourceDiagnostics
+                                .groupBy {
+                                    dayStart(
+                                        it.receivedAtEpochMs
+                                    )
+                                }
+                                .toList()
+                                .sortedByDescending {
+                                    it.first
+                                }
+                                .forEach {
+                                        (
+                                            dayEpochMs,
+                                            messages
+                                        ) ->
+                                    item(
+                                        key =
+                                            "source-day-" +
+                                                dayEpochMs
+                                    ) {
+                                        FinancialMessageDateHeader(
+                                            dayEpochMs =
+                                                dayEpochMs,
+                                            count =
+                                                messages.size
+                                        )
+                                    }
+                                    items(
+                                        count =
+                                            messages.size,
+                                        key = { index ->
+                                            "source-message-" +
+                                                messages[
+                                                    index
+                                                ]
+                                                    .receivedAtEpochMs +
+                                                "-" +
+                                                index
+                                        }
+                                    ) { index ->
+                                        CapturedFinancialMessageRow(
+                                            diagnostic =
+                                                messages[
+                                                    index
+                                                ]
+                                        )
+                                    }
+                                }
+                        }
+                    } else if (filtered.isEmpty()) {
                         item(
                             key =
                                 "empty-" +
@@ -618,6 +805,14 @@ fun ActivityScreen(
                                     transactions[index]
                                 ActivityRow(
                                     item = transaction,
+                                    accountName =
+                                        transaction
+                                            .accountId
+                                            ?.let {
+                                                accountsById[
+                                                    it
+                                                ]?.name
+                                            },
                                     onClick = {
                                         onTransactionClick(
                                             transaction.id
@@ -2175,6 +2370,7 @@ private fun ActivityDateHeader(
 @Composable
 private fun ActivityRow(
     item: StoredTransaction,
+    accountName: String?,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -2223,7 +2419,7 @@ private fun ActivityRow(
                     .weight(1f)
                     .padding(horizontal = 11.dp)
             ) {
-                val displayName =
+                val rawDisplayName =
                     item.evidenceLabel
                         ?.takeIf {
                             item.evidenceSource
@@ -2233,6 +2429,14 @@ private fun ActivityRow(
                         }
                         ?: item.counterparty
                         ?: humanize(item.type)
+                val displayName =
+                    financialActivityDisplayName(
+                        item = item,
+                        rawDisplayName =
+                            rawDisplayName,
+                        accountName =
+                            accountName
+                    )
 
                 Text(
                     displayName,
@@ -2257,7 +2461,16 @@ private fun ActivityRow(
                             needsReview -> "Needs review"
                             isRefund ->
                                 "Refund • " + categoryLabel
-                            else -> categoryLabel
+                            else ->
+                                financialActivityEventLabel(
+                                    item = item,
+                                    categoryLabel =
+                                        categoryLabel,
+                                    rawDisplayName =
+                                        rawDisplayName,
+                                    accountName =
+                                        accountName
+                                )
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = pesaToneContent(tone)
@@ -2321,6 +2534,390 @@ private fun ActivityRow(
         }
     }
 }
+
+data class FinancialSourceSummary(
+    val key: String,
+    val displayName: String,
+    val sourceType: String,
+    val messageCount: Int
+)
+
+@Composable
+private fun FinancialSourceNavigator(
+    sources: List<FinancialSourceSummary>,
+    selectedSourceKey: String?,
+    onSourceSelected: (String?) -> Unit
+) {
+    Column(
+        verticalArrangement =
+            Arrangement.spacedBy(7.dp)
+    ) {
+        Text(
+            "Scanned financial sources",
+            style =
+                MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            "Tap a source to see every financial message PesaTrack captured before duplicate reconciliation.",
+            style =
+                MaterialTheme.typography.bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
+        LazyRow(
+            horizontalArrangement =
+                Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                FilterChip(
+                    selected =
+                        selectedSourceKey == null,
+                    onClick = {
+                        onSourceSelected(null)
+                    },
+                    label = {
+                        Text("All sources")
+                    }
+                )
+            }
+            sources.forEach { source ->
+                item(key = source.key) {
+                    FilterChip(
+                        selected =
+                            selectedSourceKey ==
+                                source.key,
+                        onClick = {
+                            onSourceSelected(
+                                source.key
+                            )
+                        },
+                        label = {
+                            Text(
+                                source.displayName +
+                                    " " +
+                                    source.messageCount
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FinancialSourceFeedHeader(
+    source: FinancialSourceSummary?,
+    messageCount: Int
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color =
+            MaterialTheme.colorScheme
+                .surfaceVariant
+                .copy(alpha = .48f)
+    ) {
+        Column(
+            Modifier.padding(
+                horizontal = 14.dp,
+                vertical = 12.dp
+            )
+        ) {
+            Text(
+                source?.displayName
+                    ?: "Financial source",
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                (
+                    source?.sourceType
+                        ?.takeIf {
+                            it.isNotBlank()
+                        }
+                        ?: "Financial"
+                    ) +
+                    " • " +
+                    messageCount +
+                    " captured message" +
+                    if (messageCount == 1) {
+                        ""
+                    } else {
+                        "s"
+                    },
+                modifier =
+                    Modifier.padding(top = 2.dp),
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyFinancialSourceFeed() {
+    PesaCard {
+        Text(
+            "No captured financial messages for this source in the selected month.",
+            modifier = Modifier.padding(18.dp),
+            style =
+                MaterialTheme.typography.bodyMedium,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun FinancialMessageDateHeader(
+    dayEpochMs: Long,
+    count: Int
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment =
+            Alignment.CenterVertically
+    ) {
+        Text(
+            dayLabel(dayEpochMs),
+            modifier = Modifier.weight(1f),
+            style =
+                MaterialTheme.typography
+                    .titleSmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
+        Text(
+            count.toString() +
+                " message" +
+                if (count == 1) "" else "s",
+            style =
+                MaterialTheme.typography
+                    .labelMedium,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun CapturedFinancialMessageRow(
+    diagnostic: FinancialIngestionDiagnostic
+) {
+    val tone =
+        when (diagnostic.code) {
+            FinancialIngestionDiagnosticCode
+                .INGESTED -> "green"
+            FinancialIngestionDiagnosticCode
+                .PENDING_REVIEW -> "amber"
+            FinancialIngestionDiagnosticCode
+                .OBSERVATION_ONLY -> "blue"
+            FinancialIngestionDiagnosticCode
+                .UNRECOGNIZED_FINANCIAL_LANGUAGE ->
+                "amber"
+        }
+    val status =
+        when (diagnostic.code) {
+            FinancialIngestionDiagnosticCode
+                .INGESTED -> "Captured"
+            FinancialIngestionDiagnosticCode
+                .PENDING_REVIEW ->
+                "Needs review"
+            FinancialIngestionDiagnosticCode
+                .OBSERVATION_ONLY -> "Observed"
+            FinancialIngestionDiagnosticCode
+                .UNRECOGNIZED_FINANCIAL_LANGUAGE ->
+                "Not understood"
+        }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 12.dp,
+                vertical = 11.dp
+            ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            IconBubble(
+                icon =
+                    when {
+                        diagnostic.eventLabel
+                            .contains(
+                                "loan",
+                                ignoreCase = true
+                            ) ->
+                            Icons.Rounded.ReceiptLong
+                        diagnostic.eventLabel
+                            .contains(
+                                "transfer",
+                                ignoreCase = true
+                            ) ->
+                            Icons.Rounded.SyncAlt
+                        diagnostic.eventLabel
+                            .contains(
+                                "received",
+                                ignoreCase = true
+                            ) ->
+                            Icons.Rounded.CallReceived
+                        else ->
+                            Icons.Rounded.AccountBalance
+                    },
+                size = 40.dp,
+                background =
+                    pesaToneContainer(tone),
+                tint =
+                    pesaToneContent(tone)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 11.dp)
+            ) {
+                Text(
+                    diagnostic.eventLabel,
+                    style =
+                        MaterialTheme.typography
+                            .titleSmall,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
+                Text(
+                    formatTime(
+                        diagnostic
+                            .receivedAtEpochMs
+                    ) +
+                        "  •  " +
+                        diagnostic.sourceType,
+                    modifier =
+                        Modifier.padding(top = 3.dp),
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+            SmallStatusPill(status)
+        }
+    }
+}
+
+private fun financialSourceDisplayName(
+    diagnostic: FinancialIngestionDiagnostic
+): String =
+    diagnostic.sourceDisplayName
+        ?.takeIf(String::isNotBlank)
+        ?: FinancialProviderRegistry
+            .messageSourceDisplayName(
+                title = diagnostic.title,
+                bankLike =
+                    diagnostic.sourceType == "Bank"
+            )
+        ?.takeIf(String::isNotBlank)
+        ?: diagnostic.title
+            ?.takeIf(String::isNotBlank)
+        ?: "Unknown financial source"
+
+private fun financialSourceKey(
+    displayName: String
+): String =
+    displayName
+        .lowercase(Locale.ROOT)
+        .replace(
+            Regex("""[^a-z0-9]+"""),
+            "-"
+        )
+        .trim('-')
+        .ifBlank { "unknown" }
+
+private fun financialActivityDisplayName(
+    item: StoredTransaction,
+    rawDisplayName: String,
+    accountName: String?
+): String {
+    val senderStyleLabel =
+        FINANCIAL_SENDER_SUFFIX_REGEX
+            .containsMatchIn(rawDisplayName)
+    val bankLike =
+        senderStyleLabel &&
+            (
+                item.direction ==
+                    MoneyDirection.TRANSFER.name ||
+                    item.category ==
+                        TransactionCategory
+                            .TRANSFER.name
+                )
+
+    return if (senderStyleLabel) {
+        FinancialProviderRegistry
+            .messageSourceDisplayName(
+                title = rawDisplayName,
+                bankLike = bankLike
+            )
+            ?: rawDisplayName
+    } else {
+        rawDisplayName
+    }
+}
+
+private fun financialActivityEventLabel(
+    item: StoredTransaction,
+    categoryLabel: String,
+    rawDisplayName: String,
+    accountName: String?
+): String {
+    val bankLike =
+        listOfNotNull(
+            rawDisplayName,
+            accountName
+        ).any {
+            FINANCIAL_SENDER_SUFFIX_REGEX
+                .containsMatchIn(it)
+        }
+
+    return when {
+        item.category ==
+            TransactionCategory.DEBT_LOAN.name &&
+            item.direction ==
+                MoneyDirection.INCOME.name ->
+            "Loan"
+        item.category ==
+            TransactionCategory.DEBT_LOAN.name &&
+            item.direction !=
+                MoneyDirection.INCOME.name ->
+            "Loan repayment"
+        item.direction ==
+            MoneyDirection.TRANSFER.name &&
+            bankLike ->
+            "Bank transfer"
+        else -> categoryLabel
+    }
+}
+
+private val FINANCIAL_SENDER_SUFFIX_REGEX =
+    Regex(
+        """\s+(?:BULK(?:\s+SMS)?|ALERTS?|SMS|NOTIFICATIONS?)\s*$""",
+        RegexOption.IGNORE_CASE
+    )
 
 @Composable
 private fun MerchantBadge(
