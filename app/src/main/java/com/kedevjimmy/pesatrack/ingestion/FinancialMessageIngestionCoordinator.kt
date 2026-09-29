@@ -1220,7 +1220,18 @@ class FinancialMessageIngestionCoordinator private constructor(
             FinancialSemanticIntent.INVESTMENT_EXECUTED ->
                 "Investment executed"
             FinancialSemanticIntent.CONFIRMATION_ONLY ->
-                "Confirmation"
+                when {
+                    FinancialSemanticIntent.TRANSFER in
+                        semantic.intents ->
+                        "Transfer confirmation"
+                    FinancialSemanticIntent.PAYMENT in
+                        semantic.intents ->
+                        "Payment confirmation"
+                    FinancialSemanticIntent.RECEIPT in
+                        semantic.intents ->
+                        "Receipt confirmation"
+                    else -> "Confirmation"
+                }
             FinancialSemanticIntent.UNKNOWN ->
                 "Needs review"
         }
