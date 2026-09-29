@@ -1240,6 +1240,18 @@ object FinancialRelationshipResolver {
             }
         }
 
+    private fun isLikelyFinancialAccount(
+        reference: FinancialAccountReference,
+        action: FinancialActionCandidate
+    ): Boolean =
+        action.ruleId.endsWith(
+            ".explicit_account"
+        ) ||
+            reference.providerKey != null ||
+            reference.accountTypeHint != AccountType.OTHER ||
+            ACCOUNT_LABEL_HINT_REGEX
+                .containsMatchIn(action.partyLabel)
+
     private fun accountRelationshipConfidence(
         source: FinancialAccountReference,
         destination: FinancialAccountReference
