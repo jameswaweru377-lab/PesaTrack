@@ -380,12 +380,21 @@ fun TransactionDetailScreen(
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
                     DetailRow(Icons.Rounded.AccountCircle, "Name", current.counterparty ?: "Not identified")
                     current.evidenceLabel?.let { evidenceLabel ->
+                        val entityIntelligence =
+                            current.evidenceSource
+                                ?.startsWith(
+                                    "entity_intelligence:"
+                                ) == true
                         DetailRow(
                             Icons.Rounded.Tune,
-                            if (current.counterparty == evidenceLabel) {
-                                "Identified from nearby message"
-                            } else {
-                                "Possible match"
+                            when {
+                                entityIntelligence ->
+                                    "Recognized entity"
+                                current.counterparty ==
+                                    evidenceLabel ->
+                                    "Identified from nearby message"
+                                else ->
+                                    "Possible match"
                             },
                             evidenceLabel
                         )
@@ -393,10 +402,22 @@ fun TransactionDetailScreen(
                             Icons.Rounded.Tune,
                             "Evidence",
                             buildString {
-                                append(current.evidenceSource ?: "Nearby financial message")
+                                if (entityIntelligence) {
+                                    append(
+                                        "PesaTrack entity intelligence"
+                                    )
+                                } else {
+                                    append(
+                                        current.evidenceSource
+                                            ?: "Nearby financial message"
+                                    )
+                                }
                                 current.evidenceConfidence?.let {
                                     append(" • ")
-                                    append(it.lowercase().replace('_', ' '))
+                                    append(
+                                        it.lowercase()
+                                            .replace('_', ' ')
+                                    )
                                 }
                                 current.evidenceTimeDeltaMs?.let {
                                     append(" • ")
@@ -806,7 +827,13 @@ private fun ClassificationCard(item: StoredTransaction) {
                         item.reviewState ==
                             ReviewState.USER_CLASSIFIED.name ->
                             "Classified by you."
-                        else -> "Classified automatically."
+                        item.evidenceSource
+                            ?.startsWith(
+                                "entity_intelligence:"
+                            ) == true ->
+                            "Auto-reviewed from a high-confidence entity match. You can change this category at any time."
+                        else ->
+                            "Classified automatically."
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
