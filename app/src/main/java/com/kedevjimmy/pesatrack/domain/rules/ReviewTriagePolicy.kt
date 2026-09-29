@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+
 object ReviewTriagePolicy {
     fun identityKey(
         counterparty: String?,
@@ -19,6 +21,14 @@ object ReviewTriagePolicy {
 
     fun shouldRequestTeaching(monthlyOccurrenceCount: Int): Boolean =
         monthlyOccurrenceCount >= 2
+
+    fun shouldTriageCategory(
+        category: String
+    ): Boolean =
+        category ==
+            TransactionCategory.UNCATEGORIZED.name ||
+            category ==
+            TransactionCategory.OTHER.name
 
     fun normalizeName(value: String): String =
         value.trim()
