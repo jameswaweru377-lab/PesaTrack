@@ -6,6 +6,7 @@ import org.json.JSONObject
 
 enum class FinancialIngestionDiagnosticCode {
     UNRECOGNIZED_FINANCIAL_LANGUAGE,
+    UNDERSTOOD_NO_LEDGER_EFFECT,
     OBSERVATION_ONLY,
     PENDING_REVIEW,
     INGESTED
@@ -44,6 +45,7 @@ class FinancialIngestionDiagnosticsStore private constructor(
         sourceKind: String,
         receivedAtEpochMs: Long,
         financialCandidate: Boolean,
+        semanticUnderstood: Boolean,
         result: FinancialMessageIngestionResult
     ) {
         if (!financialCandidate && !result.recognized) {
@@ -51,6 +53,10 @@ class FinancialIngestionDiagnosticsStore private constructor(
         }
 
         val code = when {
+            !result.recognized &&
+                semanticUnderstood ->
+                FinancialIngestionDiagnosticCode
+                    .UNDERSTOOD_NO_LEDGER_EFFECT
             !result.recognized ->
                 FinancialIngestionDiagnosticCode
                     .UNRECOGNIZED_FINANCIAL_LANGUAGE
