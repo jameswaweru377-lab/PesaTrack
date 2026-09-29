@@ -271,6 +271,17 @@ export default {
     const url = new URL(request.url);
 
     if (
+      request.method === "GET" &&
+      url.pathname === "/v1/entity/health"
+    ) {
+      return json({
+        status: "ok",
+        service: "pesatrack-entity-enrichment",
+        privacyMode: "sanitized-descriptor-only",
+      });
+    }
+
+    if (
       request.method !== "POST" ||
       url.pathname !== "/v1/entity/resolve"
     ) {
