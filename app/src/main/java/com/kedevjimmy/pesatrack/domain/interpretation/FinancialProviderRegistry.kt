@@ -181,24 +181,6 @@ object FinancialProviderRegistry {
             }
         }
 
-        val sourceAccount =
-            resolveMessageSourceAccount(title)
-        val sourceBalance =
-            sourceAccount?.let { source ->
-                distinctAccounts.singleOrNull {
-                    it.entityKey == source.entityKey &&
-                        it.nature !=
-                            FinancialAccountNature.LIABILITY
-                }
-            }
-        if (sourceBalance != null && sourceAccount != null) {
-            return sourceAccount.copy(
-                ownershipHint =
-                    AccountOwnershipHint.USER_OWNED,
-                nature = FinancialAccountNature.ASSET
-            )
-        }
-
         val ownedAssets =
             distinctAccounts.filter {
                 it.ownershipHint ==
