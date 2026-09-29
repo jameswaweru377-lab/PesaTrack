@@ -8,6 +8,23 @@ import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
 
+sealed interface EntityEnrichmentFetchResult {
+    data class Resolved(
+        val value: RemoteEntityEnrichment
+    ) : EntityEnrichmentFetchResult
+
+    data object NotFound :
+        EntityEnrichmentFetchResult
+
+    data class Retryable(
+        val reason: String
+    ) : EntityEnrichmentFetchResult
+
+    data class PermanentFailure(
+        val reason: String
+    ) : EntityEnrichmentFetchResult
+}
+
 class EntityEnrichmentHttpClient(
     private val endpoint:
         String = BuildConfig.ENTITY_ENRICHMENT_URL
@@ -20,28 +37,54 @@ class EntityEnrichmentHttpClient(
 
     fun enrich(
         sanitizedDescriptor: String
-    ): RemoteEntityEnrichment? {
+    ): RemoteEntityEnrichment? =
+        when (
+            val result =
+                fetch(
+                    sanitizedDescriptor
+                )
+        ) {
+            is EntityEnrichmentFetchResult
+                .Resolved ->
+                result.value
+            else -> null
+        }
+
+    fun fetch(
+        sanitizedDescriptor: String
+    ): EntityEnrichmentFetchResult {
         if (!isConfigured()) {
-            return null
+            return EntityEnrichmentFetchResult
+                .PermanentFailure(
+                    "endpoint_not_configured"
+                )
         }
 
         val connection =
-            (URL(endpoint).openConnection()
-                as HttpURLConnection)
-                .apply {
-                    requestMethod = "POST"
-                    connectTimeout = 5_000
-                    readTimeout = 7_000
-                    doOutput = true
-                    setRequestProperty(
-                        "Content-Type",
-                        "application/json"
+            runCatching {
+                (
+                    URL(endpoint).openConnection()
+                        as HttpURLConnection
+                    ).apply {
+                        requestMethod = "POST"
+                        connectTimeout = 5_000
+                        readTimeout = 7_000
+                        doOutput = true
+                        setRequestProperty(
+                            "Content-Type",
+                            "application/json"
+                        )
+                        setRequestProperty(
+                            "Accept",
+                            "application/json"
+                        )
+                    }
+            }.getOrElse {
+                return EntityEnrichmentFetchResult
+                    .Retryable(
+                        "connection_setup"
                     )
-                    setRequestProperty(
-                        "Accept",
-                        "application/json"
-                    )
-                }
+            }
 
         return try {
             val request =
@@ -61,21 +104,55 @@ class EntityEnrichmentHttpClient(
                 )
             }
 
-            if (
-                connection.responseCode !in
-                200..299
-            ) {
-                return null
+            val responseCode =
+                connection.responseCode
+
+            when {
+                responseCode in 200..299 -> {
+                    val response =
+                        connection.inputStream
+                            .bufferedReader()
+                            .use {
+                                it.readText()
+                            }
+                    val parsed =
+                        parseResponse(response)
+                    if (parsed == null) {
+                        EntityEnrichmentFetchResult
+                            .PermanentFailure(
+                                "invalid_response"
+                            )
+                    } else {
+                        EntityEnrichmentFetchResult
+                            .Resolved(parsed)
+                    }
+                }
+
+                responseCode == 404 ->
+                    EntityEnrichmentFetchResult
+                        .NotFound
+
+                responseCode == 408 ||
+                    responseCode == 429 ||
+                    responseCode >= 500 ->
+                    EntityEnrichmentFetchResult
+                        .Retryable(
+                            "http_" +
+                                responseCode
+                        )
+
+                else ->
+                    EntityEnrichmentFetchResult
+                        .PermanentFailure(
+                            "http_" +
+                                responseCode
+                        )
             }
-
-            val response =
-                connection.inputStream
-                    .bufferedReader()
-                    .use { it.readText() }
-
-            parseResponse(response)
-        } catch (_: Exception) {
-            null
+        } catch (
+            _: java.io.IOException
+        ) {
+            EntityEnrichmentFetchResult
+                .Retryable("io")
         } finally {
             connection.disconnect()
         }

@@ -4,7 +4,9 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.ingestion.LegacyTransactionTypeCompatibility
+import com.kedevjimmy.pesatrack.domain.intelligence.EntityDescriptorPrivacyPolicy
 import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityAutoReviewPolicy
+import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEligibilityPolicy
 import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEnrichment
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionFingerprint
 import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKind
@@ -370,8 +372,10 @@ class TransactionStore private constructor(context: Context) {
 
             if (
                 matchedRule == null &&
-                parsed.type.name in
-                    OUTGOING_REVIEW_TYPES &&
+                RemoteEntityEligibilityPolicy
+                    .canSendOnline(
+                        parsed.type.name
+                    ) &&
                 ReviewTriagePolicy
                     .shouldTriageCategory(
                         classification.category.name
@@ -1849,6 +1853,129 @@ class TransactionStore private constructor(context: Context) {
         }
 
     @Synchronized
+    fun applyRemoteEntityEnrichmentByDescriptor(
+        sanitizedDescriptor: String,
+        result: RemoteEntityEnrichment
+    ): Int {
+        if (
+            !RemoteEntityAutoReviewPolicy
+                .shouldAutoReview(result)
+        ) {
+            return 0
+        }
+
+        val descriptorKey =
+            EntityDescriptorPrivacyPolicy
+                .cacheKey(
+                    sanitizedDescriptor
+                )
+        if (descriptorKey.isBlank()) {
+            return 0
+        }
+
+        val category =
+            result.categoryHint
+                ?: return 0
+        val db =
+            database.writableDatabase
+        var changed = 0
+
+        allTransactions().forEach { current ->
+            if (
+                current.ruleId != null ||
+                current.reviewState ==
+                    ReviewState.USER_CLASSIFIED.name ||
+                current.reviewState ==
+                    ReviewState.EXCLUDED.name ||
+                !RemoteEntityEligibilityPolicy
+                    .canSendOnline(
+                        current.type
+                    ) ||
+                current.direction !=
+                    MoneyDirection.EXPENSE.name ||
+                !ReviewTriagePolicy
+                    .shouldTriageCategory(
+                        current.category
+                    )
+            ) {
+                return@forEach
+            }
+
+            val candidate =
+                EntityDescriptorPrivacyPolicy
+                    .sanitize(
+                        current.counterparty
+                    )
+                    ?: return@forEach
+            if (
+                EntityDescriptorPrivacyPolicy
+                    .cacheKey(candidate) !=
+                descriptorKey
+            ) {
+                return@forEach
+            }
+
+            val values =
+                ContentValues().apply {
+                    put(
+                        "counterparty",
+                        result.canonicalName
+                    )
+                    put(
+                        "direction",
+                        MoneyDirection.EXPENSE.name
+                    )
+                    put(
+                        "category",
+                        category.name
+                    )
+                    put(
+                        "review_state",
+                        ReviewState.AUTO_CLASSIFIED.name
+                    )
+                    putNull("rule_id")
+                    put(
+                        "evidence_label",
+                        result.canonicalName
+                    )
+                    put(
+                        "evidence_source",
+                        "entity_intelligence:" +
+                            result.source
+                    )
+                    put(
+                        "evidence_confidence",
+                        EvidenceConfidence.HIGH.name
+                    )
+                    putNull(
+                        "evidence_time_delta_ms"
+                    )
+                    putNull(
+                        "cycle_candidate_reason"
+                    )
+                }
+
+            changed +=
+                db.update(
+                    "transactions",
+                    values,
+                    "id = ?",
+                    arrayOf(
+                        current.id.toString()
+                    )
+                )
+        }
+
+        if (changed > 0) {
+            PayCycleStore.get(appContext)
+                .rebuild()
+            LedgerUpdateBus.notifyChanged()
+        }
+
+        return changed
+    }
+
+    @Synchronized
     fun applyRemoteEntityEnrichment(
         transactionId: Long,
         result: RemoteEntityEnrichment
@@ -1863,8 +1990,10 @@ class TransactionStore private constructor(context: Context) {
                 ReviewState.USER_CLASSIFIED.name ||
             current.reviewState ==
                 ReviewState.EXCLUDED.name ||
-            current.type !in
-                OUTGOING_REVIEW_TYPES ||
+            !RemoteEntityEligibilityPolicy
+                .canSendOnline(
+                    current.type
+                ) ||
             current.direction !=
                 MoneyDirection.EXPENSE.name ||
             !ReviewTriagePolicy
@@ -1943,8 +2072,10 @@ class TransactionStore private constructor(context: Context) {
                         ReviewState.EXCLUDED.name &&
                     item.direction ==
                         MoneyDirection.EXPENSE.name &&
-                    item.type in
-                        OUTGOING_REVIEW_TYPES &&
+                    RemoteEntityEligibilityPolicy
+                        .canSendOnline(
+                            item.type
+                        ) &&
                     ReviewTriagePolicy
                         .shouldTriageCategory(
                             item.category

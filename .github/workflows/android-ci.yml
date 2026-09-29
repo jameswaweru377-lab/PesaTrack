@@ -39,6 +39,8 @@ jobs:
         run: node --check worker/entity-enrichment/src/index.js
 
       - name: Unit tests and debug APK
+        env:
+          PESATRACK_ENTITY_ENRICHMENT_URL: ${{ vars.PESATRACK_ENTITY_ENRICHMENT_URL }}
         run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
 
       - name: Publish rolling debug APK

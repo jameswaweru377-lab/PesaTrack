@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.domain.intelligence
 
+import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 
 data class RemoteEntityEnrichment(
@@ -158,6 +159,16 @@ object EntityDescriptorPrivacyPolicy {
                 }
         }
     }
+}
+
+object RemoteEntityEligibilityPolicy {
+    fun canSendOnline(
+        type: String
+    ): Boolean =
+        type ==
+            MpesaTransactionType.PAY_BILL.name ||
+            type ==
+            MpesaTransactionType.BUY_GOODS.name
 }
 
 object RemoteEntityAutoReviewPolicy {
