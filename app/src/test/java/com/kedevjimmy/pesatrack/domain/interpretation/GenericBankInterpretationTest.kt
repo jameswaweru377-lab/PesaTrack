@@ -25,7 +25,7 @@ class GenericBankInterpretationTest {
             receipt.destination.displayName
         )
         assertEquals(
-            AccountOwnershipHint.UNKNOWN,
+            AccountOwnershipHint.USER_OWNED,
             receipt.destination.ownershipHint
         )
         assertEquals(
@@ -33,7 +33,7 @@ class GenericBankInterpretationTest {
             receipt.destination.nature
         )
         assertEquals(
-            InterpretationConfidence.MEDIUM,
+            InterpretationConfidence.HIGH,
             receipt.confidence
         )
 
