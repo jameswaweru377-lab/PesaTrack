@@ -39,6 +39,7 @@ jobs:
         run: |
           node --check worker/entity-enrichment/src/index.js
           node worker/entity-enrichment/test.mjs
+          npx --yes wrangler@4 deploy --config wrangler.jsonc --dry-run --outdir /tmp/pesatrack-worker-dry-run
 
       - name: Unit tests and debug APK
         env:
