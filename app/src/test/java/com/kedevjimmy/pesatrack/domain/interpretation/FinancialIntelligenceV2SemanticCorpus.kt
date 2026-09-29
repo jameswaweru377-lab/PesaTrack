@@ -54,7 +54,8 @@ object FinancialIntelligenceV2SemanticCorpus {
             body =
                 "Your transfer of funds has been processed.",
             expectedIntent =
-                FinancialSemanticIntent.TRANSFER,
+                FinancialSemanticIntent
+                    .CONFIRMATION_ONLY,
             expectedRole =
                 FinancialSemanticRole.CONFIRMATION
         ),
