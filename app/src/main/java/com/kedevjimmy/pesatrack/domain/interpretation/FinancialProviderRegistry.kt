@@ -151,7 +151,7 @@ object FinancialProviderRegistry {
                     normalize(rawLabel)
                 ),
             ownershipHint = AccountOwnershipHint.UNKNOWN,
-            nature = FinancialAccountNature.UNKNOWN
+            nature = inferAccountNature(normalized)
         )
     }
 
@@ -179,6 +179,24 @@ object FinancialProviderRegistry {
                     }
                     ?: preferred
             }
+        }
+
+        val sourceAccount =
+            resolveMessageSourceAccount(title)
+        val sourceBalance =
+            sourceAccount?.let { source ->
+                distinctAccounts.singleOrNull {
+                    it.entityKey == source.entityKey &&
+                        it.nature !=
+                            FinancialAccountNature.LIABILITY
+                }
+            }
+        if (sourceBalance != null && sourceAccount != null) {
+            return sourceAccount.copy(
+                ownershipHint =
+                    AccountOwnershipHint.USER_OWNED,
+                nature = FinancialAccountNature.ASSET
+            )
         }
 
         val ownedAssets =
@@ -220,6 +238,19 @@ object FinancialProviderRegistry {
             resolved
         }
     }
+
+    fun resolveOwnedMessageSourceAccount(
+        title: String?
+    ): FinancialAccountReference? =
+        resolveMessageSourceAccount(title)
+            ?.takeIf {
+                it.nature != FinancialAccountNature.LIABILITY
+            }
+            ?.copy(
+                ownershipHint =
+                    AccountOwnershipHint.USER_OWNED,
+                nature = FinancialAccountNature.ASSET
+            )
 
     private fun messageSourceProfileFor(
         title: String?
@@ -325,6 +356,20 @@ object FinancialProviderRegistry {
                 "MOBILE" in normalized ->
                 AccountType.MOBILE_WALLET
             else -> AccountType.OTHER
+        }
+
+    private fun inferAccountNature(
+        normalized: String
+    ): FinancialAccountNature =
+        when {
+            normalized == "LOAN" ||
+                normalized.endsWith(" LOAN") ||
+                " LOAN " in normalized ||
+                normalized == "OVERDRAFT" ||
+                normalized.endsWith(" OVERDRAFT") ||
+                " OVERDRAFT " in normalized ->
+                FinancialAccountNature.LIABILITY
+            else -> FinancialAccountNature.UNKNOWN
         }
 
     private fun normalize(value: String): String =
