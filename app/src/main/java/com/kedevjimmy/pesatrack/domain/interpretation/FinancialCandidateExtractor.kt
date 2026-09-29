@@ -532,33 +532,58 @@ object FinancialCandidateExtractor {
     private fun transferFromCandidate(
         body: String
     ): FinancialActionCandidate? {
-        val match =
+        val explicitAccountMatch =
             transferFromRegex.find(body)
                 ?: receivedFromAccountRegex.find(body)
-                ?: transferFromNamedSourceRegex.find(body)
+        if (explicitAccountMatch != null) {
+            return actionCandidate(
+                match = explicitAccountMatch,
+                kind =
+                    FinancialActionCandidateKind
+                        .TRANSFER_FROM_ACCOUNT,
+                ruleId =
+                    "transfer_from.explicit_account"
+            )
+        }
+
+        val namedMatch =
+            transferFromNamedSourceRegex.find(body)
                 ?: return null
         return actionCandidate(
-            match = match,
+            match = namedMatch,
             kind =
                 FinancialActionCandidateKind
                     .TRANSFER_FROM_ACCOUNT,
-            ruleId = "transfer_from.account"
+            ruleId = "transfer_from.named_source"
         )
     }
 
     private fun transferToCandidate(
         body: String
     ): FinancialActionCandidate? {
-        val match =
+        val explicitAccountMatch =
             transferToRegex.find(body)
-                ?: transferToNamedDestinationRegex.find(body)
+        if (explicitAccountMatch != null) {
+            return actionCandidate(
+                match = explicitAccountMatch,
+                kind =
+                    FinancialActionCandidateKind
+                        .TRANSFER_TO_ACCOUNT,
+                ruleId =
+                    "transfer_to.explicit_account"
+            )
+        }
+
+        val namedMatch =
+            transferToNamedDestinationRegex.find(body)
                 ?: return null
         return actionCandidate(
-            match = match,
+            match = namedMatch,
             kind =
                 FinancialActionCandidateKind
                     .TRANSFER_TO_ACCOUNT,
-            ruleId = "transfer_to.account"
+            ruleId =
+                "transfer_to.named_destination"
         )
     }
 
