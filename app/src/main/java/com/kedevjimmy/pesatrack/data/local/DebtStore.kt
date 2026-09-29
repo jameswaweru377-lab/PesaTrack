@@ -7,6 +7,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.DebtCompletion
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtFundingBehavior
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
@@ -71,6 +72,34 @@ data class DebtWriteResult(
 class DebtStore private constructor(context: Context) {
     private val appContext = context.applicationContext
     private val database = PesaTrackDatabase(appContext)
+
+    @Synchronized
+    fun recordObservedOutstanding(
+        reference: FinancialAccountReference,
+        outstandingMinor: Long,
+        observedAtEpochMs: Long
+    ) {
+        if (
+            reference.nature !=
+                FinancialAccountNature.LIABILITY
+        ) {
+            return
+        }
+
+        val identity = debtAccountIdentity(reference)
+        ensureAccount(
+            id = identity.id,
+            providerKey = identity.providerKey,
+            name = identity.name
+        )
+        updateBalance(
+            accountId = identity.id,
+            outstandingMinor =
+                max(0L, outstandingMinor),
+            quality = DebtBalanceQuality.OBSERVED,
+            observedAtEpochMs = observedAtEpochMs
+        )
+    }
 
     @Synchronized
     fun recordDrawdown(

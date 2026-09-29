@@ -7,6 +7,7 @@ enum class FinancialActionCandidateKind {
     TRANSFER_TO_ACCOUNT,
     PAYMENT_SENT_TO,
     PAYMENT_PAID_TO,
+    ACCOUNT_DEBIT_TO,
     AIRTIME_PURCHASE,
     RECEIPT_FROM,
     RECEIPT_CREDITED_FROM
@@ -188,6 +189,22 @@ object FinancialCandidateExtractor {
             RegexOption.DOT_MATCHES_ALL
         )
     )
+    private val accountDebitToRegexes = listOf(
+        Regex(
+            """(?:your\s+)?(?:a/?c|account)(?:\s+[A-Za-z0-9*Xx-]+)?\s+(?:has\s+been\s+)?debited(?:\s+(?:with|by))?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?).{0,180}?(?:transfer\s+to|sent\s+to|paid\s+to|beneficiary\s*[:\-]?|to)\s+([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,80}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|successful|successfully|completed)\b|[.;]|$)""",
+            setOf(
+                RegexOption.IGNORE_CASE,
+                RegexOption.DOT_MATCHES_ALL
+            )
+        ),
+        Regex(
+            """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?debited\s+from\s+(?:your\s+)?(?:a/?c|account)(?:\s+[A-Za-z0-9*Xx-]+)?.{0,180}?(?:transfer\s+to|sent\s+to|paid\s+to|beneficiary\s*[:\-]?|to)\s+([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,80}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|successful|successfully|completed)\b|[.;]|$)""",
+            setOf(
+                RegexOption.IGNORE_CASE,
+                RegexOption.DOT_MATCHES_ALL
+            )
+        )
+    )
     private val receiptRegex = Regex(
         """(?:you\s+have\s+)?received\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+(.+?)(?=\s+(?:\+?254|0)\d{9}\b|\s+on\s+\d|\.\s*(?:New\s+)?M-PESA|$)""",
         setOf(
@@ -306,6 +323,7 @@ object FinancialCandidateExtractor {
         val actions = buildList {
             transferFromCandidate(body)?.let(::add)
             transferToCandidate(body)?.let(::add)
+            accountDebitCandidate(body)?.let(::add)
             paymentCandidate(body)?.let(::add)
             paidToCandidate(body)?.let(::add)
             airtimePurchaseCandidate(body)?.let(::add)
@@ -514,33 +532,58 @@ object FinancialCandidateExtractor {
     private fun transferFromCandidate(
         body: String
     ): FinancialActionCandidate? {
-        val match =
+        val explicitAccountMatch =
             transferFromRegex.find(body)
                 ?: receivedFromAccountRegex.find(body)
-                ?: transferFromNamedSourceRegex.find(body)
+        if (explicitAccountMatch != null) {
+            return actionCandidate(
+                match = explicitAccountMatch,
+                kind =
+                    FinancialActionCandidateKind
+                        .TRANSFER_FROM_ACCOUNT,
+                ruleId =
+                    "transfer_from.explicit_account"
+            )
+        }
+
+        val namedMatch =
+            transferFromNamedSourceRegex.find(body)
                 ?: return null
         return actionCandidate(
-            match = match,
+            match = namedMatch,
             kind =
                 FinancialActionCandidateKind
                     .TRANSFER_FROM_ACCOUNT,
-            ruleId = "transfer_from.account"
+            ruleId = "transfer_from.named_source"
         )
     }
 
     private fun transferToCandidate(
         body: String
     ): FinancialActionCandidate? {
-        val match =
+        val explicitAccountMatch =
             transferToRegex.find(body)
-                ?: transferToNamedDestinationRegex.find(body)
+        if (explicitAccountMatch != null) {
+            return actionCandidate(
+                match = explicitAccountMatch,
+                kind =
+                    FinancialActionCandidateKind
+                        .TRANSFER_TO_ACCOUNT,
+                ruleId =
+                    "transfer_to.explicit_account"
+            )
+        }
+
+        val namedMatch =
+            transferToNamedDestinationRegex.find(body)
                 ?: return null
         return actionCandidate(
-            match = match,
+            match = namedMatch,
             kind =
                 FinancialActionCandidateKind
                     .TRANSFER_TO_ACCOUNT,
-            ruleId = "transfer_to.account"
+            ruleId =
+                "transfer_to.named_destination"
         )
     }
 
@@ -606,6 +649,25 @@ object FinancialCandidateExtractor {
             accountReferenceSpan =
                 accountReference?.range?.toSpan(),
             ruleId = "payment.paid_to"
+        )
+    }
+
+    private fun accountDebitCandidate(
+        body: String
+    ): FinancialActionCandidate? {
+        val match = accountDebitToRegexes
+            .asSequence()
+            .mapNotNull { it.find(body) }
+            .firstOrNull()
+            ?: return null
+
+        return actionCandidate(
+            match = match,
+            kind =
+                FinancialActionCandidateKind
+                    .ACCOUNT_DEBIT_TO,
+            ruleId = "payment.account_debit_to",
+            cleanPersonParty = true
         )
     }
 

@@ -198,6 +198,20 @@ class FinancialUnderstandingStore private constructor(
                 SQLiteDatabase.CONFLICT_IGNORE
             ) != -1L
 
+        if (
+            fact.account.nature ==
+                FinancialAccountNature.LIABILITY
+        ) {
+            DebtStore.get(appContext)
+                .recordObservedOutstanding(
+                    reference = fact.account,
+                    outstandingMinor =
+                        fact.balanceMinor,
+                    observedAtEpochMs =
+                        observedAtEpochMs
+                )
+        }
+
         if (inserted) {
             LedgerUpdateBus.notifyChanged()
         }

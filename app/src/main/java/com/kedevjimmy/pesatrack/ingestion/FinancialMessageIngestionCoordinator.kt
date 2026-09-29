@@ -43,6 +43,10 @@ class FinancialMessageIngestionCoordinator private constructor(
         FinancialUnderstandingStore.get(appContext)
     private val transactionStore =
         TransactionStore.get(appContext)
+    private val diagnosticsStore =
+        FinancialIngestionDiagnosticsStore.get(
+            appContext
+        )
 
     @Synchronized
     fun ingest(
@@ -60,14 +64,26 @@ class FinancialMessageIngestionCoordinator private constructor(
             )
 
         if (!interpretation.recognized) {
-            return FinancialMessageIngestionResult(
-                recognized = false,
-                consumesLegacyTransactionParsing = false,
-                changed = false,
-                insertedTransactions = 0,
-                insertedFinancialEvents = 0,
-                pendingReviewEvents = 0
+            val result =
+                FinancialMessageIngestionResult(
+                    recognized = false,
+                    consumesLegacyTransactionParsing =
+                        false,
+                    changed = false,
+                    insertedTransactions = 0,
+                    insertedFinancialEvents = 0,
+                    pendingReviewEvents = 0
+                )
+            recordDiagnostic(
+                title = title,
+                body = body,
+                sourcePackage = sourcePackage,
+                sourceKind = sourceKind,
+                receivedAtEpochMs =
+                    receivedAtEpochMs,
+                result = result
             )
+            return result
         }
 
         val rules =
@@ -965,18 +981,50 @@ class FinancialMessageIngestionCoordinator private constructor(
             }
         }
 
-        return FinancialMessageIngestionResult(
-            recognized = true,
-            consumesLegacyTransactionParsing =
-                interpretation
-                    .consumesLegacyTransactionParsing,
-            changed = changed,
-            insertedTransactions =
-                insertedTransactions,
-            insertedFinancialEvents =
-                insertedFinancialEvents,
-            pendingReviewEvents =
-                pendingReviewEvents
+        val result =
+            FinancialMessageIngestionResult(
+                recognized = true,
+                consumesLegacyTransactionParsing =
+                    interpretation
+                        .consumesLegacyTransactionParsing,
+                changed = changed,
+                insertedTransactions =
+                    insertedTransactions,
+                insertedFinancialEvents =
+                    insertedFinancialEvents,
+                pendingReviewEvents =
+                    pendingReviewEvents
+            )
+        recordDiagnostic(
+            title = title,
+            body = body,
+            sourcePackage = sourcePackage,
+            sourceKind = sourceKind,
+            receivedAtEpochMs =
+                receivedAtEpochMs,
+            result = result
+        )
+        return result
+    }
+
+    private fun recordDiagnostic(
+        title: String?,
+        body: String,
+        sourcePackage: String?,
+        sourceKind: String,
+        receivedAtEpochMs: Long,
+        result: FinancialMessageIngestionResult
+    ) {
+        diagnosticsStore.record(
+            title = title,
+            sourcePackage = sourcePackage,
+            sourceKind = sourceKind,
+            receivedAtEpochMs =
+                receivedAtEpochMs,
+            hasCurrencyHint =
+                CURRENCY_HINT_REGEX
+                    .containsMatchIn(body),
+            result = result
         )
     }
 
@@ -1218,6 +1266,12 @@ class FinancialMessageIngestionCoordinator private constructor(
     }
 
     companion object {
+        private val CURRENCY_HINT_REGEX =
+            Regex(
+                """\b(?:Ksh|KES)\b""",
+                RegexOption.IGNORE_CASE
+            )
+
         const val SOURCE_INTERPRETED_PREFIX =
             "interpreted_"
 

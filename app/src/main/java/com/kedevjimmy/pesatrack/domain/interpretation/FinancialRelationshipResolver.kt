@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.domain.interpretation
 
+import com.kedevjimmy.pesatrack.domain.model.AccountType
+
 sealed interface ResolvedFinancialRelationship {
     val amountMinor: Long
     val feeMinor: Long
@@ -568,14 +570,18 @@ object FinancialRelationshipResolver {
                     repayment.liabilityLabel
                 )
             val funding =
-                FinancialProviderRegistry.resolveAccount(
-                    repayment.fundingAccountLabel
-                )
+                repayment.fundingAccountLabel
+                    ?.let(
+                        FinancialProviderRegistry::
+                            resolveAccount
+                    )
             val walletBalance =
-                balances.firstOrNull {
-                    it.account.entityKey ==
-                        funding.entityKey
-                }?.balanceMinor
+                funding?.let { fundingAccount ->
+                    balances.firstOrNull {
+                        it.account.entityKey ==
+                            fundingAccount.entityKey
+                    }?.balanceMinor
+                }
 
             val evidence = buildList {
                 add(
@@ -589,21 +595,23 @@ object FinancialRelationshipResolver {
                             InterpretationConfidence.HIGH
                     )
                 )
-                add(
-                    evidence(
-                        field =
-                            FinancialField.SOURCE_ACCOUNT,
-                        origin =
-                            EvidenceOrigin.MESSAGE_TEXT,
-                        ruleId =
-                            repayment.ruleId +
-                                ".funding_account",
-                        span =
-                            repayment.fundingAccountSpan,
-                        confidence =
-                            InterpretationConfidence.HIGH
+                if (funding != null) {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField.SOURCE_ACCOUNT,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId =
+                                repayment.ruleId +
+                                    ".funding_account",
+                            span =
+                                repayment.fundingAccountSpan,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
                     )
-                )
+                }
                 add(
                     evidence(
                         field = FinancialField.LIABILITY,
@@ -631,6 +639,23 @@ object FinancialRelationshipResolver {
                             InterpretationConfidence.HIGH
                     )
                 )
+                repayment.outstandingSpan?.let {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField
+                                    .OUTSTANDING_BALANCE,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId =
+                                repayment.ruleId +
+                                    ".outstanding",
+                            span = it,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
                 repayment.availableCreditSpan?.let {
                     add(
                         evidence(
@@ -659,14 +684,15 @@ object FinancialRelationshipResolver {
                 completion =
                     repayment.completion,
                 outstandingAfterMinor =
-                    if (
-                        repayment.completion ==
-                        DebtCompletion.FULL
-                    ) {
-                        0L
-                    } else {
-                        null
-                    },
+                    repayment.outstandingAfterMinor
+                        ?: if (
+                            repayment.completion ==
+                                DebtCompletion.FULL
+                        ) {
+                            0L
+                        } else {
+                            null
+                        },
                 availableCreditAfterMinor =
                     repayment
                         .availableCreditAfterMinor,
@@ -839,27 +865,34 @@ object FinancialRelationshipResolver {
         observedAccount: FinancialAccountReference?,
         messageTitle: String?,
         fee: FeeCandidate?
-    ): ResolvedFinancialRelationship? =
-        when (action.kind) {
+    ): ResolvedFinancialRelationship? {
+        val ownedMessageSource =
+            observedAccount ?:
+                FinancialProviderRegistry
+                    .resolveOwnedMessageSourceAccount(
+                        messageTitle
+                    )
+
+        return when (action.kind) {
             FinancialActionCandidateKind
                 .TRANSFER_FROM_ACCOUNT ->
                 resolveTransferFrom(
                     action,
-                    observedAccount,
+                    ownedMessageSource,
                     fee
                 )
             FinancialActionCandidateKind
                 .TRANSFER_TO_ACCOUNT ->
                 resolveTransferTo(
                     action,
-                    observedAccount,
+                    ownedMessageSource,
                     fee
                 )
             FinancialActionCandidateKind
                 .PAYMENT_SENT_TO ->
                 resolvePayment(
                     action,
-                    observedAccount,
+                    ownedMessageSource,
                     fee,
                     PaymentRouteHint.PERSON_TO_PERSON
                 )
@@ -867,7 +900,7 @@ object FinancialRelationshipResolver {
                 .PAYMENT_PAID_TO ->
                 resolvePayment(
                     action,
-                    observedAccount,
+                    ownedMessageSource,
                     fee,
                     if (
                         action.accountReference
@@ -879,10 +912,18 @@ object FinancialRelationshipResolver {
                     }
                 )
             FinancialActionCandidateKind
+                .ACCOUNT_DEBIT_TO ->
+                resolvePayment(
+                    action,
+                    ownedMessageSource,
+                    fee,
+                    PaymentRouteHint.PERSON_TO_PERSON
+                )
+            FinancialActionCandidateKind
                 .AIRTIME_PURCHASE ->
                 resolvePayment(
                     action,
-                    observedAccount,
+                    ownedMessageSource,
                     fee,
                     PaymentRouteHint.AIRTIME
                 )
@@ -892,14 +933,11 @@ object FinancialRelationshipResolver {
                 .RECEIPT_CREDITED_FROM ->
                 resolveReceipt(
                     action,
-                    observedAccount
-                        ?: FinancialProviderRegistry
-                            .resolveMessageSourceAccount(
-                                messageTitle
-                            ),
+                    ownedMessageSource,
                     fee
                 )
         }
+    }
 
     private fun resolveTransferFrom(
         action: FinancialActionCandidate,
@@ -913,6 +951,18 @@ object FinancialRelationshipResolver {
             )
         if (source.entityKey == destination.entityKey) {
             return null
+        }
+        if (
+            !isLikelyFinancialAccount(
+                source,
+                action
+            )
+        ) {
+            return resolveReceipt(
+                action = action,
+                observedAccount = destination,
+                fee = fee
+            )
         }
         val confidence =
             accountRelationshipConfidence(
@@ -949,6 +999,20 @@ object FinancialRelationshipResolver {
             )
         if (source.entityKey == destination.entityKey) {
             return null
+        }
+        if (
+            !isLikelyFinancialAccount(
+                destination,
+                action
+            )
+        ) {
+            return resolvePayment(
+                action = action,
+                observedAccount = source,
+                fee = fee,
+                routeHint =
+                    PaymentRouteHint.PERSON_TO_PERSON
+            )
         }
         val confidence =
             accountRelationshipConfidence(
@@ -1176,6 +1240,18 @@ object FinancialRelationshipResolver {
             }
         }
 
+    private fun isLikelyFinancialAccount(
+        reference: FinancialAccountReference,
+        action: FinancialActionCandidate
+    ): Boolean =
+        action.ruleId.endsWith(
+            ".explicit_account"
+        ) ||
+            reference.providerKey != null ||
+            reference.accountTypeHint != AccountType.OTHER ||
+            ACCOUNT_LABEL_HINT_REGEX
+                .containsMatchIn(action.partyLabel)
+
     private fun accountRelationshipConfidence(
         source: FinancialAccountReference,
         destination: FinancialAccountReference
@@ -1191,6 +1267,12 @@ object FinancialRelationshipResolver {
             InterpretationConfidence.MEDIUM
         }
 
+    private val ACCOUNT_LABEL_HINT_REGEX =
+        Regex(
+            """\b(?:a/?c|account|bank|wallet|saving|savings|sacco)\b""",
+            RegexOption.IGNORE_CASE
+        )
+
     private fun priority(
         action: FinancialActionCandidate
     ): Int =
@@ -1203,6 +1285,8 @@ object FinancialRelationshipResolver {
                 .PAYMENT_SENT_TO -> 2
             FinancialActionCandidateKind
                 .PAYMENT_PAID_TO -> 2
+            FinancialActionCandidateKind
+                .ACCOUNT_DEBIT_TO -> 2
             FinancialActionCandidateKind
                 .AIRTIME_PURCHASE -> 2
             FinancialActionCandidateKind

@@ -704,3 +704,56 @@ For every implementation phase:
 - The Worker deploy workflow health-checks Cloudflare and then triggers a fresh Android CI build so the rolling release APK is rebuilt against the active endpoint.
 - The provider key remains only in Cloudflare and is never embedded in Android.
 
+
+
+## Provider-agnostic bank and debt intelligence — PR #78
+
+Status on 2026-09-29: **implemented and Android CI verified on the code head before this documentation commit**.
+
+This phase fixes the architecture that caused unfamiliar bank/lender messages to disappear or require provider-specific code.
+
+Implemented behavior:
+
+- Unknown financial institutions are treated as discovered entities instead of requiring a dedicated parser file.
+- Production transaction logic does not contain Equity-, Co-op-, Family Bank-, Branch-, or Tala-specific branches. Those names are used only in regression fixtures.
+- Explicit unknown labels containing financial product language such as `Loan` or `Overdraft` can be represented as liabilities without adding them to the static provider registry.
+- Ordinary organization names containing words such as `Credit` are not automatically treated as debt.
+- Generic bank debit language such as an account being debited for a transfer/payment is interpreted from transaction grammar and anchored to the message source as the user's account.
+- Generic named-transfer language is separated from true account-to-account transfers:
+  - explicit account/wallet/bank destinations remain transfers;
+  - a transfer to an ordinary named person/entity becomes a payment instead of an unresolved account transfer.
+- Unknown bank/wallet message sources can become locally discovered owned accounts when the transaction wording provides strong ownership evidence. Balance-only evidence remains conservative and does not automatically claim ownership.
+- Generic lender repayment wording can create debt repayment events without a lender-specific parser.
+- A debt repayment can carry an explicitly observed outstanding balance into the debt ledger.
+- Liability balance observations are bridged into `DebtStore` as observed outstanding balances. This lets an existing M-Shwari/other loan appear even if PesaTrack never saw the original drawdown SMS.
+- Existing M-Shwari Loan provider knowledge remains available, but the debt-balance bridge is generic.
+- The existing mirror-transaction layer is protected by regression coverage so a bank-side observation and an M-Pesa-side observation of the same movement can reconcile instead of becoming duplicate income/spending.
+- A privacy-safe ingestion diagnostic trail was added. It records only:
+  - sender/title metadata,
+  - source package/kind,
+  - timestamp,
+  - outcome code,
+  - inserted transaction/event counts,
+  - pending-review count.
+- The diagnostic trail does **not** persist the SMS/notification body, amount, account number, phone number, or transaction code.
+
+Verification history during PR #78:
+
+- Early CI runs exposed two over-broad ownership expectations; the implementation was tightened rather than weakening tests.
+- Balance-only unknown-provider inference was restored to conservative behavior.
+- Explicit account-transfer grammar evidence was preserved so bank-to-wallet transfers remain transfers while named recipients become payments.
+- Nullable diagnostic metadata handling was corrected.
+- Final code head `b228573c5c926730e19bf4e4d8160550985bfb4f` passed Android CI run #304, including Worker validation, Android unit tests and debug APK build.
+
+Real-device validation still required after merge:
+
+1. Re-import or ingest actual Equity SMS/notifications and confirm outgoing debits now appear in Activity.
+2. Verify Equity -> M-Pesa / M-Pesa -> Equity mirrored messages reconcile as one movement and are not income/spending.
+3. Re-import M-Shwari history and confirm an observed current loan balance appears in debt tracking even when the original drawdown message is absent.
+4. Test a real Branch message if present; do not assume Branch activity is debt unless message semantics prove borrowing/repayment.
+5. When a new lender/bank appears later, first check the privacy-safe ingestion diagnostic outcome before adding any provider-specific code.
+6. Add new grammar fixtures only when the financial wording itself is genuinely new; do not add company-specific parsers for ordinary bank/loan semantics.
+
+Architecture rule going forward:
+
+**PesaTrack should learn financial language and relationships, not memorize provider names.** Static provider profiles are reserved for products with genuinely special mechanics (for example Fuliza transaction-shortfall financing) or stable identity metadata, not ordinary debit/credit/loan parsing.
