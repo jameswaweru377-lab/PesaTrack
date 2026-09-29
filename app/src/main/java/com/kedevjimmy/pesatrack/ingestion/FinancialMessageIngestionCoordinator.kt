@@ -16,6 +16,10 @@ import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpretation
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
+import com.kedevjimmy.pesatrack.domain.interpretation.DebtCompletion
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
 import com.kedevjimmy.pesatrack.domain.interpretation.ReceiptEventFact
@@ -77,6 +81,7 @@ class FinancialMessageIngestionCoordinator private constructor(
             recordDiagnostic(
                 title = title,
                 body = body,
+                interpretation = interpretation,
                 sourcePackage = sourcePackage,
                 sourceKind = sourceKind,
                 receivedAtEpochMs =
@@ -998,6 +1003,7 @@ class FinancialMessageIngestionCoordinator private constructor(
         recordDiagnostic(
             title = title,
             body = body,
+            interpretation = interpretation,
             sourcePackage = sourcePackage,
             sourceKind = sourceKind,
             receivedAtEpochMs =
@@ -1010,13 +1016,53 @@ class FinancialMessageIngestionCoordinator private constructor(
     private fun recordDiagnostic(
         title: String?,
         body: String,
+        interpretation: FinancialMessageInterpretation,
         sourcePackage: String?,
         sourceKind: String,
         receivedAtEpochMs: Long,
         result: FinancialMessageIngestionResult
     ) {
+        val bankLike =
+            BANK_SOURCE_LANGUAGE_REGEX
+                .containsMatchIn(body)
+        val sourceReference =
+            FinancialProviderRegistry
+                .resolveMessageSourceAccount(
+                    title = title,
+                    bankLike = bankLike
+                )
+        val sourceType =
+            when {
+                interpretation.events.any {
+                    it is DebtDrawdownEventFact ||
+                        it is DebtRepaymentEventFact
+                } ||
+                    interpretation.balances.any {
+                        it.account.nature ==
+                            FinancialAccountNature.LIABILITY
+                    } -> "Lender"
+                sourceReference?.accountTypeHint ==
+                    AccountType.BANK -> "Bank"
+                sourceReference?.accountTypeHint ==
+                    AccountType.MOBILE_WALLET -> "Wallet"
+                sourceReference?.accountTypeHint ==
+                    AccountType.SAVINGS -> "Savings"
+                else -> "Financial"
+            }
+        val eventLabel =
+            diagnosticEventLabel(
+                interpretation = interpretation,
+                sourceType = sourceType,
+                sourceDisplayName =
+                    sourceReference?.displayName
+            )
+
         diagnosticsStore.record(
             title = title,
+            sourceDisplayName =
+                sourceReference?.displayName,
+            sourceType = sourceType,
+            eventLabel = eventLabel,
             sourcePackage = sourcePackage,
             sourceKind = sourceKind,
             receivedAtEpochMs =
@@ -1026,6 +1072,67 @@ class FinancialMessageIngestionCoordinator private constructor(
                     .containsMatchIn(body),
             result = result
         )
+    }
+
+    private fun diagnosticEventLabel(
+        interpretation: FinancialMessageInterpretation,
+        sourceType: String,
+        sourceDisplayName: String?
+    ): String {
+        val event = interpretation.events.firstOrNull()
+
+        return when (event) {
+            is DebtDrawdownEventFact -> "Loan"
+            is DebtRepaymentEventFact ->
+                if (
+                    event.completion ==
+                        DebtCompletion.FULL ||
+                    event.outstandingAfterMinor == 0L
+                ) {
+                    "Loan repaid"
+                } else {
+                    "Loan repayment"
+                }
+            is TransferEventFact ->
+                when {
+                    sourceDisplayName.equals(
+                        "M-Pesa",
+                        ignoreCase = true
+                    ) -> "M-Pesa transfer"
+                    sourceType == "Bank" ->
+                        "Bank transfer"
+                    else -> "Transfer"
+                }
+            is PaymentEventFact ->
+                if (sourceType == "Bank") {
+                    "Bank payment"
+                } else {
+                    "Payment"
+                }
+            is ReceiptEventFact ->
+                if (sourceType == "Bank") {
+                    "Bank credit"
+                } else {
+                    "Money received"
+                }
+            is CashWithdrawalEventFact ->
+                "Cash withdrawal"
+            is CashDepositEventFact ->
+                "Cash deposit"
+            is ReversalEventFact -> "Reversal"
+            is UnresolvedFinancialEventFact ->
+                "Needs review"
+            null ->
+                when {
+                    interpretation.balances.any {
+                        it.account.nature ==
+                            FinancialAccountNature.LIABILITY
+                    } -> "Loan balance"
+                    interpretation.balances.isNotEmpty() ->
+                        "Balance update"
+                    else -> "Not understood"
+                }
+        }
     }
 
     private fun balanceForAccount(
@@ -1269,6 +1376,12 @@ class FinancialMessageIngestionCoordinator private constructor(
         private val CURRENCY_HINT_REGEX =
             Regex(
                 """\b(?:Ksh|KES)\b""",
+                RegexOption.IGNORE_CASE
+            )
+
+        private val BANK_SOURCE_LANGUAGE_REGEX =
+            Regex(
+                """\b(?:a/?c|acct|account|debited|credited|available\s+balance|book\s+balance|bank\s+balance)\b""",
                 RegexOption.IGNORE_CASE
             )
 

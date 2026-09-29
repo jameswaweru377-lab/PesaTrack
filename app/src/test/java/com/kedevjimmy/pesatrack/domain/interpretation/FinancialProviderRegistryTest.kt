@@ -206,4 +206,48 @@ class FinancialProviderRegistryTest {
         )
         assertEquals("PesaNova", account.displayName)
     }
+
+    @Test
+    fun canonicalizesBulkBankSenderWithoutProviderSpecificParser() {
+        val account =
+            FinancialProviderRegistry
+                .resolveOwnedMessageSourceAccount(
+                    title = "Equity Bulk",
+                    bankLike = true
+                )
+
+        assertEquals(
+            "Equity Bank",
+            account?.displayName
+        )
+        assertEquals(
+            AccountType.BANK,
+            account?.accountTypeHint
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            account?.ownershipHint
+        )
+        assertEquals(null, account?.providerKey)
+    }
+
+    @Test
+    fun doesNotForceUnknownWalletSourceIntoBankWhenLanguageIsNotBankLike() {
+        val account =
+            FinancialProviderRegistry
+                .resolveOwnedMessageSourceAccount(
+                    title = "Future Wallet Alerts",
+                    bankLike = false
+                )
+
+        assertEquals(
+            "Future Wallet",
+            account?.displayName
+        )
+        assertEquals(
+            AccountType.MOBILE_WALLET,
+            account?.accountTypeHint
+        )
+    }
+
 }

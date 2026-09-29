@@ -757,3 +757,116 @@ Real-device validation still required after merge:
 Architecture rule going forward:
 
 **PesaTrack should learn financial language and relationships, not memorize provider names.** Static provider profiles are reserved for products with genuinely special mechanics (for example Fuliza transaction-shortfall financing) or stable identity metadata, not ordinary debit/credit/loan parsing.
+
+
+## Activity financial-source feed and captured-message visibility — PR #79
+
+Status on 2026-09-29: **implemented and Android CI verified before this documentation commit**.
+
+This phase was added after real-device Activity testing showed a bank transfer row labelled `Equity Bulk`, which exposed the SMS delivery-channel sender name rather than a useful financial identity. It also addresses the need to prove that bank/lender messages are actually reaching PesaTrack independently from the reconciled ledger.
+
+### Source identity
+
+- Financial sender suffixes such as `Bulk`, `Bulk SMS`, `Alerts`, `SMS`, and `Notifications` are treated as delivery-channel metadata rather than institution identity.
+- Unknown sources remain provider-agnostic.
+- If message language itself is bank-like (for example account/debit/credit/available-balance wording), an unknown message source can be represented as a discovered Bank account.
+- Example regression: `Equity Bulk` + bank semantics becomes display identity `Equity Bank` without adding an Equity-specific transaction parser.
+- Unknown wallet names keep meaningful identity words such as `Wallet`; they are not forced into Bank unless the message language provides bank evidence.
+- Existing provider-specific knowledge remains only for stable identity/special mechanics such as M-Pesa, M-Shwari, and Fuliza.
+
+### Activity source navigation
+
+The expanded month in Activity now includes a **Scanned financial sources** row below the existing All / Expenses / Income / Transfers filters.
+
+- Sources are generated dynamically from captured financial-message diagnostics.
+- Typical chips can therefore become:
+  - All sources
+  - M-Pesa
+  - Equity Bank
+  - M-Shwari
+  - Branch
+  - Tala
+  - Co-op / another future bank
+- No company list is hardcoded into the Activity navigation.
+- Each source chip includes the number of captured financial messages for that source in the selected month.
+
+Selecting a source changes the visible section from the reconciled transaction ledger to the **captured financial-message feed** for that source.
+
+This distinction is intentional:
+
+- The normal Activity ledger should still reconcile duplicate observations into one financial movement.
+- The captured-message feed is pre-reconciliation evidence.
+- Therefore a bank -> M-Pesa movement can show:
+  - one Equity/other-bank captured message;
+  - one M-Pesa captured message;
+  while the money ledger still keeps one transfer.
+
+This is the correct place to verify whether messages from a bank/lender are arriving.
+
+### Captured event labels
+
+The diagnostic feed stores a short semantic label, not raw message text. Current labels include:
+
+- Bank transfer
+- M-Pesa transfer
+- Transfer
+- Bank payment
+- Payment
+- Bank credit
+- Money received
+- Loan
+- Loan repayment
+- Loan repaid
+- Loan balance
+- Balance update
+- Cash withdrawal
+- Cash deposit
+- Reversal
+- Needs review
+- Not understood
+
+Loan labels come from transaction semantics, not from a hardcoded lender name. A future lender can therefore appear as Loan / Loan repayment when the wording proves that meaning.
+
+### Diagnostic privacy and retention
+
+The local diagnostic record now keeps up to 500 financial-message observations so a real monthly import with many transactions remains inspectable.
+
+It stores locally:
+
+- sender/source display identity,
+- source type,
+- semantic event label,
+- source package/kind,
+- timestamp,
+- ingestion outcome and counts.
+
+It still does **not** store the raw SMS/notification body. Raw financial messages must not be uploaded by this feature.
+
+### Capture-boundary audit
+
+The code was checked to make sure unknown institutions are not filtered before interpretation:
+
+- `HistoricalSmsImporter` queries all SMS in the selected time window and sends each non-empty message to `FinancialMessageIngestionCoordinator` before legacy M-Pesa/configured-rule fallback logic.
+- `MpesaNotificationListenerService` sends each notification body/title through `FinancialMessageIngestionCoordinator` before legacy evidence/configured-rule handling.
+- Therefore Equity, Branch, Tala, Co-op, Family Bank, or a future source can reach the generic interpreter without being pre-registered.
+- If a source does not appear in the new feed after an import/live notification, investigate device permission/delivery first.
+- If it appears as `Not understood`, add a generic financial-language fixture for the new wording rather than a company-specific parser.
+
+### Verification before documentation update
+
+- PR #79 initial CI exposed two source-display expectation mismatches.
+- The code was corrected so meaningful wallet identity is preserved and uppercase bank sender IDs are humanized.
+- Final code head `230300737af0c4749a8fdd9b9cb4538ce850405b` passed Android CI run #309:
+  - entity-enrichment Worker validation: passed;
+  - 185 Android unit tests: passed;
+  - debug APK assembly: passed.
+
+Real-device check after merge:
+
+1. Install the newest rolling APK.
+2. Import the desired history window again so the source feed is populated from those messages.
+3. Open Activity -> selected month -> Scanned financial sources.
+4. Confirm Equity Bank, M-Pesa, M-Shwari and any Branch/Tala/other sender actually seen on the device appear as dynamic source chips.
+5. Tap each source and inspect its captured-message labels.
+6. For a single bank <-> M-Pesa movement, confirm both source observations can be seen in the source feed while only one transfer affects the ledger.
+7. Report any row labelled `Not understood` with a sanitized wording example so the generic grammar can be extended.
