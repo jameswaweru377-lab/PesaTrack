@@ -357,7 +357,12 @@ object FinancialCandidateExtractor {
                 addAll(
                     balanceRegex
                         .findAll(body)
-                        .mapNotNull(::balanceCandidate)
+                        .mapNotNull { match ->
+                            balanceCandidate(
+                                match = match,
+                                message = message
+                            )
+                        }
                 )
                 availableBalanceCandidate(
                     message = message
@@ -491,16 +496,58 @@ object FinancialCandidateExtractor {
     }
 
     private fun balanceCandidate(
-        match: MatchResult
+        match: MatchResult,
+        message: NormalizedFinancialMessage
     ): BalanceCandidate? {
         val account = match.groups[1] ?: return null
         val amount = match.groups[2] ?: return null
+        val rawAccount = account.value.trim()
+        val normalizedAccount =
+            rawAccount.uppercase()
+                .replace(
+                    Regex("""\s+"""),
+                    " "
+                )
+        val sourceScopedLoan =
+            normalizedAccount in
+                setOf(
+                    "LOAN",
+                    "TOTAL LOAN",
+                    "OUTSTANDING LOAN"
+                )
+        val accountLabel =
+            if (sourceScopedLoan) {
+                message.title
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { title ->
+                        if (
+                            title.endsWith(
+                                "loan",
+                                ignoreCase = true
+                            )
+                        ) {
+                            title
+                        } else {
+                            "$title Loan"
+                        }
+                    }
+                    ?: rawAccount
+            } else {
+                rawAccount
+            }
+
         return BalanceCandidate(
-            rawAccountLabel = account.value,
+            rawAccountLabel = accountLabel,
             accountSpan = account.range.toSpan(),
             amountMinor = amountToMinor(amount.value),
             amountSpan = amount.range.toSpan(),
-            ruleId = "balance.account_amount"
+            ruleId =
+                if (sourceScopedLoan) {
+                    "balance.sender_scoped_loan"
+                } else {
+                    "balance.account_amount"
+                }
         )
     }
 

@@ -89,6 +89,14 @@ object DebtCandidateExtractor {
         )
     )
 
+    private val senderScopedLoanDisbursementRegex = Regex(
+        """\b(?:Your\s+)?(loan)(?:\s+of)?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:approved|disbursed)\b(?:.{0,120}?\b(?:to|into)\s+(?:your\s+)?([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,4}?)(?:\s+account)?(?=[.!?]|$))?""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
+
     private val approvedLoanRegex = Regex(
         """(?:^|[.!?]\s+)(?:Your\s+)?([A-Za-z][A-Za-z0-9&'’-]*(?:\s+[A-Za-z0-9&'’-]+){0,5}\s+loan)\s+has\s+been\s+(?:approved|disbursed)\b""",
         setOf(
@@ -259,6 +267,72 @@ object DebtCandidateExtractor {
                             ruleId =
                                 "debt.repayment.generic"
                         )
+                )
+            }
+        }
+
+        val senderScopedDisbursement =
+            senderScopedLoanDisbursementRegex.find(body)
+        if (senderScopedDisbursement != null) {
+            val loanWord =
+                senderScopedDisbursement.groups[1]
+            val amount =
+                senderScopedDisbursement.groups[2]
+            val destination =
+                senderScopedDisbursement.groups[3]
+
+            if (loanWord != null && amount != null) {
+                val liabilityLabel =
+                    message.title
+                        ?.trim()
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { title ->
+                            if (
+                                title.endsWith(
+                                    "loan",
+                                    ignoreCase = true
+                                )
+                            ) {
+                                title
+                            } else {
+                                "$title Loan"
+                            }
+                        }
+                        ?: "Loan"
+
+                return DebtMessageCandidates(
+                    drawdown =
+                        DebtDrawdownCandidate(
+                            amountMinor =
+                                amountToMinor(
+                                    amount.value
+                                ),
+                            amountSpan =
+                                amount.range.toSpan(),
+                            liabilityLabel =
+                                liabilityLabel,
+                            liabilitySpan =
+                                loanWord.range.toSpan(),
+                            outstandingAfterMinor =
+                                null,
+                            outstandingSpan = null,
+                            availableCreditAfterMinor =
+                                null,
+                            availableCreditSpan = null,
+                            proceedsAccountLabel =
+                                destination
+                                    ?.value
+                                    ?.trim(),
+                            proceedsAccountSpan =
+                                destination
+                                    ?.range
+                                    ?.toSpan(),
+                            amountIsNetProceeds =
+                                false,
+                            ruleId =
+                                "debt.drawdown.sender_scoped"
+                        ),
+                    repayment = null
                 )
             }
         }
