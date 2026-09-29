@@ -25,7 +25,7 @@ object FinancialMessageInterpreter {
             )
         }
 
-        val semantic =
+        val semanticAssessment =
             FinancialSemanticAnalyzer.analyze(
                 normalized
             )
@@ -43,13 +43,10 @@ object FinancialMessageInterpreter {
             FinancialEventClassifier.classify(
                 resolved
             )
-        val semantics =
-            FinancialSemanticAnalyzer.analyze(
-                normalized
-            )
 
         return classified.copy(
-            semantics = semantics
+            semanticAssessment =
+                semanticAssessment
         )
     }
 }
