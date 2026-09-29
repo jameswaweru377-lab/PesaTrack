@@ -26,11 +26,19 @@ Set the secret:
 npx wrangler secret put LOGO_DEV_SECRET_KEY
 ```
 
-Deploy:
+Deploy from the repository root (this matches Cloudflare Git Builds):
+
+```bash
+npx wrangler deploy
+```
+
+The repository-root `wrangler.jsonc` points to `worker/entity-enrichment/src/index.js`.
+
+You can also deploy from the Worker folder explicitly:
 
 ```bash
 cd worker/entity-enrichment
-npx wrangler deploy
+npx wrangler deploy --config wrangler.jsonc
 ```
 
 The Android build then needs the deployed endpoint:
