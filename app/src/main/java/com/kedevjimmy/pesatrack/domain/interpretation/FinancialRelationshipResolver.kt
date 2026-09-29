@@ -161,7 +161,7 @@ object FinancialRelationshipResolver {
                     resolveAction(
                         action = action,
                         observedAccount = observedAccount,
-                        messageTitle = message.title,
+                        message = message,
                         fee = candidates.fee
                     )
                 }
@@ -863,14 +863,18 @@ object FinancialRelationshipResolver {
     private fun resolveAction(
         action: FinancialActionCandidate,
         observedAccount: FinancialAccountReference?,
-        messageTitle: String?,
+        message: NormalizedFinancialMessage,
         fee: FeeCandidate?
     ): ResolvedFinancialRelationship? {
+        val bankLikeSource =
+            BANK_SOURCE_LANGUAGE_REGEX
+                .containsMatchIn(message.body)
         val ownedMessageSource =
             observedAccount ?:
                 FinancialProviderRegistry
                     .resolveOwnedMessageSourceAccount(
-                        messageTitle
+                        title = message.title,
+                        bankLike = bankLikeSource
                     )
 
         return when (action.kind) {
@@ -1266,6 +1270,12 @@ object FinancialRelationshipResolver {
         } else {
             InterpretationConfidence.MEDIUM
         }
+
+    private val BANK_SOURCE_LANGUAGE_REGEX =
+        Regex(
+            """\b(?:a/?c|acct|account|debited|credited|available\s+balance|book\s+balance|bank\s+balance)\b""",
+            RegexOption.IGNORE_CASE
+        )
 
     private val ACCOUNT_LABEL_HINT_REGEX =
         Regex(
