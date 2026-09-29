@@ -1,0 +1,84 @@
+name: Deploy Entity Enrichment Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      worker_base_url:
+        description: "Public Worker base URL, for example https://pesatrack-entity-enrichment.<subdomain>.workers.dev"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate deployment credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN}" ]]; then
+            echo "Missing repository secret: CLOUDFLARE_API_TOKEN"
+            exit 1
+          fi
+          if [[ -z "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
+            echo "Missing repository secret: CLOUDFLARE_ACCOUNT_ID"
+            exit 1
+          fi
+
+      - name: Validate Worker source
+        run: |
+          node --check worker/entity-enrichment/src/index.js
+          node worker/entity-enrichment/test.mjs
+
+      - name: Deploy Worker
+        working-directory: worker/entity-enrichment
+        run: npx --yes wrangler@4 deploy --config wrangler.jsonc
+
+      - name: Verify deployed Worker health
+        env:
+          WORKER_BASE_URL: ${{ inputs.worker_base_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base="${WORKER_BASE_URL%/}"
+          response="$(curl --fail --silent --show-error "${base}/v1/entity/health")"
+          echo "${response}"
+
+          node -e '
+            const payload = JSON.parse(process.argv[1]);
+            if (
+              payload.status !== "ok" ||
+              payload.privacyMode !== "sanitized-descriptor-only"
+            ) {
+              process.exit(1);
+            }
+          ' "${response}"
+
+          {
+            echo "### Entity enrichment Worker deployed"
+            echo
+            echo "Health check passed."
+            echo
+            echo "Set the GitHub repository variable:"
+            echo
+            echo "\`PESATRACK_ENTITY_ENRICHMENT_URL=${base}/v1/entity/resolve\`"
+            echo
+            echo "The Logo.dev provider key remains a Cloudflare Worker secret named \`LOGO_DEV_SECRET_KEY\`."
+          } >> "${GITHUB_STEP_SUMMARY}"

@@ -618,6 +618,16 @@ Activation still required:
 
 Never commit a provider secret to GitHub, put it in Gradle source, or embed it in the APK.
 
+Deployment automation added after PR #69:
+
+- `.github/workflows/entity-enrichment-deploy.yml` provides a manual, repeatable Cloudflare Worker deployment path.
+- It requires repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- `LOGO_DEV_SECRET_KEY` remains a Cloudflare Worker secret; it is not copied into the APK or repository.
+- The Worker now exposes `GET /v1/entity/health` so deployment can verify the correct privacy-mode service is live.
+- Android CI and Worker deployment both run `worker/entity-enrichment/test.mjs`, which verifies health, rejects phone-bearing descriptors and likely personal names, and confirms a safe commercial descriptor reaches the provider boundary.
+- After deployment, set repository variable `PESATRACK_ENTITY_ENRICHMENT_URL=https://<worker-host>/v1/entity/resolve`. The next successful `main` build embeds only that public endpoint in the rolling APK.
+
+
 ## Current implementation
 
 Baseline: `main` after the verified reference UI merge
