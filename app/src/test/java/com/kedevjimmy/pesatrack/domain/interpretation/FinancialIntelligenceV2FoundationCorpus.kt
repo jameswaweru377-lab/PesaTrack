@@ -132,6 +132,15 @@ object FinancialIntelligenceV2FoundationCorpus {
                 listOf("KES 20")
         ),
         FinancialIntelligenceV2FoundationFixture(
+            id = "loan_marketing_solicitation",
+            title = "Future Finance",
+            body =
+                "You qualify for a loan of KES 10,000. Apply now to increase your limit.",
+            expectedRelevant = false,
+            expectedNormalizedFragments =
+                listOf("KES 10,000")
+        ),
+        FinancialIntelligenceV2FoundationFixture(
             id = "google_verification_code",
             title = "Google",
             body =
