@@ -9,6 +9,9 @@ import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEnrichment
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionFingerprint
 import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKind
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
+import com.kedevjimmy.pesatrack.domain.intelligence.EntityDescriptorSanitizer
+import com.kedevjimmy.pesatrack.domain.intelligence.OnlineEntityAutoReviewPolicy
+import com.kedevjimmy.pesatrack.domain.intelligence.OnlineEntityProfile
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
@@ -31,6 +34,7 @@ import com.kedevjimmy.pesatrack.domain.rules.EvidenceConfidence
 import com.kedevjimmy.pesatrack.domain.rules.FinancialMessageEvidence
 import com.kedevjimmy.pesatrack.domain.rules.TransactionEvidenceMatch
 import com.kedevjimmy.pesatrack.domain.rules.TransactionEvidenceResolver
+import com.kedevjimmy.pesatrack.ingestion.EntityEnrichmentScheduler
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -275,6 +279,19 @@ class TransactionStore private constructor(context: Context) {
             if (rebuildPayCycles) {
                 PayCycleStore.get(appContext).rebuild()
             }
+            if (
+                classification.reviewState ==
+                    ReviewState.NEEDS_REVIEW &&
+                matchedRule == null
+            ) {
+                EntityEnrichmentScheduler
+                    .scheduleIfEligible(
+                        context = appContext,
+                        type = parsed.type,
+                        counterparty =
+                            displayCounterparty
+                    )
+            }
             return false
         }
 
@@ -388,6 +405,20 @@ class TransactionStore private constructor(context: Context) {
         }
         if (inserted && rebuildPayCycles) {
             PayCycleStore.get(appContext).rebuild()
+        }
+        if (
+            inserted &&
+            matchedRule == null &&
+            classification.reviewState ==
+                ReviewState.NEEDS_REVIEW
+        ) {
+            EntityEnrichmentScheduler
+                .scheduleIfEligible(
+                    context = appContext,
+                    type = parsed.type,
+                    counterparty =
+                        displayCounterparty
+                )
         }
         return inserted
     }
@@ -2061,6 +2092,130 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun applyOnlineEntityEnrichment(
+        descriptor: String,
+        profile: OnlineEntityProfile
+    ): Int {
+        val descriptorKey =
+            EntityDescriptorSanitizer.key(
+                descriptor
+            )
+        if (descriptorKey.isBlank()) {
+            return 0
+        }
+
+        val db = database.writableDatabase
+        var changed = 0
+
+        allTransactions().forEach { stored ->
+            if (
+                stored.ruleId != null ||
+                stored.reviewState ==
+                    ReviewState.USER_CLASSIFIED.name ||
+                stored.reviewState ==
+                    ReviewState.EXCLUDED.name
+            ) {
+                return@forEach
+            }
+
+            val type =
+                runCatching {
+                    MpesaTransactionType.valueOf(
+                        stored.type
+                    )
+                }.getOrNull()
+                    ?: return@forEach
+            val sanitized =
+                EntityDescriptorSanitizer.from(
+                    type = type,
+                    counterparty =
+                        stored.counterparty
+                ) ?: return@forEach
+
+            if (
+                EntityDescriptorSanitizer.key(
+                    sanitized.value
+                ) != descriptorKey
+            ) {
+                return@forEach
+            }
+
+            val classification =
+                OnlineEntityAutoReviewPolicy
+                    .classify(
+                        type = type,
+                        profile = profile
+                    ) ?: return@forEach
+
+            val values =
+                ContentValues().apply {
+                    put(
+                        "counterparty",
+                        classification
+                            .displayLabel
+                    )
+                    put(
+                        "direction",
+                        classification
+                            .direction
+                            .name
+                    )
+                    put(
+                        "category",
+                        classification
+                            .category
+                            .name
+                    )
+                    put(
+                        "review_state",
+                        classification
+                            .reviewState
+                            .name
+                    )
+                    put(
+                        "evidence_label",
+                        classification
+                            .evidenceLabel
+                    )
+                    put(
+                        "evidence_source",
+                        classification
+                            .evidenceSource
+                    )
+                    put(
+                        "evidence_confidence",
+                        classification
+                            .evidenceConfidence
+                            .name
+                    )
+                    putNull(
+                        "evidence_time_delta_ms"
+                    )
+                    putNull(
+                        "cycle_candidate_reason"
+                    )
+                }
+
+            changed +=
+                db.update(
+                    "transactions",
+                    values,
+                    "id = ?",
+                    arrayOf(
+                        stored.id.toString()
+                    )
+                )
+        }
+
+        if (changed > 0) {
+            PayCycleStore.get(appContext)
+                .rebuild()
+            LedgerUpdateBus.notifyChanged()
+        }
+        return changed
+    }
+
+    @Synchronized
     fun excludeFromBudget(id: Long) {
         val values = ContentValues().apply {
             put("review_state", ReviewState.EXCLUDED.name)
@@ -2166,6 +2321,50 @@ class TransactionStore private constructor(context: Context) {
                     recognized.evidenceConfidence
             )
         }
+
+        EntityDescriptorSanitizer
+            .from(
+                type = parsed.type,
+                counterparty =
+                    parsed.counterparty
+            )
+            ?.let { descriptor ->
+                EntityEnrichmentCache
+                    .get(appContext)
+                    .get(descriptor.value)
+                    ?.let { profile ->
+                        OnlineEntityAutoReviewPolicy
+                            .classify(
+                                type = parsed.type,
+                                profile = profile
+                            )
+                    }
+                    ?.let { online ->
+                        return Classification(
+                            direction =
+                                online.direction,
+                            category =
+                                online.category,
+                            reviewState =
+                                online.reviewState,
+                            ruleId = null,
+                            planningMonth =
+                                PlanningPeriodResolver
+                                    .resolve(
+                                        occurredAtEpochMs,
+                                        0
+                                    ),
+                            displayLabel =
+                                online.displayLabel,
+                            evidenceLabel =
+                                online.evidenceLabel,
+                            evidenceSource =
+                                online.evidenceSource,
+                            evidenceConfidence =
+                                online.evidenceConfidence
+                        )
+                    }
+            }
 
         val fallback = when (parsed.type) {
             MpesaTransactionType.WITHDRAWAL -> Triple(
