@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.ingestion.LegacyTransactionTypeCompatibility
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityDescriptorPrivacyPolicy
 import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityAutoReviewPolicy
+import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEligibilityPolicy
 import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEnrichment
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionFingerprint
 import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKind
@@ -1884,8 +1885,10 @@ class TransactionStore private constructor(context: Context) {
                     ReviewState.USER_CLASSIFIED.name ||
                 current.reviewState ==
                     ReviewState.EXCLUDED.name ||
-                current.type !in
-                    REMOTE_ENRICHMENT_TYPES ||
+                !RemoteEntityEligibilityPolicy
+                    .canSendOnline(
+                        current.type
+                    ) ||
                 current.direction !=
                     MoneyDirection.EXPENSE.name ||
                 !ReviewTriagePolicy
@@ -2065,8 +2068,10 @@ class TransactionStore private constructor(context: Context) {
                         ReviewState.EXCLUDED.name &&
                     item.direction ==
                         MoneyDirection.EXPENSE.name &&
-                    item.type in
-                        REMOTE_ENRICHMENT_TYPES &&
+                    RemoteEntityEligibilityPolicy
+                        .canSendOnline(
+                            item.type
+                        ) &&
                     ReviewTriagePolicy
                         .shouldTriageCategory(
                             item.category
@@ -2360,11 +2365,6 @@ class TransactionStore private constructor(context: Context) {
 
         private val OUTGOING_REVIEW_TYPES = setOf(
             MpesaTransactionType.SENT_MONEY.name,
-            MpesaTransactionType.PAY_BILL.name,
-            MpesaTransactionType.BUY_GOODS.name
-        )
-
-        private val REMOTE_ENRICHMENT_TYPES = setOf(
             MpesaTransactionType.PAY_BILL.name,
             MpesaTransactionType.BUY_GOODS.name
         )
