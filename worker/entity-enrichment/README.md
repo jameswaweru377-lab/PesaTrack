@@ -79,4 +79,5 @@ After deployment, set the GitHub repository variable:
 The next successful `main` Android build will embed only that public endpoint in the rolling APK.
 
 The health endpoint exposes no provider secret and only reports the service/privacy contract.
+Wrangler is configured with `keep_vars: true` so dashboard-managed Worker variables are not removed by later code deployments. The provider credential should still be stored as a Cloudflare **Secret** named `LOGO_DEV_SECRET_KEY` on the exact `pesatrack-entity-enrichment` Worker.
 
