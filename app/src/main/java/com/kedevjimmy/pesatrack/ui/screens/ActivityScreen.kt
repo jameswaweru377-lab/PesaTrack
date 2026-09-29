@@ -2723,6 +2723,9 @@ private fun CapturedFinancialMessageRow(
             FinancialIngestionDiagnosticCode
                 .PENDING_REVIEW -> "amber"
             FinancialIngestionDiagnosticCode
+                .UNDERSTOOD_NO_LEDGER_EFFECT ->
+                "blue"
+            FinancialIngestionDiagnosticCode
                 .OBSERVATION_ONLY -> "blue"
             FinancialIngestionDiagnosticCode
                 .UNRECOGNIZED_FINANCIAL_LANGUAGE ->
@@ -2735,6 +2738,9 @@ private fun CapturedFinancialMessageRow(
             FinancialIngestionDiagnosticCode
                 .PENDING_REVIEW ->
                 "Needs review"
+            FinancialIngestionDiagnosticCode
+                .UNDERSTOOD_NO_LEDGER_EFFECT ->
+                "Understood"
             FinancialIngestionDiagnosticCode
                 .OBSERVATION_ONLY -> "Observed"
             FinancialIngestionDiagnosticCode
