@@ -117,14 +117,12 @@ jobs:
             }
           ' "${response}"
 
-      - name: Configure Android enrichment endpoint
+      - name: Confirm Android enrichment endpoint
         env:
           RESOLVE_URL: ${{ steps.worker_url.outputs.resolve_url }}
         shell: bash
         run: |
           set -euo pipefail
-
-          gh variable set             PESATRACK_ENTITY_ENRICHMENT_URL             --body "${RESOLVE_URL}"             --repo "${GITHUB_REPOSITORY}"
 
           {
             echo "### Entity enrichment activated"
@@ -134,6 +132,8 @@ jobs:
             echo "Android endpoint:"
             echo
             echo "\`${RESOLVE_URL}\`"
+            echo
+            echo "The verified public endpoint is committed in Android CI; no repository Actions-variable write is required."
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Rebuild rolling APK with Worker endpoint
