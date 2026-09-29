@@ -212,21 +212,30 @@ object FinancialProviderRegistry {
         val cleanedSourceTitle =
             cleanMessageSourceTitle(sourceTitle)
         val resolved = resolveAccount(cleanedSourceTitle)
+        val sourceResolved =
+            if (resolved.providerKey == null) {
+                resolved.copy(
+                    displayName =
+                        cleanedSourceTitle
+                )
+            } else {
+                resolved
+            }
         val bankResolved =
             if (
                 bankLike &&
-                resolved.providerKey == null
+                sourceResolved.providerKey == null
             ) {
-                resolved.copy(
+                sourceResolved.copy(
                     displayName =
                         bankDisplayName(
-                            resolved.displayName
+                            sourceResolved.displayName
                         ),
                     accountTypeHint =
                         AccountType.BANK
                 )
             } else {
-                resolved
+                sourceResolved
             }
 
         return if (
@@ -370,6 +379,33 @@ object FinancialProviderRegistry {
             .replace(Regex("""\s+"""), " ")
             .trim()
             .ifBlank { raw.trim() }
+            .let(::friendlyMessageSourceName)
+
+    private fun friendlyMessageSourceName(
+        raw: String
+    ): String {
+        val letters = raw.filter(Char::isLetter)
+        if (
+            letters.length <= 3 ||
+            letters.any(Char::isLowerCase)
+        ) {
+            return raw
+        }
+
+        return raw.lowercase()
+            .split(" ")
+            .joinToString(" ") { token ->
+                if (
+                    token.count(Char::isLetter) <= 3
+                ) {
+                    token.uppercase()
+                } else {
+                    token.replaceFirstChar {
+                        it.titlecase()
+                    }
+                }
+            }
+    }
 
     private fun bankDisplayName(
         raw: String
