@@ -13,6 +13,9 @@ enum class FinancialIngestionDiagnosticCode {
 
 data class FinancialIngestionDiagnostic(
     val title: String?,
+    val sourceDisplayName: String?,
+    val sourceType: String,
+    val eventLabel: String,
     val sourcePackage: String?,
     val sourceKind: String,
     val receivedAtEpochMs: Long,
@@ -34,6 +37,9 @@ class FinancialIngestionDiagnosticsStore private constructor(
     @Synchronized
     fun record(
         title: String?,
+        sourceDisplayName: String?,
+        sourceType: String,
+        eventLabel: String,
         sourcePackage: String?,
         sourceKind: String,
         receivedAtEpochMs: Long,
@@ -84,6 +90,30 @@ class FinancialIngestionDiagnosticsStore private constructor(
                         ?.takeIf(String::isNotBlank)
                         ?.take(MAX_TITLE_LENGTH)
                         ?: JSONObject.NULL
+                )
+                put(
+                    "sourceDisplayName",
+                    sourceDisplayName
+                        ?.trim()
+                        ?.takeIf(String::isNotBlank)
+                        ?.take(MAX_TITLE_LENGTH)
+                        ?: JSONObject.NULL
+                )
+                put(
+                    "sourceType",
+                    sourceType
+                        .trim()
+                        .takeIf(String::isNotBlank)
+                        ?.take(MAX_SOURCE_TYPE_LENGTH)
+                        ?: "Financial"
+                )
+                put(
+                    "eventLabel",
+                    eventLabel
+                        .trim()
+                        .takeIf(String::isNotBlank)
+                        ?.take(MAX_EVENT_LABEL_LENGTH)
+                        ?: "Financial message"
                 )
                 put(
                     "sourcePackage",
@@ -156,6 +186,33 @@ class FinancialIngestionDiagnosticsStore private constructor(
                                         String::isNotBlank
                                     )
                             },
+                        sourceDisplayName =
+                            if (
+                                item.isNull(
+                                    "sourceDisplayName"
+                                )
+                            ) {
+                                null
+                            } else {
+                                item.optString(
+                                    "sourceDisplayName"
+                                ).trim()
+                                    .takeIf(
+                                        String::isNotBlank
+                                    )
+                            },
+                        sourceType =
+                            item.optString(
+                                "sourceType",
+                                "Financial"
+                            ).ifBlank { "Financial" },
+                        eventLabel =
+                            item.optString(
+                                "eventLabel",
+                                "Financial message"
+                            ).ifBlank {
+                                "Financial message"
+                            },
                         sourcePackage =
                             if (
                                 item.isNull(
@@ -211,8 +268,10 @@ class FinancialIngestionDiagnosticsStore private constructor(
         private const val PREFS_NAME =
             "financial_ingestion_diagnostics_v1"
         private const val KEY_ENTRIES = "entries"
-        private const val MAX_ENTRIES = 40
+        private const val MAX_ENTRIES = 500
         private const val MAX_TITLE_LENGTH = 80
+        private const val MAX_SOURCE_TYPE_LENGTH = 24
+        private const val MAX_EVENT_LABEL_LENGTH = 48
         private const val MAX_PACKAGE_LENGTH = 120
         private const val MAX_SOURCE_KIND_LENGTH = 80
 
