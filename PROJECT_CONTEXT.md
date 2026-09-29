@@ -585,6 +585,7 @@ Android side:
 - The full SMS body, amount, balance, transaction code, phone number and account number must never be sent to the enrichment service.
 - Lookup runs asynchronously after local ingestion; failures/timeouts never block storing the transaction.
 - Successful results are cached locally for 30 days in `entity_enrichment_cache` (database schema v18).
+- Cached HIGH-confidence safe merchant results are consulted synchronously during new transaction classification, after Smart Rules/local entity intelligence and before fallback Review. This means a merchant already learned online can auto-review immediately even while offline, until its cache entry expires.
 - In-flight requests are deduplicated.
 - Opening Activity Review can enqueue older unresolved merchant transactions as well as new transactions.
 - Remote enrichment may auto-review only when all of these are true:
