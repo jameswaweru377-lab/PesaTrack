@@ -1,3 +1,12 @@
+val entityEnrichmentBaseUrl = providers
+    .environmentVariable("PESATRACK_ENTITY_API_BASE_URL")
+    .orElse(
+        providers.gradleProperty(
+            "PESATRACK_ENTITY_API_BASE_URL"
+        )
+    )
+    .orElse("")
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -64,6 +73,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("androidx.navigation:navigation-compose:2.9.8")
+    implementation("androidx.work:work-runtime:2.12.0")
 
     testImplementation("junit:junit:4.13.2")
 }
