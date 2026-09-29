@@ -212,10 +212,15 @@ data class FinancialMessageInterpretation(
     val occurredAtText: String?,
     val balances: List<BalanceObservationFact>,
     val events: List<FinancialEventFact>,
-    val metadataEvidence: List<FieldEvidence> = emptyList()
+    val metadataEvidence: List<FieldEvidence> = emptyList(),
+    val semantics: FinancialMessageSemantics =
+        FinancialMessageSemantics()
 ) {
     val recognized: Boolean
-        get() = balances.isNotEmpty() || events.isNotEmpty()
+        get() =
+            balances.isNotEmpty() ||
+                events.isNotEmpty() ||
+                semantics.isMeaningful
 
     val consumesLegacyTransactionParsing: Boolean
         get() =
