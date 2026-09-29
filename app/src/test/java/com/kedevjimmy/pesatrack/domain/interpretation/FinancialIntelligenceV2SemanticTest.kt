@@ -134,8 +134,14 @@ class FinancialIntelligenceV2SemanticTest {
         )
         assertEquals(null, event.liability.providerKey)
         assertEquals(
-            "Mobile Wallet",
-            event.proceedsAccount?.displayName
+            com.kedevjimmy.pesatrack.domain.model
+                .AccountType.MOBILE_WALLET,
+            event.proceedsAccount
+                ?.accountTypeHint
+        )
+        assertEquals(
+            null,
+            event.proceedsAccount?.providerKey
         )
     }
 
