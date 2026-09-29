@@ -2298,6 +2298,13 @@ class TransactionStore private constructor(context: Context) {
             )
         }
 
+        cachedRemoteClassification(
+            parsed = parsed,
+            occurredAtEpochMs = occurredAtEpochMs
+        )?.let {
+            return it
+        }
+
         val fallback = when (parsed.type) {
             MpesaTransactionType.WITHDRAWAL -> Triple(
                 MoneyDirection.TRANSFER,
@@ -2340,6 +2347,69 @@ class TransactionStore private constructor(context: Context) {
             reviewState = fallback.third,
             ruleId = null,
             planningMonth = PlanningPeriodResolver.resolve(occurredAtEpochMs, 0)
+        )
+    }
+
+    private fun cachedRemoteClassification(
+        parsed: ParsedMpesaTransaction,
+        occurredAtEpochMs: Long
+    ): Classification? {
+        if (
+            !RemoteEntityEligibilityPolicy
+                .canSendOnline(
+                    parsed.type.name
+                )
+        ) {
+            return null
+        }
+
+        val sanitized =
+            EntityDescriptorPrivacyPolicy
+                .sanitize(
+                    parsed.counterparty
+                )
+                ?: return null
+        val key =
+            EntityDescriptorPrivacyPolicy
+                .cacheKey(sanitized)
+        val cached =
+            EntityEnrichmentCacheStore
+                .get(appContext)
+                .get(key)
+                ?: return null
+
+        if (
+            !RemoteEntityAutoReviewPolicy
+                .shouldAutoReview(cached)
+        ) {
+            return null
+        }
+
+        val category =
+            cached.categoryHint
+                ?: return null
+
+        return Classification(
+            direction =
+                MoneyDirection.EXPENSE,
+            category = category,
+            reviewState =
+                ReviewState.AUTO_CLASSIFIED,
+            ruleId = null,
+            planningMonth =
+                PlanningPeriodResolver.resolve(
+                    occurredAtEpochMs,
+                    0
+                ),
+            displayLabel =
+                cached.canonicalName,
+            evidenceLabel =
+                cached.canonicalName,
+            evidenceSource =
+                "entity_intelligence:" +
+                    cached.source,
+            evidenceConfidence =
+                EvidenceConfidence.HIGH
         )
     }
 
