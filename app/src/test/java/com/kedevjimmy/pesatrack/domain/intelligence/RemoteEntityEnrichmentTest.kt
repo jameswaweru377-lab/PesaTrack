@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.domain.intelligence
 
+import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -104,6 +105,42 @@ class RemoteEntityEnrichmentTest {
             RemoteEntityAutoReviewPolicy
                 .categoryFromExternalLabel(
                     "Food & Drink"
+                )
+        )
+    }
+
+    @Test
+    fun onlyMerchantAndBillChannelsMayGoOnline() {
+        assertTrue(
+            RemoteEntityEligibilityPolicy
+                .canSendOnline(
+                    MpesaTransactionType
+                        .PAY_BILL
+                        .name
+                )
+        )
+        assertTrue(
+            RemoteEntityEligibilityPolicy
+                .canSendOnline(
+                    MpesaTransactionType
+                        .BUY_GOODS
+                        .name
+                )
+        )
+        assertFalse(
+            RemoteEntityEligibilityPolicy
+                .canSendOnline(
+                    MpesaTransactionType
+                        .SENT_MONEY
+                        .name
+                )
+        )
+        assertFalse(
+            RemoteEntityEligibilityPolicy
+                .canSendOnline(
+                    MpesaTransactionType
+                        .RECEIVED
+                        .name
                 )
         )
     }
