@@ -839,27 +839,34 @@ object FinancialRelationshipResolver {
         observedAccount: FinancialAccountReference?,
         messageTitle: String?,
         fee: FeeCandidate?
-    ): ResolvedFinancialRelationship? =
-        when (action.kind) {
+    ): ResolvedFinancialRelationship? {
+        val ownedMessageSource =
+            observedAccount ?:
+                FinancialProviderRegistry
+                    .resolveOwnedMessageSourceAccount(
+                        messageTitle
+                    )
+
+        return when (action.kind) {
             FinancialActionCandidateKind
                 .TRANSFER_FROM_ACCOUNT ->
                 resolveTransferFrom(
                     action,
-                    observedAccount,
+                    ownedMessageSource,
                     fee
                 )
             FinancialActionCandidateKind
                 .TRANSFER_TO_ACCOUNT ->
                 resolveTransferTo(
                     action,
-                    observedAccount,
+                    ownedMessageSource,
                     fee
                 )
             FinancialActionCandidateKind
                 .PAYMENT_SENT_TO ->
                 resolvePayment(
                     action,
-                    observedAccount,
+                    ownedMessageSource,
                     fee,
                     PaymentRouteHint.PERSON_TO_PERSON
                 )
@@ -867,7 +874,7 @@ object FinancialRelationshipResolver {
                 .PAYMENT_PAID_TO ->
                 resolvePayment(
                     action,
-                    observedAccount,
+                    ownedMessageSource,
                     fee,
                     if (
                         action.accountReference
@@ -879,10 +886,18 @@ object FinancialRelationshipResolver {
                     }
                 )
             FinancialActionCandidateKind
+                .ACCOUNT_DEBIT_TO ->
+                resolvePayment(
+                    action,
+                    ownedMessageSource,
+                    fee,
+                    PaymentRouteHint.PERSON_TO_PERSON
+                )
+            FinancialActionCandidateKind
                 .AIRTIME_PURCHASE ->
                 resolvePayment(
                     action,
-                    observedAccount,
+                    ownedMessageSource,
                     fee,
                     PaymentRouteHint.AIRTIME
                 )
@@ -892,14 +907,11 @@ object FinancialRelationshipResolver {
                 .RECEIPT_CREDITED_FROM ->
                 resolveReceipt(
                     action,
-                    observedAccount
-                        ?: FinancialProviderRegistry
-                            .resolveMessageSourceAccount(
-                                messageTitle
-                            ),
+                    ownedMessageSource,
                     fee
                 )
         }
+    }
 
     private fun resolveTransferFrom(
         action: FinancialActionCandidate,
@@ -1203,6 +1215,8 @@ object FinancialRelationshipResolver {
                 .PAYMENT_SENT_TO -> 2
             FinancialActionCandidateKind
                 .PAYMENT_PAID_TO -> 2
+            FinancialActionCandidateKind
+                .ACCOUNT_DEBIT_TO -> 2
             FinancialActionCandidateKind
                 .AIRTIME_PURCHASE -> 2
             FinancialActionCandidateKind
