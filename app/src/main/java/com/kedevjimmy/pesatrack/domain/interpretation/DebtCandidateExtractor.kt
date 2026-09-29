@@ -328,7 +328,7 @@ object DebtCandidateExtractor {
                                     ?.range
                                     ?.toSpan(),
                             amountIsNetProceeds =
-                                true,
+                                false,
                             ruleId =
                                 "debt.drawdown.sender_scoped"
                         ),
