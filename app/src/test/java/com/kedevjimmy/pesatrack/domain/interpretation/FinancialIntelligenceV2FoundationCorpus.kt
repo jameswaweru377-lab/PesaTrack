@@ -155,6 +155,20 @@ object FinancialIntelligenceV2FoundationCorpus {
             expectedRelevant = false
         ),
         FinancialIntelligenceV2FoundationFixture(
+            id = "reward_points_received",
+            title = "Rewards",
+            body =
+                "You received 500 reward points today.",
+            expectedRelevant = false
+        ),
+        FinancialIntelligenceV2FoundationFixture(
+            id = "personal_photo_sent",
+            title = "David",
+            body =
+                "David sent you a photo. Open the app to view it.",
+            expectedRelevant = false
+        ),
+        FinancialIntelligenceV2FoundationFixture(
             id = "personal_message_with_number",
             title = "0712000000",
             body =
