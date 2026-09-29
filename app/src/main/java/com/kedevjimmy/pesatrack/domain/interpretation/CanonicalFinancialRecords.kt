@@ -202,7 +202,9 @@ data class CanonicalFinancialMessageDraft(
     val occurredAtText: String?,
     val records: List<CanonicalFinancialRecord>,
     val metadataEvidence: List<FieldEvidence>,
-    val requiresLegacyFallback: Boolean
+    val requiresLegacyFallback: Boolean,
+    val semanticAssessment:
+        FinancialSemanticAssessment? = null
 ) {
     val recognized: Boolean
         get() = records.isNotEmpty()
