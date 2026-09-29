@@ -33,8 +33,13 @@ object FinancialMessageRelevanceGate {
         """\b[0-9][0-9,]*(?:\.\d{1,2})?\b"""
     )
 
-    private val financialActionRegex = Regex(
-        """\b(?:credited|debited|credit|debit|cr|dr|received|sent|paid|payment|transferred|transfer|withdrawn|withdrawal|deposited|deposit|moved|disbursed|disbursement|repay|repaid|repayment|refund|refunded|reversal|reversed|purchase|purchased|bought|sold)\b""",
+    private val strongFinancialActionRegex = Regex(
+        """\b(?:credited|debited|credit|debit|cr|dr|paid|payment|withdrawn|withdrawal|deposited|deposit|disbursed|disbursement|repay|repaid|repayment|refund|refunded|reversal|reversed)\b""",
+        RegexOption.IGNORE_CASE
+    )
+
+    private val contextualMovementActionRegex = Regex(
+        """\b(?:received|sent|transferred|transfer|moved|purchase|purchased|bought|sold)\b""",
         RegexOption.IGNORE_CASE
     )
 
@@ -100,65 +105,87 @@ object FinancialMessageRelevanceGate {
             linkedSetOf<FinancialRelevanceSignal>()
         var score = 0
 
+        val hasNumericAmount =
+            numericAmountRegex.containsMatchIn(body)
+        val hasAccountContext =
+            accountContextRegex.containsMatchIn(body)
+        val hasDebtContext =
+            debtContextRegex.containsMatchIn(body)
+        val hasInvestmentContext =
+            investmentContextRegex
+                .containsMatchIn(body)
+        val hasFinancialConfirmation =
+            financialConfirmationRegex
+                .containsMatchIn(body)
+        val hasPurchaseContext =
+            purchaseContextRegex.containsMatchIn(body)
+        val hasStrongFinancialAction =
+            strongFinancialActionRegex
+                .containsMatchIn(body)
+        val hasContextualMovement =
+            contextualMovementActionRegex
+                .containsMatchIn(body)
+
         if (
             message.hasCurrencyHint &&
-            numericAmountRegex.containsMatchIn(body)
+            hasNumericAmount
         ) {
             signals +=
                 FinancialRelevanceSignal.CURRENCY_AMOUNT
             score += 1
         }
 
-        val hasFinancialAction =
-            financialActionRegex.containsMatchIn(body)
-        if (hasFinancialAction) {
+        val contextualMovementIsFinancial =
+            hasContextualMovement &&
+                (
+                    message.hasCurrencyHint ||
+                        hasAccountContext ||
+                        hasDebtContext ||
+                        hasInvestmentContext ||
+                        hasFinancialConfirmation ||
+                        hasPurchaseContext
+                    )
+
+        if (
+            hasStrongFinancialAction ||
+            contextualMovementIsFinancial
+        ) {
             signals +=
                 FinancialRelevanceSignal.FINANCIAL_ACTION
             score += 2
         }
 
-        val hasAccountContext =
-            accountContextRegex.containsMatchIn(body)
         if (
             hasAccountContext &&
             (
                 message.hasCurrencyHint ||
-                    numericAmountRegex
-                        .containsMatchIn(body)
-            )
+                    hasNumericAmount
+                )
         ) {
             signals +=
                 FinancialRelevanceSignal.ACCOUNT_CONTEXT
             score += 1
         }
 
-        if (debtContextRegex.containsMatchIn(body)) {
+        if (hasDebtContext) {
             signals +=
                 FinancialRelevanceSignal.DEBT_CONTEXT
             score += 2
         }
 
-        if (
-            investmentContextRegex
-                .containsMatchIn(body)
-        ) {
+        if (hasInvestmentContext) {
             signals +=
                 FinancialRelevanceSignal.INVESTMENT_CONTEXT
             score += 2
         }
 
-        if (
-            financialConfirmationRegex
-                .containsMatchIn(body)
-        ) {
+        if (hasFinancialConfirmation) {
             signals +=
                 FinancialRelevanceSignal
                     .FINANCIAL_CONFIRMATION
             score += 2
         }
 
-        val hasPurchaseContext =
-            purchaseContextRegex.containsMatchIn(body)
         if (hasPurchaseContext) {
             signals +=
                 FinancialRelevanceSignal.PURCHASE_CONTEXT
