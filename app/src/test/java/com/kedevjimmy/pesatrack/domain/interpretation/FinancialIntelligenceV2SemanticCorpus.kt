@@ -107,9 +107,10 @@ object FinancialIntelligenceV2SemanticCorpus {
             body =
                 "KES 640.00 processed through your account.",
             expectedIntent =
-                FinancialSemanticIntent.UNKNOWN,
+                FinancialSemanticIntent
+                    .CONFIRMATION_ONLY,
             expectedRole =
-                FinancialSemanticRole.NEEDS_REVIEW
+                FinancialSemanticRole.CONFIRMATION
         )
     )
 }
