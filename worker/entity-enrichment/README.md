@@ -66,18 +66,18 @@ Keep `LOGO_DEV_SECRET_KEY` in Cloudflare itself. Do not copy it into the Android
 
 Run **Deploy Entity Enrichment Worker** from GitHub Actions and provide the public Worker base URL, for example:
 
-`https://pesatrack-entity-enrichment.<subdomain>.workers.dev`
+`https://pesatrack.<subdomain>.workers.dev`
 
 The workflow deploys the Worker and verifies:
 
 `GET /v1/entity/health`
 
-After deployment, set the GitHub repository variable:
+The verified public production endpoint is:
 
-`PESATRACK_ENTITY_ENRICHMENT_URL=https://<worker-host>/v1/entity/resolve`
+`https://pesatrack.jameswaweru399.workers.dev/v1/entity/resolve`
 
-The next successful `main` Android build will embed only that public endpoint in the rolling APK.
+Android CI embeds this public endpoint directly into successful `main` APK builds. No GitHub Actions repository-variable write is required.
 
 The health endpoint exposes no provider secret and only reports the service/privacy contract.
-Wrangler is configured with `keep_vars: true` so dashboard-managed Worker variables are not removed by later code deployments. The provider credential should still be stored as a Cloudflare **Secret** named `LOGO_DEV_SECRET_KEY` on the exact `pesatrack-entity-enrichment` Worker.
+Wrangler is configured with `keep_vars: true` so dashboard-managed Worker variables are not removed by later code deployments. The provider credential should still be stored as a Cloudflare **Secret** named `LOGO_DEV_SECRET_KEY` on the exact `pesatrack` Worker.
 
