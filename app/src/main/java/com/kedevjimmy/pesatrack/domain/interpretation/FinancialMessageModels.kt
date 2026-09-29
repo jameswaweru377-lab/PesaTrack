@@ -213,14 +213,13 @@ data class FinancialMessageInterpretation(
     val balances: List<BalanceObservationFact>,
     val events: List<FinancialEventFact>,
     val metadataEvidence: List<FieldEvidence> = emptyList(),
-    val semantics: FinancialMessageSemantics =
-        FinancialMessageSemantics()
+    val semantics: FinancialSemanticAssessment? = null
 ) {
     val recognized: Boolean
         get() =
             balances.isNotEmpty() ||
                 events.isNotEmpty() ||
-                semantics.isMeaningful
+                semantics?.understood == true
 
     val consumesLegacyTransactionParsing: Boolean
         get() =
