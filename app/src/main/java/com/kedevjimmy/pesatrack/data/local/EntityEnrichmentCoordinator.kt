@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.Context
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentHttpClient
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityDescriptorPrivacyPolicy
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 class EntityEnrichmentCoordinator private constructor(
@@ -18,6 +19,8 @@ class EntityEnrichmentCoordinator private constructor(
         EntityEnrichmentHttpClient()
     private val executor =
         Executors.newSingleThreadExecutor()
+    private val inFlight =
+        ConcurrentHashMap.newKeySet<Long>()
 
     fun enrichTransactionAsync(
         transactionId: Long,
@@ -31,37 +34,44 @@ class EntityEnrichmentCoordinator private constructor(
             EntityDescriptorPrivacyPolicy
                 .sanitize(rawDescriptor)
                 ?: return
+        if (!inFlight.add(transactionId)) {
+            return
+        }
         val key =
             EntityDescriptorPrivacyPolicy
                 .cacheKey(sanitized)
 
         executor.execute {
-            val cached = cache.get(key)
-            if (cached != null) {
+            try {
+                val cached = cache.get(key)
+                if (cached != null) {
+                    TransactionStore.get(appContext)
+                        .applyRemoteEntityEnrichment(
+                            transactionId =
+                                transactionId,
+                            result = cached
+                        )
+                    return@execute
+                }
+
+                val resolved =
+                    remote.enrich(sanitized)
+                        ?: return@execute
+
+                cache.put(
+                    descriptorKey = key,
+                    result = resolved
+                )
+
                 TransactionStore.get(appContext)
                     .applyRemoteEntityEnrichment(
                         transactionId =
                             transactionId,
-                        result = cached
+                        result = resolved
                     )
-                return@execute
+            } finally {
+                inFlight.remove(transactionId)
             }
-
-            val resolved =
-                remote.enrich(sanitized)
-                    ?: return@execute
-
-            cache.put(
-                descriptorKey = key,
-                result = resolved
-            )
-
-            TransactionStore.get(appContext)
-                .applyRemoteEntityEnrichment(
-                    transactionId =
-                        transactionId,
-                    result = resolved
-                )
         }
     }
 
