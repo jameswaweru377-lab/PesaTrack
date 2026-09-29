@@ -1016,3 +1016,185 @@ Build the canonical semantic fact layer on top of the new foundation:
 5. add cross-message correlation only after semantic facts are stable, with exact shared references as the strongest evidence;
 6. continue growing the sanitized real-world corpus as new wording is observed;
 7. evaluate a small offline ML classifier/token extractor only after deterministic semantic failures are measured against the corpus.
+
+
+## Financial Intelligence V2 — Phase 2 semantic layer — PR #81
+
+Status on 2026-09-30: **implemented and Android CI verified on code head `fa350bd7bbfeef8b291f6880feedf00fe2f982bf` before this documentation commit.**
+
+Phase 2 adds a provider-agnostic semantic layer between the Phase 1 relevance gate and the deterministic ledger/accounting engine.
+
+### Core semantic model
+
+A new `FinancialSemanticAnalyzer` classifies financially relevant messages into general meanings instead of bank/lender-specific handlers.
+
+Current semantic intents include:
+
+- PAYMENT
+- RECEIPT
+- TRANSFER
+- LOAN_DISBURSEMENT
+- LOAN_REPAYMENT
+- LOAN_BALANCE
+- BALANCE_UPDATE
+- REVERSAL
+- REFUND
+- FEE
+- INVESTMENT_ORDER
+- INVESTMENT_EXECUTED
+- CONFIRMATION_ONLY
+- UNKNOWN
+
+Semantic roles distinguish message lifecycle/status:
+
+- NEW_EVENT
+- PENDING_ACTION
+- CONFIRMATION
+- REMINDER
+- INFORMATION
+- NEEDS_REVIEW
+
+Semantic facts also include:
+
+- amount facts with roles such as PRIMARY, BALANCE, OUTSTANDING, FEE and INVESTMENT_VALUE;
+- labeled external references;
+- account-role facts;
+- interpretation confidence;
+- rule IDs explaining why the message received that meaning.
+
+The semantic layer itself does **not** mutate the ledger. The deterministic interpreter/accounting system remains authoritative for persistence.
+
+### Provider-agnostic reference extraction
+
+Reference extraction is generic and supports multiple labeled references in the same message without hardcoding a provider.
+
+For example, a message containing both:
+
+- `Bank Ref ABC12345`
+- `M-Pesa Ref UFT12345`
+
+can expose both references as semantic facts.
+
+This prepares Phase 3 for exact cross-message correlation without requiring rules such as `if sender == Equity`.
+
+### Confirmation-only behavior
+
+Messages such as:
+
+`Your transfer of funds has been processed.`
+
+are now semantically understood as `CONFIRMATION_ONLY` with role `CONFIRMATION`.
+
+They do **not** create a second transfer or other ledger event merely because they contain the word `transfer`.
+
+This distinction is important for lenders and banks that send both an event message and a later status/processing message.
+
+### Loan semantics
+
+Generic lender language is expanded without provider-specific production branches.
+
+Implemented behavior includes:
+
+- sender-scoped loan disbursement for an unknown lender;
+- sender-scoped loan balance, allowing a message such as `Your total loan balance is KES ...` to become an observed liability using the message source as context;
+- existing M-Shwari provider identity still resolves to the known M-Shwari Loan liability;
+- unknown future lenders can create a generic liability when message semantics prove a loan event;
+- loan disbursement amounts are treated as gross borrowed amounts unless explicit fee/net-proceeds evidence says otherwise.
+
+The original loan drawdown still does not need to have been observed for a later explicit loan-balance message to establish the outstanding liability.
+
+### Investment semantics
+
+Phase 2 distinguishes:
+
+- `INVESTMENT_ORDER`: e.g. buy/sell order submitted or pending;
+- `INVESTMENT_EXECUTED`: e.g. shares actually bought/sold.
+
+A submitted order is semantically understood but does not pretend that an investment purchase already completed.
+
+Investment persistence/portfolio accounting is intentionally not implemented in this phase.
+
+### Semantic understanding vs ledger recognition
+
+`FinancialMessageInterpretation` now keeps two separate ideas:
+
+- `recognized`: the deterministic system produced an actual balance/event that can participate in the ledger;
+- `semanticallyUnderstood`: the semantic layer understands what the financial message means even when no ledger mutation is appropriate.
+
+This prevents confirmation-only, pending-investment and informational messages from being incorrectly treated as unrecognized financial language.
+
+### Activity diagnostics
+
+The privacy-safe financial diagnostics now have an `UNDERSTOOD_NO_LEDGER_EFFECT` outcome.
+
+Therefore financially meaningful messages that intentionally do not affect the ledger no longer need to appear simply as `Not understood`.
+
+Examples:
+
+- processed-transfer confirmation -> understood confirmation;
+- investment order submitted -> understood pending action;
+- loan-balance information -> understood information / balance observation when extractable.
+
+The diagnostic store still does **not** persist raw SMS bodies.
+
+### Canonical draft integration
+
+Semantic assessment is carried into canonical financial drafts so future correlation/review layers can use semantic intent, role, references, amounts and confidence alongside deterministic records.
+
+### Phase 2 regression corpus
+
+A dedicated semantic corpus/tests cover:
+
+- M-Shwari loan balance without an observed original drawdown;
+- unknown future lender loan disbursement;
+- confirmation-only transfer processing;
+- investment order submission;
+- investment execution;
+- multiple provider-neutral references in one message;
+- provider-agnostic semantic intent/role expectations.
+
+Older financial fixture/evidence tests remain in force and are not replaced by semantic tests.
+
+### Verification
+
+The first Phase 2 CI runs intentionally exposed semantic/regression mismatches while the branch was being consolidated.
+
+The final code head `fa350bd7bbfeef8b291f6880feedf00fe2f982bf` passed Android CI run #326:
+
+- entity-enrichment Worker validation: passed;
+- Android compilation: passed;
+- Android unit tests: passed;
+- debug APK assembly: passed.
+
+### Deliberately not solved in Phase 2
+
+Phase 2 understands messages better, but it does not yet solve full cross-message event correlation.
+
+Still pending for the next phase:
+
+1. exact shared-reference correlation across providers/sources;
+2. bank-side + M-Pesa-side observation linking into one canonical movement;
+3. confirmation message linking to the specific original event;
+4. amount/time/account fallback correlation when no shared reference exists;
+5. investment persistence/portfolio accounting;
+6. broader real-world corpus expansion from sanitized device examples;
+7. offline ML only if measured deterministic semantic gaps justify it.
+
+### Recommended next implementation — Financial Intelligence V2 Phase 3
+
+Build a canonical observation-correlation layer.
+
+Priority order:
+
+1. exact shared external reference match;
+2. compatible source/destination account identities;
+3. same amount and direction;
+4. tight time window;
+5. semantic event compatibility;
+6. preserve both source observations for audit, but allow only one canonical financial movement to affect the ledger;
+7. link confirmation-only messages to an existing event instead of creating a new one;
+8. send ambiguous matches to review rather than auto-linking.
+
+Permanent rule remains:
+
+**PesaTrack learns financial language and relationships, not provider-specific parsers.**
