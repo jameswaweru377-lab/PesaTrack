@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.domain.interpretation
 
+import com.kedevjimmy.pesatrack.domain.model.AccountType
+
 sealed interface ResolvedFinancialRelationship {
     val amountMinor: Long
     val feeMinor: Long
@@ -950,6 +952,18 @@ object FinancialRelationshipResolver {
         if (source.entityKey == destination.entityKey) {
             return null
         }
+        if (
+            !isLikelyFinancialAccount(
+                source,
+                action.partyLabel
+            )
+        ) {
+            return resolveReceipt(
+                action = action,
+                observedAccount = destination,
+                fee = fee
+            )
+        }
         val confidence =
             accountRelationshipConfidence(
                 source,
@@ -985,6 +999,20 @@ object FinancialRelationshipResolver {
             )
         if (source.entityKey == destination.entityKey) {
             return null
+        }
+        if (
+            !isLikelyFinancialAccount(
+                destination,
+                action.partyLabel
+            )
+        ) {
+            return resolvePayment(
+                action = action,
+                observedAccount = source,
+                fee = fee,
+                routeHint =
+                    PaymentRouteHint.PERSON_TO_PERSON
+            )
         }
         val confidence =
             accountRelationshipConfidence(
@@ -1226,6 +1254,12 @@ object FinancialRelationshipResolver {
         } else {
             InterpretationConfidence.MEDIUM
         }
+
+    private val ACCOUNT_LABEL_HINT_REGEX =
+        Regex(
+            """\b(?:a/?c|account|bank|wallet|saving|savings|sacco)\b""",
+            RegexOption.IGNORE_CASE
+        )
 
     private fun priority(
         action: FinancialActionCandidate
