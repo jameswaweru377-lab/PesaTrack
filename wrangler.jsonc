@@ -1,5 +1,5 @@
 {
-  "name": "pesatrack-entity-enrichment",
+  "name": "pesatrack",
   "main": "worker/entity-enrichment/src/index.js",
   "compatibility_date": "2026-09-29",
   "workers_dev": true,
