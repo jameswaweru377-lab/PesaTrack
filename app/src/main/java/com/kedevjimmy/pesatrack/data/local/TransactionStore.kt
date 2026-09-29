@@ -713,10 +713,10 @@ class TransactionStore private constructor(context: Context) {
             if (item.direction != MoneyDirection.EXPENSE.name) return@filter false
             if (item.type !in OUTGOING_REVIEW_TYPES) return@filter false
             if (
-                item.category !=
-                    TransactionCategory.UNCATEGORIZED.name &&
-                item.category !=
-                    TransactionCategory.OTHER.name
+                !ReviewTriagePolicy
+                    .shouldTriageCategory(
+                        item.category
+                    )
             ) {
                 return@filter false
             }
