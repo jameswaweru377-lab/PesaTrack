@@ -26,6 +26,10 @@ assert(
     "sanitized-descriptor-only",
   "health endpoint should expose privacy mode"
 );
+assert(
+  healthPayload.providerConfigured === false,
+  "provider should report unconfigured without secret"
+);
 
 const sensitive = await worker.fetch(
   new Request(

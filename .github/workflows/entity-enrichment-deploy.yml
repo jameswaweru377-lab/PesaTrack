@@ -1,15 +1,16 @@
 name: Deploy Entity Enrichment Worker
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/entity-enrichment/**"
+      - ".github/workflows/entity-enrichment-deploy.yml"
   workflow_dispatch:
-    inputs:
-      worker_base_url:
-        description: "Public Worker base URL, for example https://pesatrack-entity-enrichment.<subdomain>.workers.dev"
-        required: true
-        type: string
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   deploy:
@@ -18,6 +19,8 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WORKER_NAME: pesatrack-entity-enrichment
+      GH_TOKEN: ${{ github.token }}
 
     steps:
       - name: Checkout
@@ -50,35 +53,90 @@ jobs:
         working-directory: worker/entity-enrichment
         run: npx --yes wrangler@4 deploy --config wrangler.jsonc
 
-      - name: Verify deployed Worker health
-        env:
-          WORKER_BASE_URL: ${{ inputs.worker_base_url }}
+      - name: Discover deployed Worker URL
+        id: worker_url
         shell: bash
         run: |
           set -euo pipefail
 
-          base="${WORKER_BASE_URL%/}"
-          response="$(curl --fail --silent --show-error "${base}/v1/entity/health")"
+          response="$(
+            curl --fail --silent --show-error               -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"               -H "Content-Type: application/json"               "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain"
+          )"
+
+          subdomain="$(
+            node -e '
+              const payload = JSON.parse(process.argv[1]);
+              if (
+                payload.success !== true ||
+                !payload.result ||
+                typeof payload.result.subdomain !== "string" ||
+                !payload.result.subdomain.trim()
+              ) {
+                process.exit(1);
+              }
+              process.stdout.write(
+                payload.result.subdomain.trim()
+              );
+            ' "${response}"
+          )"
+
+          base="https://${WORKER_NAME}.${subdomain}.workers.dev"
+          echo "base_url=${base}" >> "${GITHUB_OUTPUT}"
+          echo "resolve_url=${base}/v1/entity/resolve" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify deployed Worker and provider
+        env:
+          WORKER_BASE_URL: ${{ steps.worker_url.outputs.base_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          response="$(
+            curl --fail --silent --show-error               "${WORKER_BASE_URL}/v1/entity/health"
+          )"
           echo "${response}"
 
           node -e '
             const payload = JSON.parse(process.argv[1]);
             if (
               payload.status !== "ok" ||
-              payload.privacyMode !== "sanitized-descriptor-only"
+              payload.privacyMode !==
+                "sanitized-descriptor-only"
             ) {
+              console.error(
+                "Worker health/privacy contract failed."
+              );
               process.exit(1);
+            }
+            if (payload.providerConfigured !== true) {
+              console.error(
+                "Worker is deployed but LOGO_DEV_SECRET_KEY is not configured in Cloudflare."
+              );
+              process.exit(2);
             }
           ' "${response}"
 
+      - name: Configure Android enrichment endpoint
+        env:
+          RESOLVE_URL: ${{ steps.worker_url.outputs.resolve_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh variable set             PESATRACK_ENTITY_ENRICHMENT_URL             --body "${RESOLVE_URL}"             --repo "${GITHUB_REPOSITORY}"
+
           {
-            echo "### Entity enrichment Worker deployed"
+            echo "### Entity enrichment activated"
             echo
-            echo "Health check passed."
+            echo "Worker deployment and provider readiness checks passed."
             echo
-            echo "Set the GitHub repository variable:"
+            echo "Android endpoint:"
             echo
-            echo "\`PESATRACK_ENTITY_ENRICHMENT_URL=${base}/v1/entity/resolve\`"
-            echo
-            echo "The Logo.dev provider key remains a Cloudflare Worker secret named \`LOGO_DEV_SECRET_KEY\`."
+            echo "\`${RESOLVE_URL}\`"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Rebuild rolling APK with Worker endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run             android-ci.yml             --ref main             --repo "${GITHUB_REPOSITORY}"
