@@ -568,14 +568,18 @@ object FinancialRelationshipResolver {
                     repayment.liabilityLabel
                 )
             val funding =
-                FinancialProviderRegistry.resolveAccount(
-                    repayment.fundingAccountLabel
-                )
+                repayment.fundingAccountLabel
+                    ?.let(
+                        FinancialProviderRegistry::
+                            resolveAccount
+                    )
             val walletBalance =
-                balances.firstOrNull {
-                    it.account.entityKey ==
-                        funding.entityKey
-                }?.balanceMinor
+                funding?.let { fundingAccount ->
+                    balances.firstOrNull {
+                        it.account.entityKey ==
+                            fundingAccount.entityKey
+                    }?.balanceMinor
+                }
 
             val evidence = buildList {
                 add(
@@ -589,21 +593,23 @@ object FinancialRelationshipResolver {
                             InterpretationConfidence.HIGH
                     )
                 )
-                add(
-                    evidence(
-                        field =
-                            FinancialField.SOURCE_ACCOUNT,
-                        origin =
-                            EvidenceOrigin.MESSAGE_TEXT,
-                        ruleId =
-                            repayment.ruleId +
-                                ".funding_account",
-                        span =
-                            repayment.fundingAccountSpan,
-                        confidence =
-                            InterpretationConfidence.HIGH
+                if (funding != null) {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField.SOURCE_ACCOUNT,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId =
+                                repayment.ruleId +
+                                    ".funding_account",
+                            span =
+                                repayment.fundingAccountSpan,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
                     )
-                )
+                }
                 add(
                     evidence(
                         field = FinancialField.LIABILITY,
@@ -631,6 +637,23 @@ object FinancialRelationshipResolver {
                             InterpretationConfidence.HIGH
                     )
                 )
+                repayment.outstandingSpan?.let {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField
+                                    .OUTSTANDING_BALANCE,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId =
+                                repayment.ruleId +
+                                    ".outstanding",
+                            span = it,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
                 repayment.availableCreditSpan?.let {
                     add(
                         evidence(
@@ -659,14 +682,15 @@ object FinancialRelationshipResolver {
                 completion =
                     repayment.completion,
                 outstandingAfterMinor =
-                    if (
-                        repayment.completion ==
-                        DebtCompletion.FULL
-                    ) {
-                        0L
-                    } else {
-                        null
-                    },
+                    repayment.outstandingAfterMinor
+                        ?: if (
+                            repayment.completion ==
+                                DebtCompletion.FULL
+                        ) {
+                            0L
+                        } else {
+                            null
+                        },
                 availableCreditAfterMinor =
                     repayment
                         .availableCreditAfterMinor,
