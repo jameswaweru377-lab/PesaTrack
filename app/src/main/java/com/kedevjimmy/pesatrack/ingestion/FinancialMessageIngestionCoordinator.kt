@@ -19,6 +19,8 @@ import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterprete
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageNormalizer
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageRelevanceGate
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialSemanticIntent
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialSemanticRole
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtCompletion
 import com.kedevjimmy.pesatrack.domain.model.AccountType
@@ -1053,7 +1055,19 @@ class FinancialMessageIngestionCoordinator private constructor(
                     interpretation.balances.any {
                         it.account.nature ==
                             FinancialAccountNature.LIABILITY
-                    } -> "Lender"
+                    } ||
+                    interpretation.semanticAssessment
+                        ?.intents
+                        ?.any {
+                            it in setOf(
+                                FinancialSemanticIntent
+                                    .LOAN_DISBURSEMENT,
+                                FinancialSemanticIntent
+                                    .LOAN_REPAYMENT,
+                                FinancialSemanticIntent
+                                    .LOAN_BALANCE
+                            )
+                        } == true -> "Lender"
                 sourceReference?.accountTypeHint ==
                     AccountType.BANK -> "Bank"
                 sourceReference?.accountTypeHint ==
@@ -1082,6 +1096,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                 receivedAtEpochMs,
             financialCandidate =
                 relevance.isRelevant,
+            semanticUnderstood =
+                interpretation.semanticallyUnderstood,
             result = result
         )
     }
@@ -1142,8 +1158,71 @@ class FinancialMessageIngestionCoordinator private constructor(
                     } -> "Loan balance"
                     interpretation.balances.isNotEmpty() ->
                         "Balance update"
+                    interpretation.semanticAssessment
+                        ?.understood == true ->
+                        semanticDiagnosticEventLabel(
+                            interpretation
+                                .semanticAssessment
+                        )
                     else -> "Not understood"
                 }
+        }
+    }
+
+    private fun semanticDiagnosticEventLabel(
+        semantic:
+            com.kedevjimmy.pesatrack.domain.interpretation
+                .FinancialSemanticAssessment
+    ): String {
+        if (
+            semantic.role ==
+                FinancialSemanticRole.REMINDER
+        ) {
+            return when (semantic.primaryIntent) {
+                FinancialSemanticIntent.LOAN_BALANCE,
+                FinancialSemanticIntent.LOAN_REPAYMENT ->
+                    "Loan reminder"
+                else -> "Financial reminder"
+            }
+        }
+
+        return when (semantic.primaryIntent) {
+            FinancialSemanticIntent.PAYMENT ->
+                "Payment"
+            FinancialSemanticIntent.RECEIPT ->
+                "Money received"
+            FinancialSemanticIntent.TRANSFER ->
+                if (
+                    semantic.role ==
+                        FinancialSemanticRole
+                            .CONFIRMATION
+                ) {
+                    "Transfer confirmation"
+                } else {
+                    "Transfer"
+                }
+            FinancialSemanticIntent.LOAN_DISBURSEMENT ->
+                "Loan"
+            FinancialSemanticIntent.LOAN_REPAYMENT ->
+                "Loan repayment"
+            FinancialSemanticIntent.LOAN_BALANCE ->
+                "Loan balance"
+            FinancialSemanticIntent.BALANCE_UPDATE ->
+                "Balance update"
+            FinancialSemanticIntent.REVERSAL ->
+                "Reversal"
+            FinancialSemanticIntent.REFUND ->
+                "Refund"
+            FinancialSemanticIntent.FEE ->
+                "Fee"
+            FinancialSemanticIntent.INVESTMENT_ORDER ->
+                "Investment order"
+            FinancialSemanticIntent.INVESTMENT_EXECUTED ->
+                "Investment executed"
+            FinancialSemanticIntent.CONFIRMATION_ONLY ->
+                "Confirmation"
+            FinancialSemanticIntent.UNKNOWN ->
+                "Needs review"
         }
     }
 
