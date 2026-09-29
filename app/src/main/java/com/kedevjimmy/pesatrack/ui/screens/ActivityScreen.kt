@@ -2223,8 +2223,19 @@ private fun ActivityRow(
                     .weight(1f)
                     .padding(horizontal = 11.dp)
             ) {
+                val displayName =
+                    item.evidenceLabel
+                        ?.takeIf {
+                            item.evidenceSource
+                                ?.startsWith(
+                                    "entity_intelligence:"
+                                ) == true
+                        }
+                        ?: item.counterparty
+                        ?: humanize(item.type)
+
                 Text(
-                    item.counterparty ?: humanize(item.type),
+                    displayName,
                     style = MaterialTheme.typography.titleMedium
                 )
                 Row(
@@ -2317,83 +2328,15 @@ private fun MerchantBadge(
     categoryId: String,
     tone: String
 ) {
-    val name = (
-        item.counterparty
-            ?: item.evidenceLabel
-            ?: ""
-        ).trim()
-    val normalized = name.lowercase()
-
-    val merchant = when {
-        "safaricom" in normalized ||
-            "tunukiwa" in normalized ->
-            Triple(
-                "S",
-                Color(0xFF00A651),
-                Color.White
-            )
-        "java house" in normalized ||
-            normalized == "java" ->
-            Triple(
-                "JH",
-                Color(0xFF8B2F2A),
-                Color.White
-            )
-        "naivas" in normalized ->
-            Triple(
-                "N",
-                Color(0xFFE31B23),
-                Color.White
-            )
-        "kplc" in normalized ||
-            "kenya power" in normalized ->
-            Triple(
-                "K",
-                Color(0xFFFFB300),
-                Color(0xFF172033)
-            )
-        "totalenergies" in normalized ||
-            "total energies" in normalized ||
-            normalized.startsWith("total ") ->
-            Triple(
-                "T",
-                Color(0xFFE30613),
-                Color.White
-            )
-        else -> null
-    }
-
-    if (merchant == null) {
-        IconBubble(
-            icon = iconFor(
-                categoryId,
-                item.type
-            ),
-            size = 40.dp,
-            background = pesaToneContainer(tone),
-            tint = pesaToneContent(tone)
-        )
-        return
-    }
-
-    Surface(
-        modifier = Modifier.size(40.dp),
-        shape = CircleShape,
-        color = merchant.second
-    ) {
-        Box(
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                merchant.first,
-                style =
-                    MaterialTheme.typography
-                        .labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = merchant.third
-            )
-        }
-    }
+    IconBubble(
+        icon = iconFor(
+            categoryId,
+            item.type
+        ),
+        size = 40.dp,
+        background = pesaToneContainer(tone),
+        tint = pesaToneContent(tone)
+    )
 }
 
 private fun iconFor(

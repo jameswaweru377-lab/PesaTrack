@@ -184,8 +184,10 @@ class TransactionStore private constructor(context: Context) {
         } else {
             classify(parsed, matchedRule, occurredAtEpochMs)
         }
-        val displayCounterparty = parsed.counterparty
-            ?: ownTransfer?.destinationName?.takeIf { useOwnTransfer }
+        val displayCounterparty =
+            classification.displayLabel
+                ?: parsed.counterparty
+                ?: ownTransfer?.destinationName?.takeIf { useOwnTransfer }
             ?: matchedRule?.displayLabel?.takeIf { it.isNotBlank() }
             ?: matchedRule?.name?.takeIf { it.isNotBlank() }
 
@@ -307,6 +309,23 @@ class TransactionStore private constructor(context: Context) {
                 put("evidence_source", evidence.sourceLabel)
                 put("evidence_confidence", evidence.confidence.name)
                 put("evidence_time_delta_ms", evidence.timeDeltaMs)
+            } else if (
+                classification.evidenceSource != null
+            ) {
+                put(
+                    "evidence_label",
+                    classification.evidenceLabel
+                )
+                put(
+                    "evidence_source",
+                    classification.evidenceSource
+                )
+                put(
+                    "evidence_confidence",
+                    classification.evidenceConfidence
+                        ?.name
+                )
+                putNull("evidence_time_delta_ms")
             } else {
                 putNull("evidence_label")
                 putNull("evidence_source")
@@ -693,6 +712,14 @@ class TransactionStore private constructor(context: Context) {
             ) return@filter false
             if (item.direction != MoneyDirection.EXPENSE.name) return@filter false
             if (item.type !in OUTGOING_REVIEW_TYPES) return@filter false
+            if (
+                !ReviewTriagePolicy
+                    .shouldTriageCategory(
+                        item.category
+                    )
+            ) {
+                return@filter false
+            }
 
             ReviewTriagePolicy.identityKey(
                 item.counterparty,
@@ -1013,6 +1040,31 @@ class TransactionStore private constructor(context: Context) {
                 put("category", recognized.category.name)
                 put("review_state", ReviewState.AUTO_CLASSIFIED.name)
                 putNull("rule_id")
+                recognized.entity?.entity
+                    ?.canonicalName
+                    ?.let {
+                        put("counterparty", it)
+                    }
+                if (
+                    recognized.evidenceSource != null
+                ) {
+                    put(
+                        "evidence_label",
+                        recognized.evidenceLabel
+                    )
+                    put(
+                        "evidence_source",
+                        recognized.evidenceSource
+                    )
+                    put(
+                        "evidence_confidence",
+                        recognized.evidenceConfidence
+                            ?.name
+                    )
+                    putNull(
+                        "evidence_time_delta_ms"
+                    )
+                }
             }
             changed =
                 db.update(
@@ -1329,6 +1381,23 @@ class TransactionStore private constructor(context: Context) {
                 put("evidence_source", evidence.sourceLabel)
                 put("evidence_confidence", evidence.confidence.name)
                 put("evidence_time_delta_ms", evidence.timeDeltaMs)
+            } else if (
+                classification.evidenceSource != null
+            ) {
+                put(
+                    "evidence_label",
+                    classification.evidenceLabel
+                )
+                put(
+                    "evidence_source",
+                    classification.evidenceSource
+                )
+                put(
+                    "evidence_confidence",
+                    classification.evidenceConfidence
+                        ?.name
+                )
+                putNull("evidence_time_delta_ms")
             }
             putNull("pay_cycle_id")
             putNull("cycle_candidate_reason")
@@ -1942,7 +2011,17 @@ class TransactionStore private constructor(context: Context) {
                 planningMonth = PlanningPeriodResolver.resolve(
                     occurredAtEpochMs,
                     0
-                )
+                ),
+                displayLabel =
+                    recognized.entity
+                        ?.entity
+                        ?.canonicalName,
+                evidenceLabel =
+                    recognized.evidenceLabel,
+                evidenceSource =
+                    recognized.evidenceSource,
+                evidenceConfidence =
+                    recognized.evidenceConfidence
             )
         }
 
@@ -1996,14 +2075,19 @@ class TransactionStore private constructor(context: Context) {
         val category: TransactionCategory,
         val reviewState: ReviewState,
         val ruleId: String?,
-        val planningMonth: String
+        val planningMonth: String,
+        val displayLabel: String? = null,
+        val evidenceLabel: String? = null,
+        val evidenceSource: String? = null,
+        val evidenceConfidence:
+            EvidenceConfidence? = null
     )
 
     companion object {
         private const val MIRROR_RECONCILIATION_KEY =
             "mirror_transaction_reconciliation_v2"
         private const val BUILT_IN_RECOGNITION_RECONCILIATION_KEY =
-            "built_in_recognition_reconciliation_v1"
+            "built_in_recognition_reconciliation_v2"
         private const val REFUND_RECONCILIATION_KEY =
             "refund_reconciliation_v1"
         const val RELATION_REFUND = "REFUND"

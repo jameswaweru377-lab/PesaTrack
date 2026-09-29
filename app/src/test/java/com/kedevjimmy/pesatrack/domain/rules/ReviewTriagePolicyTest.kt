@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -39,4 +40,35 @@ class ReviewTriagePolicyTest {
         assertFalse(ReviewTriagePolicy.shouldDefaultToOther(3))
         assertTrue(ReviewTriagePolicy.shouldRequestTeaching(3))
     }
+    @Test
+    fun onlyUnresolvedCategoriesEnterIdentityTriage() {
+        assertTrue(
+            ReviewTriagePolicy
+                .shouldTriageCategory(
+                    TransactionCategory
+                        .UNCATEGORIZED.name
+                )
+        )
+        assertTrue(
+            ReviewTriagePolicy
+                .shouldTriageCategory(
+                    TransactionCategory.OTHER.name
+                )
+        )
+        assertFalse(
+            ReviewTriagePolicy
+                .shouldTriageCategory(
+                    TransactionCategory
+                        .ELECTRICITY.name
+                )
+        )
+        assertFalse(
+            ReviewTriagePolicy
+                .shouldTriageCategory(
+                    TransactionCategory
+                        .GROCERIES.name
+                )
+        )
+    }
+
 }
