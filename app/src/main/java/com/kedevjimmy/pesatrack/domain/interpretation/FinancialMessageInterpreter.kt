@@ -44,9 +44,10 @@ object FinancialMessageInterpreter {
                 resolved
             )
 
-        return classified.copy(
-            semanticAssessment =
-                semanticAssessment
+        return FinancialSemanticFactResolver.apply(
+            message = normalized,
+            semantic = semanticAssessment,
+            interpretation = classified
         )
     }
 }
