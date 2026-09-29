@@ -22,7 +22,7 @@ class ProviderAgnosticFinancialIntelligenceTest {
         assertEquals(250_000L, payment.amountMinor)
         assertEquals("SAMPLE PERSON", payment.counterparty)
         assertEquals(
-            "EQUITY",
+            "Equity Bank",
             payment.source.displayName
         )
         assertEquals(
