@@ -147,12 +147,30 @@ class FinancialIngestionDiagnosticsStore private constructor(
                 add(
                     FinancialIngestionDiagnostic(
                         title =
-                            item.optString("title")
-                                .takeIf(String::isNotBlank),
+                            if (item.isNull("title")) {
+                                null
+                            } else {
+                                item.optString("title")
+                                    .trim()
+                                    .takeIf(
+                                        String::isNotBlank
+                                    )
+                            },
                         sourcePackage =
-                            item.optString(
-                                "sourcePackage"
-                            ).takeIf(String::isNotBlank),
+                            if (
+                                item.isNull(
+                                    "sourcePackage"
+                                )
+                            ) {
+                                null
+                            } else {
+                                item.optString(
+                                    "sourcePackage"
+                                ).trim()
+                                    .takeIf(
+                                        String::isNotBlank
+                                    )
+                            },
                         sourceKind =
                             item.optString("sourceKind"),
                         receivedAtEpochMs =
