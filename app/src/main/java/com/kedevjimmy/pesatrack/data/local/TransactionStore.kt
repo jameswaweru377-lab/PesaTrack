@@ -4,6 +4,8 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.ingestion.LegacyTransactionTypeCompatibility
+import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityAutoReviewPolicy
+import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEnrichment
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionFingerprint
 import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKind
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
@@ -365,6 +367,24 @@ class TransactionStore private constructor(context: Context) {
             if (matchedRule == null) {
                 reconcileReviewTriageForMonth(occurredAtEpochMs)
             }
+
+            if (
+                matchedRule == null &&
+                parsed.type.name in
+                    OUTGOING_REVIEW_TYPES &&
+                ReviewTriagePolicy
+                    .shouldTriageCategory(
+                        classification.category.name
+                    )
+            ) {
+                EntityEnrichmentCoordinator
+                    .get(appContext)
+                    .enrichTransactionAsync(
+                        transactionId = rowId,
+                        rawDescriptor =
+                            parsed.counterparty
+                    )
+            }
         }
         if (inserted && rebuildPayCycles) {
             PayCycleStore.get(appContext).rebuild()
@@ -548,6 +568,9 @@ class TransactionStore private constructor(context: Context) {
 
         val transactions = allTransactions()
             .filter { it.reviewState != ReviewState.EXCLUDED.name }
+        scheduleRemoteEntityEnrichment(
+            transactions
+        )
         val possibleDuplicates = buildPossibleDuplicateGroups(
             transactions
         )
@@ -1824,6 +1847,125 @@ class TransactionStore private constructor(context: Context) {
         } else {
             secondId.toString() + ":" + firstId
         }
+
+    @Synchronized
+    fun applyRemoteEntityEnrichment(
+        transactionId: Long,
+        result: RemoteEntityEnrichment
+    ): Boolean {
+        val current =
+            getById(transactionId)
+                ?: return false
+
+        if (
+            current.ruleId != null ||
+            current.reviewState ==
+                ReviewState.USER_CLASSIFIED.name ||
+            current.reviewState ==
+                ReviewState.EXCLUDED.name ||
+            current.type !in
+                OUTGOING_REVIEW_TYPES ||
+            current.direction !=
+                MoneyDirection.EXPENSE.name ||
+            !ReviewTriagePolicy
+                .shouldTriageCategory(
+                    current.category
+                ) ||
+            !RemoteEntityAutoReviewPolicy
+                .shouldAutoReview(result)
+        ) {
+            return false
+        }
+
+        val category =
+            result.categoryHint
+                ?: return false
+
+        val values = ContentValues().apply {
+            put(
+                "counterparty",
+                result.canonicalName
+            )
+            put(
+                "direction",
+                MoneyDirection.EXPENSE.name
+            )
+            put("category", category.name)
+            put(
+                "review_state",
+                ReviewState.AUTO_CLASSIFIED.name
+            )
+            putNull("rule_id")
+            put(
+                "evidence_label",
+                result.canonicalName
+            )
+            put(
+                "evidence_source",
+                "entity_intelligence:" +
+                    result.source
+            )
+            put(
+                "evidence_confidence",
+                EvidenceConfidence.HIGH.name
+            )
+            putNull("evidence_time_delta_ms")
+        }
+
+        val changed =
+            database.writableDatabase.update(
+                "transactions",
+                values,
+                "id = ?",
+                arrayOf(
+                    transactionId.toString()
+                )
+            ) > 0
+
+        if (changed) {
+            PayCycleStore.get(appContext)
+                .rebuild()
+            LedgerUpdateBus.notifyChanged()
+        }
+
+        return changed
+    }
+
+    private fun scheduleRemoteEntityEnrichment(
+        transactions: List<StoredTransaction>
+    ) {
+        transactions.asSequence()
+            .filter { item ->
+                item.ruleId == null &&
+                    item.reviewState !=
+                        ReviewState.USER_CLASSIFIED.name &&
+                    item.reviewState !=
+                        ReviewState.EXCLUDED.name &&
+                    item.direction ==
+                        MoneyDirection.EXPENSE.name &&
+                    item.type in
+                        OUTGOING_REVIEW_TYPES &&
+                    ReviewTriagePolicy
+                        .shouldTriageCategory(
+                            item.category
+                        ) &&
+                    !item.counterparty
+                        .isNullOrBlank()
+            }
+            .sortedByDescending {
+                it.occurredAtEpochMs
+            }
+            .take(50)
+            .forEach { item ->
+                EntityEnrichmentCoordinator
+                    .get(appContext)
+                    .enrichTransactionAsync(
+                        transactionId = item.id,
+                        rawDescriptor =
+                            item.counterparty
+                    )
+            }
+    }
 
     @Synchronized
     fun classifyManually(
