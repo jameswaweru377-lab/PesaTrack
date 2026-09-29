@@ -61,6 +61,29 @@ class ProviderAgnosticFinancialIntelligenceTest {
         assertNull(transfer.source.providerKey)
     }
 
+
+    @Test
+    fun unknownBankNamedTransferToPersonBecomesPayment() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "FAMILY BANK",
+                body =
+                    "KES 3,200.00 transferred to SAMPLE PERSON on 29/9/26 at 11:15 AM. Available balance KES 9,000.00."
+            )
+
+        val payment =
+            interpretation.events.single() as
+                PaymentEventFact
+
+        assertEquals(320_000L, payment.amountMinor)
+        assertEquals("SAMPLE PERSON", payment.counterparty)
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            payment.source.ownershipHint
+        )
+        assertNull(payment.source.providerKey)
+    }
+
     @Test
     fun unknownLenderRepaymentUsesGenericLoanLanguage() {
         val interpretation =
