@@ -306,6 +306,7 @@ fun FinancialMessageInterpretation.toCanonicalDraft():
         metadataEvidence = metadataEvidence,
         requiresLegacyFallback =
             !consumesLegacyTransactionParsing,
-        semanticAssessment = semantics
+        semanticAssessment =
+            semanticAssessment
     )
 }
