@@ -11,7 +11,12 @@ object FinancialMessageInterpreter {
                 body = body
             )
 
-        if (!normalized.hasCurrencyHint) {
+        val relevance =
+            FinancialMessageRelevanceGate.assess(
+                normalized
+            )
+
+        if (!relevance.isRelevant) {
             return FinancialMessageInterpretation(
                 transactionCode = null,
                 occurredAtText = null,

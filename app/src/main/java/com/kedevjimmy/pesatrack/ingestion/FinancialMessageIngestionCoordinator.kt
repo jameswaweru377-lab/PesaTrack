@@ -16,6 +16,8 @@ import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpretation
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageNormalizer
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageRelevanceGate
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtCompletion
@@ -1022,9 +1024,20 @@ class FinancialMessageIngestionCoordinator private constructor(
         receivedAtEpochMs: Long,
         result: FinancialMessageIngestionResult
     ) {
+        val normalizedMessage =
+            FinancialMessageNormalizer.normalize(
+                title = title,
+                body = body
+            )
+        val relevance =
+            FinancialMessageRelevanceGate.assess(
+                normalizedMessage
+            )
         val bankLike =
             BANK_SOURCE_LANGUAGE_REGEX
-                .containsMatchIn(body)
+                .containsMatchIn(
+                    normalizedMessage.body
+                )
         val sourceReference =
             FinancialProviderRegistry
                 .resolveMessageSourceAccount(
@@ -1067,9 +1080,8 @@ class FinancialMessageIngestionCoordinator private constructor(
             sourceKind = sourceKind,
             receivedAtEpochMs =
                 receivedAtEpochMs,
-            hasCurrencyHint =
-                CURRENCY_HINT_REGEX
-                    .containsMatchIn(body),
+            financialCandidate =
+                relevance.isRelevant,
             result = result
         )
     }
@@ -1373,12 +1385,6 @@ class FinancialMessageIngestionCoordinator private constructor(
     }
 
     companion object {
-        private val CURRENCY_HINT_REGEX =
-            Regex(
-                """\b(?:Ksh|KES)\b""",
-                RegexOption.IGNORE_CASE
-            )
-
         private val BANK_SOURCE_LANGUAGE_REGEX =
             Regex(
                 """\b(?:a/?c|acct|account|debited|credited|available\s+balance|book\s+balance|bank\s+balance)\b""",
