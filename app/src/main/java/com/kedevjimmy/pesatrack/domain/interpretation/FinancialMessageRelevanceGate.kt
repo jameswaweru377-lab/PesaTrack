@@ -10,6 +10,7 @@ enum class FinancialRelevanceSignal {
     PURCHASE_CONTEXT,
     SECURITY_NOISE,
     PROMOTIONAL_NOISE,
+    FINANCIAL_SOLICITATION,
     TELECOM_INFORMATION_ONLY
 }
 
@@ -79,6 +80,11 @@ object FinancialMessageRelevanceGate {
             RegexOption.IGNORE_CASE,
             RegexOption.DOT_MATCHES_ALL
         )
+    )
+
+    private val financialSolicitationRegex = Regex(
+        """\b(?:you\s+(?:are\s+)?(?:eligible|qualify)|apply\s+now|borrow\s+now|loan\s+offer|credit\s+offer|pre[- ]approved\s+(?:loan|limit)|increase\s+your\s+(?:loan\s+)?limit)\b""",
+        RegexOption.IGNORE_CASE
     )
 
     private val telecomInformationOnlyRegex = Regex(
@@ -171,6 +177,16 @@ object FinancialMessageRelevanceGate {
         ) {
             signals +=
                 FinancialRelevanceSignal.PROMOTIONAL_NOISE
+            score -= 3
+        }
+
+        if (
+            financialSolicitationRegex
+                .containsMatchIn(body)
+        ) {
+            signals +=
+                FinancialRelevanceSignal
+                    .FINANCIAL_SOLICITATION
             score -= 3
         }
 
