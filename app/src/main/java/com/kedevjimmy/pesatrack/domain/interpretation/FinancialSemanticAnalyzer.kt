@@ -400,9 +400,14 @@ object FinancialSemanticAnalyzer {
         }
 
         val primaryIntent =
-            PRIMARY_INTENT_PRIORITY
-                .firstOrNull { it in intents }
-                ?: FinancialSemanticIntent.UNKNOWN
+            if (confirmationOnly) {
+                FinancialSemanticIntent
+                    .CONFIRMATION_ONLY
+            } else {
+                PRIMARY_INTENT_PRIORITY
+                    .firstOrNull { it in intents }
+                    ?: FinancialSemanticIntent.UNKNOWN
+            }
 
         val role = when {
             primaryIntent ==
