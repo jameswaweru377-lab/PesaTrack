@@ -5,6 +5,7 @@ import com.kedevjimmy.pesatrack.domain.intelligence.EntityKind
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityMatchConfidence
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityResolution
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 
