@@ -1,12 +1,13 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.plugin.compose")
+}
+
 val entityEnrichmentUrl = providers
     .gradleProperty("PESATRACK_ENTITY_ENRICHMENT_URL")
     .orElse("")
     .get()
 
-plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.plugin.compose")
-}
 
 android {
     namespace = "com.kedevjimmy.pesatrack"
