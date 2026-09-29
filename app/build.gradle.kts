@@ -5,6 +5,11 @@ plugins {
 
 val entityEnrichmentUrl = providers
     .gradleProperty("PESATRACK_ENTITY_ENRICHMENT_URL")
+    .orElse(
+        providers.environmentVariable(
+            "PESATRACK_ENTITY_ENRICHMENT_URL"
+        )
+    )
     .orElse("")
     .get()
 
