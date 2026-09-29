@@ -44,3 +44,31 @@ Do not commit a private provider key or token to the repository.
 ## Automatic review policy
 
 The Worker may return a category hint, but the Android app remains the final policy gate. Only high-confidence results in a conservative allow-list of ordinary expense categories may auto-review a transaction. Financial services, loans, transfers, utilities that are not specific enough, and ambiguous results remain in the normal review flow.
+
+## GitHub deployment workflow
+
+The repository includes `.github/workflows/entity-enrichment-deploy.yml` for repeatable manual deployment.
+
+Repository secrets required by that workflow:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+Keep `LOGO_DEV_SECRET_KEY` in Cloudflare itself. Do not copy it into the Android build.
+
+Run **Deploy Entity Enrichment Worker** from GitHub Actions and provide the public Worker base URL, for example:
+
+`https://pesatrack-entity-enrichment.<subdomain>.workers.dev`
+
+The workflow deploys the Worker and verifies:
+
+`GET /v1/entity/health`
+
+After deployment, set the GitHub repository variable:
+
+`PESATRACK_ENTITY_ENRICHMENT_URL=https://<worker-host>/v1/entity/resolve`
+
+The next successful `main` Android build will embed only that public endpoint in the rolling APK.
+
+The health endpoint exposes no provider secret and only reports the service/privacy contract.
+
