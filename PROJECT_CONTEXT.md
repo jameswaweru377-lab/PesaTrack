@@ -691,3 +691,16 @@ For every implementation phase:
 - Fees should be tracked separately.
 - Do not fabricate account balances or financial insights.
 - UI must remain readable on the Redmi Note 14 and adapt cleanly to larger Android form factors.
+
+### Entity enrichment activation verified on 2026-09-29
+
+- The active Cloudflare Worker is the existing project named `pesatrack`.
+- Production Worker base URL: `https://pesatrack.jameswaweru399.workers.dev`.
+- Production resolve endpoint: `https://pesatrack.jameswaweru399.workers.dev/v1/entity/resolve`.
+- Cloudflare deployment credentials in GitHub are working: deployment, Worker URL discovery and health/privacy checks all passed.
+- `LOGO_DEV_SECRET_KEY` is visible to the deployed `pesatrack` Worker; health returned `providerConfigured: true`.
+- GitHub's workflow token cannot write Actions repository variables (`HTTP 403 Resource not accessible by integration`), so activation no longer depends on `gh variable set`.
+- Android CI embeds the verified public Worker endpoint directly as `PESATRACK_ENTITY_ENRICHMENT_URL` for CI/release builds.
+- The Worker deploy workflow health-checks Cloudflare and then triggers a fresh Android CI build so the rolling release APK is rebuilt against the active endpoint.
+- The provider key remains only in Cloudflare and is never embedded in Android.
+
