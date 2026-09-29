@@ -42,7 +42,9 @@ jobs:
           fi
 
       - name: Validate Worker source
-        run: node --check worker/entity-enrichment/src/index.js
+        run: |
+          node --check worker/entity-enrichment/src/index.js
+          node worker/entity-enrichment/test.mjs
 
       - name: Deploy Worker
         working-directory: worker/entity-enrichment
