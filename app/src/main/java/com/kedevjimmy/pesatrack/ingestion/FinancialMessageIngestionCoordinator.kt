@@ -1385,12 +1385,6 @@ class FinancialMessageIngestionCoordinator private constructor(
     }
 
     companion object {
-        private val CURRENCY_HINT_REGEX =
-            Regex(
-                """\b(?:Ksh|KES)\b""",
-                RegexOption.IGNORE_CASE
-            )
-
         private val BANK_SOURCE_LANGUAGE_REGEX =
             Regex(
                 """\b(?:a/?c|acct|account|debited|credited|available\s+balance|book\s+balance|bank\s+balance)\b""",
