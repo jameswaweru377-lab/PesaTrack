@@ -955,7 +955,7 @@ object FinancialRelationshipResolver {
         if (
             !isLikelyFinancialAccount(
                 source,
-                action.partyLabel
+                action
             )
         ) {
             return resolveReceipt(
@@ -1003,7 +1003,7 @@ object FinancialRelationshipResolver {
         if (
             !isLikelyFinancialAccount(
                 destination,
-                action.partyLabel
+                action
             )
         ) {
             return resolvePayment(
