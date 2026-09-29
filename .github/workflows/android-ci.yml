@@ -43,7 +43,7 @@ jobs:
 
       - name: Unit tests and debug APK
         env:
-          PESATRACK_ENTITY_ENRICHMENT_URL: ${{ vars.PESATRACK_ENTITY_ENRICHMENT_URL }}
+          PESATRACK_ENTITY_ENRICHMENT_URL: https://pesatrack.jameswaweru399.workers.dev/v1/entity/resolve
         run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
 
       - name: Publish rolling debug APK
