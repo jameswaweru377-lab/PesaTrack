@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "worker/entity-enrichment/**"
+      - "wrangler.jsonc"
       - ".github/workflows/entity-enrichment-deploy.yml"
   workflow_dispatch:
 
