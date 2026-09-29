@@ -870,3 +870,149 @@ Real-device check after merge:
 5. Tap each source and inspect its captured-message labels.
 6. For a single bank <-> M-Pesa movement, confirm both source observations can be seen in the source feed while only one transfer affects the ledger.
 7. Report any row labelled `Not understood` with a sanitized wording example so the generic grammar can be extended.
+
+
+## Financial Intelligence V2 — Phase 1 foundation — PR #80
+
+Status on 2026-09-29: **implemented and Android CI verified on code head `531998a24f4691bb13e5a2f2bfb1ba276d06ce0c` before this documentation commit.**
+
+This phase starts the replacement of brittle financial-message recognition with a provider-agnostic language pipeline. It deliberately does **not** add an ML model yet and does **not** add Equity/KCB/Branch/Tala-specific parser branches.
+
+### Permanent architecture rule
+
+Provider identity is context, not transaction meaning.
+
+Production logic must not encode rules such as:
+
+- `if sender == Equity -> credit`
+- `if sender == Branch -> loan`
+- `if sender == KCB -> transfer`
+
+The same financial language must work for an unknown future bank/lender. Provider names may appear in sanitized regression fixtures to prove that production logic remains provider-agnostic.
+
+### Phase 1A: Kenyan money normalization
+
+`FinancialMessageNormalizer` now canonicalizes common Kenyan currency typography before semantic parsing.
+
+Accepted forms include:
+
+- `KES` / `Kes`
+- `Ksh` / `KSh`
+- `Kshs` / `Kshs.`
+- `Sh` / `Shs`
+- `Kenya Shilling` / `Kenya Shillings`
+- currency written before or after the numeric amount
+
+These forms normalize to a canonical `KES <amount>` representation so downstream interpretation does not need provider-specific currency spelling rules.
+
+Examples:
+
+- `Kshs. 2,000` -> `KES 2,000`
+- `Sh73.00` -> `KES 73.00`
+- `Kenya Shillings 20,000.00` -> `KES 20,000.00`
+- `2,500 Kenya Shillings` -> `KES 2,500`
+
+### Phase 1B: provider-agnostic financial relevance gate
+
+A new local `FinancialMessageRelevanceGate` runs before full interpretation.
+
+It reasons from language/evidence rather than sender brands. Signals currently include:
+
+- Kenyan currency + numeric amount
+- credit/debit/payment language
+- contextual transfer/movement language
+- account/balance/reference context
+- debt/loan context
+- investment/share-order context
+- financial confirmation language
+- actual utility/airtime/data purchase context
+
+Noise signals include:
+
+- OTP/password/security messages
+- promotions/reward scams
+- loan/credit solicitations such as `you qualify... apply now`
+- airtime/data/bundle informational balances/expiry messages when no actual purchase/payment occurred
+
+Ambiguous words such as `received`, `sent`, `transfer`, or `moved` are not enough by themselves. They require financial context such as currency, an account/wallet, debt/investment meaning, a confirmation phrase, or a real purchase context. This prevents unrelated messages such as `David sent you a photo` or `You received 500 reward points` from entering the financial feed.
+
+### Phase 1C: sanitized regression corpus
+
+A permanent `FinancialIntelligenceV2FoundationCorpus` was added under Android unit tests.
+
+The corpus is sanitized and includes representative language for:
+
+- Equity-style long-form `Kenya Shillings` transaction/reference wording
+- M-Shwari transfers
+- M-Shwari loan-balance wording
+- locked-savings movement
+- Branch-style loan disbursement
+- Branch-style `transfer of funds has been processed` confirmation
+- unknown/future bank credit and debit messages
+- merchant/internet payment confirmation
+- investment order submission and executed share purchase
+- irrelevant Safaricom airtime balance
+- bundle promotion
+- loan marketing solicitation
+- Google verification code
+- Discord/login-style message
+- reward points
+- ordinary personal-message noise
+
+Provider names in this file are **test fixtures only**, not production routing rules.
+
+Tests verify:
+
+1. all expected Kenyan currency variants normalize to canonical KES;
+2. relevant corpus examples pass the relevance gate;
+3. irrelevant examples are rejected;
+4. the pre-existing financial fixture corpus remains relevant;
+5. the pre-existing non-financial fixture corpus remains rejected;
+6. an unknown provider can pass purely because its financial language is meaningful;
+7. a provider/bank-looking sender name alone cannot make an ordinary message financial.
+
+### Ingestion/privacy effect
+
+Historical SMS import and live notification ingestion may still inspect message text locally in memory so PesaTrack can decide whether it is financial.
+
+However, the local captured-message diagnostic store now records an unrecognized message only when the relevance gate considers it a financial candidate. A message is no longer retained in financial diagnostics merely because it contains a currency-looking amount.
+
+The existing privacy boundary remains:
+
+- raw SMS body is not stored in the diagnostic feed;
+- raw SMS body is not uploaded by this feature;
+- irrelevant messages should stop at the relevance gate.
+
+### Verification
+
+Android CI run #317 passed on code head `531998a24f4691bb13e5a2f2bfb1ba276d06ce0c`:
+
+- entity-enrichment Worker validation: passed;
+- Android unit tests: passed;
+- debug APK assembly: passed.
+
+### Deliberately not solved in Phase 1
+
+A message can now be correctly recognized as **financially relevant** without yet being fully understood as a ledger event.
+
+For example:
+
+- `Your transfer of funds has been processed` can pass the relevance gate but still needs Phase 2 confirmation/event correlation.
+- a loan-balance sentence without a currency marker can pass relevance but may still need broader semantic amount extraction.
+- Equity reference + M-Pesa reference correlation is not added in this phase.
+- investment order lifecycle interpretation is not added in this phase.
+- no TensorFlow Lite / SLM model is added in this phase.
+
+Do not treat a Phase 1 relevance success as final ledger interpretation.
+
+### Recommended next implementation — Financial Intelligence V2 Phase 2
+
+Build the canonical semantic fact layer on top of the new foundation:
+
+1. define general intents/facts such as PAYMENT, RECEIPT, TRANSFER, LOAN_DISBURSEMENT, LOAN_REPAYMENT, LOAN_BALANCE, BALANCE_UPDATE, REVERSAL, REFUND, FEE, INVESTMENT_ORDER, INVESTMENT_EXECUTED, and CONFIRMATION_ONLY;
+2. broaden amount/reference/account extraction independently from provider names;
+3. classify message status (new financial event vs confirmation/reminder/information);
+4. keep uncertain meaning in Needs Review instead of fabricating ledger effects;
+5. add cross-message correlation only after semantic facts are stable, with exact shared references as the strongest evidence;
+6. continue growing the sanitized real-world corpus as new wording is observed;
+7. evaluate a small offline ML classifier/token extractor only after deterministic semantic failures are measured against the corpus.
