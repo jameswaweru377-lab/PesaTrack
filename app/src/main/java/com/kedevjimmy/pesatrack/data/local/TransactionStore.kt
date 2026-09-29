@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.ingestion.LegacyTransactionTypeCompatibility
+import com.kedevjimmy.pesatrack.domain.intelligence.EntityDescriptorPrivacyPolicy
 import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityAutoReviewPolicy
 import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEnrichment
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionFingerprint
@@ -1849,6 +1850,127 @@ class TransactionStore private constructor(context: Context) {
         }
 
     @Synchronized
+    fun applyRemoteEntityEnrichmentByDescriptor(
+        sanitizedDescriptor: String,
+        result: RemoteEntityEnrichment
+    ): Int {
+        if (
+            !RemoteEntityAutoReviewPolicy
+                .shouldAutoReview(result)
+        ) {
+            return 0
+        }
+
+        val descriptorKey =
+            EntityDescriptorPrivacyPolicy
+                .cacheKey(
+                    sanitizedDescriptor
+                )
+        if (descriptorKey.isBlank()) {
+            return 0
+        }
+
+        val category =
+            result.categoryHint
+                ?: return 0
+        val db =
+            database.writableDatabase
+        var changed = 0
+
+        allTransactions().forEach { current ->
+            if (
+                current.ruleId != null ||
+                current.reviewState ==
+                    ReviewState.USER_CLASSIFIED.name ||
+                current.reviewState ==
+                    ReviewState.EXCLUDED.name ||
+                current.type !in
+                    REMOTE_ENRICHMENT_TYPES ||
+                current.direction !=
+                    MoneyDirection.EXPENSE.name ||
+                !ReviewTriagePolicy
+                    .shouldTriageCategory(
+                        current.category
+                    )
+            ) {
+                return@forEach
+            }
+
+            val candidate =
+                EntityDescriptorPrivacyPolicy
+                    .sanitize(
+                        current.counterparty
+                    )
+                    ?: return@forEach
+            if (
+                EntityDescriptorPrivacyPolicy
+                    .cacheKey(candidate) !=
+                descriptorKey
+            ) {
+                return@forEach
+            }
+
+            val values =
+                ContentValues().apply {
+                    put(
+                        "counterparty",
+                        result.canonicalName
+                    )
+                    put(
+                        "direction",
+                        MoneyDirection.EXPENSE.name
+                    )
+                    put(
+                        "category",
+                        category.name
+                    )
+                    put(
+                        "review_state",
+                        ReviewState.AUTO_CLASSIFIED.name
+                    )
+                    putNull("rule_id")
+                    put(
+                        "evidence_label",
+                        result.canonicalName
+                    )
+                    put(
+                        "evidence_source",
+                        "entity_intelligence:" +
+                            result.source
+                    )
+                    put(
+                        "evidence_confidence",
+                        EvidenceConfidence.HIGH.name
+                    )
+                    putNull(
+                        "evidence_time_delta_ms"
+                    )
+                    putNull(
+                        "cycle_candidate_reason"
+                    )
+                }
+
+            changed +=
+                db.update(
+                    "transactions",
+                    values,
+                    "id = ?",
+                    arrayOf(
+                        current.id.toString()
+                    )
+                )
+        }
+
+        if (changed > 0) {
+            PayCycleStore.get(appContext)
+                .rebuild()
+            LedgerUpdateBus.notifyChanged()
+        }
+
+        return changed
+    }
+
+    @Synchronized
     fun applyRemoteEntityEnrichment(
         transactionId: Long,
         result: RemoteEntityEnrichment
@@ -1864,7 +1986,7 @@ class TransactionStore private constructor(context: Context) {
             current.reviewState ==
                 ReviewState.EXCLUDED.name ||
             current.type !in
-                OUTGOING_REVIEW_TYPES ||
+                REMOTE_ENRICHMENT_TYPES ||
             current.direction !=
                 MoneyDirection.EXPENSE.name ||
             !ReviewTriagePolicy
@@ -1944,7 +2066,7 @@ class TransactionStore private constructor(context: Context) {
                     item.direction ==
                         MoneyDirection.EXPENSE.name &&
                     item.type in
-                        OUTGOING_REVIEW_TYPES &&
+                        REMOTE_ENRICHMENT_TYPES &&
                     ReviewTriagePolicy
                         .shouldTriageCategory(
                             item.category
@@ -2238,6 +2360,11 @@ class TransactionStore private constructor(context: Context) {
 
         private val OUTGOING_REVIEW_TYPES = setOf(
             MpesaTransactionType.SENT_MONEY.name,
+            MpesaTransactionType.PAY_BILL.name,
+            MpesaTransactionType.BUY_GOODS.name
+        )
+
+        private val REMOTE_ENRICHMENT_TYPES = setOf(
             MpesaTransactionType.PAY_BILL.name,
             MpesaTransactionType.BUY_GOODS.name
         )
