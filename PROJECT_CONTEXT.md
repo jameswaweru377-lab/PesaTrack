@@ -1,6 +1,6 @@
 # PesaTrack Project Context
 
-Updated: 2026-09-28
+Updated: 2026-09-29
 
 ## Purpose
 
@@ -547,7 +547,7 @@ Handoff rule for future chats:
 
 ## Entity intelligence and automatic Activity review
 
-Status on 2026-09-29: **local intelligence is merged; privacy-safe remote enrichment plumbing is implemented but requires deployment/configuration before online lookup is active**.
+Status on 2026-09-29: **local intelligence is merged and the privacy-safe remote enrichment path is deployed, verified, and active in rolling APK builds.**
 
 ### Local entity intelligence already merged
 
@@ -608,25 +608,26 @@ Worker side:
 - CI now runs `node --check worker/entity-enrichment/src/index.js` before Android tests.
 - PR #68 CI #273 passed Worker syntax validation, unit tests and debug APK assembly before this documentation update.
 
-Activation still required:
+Activation is now verified:
 
-1. Obtain/configure a Logo.dev secret key outside the repository.
-2. Deploy `worker/entity-enrichment` to Cloudflare Workers.
-3. Set the Worker secret with `npx wrangler secret put LOGO_DEV_SECRET_KEY`.
-4. Build PesaTrack with:
-   `PESATRACK_ENTITY_ENRICHMENT_URL=https://<worker-host>/v1/entity/resolve`
-5. Verify real Kenyan descriptors on-device before expanding the automatic allow-list.
+1. GitHub contains the Cloudflare deployment credentials required by the deploy workflow.
+2. The existing Cloudflare Worker named `pesatrack` is deployed successfully.
+3. `LOGO_DEV_SECRET_KEY` is configured on that Worker and health checks report `providerConfigured: true`.
+4. The verified production resolve endpoint is:
+   `https://pesatrack.jameswaweru399.workers.dev/v1/entity/resolve`
+5. Android CI/release builds embed that public endpoint directly as `PESATRACK_ENTITY_ENRICHMENT_URL`.
+6. Real Kenyan merchant descriptors should still be validated on-device before broadening the automatic category allow-list.
 
 Never commit a provider secret to GitHub, put it in Gradle source, or embed it in the APK.
 
 Deployment automation added after PR #69:
 
-- `.github/workflows/entity-enrichment-deploy.yml` provides a manual, repeatable Cloudflare Worker deployment path.
+- `.github/workflows/entity-enrichment-deploy.yml` provides repeatable Cloudflare Worker deployment and health verification.
 - It requires repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 - `LOGO_DEV_SECRET_KEY` remains a Cloudflare Worker secret; it is not copied into the APK or repository.
-- The Worker now exposes `GET /v1/entity/health` so deployment can verify the correct privacy-mode service is live.
+- The Worker exposes `GET /v1/entity/health` so deployment can verify the correct privacy-mode service is live and that the provider secret is configured.
 - Android CI and Worker deployment both run `worker/entity-enrichment/test.mjs`, which verifies health, rejects phone-bearing descriptors and likely personal names, and confirms a safe commercial descriptor reaches the provider boundary.
-- After deployment, set repository variable `PESATRACK_ENTITY_ENRICHMENT_URL=https://<worker-host>/v1/entity/resolve`. The next successful `main` build embeds only that public endpoint in the rolling APK.
+- GitHub's workflow token cannot write Actions repository variables in this repository (`HTTP 403 Resource not accessible by integration`), so the verified production endpoint is embedded directly into Android CI/release builds instead.
 
 
 ## Current implementation
@@ -691,6 +692,39 @@ For every implementation phase:
 - Fees should be tracked separately.
 - Do not fabricate account balances or financial insights.
 - UI must remain readable on the Redmi Note 14 and adapt cleanly to larger Android form factors.
+
+### Cloudflare Git-deploy incident and resolution
+
+Historical failure observed before the final activation:
+
+```text
+Executing user deploy command: npx wrangler deploy
+ERROR: Could not detect a directory containing static files (e.g. html, css and js) for the project
+```
+
+Root cause:
+
+- Cloudflare Git Builds executed `npx wrangler deploy` from the repository root.
+- At that point Wrangler did not have a root configuration pointing at the actual Worker entry file under `worker/entity-enrichment/`.
+- Wrangler therefore did not resolve the Worker project correctly and fell into the wrong project/static-assets detection path.
+- This failure was a deployment-path/configuration problem, not an Android or entity-intelligence problem.
+
+Resolution sequence already merged:
+
+- PR #73: added repository-root `wrangler.jsonc` so `npx wrangler deploy` from the repository root points to `worker/entity-enrichment/src/index.js`; Android CI also performs a Wrangler dry run from the root.
+- PR #74: enabled Wrangler `keep_vars: true` so dashboard-managed Worker variables/secrets are not removed by later code deployments.
+- PR #75: aligned the deploy workflow with the existing Cloudflare Worker name `pesatrack`.
+- PR #76: verified the live Worker endpoint, confirmed the provider secret through the health endpoint, and activated that public endpoint in rolling Android APK builds.
+
+Credential/setup state:
+
+- The user reported adding `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` to the GitHub repository secrets.
+- The user reported adding `LOGO_DEV_SECRET_KEY` to the Cloudflare `pesatrack` Worker.
+- Subsequent deployment, URL discovery, health/privacy checks and provider-readiness checks passed, so future chats should treat those credentials as configured unless a new failure proves otherwise.
+- Do not ask the user to paste any of these secret values into chat.
+- ChatGPT did not have a callable Cloudflare connector in this conversation; Cloudflare state was verified indirectly and safely through the GitHub deployment workflow and public health endpoint.
+
+The pasted static-files error is therefore historical and resolved. Do not reintroduce a second Worker project or a separate Cloudflare app unless the current verified `pesatrack` Worker actually fails.
 
 ### Entity enrichment activation verified on 2026-09-29
 
