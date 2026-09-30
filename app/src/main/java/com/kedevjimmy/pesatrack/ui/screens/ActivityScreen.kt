@@ -3674,58 +3674,62 @@ private fun financialEntityReviewDisplayName(
         List<FinancialIngestionDiagnostic>,
     identifier: String? = null
 ): String {
-    KenyanBankDirectory
-        .matchSender(
-            entity.displayName
-        )
-        ?.name
-        ?.let {
-            return it
-        }
+    val bankName =
+        KenyanBankDirectory
+            .matchSender(
+                entity.displayName
+            )
+            ?.name
 
     val resolved =
         FinancialProviderRegistry
             .resolveAccount(
                 entity.displayName
             )
-    if (resolved.providerKey != null) {
-        return resolved.displayName
-    }
 
     val normalized =
         ownershipReviewKey(
             entity.displayName
         )
-    if (
+    val contextualLockSavings =
         normalized in
             setOf(
                 "locksaving",
                 "locksavings",
                 "locksavingsaccount"
             ) &&
-        diagnostics.any {
-            val title =
-                it.title.orEmpty()
-            val source =
-                it.sourceDisplayName
-                    .orEmpty()
-            val combined =
-                (title + " " + source)
-                    .uppercase()
-                    .replace(
-                        Regex("""[^A-Z0-9]+"""),
-                        " "
-                    )
-            combined.contains(
-                "M SHWARI"
-            )
-        }
-    ) {
-        return "M-Shwari Lock Savings"
-    }
+            diagnostics.any {
+                val title =
+                    it.title.orEmpty()
+                val source =
+                    it.sourceDisplayName
+                        .orEmpty()
+                val combined =
+                    (title + " " + source)
+                        .uppercase()
+                        .replace(
+                            Regex(
+                                """[^A-Z0-9]+"""
+                            ),
+                            " "
+                        )
+                combined.contains(
+                    "M SHWARI"
+                )
+            }
 
     val base =
-        entity.displayName
+        when {
+            bankName != null ->
+                bankName
+            resolved.providerKey != null ->
+                resolved.displayName
+            contextualLockSavings ->
+                "M-Shwari Lock Savings"
+            else ->
+                entity.displayName
+        }
+
     val suffix =
         identifier
             ?.trim()
@@ -3739,6 +3743,7 @@ private fun financialEntityReviewDisplayName(
                     ")"
             }
             .orEmpty()
+
     return base + suffix
 }
 
