@@ -13,6 +13,7 @@ import androidx.work.WorkerParameters
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentFetchResult
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentHttpClient
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityDescriptorPrivacyPolicy
+import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEnrichment
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
@@ -27,6 +28,42 @@ class EntityEnrichmentCoordinator private constructor(
         )
     private val remote =
         EntityEnrichmentHttpClient()
+
+    fun resolveDescriptorNow(
+        rawDescriptor: String?
+    ): RemoteEntityEnrichment? {
+        val sanitized =
+            EntityDescriptorPrivacyPolicy
+                .sanitize(rawDescriptor)
+                ?: return null
+        val key =
+            EntityDescriptorPrivacyPolicy
+                .cacheKey(sanitized)
+
+        cache.get(key)?.let {
+            return it
+        }
+
+        if (!remote.isConfigured()) {
+            return null
+        }
+
+        return when (
+            val response =
+                remote.fetch(sanitized)
+        ) {
+            is EntityEnrichmentFetchResult
+                .Resolved -> {
+                cache.put(
+                    descriptorKey = key,
+                    result = response.value
+                )
+                response.value
+            }
+
+            else -> null
+        }
+    }
 
     fun enrichTransactionAsync(
         transactionId: Long,
