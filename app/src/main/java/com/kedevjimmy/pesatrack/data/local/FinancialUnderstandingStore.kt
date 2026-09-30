@@ -499,6 +499,96 @@ class FinancialUnderstandingStore private constructor(
     }
 
     @Synchronized
+    fun confirmProviderOwned(
+        providerKey: String,
+        accountId: String? = null
+    ): String? {
+        val entity =
+            database.readableDatabase
+                .rawQuery(
+                    """
+                    SELECT entity_key,
+                           display_name,
+                           account_type_hint
+                    FROM financial_entities
+                    WHERE provider_key = ?
+                    ORDER BY last_seen_epoch_ms DESC
+                    LIMIT 1
+                    """.trimIndent(),
+                    arrayOf(providerKey)
+                ).use { cursor ->
+                    if (!cursor.moveToFirst()) {
+                        null
+                    } else {
+                        Triple(
+                            cursor.getString(0),
+                            cursor.getString(1),
+                            cursor.getString(2)
+                        )
+                    }
+                }
+                ?: return accountId
+
+        val resolvedAccountId =
+            accountId
+                ?: accountStore.findOrCreate(
+                    name = entity.second,
+                    type =
+                        runCatching {
+                            com.kedevjimmy
+                                .pesatrack
+                                .domain.model
+                                .AccountType
+                                .valueOf(
+                                    entity.third
+                                )
+                        }.getOrDefault(
+                            com.kedevjimmy
+                                .pesatrack
+                                .domain.model
+                                .AccountType
+                                .OTHER
+                        )
+                ).id
+
+        val values =
+            ContentValues().apply {
+                put(
+                    "ownership_hint",
+                    AccountOwnershipHint
+                        .USER_OWNED.name
+                )
+                put(
+                    "confirmed_account_id",
+                    resolvedAccountId
+                )
+            }
+        database.writableDatabase.update(
+            "financial_entities",
+            values,
+            "entity_key = ?",
+            arrayOf(entity.first)
+        )
+
+        ContentValues().apply {
+            put(
+                "account_id",
+                resolvedAccountId
+            )
+        }.also { observationValues ->
+            database.writableDatabase.update(
+                "account_balance_observations",
+                observationValues,
+                "entity_key = ? AND account_id IS NULL",
+                arrayOf(entity.first)
+            )
+        }
+
+        LedgerUpdateBus.notifyChanged()
+        return resolvedAccountId
+    }
+
+    @Synchronized
     fun markEntityExternal(
         entityKey: String
     ): Boolean {
@@ -693,18 +783,60 @@ class FinancialUnderstandingStore private constructor(
         reference: FinancialAccountReference
     ): String? {
         if (
+            reference.entityKey ==
+            "system:cash"
+        ) {
+            return AccountStore
+                .DEFAULT_CASH_ID
+        }
+
+        if (
             reference.ownershipHint !=
             AccountOwnershipHint.USER_OWNED
         ) {
             return null
         }
 
-        return stableOwnedAccountIds[
-            reference.entityKey
-        ] ?: accountStore.findOrCreate(
-            name = reference.displayName,
-            type = reference.accountTypeHint
-        ).id
+        val mpesaConfirmed =
+            accountStore
+                .listAccounts(
+                    enabledOnly = false
+                )
+                .firstOrNull {
+                    it.id ==
+                        AccountStore
+                            .DEFAULT_MPESA_ID
+                }
+                ?.identifier
+                .isNullOrBlank()
+                .not()
+
+        return when (
+            reference.providerKey
+        ) {
+            "SAFARICOM_MPESA" ->
+                if (mpesaConfirmed) {
+                    AccountStore
+                        .DEFAULT_MPESA_ID
+                } else {
+                    null
+                }
+
+            "NCBA_MSHWARI_SAVINGS",
+            "NCBA_MSHWARI_LOCK_SAVINGS" ->
+                if (mpesaConfirmed) {
+                    accountStore.findOrCreate(
+                        name =
+                            reference.displayName,
+                        type =
+                            reference.accountTypeHint
+                    ).id
+                } else {
+                    null
+                }
+
+            else -> null
+        }
     }
 
     companion object {
