@@ -357,6 +357,34 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                   AND nature_hint != 'LIABILITY'
                 """.trimIndent()
             )
+            db.execSQL(
+                """
+                UPDATE financial_entities
+                SET ownership_hint = 'UNKNOWN',
+                    confirmed_account_id = NULL
+                WHERE account_type_hint = 'BANK'
+                  AND nature_hint != 'LIABILITY'
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE financial_entities
+                SET ownership_hint = 'UNKNOWN',
+                    confirmed_account_id = NULL
+                WHERE provider_key IN (
+                        'SAFARICOM_MPESA',
+                        'NCBA_MSHWARI_SAVINGS',
+                        'NCBA_MSHWARI_LOCK_SAVINGS'
+                      )
+                  AND NOT EXISTS (
+                        SELECT 1
+                        FROM money_accounts
+                        WHERE id = 'account-mpesa'
+                          AND identifier IS NOT NULL
+                          AND TRIM(identifier) != ''
+                      )
+                """.trimIndent()
+            )
         }
 
         createIndexes(db)
