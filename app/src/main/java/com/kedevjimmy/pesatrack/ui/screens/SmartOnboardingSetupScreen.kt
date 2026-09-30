@@ -3457,7 +3457,9 @@ private fun SalaryAccountChoice(
                 size = 40.dp
             )
             Text(
-                account.name,
+                setupAccountDisplayLabel(
+                    account
+                ),
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 10.dp),
@@ -4370,6 +4372,26 @@ private fun sourceTypeOrder(
         "Savings" -> 2
         else -> 3
     }
+
+private fun setupAccountDisplayLabel(
+    account: MoneyAccount
+): String {
+    val identifier =
+        account.identifier
+            ?.trim()
+            ?.takeIf(
+                String::isNotBlank
+            )
+            ?: return account.name
+
+    return account.name +
+        " (" +
+        AccountDisplayPolicy
+            .maskIdentifier(
+                identifier
+            ) +
+        ")"
+}
 
 private fun maskPhone(
     raw: String
