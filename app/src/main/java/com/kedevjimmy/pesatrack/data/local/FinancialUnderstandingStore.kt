@@ -730,85 +730,175 @@ class FinancialUnderstandingStore private constructor(
         providerKey: String,
         accountId: String? = null
     ): String? {
-        val entity =
+        val providerReference =
+            FinancialProviderRegistry
+                .referenceForProviderKey(
+                    providerKey
+                )
+
+        val matchingEntities =
             database.readableDatabase
                 .rawQuery(
                     """
                     SELECT entity_key,
                            display_name,
-                           account_type_hint
+                           account_type_hint,
+                           provider_key
                     FROM financial_entities
-                    WHERE provider_key = ?
-                    ORDER BY last_seen_epoch_ms DESC
-                    LIMIT 1
                     """.trimIndent(),
-                    arrayOf(providerKey)
+                    null
                 ).use { cursor ->
-                    if (!cursor.moveToFirst()) {
-                        null
-                    } else {
-                        Triple(
-                            cursor.getString(0),
-                            cursor.getString(1),
-                            cursor.getString(2)
-                        )
+                    buildList {
+                        while (
+                            cursor.moveToNext()
+                        ) {
+                            val entityProvider =
+                                if (
+                                    cursor.isNull(3)
+                                ) {
+                                    null
+                                } else {
+                                    cursor.getString(3)
+                                }
+                            val displayName =
+                                cursor.getString(1)
+                            val resolvedProvider =
+                                FinancialProviderRegistry
+                                    .resolveAccount(
+                                        displayName
+                                    )
+                                    .providerKey
+
+                            if (
+                                entityProvider ==
+                                    providerKey ||
+                                resolvedProvider ==
+                                    providerKey
+                            ) {
+                                add(
+                                    Triple(
+                                        cursor.getString(0),
+                                        displayName,
+                                        cursor.getString(2)
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
-                ?: return accountId
 
         val resolvedAccountId =
             accountId
-                ?: accountStore.findOrCreate(
-                    name = entity.second,
-                    type =
-                        runCatching {
-                            com.kedevjimmy
-                                .pesatrack
-                                .domain.model
-                                .AccountType
-                                .valueOf(
-                                    entity.third
+                ?: providerReference
+                    ?.let { reference ->
+                        accountStore.findOrCreate(
+                            name =
+                                reference.displayName,
+                            type =
+                                reference
+                                    .accountTypeHint
+                        ).id
+                    }
+                ?: matchingEntities
+                    .firstOrNull()
+                    ?.let { entity ->
+                        accountStore.findOrCreate(
+                            name =
+                                entity.second,
+                            type =
+                                runCatching {
+                                    com.kedevjimmy
+                                        .pesatrack
+                                        .domain
+                                        .model
+                                        .AccountType
+                                        .valueOf(
+                                            entity.third
+                                        )
+                                }.getOrDefault(
+                                    com.kedevjimmy
+                                        .pesatrack
+                                        .domain
+                                        .model
+                                        .AccountType
+                                        .OTHER
                                 )
-                        }.getOrDefault(
-                            com.kedevjimmy
-                                .pesatrack
-                                .domain.model
-                                .AccountType
-                                .OTHER
-                        )
-                ).id
+                        ).id
+                    }
+                ?: return null
 
-        val values =
+        if (
+            matchingEntities.isEmpty()
+        ) {
+            return resolvedAccountId
+        }
+
+        val canonicalName =
+            providerReference?.displayName
+        val canonicalType =
+            providerReference
+                ?.accountTypeHint
+                ?.name
+
+        matchingEntities.forEach {
+                entity ->
+            val values =
+                ContentValues().apply {
+                    put(
+                        "ownership_hint",
+                        AccountOwnershipHint
+                            .USER_OWNED.name
+                    )
+                    put(
+                        "confirmed_account_id",
+                        resolvedAccountId
+                    )
+                    put(
+                        "provider_key",
+                        providerKey
+                    )
+                    if (
+                        canonicalName != null
+                    ) {
+                        put(
+                            "display_name",
+                            canonicalName
+                        )
+                    }
+                    if (
+                        canonicalType != null
+                    ) {
+                        put(
+                            "account_type_hint",
+                            canonicalType
+                        )
+                    }
+                }
+            database.writableDatabase
+                .update(
+                    "financial_entities",
+                    values,
+                    "entity_key = ?",
+                    arrayOf(entity.first)
+                )
+
             ContentValues().apply {
                 put(
-                    "ownership_hint",
-                    AccountOwnershipHint
-                        .USER_OWNED.name
-                )
-                put(
-                    "confirmed_account_id",
+                    "account_id",
                     resolvedAccountId
                 )
+            }.also {
+                    observationValues ->
+                database.writableDatabase
+                    .update(
+                        "account_balance_observations",
+                        observationValues,
+                        "entity_key = ? AND account_id IS NULL",
+                        arrayOf(
+                            entity.first
+                        )
+                    )
             }
-        database.writableDatabase.update(
-            "financial_entities",
-            values,
-            "entity_key = ?",
-            arrayOf(entity.first)
-        )
-
-        ContentValues().apply {
-            put(
-                "account_id",
-                resolvedAccountId
-            )
-        }.also { observationValues ->
-            database.writableDatabase.update(
-                "account_balance_observations",
-                observationValues,
-                "entity_key = ? AND account_id IS NULL",
-                arrayOf(entity.first)
-            )
         }
 
         LedgerUpdateBus.notifyChanged()
