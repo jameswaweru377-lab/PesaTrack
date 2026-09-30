@@ -12,11 +12,13 @@ import kotlin.math.max
 
 enum class RelationshipReviewKind {
     REPAYMENT_FUNDING,
-    REPAYMENT_BALANCE
+    REPAYMENT_BALANCE,
+    LIABILITY_PAYMENT
 }
 
 data class RelationshipReviewCandidate(
-    val targetId: Long,
+    val targetId: Long? = null,
+    val targetKey: String? = null,
     val amountMinor: Long,
     val occurredAtEpochMs: Long,
     val label: String,
@@ -26,7 +28,8 @@ data class RelationshipReviewCandidate(
 data class RelationshipReviewItem(
     val key: String,
     val kind: RelationshipReviewKind,
-    val debtEventId: Long,
+    val debtEventId: Long? = null,
+    val transactionId: Long? = null,
     val debtName: String,
     val fundingAccountName: String,
     val repaymentAmountMinor: Long,
@@ -52,7 +55,8 @@ class RelationshipReviewStore private constructor(
     fun pendingReviews(): List<RelationshipReviewItem> =
         (
             pendingFundingReviews() +
-                pendingBalanceReviews()
+                pendingBalanceReviews() +
+                pendingLiabilityPaymentReviews()
             )
             .sortedByDescending {
                 it.occurredAtEpochMs
@@ -208,6 +212,205 @@ class RelationshipReviewStore private constructor(
             LedgerUpdateBus.notifyChanged()
         }
         return changed
+    }
+
+    @Synchronized
+    fun resolveLiabilityPayment(
+        transactionId: Long,
+        debtAccountId: String?
+    ): Boolean {
+        val item =
+            pendingLiabilityPaymentReviews()
+                .firstOrNull {
+                    it.transactionId ==
+                        transactionId
+                } ?: return false
+
+        if (
+            debtAccountId != null &&
+            item.candidates.none {
+                it.targetKey == debtAccountId
+            }
+        ) {
+            return false
+        }
+
+        if (debtAccountId != null) {
+            val linked =
+                DebtStore.get(appContext)
+                    .recordPaymentAsRepayment(
+                        transactionId =
+                            transactionId,
+                        debtAccountId =
+                            debtAccountId,
+                        userConfirmed = true
+                    )
+            if (!linked) {
+                return false
+            }
+        }
+
+        val values = ContentValues().apply {
+            put(
+                "transaction_id",
+                transactionId
+            )
+            put(
+                "decision",
+                if (debtAccountId == null) {
+                    DECISION_KEEP_UNLINKED
+                } else {
+                    DECISION_LINKED
+                }
+            )
+            if (debtAccountId == null) {
+                putNull("debt_account_id")
+            } else {
+                put(
+                    "debt_account_id",
+                    debtAccountId
+                )
+            }
+            put(
+                "created_at_epoch_ms",
+                System.currentTimeMillis()
+            )
+        }
+
+        val stored =
+            database.writableDatabase
+                .insertWithOnConflict(
+                    "liability_payment_decisions",
+                    null,
+                    values,
+                    android.database.sqlite
+                        .SQLiteDatabase
+                        .CONFLICT_REPLACE
+                ) != -1L
+
+        if (stored) {
+            LedgerUpdateBus.notifyChanged()
+        }
+        return stored
+    }
+
+    private fun pendingLiabilityPaymentReviews():
+        List<RelationshipReviewItem> {
+        val debtStore =
+            DebtStore.get(appContext)
+        val debts =
+            debtStore.accounts()
+                .associateBy { it.id }
+
+        return database.readableDatabase.rawQuery(
+            """
+            SELECT
+                t.id,
+                t.amount_minor,
+                t.occurred_at_epoch_ms,
+                t.counterparty,
+                COALESCE(a.name, 'Payment account')
+            FROM transactions t
+            LEFT JOIN money_accounts a
+              ON a.id = t.account_id
+            WHERE t.direction = ?
+              AND t.counterparty IS NOT NULL
+              AND TRIM(t.counterparty) != ''
+              AND t.rule_id IS NULL
+              AND t.relation_type IS NULL
+              AND t.review_state != ?
+              AND t.review_state != ?
+              AND t.id NOT IN (
+                    SELECT linked_transaction_id
+                    FROM debt_events
+                    WHERE linked_transaction_id
+                        IS NOT NULL
+              )
+              AND t.id NOT IN (
+                    SELECT transaction_id
+                    FROM liability_payment_decisions
+              )
+            ORDER BY t.occurred_at_epoch_ms DESC,
+                     t.id DESC
+            LIMIT 200
+            """.trimIndent(),
+            arrayOf(
+                MoneyDirection.EXPENSE.name,
+                ReviewState.USER_CLASSIFIED.name,
+                ReviewState.EXCLUDED.name
+            )
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    val transactionId =
+                        cursor.getLong(0)
+                    val amountMinor =
+                        cursor.getLong(1)
+                    val occurredAt =
+                        cursor.getLong(2)
+                    val counterparty =
+                        cursor.getString(3)
+                    val fundingAccountName =
+                        cursor.getString(4)
+
+                    val matches =
+                        debtStore.liabilityPaymentMatches(
+                            counterparty =
+                                counterparty,
+                            amountMinor =
+                                amountMinor
+                        )
+                    if (matches.isEmpty()) {
+                        continue
+                    }
+
+                    val candidates =
+                        matches.mapNotNull { match ->
+                            val debt =
+                                debts[
+                                    match.debtAccountId
+                                ] ?: return@mapNotNull null
+                            RelationshipReviewCandidate(
+                                targetKey =
+                                    debt.id,
+                                amountMinor =
+                                    amountMinor,
+                                occurredAtEpochMs =
+                                    occurredAt,
+                                label = debt.name,
+                                reason =
+                                    match.reason
+                            )
+                        }
+
+                    if (candidates.isEmpty()) {
+                        continue
+                    }
+
+                    add(
+                        RelationshipReviewItem(
+                            key =
+                                "liability-payment:" +
+                                    transactionId,
+                            kind =
+                                RelationshipReviewKind
+                                    .LIABILITY_PAYMENT,
+                            transactionId =
+                                transactionId,
+                            debtName =
+                                counterparty,
+                            fundingAccountName =
+                                fundingAccountName,
+                            repaymentAmountMinor =
+                                amountMinor,
+                            occurredAtEpochMs =
+                                occurredAt,
+                            candidates = candidates
+                        )
+                    )
+                }
+            }
+        }
     }
 
     private fun pendingFundingReviews():
