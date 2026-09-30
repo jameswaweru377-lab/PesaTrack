@@ -113,4 +113,92 @@ class AccountDisplayPolicyTest {
             )
         )
     }
+
+    @Test
+    fun unconfirmedBankIsNotOwnedForDisplayOrSalaryUse() {
+        val account =
+            MoneyAccount(
+                id = "equity",
+                name = "Equity Bank Kenya",
+                type = AccountType.BANK
+            )
+
+        assertFalse(
+            AccountDisplayPolicy
+                .isConfirmedOwned(
+                    account = account,
+                    confirmedAccountIds =
+                        emptySet()
+                )
+        )
+    }
+
+    @Test
+    fun explicitConfirmationMakesBankOwned() {
+        val account =
+            MoneyAccount(
+                id = "equity",
+                name = "Equity Bank Kenya",
+                type = AccountType.BANK
+            )
+
+        assertTrue(
+            AccountDisplayPolicy
+                .isConfirmedOwned(
+                    account = account,
+                    confirmedAccountIds =
+                        setOf("equity")
+                )
+        )
+    }
+
+    @Test
+    fun confirmedIdentifierCanEstablishWalletOwnership() {
+        val account =
+            MoneyAccount(
+                id = "mpesa",
+                name = "M-Pesa",
+                type =
+                    AccountType.MOBILE_WALLET,
+                identifier = "254700000000"
+            )
+
+        assertTrue(
+            AccountDisplayPolicy
+                .isConfirmedOwned(
+                    account = account,
+                    confirmedAccountIds =
+                        emptySet()
+                )
+        )
+    }
+
+    @Test
+    fun cashIsIncludedOnlyWhenCallerAllowsIt() {
+        val account =
+            MoneyAccount(
+                id = "cash",
+                name = "Cash",
+                type = AccountType.CASH
+            )
+
+        assertFalse(
+            AccountDisplayPolicy
+                .isConfirmedOwned(
+                    account = account,
+                    confirmedAccountIds =
+                        emptySet()
+                )
+        )
+        assertTrue(
+            AccountDisplayPolicy
+                .isConfirmedOwned(
+                    account = account,
+                    confirmedAccountIds =
+                        emptySet(),
+                    includeCash = true
+                )
+        )
+    }
+
 }
