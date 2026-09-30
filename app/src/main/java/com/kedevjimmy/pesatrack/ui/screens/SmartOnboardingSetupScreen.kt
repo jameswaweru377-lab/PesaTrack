@@ -1255,6 +1255,8 @@ fun SmartOnboardingSetupScreen(
                     ReviewDiscoveryPage(
                         sources =
                             detectedSources,
+                        ownershipCandidates =
+                            pendingOwnershipEntities,
                         salarySuggestion =
                             salarySuggestion,
                         salaryAccepted =
@@ -1263,6 +1265,40 @@ fun SmartOnboardingSetupScreen(
                             importResult,
                         onSalaryAccepted = {
                             salaryAccepted = it
+                        },
+                        onConfirmAccount = {
+                                entity ->
+                            setupScope.launch {
+                                withContext(
+                                    Dispatchers.IO
+                                ) {
+                                    financialUnderstandingStore
+                                        .confirmEntityOwned(
+                                            entity.entityKey
+                                        )
+                                    financialCoordinator
+                                        .reconcilePendingTransfers(
+                                            entity.entityKey
+                                        )
+                                }
+                                availableAccounts =
+                                    accountStore
+                                        .listAccounts()
+                                        .filter {
+                                            it.type in
+                                                setOf(
+                                                    AccountType.BANK,
+                                                    AccountType.MOBILE_WALLET,
+                                                    AccountType.CASH,
+                                                    AccountType.SAVINGS
+                                                )
+                                        }
+                                pendingOwnershipEntities =
+                                    onboardingOwnershipCandidates(
+                                        financialUnderstandingStore
+                                            .pendingEntities()
+                                    )
+                            }
                         },
                         onManualSalary = {
                             stage =
