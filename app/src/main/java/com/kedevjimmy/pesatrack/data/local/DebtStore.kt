@@ -186,10 +186,8 @@ class DebtStore private constructor(context: Context) {
             availableCreditAfterMinor =
                 event.availableCreditAfterMinor,
             repaymentCompletion = null,
-            fundingLinkConfidence =
-                fundingLinkConfidenceOverride,
-            fundingLinkReason =
-                fundingLinkReasonOverride,
+            fundingLinkConfidence = null,
+            fundingLinkReason = null,
             sourcePackage = sourcePackage,
             sourceKind = sourceKind,
             occurredAtEpochMs = occurredAtEpochMs
@@ -318,8 +316,10 @@ class DebtStore private constructor(context: Context) {
                 event.availableCreditAfterMinor,
             repaymentCompletion =
                 event.completion,
-            fundingLinkConfidence = null,
-            fundingLinkReason = null,
+            fundingLinkConfidence =
+                fundingLinkConfidenceOverride,
+            fundingLinkReason =
+                fundingLinkReasonOverride,
             sourcePackage = sourcePackage,
             sourceKind = sourceKind,
             occurredAtEpochMs = occurredAtEpochMs
