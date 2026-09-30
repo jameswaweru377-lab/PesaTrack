@@ -787,6 +787,12 @@ class FinancialUnderstandingStore private constructor(
                     }
                 }
 
+        if (
+            matchingEntities.isEmpty()
+        ) {
+            return accountId
+        }
+
         val resolvedAccountId =
             accountId
                 ?: providerReference
@@ -826,12 +832,6 @@ class FinancialUnderstandingStore private constructor(
                         ).id
                     }
                 ?: return null
-
-        if (
-            matchingEntities.isEmpty()
-        ) {
-            return resolvedAccountId
-        }
 
         val canonicalName =
             providerReference?.displayName
