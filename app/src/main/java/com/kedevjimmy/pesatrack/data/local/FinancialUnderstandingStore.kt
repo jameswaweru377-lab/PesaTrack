@@ -398,6 +398,32 @@ class FinancialUnderstandingStore private constructor(
         }
 
     @Synchronized
+    fun confirmedAccountIds(): Set<String> =
+        database.readableDatabase
+            .rawQuery(
+                """
+                SELECT DISTINCT confirmed_account_id
+                FROM financial_entities
+                WHERE confirmed_account_id IS NOT NULL
+                  AND ownership_hint = ?
+                """.trimIndent(),
+                arrayOf(
+                    AccountOwnershipHint
+                        .USER_OWNED.name
+                )
+            ).use { cursor ->
+                buildSet {
+                    while (
+                        cursor.moveToNext()
+                    ) {
+                        add(
+                            cursor.getString(0)
+                        )
+                    }
+                }
+            }
+
+    @Synchronized
     fun latestBalances(): List<ObservedAccountBalance> =
         database.readableDatabase.rawQuery(
             """
