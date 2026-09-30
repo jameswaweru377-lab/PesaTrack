@@ -1054,22 +1054,33 @@ fun ActivityScreen(
 private fun FinancialAccountDiscoveryCard(
     entity: DiscoveredFinancialEntity,
     remainingCount: Int,
-    onConfirmOwned: () -> Unit,
-    onNotMine: () -> Unit
+    onReview: () -> Unit
 ) {
+    val displayName =
+        financialEntityReviewDisplayName(
+            entity
+        )
+
     PesaCard {
         Column(
-            modifier = Modifier.padding(15.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier =
+                Modifier.padding(15.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(10.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
                 IconBubble(
-                    icon = Icons.Rounded.AccountBalance,
+                    icon =
+                        Icons.Rounded
+                            .AccountBalance,
                     size = 44.dp,
-                    background = pesaToneContainer("blue"),
-                    tint = pesaToneContent("blue")
+                    background =
+                        pesaToneContainer("blue"),
+                    tint =
+                        pesaToneContent("blue")
                 )
                 Column(
                     modifier = Modifier
@@ -1077,52 +1088,146 @@ private fun FinancialAccountDiscoveryCard(
                         .padding(start = 12.dp)
                 ) {
                     Text(
-                        "New financial account found",
-                        style = MaterialTheme.typography.titleMedium
+                        "Account ownership needs review",
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium
                     )
                     Text(
-                        entity.displayName,
-                        style = MaterialTheme.typography.titleLarge
+                        displayName,
+                        style =
+                            MaterialTheme.typography
+                                .titleLarge
                     )
                 }
                 SmallStatusPill("Review")
             }
 
             Text(
-                "A financial message looks like it refers to this account. PesaTrack has not assumed it belongs to you.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                "PesaTrack saw financial evidence connected to this account name, but it has not assumed the account belongs to you.",
+                style =
+                    MaterialTheme.typography
+                        .bodyMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
             )
 
             if (remainingCount > 0) {
                 Text(
                     "+" + remainingCount +
                         " more account" +
-                        if (remainingCount == 1) "" else "s" +
+                        if (
+                            remainingCount == 1
+                        ) {
+                            ""
+                        } else {
+                            "s"
+                        } +
                         " waiting for review",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
                 )
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Button(
+                onClick = onReview,
+                modifier =
+                    Modifier.fillMaxWidth()
             ) {
-                OutlinedButton(
-                    onClick = onNotMine,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Not mine")
-                }
-                Button(
-                    onClick = onConfirmOwned,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("My account")
-                }
+                Text("Review account")
             }
         }
     }
+}
+
+@Composable
+private fun FinancialAccountReviewDialog(
+    entity: DiscoveredFinancialEntity,
+    onDismiss: () -> Unit,
+    onConfirmOwned: () -> Unit,
+    onNotMine: () -> Unit
+) {
+    val displayName =
+        financialEntityReviewDisplayName(
+            entity
+        )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Does this account belong to you?"
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    displayName,
+                    style =
+                        MaterialTheme.typography
+                            .titleLarge,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
+                Text(
+                    "Choose “Yes, my account” only if this is one of your own bank, wallet or savings accounts."
+                )
+                Text(
+                    "Why it matters: PesaTrack uses ownership to decide whether money is income/expense or simply moving between your own accounts.",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+                Text(
+                    "Nothing is changed until you confirm below.",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .primary
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick =
+                    onConfirmOwned
+            ) {
+                Text("Yes, my account")
+            }
+        },
+        dismissButton = {
+            Row(
+                horizontalArrangement =
+                    Arrangement.spacedBy(6.dp)
+            ) {
+                TextButton(
+                    onClick =
+                        onDismiss
+                ) {
+                    Text("Cancel")
+                }
+                OutlinedButton(
+                    onClick =
+                        onNotMine
+                ) {
+                    Text("No, not mine")
+                }
+            }
+        }
+    )
 }
 
 @Composable
