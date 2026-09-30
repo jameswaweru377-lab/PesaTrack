@@ -712,7 +712,18 @@ fun HomeScreen(
         }
 
         item {
+            val mpesaAccount =
+                trackedAccounts.firstOrNull {
+                    it.id ==
+                        AccountStore
+                            .DEFAULT_MPESA_ID
+                }
             WalletsAndBalancesCard(
+                mpesaLabel =
+                    mpesaAccount?.let {
+                        AccountDisplayPolicy
+                            .displayLabel(it)
+                    } ?: "M-Pesa",
                 mpesaBalanceMinor =
                     ledgerSnapshot.latestBalanceMinor,
                 mpesaObservedAtEpochMs =
@@ -1001,6 +1012,7 @@ private fun DebtOverviewCard(
 
 @Composable
 private fun WalletsAndBalancesCard(
+    mpesaLabel: String,
     mpesaBalanceMinor: Long?,
     mpesaObservedAtEpochMs: Long?,
     trackedAccountCount: Int,
@@ -1037,7 +1049,7 @@ private fun WalletsAndBalancesCard(
 
             WalletBalanceRow(
                 icon = Icons.Rounded.AccountBalanceWallet,
-                label = "M-PESA balance",
+                label = mpesaLabel,
                 supportingText =
                     if (
                         mpesaObservedAtEpochMs != null
