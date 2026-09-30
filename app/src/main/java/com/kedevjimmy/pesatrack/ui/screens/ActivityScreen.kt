@@ -91,6 +91,7 @@ import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PossibleDuplicateGroup
 import com.kedevjimmy.pesatrack.data.local.ReviewGroup
+import com.kedevjimmy.pesatrack.data.local.RelationshipReviewCandidate
 import com.kedevjimmy.pesatrack.data.local.RelationshipReviewItem
 import com.kedevjimmy.pesatrack.data.local.RelationshipReviewKind
 import com.kedevjimmy.pesatrack.data.local.RelationshipReviewStore
@@ -617,24 +618,59 @@ fun ActivityScreen(
                                 ]
                             RelationshipReviewRow(
                                 item = review,
-                                onLink = { targetId ->
+                                onLink = { candidate ->
                                     when (review.kind) {
                                         RelationshipReviewKind
-                                            .REPAYMENT_FUNDING ->
-                                            relationshipReviewStore
-                                                .resolveFunding(
-                                                    review
-                                                        .debtEventId,
-                                                    targetId
-                                                )
+                                            .REPAYMENT_FUNDING -> {
+                                            val eventId =
+                                                review.debtEventId
+                                            val targetId =
+                                                candidate.targetId
+                                            if (
+                                                eventId != null &&
+                                                targetId != null
+                                            ) {
+                                                relationshipReviewStore
+                                                    .resolveFunding(
+                                                        eventId,
+                                                        targetId
+                                                    )
+                                            }
+                                        }
                                         RelationshipReviewKind
-                                            .REPAYMENT_BALANCE ->
-                                            relationshipReviewStore
-                                                .resolveBalance(
-                                                    review
-                                                        .debtEventId,
-                                                    targetId
-                                                )
+                                            .REPAYMENT_BALANCE -> {
+                                            val eventId =
+                                                review.debtEventId
+                                            val targetId =
+                                                candidate.targetId
+                                            if (
+                                                eventId != null &&
+                                                targetId != null
+                                            ) {
+                                                relationshipReviewStore
+                                                    .resolveBalance(
+                                                        eventId,
+                                                        targetId
+                                                    )
+                                            }
+                                        }
+                                        RelationshipReviewKind
+                                            .LIABILITY_PAYMENT -> {
+                                            val transactionId =
+                                                review.transactionId
+                                            val debtAccountId =
+                                                candidate.targetKey
+                                            if (
+                                                transactionId != null &&
+                                                debtAccountId != null
+                                            ) {
+                                                relationshipReviewStore
+                                                    .resolveLiabilityPayment(
+                                                        transactionId,
+                                                        debtAccountId
+                                                    )
+                                            }
+                                        }
                                     }
                                     refresh()
                                 },
@@ -642,20 +678,34 @@ fun ActivityScreen(
                                     when (review.kind) {
                                         RelationshipReviewKind
                                             .REPAYMENT_FUNDING ->
-                                            relationshipReviewStore
-                                                .resolveFunding(
-                                                    review
-                                                        .debtEventId,
-                                                    null
-                                                )
+                                            review.debtEventId
+                                                ?.let {
+                                                    relationshipReviewStore
+                                                        .resolveFunding(
+                                                            it,
+                                                            null
+                                                        )
+                                                }
                                         RelationshipReviewKind
                                             .REPAYMENT_BALANCE ->
-                                            relationshipReviewStore
-                                                .resolveBalance(
-                                                    review
-                                                        .debtEventId,
-                                                    null
-                                                )
+                                            review.debtEventId
+                                                ?.let {
+                                                    relationshipReviewStore
+                                                        .resolveBalance(
+                                                            it,
+                                                            null
+                                                        )
+                                                }
+                                        RelationshipReviewKind
+                                            .LIABILITY_PAYMENT ->
+                                            review.transactionId
+                                                ?.let {
+                                                    relationshipReviewStore
+                                                        .resolveLiabilityPayment(
+                                                            it,
+                                                            null
+                                                        )
+                                                }
                                     }
                                     refresh()
                                 }
@@ -2183,7 +2233,7 @@ private fun EmptyRelationshipReviewState() {
                         .titleMedium
             )
             Text(
-                "PesaTrack currently has no debt-chain relationships that need a manual decision.",
+                "PesaTrack currently has no debt-chain or liability-payment relationships that need a manual decision.",
                 modifier =
                     Modifier.padding(top = 5.dp),
                 style =
@@ -2200,7 +2250,7 @@ private fun EmptyRelationshipReviewState() {
 @Composable
 private fun RelationshipReviewRow(
     item: RelationshipReviewItem,
-    onLink: (Long) -> Unit,
+    onLink: (RelationshipReviewCandidate) -> Unit,
     onKeepUnlinked: () -> Unit
 ) {
     Surface(
@@ -2235,6 +2285,9 @@ private fun RelationshipReviewRow(
                             RelationshipReviewKind
                                 .REPAYMENT_BALANCE ->
                                 "Which balance came after this repayment?"
+                            RelationshipReviewKind
+                                .LIABILITY_PAYMENT ->
+                                "Is this payment a debt repayment?"
                         },
                         style =
                             MaterialTheme.typography
@@ -2257,7 +2310,17 @@ private fun RelationshipReviewRow(
             }
 
             Text(
-                "Funding account: " +
+                (
+                    if (
+                        item.kind ==
+                            RelationshipReviewKind
+                                .LIABILITY_PAYMENT
+                    ) {
+                        "Paid from: "
+                    } else {
+                        "Funding account: "
+                    }
+                ) +
                     item.fundingAccountName +
                     " • " +
                     formatPreciseTime(
@@ -2335,23 +2398,23 @@ private fun RelationshipReviewRow(
                         )
                         Button(
                             onClick = {
-                                onLink(
-                                    candidate.targetId
-                                )
+                                onLink(candidate)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 8.dp)
                         ) {
                             Text(
-                                if (
-                                    item.kind ==
+                                when (item.kind) {
                                     RelationshipReviewKind
-                                        .REPAYMENT_FUNDING
-                                ) {
-                                    "Use as funding transaction"
-                                } else {
-                                    "Use this balance"
+                                        .REPAYMENT_FUNDING ->
+                                        "Use as funding transaction"
+                                    RelationshipReviewKind
+                                        .REPAYMENT_BALANCE ->
+                                        "Use this balance"
+                                    RelationshipReviewKind
+                                        .LIABILITY_PAYMENT ->
+                                        "Mark as repayment to this debt"
                                 }
                             )
                         }
@@ -2366,14 +2429,16 @@ private fun RelationshipReviewRow(
                     .padding(top = 10.dp)
             ) {
                 Text(
-                    if (
-                        item.kind ==
+                    when (item.kind) {
                         RelationshipReviewKind
-                            .REPAYMENT_FUNDING
-                    ) {
-                        "None of these funded it"
-                    } else {
-                        "None of these balances"
+                            .REPAYMENT_FUNDING ->
+                            "None of these funded it"
+                        RelationshipReviewKind
+                            .REPAYMENT_BALANCE ->
+                            "None of these balances"
+                        RelationshipReviewKind
+                            .LIABILITY_PAYMENT ->
+                            "This was not a debt repayment"
                     }
                 )
             }
