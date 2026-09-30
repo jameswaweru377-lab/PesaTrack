@@ -9,7 +9,7 @@ import org.junit.Test
 
 class AccountDisplayPolicyTest {
     @Test
-    fun groupsMshwariFamilyIntoOneVisibleAccount() {
+    fun keepsRegularMshwariAndLockSavingsAsSeparateBalances() {
         val groups =
             AccountDisplayPolicy.groups(
                 listOf(
@@ -26,14 +26,15 @@ class AccountDisplayPolicyTest {
                 )
             )
 
-        assertEquals(1, groups.size)
+        assertEquals(2, groups.size)
         assertEquals(
-            "M-Shwari",
-            groups.single().displayName
-        )
-        assertEquals(
-            setOf("mshwari", "lock"),
-            groups.single().accountIds
+            setOf(
+                "M-Shwari",
+                "M-Shwari Lock Savings"
+            ),
+            groups.map {
+                it.displayName
+            }.toSet()
         )
     }
 
@@ -89,9 +90,10 @@ class AccountDisplayPolicyTest {
             groups.first {
                 it.type == AccountType.BANK
             }
-        val mshwari =
+        val lockSavings =
             groups.first {
-                it.type == AccountType.SAVINGS
+                it.displayName ==
+                    "M-Shwari Lock Savings"
             }
 
         assertTrue(
@@ -102,7 +104,13 @@ class AccountDisplayPolicyTest {
         )
         assertTrue(
             AccountDisplayPolicy.matchesSource(
-                mshwari,
+                lockSavings,
+                "M-Shwari Lock Savings"
+            )
+        )
+        assertFalse(
+            AccountDisplayPolicy.matchesSource(
+                lockSavings,
                 "M-Shwari"
             )
         )
@@ -198,6 +206,30 @@ class AccountDisplayPolicyTest {
                         emptySet(),
                     includeCash = true
                 )
+        )
+    }
+
+
+    @Test
+    fun displayLabelAddsMaskedConfirmedIdentifier() {
+        val group =
+            AccountDisplayPolicy.groups(
+                listOf(
+                    MoneyAccount(
+                        id = "mpesa",
+                        name = "M-Pesa",
+                        type =
+                            AccountType.MOBILE_WALLET,
+                        identifier =
+                            "254746208497"
+                    )
+                )
+            ).single()
+
+        assertEquals(
+            "M-Pesa (•••• 8497)",
+            AccountDisplayPolicy
+                .displayLabel(group)
         )
     }
 
