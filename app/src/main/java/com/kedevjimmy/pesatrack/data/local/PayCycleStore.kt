@@ -14,7 +14,12 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class PayCycleStore private constructor(context: Context) {
-    private val database = PesaTrackDatabase(context)
+    private val appContext =
+        context.applicationContext
+    private val database =
+        PesaTrackDatabase(appContext)
+    private val paydaySnapshotStore =
+        PaydaySnapshotStore.get(appContext)
 
     @Synchronized
     fun rebuild() {
