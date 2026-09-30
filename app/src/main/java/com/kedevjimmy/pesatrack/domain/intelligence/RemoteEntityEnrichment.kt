@@ -3,13 +3,24 @@ package com.kedevjimmy.pesatrack.domain.intelligence
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 
+enum class RemoteEntityBusinessRole {
+    PAYMENT_PROCESSOR,
+    TRANSPORT,
+    BANK,
+    LENDER,
+    MERCHANT,
+    UNKNOWN
+}
+
 data class RemoteEntityEnrichment(
     val canonicalName: String,
     val domain: String?,
     val logoUrl: String?,
     val categoryHint: TransactionCategory?,
     val confidence: EntityMatchConfidence,
-    val source: String
+    val source: String,
+    val businessRole:
+        RemoteEntityBusinessRole? = null
 )
 
 object EntityDescriptorPrivacyPolicy {
@@ -169,6 +180,28 @@ object RemoteEntityEligibilityPolicy {
             MpesaTransactionType.PAY_BILL.name ||
             type ==
             MpesaTransactionType.BUY_GOODS.name
+}
+
+object OnboardingBusinessRolePolicy {
+    private val nonPayrollRoles =
+        setOf(
+            RemoteEntityBusinessRole
+                .PAYMENT_PROCESSOR,
+            RemoteEntityBusinessRole
+                .TRANSPORT,
+            RemoteEntityBusinessRole
+                .BANK,
+            RemoteEntityBusinessRole
+                .LENDER,
+            RemoteEntityBusinessRole
+                .MERCHANT
+        )
+
+    fun rulesOutRecurringIncomeAsSalary(
+        result: RemoteEntityEnrichment
+    ): Boolean =
+        result.businessRole in
+            nonPayrollRoles
 }
 
 object RemoteEntityAutoReviewPolicy {
