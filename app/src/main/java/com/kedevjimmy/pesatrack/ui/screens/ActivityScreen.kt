@@ -491,6 +491,8 @@ fun ActivityScreen(
                         entity =
                             reviewableFinancialEntities
                                 .first(),
+                        diagnostics =
+                            financialDiagnostics,
                         remainingCount =
                             reviewableFinancialEntities
                                 .size - 1,
@@ -1044,6 +1046,8 @@ fun ActivityScreen(
     accountReviewEntity?.let { entity ->
         FinancialAccountReviewDialog(
             entity = entity,
+            diagnostics =
+                financialDiagnostics,
             onDismiss = {
                 accountReviewEntity = null
             },
@@ -1076,12 +1080,15 @@ fun ActivityScreen(
 @Composable
 private fun FinancialAccountDiscoveryCard(
     entity: DiscoveredFinancialEntity,
+    diagnostics:
+        List<FinancialIngestionDiagnostic>,
     remainingCount: Int,
     onReview: () -> Unit
 ) {
     val displayName =
         financialEntityReviewDisplayName(
-            entity
+            entity = entity,
+            diagnostics = diagnostics
         )
 
     PesaCard {
@@ -1135,6 +1142,17 @@ private fun FinancialAccountDiscoveryCard(
                     MaterialTheme.colorScheme
                         .onSurfaceVariant
             )
+            Text(
+                ownershipEvidenceLabel(
+                    entity
+                ),
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
 
             if (remainingCount > 0) {
                 Text(
@@ -1171,13 +1189,16 @@ private fun FinancialAccountDiscoveryCard(
 @Composable
 private fun FinancialAccountReviewDialog(
     entity: DiscoveredFinancialEntity,
+    diagnostics:
+        List<FinancialIngestionDiagnostic>,
     onDismiss: () -> Unit,
     onConfirmOwned: () -> Unit,
     onNotMine: () -> Unit
 ) {
     val displayName =
         financialEntityReviewDisplayName(
-            entity
+            entity = entity,
+            diagnostics = diagnostics
         )
 
     AlertDialog(
