@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -91,7 +92,9 @@ import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingSalarySuggestion
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingTransactionObservation
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.HistoryImportWindow
+import com.kedevjimmy.pesatrack.domain.rules.SalaryHistoryMonthPolicy
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageIngestionCoordinator
@@ -210,6 +213,14 @@ fun SmartOnboardingSetupScreen(
             List<DiscoveredFinancialEntity>
         >(emptyList())
     }
+    var selectedOwnershipEntityKeys by remember {
+        mutableStateOf<Set<String>>(
+            emptySet()
+        )
+    }
+    var reviewSaving by remember {
+        mutableStateOf(false)
+    }
     var salarySuggestion by remember {
         mutableStateOf<OnboardingSalarySuggestion?>(null)
     }
@@ -227,6 +238,9 @@ fun SmartOnboardingSetupScreen(
     }
     var phoneError by remember {
         mutableStateOf<String?>(null)
+    }
+    var mpesaConfirmationBusy by remember {
+        mutableStateOf(false)
     }
     var notificationGranted by remember {
         mutableStateOf(hasNotificationAccess(context))
