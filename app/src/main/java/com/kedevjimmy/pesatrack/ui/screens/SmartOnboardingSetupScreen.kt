@@ -1804,43 +1804,60 @@ fun SmartOnboardingSetupScreen(
                         manualPhone =
                             manualMpesaPhone,
                         error = phoneError,
+                        busy = mpesaConfirming,
                         onManualChanged = {
                             manualMpesaPhone = it
                             phoneError = null
                         },
                         onConfirmSuggested = {
-                            val suggested =
-                                mpesaPhoneSuggestion
-                                    .orEmpty()
-                            setupScope.launch {
-                                    if (
-                                        confirmMpesaPhone(
-                                            suggested
-                                        )
-                                    ) {
-                                        applySalaryIfConfirmed()
-                                        stage =
-                                            SmartSetupStage
-                                                .LIVE_CAPTURE
+                            if (!mpesaConfirming) {
+                                val suggested =
+                                    mpesaPhoneSuggestion
+                                        .orEmpty()
+                                setupScope.launch {
+                                    mpesaConfirming = true
+                                    try {
+                                        if (
+                                            confirmMpesaPhone(
+                                                suggested
+                                            )
+                                        ) {
+                                            applySalaryIfConfirmed()
+                                            stage =
+                                                SmartSetupStage
+                                                    .LIVE_CAPTURE
+                                        }
+                                    } finally {
+                                        mpesaConfirming =
+                                            false
                                     }
                                 }
+                            }
                         },
                         onChooseAnother = {
                             manualPhoneMode = true
                         },
                         onSaveManual = {
-                            setupScope.launch {
-                                    if (
-                                        confirmMpesaPhone(
-                                            manualMpesaPhone
-                                        )
-                                    ) {
-                                        applySalaryIfConfirmed()
-                                        stage =
-                                            SmartSetupStage
-                                                .LIVE_CAPTURE
+                            if (!mpesaConfirming) {
+                                setupScope.launch {
+                                    mpesaConfirming = true
+                                    try {
+                                        if (
+                                            confirmMpesaPhone(
+                                                manualMpesaPhone
+                                            )
+                                        ) {
+                                            applySalaryIfConfirmed()
+                                            stage =
+                                                SmartSetupStage
+                                                    .LIVE_CAPTURE
+                                        }
+                                    } finally {
+                                        mpesaConfirming =
+                                            false
                                     }
                                 }
+                            }
                         },
                         onSkip = {
                             setupScope.launch {
