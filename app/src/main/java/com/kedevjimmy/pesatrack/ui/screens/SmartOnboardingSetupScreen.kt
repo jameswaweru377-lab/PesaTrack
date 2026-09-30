@@ -56,6 +56,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -96,6 +97,7 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 private enum class SmartSetupStage {
     IMPORT,
@@ -120,6 +122,7 @@ fun SmartOnboardingSetupScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val setupScope = rememberCoroutineScope()
     val accountStore = remember { AccountStore.get(context) }
     val transactionStore = remember {
         TransactionStore.get(context)
@@ -502,22 +505,28 @@ fun SmartOnboardingSetupScreen(
         }
 
         withContext(Dispatchers.IO) {
+            val mpesaAccount =
+                accountStore
+                    .listAccounts(
+                        enabledOnly = false
+                    )
+                    .firstOrNull {
+                        it.id ==
+                            AccountStore
+                                .DEFAULT_MPESA_ID
+                    }
+
             accountStore.updateDetails(
                 id =
                     AccountStore
                         .DEFAULT_MPESA_ID,
                 identifier = normalized,
                 openingBalanceMinor =
-                    accountStore
-                        .listAccounts(
-                            enabledOnly = false
-                        )
-                        .firstOrNull {
-                            it.id ==
-                                AccountStore
-                                    .DEFAULT_MPESA_ID
-                        }
-                        ?.openingBalanceMinor
+                    mpesaAccount
+                        ?.openingBalanceMinor,
+                openingBalanceAsOfEpochMs =
+                    mpesaAccount
+                        ?.openingBalanceAsOfEpochMs
             )
             transactionStore
                 .reconcileOwnAccountTransfers()
@@ -628,17 +637,20 @@ fun SmartOnboardingSetupScreen(
                             salaryAccepted = it
                         },
                         onContinue = {
-                            stage =
-                                if (
-                                    mpesaPhoneSuggestion !=
-                                    null
-                                ) {
-                                    SmartSetupStage
-                                        .MPESA_CONFIRM
-                                } else {
-                                    SmartSetupStage
-                                        .LIVE_CAPTURE
-                                }
+                            setupScope.launch {
+                                applySalaryIfConfirmed()
+                                stage =
+                                    if (
+                                        mpesaPhoneSuggestion !=
+                                        null
+                                    ) {
+                                        SmartSetupStage
+                                            .MPESA_CONFIRM
+                                    } else {
+                                        SmartSetupStage
+                                            .LIVE_CAPTURE
+                                    }
+                            }
                         }
                     )
                 }
@@ -663,12 +675,7 @@ fun SmartOnboardingSetupScreen(
                             val suggested =
                                 mpesaPhoneSuggestion
                                     .orEmpty()
-                            kotlinx.coroutines
-                                .CoroutineScope(
-                                    kotlinx.coroutines
-                                        .Dispatchers.Main
-                                )
-                                .launch {
+                            setupScope.launch {
                                     if (
                                         confirmMpesaPhone(
                                             suggested
@@ -685,12 +692,7 @@ fun SmartOnboardingSetupScreen(
                             manualPhoneMode = true
                         },
                         onSaveManual = {
-                            kotlinx.coroutines
-                                .CoroutineScope(
-                                    kotlinx.coroutines
-                                        .Dispatchers.Main
-                                )
-                                .launch {
+                            setupScope.launch {
                                     if (
                                         confirmMpesaPhone(
                                             manualMpesaPhone
@@ -704,12 +706,7 @@ fun SmartOnboardingSetupScreen(
                                 }
                         },
                         onSkip = {
-                            kotlinx.coroutines
-                                .CoroutineScope(
-                                    kotlinx.coroutines
-                                        .Dispatchers.Main
-                                )
-                                .launch {
+                            setupScope.launch {
                                     applySalaryIfConfirmed()
                                     stage =
                                         SmartSetupStage
@@ -757,17 +754,9 @@ fun SmartOnboardingSetupScreen(
                             )
                         },
                         onLater = {
-                            kotlinx.coroutines
-                                .CoroutineScope(
-                                    kotlinx.coroutines
-                                        .Dispatchers.Main
-                                )
-                                .launch {
-                                    applySalaryIfConfirmed()
-                                    stage =
-                                        SmartSetupStage
-                                            .COMPLETE
-                                }
+                            stage =
+                                SmartSetupStage
+                                    .COMPLETE
                         }
                     )
                 }
