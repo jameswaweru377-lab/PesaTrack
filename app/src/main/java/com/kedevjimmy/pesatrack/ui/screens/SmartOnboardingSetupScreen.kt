@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Message
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Wallet
@@ -80,7 +81,6 @@ import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.data.local.RuleStore
-import com.kedevjimmy.pesatrack.data.local.SalaryHistoryCandidate
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
@@ -3657,6 +3657,47 @@ private fun FeatureRow(
         }
     }
 }
+
+private fun onboardingOwnershipCandidates(
+    entities: List<DiscoveredFinancialEntity>
+): List<DiscoveredFinancialEntity> =
+    entities
+        .filter { entity ->
+            AccountDisplayPolicy
+                .isMeaningfulAccountName(
+                    entity.displayName
+                )
+        }
+        .filter { entity ->
+            runCatching {
+                AccountType.valueOf(
+                    entity.accountTypeHint
+                )
+            }.getOrDefault(
+                AccountType.OTHER
+            ) in
+                setOf(
+                    AccountType.BANK,
+                    AccountType.MOBILE_WALLET,
+                    AccountType.SAVINGS
+                )
+        }
+        .filterNot { entity ->
+            entity.providerKey in
+                setOf(
+                    "SAFARICOM_MPESA",
+                    "NCBA_MSHWARI_SAVINGS",
+                    "NCBA_MSHWARI_LOCK_SAVINGS"
+                )
+        }
+        .distinctBy {
+            it.entityKey
+        }
+        .sortedBy {
+            it.displayName.lowercase(
+                Locale.ROOT
+            )
+        }
 
 private fun defaultManualSalaryDrafts(
     months: Int,
