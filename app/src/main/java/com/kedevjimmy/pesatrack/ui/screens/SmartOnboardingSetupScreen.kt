@@ -344,6 +344,41 @@ fun SmartOnboardingSetupScreen(
             }
         }
 
+    BackHandler(
+        enabled =
+            stage != SmartSetupStage.IMPORT &&
+                !reviewApplying &&
+                !mpesaConfirming
+    ) {
+        stage =
+            when (stage) {
+                SmartSetupStage.IMPORT ->
+                    SmartSetupStage.IMPORT
+                SmartSetupStage.SMS_PERMISSION,
+                SmartSetupStage.ANALYZE ->
+                    SmartSetupStage.IMPORT
+                SmartSetupStage.REVIEW ->
+                    SmartSetupStage.ANALYZE
+                SmartSetupStage.SALARY_MANUAL ->
+                    SmartSetupStage.REVIEW
+                SmartSetupStage.MPESA_CONFIRM ->
+                    stageBeforeMpesa
+                SmartSetupStage.LIVE_CAPTURE ->
+                    if (
+                        mpesaPhoneSuggestion !=
+                        null
+                    ) {
+                        SmartSetupStage
+                            .MPESA_CONFIRM
+                    } else {
+                        SmartSetupStage
+                            .REVIEW
+                    }
+                SmartSetupStage.COMPLETE ->
+                    SmartSetupStage.LIVE_CAPTURE
+            }
+    }
+
     DisposableEffect(lifecycleOwner) {
         val observer =
             LifecycleEventObserver { _, event ->
