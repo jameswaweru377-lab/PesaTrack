@@ -23,21 +23,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createTransactionExternalReferencesTable(db)
         createEntityEnrichmentCacheTable(db)
         seedDefaultAccounts(db)
-        if (oldVersion < 21) {
-            addColumnIfMissing(
-                db,
-                "debt_events",
-                "funding_link_user_decision",
-                "TEXT"
-            )
-            addColumnIfMissing(
-                db,
-                "debt_events",
-                "balance_link_user_decision",
-                "TEXT"
-            )
-        }
-
         createIndexes(db)
         createTriggers(db)
     }
@@ -312,6 +297,21 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 WHERE funding_account_id IS NULL
                   AND funding_account_key IS NOT NULL
                 """.trimIndent()
+            )
+        }
+
+        if (oldVersion < 21) {
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "funding_link_user_decision",
+                "TEXT"
+            )
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "balance_link_user_decision",
+                "TEXT"
             )
         }
 
