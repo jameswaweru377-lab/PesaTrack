@@ -97,6 +97,8 @@ import com.kedevjimmy.pesatrack.data.local.RelationshipReviewKind
 import com.kedevjimmy.pesatrack.data.local.RelationshipReviewStore
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.domain.model.KenyanBankDirectory
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
@@ -225,6 +227,26 @@ fun ActivityScreen(
     var showMonthPicker by remember {
         mutableStateOf(false)
     }
+    var accountReviewEntity by remember {
+        mutableStateOf<DiscoveredFinancialEntity?>(
+            null
+        )
+    }
+
+    val reviewableFinancialEntities =
+        remember(
+            pendingFinancialEntities,
+            financialDiagnostics
+        ) {
+            pendingFinancialEntities
+                .filter {
+                    shouldOfferOwnershipReview(
+                        entity = it,
+                        diagnostics =
+                            financialDiagnostics
+                    )
+                }
+        }
 
     fun selectMonth(epochMs: Long) {
         val normalizedMonth = monthStart(epochMs)
@@ -306,10 +328,9 @@ fun ActivityScreen(
                     displayName = displayName,
                     sourceType =
                         entries.firstOrNull()
-                            ?.sourceType
-                            ?.takeIf {
-                                it.isNotBlank()
-                            }
+                            ?.let(
+                                ::financialSourceType
+                            )
                             ?: "Financial",
                     messageCount = entries.size
                 )
@@ -438,36 +459,22 @@ fun ActivityScreen(
                 )
             }
 
-            if (pendingFinancialEntities.isNotEmpty()) {
+            if (
+                reviewableFinancialEntities
+                    .isNotEmpty()
+            ) {
                 item {
                     FinancialAccountDiscoveryCard(
                         entity =
-                            pendingFinancialEntities.first(),
+                            reviewableFinancialEntities
+                                .first(),
                         remainingCount =
-                            pendingFinancialEntities.size - 1,
-                        onConfirmOwned = {
-                            val entity =
-                                pendingFinancialEntities.first()
-                            financialStore.confirmEntityOwned(
-                                entity.entityKey
-                            )
-                            financialCoordinator
-                                .reconcilePendingTransfers(
-                                    entity.entityKey
-                                )
-                            refresh()
-                        },
-                        onNotMine = {
-                            val entity =
-                                pendingFinancialEntities.first()
-                            financialStore.markEntityExternal(
-                                entity.entityKey
-                            )
-                            financialCoordinator
-                                .reconcileExternalEntity(
-                                    entity.entityKey
-                                )
-                            refresh()
+                            reviewableFinancialEntities
+                                .size - 1,
+                        onReview = {
+                            accountReviewEntity =
+                                reviewableFinancialEntities
+                                    .first()
                         }
                     )
                 }
@@ -1007,6 +1014,37 @@ fun ActivityScreen(
             onMonthSelected = { epochMs ->
                 selectMonth(epochMs)
                 showMonthPicker = false
+            }
+        )
+    }
+
+    accountReviewEntity?.let { entity ->
+        FinancialAccountReviewDialog(
+            entity = entity,
+            onDismiss = {
+                accountReviewEntity = null
+            },
+            onConfirmOwned = {
+                financialStore.confirmEntityOwned(
+                    entity.entityKey
+                )
+                financialCoordinator
+                    .reconcilePendingTransfers(
+                        entity.entityKey
+                    )
+                accountReviewEntity = null
+                refresh()
+            },
+            onNotMine = {
+                financialStore.markEntityExternal(
+                    entity.entityKey
+                )
+                financialCoordinator
+                    .reconcileExternalEntity(
+                        entity.entityKey
+                    )
+                accountReviewEntity = null
+                refresh()
             }
         )
     }
