@@ -1396,6 +1396,7 @@ class DebtStore private constructor(context: Context) {
         linkedTransactionId: Long?,
         walletBalanceAfterMinor: Long?,
         fundingAccountKey: String?,
+        fundingAccountId: String?,
         availableCreditAfterMinor: Long?,
         repaymentCompletion:
             DebtCompletion?,
@@ -1435,6 +1436,12 @@ class DebtStore private constructor(context: Context) {
                     put(
                         "funding_account_key",
                         fundingAccountKey
+                    )
+                }
+                if (fundingAccountId != null) {
+                    put(
+                        "funding_account_id",
+                        fundingAccountId
                     )
                 }
                 if (availableCreditAfterMinor != null) {
@@ -1516,6 +1523,19 @@ class DebtStore private constructor(context: Context) {
             } else {
                 putNull("funding_account_key")
             }
+            if (fundingAccountId != null) {
+                put(
+                    "funding_account_id",
+                    fundingAccountId
+                )
+            } else {
+                putNull("funding_account_id")
+            }
+            putNull(
+                "resulting_balance_observation_id"
+            )
+            putNull("balance_link_confidence")
+            putNull("balance_link_reason")
             if (availableCreditAfterMinor != null) {
                 put(
                     "available_credit_after_minor",
