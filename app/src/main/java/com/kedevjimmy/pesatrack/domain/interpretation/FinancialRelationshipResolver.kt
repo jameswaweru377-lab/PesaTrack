@@ -154,10 +154,22 @@ object FinancialRelationshipResolver {
         val prioritized = candidates.actions
             .sortedBy(::priority)
 
+        val explicitAccountTransfer =
+            candidates
+                .accountToAccountTransfer
+                ?.let { candidate ->
+                    resolveAccountToAccountTransfer(
+                        candidate = candidate,
+                        message = message,
+                        fee = candidates.fee
+                    )
+                }
+
         val knownRelationship =
             debtRelationship
                 ?: reversalRelationship
                 ?: cashRelationship
+                ?: explicitAccountTransfer
                 ?: prioritized.firstNotNullOfOrNull { action ->
                     resolveAction(
                         action = action,
@@ -878,6 +890,106 @@ object FinancialRelationshipResolver {
                     FinancialAccountNature.LIABILITY
             )
         }
+    }
+
+    private fun resolveAccountToAccountTransfer(
+        candidate:
+            AccountToAccountTransferCandidate,
+        message: NormalizedFinancialMessage,
+        fee: FeeCandidate?
+    ): ResolvedFinancialRelationship? {
+        val source =
+            FinancialProviderRegistry
+                .resolveAccountInMessageContext(
+                    rawLabel =
+                        candidate.sourceLabel,
+                    title = message.title
+                )
+        val destination =
+            FinancialProviderRegistry
+                .resolveAccountInMessageContext(
+                    rawLabel =
+                        candidate.destinationLabel,
+                    title = message.title
+                )
+
+        if (
+            source.entityKey ==
+            destination.entityKey
+        ) {
+            return null
+        }
+
+        val confidence =
+            accountRelationshipConfidence(
+                source,
+                destination
+            )
+
+        return ResolvedTransferRelationship(
+            amountMinor =
+                candidate.amountMinor,
+            source = source,
+            destination = destination,
+            feeMinor =
+                fee?.amountMinor ?: 0L,
+            confidence = confidence,
+            evidence =
+                buildList {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField
+                                    .AMOUNT,
+                            origin =
+                                EvidenceOrigin
+                                    .MESSAGE_TEXT,
+                            ruleId =
+                                candidate.ruleId +
+                                    ".amount",
+                            span =
+                                candidate.amountSpan,
+                            confidence =
+                                confidence
+                        )
+                    )
+                    add(
+                        evidence(
+                            field =
+                                FinancialField
+                                    .SOURCE_ACCOUNT,
+                            origin =
+                                EvidenceOrigin
+                                    .MESSAGE_TEXT,
+                            ruleId =
+                                candidate.ruleId +
+                                    ".source",
+                            span =
+                                candidate.sourceSpan,
+                            confidence =
+                                confidence
+                        )
+                    )
+                    add(
+                        evidence(
+                            field =
+                                FinancialField
+                                    .DESTINATION_ACCOUNT,
+                            origin =
+                                EvidenceOrigin
+                                    .MESSAGE_TEXT,
+                            ruleId =
+                                candidate.ruleId +
+                                    ".destination",
+                            span =
+                                candidate
+                                    .destinationSpan,
+                            confidence =
+                                confidence
+                        )
+                    )
+                }
+        )
     }
 
     private fun resolveAction(
