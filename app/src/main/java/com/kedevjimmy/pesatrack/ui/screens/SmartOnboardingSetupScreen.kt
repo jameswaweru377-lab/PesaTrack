@@ -3391,7 +3391,11 @@ private fun MpesaConfirmationPage(
                 Alignment.CenterHorizontally
         ) {
             Text(
-                maskPhone(suggestedPhone),
+                "M-Pesa (" +
+                    maskPhone(
+                        suggestedPhone
+                    ) +
+                    ")",
                 style =
                     MaterialTheme.typography
                         .headlineMedium,
@@ -4102,31 +4106,10 @@ private fun defaultSmartSalaryDrafts(
     val count =
         months.coerceIn(1, 3)
     val calendar =
-        Calendar.getInstance()
-            .apply {
-                timeInMillis =
-                    nowEpochMs
-                set(
-                    Calendar.DAY_OF_MONTH,
-                    1
-                )
-                set(
-                    Calendar.HOUR_OF_DAY,
-                    12
-                )
-                set(
-                    Calendar.MINUTE,
-                    0
-                )
-                set(
-                    Calendar.SECOND,
-                    0
-                )
-                set(
-                    Calendar.MILLISECOND,
-                    0
-                )
-            }
+        SalaryHistoryMonthPolicy
+            .anchorCalendar(
+                nowEpochMs
+            )
     val keyFormatter =
         SimpleDateFormat(
             "yyyy-MM",
