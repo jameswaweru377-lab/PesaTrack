@@ -273,6 +273,11 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     findByTransactionCode
                             )
                             ?.id
+                            ?: transactionStore
+                                .findByAnyExternalReference(
+                                    correlationReferences
+                                )
+                                ?.id
 
                     understandingStore.recordTransfer(
                         event = event,
@@ -620,6 +625,11 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     findByTransactionCode
                             )
                             ?.id
+                            ?: transactionStore
+                                .findByAnyExternalReference(
+                                    correlationReferences
+                                )
+                                ?.id
                     understandingStore.recordTransfer(
                         event = transfer,
                         messageFingerprint =
@@ -775,6 +785,11 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     findByTransactionCode
                             )
                             ?.id
+                            ?: transactionStore
+                                .findByAnyExternalReference(
+                                    correlationReferences
+                                )
+                                ?.id
                     understandingStore.recordTransfer(
                         event = transfer,
                         messageFingerprint =
