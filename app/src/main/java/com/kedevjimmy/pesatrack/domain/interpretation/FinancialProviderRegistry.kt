@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.domain.interpretation
 
 import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.domain.model.KenyanBankDirectory
 
 enum class DebtFundingBehavior {
     TRANSACTION_SHORTFALL,
@@ -209,9 +210,32 @@ object FinancialProviderRegistry {
             )
         }
 
+        KenyanBankDirectory
+            .matchSender(sourceTitle)
+            ?.let { bank ->
+                return FinancialAccountReference(
+                    entityKey =
+                        "provider:KENYAN_BANK_" +
+                            bank.id.uppercase()
+                                .replace("-", "_"),
+                    displayName = bank.name,
+                    providerKey =
+                        "KENYAN_BANK_" +
+                            bank.id.uppercase()
+                                .replace("-", "_"),
+                    accountTypeHint =
+                        AccountType.BANK,
+                    ownershipHint =
+                        AccountOwnershipHint.UNKNOWN,
+                    nature =
+                        FinancialAccountNature.ASSET
+                )
+            }
+
         val cleanedSourceTitle =
             cleanMessageSourceTitle(sourceTitle)
-        val resolved = resolveAccount(cleanedSourceTitle)
+        val resolved =
+            resolveAccount(cleanedSourceTitle)
         val sourceResolved =
             if (resolved.providerKey == null) {
                 resolved.copy(
@@ -221,16 +245,21 @@ object FinancialProviderRegistry {
             } else {
                 resolved
             }
-        val bankResolved =
+
+        val strongUnknownBank =
+            bankLike &&
+                STRONG_BANK_TITLE_REGEX
+                    .containsMatchIn(
+                        sourceTitle
+                    )
+
+        val typedSource =
             if (
-                bankLike &&
-                sourceResolved.providerKey == null
+                strongUnknownBank &&
+                sourceResolved.providerKey ==
+                    null
             ) {
                 sourceResolved.copy(
-                    displayName =
-                        bankDisplayName(
-                            sourceResolved.displayName
-                        ),
                     accountTypeHint =
                         AccountType.BANK
                 )
@@ -239,33 +268,54 @@ object FinancialProviderRegistry {
             }
 
         return if (
-            bankResolved.nature ==
+            typedSource.nature ==
                 FinancialAccountNature.UNKNOWN
         ) {
-            bankResolved.copy(
-                nature = FinancialAccountNature.ASSET
+            typedSource.copy(
+                nature =
+                    FinancialAccountNature.ASSET
             )
         } else {
-            bankResolved
+            typedSource
         }
     }
 
     fun resolveOwnedMessageSourceAccount(
         title: String?,
         bankLike: Boolean = false
-    ): FinancialAccountReference? =
-        resolveMessageSourceAccount(
-            title = title,
-            bankLike = bankLike
+    ): FinancialAccountReference? {
+        val source =
+            resolveMessageSourceAccount(
+                title = title,
+                bankLike = bankLike
+            ) ?: return null
+
+        val strongIdentity =
+            source.providerKey != null ||
+                (
+                    bankLike &&
+                        title != null &&
+                        STRONG_BANK_TITLE_REGEX
+                            .containsMatchIn(
+                                title
+                            )
+                    )
+
+        if (
+            !strongIdentity ||
+            source.nature ==
+                FinancialAccountNature.LIABILITY
+        ) {
+            return null
+        }
+
+        return source.copy(
+            ownershipHint =
+                AccountOwnershipHint.USER_OWNED,
+            nature =
+                FinancialAccountNature.ASSET
         )
-            ?.takeIf {
-                it.nature != FinancialAccountNature.LIABILITY
-            }
-            ?.copy(
-                ownershipHint =
-                    AccountOwnershipHint.USER_OWNED,
-                nature = FinancialAccountNature.ASSET
-            )
+    }
 
     fun messageSourceDisplayName(
         title: String?,
@@ -407,17 +457,6 @@ object FinancialProviderRegistry {
             }
     }
 
-    private fun bankDisplayName(
-        raw: String
-    ): String =
-        if (
-            normalize(raw).endsWith(" BANK")
-        ) {
-            raw
-        } else {
-            "$raw Bank"
-        }
-
     private fun inferAccountType(normalized: String): AccountType =
         when {
             "BANK" in normalized ||
@@ -462,6 +501,12 @@ object FinancialProviderRegistry {
     private val MESSAGE_CHANNEL_SUFFIX_REGEX =
         Regex(
             """\s+(?:BULK(?:\s+SMS)?|ALERTS?|SMS|NOTIFICATIONS?)\s*$""",
+            RegexOption.IGNORE_CASE
+        )
+
+    private val STRONG_BANK_TITLE_REGEX =
+        Regex(
+            """\b(?:BANK|SACCO|MICROFINANCE|MFB)\b""",
             RegexOption.IGNORE_CASE
         )
 
