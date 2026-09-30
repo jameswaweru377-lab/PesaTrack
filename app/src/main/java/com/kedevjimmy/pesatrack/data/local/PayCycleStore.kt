@@ -6,6 +6,8 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.rules.PayCyclePolicy
+import com.kedevjimmy.pesatrack.domain.rules.PaydayCarryoverEvidence
+import com.kedevjimmy.pesatrack.domain.rules.PaydayCarryoverPolicy
 import com.kedevjimmy.pesatrack.domain.rules.FundingGapPolicy
 import kotlin.math.max
 import java.util.Calendar
@@ -117,18 +119,23 @@ class PayCycleStore private constructor(context: Context) {
                             event.transactionId
                         )
                 val carryover =
-                    when {
-                        payday?.hasCompleteLiquidPicture == true ->
-                            payday.liquidCarryoverMinor
-                        index == 0 &&
-                            (payday?.knownLiquidAccountCount ?: 0) > 0 ->
-                            payday!!.liquidCarryoverMinor
-                        previousEnding != null ->
-                            previousEnding ?: 0L
-                        (payday?.knownLiquidAccountCount ?: 0) > 0 ->
-                            payday!!.liquidCarryoverMinor
-                        else -> 0L
-                    }
+                    PaydayCarryoverPolicy
+                        .resolve(
+                            cycleIndex = index,
+                            payday =
+                                payday?.let {
+                                    PaydayCarryoverEvidence(
+                                        knownLiquidMinor =
+                                            it.liquidCarryoverMinor,
+                                        knownLiquidAccountCount =
+                                            it.knownLiquidAccountCount,
+                                        unknownLiquidAccountCount =
+                                            it.unknownLiquidAccountCount
+                                    )
+                                },
+                            previousTrackedEndingMinor =
+                                previousEnding
+                        )
                 val ending =
                     nextStart?.let {
                         trackedRemainder(
