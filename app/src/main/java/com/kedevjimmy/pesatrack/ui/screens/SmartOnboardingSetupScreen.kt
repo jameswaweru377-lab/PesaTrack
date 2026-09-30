@@ -1021,6 +1021,56 @@ fun SmartOnboardingSetupScreen(
             selectedOwnershipEntityKeys =
                 emptySet()
 
+            val cutoff =
+                HistoryImportWindow
+                    .importStartEpochMs(
+                        importMonths
+                            .coerceAtLeast(1)
+                    )
+                    ?: (
+                        System.currentTimeMillis() -
+                            31L * ONE_DAY_MS
+                        )
+            val observations =
+                withContext(Dispatchers.IO) {
+                    transactionStore
+                        .recent(500)
+                        .filter {
+                            it.receivedAtEpochMs >=
+                                cutoff
+                        }
+                        .map { item ->
+                            OnboardingTransactionObservation(
+                                counterparty =
+                                    item.counterparty,
+                                counterpartyPhone =
+                                    item.counterpartyPhone,
+                                amountMinor =
+                                    item.amountMinor,
+                                occurredAtEpochMs =
+                                    item.occurredAtEpochMs,
+                                direction =
+                                    runCatching {
+                                        MoneyDirection
+                                            .valueOf(
+                                                item.direction
+                                            )
+                                    }.getOrDefault(
+                                        MoneyDirection
+                                            .NEUTRAL
+                                    ),
+                                accountId =
+                                    item.accountId
+                            )
+                        }
+                }
+            salarySuggestion =
+                screenedSalarySuggestion(
+                    observations
+                )
+            salaryAccepted =
+                salarySuggestion != null
+
             if (
                 manualSalaryAccountId
                     .isBlank()
