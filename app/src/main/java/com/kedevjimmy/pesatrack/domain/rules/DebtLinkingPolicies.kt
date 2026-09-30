@@ -285,3 +285,90 @@ object DebtRepaymentChainPolicy {
         ) <= BALANCE_TOLERANCE_MINOR
     }
 }
+
+
+data class RepaymentBalanceCandidate(
+    val observationId: Long,
+    val balanceMinor: Long,
+    val observedAtEpochMs: Long
+)
+
+data class RepaymentBalanceMatch(
+    val observationId: Long,
+    val confidence: RepaymentChainConfidence,
+    val reason: String
+)
+
+/**
+ * Final step of a repayment event chain.
+ *
+ * The policy knows nothing about M-Pesa, a bank, a lender or any
+ * provider name. It links a balance observation only when one unique
+ * observation satisfies an already-observed final balance, or a
+ * deterministic funding equation.
+ */
+object DebtRepaymentBalancePolicy {
+    const val MAX_LINK_DISTANCE_MS =
+        5L * 60L * 1000L
+    private const val STRONG_DISTANCE_MS =
+        2L * 60L * 1000L
+
+    fun choose(
+        explicitBalanceAfterMinor: Long?,
+        computedBalanceAfterMinor: Long?,
+        repaymentAtEpochMs: Long,
+        candidates: List<RepaymentBalanceCandidate>
+    ): RepaymentBalanceMatch? {
+        val target =
+            explicitBalanceAfterMinor
+                ?: computedBalanceAfterMinor
+                ?: return null
+        if (target < 0L) {
+            return null
+        }
+
+        val matching =
+            candidates.filter { candidate ->
+                candidate.balanceMinor == target &&
+                    abs(
+                        candidate.observedAtEpochMs -
+                            repaymentAtEpochMs
+                    ) <= MAX_LINK_DISTANCE_MS
+            }
+
+        if (matching.size != 1) {
+            return null
+        }
+
+        val candidate = matching.single()
+        val distance =
+            abs(
+                candidate.observedAtEpochMs -
+                    repaymentAtEpochMs
+            )
+        val explicit =
+            explicitBalanceAfterMinor != null
+
+        return RepaymentBalanceMatch(
+            observationId = candidate.observationId,
+            confidence =
+                if (
+                    explicit ||
+                    distance <= STRONG_DISTANCE_MS
+                ) {
+                    RepaymentChainConfidence.HIGH
+                } else {
+                    RepaymentChainConfidence.MEDIUM
+                },
+            reason =
+                when {
+                    explicit ->
+                        "Observed funding-account balance matched the debt repayment final balance."
+                    distance <= STRONG_DISTANCE_MS ->
+                        "Observed funding-account balance matched the deterministic incoming-minus-repayment equation."
+                    else ->
+                        "Only one nearby funding-account balance matched the deterministic incoming-minus-repayment equation."
+                }
+        )
+    }
+}
