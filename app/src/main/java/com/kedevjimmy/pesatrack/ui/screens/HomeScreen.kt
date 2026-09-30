@@ -50,7 +50,9 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
+import com.kedevjimmy.pesatrack.data.local.CycleProtectionStore
 import com.kedevjimmy.pesatrack.data.local.DebtStore
+import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
@@ -102,6 +104,15 @@ fun HomeScreen(
     val budgetStore = remember { BudgetStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
     val debtStore = remember { DebtStore.get(context) }
+    val cycleProtectionStore =
+        remember {
+            CycleProtectionStore.get(context)
+        }
+    val financialStore =
+        remember {
+            FinancialUnderstandingStore
+                .get(context)
+        }
     val ruleStore = remember { RuleStore.get(context) }
     val preferences = remember {
         context.getSharedPreferences(
@@ -119,6 +130,9 @@ fun HomeScreen(
         )
     }
     var showManualSalaryDialog by remember {
+        mutableStateOf(false)
+    }
+    var showProtectionDialog by remember {
         mutableStateOf(false)
     }
 
@@ -146,10 +160,20 @@ fun HomeScreen(
         )
     }
 
+    val confirmedAccountIds =
+        financialStore
+            .confirmedAccountIds()
     val visibleAccountGroups =
         AccountDisplayPolicy.groups(
             trackedAccounts
-        )
+        ).filter { group ->
+            group.accounts.any {
+                it.id in
+                    confirmedAccountIds ||
+                    !it.identifier
+                        .isNullOrBlank()
+            }
+        }
     val activeDebtAccounts =
         debtAccounts
             .filter {
@@ -409,6 +433,55 @@ fun HomeScreen(
         )
     }
 
+    if (
+        showProtectionDialog &&
+        cycleSnapshot.cycle != null
+    ) {
+        ProtectMoneyDialog(
+            currentMinor =
+                cycleSnapshot
+                    .userProtectedMinor,
+            maximumSuggestedMinor =
+                maxOf(
+                    0L,
+                    cycleSnapshot
+                        .startingFundsMinor +
+                        cycleSnapshot
+                            .additionalIncomeMinor +
+                        cycleSnapshot
+                            .refundsMinor -
+                        cycleSnapshot
+                            .spentMinor -
+                        cycleSnapshot
+                            .feesMinor -
+                        cycleSnapshot
+                            .savingsMinor -
+                        cycleSnapshot
+                            .remainingCommitmentsMinor
+                ),
+            onDismiss = {
+                showProtectionDialog =
+                    false
+            },
+            onSave = { amountMinor ->
+                val activeCycle =
+                    cycleSnapshot.cycle
+                if (activeCycle == null) {
+                    false
+                } else {
+                    cycleProtectionStore.set(
+                        cycleStartTransactionId =
+                            activeCycle.startTransactionId,
+                        amountMinor = amountMinor
+                    )
+                    showProtectionDialog = false
+                    refresh()
+                    true
+                }
+            }
+        )
+    }
+
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
@@ -494,6 +567,19 @@ fun HomeScreen(
                     cycleSnapshot.safeTodayMinor
                         ?.let(::formatMoney)
             )
+        }
+
+        if (cycleSnapshot.cycle != null) {
+            item {
+                PaydayContextCard(
+                    snapshot =
+                        cycleSnapshot,
+                    onProtectMoney = {
+                        showProtectionDialog =
+                            true
+                    }
+                )
+            }
         }
 
         item {
@@ -1231,6 +1317,302 @@ private fun expectedSalaryPrompt(
 }
 
 @Composable
+private fun PaydayContextCard(
+    snapshot: PayCycleSnapshot,
+    onProtectMoney: () -> Unit
+) {
+    val cycle =
+        snapshot.cycle
+            ?: return
+    val payday =
+        snapshot.paydaySnapshot
+    val startingResources =
+        cycle.openingIncomeMinor +
+            cycle.carryoverMinor
+
+    PesaCard {
+        Column(
+            modifier =
+                Modifier.padding(16.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+                    Text(
+                        "Payday picture",
+                        style =
+                            MaterialTheme.typography
+                                .titleLarge,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                    Text(
+                        "Cycle started " +
+                            formatShortDate(
+                                cycle.startEpochMs
+                            ),
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+                Text(
+                    formatMoney(
+                        startingResources
+                    ),
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    fontWeight =
+                        FontWeight.Bold
+                )
+            }
+
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(10.dp)
+            ) {
+                PaydayValue(
+                    label = "Carried in",
+                    value =
+                        formatMoney(
+                            cycle.carryoverMinor
+                        ),
+                    modifier =
+                        Modifier.weight(1f)
+                )
+                PaydayValue(
+                    label = "Salary",
+                    value =
+                        formatMoney(
+                            cycle.openingIncomeMinor
+                        ),
+                    modifier =
+                        Modifier.weight(1f)
+                )
+            }
+
+            payday?.let { context ->
+                if (
+                    context.protectedSavingsMinor >
+                    0L ||
+                    context.debtOutstandingMinor >
+                    0L
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(
+                                10.dp
+                            )
+                    ) {
+                        PaydayValue(
+                            label =
+                                "Protected savings",
+                            value =
+                                formatMoney(
+                                    context
+                                        .protectedSavingsMinor
+                                ),
+                            modifier =
+                                Modifier.weight(
+                                    1f
+                                )
+                        )
+                        PaydayValue(
+                            label =
+                                "Debt at payday",
+                            value =
+                                formatMoney(
+                                    context
+                                        .debtOutstandingMinor
+                                ),
+                            modifier =
+                                Modifier.weight(
+                                    1f
+                                )
+                        )
+                    }
+                }
+
+                if (
+                    context
+                        .unknownLiquidAccountCount >
+                    0
+                ) {
+                    Text(
+                        context
+                            .unknownLiquidAccountCount
+                            .toString() +
+                            " spendable account balance" +
+                            if (
+                                context
+                                    .unknownLiquidAccountCount ==
+                                1
+                            ) {
+                                " was"
+                            } else {
+                                "s were"
+                            } +
+                            " unknown at payday, so carried-in cash is a known minimum rather than a guess.",
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .secondary
+                    )
+                }
+            }
+
+            if (
+                snapshot.userProtectedMinor >
+                0L
+            ) {
+                Surface(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    shape =
+                        androidx.compose.foundation
+                            .shape
+                            .RoundedCornerShape(
+                                16.dp
+                            ),
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .primaryContainer
+                            .copy(alpha = .55f)
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.padding(
+                                12.dp
+                            ),
+                        verticalAlignment =
+                            Alignment
+                                .CenterVertically
+                    ) {
+                        Column(
+                            modifier =
+                                Modifier.weight(
+                                    1f
+                                )
+                        ) {
+                            Text(
+                                "Protected by you",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelMedium
+                            )
+                            Text(
+                                formatMoney(
+                                    snapshot
+                                        .userProtectedMinor
+                                ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium,
+                                fontWeight =
+                                    FontWeight
+                                        .SemiBold
+                            )
+                        }
+                        TextButton(
+                            onClick =
+                                onProtectMoney
+                        ) {
+                            Text("Edit")
+                        }
+                    }
+                }
+            } else {
+                OutlinedButton(
+                    onClick = onProtectMoney,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                ) {
+                    Text(
+                        "Protect some money from spending"
+                    )
+                }
+            }
+
+            Text(
+                "PesaTrack treats existing cash and new salary as one spendable pool. It does not pretend to know which individual shilling funded a purchase.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun PaydayValue(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape =
+            androidx.compose.foundation.shape
+                .RoundedCornerShape(16.dp),
+        color =
+            MaterialTheme.colorScheme
+                .surfaceVariant
+                .copy(alpha = .48f)
+    ) {
+        Column(
+            modifier =
+                Modifier.padding(12.dp)
+        ) {
+            Text(
+                label,
+                style =
+                    MaterialTheme.typography
+                        .labelMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+            Text(
+                value,
+                modifier =
+                    Modifier.padding(top = 3.dp),
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                fontWeight =
+                    FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
 private fun ExpectedSalaryCard(
     prompt: ExpectedSalaryPrompt,
     onAddSalary: () -> Unit,
@@ -1277,6 +1659,161 @@ private fun ExpectedSalaryCard(
             }
         }
     }
+}
+
+@Composable
+private fun ProtectMoneyDialog(
+    currentMinor: Long,
+    maximumSuggestedMinor: Long,
+    onDismiss: () -> Unit,
+    onSave: (Long) -> Boolean
+) {
+    var amount by remember(
+        currentMinor
+    ) {
+        mutableStateOf(
+            if (currentMinor > 0L) {
+                java.math.BigDecimal(
+                    currentMinor
+                )
+                    .movePointLeft(2)
+                    .stripTrailingZeros()
+                    .toPlainString()
+            } else {
+                ""
+            }
+        )
+    }
+    var error by remember(
+        currentMinor
+    ) {
+        mutableStateOf<String?>(null)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Protect money"
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        10.dp
+                    )
+            ) {
+                Text(
+                    "Use this when money stays in a normal bank or wallet but you do not want PesaTrack to treat it as available for everyday spending. This does not move the money.",
+                    style =
+                        MaterialTheme.typography
+                            .bodyMedium,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = {
+                        amount = it
+                        error = null
+                    },
+                    label = {
+                        Text(
+                            "Amount to protect"
+                        )
+                    },
+                    prefix = {
+                        Text("KES ")
+                    },
+                    supportingText = {
+                        Text(
+                            if (
+                                maximumSuggestedMinor >
+                                0L
+                            ) {
+                                "Current known unprotected resources: " +
+                                    formatMoney(
+                                        maximumSuggestedMinor
+                                    )
+                            } else {
+                                "Enter 0 to remove the protection."
+                            }
+                        )
+                    },
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType =
+                                KeyboardType.Decimal
+                        ),
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                error?.let {
+                    Text(
+                        it,
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .error
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text("Cancel")
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val parsed =
+                        if (
+                            amount.trim()
+                                .isBlank()
+                        ) {
+                            0L
+                        } else {
+                            parseHomeMoneyMinor(
+                                amount
+                            )
+                        }
+                    error =
+                        when {
+                            parsed == null ->
+                                "Enter a valid amount."
+                            parsed < 0L ->
+                                "Protected money cannot be negative."
+                            parsed >
+                                maximumSuggestedMinor ->
+                                "That is more than the cash PesaTrack currently knows is available."
+                            !onSave(
+                                parsed
+                            ) ->
+                                "Could not save this protection."
+                            else -> null
+                        }
+                }
+            ) {
+                Text(
+                    if (
+                        currentMinor > 0L
+                    ) {
+                        "Save"
+                    } else {
+                        "Protect"
+                    }
+                )
+            }
+        }
+    )
 }
 
 @Composable
@@ -1418,6 +1955,24 @@ private fun homeInsight(
             } else {
                 "s are waiting for review before they enter trusted totals."
             }
+    cycleSnapshot.paydaySnapshot
+        ?.unknownLiquidAccountCount
+        ?.let { it > 0 } == true ->
+        cycleSnapshot.paydaySnapshot!!
+            .unknownLiquidAccountCount
+            .toString() +
+            " spendable account balance" +
+            if (
+                cycleSnapshot.paydaySnapshot!!
+                    .unknownLiquidAccountCount ==
+                1
+            ) {
+                " was"
+            } else {
+                "s were"
+            } +
+            " unknown at payday. Your carried-in amount is conservative."
+
     cycleSnapshot.unexplainedFundingGapMinor > 0L ->
         "Some spending still needs a funding source. Reconcile it before relying on the full picture."
     cycleSnapshot.cycle == null ->

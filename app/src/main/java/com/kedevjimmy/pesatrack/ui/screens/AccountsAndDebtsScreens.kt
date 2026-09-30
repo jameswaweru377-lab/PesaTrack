@@ -87,10 +87,20 @@ fun AccountsScreen(
                 accountStore.listAccounts(
                     enabledOnly = true
                 )
+            val confirmedAccountIds =
+                understandingStore
+                    .confirmedAccountIds()
             val groups =
                 AccountDisplayPolicy.groups(
                     accounts
-                )
+                ).filter { group ->
+                    group.accounts.any {
+                        it.id in
+                            confirmedAccountIds ||
+                            !it.identifier
+                                .isNullOrBlank()
+                    }
+                }
             val balances =
                 understandingStore
                     .latestBalances()

@@ -24,6 +24,8 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createLiabilityPaymentDecisionsTable(db)
         createInvestmentTables(db)
         createEntityEnrichmentCacheTable(db)
+        createPaydaySnapshotTables(db)
+        createCycleProtectionTable(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -344,6 +346,50 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 "settlement_reason",
                 "TEXT"
             )
+        }
+
+        if (oldVersion < 25) {
+            createPaydaySnapshotTables(db)
+            db.execSQL(
+                """
+                UPDATE financial_entities
+                SET ownership_hint = 'UNKNOWN'
+                WHERE confirmed_account_id IS NULL
+                  AND nature_hint != 'LIABILITY'
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE financial_entities
+                SET ownership_hint = 'UNKNOWN',
+                    confirmed_account_id = NULL
+                WHERE account_type_hint = 'BANK'
+                  AND nature_hint != 'LIABILITY'
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE financial_entities
+                SET ownership_hint = 'UNKNOWN',
+                    confirmed_account_id = NULL
+                WHERE provider_key IN (
+                        'SAFARICOM_MPESA',
+                        'NCBA_MSHWARI_SAVINGS',
+                        'NCBA_MSHWARI_LOCK_SAVINGS'
+                      )
+                  AND NOT EXISTS (
+                        SELECT 1
+                        FROM money_accounts
+                        WHERE id = 'account-mpesa'
+                          AND identifier IS NOT NULL
+                          AND TRIM(identifier) != ''
+                      )
+                """.trimIndent()
+            )
+        }
+
+        if (oldVersion < 26) {
+            createCycleProtectionTable(db)
         }
 
         createIndexes(db)
@@ -840,6 +886,61 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createCycleProtectionTable(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS cycle_protections (
+                cycle_start_transaction_id INTEGER PRIMARY KEY,
+                amount_minor INTEGER NOT NULL DEFAULT 0,
+                label TEXT NOT NULL DEFAULT 'Protected money',
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
+    private fun createPaydaySnapshotTables(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS payday_snapshots (
+                id TEXT PRIMARY KEY,
+                salary_transaction_id INTEGER NOT NULL UNIQUE,
+                salary_epoch_ms INTEGER NOT NULL,
+                salary_account_id TEXT,
+                salary_amount_minor INTEGER NOT NULL,
+                liquid_carryover_minor INTEGER NOT NULL DEFAULT 0,
+                protected_savings_minor INTEGER NOT NULL DEFAULT 0,
+                debt_outstanding_minor INTEGER NOT NULL DEFAULT 0,
+                unknown_liquid_account_count INTEGER NOT NULL DEFAULT 0,
+                known_liquid_account_count INTEGER NOT NULL DEFAULT 0,
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS payday_snapshot_accounts (
+                snapshot_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                account_name TEXT NOT NULL,
+                account_type TEXT NOT NULL,
+                balance_minor INTEGER,
+                balance_quality TEXT NOT NULL,
+                reference_epoch_ms INTEGER,
+                spendability TEXT NOT NULL,
+                PRIMARY KEY(snapshot_id, account_id)
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun createEntityEnrichmentCacheTable(
         db: SQLiteDatabase
     ) {
@@ -963,6 +1064,15 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_investment_event_reference_value ON investment_event_references(reference_value)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_payday_snapshots_salary_time ON payday_snapshots(salary_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_payday_snapshot_accounts_snapshot ON payday_snapshot_accounts(snapshot_id)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_cycle_protections_updated ON cycle_protections(updated_at_epoch_ms DESC)"
+        )
     }
 
     private fun createTriggers(db: SQLiteDatabase) {
@@ -983,6 +1093,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 24
+        private const val DATABASE_VERSION = 26
     }
 }

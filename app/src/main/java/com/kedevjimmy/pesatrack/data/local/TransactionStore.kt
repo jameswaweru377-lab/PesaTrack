@@ -37,6 +37,14 @@ import com.kedevjimmy.pesatrack.domain.rules.TransactionEvidenceResolver
 import java.util.Calendar
 import java.util.TimeZone
 
+data class SalaryHistoryCandidate(
+    val transactionId: Long,
+    val amountMinor: Long,
+    val occurredAtEpochMs: Long,
+    val counterparty: String?,
+    val accountId: String?
+)
+
 class TransactionStore private constructor(context: Context) {
     private val appContext = context.applicationContext
     private val database = PesaTrackDatabase(appContext)
@@ -231,6 +239,73 @@ class TransactionStore private constructor(context: Context) {
                 MpesaTransactionType.WITHDRAWAL -> AccountStore.DEFAULT_CASH_ID
                 else -> null
             }
+        }
+
+        val existingFingerprint =
+            getByFingerprint(fingerprint)
+        if (existingFingerprint != null) {
+            val values =
+                ContentValues().apply {
+                    if (
+                        existingFingerprint.accountId ==
+                            null &&
+                        accountId != null
+                    ) {
+                        put(
+                            "account_id",
+                            accountId
+                        )
+                    }
+                    if (
+                        existingFingerprint.linkedAccountId ==
+                            null &&
+                        linkedAccountId != null
+                    ) {
+                        put(
+                            "linked_account_id",
+                            linkedAccountId
+                        )
+                    }
+                    if (
+                        matchedRule != null
+                    ) {
+                        put(
+                            "direction",
+                            classification.direction.name
+                        )
+                        put(
+                            "category",
+                            classification.category.name
+                        )
+                        put(
+                            "review_state",
+                            classification.reviewState.name
+                        )
+                        put(
+                            "rule_id",
+                            matchedRule.id
+                        )
+                        put(
+                            "planning_month",
+                            classification.planningMonth
+                        )
+                    }
+                }
+            if (values.size() > 0) {
+                database.writableDatabase
+                    .update(
+                        "transactions",
+                        values,
+                        "id = ?",
+                        arrayOf(
+                            existingFingerprint.id
+                                .toString()
+                        )
+                    )
+                LedgerUpdateBus
+                    .notifyChanged()
+            }
+            return false
         }
 
         val correlationReferences =
@@ -454,6 +529,112 @@ class TransactionStore private constructor(context: Context) {
             PayCycleStore.get(appContext).rebuild()
         }
         return inserted
+    }
+
+    @Synchronized
+    fun salaryHistoryCandidates(
+        payerQuery: String,
+        sinceEpochMs: Long,
+        accountId: String? = null,
+        limit: Int = 24
+    ): List<SalaryHistoryCandidate> {
+        val query =
+            payerQuery.trim()
+        if (query.isBlank()) {
+            return emptyList()
+        }
+
+        val accountClause =
+            if (accountId == null) {
+                ""
+            } else {
+                " AND account_id = ?"
+            }
+        val args =
+            buildList {
+                add(
+                    MoneyDirection
+                        .INCOME.name
+                )
+                add(
+                    ReviewState
+                        .EXCLUDED.name
+                )
+                add(
+                    sinceEpochMs
+                        .toString()
+                )
+                add("%$query%")
+                if (
+                    accountId != null
+                ) {
+                    add(accountId)
+                }
+                add(
+                    limit.coerceIn(
+                        1,
+                        100
+                    ).toString()
+                )
+            }.toTypedArray()
+
+        return database.readableDatabase
+            .rawQuery(
+                """
+                SELECT id,
+                       amount_minor,
+                       occurred_at_epoch_ms,
+                       counterparty,
+                       account_id
+                FROM transactions
+                WHERE direction = ?
+                  AND review_state != ?
+                  AND occurred_at_epoch_ms >= ?
+                  AND COALESCE(
+                        counterparty,
+                        ''
+                      ) LIKE ?
+                        COLLATE NOCASE
+                  $accountClause
+                ORDER BY occurred_at_epoch_ms DESC,
+                         id DESC
+                LIMIT ?
+                """.trimIndent(),
+                args
+            ).use { cursor ->
+                buildList {
+                    while (
+                        cursor.moveToNext()
+                    ) {
+                        add(
+                            SalaryHistoryCandidate(
+                                transactionId =
+                                    cursor.getLong(0),
+                                amountMinor =
+                                    cursor.getLong(1),
+                                occurredAtEpochMs =
+                                    cursor.getLong(2),
+                                counterparty =
+                                    if (
+                                        cursor.isNull(3)
+                                    ) {
+                                        null
+                                    } else {
+                                        cursor.getString(3)
+                                    },
+                                accountId =
+                                    if (
+                                        cursor.isNull(4)
+                                    ) {
+                                        null
+                                    } else {
+                                        cursor.getString(4)
+                                    }
+                            )
+                        )
+                    }
+                }
+            }
     }
 
     @Synchronized
@@ -960,6 +1141,76 @@ class TransactionStore private constructor(context: Context) {
                     listOf(rule)
                 ) != null
         }
+
+    @Synchronized
+    fun applyRuleToTransaction(
+        transactionId: Long,
+        rule: SmartRule
+    ): Boolean {
+        val stored =
+            getById(transactionId)
+                ?: return false
+        val parsed =
+            stored.toParsedTransaction()
+        val classification =
+            classify(
+                parsed,
+                rule,
+                stored.occurredAtEpochMs
+            )
+        val values =
+            ContentValues().apply {
+                put(
+                    "direction",
+                    classification.direction.name
+                )
+                put(
+                    "category",
+                    classification.category.name
+                )
+                put(
+                    "review_state",
+                    ReviewState.USER_CLASSIFIED.name
+                )
+                put("rule_id", rule.id)
+                put(
+                    "planning_month",
+                    classification.planningMonth
+                )
+                if (
+                    rule.accountId != null
+                ) {
+                    put(
+                        "account_id",
+                        rule.accountId
+                    )
+                }
+                if (
+                    rule.linkedAccountId !=
+                    null
+                ) {
+                    put(
+                        "linked_account_id",
+                        rule.linkedAccountId
+                    )
+                }
+            }
+        val changed =
+            database.writableDatabase
+                .update(
+                    "transactions",
+                    values,
+                    "id = ?",
+                    arrayOf(
+                        transactionId.toString()
+                    )
+                ) > 0
+        if (changed) {
+            LedgerUpdateBus
+                .notifyChanged()
+        }
+        return changed
+    }
 
     @Synchronized
     fun reapplyRule(rule: SmartRule): Int {
@@ -2748,6 +2999,25 @@ class TransactionStore private constructor(context: Context) {
                 while (cursor.moveToNext()) add(cursor.toStoredTransaction())
             }
         }
+
+    private fun getByFingerprint(
+        fingerprint: String
+    ): StoredTransaction? =
+        database.readableDatabase
+            .rawQuery(
+                BASE_SELECT +
+                    " WHERE fingerprint = ? LIMIT 1",
+                arrayOf(fingerprint)
+            )
+            .use { cursor ->
+                if (
+                    cursor.moveToFirst()
+                ) {
+                    cursor.toStoredTransaction()
+                } else {
+                    null
+                }
+            }
 
     private fun hasLegacyFingerprintAt(
         fingerprint: String,

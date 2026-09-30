@@ -85,7 +85,17 @@ class FinancialUnderstandingStore private constructor(
             )
             put(
                 "ownership_hint",
-                reference.ownershipHint.name
+                if (accountId != null) {
+                    AccountOwnershipHint
+                        .USER_OWNED.name
+                } else if (
+                    reference.nature ==
+                    FinancialAccountNature.LIABILITY
+                ) {
+                    reference.ownershipHint.name
+                } else {
+                    AccountOwnershipHint.UNKNOWN.name
+                }
             )
             put("nature_hint", reference.nature.name)
             if (accountId != null) {
@@ -113,9 +123,17 @@ class FinancialUnderstandingStore private constructor(
                 "account_type_hint",
                 reference.accountTypeHint.name
             )
-            if (
+            if (accountId != null) {
+                put(
+                    "ownership_hint",
+                    AccountOwnershipHint
+                        .USER_OWNED.name
+                )
+            } else if (
+                reference.nature ==
+                    FinancialAccountNature.LIABILITY &&
                 reference.ownershipHint !=
-                AccountOwnershipHint.UNKNOWN
+                    AccountOwnershipHint.UNKNOWN
             ) {
                 put(
                     "ownership_hint",
@@ -380,6 +398,32 @@ class FinancialUnderstandingStore private constructor(
         }
 
     @Synchronized
+    fun confirmedAccountIds(): Set<String> =
+        database.readableDatabase
+            .rawQuery(
+                """
+                SELECT DISTINCT confirmed_account_id
+                FROM financial_entities
+                WHERE confirmed_account_id IS NOT NULL
+                  AND ownership_hint = ?
+                """.trimIndent(),
+                arrayOf(
+                    AccountOwnershipHint
+                        .USER_OWNED.name
+                )
+            ).use { cursor ->
+                buildSet {
+                    while (
+                        cursor.moveToNext()
+                    ) {
+                        add(
+                            cursor.getString(0)
+                        )
+                    }
+                }
+            }
+
+    @Synchronized
     fun latestBalances(): List<ObservedAccountBalance> =
         database.readableDatabase.rawQuery(
             """
@@ -496,6 +540,96 @@ class FinancialUnderstandingStore private constructor(
 
         LedgerUpdateBus.notifyChanged()
         return account.id
+    }
+
+    @Synchronized
+    fun confirmProviderOwned(
+        providerKey: String,
+        accountId: String? = null
+    ): String? {
+        val entity =
+            database.readableDatabase
+                .rawQuery(
+                    """
+                    SELECT entity_key,
+                           display_name,
+                           account_type_hint
+                    FROM financial_entities
+                    WHERE provider_key = ?
+                    ORDER BY last_seen_epoch_ms DESC
+                    LIMIT 1
+                    """.trimIndent(),
+                    arrayOf(providerKey)
+                ).use { cursor ->
+                    if (!cursor.moveToFirst()) {
+                        null
+                    } else {
+                        Triple(
+                            cursor.getString(0),
+                            cursor.getString(1),
+                            cursor.getString(2)
+                        )
+                    }
+                }
+                ?: return accountId
+
+        val resolvedAccountId =
+            accountId
+                ?: accountStore.findOrCreate(
+                    name = entity.second,
+                    type =
+                        runCatching {
+                            com.kedevjimmy
+                                .pesatrack
+                                .domain.model
+                                .AccountType
+                                .valueOf(
+                                    entity.third
+                                )
+                        }.getOrDefault(
+                            com.kedevjimmy
+                                .pesatrack
+                                .domain.model
+                                .AccountType
+                                .OTHER
+                        )
+                ).id
+
+        val values =
+            ContentValues().apply {
+                put(
+                    "ownership_hint",
+                    AccountOwnershipHint
+                        .USER_OWNED.name
+                )
+                put(
+                    "confirmed_account_id",
+                    resolvedAccountId
+                )
+            }
+        database.writableDatabase.update(
+            "financial_entities",
+            values,
+            "entity_key = ?",
+            arrayOf(entity.first)
+        )
+
+        ContentValues().apply {
+            put(
+                "account_id",
+                resolvedAccountId
+            )
+        }.also { observationValues ->
+            database.writableDatabase.update(
+                "account_balance_observations",
+                observationValues,
+                "entity_key = ? AND account_id IS NULL",
+                arrayOf(entity.first)
+            )
+        }
+
+        LedgerUpdateBus.notifyChanged()
+        return resolvedAccountId
     }
 
     @Synchronized
@@ -693,18 +827,60 @@ class FinancialUnderstandingStore private constructor(
         reference: FinancialAccountReference
     ): String? {
         if (
+            reference.entityKey ==
+            "system:cash"
+        ) {
+            return AccountStore
+                .DEFAULT_CASH_ID
+        }
+
+        if (
             reference.ownershipHint !=
             AccountOwnershipHint.USER_OWNED
         ) {
             return null
         }
 
-        return stableOwnedAccountIds[
-            reference.entityKey
-        ] ?: accountStore.findOrCreate(
-            name = reference.displayName,
-            type = reference.accountTypeHint
-        ).id
+        val mpesaConfirmed =
+            accountStore
+                .listAccounts(
+                    enabledOnly = false
+                )
+                .firstOrNull {
+                    it.id ==
+                        AccountStore
+                            .DEFAULT_MPESA_ID
+                }
+                ?.identifier
+                .isNullOrBlank()
+                .not()
+
+        return when (
+            reference.providerKey
+        ) {
+            "SAFARICOM_MPESA" ->
+                if (mpesaConfirmed) {
+                    AccountStore
+                        .DEFAULT_MPESA_ID
+                } else {
+                    null
+                }
+
+            "NCBA_MSHWARI_SAVINGS",
+            "NCBA_MSHWARI_LOCK_SAVINGS" ->
+                if (mpesaConfirmed) {
+                    accountStore.findOrCreate(
+                        name =
+                            reference.displayName,
+                        type =
+                            reference.accountTypeHint
+                    ).id
+                } else {
+                    null
+                }
+
+            else -> null
+        }
     }
 
     companion object {

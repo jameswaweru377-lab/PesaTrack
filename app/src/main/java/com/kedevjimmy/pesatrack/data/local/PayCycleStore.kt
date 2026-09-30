@@ -6,6 +6,8 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.rules.PayCyclePolicy
+import com.kedevjimmy.pesatrack.domain.rules.PaydayCarryoverEvidence
+import com.kedevjimmy.pesatrack.domain.rules.PaydayCarryoverPolicy
 import com.kedevjimmy.pesatrack.domain.rules.FundingGapPolicy
 import kotlin.math.max
 import java.util.Calendar
@@ -14,7 +16,14 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class PayCycleStore private constructor(context: Context) {
-    private val database = PesaTrackDatabase(context)
+    private val appContext =
+        context.applicationContext
+    private val database =
+        PesaTrackDatabase(appContext)
+    private val paydaySnapshotStore =
+        PaydaySnapshotStore.get(appContext)
+    private val cycleProtectionStore =
+        CycleProtectionStore.get(appContext)
 
     @Synchronized
     fun rebuild() {
@@ -86,50 +95,99 @@ class PayCycleStore private constructor(context: Context) {
                 }
             }
 
-            var previousEnding = 0L
-            accepted.forEachIndexed { index, event ->
-                val nextStart = accepted.getOrNull(index + 1)?.occurredAtEpochMs
-                val cycleId = UUID.randomUUID().toString()
-                val ending = nextStart?.let {
-                    trackedRemainder(
-                        startTransactionId = event.transactionId,
-                        startEpochMs = event.occurredAtEpochMs,
-                        endEpochMs = it,
-                        openingIncomeMinor = event.amountMinor,
-                        carryoverMinor = previousEnding
+            paydaySnapshotStore.rebuildForSalaryAnchors(
+                accepted.map { event ->
+                    PaydaySalaryAnchor(
+                        transactionId = event.transactionId,
+                        occurredAtEpochMs = event.occurredAtEpochMs,
+                        amountMinor = event.amountMinor,
+                        accountId = event.accountId
                     )
                 }
+            )
+
+            var previousEnding: Long? = null
+            accepted.forEachIndexed { index, event ->
+                val nextStart =
+                    accepted.getOrNull(index + 1)
+                        ?.occurredAtEpochMs
+                val cycleId =
+                    UUID.randomUUID().toString()
+                val payday =
+                    paydaySnapshotStore
+                        .snapshotForSalaryTransaction(
+                            event.transactionId
+                        )
+                val carryover =
+                    PaydayCarryoverPolicy
+                        .resolve(
+                            cycleIndex = index,
+                            payday =
+                                payday?.let {
+                                    PaydayCarryoverEvidence(
+                                        knownLiquidMinor =
+                                            it.liquidCarryoverMinor,
+                                        knownLiquidAccountCount =
+                                            it.knownLiquidAccountCount,
+                                        unknownLiquidAccountCount =
+                                            it.unknownLiquidAccountCount
+                                    )
+                                },
+                            previousTrackedEndingMinor =
+                                previousEnding
+                        )
+                val ending =
+                    nextStart?.let {
+                        trackedRemainder(
+                            startTransactionId = event.transactionId,
+                            startEpochMs = event.occurredAtEpochMs,
+                            endEpochMs = it,
+                            openingIncomeMinor = event.amountMinor,
+                            carryoverMinor = carryover
+                        )
+                    }
 
                 val now = System.currentTimeMillis()
                 val values = ContentValues().apply {
                     put("id", cycleId)
                     put("start_transaction_id", event.transactionId)
                     put("start_epoch_ms", event.occurredAtEpochMs)
-                    if (nextStart != null) put("end_epoch_ms", nextStart) else putNull("end_epoch_ms")
+                    if (nextStart != null) put("end_epoch_ms", nextStart)
+                    else putNull("end_epoch_ms")
                     put("opening_income_minor", event.amountMinor)
-                    put("carryover_minor", previousEnding)
-                    if (ending != null) put("ending_tracked_minor", ending) else putNull("ending_tracked_minor")
+                    put("carryover_minor", carryover)
+                    if (ending != null) put("ending_tracked_minor", ending)
+                    else putNull("ending_tracked_minor")
                     put("state", if (nextStart == null) STATE_ACTIVE else STATE_CLOSED)
                     put("created_at_epoch_ms", now)
                     put("updated_at_epoch_ms", now)
                 }
                 db.insertOrThrow("pay_cycles", null, values)
 
-                val where = if (nextStart == null) {
-                    "occurred_at_epoch_ms >= ?"
-                } else {
-                    "occurred_at_epoch_ms >= ? AND occurred_at_epoch_ms < ?"
-                }
-                val args = if (nextStart == null) {
-                    arrayOf(event.occurredAtEpochMs.toString())
-                } else {
-                    arrayOf(event.occurredAtEpochMs.toString(), nextStart.toString())
-                }
-
+                val where =
+                    if (nextStart == null) {
+                        "occurred_at_epoch_ms >= ?"
+                    } else {
+                        "occurred_at_epoch_ms >= ? AND occurred_at_epoch_ms < ?"
+                    }
+                val args =
+                    if (nextStart == null) {
+                        arrayOf(event.occurredAtEpochMs.toString())
+                    } else {
+                        arrayOf(
+                            event.occurredAtEpochMs.toString(),
+                            nextStart.toString()
+                        )
+                    }
                 ContentValues().apply {
                     put("pay_cycle_id", cycleId)
                 }.also { transactionValues ->
-                    db.update("transactions", transactionValues, where, args)
+                    db.update(
+                        "transactions",
+                        transactionValues,
+                        where,
+                        args
+                    )
                 }
 
                 if (ending != null) {
@@ -149,6 +207,13 @@ class PayCycleStore private constructor(context: Context) {
     ): PayCycleSnapshot {
         val cycle = currentCycle()
         val pending = pendingSalaryCandidate()
+        val paydaySnapshot =
+            cycle?.let {
+                paydaySnapshotStore
+                    .snapshotForCycleStart(
+                        it.startTransactionId
+                    )
+            }
 
         if (cycle == null) {
             return PayCycleSnapshot(
@@ -164,13 +229,21 @@ class PayCycleStore private constructor(context: Context) {
                 estimatedDaysRemaining = null,
                 commitments = emptyList(),
                 pendingSalary = pending,
-                unexplainedFundingGapMinor = 0L
+                unexplainedFundingGapMinor = 0L,
+                paydaySnapshot = null
             )
         }
 
         val totals = cycleTotals(cycle)
         val commitments = commitmentsFor(cycle)
         val remainingCommitments = commitments.sumOf { it.remainingMinor }
+        val userProtectedMinor =
+            cycleProtectionStore
+                .get(
+                    cycle.startTransactionId
+                )
+                ?.amountMinor
+                ?: 0L
         val startingFunds = cycle.openingIncomeMinor + cycle.carryoverMinor
         val available = startingFunds +
             totals.additionalIncomeMinor +
@@ -178,7 +251,8 @@ class PayCycleStore private constructor(context: Context) {
             totals.spentMinor -
             totals.feesMinor -
             totals.savingsMinor -
-            remainingCommitments
+            remainingCommitments -
+            userProtectedMinor
         val unexplainedFundingGap = FundingGapPolicy.unexplainedGap(
             startingFundsMinor = startingFunds,
             additionalIncomeMinor =
@@ -215,7 +289,10 @@ class PayCycleStore private constructor(context: Context) {
             commitments = commitments,
             pendingSalary = pending,
             unexplainedFundingGapMinor = unexplainedFundingGap,
-            refundsMinor = totals.refundsMinor
+            refundsMinor = totals.refundsMinor,
+            paydaySnapshot = paydaySnapshot,
+            userProtectedMinor =
+                userProtectedMinor
         )
     }
 
@@ -274,7 +351,8 @@ class PayCycleStore private constructor(context: Context) {
                    COALESCE(t.counterparty, r.display_label, r.name),
                    t.cycle_override,
                    r.pay_window_start_day,
-                   r.pay_window_end_day
+                   r.pay_window_end_day,
+                   t.account_id
             FROM transactions t
             JOIN smart_rules r ON t.rule_id = r.id
             WHERE r.starts_pay_cycle = 1
@@ -294,8 +372,12 @@ class PayCycleStore private constructor(context: Context) {
                             amountMinor = cursor.getLong(2),
                             label = cursor.getString(3) ?: "Salary",
                             override = if (cursor.isNull(4)) null else cursor.getString(4),
-                            payWindowStartDay = if (cursor.isNull(5)) null else cursor.getInt(5),
-                            payWindowEndDay = if (cursor.isNull(6)) null else cursor.getInt(6)
+                            payWindowStartDay =
+                                if (cursor.isNull(5)) null else cursor.getInt(5),
+                            payWindowEndDay =
+                                if (cursor.isNull(6)) null else cursor.getInt(6),
+                            accountId =
+                                if (cursor.isNull(7)) null else cursor.getString(7)
                         )
                     )
                 }
@@ -616,7 +698,8 @@ class PayCycleStore private constructor(context: Context) {
         val label: String,
         val override: String?,
         val payWindowStartDay: Int?,
-        val payWindowEndDay: Int?
+        val payWindowEndDay: Int?,
+        val accountId: String?
     )
 
     private data class CycleTotals(

@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Message
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Wallet
@@ -75,6 +76,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
+import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.data.local.RuleStore
@@ -87,9 +90,11 @@ import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingDiscoveryEngine
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingSalarySuggestion
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingTransactionObservation
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
+import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.HistoryImportWindow
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
+import com.kedevjimmy.pesatrack.ingestion.FinancialMessageIngestionCoordinator
 import com.kedevjimmy.pesatrack.ingestion.HistoricalImportResult
 import com.kedevjimmy.pesatrack.ingestion.HistoricalSmsImporter
 import com.kedevjimmy.pesatrack.ingestion.MpesaNotificationListenerService
@@ -127,6 +132,20 @@ private enum class AnalysisStep {
     COMPLETE
 }
 
+private enum class SalaryHistoryMode {
+    LATEST_ONLY,
+    IMPORT_WINDOW
+}
+
+private data class SmartSalaryDraft(
+    val monthKey: String,
+    val monthLabel: String,
+    val amount: String = "",
+    val paidAtEpochMs: Long? = null,
+    val matchedTransactionId: Long? = null
+)
+
+
 private data class DetectedSetupSource(
     val name: String,
     val type: String,
@@ -152,6 +171,16 @@ fun SmartOnboardingSetupScreen(
     val diagnosticsStore = remember {
         FinancialIngestionDiagnosticsStore.get(context)
     }
+    val financialUnderstandingStore =
+        remember {
+            FinancialUnderstandingStore
+                .get(context)
+        }
+    val financialCoordinator =
+        remember {
+            FinancialMessageIngestionCoordinator
+                .get(context)
+        }
 
     var stage by rememberSaveable {
         mutableStateOf(SmartSetupStage.IMPORT)
@@ -175,6 +204,11 @@ fun SmartOnboardingSetupScreen(
         mutableStateOf<List<DetectedSetupSource>>(
             emptyList()
         )
+    }
+    var pendingOwnershipEntities by remember {
+        mutableStateOf<
+            List<DiscoveredFinancialEntity>
+        >(emptyList())
     }
     var salarySuggestion by remember {
         mutableStateOf<OnboardingSalarySuggestion?>(null)
@@ -222,11 +256,24 @@ fun SmartOnboardingSetupScreen(
     var manualSalaryPayer by rememberSaveable {
         mutableStateOf("")
     }
-    var manualSalaryAmount by rememberSaveable {
-        mutableStateOf("")
+    var manualSalaryHistoryMode by rememberSaveable {
+        mutableStateOf(
+            if (importMonths > 1) {
+                SalaryHistoryMode.IMPORT_WINDOW
+            } else {
+                SalaryHistoryMode.LATEST_ONLY
+            }
+        )
     }
-    var manualSalaryDateEpochMs by rememberSaveable {
-        mutableStateOf<Long?>(null)
+    var manualSalaryDrafts by remember {
+        mutableStateOf(
+            defaultSmartSalaryDrafts(
+                importMonths
+            )
+        )
+    }
+    var salaryHistorySearchStatus by remember {
+        mutableStateOf<String?>(null)
     }
     var manualSalaryError by remember {
         mutableStateOf<String?>(null)
@@ -487,6 +534,15 @@ fun SmartOnboardingSetupScreen(
             accountDiscovery.first
         availableAccounts =
             accountDiscovery.second
+        pendingOwnershipEntities =
+            withContext(
+                Dispatchers.IO
+            ) {
+                onboardingOwnershipCandidates(
+                    financialUnderstandingStore
+                        .pendingEntities()
+                )
+            }
         if (
             manualSalaryAccountId.isBlank()
         ) {
@@ -608,6 +664,182 @@ fun SmartOnboardingSetupScreen(
             SmartSetupStage.REVIEW
     }
 
+    LaunchedEffect(
+        stage,
+        importMonths
+    ) {
+        if (
+            stage ==
+            SmartSetupStage.SALARY_MANUAL
+        ) {
+            val desired =
+                if (
+                    manualSalaryHistoryMode ==
+                    SalaryHistoryMode.LATEST_ONLY
+                ) {
+                    1
+                } else {
+                    importMonths
+                        .coerceAtLeast(1)
+                }
+            if (
+                manualSalaryDrafts.size !=
+                desired
+            ) {
+                manualSalaryDrafts =
+                    defaultSmartSalaryDrafts(
+                        desired
+                    )
+            }
+        }
+    }
+
+    suspend fun searchImportedSalaryHistory() {
+        val payer =
+            manualSalaryPayer.trim()
+        if (payer.isBlank()) {
+            manualSalaryError =
+                "Enter the payroll or statement name first."
+            return
+        }
+
+        val startEpochMs =
+            HistoryImportWindow
+                .importStartEpochMs(
+                    importMonths
+                        .coerceAtLeast(1)
+                )
+                ?: (
+                    System.currentTimeMillis() -
+                        31L * 24L * 60L *
+                            60L * 1000L
+                    )
+
+        val candidates =
+            withContext(
+                Dispatchers.IO
+            ) {
+                transactionStore
+                    .salaryHistoryCandidates(
+                        payerQuery = payer,
+                        sinceEpochMs =
+                            startEpochMs,
+                        accountId =
+                            manualSalaryAccountId
+                                .takeIf {
+                                    it.isNotBlank()
+                                }
+                    )
+            }
+
+        if (candidates.isEmpty()) {
+            salaryHistorySearchStatus =
+                "No matching salary credits were found in the imported history. You can enter the paydays below."
+            manualSalaryError = null
+            return
+        }
+
+        val byMonth =
+            candidates
+                .groupBy {
+                    salaryMonthKey(
+                        it.occurredAtEpochMs
+                    )
+                }
+                .mapValues {
+                        (_, matches) ->
+                    matches.maxByOrNull {
+                        it.amountMinor
+                    }!!
+                }
+
+        val desired =
+            if (
+                manualSalaryHistoryMode ==
+                SalaryHistoryMode.LATEST_ONLY
+            ) {
+                1
+            } else {
+                importMonths
+                    .coerceAtLeast(1)
+            }
+
+        val baseDrafts =
+            defaultSmartSalaryDrafts(
+                desired
+            )
+        var found = 0
+        manualSalaryDrafts =
+            baseDrafts.map { draft ->
+                val match =
+                    byMonth[
+                        draft.monthKey
+                    ]
+                if (match != null) {
+                    found += 1
+                    draft.copy(
+                        amount =
+                            formatSetupAmountInput(
+                                match.amountMinor
+                            ),
+                        paidAtEpochMs =
+                            match.occurredAtEpochMs,
+                        matchedTransactionId =
+                            match.transactionId
+                    )
+                } else {
+                    draft
+                }
+            }
+
+        if (
+            manualSalaryHistoryMode ==
+                SalaryHistoryMode.LATEST_ONLY &&
+            found == 0
+        ) {
+            val latest =
+                candidates.maxByOrNull {
+                    it.occurredAtEpochMs
+                }
+            if (latest != null) {
+                manualSalaryDrafts =
+                    listOf(
+                        SmartSalaryDraft(
+                            monthKey =
+                                salaryMonthKey(
+                                    latest.occurredAtEpochMs
+                                ),
+                            monthLabel =
+                                "Most recent salary",
+                            amount =
+                                formatSetupAmountInput(
+                                    latest.amountMinor
+                                ),
+                            paidAtEpochMs =
+                                latest.occurredAtEpochMs,
+                            matchedTransactionId =
+                                latest.transactionId
+                        )
+                    )
+                found = 1
+            }
+        }
+
+        salaryHistorySearchStatus =
+            if (found > 0) {
+                "Found $found salary payment" +
+                    if (found == 1) {
+                        ""
+                    } else {
+                        "s"
+                    } +
+                    " in your imported history. Confirm or edit them below."
+            } else {
+                "Matching income exists, but it did not line up with the selected months. Enter the paydays below."
+            }
+        manualSalaryError = null
+    }
+
     suspend fun applySalaryIfConfirmed() {
         val suggestion =
             salarySuggestion
@@ -656,27 +888,6 @@ fun SmartOnboardingSetupScreen(
     }
 
     suspend fun applyManualSalary(): Boolean {
-        val amountMinor =
-            parseSetupMoneyMinor(
-                manualSalaryAmount
-            )
-        if (
-            amountMinor == null ||
-            amountMinor <= 0L
-        ) {
-            manualSalaryError =
-                "Enter the most recent salary amount."
-            return false
-        }
-
-        val paidAt =
-            manualSalaryDateEpochMs
-        if (paidAt == null) {
-            manualSalaryError =
-                "Choose the date that salary actually arrived."
-            return false
-        }
-
         val account =
             availableAccounts
                 .firstOrNull {
@@ -689,9 +900,67 @@ fun SmartOnboardingSetupScreen(
             return false
         }
 
+        val selectedDrafts =
+            if (
+                manualSalaryHistoryMode ==
+                SalaryHistoryMode.LATEST_ONLY
+            ) {
+                manualSalaryDrafts.take(1)
+            } else {
+                manualSalaryDrafts
+            }
+
+        val completed =
+            mutableListOf<
+                Triple<
+                    SmartSalaryDraft,
+                    Long,
+                    Long
+                >
+            >()
+        for (draft in selectedDrafts) {
+            val amountText =
+                draft.amount.trim()
+            val hasAny =
+                amountText.isNotBlank() ||
+                    draft.paidAtEpochMs !=
+                    null
+            if (!hasAny) {
+                continue
+            }
+
+            val amountMinor =
+                parseSetupMoneyMinor(
+                    amountText
+                )
+            val paidAt =
+                draft.paidAtEpochMs
+            if (
+                amountMinor == null ||
+                amountMinor <= 0L ||
+                paidAt == null
+            ) {
+                manualSalaryError =
+                    "Each salary you add needs both the amount and the date it actually arrived."
+                return false
+            }
+
+            completed +=
+                Triple(
+                    draft,
+                    amountMinor,
+                    paidAt
+                )
+        }
+
+        if (completed.isEmpty()) {
+            manualSalaryError =
+                "Add at least one salary payment."
+            return false
+        }
+
         val payer =
-            manualSalaryPayer
-                .trim()
+            manualSalaryPayer.trim()
         val ruleLabel =
             payer.ifBlank {
                 "Manual salary"
@@ -710,37 +979,144 @@ fun SmartOnboardingSetupScreen(
                     }
 
             val salaryRule =
-                existing ?: ruleStore.save(
+                ruleStore.save(
                     name = "Salary",
-                    counterpartyContains = "",
+                    counterpartyContains =
+                        payer.ifBlank {
+                            existing
+                                ?.counterpartyContains
+                                .orEmpty()
+                        },
                     counterpartyExact =
-                        ruleLabel,
+                        if (
+                            payer.isBlank()
+                        ) {
+                            existing
+                                ?.counterpartyExact
+                                ?.takeIf {
+                                    it.isNotBlank()
+                                }
+                                ?: ruleLabel
+                        } else {
+                            ""
+                        },
                     category =
                         TransactionCategory.INCOME,
                     direction =
                         MoneyDirection.INCOME,
-                    displayLabel = "Salary",
+                    notificationTitleContains =
+                        existing
+                            ?.notificationTitleContains
+                            .orEmpty(),
+                    messageContains =
+                        existing
+                            ?.messageContains
+                            .orEmpty(),
+                    planningMonthOffset =
+                        existing
+                            ?.planningMonthOffset
+                            ?: 0,
+                    displayLabel =
+                        "Salary",
+                    maximumAmountMinor =
+                        existing
+                            ?.maximumAmountMinor,
+                    enabled = true,
                     preset =
                         RulePreset.SALARY,
+                    plannedAmountMinor =
+                        existing
+                            ?.plannedAmountMinor,
                     startsPayCycle = true,
-                    accountId = account.id
+                    accountId = account.id,
+                    linkedAccountId =
+                        existing
+                            ?.linkedAccountId,
+                    payWindowStartDay =
+                        existing
+                            ?.payWindowStartDay,
+                    payWindowEndDay =
+                        existing
+                            ?.payWindowEndDay,
+                    counterpartyPhoneEquals =
+                        existing
+                            ?.counterpartyPhoneEquals
+                            .orEmpty(),
+                    id =
+                        existing?.id
+                            ?: java.util.UUID
+                                .randomUUID()
+                                .toString()
                 )
 
             transactionStore
                 .reapplyRule(
                     salaryRule
                 )
-            transactionStore
-                .insertManualIncome(
-                    amountMinor =
-                        amountMinor,
-                    occurredAtEpochMs =
-                        paidAt,
-                    label =
-                        ruleLabel,
-                    matchedRule =
-                        salaryRule
-                )
+
+            val historyMatches =
+                if (payer.isBlank()) {
+                    emptyList()
+                } else {
+                    val oldest =
+                        completed.minOf {
+                            it.third
+                        } -
+                            ONE_DAY_MS
+                    transactionStore
+                        .salaryHistoryCandidates(
+                            payerQuery = payer,
+                            sinceEpochMs =
+                                oldest,
+                            accountId =
+                                account.id,
+                            limit = 100
+                        )
+                }
+
+            completed.forEach {
+                    (draft, amountMinor, paidAt) ->
+                val backingTransactionId =
+                    draft.matchedTransactionId
+                        ?: historyMatches
+                            .firstOrNull {
+                                match ->
+                                match.amountMinor ==
+                                    amountMinor &&
+                                    kotlin.math.abs(
+                                        match.occurredAtEpochMs -
+                                            paidAt
+                                    ) <=
+                                    ONE_DAY_MS
+                            }
+                            ?.transactionId
+
+                if (
+                    backingTransactionId !=
+                    null
+                ) {
+                    transactionStore
+                        .applyRuleToTransaction(
+                            transactionId =
+                                backingTransactionId,
+                            rule =
+                                salaryRule
+                        )
+                } else {
+                    transactionStore
+                        .insertManualIncome(
+                            amountMinor =
+                                amountMinor,
+                            occurredAtEpochMs =
+                                paidAt,
+                            label =
+                                ruleLabel,
+                            matchedRule =
+                                salaryRule
+                        )
+                }
+            }
+
             payCycleStore.rebuild()
         }
 
@@ -788,8 +1164,27 @@ fun SmartOnboardingSetupScreen(
                     mpesaAccount
                         ?.openingBalanceAsOfEpochMs
             )
+            financialUnderstandingStore
+                .confirmProviderOwned(
+                    providerKey =
+                        "SAFARICOM_MPESA",
+                    accountId =
+                        AccountStore
+                            .DEFAULT_MPESA_ID
+                )
+            financialUnderstandingStore
+                .confirmProviderOwned(
+                    providerKey =
+                        "NCBA_MSHWARI_SAVINGS"
+                )
+            financialUnderstandingStore
+                .confirmProviderOwned(
+                    providerKey =
+                        "NCBA_MSHWARI_LOCK_SAVINGS"
+                )
             transactionStore
                 .reconcileOwnAccountTransfers()
+            payCycleStore.rebuild()
         }
         phoneError = null
         return true
@@ -916,6 +1311,8 @@ fun SmartOnboardingSetupScreen(
                     ReviewDiscoveryPage(
                         sources =
                             detectedSources,
+                        ownershipCandidates =
+                            pendingOwnershipEntities,
                         salarySuggestion =
                             salarySuggestion,
                         salaryAccepted =
@@ -924,6 +1321,128 @@ fun SmartOnboardingSetupScreen(
                             importResult,
                         onSalaryAccepted = {
                             salaryAccepted = it
+                        },
+                        onConfirmAccount = {
+                                entity ->
+                            setupScope.launch {
+                                withContext(
+                                    Dispatchers.IO
+                                ) {
+                                    financialUnderstandingStore
+                                        .confirmEntityOwned(
+                                            entity.entityKey
+                                        )
+                                    financialCoordinator
+                                        .reconcilePendingTransfers(
+                                            entity.entityKey
+                                        )
+
+                                    if (
+                                        smsGranted &&
+                                        importMonths >
+                                            0
+                                    ) {
+                                        HistoryImportWindow
+                                            .importStartEpochMs(
+                                                importMonths
+                                            )
+                                            ?.let {
+                                                startEpochMs ->
+                                                HistoricalSmsImporter(
+                                                    context
+                                                        .applicationContext
+                                                ).importSince(
+                                                    startEpochMs
+                                                )
+                                            }
+                                    }
+                                    payCycleStore
+                                        .rebuild()
+                                }
+                                availableAccounts =
+                                    accountStore
+                                        .listAccounts()
+                                        .filter {
+                                            it.type in
+                                                setOf(
+                                                    AccountType.BANK,
+                                                    AccountType.MOBILE_WALLET,
+                                                    AccountType.CASH,
+                                                    AccountType.SAVINGS
+                                                )
+                                        }
+                                pendingOwnershipEntities =
+                                    onboardingOwnershipCandidates(
+                                        financialUnderstandingStore
+                                            .pendingEntities()
+                                    )
+
+                                val refreshedSalary =
+                                    withContext(
+                                        Dispatchers.IO
+                                    ) {
+                                        val cutoff =
+                                            HistoryImportWindow
+                                                .importStartEpochMs(
+                                                    importMonths
+                                                        .coerceAtLeast(
+                                                            1
+                                                        )
+                                                )
+                                                ?: (
+                                                    System.currentTimeMillis() -
+                                                        31L *
+                                                            ONE_DAY_MS
+                                                    )
+                                        val observations =
+                                            transactionStore
+                                                .recent(500)
+                                                .filter {
+                                                    it.receivedAtEpochMs >=
+                                                        cutoff
+                                                }
+                                                .map {
+                                                    item ->
+                                                    OnboardingTransactionObservation(
+                                                        counterparty =
+                                                            item.counterparty,
+                                                        counterpartyPhone =
+                                                            item.counterpartyPhone,
+                                                        amountMinor =
+                                                            item.amountMinor,
+                                                        occurredAtEpochMs =
+                                                            item.occurredAtEpochMs,
+                                                        direction =
+                                                            runCatching {
+                                                                MoneyDirection
+                                                                    .valueOf(
+                                                                        item.direction
+                                                                    )
+                                                            }.getOrDefault(
+                                                                MoneyDirection
+                                                                    .NEUTRAL
+                                                            ),
+                                                        accountId =
+                                                            item.accountId
+                                                    )
+                                                }
+                                        OnboardingDiscoveryEngine
+                                            .salarySuggestion(
+                                                observations
+                                            )
+                                    }
+                                if (
+                                    refreshedSalary !=
+                                    null
+                                ) {
+                                    salarySuggestion =
+                                        refreshedSalary
+                                    salaryAccepted = true
+                                    manualSalaryAccountId =
+                                        refreshedSalary
+                                            .accountId
+                                }
+                            }
                         },
                         onManualSalary = {
                             stage =
@@ -960,10 +1479,14 @@ fun SmartOnboardingSetupScreen(
                             manualSalaryAccountId,
                         payer =
                             manualSalaryPayer,
-                        amount =
-                            manualSalaryAmount,
-                        paidAtEpochMs =
-                            manualSalaryDateEpochMs,
+                        importMonths =
+                            importMonths,
+                        historyMode =
+                            manualSalaryHistoryMode,
+                        drafts =
+                            manualSalaryDrafts,
+                        searchStatus =
+                            salaryHistorySearchStatus,
                         error =
                             manualSalaryError,
                         onAccountSelected = {
@@ -971,22 +1494,93 @@ fun SmartOnboardingSetupScreen(
                                 it
                             manualSalaryError =
                                 null
+                            salaryHistorySearchStatus =
+                                null
                         },
                         onPayerChanged = {
                             manualSalaryPayer =
                                 it
                             manualSalaryError =
                                 null
+                            salaryHistorySearchStatus =
+                                null
                         },
-                        onAmountChanged = {
-                            manualSalaryAmount =
-                                it
+                        onHistoryModeChanged = {
+                                mode ->
+                            manualSalaryHistoryMode =
+                                mode
+                            manualSalaryDrafts =
+                                defaultSmartSalaryDrafts(
+                                    if (
+                                        mode ==
+                                        SalaryHistoryMode
+                                            .LATEST_ONLY
+                                    ) {
+                                        1
+                                    } else {
+                                        importMonths
+                                            .coerceAtLeast(
+                                                1
+                                            )
+                                    }
+                                )
+                            salaryHistorySearchStatus =
+                                null
                             manualSalaryError =
                                 null
                         },
-                        onDateSelected = {
-                            manualSalaryDateEpochMs =
-                                it
+                        onSearchHistory = {
+                            setupScope.launch {
+                                searchImportedSalaryHistory()
+                            }
+                        },
+                        onDraftAmountChanged = {
+                                index,
+                                value ->
+                            manualSalaryDrafts =
+                                manualSalaryDrafts
+                                    .mapIndexed {
+                                            itemIndex,
+                                            draft ->
+                                        if (
+                                            itemIndex ==
+                                            index
+                                        ) {
+                                            draft.copy(
+                                                amount =
+                                                    value,
+                                                matchedTransactionId =
+                                                    null
+                                            )
+                                        } else {
+                                            draft
+                                        }
+                                    }
+                            manualSalaryError =
+                                null
+                        },
+                        onDraftDateSelected = {
+                                index,
+                                value ->
+                            manualSalaryDrafts =
+                                manualSalaryDrafts
+                                    .mapIndexed {
+                                            itemIndex,
+                                            draft ->
+                                        if (
+                                            itemIndex ==
+                                            index
+                                        ) {
+                                            draft.copy(
+                                                paidAtEpochMs =
+                                                    value,
+                                                matchedTransactionId =
+                                                    null
+                                            )
+                                        } else {
+                                            draft
+                                        }
+                                    }
                             manualSalaryError =
                                 null
                         },
@@ -1261,6 +1855,11 @@ private fun ImportChoicePage(
                 3,
                 "Last 3 months",
                 "Recommended for the clearest picture"
+            ),
+            Triple(
+                2,
+                "Last 2 months",
+                "A balanced amount of recent history"
             ),
             Triple(
                 1,
@@ -1655,11 +2254,15 @@ private fun AnalysisRow(
 @Composable
 private fun ReviewDiscoveryPage(
     sources: List<DetectedSetupSource>,
+    ownershipCandidates:
+        List<DiscoveredFinancialEntity>,
     salarySuggestion:
         OnboardingSalarySuggestion?,
     salaryAccepted: Boolean,
     importResult: HistoricalImportResult?,
     onSalaryAccepted: (Boolean) -> Unit,
+    onConfirmAccount:
+        (DiscoveredFinancialEntity) -> Unit,
     onManualSalary: () -> Unit,
     onContinue: () -> Unit
 ) {
@@ -1707,6 +2310,43 @@ private fun ReviewDiscoveryPage(
             sources.forEach { source ->
                 DiscoveredSourceCard(source)
             }
+        }
+
+        if (
+            ownershipCandidates.isNotEmpty()
+        ) {
+            Text(
+                "Confirm accounts you recognize",
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurface,
+                fontWeight =
+                    FontWeight.SemiBold
+            )
+            Text(
+                "PesaTrack can identify a bank or savings product without assuming it belongs to you. Confirm only accounts you actually use; anything you skip can be reviewed later in Activity.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+
+            ownershipCandidates
+                .forEach { entity ->
+                    OwnershipCandidateCard(
+                        entity = entity,
+                        onConfirm = {
+                            onConfirmAccount(
+                                entity
+                            )
+                        }
+                    )
+                }
         }
 
         if (salarySuggestion != null) {
@@ -1897,6 +2537,75 @@ private fun ReviewDiscoveryPage(
 }
 
 @Composable
+private fun OwnershipCandidateCard(
+    entity: DiscoveredFinancialEntity,
+    onConfirm: () -> Unit
+) {
+    PesaCard {
+        Row(
+            modifier =
+                Modifier.padding(16.dp),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            IconBubble(
+                icon =
+                    when (
+                        runCatching {
+                            AccountType
+                                .valueOf(
+                                    entity
+                                        .accountTypeHint
+                                )
+                        }.getOrDefault(
+                            AccountType.OTHER
+                        )
+                    ) {
+                        AccountType.BANK ->
+                            Icons.Rounded
+                                .AccountBalance
+                        AccountType.MOBILE_WALLET ->
+                            Icons.Rounded
+                                .PhoneAndroid
+                        else ->
+                            Icons.Rounded
+                                .Savings
+                    },
+                size = 44.dp
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 11.dp)
+            ) {
+                Text(
+                    entity.displayName,
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
+                Text(
+                    "Detected account • ownership not assumed",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+            TextButton(
+                onClick = onConfirm
+            ) {
+                Text("This is mine")
+            }
+        }
+    }
+}
+
+@Composable
 private fun DiscoveredSourceCard(
     source: DetectedSetupSource
 ) {
@@ -1971,13 +2680,20 @@ private fun ManualSalaryPage(
     accounts: List<MoneyAccount>,
     selectedAccountId: String,
     payer: String,
-    amount: String,
-    paidAtEpochMs: Long?,
+    importMonths: Int,
+    historyMode: SalaryHistoryMode,
+    drafts: List<SmartSalaryDraft>,
+    searchStatus: String?,
     error: String?,
     onAccountSelected: (String) -> Unit,
     onPayerChanged: (String) -> Unit,
-    onAmountChanged: (String) -> Unit,
-    onDateSelected: (Long) -> Unit,
+    onHistoryModeChanged:
+        (SalaryHistoryMode) -> Unit,
+    onSearchHistory: () -> Unit,
+    onDraftAmountChanged:
+        (Int, String) -> Unit,
+    onDraftDateSelected:
+        (Int, Long) -> Unit,
     onSave: () -> Unit,
     onSkip: () -> Unit
 ) {
@@ -1988,9 +2704,9 @@ private fun ManualSalaryPage(
     ) {
         SetupHero(
             icon = Icons.Rounded.Payments,
-            title = "Add one recent salary",
+            title = "Set up your salary history",
             body =
-                "Just enough information to start your pay cycle. You don't need to enter months of salary history."
+                "Payday starts a cash-flow cycle. Add the dates and amounts PesaTrack could not reliably learn from your messages."
         )
 
         PesaCard {
@@ -2001,7 +2717,7 @@ private fun ManualSalaryPage(
                     Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    "Where did it arrive?",
+                    "Where does salary arrive?",
                     style =
                         MaterialTheme.typography
                             .titleMedium,
@@ -2031,17 +2747,17 @@ private fun ManualSalaryPage(
             onValueChange = onPayerChanged,
             label = {
                 Text(
-                    "Name shown on the salary transaction"
+                    "Payroll / statement name"
                 )
             },
             placeholder = {
                 Text(
-                    "Example: XYZ PAYROLL or employer statement name"
+                    "Example: XYZ PAYROLL"
                 )
             },
             supportingText = {
                 Text(
-                    "Use the wording you normally see on the bank or M-Pesa transaction. It can differ from the company's legal name. Leave blank if your bank never shows a payer."
+                    "Use the wording shown by your bank or M-Pesa. It can be different from your employer's legal name."
                 )
             },
             modifier =
@@ -2049,92 +2765,290 @@ private fun ManualSalaryPage(
             singleLine = true
         )
 
-        OutlinedTextField(
-            value = amount,
-            onValueChange = onAmountChanged,
-            label = {
-                Text("Most recent salary amount")
-            },
-            prefix = {
-                Text("KES ")
-            },
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType =
-                        KeyboardType.Decimal
-                ),
-            modifier =
-                Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        OutlinedButton(
-            onClick = {
-                val initial =
-                    Calendar.getInstance()
-                        .apply {
-                            if (
-                                paidAtEpochMs !=
-                                null
-                            ) {
-                                timeInMillis =
-                                    paidAtEpochMs
-                            }
-                        }
-
-                DatePickerDialog(
-                    context,
-                    {
-                            _,
-                            year,
-                            month,
-                            dayOfMonth ->
-                        val selected =
-                            Calendar
-                                .getInstance()
-                                .apply {
-                                    clear()
-                                    set(
-                                        year,
-                                        month,
-                                        dayOfMonth,
-                                        12,
-                                        0,
-                                        0
-                                    )
-                                }
-                                .timeInMillis
-                        onDateSelected(
-                            selected
-                        )
-                    },
-                    initial.get(
-                        Calendar.YEAR
-                    ),
-                    initial.get(
-                        Calendar.MONTH
-                    ),
-                    initial.get(
-                        Calendar.DAY_OF_MONTH
-                    )
-                ).apply {
-                    datePicker.maxDate =
-                        System.currentTimeMillis()
-                }.show()
-            },
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 54.dp)
+        if (
+            importMonths > 0 &&
+            payer.isNotBlank()
         ) {
+            OutlinedButton(
+                onClick = onSearchHistory,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 52.dp),
+                shape =
+                    RoundedCornerShape(18.dp)
+            ) {
+                Text(
+                    "Search imported history for this payroll name"
+                )
+            }
+        }
+
+        if (importMonths > 1) {
             Text(
-                paidAtEpochMs
-                    ?.let(
-                        ::formatSetupDate
+                "How much salary history do you want to add?",
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurface
+            )
+
+            SelectableSetupCard(
+                selected =
+                    historyMode ==
+                        SalaryHistoryMode
+                            .IMPORT_WINDOW,
+                title =
+                    "Use the selected history",
+                body =
+                    "Add up to $importMonths paydays so PesaTrack can reconstruct earlier pay cycles.",
+                icon =
+                    Icons.Rounded.History,
+                onClick = {
+                    onHistoryModeChanged(
+                        SalaryHistoryMode
+                            .IMPORT_WINDOW
                     )
-                    ?: "Choose the date salary arrived"
+                }
+            )
+
+            SelectableSetupCard(
+                selected =
+                    historyMode ==
+                        SalaryHistoryMode
+                            .LATEST_ONLY,
+                title =
+                    "Start with my latest salary",
+                body =
+                    "Skip older paydays and begin the cash-flow model from the most recent salary.",
+                icon =
+                    Icons.Rounded.Payments,
+                onClick = {
+                    onHistoryModeChanged(
+                        SalaryHistoryMode
+                            .LATEST_ONLY
+                    )
+                }
             )
         }
+
+        searchStatus?.let { message ->
+            Surface(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                shape =
+                    RoundedCornerShape(16.dp),
+                color =
+                    pesaToneContainer(
+                        if (
+                            message.startsWith(
+                                "Found"
+                            )
+                        ) {
+                            "green"
+                        } else {
+                            "amber"
+                        }
+                    )
+            ) {
+                Text(
+                    message,
+                    modifier =
+                        Modifier.padding(14.dp),
+                    style =
+                        MaterialTheme.typography
+                            .bodyMedium,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurface
+                )
+            }
+        }
+
+        drafts.forEachIndexed {
+                index,
+                draft ->
+            PesaCard {
+                Column(
+                    modifier =
+                        Modifier.padding(16.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier =
+                                Modifier.weight(1f)
+                        ) {
+                            Text(
+                                draft.monthLabel,
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium,
+                                fontWeight =
+                                    FontWeight
+                                        .SemiBold
+                            )
+                            if (
+                                draft.matchedTransactionId !=
+                                null
+                            ) {
+                                Text(
+                                    "Found in imported history",
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .labelSmall,
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .primary
+                                )
+                            }
+                        }
+                        if (
+                            draft.matchedTransactionId !=
+                            null
+                        ) {
+                            Icon(
+                                Icons.Rounded.CheckCircle,
+                                contentDescription =
+                                    "Matched from history",
+                                tint =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .primary
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = draft.amount,
+                        onValueChange = {
+                            onDraftAmountChanged(
+                                index,
+                                it
+                            )
+                        },
+                        label = {
+                            Text(
+                                "Salary amount"
+                            )
+                        },
+                        prefix = {
+                            Text("KES ")
+                        },
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType =
+                                    KeyboardType
+                                        .Decimal
+                            ),
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            val initial =
+                                Calendar
+                                    .getInstance()
+                                    .apply {
+                                        draft
+                                            .paidAtEpochMs
+                                            ?.let {
+                                                timeInMillis =
+                                                    it
+                                            }
+                                    }
+
+                            DatePickerDialog(
+                                context,
+                                {
+                                        _,
+                                        year,
+                                        month,
+                                        dayOfMonth ->
+                                    val selected =
+                                        Calendar
+                                            .getInstance()
+                                            .apply {
+                                                clear()
+                                                set(
+                                                    year,
+                                                    month,
+                                                    dayOfMonth,
+                                                    12,
+                                                    0,
+                                                    0
+                                                )
+                                            }
+                                            .timeInMillis
+                                    onDraftDateSelected(
+                                        index,
+                                        selected
+                                    )
+                                },
+                                initial.get(
+                                    Calendar.YEAR
+                                ),
+                                initial.get(
+                                    Calendar.MONTH
+                                ),
+                                initial.get(
+                                    Calendar
+                                        .DAY_OF_MONTH
+                                )
+                            ).apply {
+                                datePicker.maxDate =
+                                    System
+                                        .currentTimeMillis()
+                            }.show()
+                        },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(
+                                    min = 52.dp
+                                )
+                    ) {
+                        Text(
+                            draft.paidAtEpochMs
+                                ?.let(
+                                    ::formatSetupDate
+                                )
+                                ?: "Choose the actual payday"
+                        )
+                    }
+                }
+            }
+        }
+
+        Text(
+            if (
+                historyMode ==
+                SalaryHistoryMode.IMPORT_WINDOW
+            ) {
+                "Leave an older month empty if you cannot recover it. PesaTrack will use only the paydays you confirm."
+            } else {
+                "PesaTrack will start from this payday. Older calendar activity remains visible, but it will not be treated as an earlier salary cycle."
+            },
+            style =
+                MaterialTheme.typography
+                    .bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
 
         error?.let { message ->
             Surface(
@@ -2165,7 +3079,18 @@ private fun ManualSalaryPage(
             shape =
                 RoundedCornerShape(18.dp)
         ) {
-            Text("Save salary and continue")
+            Text(
+                if (
+                    historyMode ==
+                    SalaryHistoryMode
+                        .IMPORT_WINDOW &&
+                    drafts.size > 1
+                ) {
+                    "Save salary history and continue"
+                } else {
+                    "Save salary and continue"
+                }
+            )
         }
 
         TextButton(
@@ -2175,16 +3100,6 @@ private fun ManualSalaryPage(
         ) {
             Text("Skip for now")
         }
-
-        Text(
-            "This manual salary is counted once, on the date you choose. It is not duplicated as another month of income.",
-            style =
-                MaterialTheme.typography
-                    .bodySmall,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
-        )
     }
 }
 
@@ -2887,6 +3802,137 @@ private fun FeatureRow(
     }
 }
 
+private fun onboardingOwnershipCandidates(
+    entities: List<DiscoveredFinancialEntity>
+): List<DiscoveredFinancialEntity> =
+    entities
+        .filter { entity ->
+            AccountDisplayPolicy
+                .isMeaningfulAccountName(
+                    entity.displayName
+                )
+        }
+        .filter { entity ->
+            runCatching {
+                AccountType.valueOf(
+                    entity.accountTypeHint
+                )
+            }.getOrDefault(
+                AccountType.OTHER
+            ) in
+                setOf(
+                    AccountType.BANK,
+                    AccountType.MOBILE_WALLET,
+                    AccountType.SAVINGS
+                )
+        }
+        .filterNot { entity ->
+            entity.providerKey in
+                setOf(
+                    "SAFARICOM_MPESA",
+                    "NCBA_MSHWARI_SAVINGS",
+                    "NCBA_MSHWARI_LOCK_SAVINGS"
+                )
+        }
+        .distinctBy {
+            it.entityKey
+        }
+        .sortedBy {
+            it.displayName.lowercase(
+                Locale.ROOT
+            )
+        }
+
+private fun defaultSmartSalaryDrafts(
+    months: Int,
+    nowEpochMs: Long =
+        System.currentTimeMillis()
+): List<SmartSalaryDraft> {
+    val count =
+        months.coerceIn(1, 3)
+    val calendar =
+        Calendar.getInstance()
+            .apply {
+                timeInMillis =
+                    nowEpochMs
+                set(
+                    Calendar.DAY_OF_MONTH,
+                    1
+                )
+                set(
+                    Calendar.HOUR_OF_DAY,
+                    12
+                )
+                set(
+                    Calendar.MINUTE,
+                    0
+                )
+                set(
+                    Calendar.SECOND,
+                    0
+                )
+                set(
+                    Calendar.MILLISECOND,
+                    0
+                )
+            }
+    val keyFormatter =
+        SimpleDateFormat(
+            "yyyy-MM",
+            Locale.ROOT
+        )
+    val labelFormatter =
+        SimpleDateFormat(
+            "MMMM yyyy",
+            Locale.getDefault()
+        )
+
+    return List(count) {
+            index ->
+        val month =
+            calendar.clone()
+                as Calendar
+        month.add(
+            Calendar.MONTH,
+            -index
+        )
+        SmartSalaryDraft(
+            monthKey =
+                keyFormatter.format(
+                    month.time
+                ),
+            monthLabel =
+                if (count == 1) {
+                    "Most recent salary"
+                } else {
+                    labelFormatter.format(
+                        month.time
+                    )
+                }
+        )
+    }
+}
+
+private fun salaryMonthKey(
+    epochMs: Long
+): String =
+    SimpleDateFormat(
+        "yyyy-MM",
+        Locale.ROOT
+    ).format(
+        Date(epochMs)
+    )
+
+private fun formatSetupAmountInput(
+    amountMinor: Long
+): String =
+    java.math.BigDecimal(
+        amountMinor
+    )
+        .movePointLeft(2)
+        .stripTrailingZeros()
+        .toPlainString()
+
 private fun parseSetupMoneyMinor(
     raw: String
 ): Long? =
@@ -3036,6 +4082,9 @@ private fun formatSetupMoney(
             amountMinor / 100.0
         )
 }
+
+private const val ONE_DAY_MS =
+    24L * 60L * 60L * 1000L
 
 private const val MIN_PROGRESS_STEP_MS =
     180L

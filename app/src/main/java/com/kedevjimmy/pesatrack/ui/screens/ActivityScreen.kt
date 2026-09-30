@@ -71,6 +71,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -105,11 +106,13 @@ import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.rules.HistoryImportWindow
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageIngestionCoordinator
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnostic
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticCode
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
+import com.kedevjimmy.pesatrack.ingestion.HistoricalSmsImporter
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -123,6 +126,9 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ActivityScreen(
@@ -131,6 +137,8 @@ fun ActivityScreen(
     onProfileClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val activityScope =
+        rememberCoroutineScope()
     val store = remember { TransactionStore.get(context) }
     val financialStore = remember {
         FinancialUnderstandingStore.get(context)
@@ -310,10 +318,20 @@ fun ActivityScreen(
                 diagnostic.receivedAtEpochMs <
                     nextMonthEpochMs
         }
+    val confirmedAccountIds =
+        financialStore
+            .confirmedAccountIds()
     val ownedAccountGroups =
         AccountDisplayPolicy.groups(
             accountsById.values.toList()
-        )
+        ).filter { group ->
+            group.accounts.any {
+                it.id in
+                    confirmedAccountIds ||
+                    !it.identifier
+                        .isNullOrBlank()
+            }
+        }
     val ownedAccountDiagnostics =
         monthDiagnostics.mapNotNull {
                 diagnostic ->
@@ -1052,15 +1070,35 @@ fun ActivityScreen(
                 accountReviewEntity = null
             },
             onConfirmOwned = {
-                financialStore.confirmEntityOwned(
-                    entity.entityKey
-                )
-                financialCoordinator
-                    .reconcilePendingTransfers(
-                        entity.entityKey
-                    )
-                accountReviewEntity = null
-                refresh()
+                activityScope.launch {
+                    withContext(
+                        Dispatchers.IO
+                    ) {
+                        financialStore
+                            .confirmEntityOwned(
+                                entity.entityKey
+                            )
+                        financialCoordinator
+                            .reconcilePendingTransfers(
+                                entity.entityKey
+                            )
+                        runCatching {
+                            HistoryImportWindow
+                                .importStartEpochMs(3)
+                                ?.let {
+                                    HistoricalSmsImporter(
+                                        context
+                                            .applicationContext
+                                    ).importSince(
+                                        it
+                                    )
+                                }
+                        }
+                    }
+                    accountReviewEntity =
+                        null
+                    refresh()
+                }
             },
             onNotMine = {
                 financialStore.markEntityExternal(
