@@ -122,7 +122,9 @@ class PayCycleStore private constructor(context: Context) {
                 val payday =
                     paydaySnapshotStore
                         .snapshotForSalaryTransaction(
-                            event.transactionId
+                            db = db,
+                            transactionId =
+                                event.transactionId
                         )
                 val carryover =
                     PaydayCarryoverPolicy

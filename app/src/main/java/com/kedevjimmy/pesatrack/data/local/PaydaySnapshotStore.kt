@@ -145,7 +145,24 @@ class PaydaySnapshotStore private constructor(
         transactionId: Long
     ): PaydaySnapshot? =
         readSnapshot(
-            snapshotId(transactionId)
+            db =
+                database.readableDatabase,
+            id =
+                snapshotId(
+                    transactionId
+                )
+        )
+
+    internal fun snapshotForSalaryTransaction(
+        db: SQLiteDatabase,
+        transactionId: Long
+    ): PaydaySnapshot? =
+        readSnapshot(
+            db = db,
+            id =
+                snapshotId(
+                    transactionId
+                )
         )
 
     @Synchronized
@@ -945,11 +962,11 @@ class PaydaySnapshotStore private constructor(
     }
 
     private fun readSnapshot(
+        db: SQLiteDatabase,
         id: String
     ): PaydaySnapshot? {
         val row =
-            database.readableDatabase
-                .rawQuery(
+            db.rawQuery(
                     """
                     SELECT id,
                            salary_transaction_id,
@@ -1005,8 +1022,7 @@ class PaydaySnapshotStore private constructor(
                 ?: return null
 
         val accounts =
-            database.readableDatabase
-                .rawQuery(
+            db.rawQuery(
                     """
                     SELECT account_id,
                            account_name,

@@ -38,6 +38,29 @@ object AccountDisplayPolicy {
             "your"
         )
 
+    fun isConfirmedOwned(
+        account: MoneyAccount,
+        confirmedAccountIds: Set<String>,
+        includeCash: Boolean = false
+    ): Boolean {
+        if (!account.enabled) {
+            return false
+        }
+
+        if (
+            includeCash &&
+            account.type ==
+                AccountType.CASH
+        ) {
+            return true
+        }
+
+        return account.id in
+            confirmedAccountIds ||
+            !account.identifier
+                .isNullOrBlank()
+    }
+
     fun groups(
         accounts: List<MoneyAccount>
     ): List<TrackedAccountGroup> =
