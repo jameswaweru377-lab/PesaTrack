@@ -866,27 +866,6 @@ fun SmartOnboardingSetupScreen(
     }
 
     suspend fun applyManualSalary(): Boolean {
-        val amountMinor =
-            parseSetupMoneyMinor(
-                manualSalaryAmount
-            )
-        if (
-            amountMinor == null ||
-            amountMinor <= 0L
-        ) {
-            manualSalaryError =
-                "Enter the most recent salary amount."
-            return false
-        }
-
-        val paidAt =
-            manualSalaryDateEpochMs
-        if (paidAt == null) {
-            manualSalaryError =
-                "Choose the date that salary actually arrived."
-            return false
-        }
-
         val account =
             availableAccounts
                 .firstOrNull {
@@ -899,9 +878,67 @@ fun SmartOnboardingSetupScreen(
             return false
         }
 
+        val selectedDrafts =
+            if (
+                manualSalaryHistoryMode ==
+                SalaryHistoryMode.LATEST_ONLY
+            ) {
+                manualSalaryDrafts.take(1)
+            } else {
+                manualSalaryDrafts
+            }
+
+        val completed =
+            mutableListOf<
+                Triple<
+                    ManualSalaryDraft,
+                    Long,
+                    Long
+                >
+            >()
+        for (draft in selectedDrafts) {
+            val amountText =
+                draft.amount.trim()
+            val hasAny =
+                amountText.isNotBlank() ||
+                    draft.paidAtEpochMs !=
+                    null
+            if (!hasAny) {
+                continue
+            }
+
+            val amountMinor =
+                parseSetupMoneyMinor(
+                    amountText
+                )
+            val paidAt =
+                draft.paidAtEpochMs
+            if (
+                amountMinor == null ||
+                amountMinor <= 0L ||
+                paidAt == null
+            ) {
+                manualSalaryError =
+                    "Each salary you add needs both the amount and the date it actually arrived."
+                return false
+            }
+
+            completed +=
+                Triple(
+                    draft,
+                    amountMinor,
+                    paidAt
+                )
+        }
+
+        if (completed.isEmpty()) {
+            manualSalaryError =
+                "Add at least one salary payment."
+            return false
+        }
+
         val payer =
-            manualSalaryPayer
-                .trim()
+            manualSalaryPayer.trim()
         val ruleLabel =
             payer.ifBlank {
                 "Manual salary"
@@ -922,14 +959,22 @@ fun SmartOnboardingSetupScreen(
             val salaryRule =
                 existing ?: ruleStore.save(
                     name = "Salary",
-                    counterpartyContains = "",
+                    counterpartyContains =
+                        payer,
                     counterpartyExact =
-                        ruleLabel,
+                        if (
+                            payer.isBlank()
+                        ) {
+                            ruleLabel
+                        } else {
+                            ""
+                        },
                     category =
                         TransactionCategory.INCOME,
                     direction =
                         MoneyDirection.INCOME,
-                    displayLabel = "Salary",
+                    displayLabel =
+                        "Salary",
                     preset =
                         RulePreset.SALARY,
                     startsPayCycle = true,
@@ -940,17 +985,60 @@ fun SmartOnboardingSetupScreen(
                 .reapplyRule(
                     salaryRule
                 )
-            transactionStore
-                .insertManualIncome(
-                    amountMinor =
-                        amountMinor,
-                    occurredAtEpochMs =
-                        paidAt,
-                    label =
-                        ruleLabel,
-                    matchedRule =
-                        salaryRule
-                )
+
+            val historyMatches =
+                if (payer.isBlank()) {
+                    emptyList()
+                } else {
+                    val oldest =
+                        completed.minOf {
+                            it.third
+                        } -
+                            ONE_DAY_MS
+                    transactionStore
+                        .salaryHistoryCandidates(
+                            payerQuery = payer,
+                            sinceEpochMs =
+                                oldest,
+                            accountId =
+                                account.id,
+                            limit = 100
+                        )
+                }
+
+            completed.forEach {
+                    (draft, amountMinor, paidAt) ->
+                val alreadyBackedByHistory =
+                    draft.matchedTransactionId !=
+                        null ||
+                        historyMatches.any {
+                            match ->
+                            match.amountMinor ==
+                                amountMinor &&
+                                kotlin.math.abs(
+                                    match.occurredAtEpochMs -
+                                        paidAt
+                                ) <=
+                                ONE_DAY_MS
+                        }
+
+                if (
+                    !alreadyBackedByHistory
+                ) {
+                    transactionStore
+                        .insertManualIncome(
+                            amountMinor =
+                                amountMinor,
+                            occurredAtEpochMs =
+                                paidAt,
+                            label =
+                                ruleLabel,
+                            matchedRule =
+                                salaryRule
+                        )
+                }
+            }
+
             payCycleStore.rebuild()
         }
 
