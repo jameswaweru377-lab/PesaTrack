@@ -163,7 +163,10 @@ class FinancialIngestionDiagnosticsStore private constructor(
                         linkedTransactionId
                     )
                 } else {
-                    putNull("linkedTransactionId")
+                    put(
+                        "linkedTransactionId",
+                        JSONObject.NULL
+                    )
                 }
             }
         )
