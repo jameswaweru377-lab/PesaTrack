@@ -2449,6 +2449,94 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun markDebtRepayment(
+        transactionId: Long,
+        debtEventId: Long,
+        debtName: String,
+        userConfirmed: Boolean
+    ): Boolean {
+        val current =
+            getById(transactionId)
+                ?: return false
+        if (
+            current.reviewState ==
+                ReviewState.EXCLUDED.name
+        ) {
+            return false
+        }
+        if (
+            !userConfirmed &&
+            (
+                current.reviewState ==
+                    ReviewState.USER_CLASSIFIED.name ||
+                    current.ruleId != null
+                )
+        ) {
+            return false
+        }
+
+        val values = ContentValues().apply {
+            put(
+                "direction",
+                MoneyDirection.TRANSFER.name
+            )
+            put(
+                "category",
+                TransactionCategory.DEBT_LOAN.name
+            )
+            put(
+                "review_state",
+                if (userConfirmed) {
+                    ReviewState.USER_CLASSIFIED.name
+                } else {
+                    ReviewState.AUTO_CLASSIFIED.name
+                }
+            )
+            put(
+                "relation_type",
+                RELATION_DEBT_REPAYMENT
+            )
+            putNull("related_transaction_id")
+            put(
+                "evidence_label",
+                "Debt repayment • $debtName"
+            )
+            put(
+                "evidence_source",
+                if (userConfirmed) {
+                    "liability_payment_user"
+                } else {
+                    "liability_payment_match"
+                }
+            )
+            put(
+                "evidence_confidence",
+                if (userConfirmed) {
+                    "USER_CONFIRMED"
+                } else {
+                    "HIGH"
+                }
+            )
+            putNull("evidence_time_delta_ms")
+            putNull("cycle_candidate_reason")
+        }
+
+        val changed =
+            database.writableDatabase.update(
+                "transactions",
+                values,
+                "id = ?",
+                arrayOf(transactionId.toString())
+            ) > 0
+
+        if (changed) {
+            PayCycleStore.get(appContext).rebuild()
+            LedgerUpdateBus.notifyChanged()
+        }
+        return changed
+    }
+
+    @Synchronized
     fun unlinkRefund(id: Long): Boolean {
         val current = getById(id) ?: return false
         if (current.relationType != RELATION_REFUND) {
@@ -2726,6 +2814,8 @@ class TransactionStore private constructor(context: Context) {
         private const val REFUND_RECONCILIATION_KEY =
             "refund_reconciliation_v1"
         const val RELATION_REFUND = "REFUND"
+        const val RELATION_DEBT_REPAYMENT =
+            "DEBT_REPAYMENT"
         private const val DUPLICATE_DECISION_SAME = "SAME_TRANSACTION"
         private const val DUPLICATE_DECISION_KEEP_BOTH = "KEEP_BOTH"
 

@@ -1830,3 +1830,191 @@ After installing the new rolling APK, re-import a controlled history window and 
 Permanent architecture rule remains:
 
 **financial language defines meaning; explicit debt evidence defines liability amounts; never infer provider-specific loan arithmetic from a brand name.**
+
+
+## Financial Intelligence V2 — provider-neutral liability-payment bridge — PR #86
+
+Status on 2026-09-30: **implemented and Android CI verified on code head `7877514d56f3ba50dbdd7b539d54b9d71de3bbf5` before this documentation commit.**
+
+This slice continues the real-device correctness work after Phases 4–5 and PR #85.
+
+The gap being closed:
+
+- PesaTrack can already understand and persist explicit debt-repayment SMS messages;
+- some lenders do not send a separate repayment-confirmation SMS;
+- the actual evidence may only be the outgoing wallet/bank payment to the lender;
+- that payment must not remain ordinary spending when it is strongly evidenced as repayment of an already-known liability.
+
+### Permanent architecture rule
+
+This feature is provider-neutral.
+
+There is no production branch such as:
+
+- `if counterparty == Branch`;
+- `if counterparty == Tala`;
+- `if counterparty == KCB`;
+- `if counterparty == M-Shwari`.
+
+The bridge operates only on:
+
+- an already-existing debt/liability account;
+- normalized counterparty identity;
+- current observed outstanding balance;
+- payment amount;
+- existing transaction/account evidence;
+- explicit user decisions when automatic evidence is insufficient.
+
+### Liability-payment matching policy
+
+A new `LiabilityPaymentLinkPolicy` compares the outgoing transaction counterparty with existing debt-account identities.
+
+Identity comparison removes generic business/financial words such as:
+
+- LOAN;
+- BANK;
+- FINANCE / FINANCIAL;
+- CREDIT / LENDING;
+- LIMITED / LTD / PLC;
+- INTERNATIONAL / KENYA;
+- PAYMENT / ACCOUNT / COMPANY / GROUP / SERVICES.
+
+Those generic words can never create a provider match by themselves.
+
+Examples of the intended general behavior:
+
+- `Branch International Ltd` vs `Branch Loan` -> core identity `BRANCH`;
+- a future lender `Example Finance Ltd` vs `Example Loan` -> core identity `EXAMPLE`;
+- `Financial Services Kenya Ltd` does not match an unrelated debt merely because both contain generic financial words.
+
+### Automatic linking threshold
+
+Automatic repayment linking is deliberately strict.
+
+A payment can auto-link only when:
+
+1. exactly one known liability matches the counterparty identity;
+2. the identity match is exact after generic-word normalization;
+3. the liability has an **observed** outstanding balance;
+4. the outgoing payment amount is positive;
+5. the payment does not exceed that observed outstanding amount;
+6. the transaction is not user-classified, excluded, protected by an explicit Smart Rule, or already in another relationship;
+7. the user has not previously chosen to keep the payment unlinked.
+
+When those conditions are met:
+
+- a generic debt-repayment event is created/linked to the existing transaction;
+- the transaction is reclassified from ordinary EXPENSE to TRANSFER;
+- category becomes `DEBT_LOAN`;
+- relation type becomes `DEBT_REPAYMENT`;
+- the debt event keeps the real funding-account ID;
+- the repayment amount reduces estimated outstanding only through the existing debt-ledger rules;
+- later explicit observed debt balances still remain authoritative.
+
+### Ambiguous matches use Activity -> Links
+
+If identity evidence is plausible but not strong enough for automatic linking, the payment appears in the existing **Activity -> Links** queue.
+
+Examples include:
+
+- liability identity matches but no reliable observed outstanding balance exists;
+- payment exceeds the currently observed outstanding balance;
+- more than one known liability matches the same counterparty identity;
+- identity overlap is strong but not exact.
+
+The review card asks:
+
+`Is this payment a debt repayment?`
+
+It shows:
+
+- original payment counterparty;
+- amount;
+- funding account;
+- candidate liability/debt accounts;
+- why each liability is being offered.
+
+The user can either:
+
+- choose the correct debt -> creates/links the repayment;
+- choose `This was not a debt repayment` -> keeps it unlinked.
+
+### Durable user decisions
+
+Schema version is now **22**.
+
+New table:
+
+`liability_payment_decisions`
+
+It stores:
+
+- transaction ID;
+- decision;
+- selected debt-account ID when linked;
+- decision timestamp.
+
+A manual keep-unlinked decision prevents later automatic logic from reinterpreting the same payment as repayment.
+
+A manual linked decision is revalidated against the current provider-neutral candidate set before the debt event is written.
+
+### Accounting behavior
+
+When a payment is confirmed as debt repayment:
+
+- the original money movement is preserved;
+- it no longer counts as ordinary spending;
+- direction is TRANSFER;
+- category is DEBT_LOAN;
+- a repayment event is linked to the canonical transaction;
+- debt outstanding uses the existing DebtStore observed/estimated balance protections.
+
+The feature does not:
+
+- fabricate a liability from a lender-looking name;
+- create provider-specific loan formulas;
+- infer loan principal from cash proceeds;
+- overwrite a later explicit observed outstanding balance;
+- override an excluded transaction;
+- automatically override a user classification or explicit Smart Rule.
+
+### Historical/re-import behavior
+
+Newly ingested or re-imported payment messages run through the automatic liability bridge.
+
+Historical transactions that already exist can still appear in Activity -> Links because the review queue derives candidates from current canonical transactions and current known liabilities.
+
+Therefore a full database reset is not required simply to review older lender payments, although re-import is still useful when older SMS text contains financial facts/references that were never extracted by an earlier app build.
+
+### Regression coverage
+
+`LiabilityPaymentLinkPolicyTest` protects:
+
+- exact institution identity + observed outstanding -> HIGH automatic match;
+- exact identity without reliable outstanding -> MEDIUM review;
+- payment above observed outstanding -> MEDIUM review;
+- generic financial/business words do not create a match;
+- ambiguous matching liabilities never auto-link.
+
+Code head `7877514d56f3ba50dbdd7b539d54b9d71de3bbf5` passed Android CI run #350:
+
+- entity-enrichment Worker validation: passed;
+- Android compilation: passed;
+- Android unit tests: passed;
+- debug APK assembly: passed.
+
+### Recommended real-device validation after merge
+
+Use a controlled history window and verify:
+
+1. a payment to a lender with a known observed outstanding balance becomes one debt repayment rather than ordinary spending;
+2. a lender payment without strong enough debt evidence appears in Activity -> Links rather than being guessed;
+3. choosing a debt in Links reclassifies the payment and reduces the debt ledger once;
+4. choosing `This was not a debt repayment` is remembered;
+5. re-importing the same SMS does not create a second debt repayment;
+6. explicit later lender balance SMS remains authoritative;
+7. unrelated payments with generic words such as bank/finance/payment never become debt repayments.
+
+Permanent rule remains:
+
+**financial language establishes the event; existing liability identity and explicit evidence establish debt relationships; uncertain debt relationships require the user.**
