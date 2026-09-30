@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
+import com.kedevjimmy.pesatrack.domain.interpretation.SemanticInvestmentAction
 import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentBalancePolicy
 import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentChainPolicy
 import com.kedevjimmy.pesatrack.domain.rules.RepaymentChainConfidence
@@ -464,6 +465,12 @@ class RelationshipReviewStore private constructor(
                     WHERE linked_transaction_id
                         IS NOT NULL
               )
+              AND t.id NOT IN (
+                    SELECT linked_transaction_id
+                    FROM debt_events
+                    WHERE linked_transaction_id
+                        IS NOT NULL
+              )
               AND (
                     EXISTS(
                         SELECT 1
@@ -529,24 +536,14 @@ class RelationshipReviewStore private constructor(
                     val sharesReference =
                         cursor.getInt(4) != 0
                     val action =
-                        when (event.eventType) {
-                            InvestmentEventType
-                                .BUY_EXECUTED ->
-                                com.kedevjimmy.pesatrack
-                                    .domain
-                                    .interpretation
-                                    .SemanticInvestmentAction
-                                    .BUY
-                            InvestmentEventType
-                                .SELL_EXECUTED ->
-                                com.kedevjimmy.pesatrack
-                                    .domain
-                                    .interpretation
-                                    .SemanticInvestmentAction
-                                    .SELL
-                            InvestmentEventType
-                                .ORDER_SUBMITTED ->
-                                continue
+                        if (
+                            event.eventType ==
+                                InvestmentEventType
+                                    .BUY_EXECUTED
+                        ) {
+                            SemanticInvestmentAction.BUY
+                        } else {
+                            SemanticInvestmentAction.SELL
                         }
                     val assessment =
                         InvestmentSettlementReviewPolicy
