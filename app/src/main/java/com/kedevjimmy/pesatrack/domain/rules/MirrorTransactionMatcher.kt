@@ -142,11 +142,31 @@ object MirrorTransactionMatcher {
             return none()
         }
 
+        val exactlyOneHasStrongReference =
+            firstReferences.isEmpty() !=
+                secondReferences.isEmpty()
+
+        /*
+         * Two financial institutions can arrive through the same
+         * Android SMS app. One coded and one codeless observation
+         * of the same amount inside a very tight window is still
+         * strong enough to auto-link. Fully codeless time-only
+         * similarity remains review-only below.
+         */
+        if (
+            exactlyOneHasStrongReference &&
+            bestDelta <= VERY_CLOSE_MS
+        ) {
+            return MirrorTransactionMatch(
+                confidence = MirrorMatchConfidence.HIGH,
+                reason =
+                    MirrorMatchReason
+                        .ULTRA_CLOSE_DISTINCT_SOURCE
+            )
+        }
+
         val distinctSources =
             hasDistinctSources(first, second)
-        if (!distinctSources) {
-            return none()
-        }
 
         val sharedAccount =
             first.accountIds
@@ -218,23 +238,8 @@ object MirrorTransactionMatcher {
             )
         }
 
-        val exactlyOneHasStrongReference =
-            firstReferences.isEmpty() !=
-                secondReferences.isEmpty()
-
         if (
-            exactlyOneHasStrongReference &&
-            bestDelta <= VERY_CLOSE_MS
-        ) {
-            return MirrorTransactionMatch(
-                confidence = MirrorMatchConfidence.HIGH,
-                reason =
-                    MirrorMatchReason
-                        .ULTRA_CLOSE_DISTINCT_SOURCE
-            )
-        }
-
-        if (
+            distinctSources &&
             firstReferences.isEmpty() &&
             secondReferences.isEmpty() &&
             bestDelta <= CODELESS_ULTRA_CLOSE_MS
