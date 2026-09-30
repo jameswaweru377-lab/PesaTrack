@@ -320,6 +320,60 @@ class FinancialInterpretationPipelineTest {
     }
 
     @Test
+    fun mshwariLockSavingsWithdrawalBecomesOwnedTransfer() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "M-SHWARI",
+                    body =
+                        "Dear Customer, Ksh.16,000.00 has been moved from your Lock Savings Account to your M-Shwari account. New M-Shwari balance is Ksh.16,000.43. Transaction cost 0.00."
+                )
+
+        val transfer =
+            interpretation.events
+                .single() as
+                TransferEventFact
+
+        assertEquals(
+            "NCBA_MSHWARI_LOCK_SAVINGS",
+            transfer.source.providerKey
+        )
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            transfer.destination.providerKey
+        )
+        assertEquals(
+            1_600_000L,
+            transfer.amountMinor
+        )
+    }
+
+    @Test
+    fun mshwariToMpesaTransferKeepsBothOwnedAccountsDistinct() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "M-SHWARI",
+                    body =
+                        "Dear Customer, Ksh.2,500.00 has been moved from your M-Shwari account to your M-PESA account. New M-PESA balance is Ksh.8,000.00. Transaction cost 0.00."
+                )
+
+        val transfer =
+            interpretation.events
+                .single() as
+                TransferEventFact
+
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            transfer.source.providerKey
+        )
+        assertEquals(
+            "SAFARICOM_MPESA",
+            transfer.destination.providerKey
+        )
+    }
+
+    @Test
     fun mshwariLockSavingsGetsCanonicalAccountIdentity() {
         val interpretation =
             FinancialMessageInterpreter.interpret(
