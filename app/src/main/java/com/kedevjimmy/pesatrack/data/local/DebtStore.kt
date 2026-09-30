@@ -503,10 +503,15 @@ class DebtStore private constructor(context: Context) {
                        balance_minor
                 FROM transactions
                 WHERE (
-                        account_id = ?
-                        OR linked_account_id = ?
+                        (
+                            direction = ?
+                            AND account_id = ?
+                        )
+                        OR (
+                            direction = ?
+                            AND linked_account_id = ?
+                        )
                       )
-                  AND direction IN (?, ?)
                   AND occurred_at_epoch_ms BETWEEN ? AND ?
                   AND review_state != ?
                   AND id NOT IN (
@@ -517,12 +522,12 @@ class DebtStore private constructor(context: Context) {
                 ORDER BY occurred_at_epoch_ms DESC, id DESC
                 """.trimIndent(),
                 arrayOf(
-                    fundingAccountId,
-                    fundingAccountId,
                     com.kedevjimmy.pesatrack.domain.model
                         .MoneyDirection.INCOME.name,
+                    fundingAccountId,
                     com.kedevjimmy.pesatrack.domain.model
                         .MoneyDirection.TRANSFER.name,
+                    fundingAccountId,
                     (
                         repayment.occurredAtEpochMs -
                             REPAYMENT_LINK_WINDOW_MS
