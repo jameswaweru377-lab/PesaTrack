@@ -95,10 +95,12 @@ fun AccountsScreen(
                     accounts
                 ).filter { group ->
                     group.accounts.any {
-                        it.id in
-                            confirmedAccountIds ||
-                            !it.identifier
-                                .isNullOrBlank()
+                        AccountDisplayPolicy
+                            .isConfirmedOwned(
+                                account = it,
+                                confirmedAccountIds =
+                                    confirmedAccountIds
+                            )
                     }
                 }
             val balances =
