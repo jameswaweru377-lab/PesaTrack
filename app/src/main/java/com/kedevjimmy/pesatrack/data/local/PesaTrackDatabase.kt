@@ -325,6 +325,27 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             createInvestmentTables(db)
         }
 
+        if (oldVersion < 24) {
+            addColumnIfMissing(
+                db,
+                "investment_events",
+                "settlement_user_decision",
+                "TEXT"
+            )
+            addColumnIfMissing(
+                db,
+                "investment_events",
+                "settlement_confidence",
+                "TEXT"
+            )
+            addColumnIfMissing(
+                db,
+                "investment_events",
+                "settlement_reason",
+                "TEXT"
+            )
+        }
+
         createIndexes(db)
         createTriggers(db)
     }
@@ -781,6 +802,9 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 quantity_microunits INTEGER NOT NULL,
                 value_minor INTEGER,
                 linked_transaction_id INTEGER,
+                settlement_user_decision TEXT,
+                settlement_confidence TEXT,
+                settlement_reason TEXT,
                 primary_reference TEXT,
                 source_package TEXT,
                 source_kind TEXT NOT NULL,
@@ -959,6 +983,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 23
+        private const val DATABASE_VERSION = 24
     }
 }

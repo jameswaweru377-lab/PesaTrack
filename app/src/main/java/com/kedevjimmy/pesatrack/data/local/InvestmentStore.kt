@@ -231,6 +231,7 @@ class InvestmentStore private constructor(
                 JOIN investment_event_references r
                   ON r.investment_event_id = e.id
                 WHERE e.linked_transaction_id IS NULL
+                  AND e.settlement_user_decision IS NULL
                   AND e.event_type IN (?, ?)
                   AND r.reference_value IN ($placeholders)
                 ORDER BY e.occurred_at_epoch_ms ASC,
@@ -302,13 +303,8 @@ class InvestmentStore private constructor(
                 )
                 ?: return null
         val event =
-            InvestmentEventForLinking(
-                id = eventId,
-                eventType = eventType(fact),
-                instrumentLabel =
-                    fact.instrumentLabel,
-                valueMinor = fact.valueMinor
-            )
+            eventForLinking(eventId)
+                ?: return null
 
         return if (
             linkIfStrong(
@@ -362,6 +358,14 @@ class InvestmentStore private constructor(
                 "linked_transaction_id",
                 transaction.id
             )
+            put(
+                "settlement_confidence",
+                "HIGH"
+            )
+            put(
+                "settlement_reason",
+                "Exact shared external reference and matching investment value established settlement."
+            )
         }
         database.writableDatabase.update(
             "investment_events",
@@ -371,6 +375,145 @@ class InvestmentStore private constructor(
         )
         return true
     }
+
+    @Synchronized
+    fun resolveManualSettlement(
+        eventId: Long,
+        transactionId: Long?
+    ): Boolean {
+        val event =
+            eventForManualReview(eventId)
+                ?: return false
+
+        if (transactionId == null) {
+            val values = ContentValues().apply {
+                put(
+                    "settlement_user_decision",
+                    DECISION_KEEP_UNLINKED
+                )
+                putNull("linked_transaction_id")
+                putNull("settlement_confidence")
+                put(
+                    "settlement_reason",
+                    "User confirmed that none of the offered cash movements settled this investment execution."
+                )
+            }
+            val changed =
+                database.writableDatabase.update(
+                    "investment_events",
+                    values,
+                    "id = ? AND linked_transaction_id IS NULL",
+                    arrayOf(eventId.toString())
+                ) > 0
+            if (changed) {
+                LedgerUpdateBus.notifyChanged()
+            }
+            return changed
+        }
+
+        val transaction =
+            transactionStore.getById(transactionId)
+                ?: return false
+        val valueMinor =
+            event.valueMinor ?: return false
+        if (transaction.amountMinor != valueMinor) {
+            return false
+        }
+
+        val action =
+            when (event.eventType) {
+                InvestmentEventType.BUY_EXECUTED ->
+                    SemanticInvestmentAction.BUY
+                InvestmentEventType.SELL_EXECUTED ->
+                    SemanticInvestmentAction.SELL
+                InvestmentEventType.ORDER_SUBMITTED ->
+                    return false
+            }
+
+        val reclassified =
+            transactionStore.markInvestmentSettlement(
+                transactionId = transactionId,
+                action = action,
+                instrumentLabel = event.instrumentLabel,
+                userConfirmed = true
+            )
+        if (!reclassified) {
+            return false
+        }
+
+        val values = ContentValues().apply {
+            put(
+                "linked_transaction_id",
+                transactionId
+            )
+            put(
+                "settlement_user_decision",
+                DECISION_LINKED
+            )
+            put(
+                "settlement_confidence",
+                "USER_CONFIRMED"
+            )
+            put(
+                "settlement_reason",
+                "User confirmed this cash movement settled the investment execution."
+            )
+        }
+        val changed =
+            database.writableDatabase.update(
+                "investment_events",
+                values,
+                "id = ? AND linked_transaction_id IS NULL",
+                arrayOf(eventId.toString())
+            ) > 0
+
+        if (changed) {
+            LedgerUpdateBus.notifyChanged()
+        }
+        return changed
+    }
+
+    private fun eventForManualReview(
+        eventId: Long
+    ): InvestmentEventForLinking? =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT event_type,
+                   instrument_label,
+                   value_minor
+            FROM investment_events
+            WHERE id = ?
+              AND linked_transaction_id IS NULL
+              AND settlement_user_decision IS NULL
+              AND event_type IN (?, ?)
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(
+                eventId.toString(),
+                InvestmentEventType.BUY_EXECUTED.name,
+                InvestmentEventType.SELL_EXECUTED.name
+            )
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) {
+                null
+            } else {
+                InvestmentEventForLinking(
+                    id = eventId,
+                    eventType =
+                        InvestmentEventType.valueOf(
+                            cursor.getString(0)
+                        ),
+                    instrumentLabel =
+                        cursor.getString(1),
+                    valueMinor =
+                        if (cursor.isNull(2)) {
+                            null
+                        } else {
+                            cursor.getLong(2)
+                        }
+                )
+            }
+        }
 
     private fun applyObservedPositionDelta(
         fact: SemanticInvestmentFact
@@ -453,6 +596,7 @@ class InvestmentStore private constructor(
             FROM investment_events
             WHERE id = ?
               AND linked_transaction_id IS NULL
+              AND settlement_user_decision IS NULL
             LIMIT 1
             """.trimIndent(),
             arrayOf(eventId.toString())
@@ -613,6 +757,11 @@ class InvestmentStore private constructor(
     )
 
     companion object {
+        private const val DECISION_KEEP_UNLINKED =
+            "KEEP_UNLINKED"
+        private const val DECISION_LINKED =
+            "LINKED"
+
         private const val
             POSITION_QUALITY_OBSERVED_EVENTS =
             "OBSERVED_EVENTS_ONLY"

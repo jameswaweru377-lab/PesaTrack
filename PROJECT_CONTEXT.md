@@ -2229,3 +2229,164 @@ After the rolling APK contains this merge, validate with a controlled history wi
 Permanent architecture rule remains:
 
 **financial language establishes investment intent and execution; exact references establish settlement; partial message history is not an authoritative brokerage position.**
+
+
+## Financial Intelligence V2 — investment settlement manual review — PR #88
+
+Status on 2026-09-30: **implemented and Android CI verified on code head `20afb890f6ae883348adff37be0eace2560ef3f0` before this documentation commit.**
+
+This work was started when the conversation asked to continue “Phase 4”. The live repository already contained the original Phase 4 event-chain reconciliation (PR #83), Phase 5 manual debt relationship review, the real-device correctness repairs, liability-payment bridge, and investment settlement foundation through PR #87. This slice therefore continues from current `main` instead of duplicating already-merged Phase 4 logic.
+
+### Gap being closed
+
+PR #87 deliberately allowed automatic investment settlement only when exact deterministic evidence proved the relationship.
+
+That left an intentional gap:
+
+- an executed BUY/SELL is understood;
+- its value is known;
+- one or more plausible wallet/bank cash movements exist;
+- but exact-reference evidence is absent or ambiguous.
+
+PesaTrack must not guess in that situation, but the relationship should not remain invisible either.
+
+PR #88 adds the same manual safety principle already used for debt relationships:
+
+**automatic intelligence may propose; uncertain financial truth requires an explicit user decision.**
+
+### Activity -> Links integration
+
+A new relationship-review kind is added:
+
+- `INVESTMENT_SETTLEMENT`.
+
+Executed investment events with plausible unresolved cash movements now appear in Activity -> Links.
+
+The review card shows:
+
+- the instrument;
+- executed BUY or SELL;
+- stated execution value;
+- execution time;
+- plausible cash candidates;
+- why each candidate is plausible;
+- `Use as investment settlement`;
+- `None of these settled it`.
+
+Submitted investment orders are never settlement-review candidates.
+
+### Provider-neutral candidate rules
+
+A new pure `InvestmentSettlementReviewPolicy` defines eligibility.
+
+A candidate requires:
+
+1. the investment execution has a positive stated value;
+2. transaction amount exactly matches that value;
+3. BUY corresponds to an outgoing EXPENSE;
+4. SELL corresponds to an incoming INCOME;
+5. the transaction is not protected by user classification, exclusion, Smart Rule, another relationship, debt linkage, or another investment settlement;
+6. either:
+   - an exact external reference is shared; or
+   - the transaction is inside the bounded ten-minute review window.
+
+Important distinction:
+
+- exact-reference ambiguity can remain reviewable even outside the time window;
+- amount/time similarity alone **never auto-links** the investment;
+- amount/time only creates a candidate for the user.
+
+The production policy contains no broker/provider-name routing.
+
+### Durable user decisions
+
+Schema version is now **24**.
+
+`investment_events` adds:
+
+- `settlement_user_decision`;
+- `settlement_confidence`;
+- `settlement_reason`.
+
+If the user chooses a transaction:
+
+- the candidate is rebuilt and revalidated before the write;
+- the canonical money movement is reclassified through the existing investment-settlement path;
+- category becomes INVESTMENT;
+- direction becomes TRANSFER;
+- relation remains INVESTMENT_BUY or INVESTMENT_SELL;
+- evidence source becomes `investment_user_confirmed`;
+- evidence confidence becomes `USER_CONFIRMED`;
+- the investment event records the linked transaction and remembered decision.
+
+If the user chooses `None of these settled it`:
+
+- a durable keep-unlinked decision is stored;
+- automatic investment settlement no longer retries that event.
+
+### Re-import protection
+
+A duplicate/re-imported execution no longer bypasses manual review decisions.
+
+The automatic `tryLinkEvent` path now reloads the event through the same eligibility gate used by automatic settlement:
+
+- already linked events are not relinked;
+- events with a saved manual settlement decision are not automatically reconsidered.
+
+Therefore a later SMS import cannot silently overwrite `None of these settled it`.
+
+### Existing exact-reference automation remains
+
+PR #88 does not weaken or replace PR #87.
+
+When one exact shared reference + matching value + correct direction uniquely proves settlement, automatic settlement still occurs without asking the user.
+
+Manual review is only the safety valve for unresolved/ambiguous cases.
+
+### Regression coverage
+
+A pure unit-test suite now protects:
+
+- exact-reference ambiguity can be reviewed outside the time window;
+- same-value/correct-direction candidates inside the ten-minute window are reviewable;
+- same-value candidates outside the window without a shared reference are rejected;
+- wrong cash direction is rejected;
+- protected transactions are rejected;
+- amount mismatch is rejected.
+
+Existing investment semantic/settlement and Financial Intelligence regression tests remain in force.
+
+Code head `20afb890f6ae883348adff37be0eace2560ef3f0` passed Android CI run #357:
+
+- entity-enrichment Worker validation: passed;
+- Android compilation: passed;
+- Android unit tests: passed;
+- debug APK assembly: passed.
+
+### Deliberately outside this slice
+
+This work does not add:
+
+- authoritative brokerage position/balance baselines;
+- market-price valuation or unrealized P/L;
+- corporate actions;
+- dividend settlement;
+- broker API synchronization;
+- provider-specific fee/tax arithmetic;
+- automatic amount/time-only investment settlement.
+
+### Recommended real-device validation
+
+Use a controlled history window and verify:
+
+1. exact-reference investment settlement still happens automatically;
+2. executed BUY with same-value outgoing cash but no exact shared reference appears in Links rather than auto-linking;
+3. executed SELL with same-value incoming cash appears in Links;
+4. choosing a candidate reclassifies the cash movement once and links the event;
+5. choosing `None of these settled it` removes the review and remains remembered after re-import;
+6. submitted orders never appear as settlement reviews;
+7. user-classified/Smart Rule/debt-linked transactions are never offered as investment settlement candidates.
+
+Permanent rule remains:
+
+**financial language establishes investment execution; exact evidence may establish settlement automatically; ambiguous settlement requires an explicit user decision.**
