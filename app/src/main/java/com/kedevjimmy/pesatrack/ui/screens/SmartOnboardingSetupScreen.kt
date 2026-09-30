@@ -2363,13 +2363,20 @@ private fun ManualSalaryPage(
     accounts: List<MoneyAccount>,
     selectedAccountId: String,
     payer: String,
-    amount: String,
-    paidAtEpochMs: Long?,
+    importMonths: Int,
+    historyMode: SalaryHistoryMode,
+    drafts: List<ManualSalaryDraft>,
+    searchStatus: String?,
     error: String?,
     onAccountSelected: (String) -> Unit,
     onPayerChanged: (String) -> Unit,
-    onAmountChanged: (String) -> Unit,
-    onDateSelected: (Long) -> Unit,
+    onHistoryModeChanged:
+        (SalaryHistoryMode) -> Unit,
+    onSearchHistory: () -> Unit,
+    onDraftAmountChanged:
+        (Int, String) -> Unit,
+    onDraftDateSelected:
+        (Int, Long) -> Unit,
     onSave: () -> Unit,
     onSkip: () -> Unit
 ) {
@@ -2380,9 +2387,9 @@ private fun ManualSalaryPage(
     ) {
         SetupHero(
             icon = Icons.Rounded.Payments,
-            title = "Add one recent salary",
+            title = "Set up your salary history",
             body =
-                "Just enough information to start your pay cycle. You don't need to enter months of salary history."
+                "Payday starts a cash-flow cycle. Add the dates and amounts PesaTrack could not reliably learn from your messages."
         )
 
         PesaCard {
@@ -2393,7 +2400,7 @@ private fun ManualSalaryPage(
                     Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    "Where did it arrive?",
+                    "Where does salary arrive?",
                     style =
                         MaterialTheme.typography
                             .titleMedium,
@@ -2423,17 +2430,17 @@ private fun ManualSalaryPage(
             onValueChange = onPayerChanged,
             label = {
                 Text(
-                    "Name shown on the salary transaction"
+                    "Payroll / statement name"
                 )
             },
             placeholder = {
                 Text(
-                    "Example: XYZ PAYROLL or employer statement name"
+                    "Example: XYZ PAYROLL"
                 )
             },
             supportingText = {
                 Text(
-                    "Use the wording you normally see on the bank or M-Pesa transaction. It can differ from the company's legal name. Leave blank if your bank never shows a payer."
+                    "Use the wording shown by your bank or M-Pesa. It can be different from your employer's legal name."
                 )
             },
             modifier =
@@ -2441,92 +2448,290 @@ private fun ManualSalaryPage(
             singleLine = true
         )
 
-        OutlinedTextField(
-            value = amount,
-            onValueChange = onAmountChanged,
-            label = {
-                Text("Most recent salary amount")
-            },
-            prefix = {
-                Text("KES ")
-            },
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType =
-                        KeyboardType.Decimal
-                ),
-            modifier =
-                Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        OutlinedButton(
-            onClick = {
-                val initial =
-                    Calendar.getInstance()
-                        .apply {
-                            if (
-                                paidAtEpochMs !=
-                                null
-                            ) {
-                                timeInMillis =
-                                    paidAtEpochMs
-                            }
-                        }
-
-                DatePickerDialog(
-                    context,
-                    {
-                            _,
-                            year,
-                            month,
-                            dayOfMonth ->
-                        val selected =
-                            Calendar
-                                .getInstance()
-                                .apply {
-                                    clear()
-                                    set(
-                                        year,
-                                        month,
-                                        dayOfMonth,
-                                        12,
-                                        0,
-                                        0
-                                    )
-                                }
-                                .timeInMillis
-                        onDateSelected(
-                            selected
-                        )
-                    },
-                    initial.get(
-                        Calendar.YEAR
-                    ),
-                    initial.get(
-                        Calendar.MONTH
-                    ),
-                    initial.get(
-                        Calendar.DAY_OF_MONTH
-                    )
-                ).apply {
-                    datePicker.maxDate =
-                        System.currentTimeMillis()
-                }.show()
-            },
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 54.dp)
+        if (
+            importMonths > 0 &&
+            payer.isNotBlank()
         ) {
+            OutlinedButton(
+                onClick = onSearchHistory,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 52.dp),
+                shape =
+                    RoundedCornerShape(18.dp)
+            ) {
+                Text(
+                    "Search imported history for this payroll name"
+                )
+            }
+        }
+
+        if (importMonths > 1) {
             Text(
-                paidAtEpochMs
-                    ?.let(
-                        ::formatSetupDate
+                "How much salary history do you want to add?",
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurface
+            )
+
+            SelectableSetupCard(
+                selected =
+                    historyMode ==
+                        SalaryHistoryMode
+                            .IMPORT_WINDOW,
+                title =
+                    "Use the selected history",
+                body =
+                    "Add up to $importMonths paydays so PesaTrack can reconstruct earlier pay cycles.",
+                icon =
+                    Icons.Rounded.History,
+                onClick = {
+                    onHistoryModeChanged(
+                        SalaryHistoryMode
+                            .IMPORT_WINDOW
                     )
-                    ?: "Choose the date salary arrived"
+                }
+            )
+
+            SelectableSetupCard(
+                selected =
+                    historyMode ==
+                        SalaryHistoryMode
+                            .LATEST_ONLY,
+                title =
+                    "Start with my latest salary",
+                body =
+                    "Skip older paydays and begin the cash-flow model from the most recent salary.",
+                icon =
+                    Icons.Rounded.Payments,
+                onClick = {
+                    onHistoryModeChanged(
+                        SalaryHistoryMode
+                            .LATEST_ONLY
+                    )
+                }
             )
         }
+
+        searchStatus?.let { message ->
+            Surface(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                shape =
+                    RoundedCornerShape(16.dp),
+                color =
+                    pesaToneContainer(
+                        if (
+                            message.startsWith(
+                                "Found"
+                            )
+                        ) {
+                            "green"
+                        } else {
+                            "amber"
+                        }
+                    )
+            ) {
+                Text(
+                    message,
+                    modifier =
+                        Modifier.padding(14.dp),
+                    style =
+                        MaterialTheme.typography
+                            .bodyMedium,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurface
+                )
+            }
+        }
+
+        drafts.forEachIndexed {
+                index,
+                draft ->
+            PesaCard {
+                Column(
+                    modifier =
+                        Modifier.padding(16.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier =
+                                Modifier.weight(1f)
+                        ) {
+                            Text(
+                                draft.monthLabel,
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium,
+                                fontWeight =
+                                    FontWeight
+                                        .SemiBold
+                            )
+                            if (
+                                draft.matchedTransactionId !=
+                                null
+                            ) {
+                                Text(
+                                    "Found in imported history",
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .labelSmall,
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .primary
+                                )
+                            }
+                        }
+                        if (
+                            draft.matchedTransactionId !=
+                            null
+                        ) {
+                            Icon(
+                                Icons.Rounded.CheckCircle,
+                                contentDescription =
+                                    "Matched from history",
+                                tint =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .primary
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = draft.amount,
+                        onValueChange = {
+                            onDraftAmountChanged(
+                                index,
+                                it
+                            )
+                        },
+                        label = {
+                            Text(
+                                "Salary amount"
+                            )
+                        },
+                        prefix = {
+                            Text("KES ")
+                        },
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType =
+                                    KeyboardType
+                                        .Decimal
+                            ),
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            val initial =
+                                Calendar
+                                    .getInstance()
+                                    .apply {
+                                        draft
+                                            .paidAtEpochMs
+                                            ?.let {
+                                                timeInMillis =
+                                                    it
+                                            }
+                                    }
+
+                            DatePickerDialog(
+                                context,
+                                {
+                                        _,
+                                        year,
+                                        month,
+                                        dayOfMonth ->
+                                    val selected =
+                                        Calendar
+                                            .getInstance()
+                                            .apply {
+                                                clear()
+                                                set(
+                                                    year,
+                                                    month,
+                                                    dayOfMonth,
+                                                    12,
+                                                    0,
+                                                    0
+                                                )
+                                            }
+                                            .timeInMillis
+                                    onDraftDateSelected(
+                                        index,
+                                        selected
+                                    )
+                                },
+                                initial.get(
+                                    Calendar.YEAR
+                                ),
+                                initial.get(
+                                    Calendar.MONTH
+                                ),
+                                initial.get(
+                                    Calendar
+                                        .DAY_OF_MONTH
+                                )
+                            ).apply {
+                                datePicker.maxDate =
+                                    System
+                                        .currentTimeMillis()
+                            }.show()
+                        },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(
+                                    min = 52.dp
+                                )
+                    ) {
+                        Text(
+                            draft.paidAtEpochMs
+                                ?.let(
+                                    ::formatSetupDate
+                                )
+                                ?: "Choose the actual payday"
+                        )
+                    }
+                }
+            }
+        }
+
+        Text(
+            if (
+                historyMode ==
+                SalaryHistoryMode.IMPORT_WINDOW
+            ) {
+                "Leave an older month empty if you cannot recover it. PesaTrack will use only the paydays you confirm."
+            } else {
+                "PesaTrack will start from this payday. Older calendar activity remains visible, but it will not be treated as an earlier salary cycle."
+            },
+            style =
+                MaterialTheme.typography
+                    .bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
 
         error?.let { message ->
             Surface(
@@ -2557,7 +2762,18 @@ private fun ManualSalaryPage(
             shape =
                 RoundedCornerShape(18.dp)
         ) {
-            Text("Save salary and continue")
+            Text(
+                if (
+                    historyMode ==
+                    SalaryHistoryMode
+                        .IMPORT_WINDOW &&
+                    drafts.size > 1
+                ) {
+                    "Save salary history and continue"
+                } else {
+                    "Save salary and continue"
+                }
+            )
         }
 
         TextButton(
@@ -2567,16 +2783,6 @@ private fun ManualSalaryPage(
         ) {
             Text("Skip for now")
         }
-
-        Text(
-            "This manual salary is counted once, on the date you choose. It is not duplicated as another month of income.",
-            style =
-                MaterialTheme.typography
-                    .bodySmall,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
-        )
     }
 }
 
