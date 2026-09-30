@@ -236,6 +236,27 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 19) {
             createTransactionExternalReferencesTable(db)
+            db.execSQL(
+                """
+                INSERT OR IGNORE INTO
+                    transaction_external_references(
+                        transaction_id,
+                        reference_value,
+                        reference_label,
+                        source_kind,
+                        observed_at_epoch_ms
+                    )
+                SELECT
+                    id,
+                    UPPER(transaction_code),
+                    'transaction_code',
+                    source_kind,
+                    received_at_epoch_ms
+                FROM transactions
+                WHERE transaction_code IS NOT NULL
+                  AND TRIM(transaction_code) != ''
+                """.trimIndent()
+            )
         }
 
         createIndexes(db)
