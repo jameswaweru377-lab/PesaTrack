@@ -68,7 +68,8 @@ class TransactionStore private constructor(context: Context) {
         reversalOfCode: String? = null,
         accountIdOverride: String? = null,
         accountTransferOverride:
-            com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null
+            com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null,
+        externalReferences: Set<String> = emptySet()
     ): Boolean {
         val legacyType =
             LegacyTransactionTypeCompatibility.resolve(
@@ -116,7 +117,9 @@ class TransactionStore private constructor(context: Context) {
                 accountTransferOverride,
             accountIdOverride =
                 accountIdOverride,
-            allowLegacyAccountFallback = false
+            allowLegacyAccountFallback = false,
+            externalReferences =
+                externalReferences
         )
     }
 
@@ -133,7 +136,8 @@ class TransactionStore private constructor(context: Context) {
         accountTransferOverride:
             com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null,
         accountIdOverride: String? = null,
-        allowLegacyAccountFallback: Boolean = true
+        allowLegacyAccountFallback: Boolean = true,
+        externalReferences: Set<String> = emptySet()
     ): Boolean {
         val fingerprint = TransactionFingerprint.of(parsed, occurredAtEpochMs)
         if (parsed.transactionCode.isNullOrBlank()) {
@@ -228,15 +232,39 @@ class TransactionStore private constructor(context: Context) {
             }
         }
 
+        val correlationReferences =
+            normalizedCorrelationReferences(
+                transactionCode =
+                    parsed.transactionCode,
+                externalReferences =
+                    externalReferences
+            )
+        val correlationAccountIds =
+            setOfNotNull(
+                accountId,
+                linkedAccountId
+            )
+
         val mirrorCandidate = findMirrorCandidate(
             parsed = parsed,
             sourcePackage = sourcePackage,
             sourceKind = sourceKind,
             receivedAtEpochMs = receivedAtEpochMs,
             occurredAtEpochMs = occurredAtEpochMs,
-            direction = classification.direction.name
+            direction = classification.direction.name,
+            externalReferences =
+                correlationReferences,
+            accountIds =
+                correlationAccountIds
         )
         if (mirrorCandidate != null) {
+            attachExternalReferences(
+                transactionId = mirrorCandidate.id,
+                references = correlationReferences,
+                sourceKind = sourceKind,
+                observedAtEpochMs = receivedAtEpochMs
+            )
+
             if (parsed.transactionCode.isNullOrBlank()) {
                 return false
             }
@@ -347,6 +375,12 @@ class TransactionStore private constructor(context: Context) {
 
         val inserted = rowId != -1L
         if (inserted) {
+            attachExternalReferences(
+                transactionId = rowId,
+                references = correlationReferences,
+                sourceKind = sourceKind,
+                observedAtEpochMs = receivedAtEpochMs
+            )
             DebtStore.get(appContext)
                 .reconcilePendingDrawdownsForTransaction(
                     transactionId = rowId,
@@ -1296,9 +1330,16 @@ class TransactionStore private constructor(context: Context) {
         sourceKind: String,
         receivedAtEpochMs: Long,
         occurredAtEpochMs: Long,
-        direction: String
+        direction: String,
+        externalReferences: Set<String>,
+        accountIds: Set<String>
     ): StoredTransaction? {
-        if (parsed.type == MpesaTransactionType.REVERSAL) return null
+        if (
+            parsed.type ==
+                MpesaTransactionType.REVERSAL
+        ) {
+            return null
+        }
 
         val incoming = MirrorTransactionObservation(
             amountMinor = parsed.amountMinor,
@@ -1309,46 +1350,242 @@ class TransactionStore private constructor(context: Context) {
             transactionCode = parsed.transactionCode,
             type = parsed.type.name,
             counterparty = parsed.counterparty,
-            counterpartyPhone = parsed.counterpartyPhone,
-            direction = direction
+            counterpartyPhone =
+                parsed.counterpartyPhone,
+            direction = direction,
+            externalReferences =
+                externalReferences,
+            accountIds = accountIds
         )
 
-        return database.readableDatabase.rawQuery(
-            BASE_SELECT +
-                " WHERE amount_minor = ?" +
-                " AND received_at_epoch_ms >= ?" +
-                " AND received_at_epoch_ms <= ?" +
-                " ORDER BY ABS(received_at_epoch_ms - ?) ASC" +
-                " LIMIT 12",
-            arrayOf(
-                parsed.amountMinor.toString(),
-                (receivedAtEpochMs - MirrorTransactionMatcher.MAX_TIME_DELTA_MS).toString(),
-                (receivedAtEpochMs + MirrorTransactionMatcher.MAX_TIME_DELTA_MS).toString(),
-                receivedAtEpochMs.toString()
+        val exactReferenceCandidates =
+            findTransactionsByExternalReferences(
+                references = externalReferences,
+                amountMinor = parsed.amountMinor
             )
-        ).use { cursor ->
-            var best: StoredTransaction? = null
-            while (cursor.moveToNext()) {
-                val candidate = cursor.toStoredTransaction()
-                if (
-                    candidate.reviewState == ReviewState.USER_CLASSIFIED.name ||
-                    candidate.reviewState == ReviewState.EXCLUDED.name
-                ) {
-                    continue
-                }
-                if (
-                    MirrorTransactionMatcher.isMirror(
-                        incoming,
-                        candidate.toMirrorObservation()
-                    )
-                ) {
-                    best = candidate
-                    break
+                .filterNot(::isProtectedCorrelationTarget)
+
+        if (exactReferenceCandidates.size == 1) {
+            return exactReferenceCandidates.single()
+        }
+        if (exactReferenceCandidates.size > 1) {
+            return null
+        }
+
+        val matches =
+            database.readableDatabase.rawQuery(
+                BASE_SELECT +
+                    " WHERE amount_minor = ?" +
+                    " AND received_at_epoch_ms >= ?" +
+                    " AND received_at_epoch_ms <= ?" +
+                    " ORDER BY ABS(received_at_epoch_ms - ?) ASC" +
+                    " LIMIT 12",
+                arrayOf(
+                    parsed.amountMinor.toString(),
+                    (
+                        receivedAtEpochMs -
+                            MirrorTransactionMatcher
+                                .MAX_TIME_DELTA_MS
+                        ).toString(),
+                    (
+                        receivedAtEpochMs +
+                            MirrorTransactionMatcher
+                                .MAX_TIME_DELTA_MS
+                        ).toString(),
+                    receivedAtEpochMs.toString()
+                )
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        val candidate =
+                            cursor.toStoredTransaction()
+                        if (
+                            isProtectedCorrelationTarget(
+                                candidate
+                            )
+                        ) {
+                            continue
+                        }
+
+                        val match =
+                            MirrorTransactionMatcher.match(
+                                incoming,
+                                candidate.toMirrorObservation(
+                                    externalReferences =
+                                        externalReferencesForTransaction(
+                                            candidate.id
+                                        )
+                                )
+                            )
+                        if (match.autoLink) {
+                            add(candidate to match)
+                        }
+                    }
                 }
             }
-            best
+
+        if (matches.size != 1) {
+            return null
+        }
+        return matches.single().first
+    }
+
+    @Synchronized
+    fun findByAnyExternalReference(
+        references: Set<String>
+    ): StoredTransaction? {
+        val normalized =
+            normalizedCorrelationReferences(
+                transactionCode = null,
+                externalReferences = references
+            )
+        val matches =
+            findTransactionsByExternalReferences(
+                references = normalized,
+                amountMinor = null
+            )
+        return matches.singleOrNull()
+    }
+
+    private fun findTransactionsByExternalReferences(
+        references: Set<String>,
+        amountMinor: Long?
+    ): List<StoredTransaction> {
+        if (references.isEmpty()) {
+            return emptyList()
+        }
+
+        val placeholders =
+            references.joinToString(",") { "?" }
+        val args =
+            buildList {
+                addAll(references)
+                if (amountMinor != null) {
+                    add(amountMinor.toString())
+                }
+            }.toTypedArray()
+        val amountClause =
+            if (amountMinor != null) {
+                " AND t.amount_minor = ?"
+            } else {
+                ""
+            }
+
+        return database.readableDatabase.rawQuery(
+            """
+            SELECT DISTINCT
+                   t.id, t.transaction_code, t.fingerprint,
+                   t.type, t.amount_minor, t.fee_minor,
+                   t.balance_minor, t.counterparty,
+                   t.counterparty_phone, t.occurred_at_text,
+                   t.occurred_at_epoch_ms,
+                   t.received_at_epoch_ms, t.source_package,
+                   t.source_kind, t.direction, t.category,
+                   t.review_state, t.rule_id, t.planning_month,
+                   t.reversal_of_code, t.account_id,
+                   t.linked_account_id, t.pay_cycle_id,
+                   t.cycle_candidate_reason, t.cycle_override,
+                   t.fuliza_financed_minor,
+                   t.fuliza_access_fee_minor,
+                   t.fuliza_outstanding_minor,
+                   t.fuliza_event_code, t.evidence_label,
+                   t.evidence_source, t.evidence_confidence,
+                   t.evidence_time_delta_ms, t.relation_type,
+                   t.related_transaction_id
+            FROM transactions t
+            JOIN transaction_external_references r
+              ON r.transaction_id = t.id
+            WHERE r.reference_value IN ($placeholders)
+            $amountClause
+            ORDER BY t.received_at_epoch_ms DESC, t.id DESC
+            LIMIT 12
+            """.trimIndent(),
+            args
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(cursor.toStoredTransaction())
+                }
+            }
         }
     }
+
+    private fun isProtectedCorrelationTarget(
+        transaction: StoredTransaction
+    ): Boolean =
+        transaction.reviewState ==
+            ReviewState.USER_CLASSIFIED.name ||
+            transaction.reviewState ==
+                ReviewState.EXCLUDED.name
+
+    private fun attachExternalReferences(
+        transactionId: Long,
+        references: Set<String>,
+        sourceKind: String,
+        observedAtEpochMs: Long
+    ) {
+        if (references.isEmpty()) {
+            return
+        }
+        val db = database.writableDatabase
+        references.forEach { reference ->
+            val values = ContentValues().apply {
+                put("transaction_id", transactionId)
+                put("reference_value", reference)
+                putNull("reference_label")
+                put("source_kind", sourceKind)
+                put(
+                    "observed_at_epoch_ms",
+                    observedAtEpochMs
+                )
+            }
+            db.insertWithOnConflict(
+                "transaction_external_references",
+                null,
+                values,
+                SQLiteDatabase.CONFLICT_IGNORE
+            )
+        }
+    }
+
+    private fun externalReferencesForTransaction(
+        transactionId: Long
+    ): Set<String> =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT reference_value
+            FROM transaction_external_references
+            WHERE transaction_id = ?
+            """.trimIndent(),
+            arrayOf(transactionId.toString())
+        ).use { cursor ->
+            buildSet {
+                while (cursor.moveToNext()) {
+                    add(cursor.getString(0))
+                }
+            }
+        }
+
+    private fun normalizedCorrelationReferences(
+        transactionCode: String?,
+        externalReferences: Set<String>
+    ): Set<String> =
+        buildSet {
+            (
+                externalReferences +
+                    listOfNotNull(transactionCode)
+                )
+                .mapNotNull { value ->
+                    value.trim()
+                        .uppercase()
+                        .replace(
+                            Regex("""[^A-Z0-9-]"""),
+                            ""
+                        )
+                        .takeIf { it.length >= 5 }
+                }
+                .forEach(::add)
+        }
 
     private fun mergeMpesaMirrorIntoExisting(
         existing: StoredTransaction,
@@ -2511,7 +2748,9 @@ private fun android.database.Cursor.getStringOrNull(index: Int): String? =
 private fun android.database.Cursor.getLongOrNull(index: Int): Long? =
     if (isNull(index)) null else getLong(index)
 
-private fun StoredTransaction.toMirrorObservation(): MirrorTransactionObservation =
+private fun StoredTransaction.toMirrorObservation(
+    externalReferences: Set<String> = emptySet()
+): MirrorTransactionObservation =
     MirrorTransactionObservation(
         amountMinor = amountMinor,
         occurredAtEpochMs = occurredAtEpochMs,
@@ -2522,7 +2761,13 @@ private fun StoredTransaction.toMirrorObservation(): MirrorTransactionObservatio
         type = type,
         counterparty = counterparty,
         counterpartyPhone = counterpartyPhone,
-        direction = direction
+        direction = direction,
+        externalReferences = externalReferences,
+        accountIds =
+            setOfNotNull(
+                accountId,
+                linkedAccountId
+            )
     )
 
 private fun StoredTransaction.toPossibleDuplicateObservation():
