@@ -3008,6 +3008,16 @@ private fun ManualSalaryPage(
                 "Payday starts a cash-flow cycle. Add the dates and amounts PesaTrack could not reliably learn from your messages."
         )
 
+        Text(
+            "Use the date the money actually arrived. A salary paid near the end of September can be the pay cycle you live on through October; PesaTrack does not assume the new calendar month means a new salary already exists.",
+            style =
+                MaterialTheme.typography
+                    .bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
+
         PesaCard {
             Column(
                 modifier =
