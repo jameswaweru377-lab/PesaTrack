@@ -534,6 +534,15 @@ fun SmartOnboardingSetupScreen(
             accountDiscovery.first
         availableAccounts =
             accountDiscovery.second
+        pendingOwnershipEntities =
+            withContext(
+                Dispatchers.IO
+            ) {
+                onboardingOwnershipCandidates(
+                    financialUnderstandingStore
+                        .pendingEntities()
+                )
+            }
         if (
             manualSalaryAccountId.isBlank()
         ) {
