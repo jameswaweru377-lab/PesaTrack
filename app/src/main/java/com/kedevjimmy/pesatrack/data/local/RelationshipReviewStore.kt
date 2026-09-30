@@ -7,6 +7,7 @@ import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentBalancePolicy
 import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentChainPolicy
 import com.kedevjimmy.pesatrack.domain.rules.RepaymentChainConfidence
+import com.kedevjimmy.pesatrack.domain.rules.InvestmentSettlementReviewPolicy
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -502,11 +503,13 @@ class RelationshipReviewStore private constructor(
                 event.id.toString(),
                 (
                     event.occurredAtEpochMs -
-                        INVESTMENT_REVIEW_WINDOW_MS
+                        InvestmentSettlementReviewPolicy
+                            .MAX_TIME_DELTA_MS
                     ).toString(),
                 (
                     event.occurredAtEpochMs +
-                        INVESTMENT_REVIEW_WINDOW_MS
+                        InvestmentSettlementReviewPolicy
+                            .MAX_TIME_DELTA_MS
                     ).toString(),
                 event.id.toString(),
                 event.occurredAtEpochMs
@@ -525,11 +528,47 @@ class RelationshipReviewStore private constructor(
                         cursor.getString(3)
                     val sharesReference =
                         cursor.getInt(4) != 0
-                    val delta =
-                        abs(
-                            occurredAt -
-                                event.occurredAtEpochMs
-                        )
+                    val action =
+                        when (event.eventType) {
+                            InvestmentEventType
+                                .BUY_EXECUTED ->
+                                com.kedevjimmy.pesatrack
+                                    .domain
+                                    .interpretation
+                                    .SemanticInvestmentAction
+                                    .BUY
+                            InvestmentEventType
+                                .SELL_EXECUTED ->
+                                com.kedevjimmy.pesatrack
+                                    .domain
+                                    .interpretation
+                                    .SemanticInvestmentAction
+                                    .SELL
+                            InvestmentEventType
+                                .ORDER_SUBMITTED ->
+                                continue
+                        }
+                    val assessment =
+                        InvestmentSettlementReviewPolicy
+                            .assess(
+                                action = action,
+                                investmentValueMinor =
+                                    event.valueMinor,
+                                investmentOccurredAtEpochMs =
+                                    event.occurredAtEpochMs,
+                                transactionAmountMinor =
+                                    amountMinor,
+                                transactionDirection =
+                                    expectedDirection.name,
+                                transactionOccurredAtEpochMs =
+                                    occurredAt,
+                                sharesExactReference =
+                                    sharesReference,
+                                protected = false
+                            )
+                    if (!assessment.eligible) {
+                        continue
+                    }
 
                     add(
                         RelationshipReviewCandidate(
@@ -541,15 +580,8 @@ class RelationshipReviewStore private constructor(
                                 occurredAt,
                             label = label,
                             reason =
-                                if (sharesReference) {
-                                    "Shares an exact external reference and the same investment value, but automatic settlement remained ambiguous."
-                                } else {
-                                    "Same investment value and correct cash direction within " +
-                                        reviewDistanceLabel(
-                                            delta
-                                        ) +
-                                        " of the execution."
-                                }
+                                assessment.reason
+                                    ?: "Plausible investment settlement candidate."
                         )
                     )
                 }
@@ -1174,18 +1206,6 @@ class RelationshipReviewStore private constructor(
         val occurredAtEpochMs: Long
     )
 
-    private fun reviewDistanceLabel(
-        deltaMs: Long
-    ): String {
-        val minutes =
-            max(1L, deltaMs / 60_000L)
-        return if (minutes == 1L) {
-            "about one minute"
-        } else {
-            "about $minutes minutes"
-        }
-    }
-
     private data class RepaymentForReview(
         val id: Long,
         val amountMinor: Long,
@@ -1205,8 +1225,6 @@ class RelationshipReviewStore private constructor(
             "USER_LINKED"
         private const val DECISION_KEEP_UNLINKED =
             "USER_KEEP_UNLINKED"
-        private const val INVESTMENT_REVIEW_WINDOW_MS =
-            10L * 60L * 1000L
 
         @Volatile
         private var instance:
