@@ -52,6 +52,16 @@ data class FinancialActionCandidate(
     val ruleId: String
 )
 
+data class AccountToAccountTransferCandidate(
+    val amountMinor: Long,
+    val amountSpan: MessageSpan,
+    val sourceLabel: String,
+    val sourceSpan: MessageSpan,
+    val destinationLabel: String,
+    val destinationSpan: MessageSpan,
+    val ruleId: String
+)
+
 enum class CashMovementCandidateKind {
     WITHDRAWAL,
     DEPOSIT
@@ -85,7 +95,9 @@ data class FinancialMessageCandidates(
     val reversal: ReversalCandidate?,
     val cashMovements: List<CashMovementCandidate>,
     val actions: List<FinancialActionCandidate>,
-    val debt: DebtMessageCandidates
+    val debt: DebtMessageCandidates,
+    val accountToAccountTransfer:
+        AccountToAccountTransferCandidate? = null
 )
 
 object FinancialCandidateExtractor {
@@ -130,6 +142,15 @@ object FinancialCandidateExtractor {
         """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
+    private val accountToAccountTransferRegex =
+        Regex(
+            """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:transferred|moved)\s+from\s+(?:your\s+)?(.+?)\s+account\s+to\s+(?:your\s+)?(.+?)\s+account\b""",
+            setOf(
+                RegexOption.IGNORE_CASE,
+                RegexOption.DOT_MATCHES_ALL
+            )
+        )
+
     private val transferFromRegex = Regex(
         """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:transferred|withdrawn|moved)\s+from\s+(.+?)\s+account\b""",
         setOf(
@@ -398,7 +419,11 @@ object FinancialCandidateExtractor {
             actions = actions,
             debt = DebtCandidateExtractor.extract(
                 message
-            )
+            ),
+            accountToAccountTransfer =
+                accountToAccountTransferCandidate(
+                    body
+                )
         )
     }
 
@@ -622,6 +647,43 @@ object FinancialCandidateExtractor {
             amountSpan = amount.range.toSpan(),
             ruleId =
                 "balance.message_source_available"
+        )
+    }
+
+    private fun accountToAccountTransferCandidate(
+        body: String
+    ): AccountToAccountTransferCandidate? {
+        val match =
+            accountToAccountTransferRegex
+                .find(body)
+                ?: return null
+        val amount =
+            match.groups[1]
+                ?: return null
+        val source =
+            match.groups[2]
+                ?: return null
+        val destination =
+            match.groups[3]
+                ?: return null
+
+        return AccountToAccountTransferCandidate(
+            amountMinor =
+                amountToMinor(
+                    amount.value
+                ),
+            amountSpan =
+                amount.range.toSpan(),
+            sourceLabel =
+                source.value.trim(),
+            sourceSpan =
+                source.range.toSpan(),
+            destinationLabel =
+                destination.value.trim(),
+            destinationSpan =
+                destination.range.toSpan(),
+            ruleId =
+                "transfer.account_to_account"
         )
     }
 
