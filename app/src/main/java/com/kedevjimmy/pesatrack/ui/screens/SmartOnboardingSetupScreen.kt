@@ -4160,6 +4160,10 @@ private fun defaultSmartSalaryDrafts(
             .apply {
                 timeInMillis =
                     nowEpochMs
+                val currentDay =
+                    get(
+                        Calendar.DAY_OF_MONTH
+                    )
                 set(
                     Calendar.DAY_OF_MONTH,
                     1
@@ -4180,6 +4184,19 @@ private fun defaultSmartSalaryDrafts(
                     Calendar.MILLISECOND,
                     0
                 )
+
+                // At the start of a new month, the most recent
+                // salary is normally the late-previous-month
+                // payday that funds the current cycle.
+                if (
+                    currentDay <=
+                    EARLY_MONTH_SALARY_CUTOFF_DAY
+                ) {
+                    add(
+                        Calendar.MONTH,
+                        -1
+                    )
+                }
             }
     val keyFormatter =
         SimpleDateFormat(
@@ -4207,12 +4224,22 @@ private fun defaultSmartSalaryDrafts(
                     month.time
                 ),
             monthLabel =
-                if (count == 1) {
-                    "Most recent salary"
-                } else {
-                    labelFormatter.format(
-                        month.time
-                    )
+                when (index) {
+                    0 ->
+                        "Most recent salary • " +
+                            labelFormatter.format(
+                                month.time
+                            )
+                    1 ->
+                        "Previous salary • " +
+                            labelFormatter.format(
+                                month.time
+                            )
+                    else ->
+                        "2 salaries ago • " +
+                            labelFormatter.format(
+                                month.time
+                            )
                 }
         )
     }
@@ -4387,6 +4414,9 @@ private fun formatSetupMoney(
             amountMinor / 100.0
         )
 }
+
+private const val EARLY_MONTH_SALARY_CUTOFF_DAY =
+    7
 
 private const val ONE_DAY_MS =
     24L * 60L * 60L * 1000L
