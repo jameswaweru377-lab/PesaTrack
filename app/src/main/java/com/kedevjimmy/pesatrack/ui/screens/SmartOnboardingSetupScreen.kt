@@ -642,6 +642,182 @@ fun SmartOnboardingSetupScreen(
             SmartSetupStage.REVIEW
     }
 
+    LaunchedEffect(
+        stage,
+        importMonths
+    ) {
+        if (
+            stage ==
+            SmartSetupStage.SALARY_MANUAL
+        ) {
+            val desired =
+                if (
+                    manualSalaryHistoryMode ==
+                    SalaryHistoryMode.LATEST_ONLY
+                ) {
+                    1
+                } else {
+                    importMonths
+                        .coerceAtLeast(1)
+                }
+            if (
+                manualSalaryDrafts.size !=
+                desired
+            ) {
+                manualSalaryDrafts =
+                    defaultManualSalaryDrafts(
+                        desired
+                    )
+            }
+        }
+    }
+
+    suspend fun searchImportedSalaryHistory() {
+        val payer =
+            manualSalaryPayer.trim()
+        if (payer.isBlank()) {
+            manualSalaryError =
+                "Enter the payroll or statement name first."
+            return
+        }
+
+        val startEpochMs =
+            HistoryImportWindow
+                .importStartEpochMs(
+                    importMonths
+                        .coerceAtLeast(1)
+                )
+                ?: (
+                    System.currentTimeMillis() -
+                        31L * 24L * 60L *
+                            60L * 1000L
+                    )
+
+        val candidates =
+            withContext(
+                Dispatchers.IO
+            ) {
+                transactionStore
+                    .salaryHistoryCandidates(
+                        payerQuery = payer,
+                        sinceEpochMs =
+                            startEpochMs,
+                        accountId =
+                            manualSalaryAccountId
+                                .takeIf {
+                                    it.isNotBlank()
+                                }
+                    )
+            }
+
+        if (candidates.isEmpty()) {
+            salaryHistorySearchStatus =
+                "No matching salary credits were found in the imported history. You can enter the paydays below."
+            manualSalaryError = null
+            return
+        }
+
+        val byMonth =
+            candidates
+                .groupBy {
+                    salaryMonthKey(
+                        it.occurredAtEpochMs
+                    )
+                }
+                .mapValues {
+                        (_, matches) ->
+                    matches.maxByOrNull {
+                        it.amountMinor
+                    }!!
+                }
+
+        val desired =
+            if (
+                manualSalaryHistoryMode ==
+                SalaryHistoryMode.LATEST_ONLY
+            ) {
+                1
+            } else {
+                importMonths
+                    .coerceAtLeast(1)
+            }
+
+        val baseDrafts =
+            defaultManualSalaryDrafts(
+                desired
+            )
+        var found = 0
+        manualSalaryDrafts =
+            baseDrafts.map { draft ->
+                val match =
+                    byMonth[
+                        draft.monthKey
+                    ]
+                if (match != null) {
+                    found += 1
+                    draft.copy(
+                        amount =
+                            formatSetupAmountInput(
+                                match.amountMinor
+                            ),
+                        paidAtEpochMs =
+                            match.occurredAtEpochMs,
+                        matchedTransactionId =
+                            match.transactionId
+                    )
+                } else {
+                    draft
+                }
+            }
+
+        if (
+            manualSalaryHistoryMode ==
+                SalaryHistoryMode.LATEST_ONLY &&
+            found == 0
+        ) {
+            val latest =
+                candidates.maxByOrNull {
+                    it.occurredAtEpochMs
+                }
+            if (latest != null) {
+                manualSalaryDrafts =
+                    listOf(
+                        ManualSalaryDraft(
+                            monthKey =
+                                salaryMonthKey(
+                                    latest.occurredAtEpochMs
+                                ),
+                            monthLabel =
+                                "Most recent salary",
+                            amount =
+                                formatSetupAmountInput(
+                                    latest.amountMinor
+                                ),
+                            paidAtEpochMs =
+                                latest.occurredAtEpochMs,
+                            matchedTransactionId =
+                                latest.transactionId
+                        )
+                    )
+                found = 1
+            }
+        }
+
+        salaryHistorySearchStatus =
+            if (found > 0) {
+                "Found $found salary payment" +
+                    if (found == 1) {
+                        ""
+                    } else {
+                        "s"
+                    } +
+                    " in your imported history. Confirm or edit them below."
+            } else {
+                "Matching income exists, but it did not line up with the selected months. Enter the paydays below."
+            }
+        manualSalaryError = null
+    }
+
     suspend fun applySalaryIfConfirmed() {
         val suggestion =
             salarySuggestion
