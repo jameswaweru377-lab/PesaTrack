@@ -303,13 +303,8 @@ class InvestmentStore private constructor(
                 )
                 ?: return null
         val event =
-            InvestmentEventForLinking(
-                id = eventId,
-                eventType = eventType(fact),
-                instrumentLabel =
-                    fact.instrumentLabel,
-                valueMinor = fact.valueMinor
-            )
+            eventForLinking(eventId)
+                ?: return null
 
         return if (
             linkIfStrong(
