@@ -655,7 +655,10 @@ fun SmartOnboardingSetupScreen(
         salarySuggestion =
             incomeDiscovery.first
         salaryAccepted =
-            incomeDiscovery.first != null
+            incomeDiscovery.first
+                ?.signalStrength ==
+                SalarySignalStrength
+                    .EXPLICIT_PAYROLL
         mpesaPhoneSuggestion =
             incomeDiscovery.second
         delay(MIN_PROGRESS_STEP_MS)
@@ -1445,7 +1448,11 @@ fun SmartOnboardingSetupScreen(
                                 ) {
                                     salarySuggestion =
                                         refreshedSalary
-                                    salaryAccepted = true
+                                    salaryAccepted =
+                                        refreshedSalary
+                                            .signalStrength ==
+                                            SalarySignalStrength
+                                                .EXPLICIT_PAYROLL
                                     manualSalaryAccountId =
                                         refreshedSalary
                                             .accountId
