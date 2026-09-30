@@ -3439,18 +3439,127 @@ private fun CapturedFinancialMessageRow(
 private fun financialSourceDisplayName(
     diagnostic: FinancialIngestionDiagnostic
 ): String =
-    diagnostic.sourceDisplayName
+    FinancialProviderRegistry
+        .messageSourceDisplayName(
+            title = diagnostic.title,
+            bankLike =
+                diagnostic.sourceType == "Bank"
+        )
         ?.takeIf(String::isNotBlank)
-        ?: FinancialProviderRegistry
-            .messageSourceDisplayName(
-                title = diagnostic.title,
-                bankLike =
-                    diagnostic.sourceType == "Bank"
-            )
-        ?.takeIf(String::isNotBlank)
+        ?: diagnostic.sourceDisplayName
+            ?.takeIf(String::isNotBlank)
         ?: diagnostic.title
             ?.takeIf(String::isNotBlank)
         ?: "Unknown financial source"
+
+private fun financialSourceType(
+    diagnostic: FinancialIngestionDiagnostic
+): String {
+    val source =
+        FinancialProviderRegistry
+            .resolveMessageSourceAccount(
+                title = diagnostic.title,
+                bankLike =
+                    diagnostic.sourceType ==
+                        "Bank"
+            )
+
+    return when (
+        source?.accountTypeHint
+    ) {
+        AccountType.BANK -> "Bank"
+        AccountType.MOBILE_WALLET ->
+            "Wallet"
+        AccountType.SAVINGS ->
+            "Savings"
+        else ->
+            if (
+                diagnostic.sourceType ==
+                "Lender"
+            ) {
+                "Lender"
+            } else {
+                "Financial"
+            }
+    }
+}
+
+private fun financialEntityReviewDisplayName(
+    entity: DiscoveredFinancialEntity
+): String =
+    KenyanBankDirectory
+        .matchSender(
+            entity.displayName
+        )
+        ?.name
+        ?: entity.displayName
+
+private fun shouldOfferOwnershipReview(
+    entity: DiscoveredFinancialEntity,
+    diagnostics:
+        List<FinancialIngestionDiagnostic>
+): Boolean {
+    if (entity.providerKey != null) {
+        return true
+    }
+
+    val display =
+        entity.displayName.trim()
+    if (
+        !display.endsWith(
+            " Bank",
+            ignoreCase = true
+        )
+    ) {
+        return true
+    }
+
+    val base =
+        display.substring(
+            0,
+            display.length - 5
+        ).trim()
+    val baseKey =
+        ownershipReviewKey(base)
+
+    val looksLikeLegacyPseudoBank =
+        diagnostics.any { diagnostic ->
+            val title =
+                diagnostic.title
+                    ?.trim()
+                    ?.takeIf(
+                        String::isNotBlank
+                    )
+                    ?: return@any false
+
+            if (
+                ownershipReviewKey(
+                    title
+                ) != baseKey
+            ) {
+                return@any false
+            }
+
+            FinancialProviderRegistry
+                .resolveMessageSourceAccount(
+                    title = title,
+                    bankLike = true
+                )
+                ?.accountTypeHint !=
+                AccountType.BANK
+        }
+
+    return !looksLikeLegacyPseudoBank
+}
+
+private fun ownershipReviewKey(
+    value: String
+): String =
+    value.lowercase(Locale.ROOT)
+        .replace(
+            Regex("""[^a-z0-9]+"""),
+            ""
+        )
 
 private fun financialSourceKey(
     displayName: String
