@@ -308,6 +308,88 @@ fun SmartOnboardingSetupScreen(
         mutableStateOf<String?>(null)
     }
 
+    suspend fun screenedSalarySuggestion(
+        observations:
+            List<OnboardingTransactionObservation>
+    ): OnboardingSalarySuggestion? =
+        withContext(Dispatchers.IO) {
+            val excluded =
+                mutableSetOf<String>()
+
+            repeat(6) {
+                val candidate =
+                    OnboardingDiscoveryEngine
+                        .salarySuggestion(
+                            observations =
+                                observations,
+                            excludedLabels =
+                                excluded
+                        )
+                        ?: return@withContext null
+
+                val sanitized =
+                    EntityDescriptorPrivacyPolicy
+                        .sanitize(
+                            candidate.label
+                        )
+                val enrichment =
+                    sanitized?.let {
+                            descriptor ->
+                        val key =
+                            EntityDescriptorPrivacyPolicy
+                                .cacheKey(
+                                    descriptor
+                                )
+                        entityEnrichmentCache
+                            .get(key)
+                            ?: if (
+                                entityEnrichmentRemote
+                                    .isConfigured()
+                            ) {
+                                when (
+                                    val response =
+                                        entityEnrichmentRemote
+                                            .fetch(
+                                                descriptor
+                                            )
+                                ) {
+                                    is EntityEnrichmentFetchResult
+                                        .Resolved -> {
+                                        entityEnrichmentCache
+                                            .put(
+                                                descriptorKey =
+                                                    key,
+                                                result =
+                                                    response.value
+                                            )
+                                        response.value
+                                    }
+                                    else -> null
+                                }
+                            } else {
+                                null
+                            }
+                    }
+
+                if (
+                    SalaryCounterpartyScreeningPolicy
+                        .shouldSuppress(
+                            label =
+                                candidate.label,
+                            enrichment =
+                                enrichment
+                        )
+                ) {
+                    excluded +=
+                        candidate.label
+                } else {
+                    return@withContext candidate
+                }
+            }
+
+            null
+        }
+
     val smsPermissionLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts
