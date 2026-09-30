@@ -1655,6 +1655,11 @@ private fun ImportChoicePage(
                 "Recommended for the clearest picture"
             ),
             Triple(
+                2,
+                "Last 2 months",
+                "A balanced amount of recent history"
+            ),
+            Triple(
                 1,
                 "Last 1 month",
                 "A quick way to get started"
