@@ -192,6 +192,70 @@ function mapCategory(raw) {
   return null;
 }
 
+function mapBusinessRole(rawCategory, canonicalName = "", domain = "") {
+  const text = [
+    rawCategory,
+    canonicalName,
+    domain,
+  ]
+    .filter((value) => typeof value === "string")
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (
+    text.includes("payment gateway") ||
+    text.includes("payment processor") ||
+    text.includes("payment service") ||
+    text.includes("payments platform") ||
+    text.includes("money transfer") ||
+    text.includes("financial services") ||
+    text.includes("fintech")
+  ) {
+    return "PAYMENT_PROCESSOR";
+  }
+
+  if (
+    text.includes("transport") ||
+    text.includes("transportation") ||
+    text.includes("taxi") ||
+    text.includes("rideshare") ||
+    text.includes("ride share")
+  ) {
+    return "TRANSPORT";
+  }
+
+  if (
+    text.includes("microfinance") ||
+    text.includes("banking") ||
+    text.includes(" bank ")
+  ) {
+    return "BANK";
+  }
+
+  if (
+    text.includes("lender") ||
+    text.includes("loan") ||
+    text.includes("credit provider")
+  ) {
+    return "LENDER";
+  }
+
+  if (
+    mapCategory(rawCategory) ||
+    text.includes("merchant") ||
+    text.includes("retail") ||
+    text.includes("supermarket") ||
+    text.includes("restaurant")
+  ) {
+    return "MERCHANT";
+  }
+
+  return "UNKNOWN";
+}
+
 async function resolveMerchant(descriptor, env) {
   if (!env.LOGO_DEV_SECRET_KEY) {
     return {
@@ -236,6 +300,11 @@ async function resolveMerchant(descriptor, env) {
       ? data.logo.trim()
       : null;
   const categoryHint = mapCategory(data.category);
+  const businessRole = mapBusinessRole(
+    data.category,
+    canonicalName,
+    domain,
+  );
   const ambiguous = data.ambiguous === true;
 
   if (
@@ -259,6 +328,7 @@ async function resolveMerchant(descriptor, env) {
       domain,
       logoUrl,
       categoryHint,
+      businessRole,
       confidence,
       source: "logo_dev",
     },
@@ -342,3 +412,5 @@ export default {
     }
   },
 };
+
+export { mapBusinessRole };
