@@ -25,6 +25,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createInvestmentTables(db)
         createEntityEnrichmentCacheTable(db)
         createPaydaySnapshotTables(db)
+        createCycleProtectionTable(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -385,6 +386,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                       )
                 """.trimIndent()
             )
+        }
+
+        if (oldVersion < 26) {
+            createCycleProtectionTable(db)
         }
 
         createIndexes(db)
@@ -881,6 +886,22 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createCycleProtectionTable(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS cycle_protections (
+                cycle_start_transaction_id INTEGER PRIMARY KEY,
+                amount_minor INTEGER NOT NULL DEFAULT 0,
+                label TEXT NOT NULL DEFAULT 'Protected money',
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun createPaydaySnapshotTables(
         db: SQLiteDatabase
     ) {
@@ -1049,6 +1070,9 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_payday_snapshot_accounts_snapshot ON payday_snapshot_accounts(snapshot_id)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_cycle_protections_updated ON cycle_protections(updated_at_epoch_ms DESC)"
+        )
     }
 
     private fun createTriggers(db: SQLiteDatabase) {
@@ -1069,6 +1093,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 25
+        private const val DATABASE_VERSION = 26
     }
 }
