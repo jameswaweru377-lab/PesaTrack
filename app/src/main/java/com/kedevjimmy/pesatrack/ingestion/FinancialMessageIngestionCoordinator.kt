@@ -382,6 +382,29 @@ class FinancialMessageIngestionCoordinator private constructor(
                         insertedTransactions += 1
                         changed = true
                     }
+
+                    val paymentTransactionId =
+                        interpretation.transactionCode
+                            ?.let(
+                                transactionStore::
+                                    findByTransactionCode
+                            )
+                            ?.id
+                            ?: transactionStore
+                                .findByAnyExternalReference(
+                                    correlationReferences
+                                )
+                                ?.id
+
+                    if (
+                        paymentTransactionId != null &&
+                        DebtStore.get(appContext)
+                            .tryAutoLinkOutgoingPayment(
+                                paymentTransactionId
+                            )
+                    ) {
+                        changed = true
+                    }
                 }
                 is ReceiptEventFact -> {
                     understandingStore.observeEntity(
