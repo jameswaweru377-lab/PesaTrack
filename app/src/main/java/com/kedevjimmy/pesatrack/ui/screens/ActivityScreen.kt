@@ -105,11 +105,13 @@ import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.rules.HistoryImportWindow
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageIngestionCoordinator
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnostic
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticCode
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
+import com.kedevjimmy.pesatrack.ingestion.HistoricalSmsImporter
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -1069,6 +1071,16 @@ fun ActivityScreen(
                     .reconcilePendingTransfers(
                         entity.entityKey
                     )
+                runCatching {
+                    HistoryImportWindow
+                        .importStartEpochMs(3)
+                        ?.let {
+                            HistoricalSmsImporter(
+                                context
+                                    .applicationContext
+                            ).importSince(it)
+                        }
+                }
                 accountReviewEntity = null
                 refresh()
             },
