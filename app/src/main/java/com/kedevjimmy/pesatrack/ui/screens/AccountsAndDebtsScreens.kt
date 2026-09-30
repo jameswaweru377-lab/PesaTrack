@@ -36,8 +36,9 @@ import com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality
 import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
-import com.kedevjimmy.pesatrack.data.local.ObservedAccountBalance
-import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.data.local.PaydayAccountSnapshot
+import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
+import com.kedevjimmy.pesatrack.data.local.PaydaySnapshotStore
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
@@ -53,7 +54,7 @@ private data class AccountBalancePresentation(
     val group: TrackedAccountGroup,
     val balanceMinor: Long?,
     val observedAtEpochMs: Long?,
-    val observedSubaccounts: Int
+    val balanceQuality: PaydayBalanceQuality?
 )
 
 @Composable
@@ -71,9 +72,9 @@ fun AccountsScreen(
             FinancialUnderstandingStore
                 .get(context)
         }
-    val transactionStore =
+    val balanceStore =
         remember {
-            TransactionStore.get(context)
+            PaydaySnapshotStore.get(context)
         }
     val ledgerUpdateState by
         LedgerUpdateBus.state.collectAsState()
@@ -103,22 +104,17 @@ fun AccountsScreen(
                             )
                     }
                 }
-            val balances =
-                understandingStore
-                    .latestBalances()
-            val transactionSnapshot =
-                transactionStore.snapshot()
-
             groups.map { group ->
                 accountBalancePresentation(
                     group = group,
-                    balances = balances,
-                    fallbackMpesaBalanceMinor =
-                        transactionSnapshot
-                            .latestBalanceMinor,
-                    fallbackMpesaObservedAt =
-                        transactionSnapshot
-                            .latestBalanceObservedAtEpochMs
+                    snapshots =
+                        group.accounts.map {
+                            account ->
+                            balanceStore
+                                .currentAccountSnapshot(
+                                    account
+                                )
+                        }
                 )
             }
         }
@@ -536,10 +532,35 @@ private fun AccountBalanceCard(
                     presentation
                         .observedAtEpochMs
                         ?.let {
-                            "Last observed " +
-                                formatDetailDateTime(
-                                    it
-                                )
+                            epoch ->
+                            when (
+                                presentation
+                                    .balanceQuality
+                            ) {
+                                PaydayBalanceQuality
+                                    .OBSERVED ->
+                                    "Observed " +
+                                        formatDetailDateTime(
+                                            epoch
+                                        )
+                                PaydayBalanceQuality
+                                    .RECONSTRUCTED ->
+                                    "Reconstructed from " +
+                                        formatDetailDateTime(
+                                            epoch
+                                        )
+                                PaydayBalanceQuality
+                                    .USER_ENTERED ->
+                                    "Entered " +
+                                        formatDetailDateTime(
+                                            epoch
+                                        )
+                                else ->
+                                    "Balance evidence " +
+                                        formatDetailDateTime(
+                                            epoch
+                                        )
+                            }
                         }
                         ?: "No balance observed yet",
                     modifier =
@@ -660,92 +681,47 @@ private fun DebtAccountCard(
 
 private fun accountBalancePresentation(
     group: TrackedAccountGroup,
-    balances:
-        List<ObservedAccountBalance>,
-    fallbackMpesaBalanceMinor: Long?,
-    fallbackMpesaObservedAt: Long?
+    snapshots:
+        List<PaydayAccountSnapshot>
 ): AccountBalancePresentation {
-    val relevant =
-        balances.filter {
-            it.accountId in
-                group.accountIds
-        }
-
-    val latestByAccount =
-        relevant
-            .groupBy {
-                it.accountId
+    val best =
+        snapshots
+            .filter {
+                it.balanceMinor != null
             }
-            .mapNotNull {
-                    (_, observations) ->
-                observations.maxByOrNull {
-                    it.observedAtEpochMs
+            .maxWithOrNull(
+                compareBy<
+                    PaydayAccountSnapshot
+                > {
+                    balanceQualityRank(
+                        it.quality
+                    )
+                }.thenBy {
+                    it.referenceEpochMs
+                        ?: Long.MIN_VALUE
                 }
-            }
-
-    val latestObservation =
-        latestByAccount
-            .maxByOrNull {
-                it.observedAtEpochMs
-            }
-    val observedBalance =
-        latestObservation
-            ?.balanceMinor
-
-    val isMpesa =
-        AccountStore.DEFAULT_MPESA_ID in
-            group.accountIds
+            )
 
     return AccountBalancePresentation(
         group = group,
         balanceMinor =
-            observedBalance
-                ?: if (isMpesa) {
-                    fallbackMpesaBalanceMinor
-                } else {
-                    group.accounts
-                        .mapNotNull {
-                            account ->
-                            account
-                                .openingBalanceMinor
-                                ?.let {
-                                    balance ->
-                                    Triple(
-                                        balance,
-                                        account
-                                            .openingBalanceAsOfEpochMs
-                                            ?: Long.MIN_VALUE,
-                                        account.id
-                                    )
-                                }
-                        }
-                        .maxByOrNull {
-                            it.second
-                        }
-                        ?.first
-                },
+            best?.balanceMinor,
         observedAtEpochMs =
-            latestObservation
-                ?.observedAtEpochMs
-                ?: if (isMpesa) {
-                    fallbackMpesaObservedAt
-                } else {
-                    group.accounts
-                        .mapNotNull {
-                            it.openingBalanceAsOfEpochMs
-                        }
-                        .maxOrNull()
-                },
-        observedSubaccounts =
-            if (
-                latestObservation != null
-            ) {
-                1
-            } else {
-                0
-            }
+            best?.referenceEpochMs,
+        balanceQuality =
+            best?.quality
     )
 }
+
+private fun balanceQualityRank(
+    quality: PaydayBalanceQuality
+): Int =
+    when (quality) {
+        PaydayBalanceQuality.OBSERVED -> 4
+        PaydayBalanceQuality.USER_ENTERED -> 3
+        PaydayBalanceQuality.RECONSTRUCTED -> 2
+        PaydayBalanceQuality.UNKNOWN -> 1
+    }
 
 private fun formatDetailMoney(
     minor: Long
