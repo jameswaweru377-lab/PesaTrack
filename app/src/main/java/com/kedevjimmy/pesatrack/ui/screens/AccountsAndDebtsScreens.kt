@@ -40,6 +40,7 @@ import com.kedevjimmy.pesatrack.data.local.ObservedAccountBalance
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -489,7 +490,8 @@ private fun AccountBalanceCard(
                     .padding(start = 12.dp)
             ) {
                 Text(
-                    group.displayName,
+                    AccountIdentityPresentation
+                        .title(group),
                     style =
                         MaterialTheme.typography
                             .titleMedium,
