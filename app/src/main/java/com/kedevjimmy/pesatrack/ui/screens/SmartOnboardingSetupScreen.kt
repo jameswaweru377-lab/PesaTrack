@@ -552,6 +552,8 @@ fun SmartOnboardingSetupScreen(
                         .pendingEntities()
                 )
             }
+        selectedOwnershipEntityKeys =
+            emptySet()
         if (
             manualSalaryAccountId.isBlank()
         ) {
