@@ -320,6 +320,16 @@ fun SmartOnboardingSetupScreen(
             if (smsGranted) {
                 stage =
                     SmartSetupStage.ANALYZE
+            } else if (
+                isLikelySideloaded(
+                    context
+                ) &&
+                !smsAppInfoVisited
+            ) {
+                // Sideloaded builds can be blocked by
+                // Android restricted-settings protection.
+                // The user must explicitly enable that
+                // system setting before we request SMS.
             } else if (!smsPromptLaunched) {
                 smsPromptLaunched = true
                 smsPermissionLauncher.launch(
@@ -849,10 +859,13 @@ fun SmartOnboardingSetupScreen(
                     SmsPermissionPage(
                         denied = smsDenied,
                         restrictedHelp =
-                            smsDenied &&
-                                isLikelySideloaded(
-                                    context
-                                ),
+                            isLikelySideloaded(
+                                context
+                            ) &&
+                                (
+                                    !smsAppInfoVisited ||
+                                        smsDenied
+                                    ),
                         onOpenAppInfo = {
                             smsAppInfoVisited =
                                 true
