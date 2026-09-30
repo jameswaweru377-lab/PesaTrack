@@ -118,6 +118,15 @@ object FinancialProviderRegistry {
             ),
             defaultObservedAccountProviderKey =
                 "SAFARICOM_MPESA"
+        ),
+        FinancialMessageSourceProfile(
+            profileKey = "NCBA_MSHWARI_MESSAGES",
+            titleAliases = setOf(
+                "M SHWARI",
+                "MSHWARI"
+            ),
+            defaultObservedAccountProviderKey =
+                "NCBA_MSHWARI_SAVINGS"
         )
     )
 
@@ -154,6 +163,52 @@ object FinancialProviderRegistry {
             ownershipHint = AccountOwnershipHint.UNKNOWN,
             nature = inferAccountNature(normalized)
         )
+    }
+
+    fun resolveAccountInMessageContext(
+        rawLabel: String,
+        title: String?
+    ): FinancialAccountReference {
+        val cleaned =
+            cleanAccountLabel(rawLabel)
+        val normalizedLabel =
+            normalize(cleaned)
+        val sourceProfile =
+            messageSourceProfileFor(title)
+
+        if (
+            sourceProfile?.profileKey ==
+                "NCBA_MSHWARI_MESSAGES"
+        ) {
+            if (
+                normalizedLabel in
+                    MSHWARI_LOCK_SAVINGS_CONTEXT_LABELS
+            ) {
+                return referenceForProviderKey(
+                    "NCBA_MSHWARI_LOCK_SAVINGS"
+                ) ?: resolveAccount(rawLabel)
+            }
+
+            if (
+                normalizedLabel in
+                    MSHWARI_REGULAR_CONTEXT_LABELS
+            ) {
+                return referenceForProviderKey(
+                    "NCBA_MSHWARI_SAVINGS"
+                ) ?: resolveAccount(rawLabel)
+            }
+
+            if (
+                normalizedLabel in
+                    MPESA_CONTEXT_LABELS
+            ) {
+                return referenceForProviderKey(
+                    "SAFARICOM_MPESA"
+                ) ?: resolveAccount(rawLabel)
+            }
+        }
+
+        return resolveAccount(rawLabel)
     }
 
     fun resolveObservedAccount(
@@ -512,6 +567,28 @@ object FinancialProviderRegistry {
             .trim('-')
             .ifBlank { "unknown" }
             .take(64)
+
+    private val MSHWARI_LOCK_SAVINGS_CONTEXT_LABELS =
+        setOf(
+            "LOCK SAVINGS",
+            "LOCK SAVING",
+            "LOCK SAVINGS A C",
+            "LOCK SAVING A C"
+        )
+
+    private val MSHWARI_REGULAR_CONTEXT_LABELS =
+        setOf(
+            "M SHWARI",
+            "MSHWARI",
+            "M SHWARI SAVINGS",
+            "M SHWARI DEPOSIT"
+        )
+
+    private val MPESA_CONTEXT_LABELS =
+        setOf(
+            "M PESA",
+            "MPESA"
+        )
 
     private val MESSAGE_CHANNEL_SUFFIX_REGEX =
         Regex(
