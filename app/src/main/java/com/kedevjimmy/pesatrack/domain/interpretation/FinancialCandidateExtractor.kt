@@ -165,6 +165,13 @@ object FinancialCandidateExtractor {
             RegexOption.DOT_MATCHES_ALL
         )
     )
+    private val transferBetweenAccountsRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:transferred|moved)\s+from\s+(?:your\s+)?(.+?)\s+account\s+to\s+(?:your\s+)?(.+?)\s+account\b""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
     private val sentAmountRegex = Regex(
         """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+sent\s+to\b""",
         RegexOption.IGNORE_CASE
@@ -329,6 +336,7 @@ object FinancialCandidateExtractor {
         val body = message.body
         val actions = buildList {
             transferFromCandidate(body)?.let(::add)
+            pairedTransferToCandidate(body)?.let(::add)
             transferToCandidate(body)?.let(::add)
             accountDebitCandidate(body)?.let(::add)
             transactionCreditedToCandidate(body)
@@ -651,6 +659,42 @@ object FinancialCandidateExtractor {
                 FinancialActionCandidateKind
                     .TRANSFER_FROM_ACCOUNT,
             ruleId = "transfer_from.named_source"
+        )
+    }
+
+    private fun pairedTransferToCandidate(
+        body: String
+    ): FinancialActionCandidate? {
+        val match =
+            transferBetweenAccountsRegex
+                .find(body)
+                ?: return null
+        val amount =
+            match.groups[1]
+                ?: return null
+        val destination =
+            match.groups[3]
+                ?: return null
+
+        return FinancialActionCandidate(
+            kind =
+                FinancialActionCandidateKind
+                    .TRANSFER_TO_ACCOUNT,
+            amountMinor =
+                amountToMinor(
+                    amount.value
+                ),
+            amountSpan =
+                amount.range.toSpan(),
+            partyLabel =
+                destination.value
+                    .trim(),
+            partySpan =
+                destination.range
+                    .toSpan(),
+            partyPhone = null,
+            ruleId =
+                "transfer_between.explicit_destination"
         )
     }
 
