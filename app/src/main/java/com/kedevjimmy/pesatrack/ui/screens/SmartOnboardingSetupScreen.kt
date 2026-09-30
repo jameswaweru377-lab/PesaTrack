@@ -515,17 +515,12 @@ fun SmartOnboardingSetupScreen(
                         )
 
                 val accounts =
-                    accountStore
-                        .listAccounts()
-                        .filter {
-                            it.type in
-                                setOf(
-                                    AccountType.BANK,
-                                    AccountType.MOBILE_WALLET,
-                                    AccountType.CASH,
-                                    AccountType.SAVINGS
-                                )
-                        }
+                    ownedSetupAccounts(
+                        accountStore =
+                            accountStore,
+                        financialStore =
+                            financialUnderstandingStore
+                    )
 
                 sources to accounts
             }
@@ -1360,17 +1355,12 @@ fun SmartOnboardingSetupScreen(
                                         .rebuild()
                                 }
                                 availableAccounts =
-                                    accountStore
-                                        .listAccounts()
-                                        .filter {
-                                            it.type in
-                                                setOf(
-                                                    AccountType.BANK,
-                                                    AccountType.MOBILE_WALLET,
-                                                    AccountType.CASH,
-                                                    AccountType.SAVINGS
-                                                )
-                                        }
+                                    ownedSetupAccounts(
+                                        accountStore =
+                                            accountStore,
+                                        financialStore =
+                                            financialUnderstandingStore
+                                    )
                                 pendingOwnershipEntities =
                                     onboardingOwnershipCandidates(
                                         financialUnderstandingStore
@@ -3800,6 +3790,36 @@ private fun FeatureRow(
             )
         }
     }
+}
+
+private fun ownedSetupAccounts(
+    accountStore: AccountStore,
+    financialStore:
+        FinancialUnderstandingStore
+): List<MoneyAccount> {
+    val confirmedIds =
+        financialStore
+            .confirmedAccountIds()
+
+    return accountStore
+        .listAccounts()
+        .filter {
+            it.type in
+                setOf(
+                    AccountType.BANK,
+                    AccountType.MOBILE_WALLET,
+                    AccountType.CASH,
+                    AccountType.SAVINGS
+                )
+        }
+        .filter { account ->
+            account.type ==
+                AccountType.CASH ||
+                account.id in
+                    confirmedIds ||
+                !account.identifier
+                    .isNullOrBlank()
+        }
 }
 
 private fun onboardingOwnershipCandidates(
