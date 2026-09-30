@@ -671,6 +671,24 @@ fun ActivityScreen(
                                                     )
                                             }
                                         }
+                                        RelationshipReviewKind
+                                            .INVESTMENT_SETTLEMENT -> {
+                                            val eventId =
+                                                review
+                                                    .investmentEventId
+                                            val targetId =
+                                                candidate.targetId
+                                            if (
+                                                eventId != null &&
+                                                targetId != null
+                                            ) {
+                                                relationshipReviewStore
+                                                    .resolveInvestmentSettlement(
+                                                        eventId,
+                                                        targetId
+                                                    )
+                                            }
+                                        }
                                     }
                                     refresh()
                                 },
@@ -702,6 +720,16 @@ fun ActivityScreen(
                                                 ?.let {
                                                     relationshipReviewStore
                                                         .resolveLiabilityPayment(
+                                                            it,
+                                                            null
+                                                        )
+                                                }
+                                        RelationshipReviewKind
+                                            .INVESTMENT_SETTLEMENT ->
+                                            review.investmentEventId
+                                                ?.let {
+                                                    relationshipReviewStore
+                                                        .resolveInvestmentSettlement(
                                                             it,
                                                             null
                                                         )
@@ -2233,7 +2261,7 @@ private fun EmptyRelationshipReviewState() {
                         .titleMedium
             )
             Text(
-                "PesaTrack currently has no debt-chain or liability-payment relationships that need a manual decision.",
+                "PesaTrack currently has no debt, liability-payment, or investment-settlement relationships that need a manual decision.",
                 modifier =
                     Modifier.padding(top = 5.dp),
                 style =
@@ -2288,6 +2316,9 @@ private fun RelationshipReviewRow(
                             RelationshipReviewKind
                                 .LIABILITY_PAYMENT ->
                                 "Is this payment a debt repayment?"
+                            RelationshipReviewKind
+                                .INVESTMENT_SETTLEMENT ->
+                                "Which cash movement settled this investment?"
                         },
                         style =
                             MaterialTheme.typography
@@ -2311,14 +2342,15 @@ private fun RelationshipReviewRow(
 
             Text(
                 (
-                    if (
-                        item.kind ==
-                            RelationshipReviewKind
-                                .LIABILITY_PAYMENT
-                    ) {
-                        "Paid from: "
-                    } else {
-                        "Funding account: "
+                    when (item.kind) {
+                        RelationshipReviewKind
+                            .LIABILITY_PAYMENT ->
+                            "Paid from: "
+                        RelationshipReviewKind
+                            .INVESTMENT_SETTLEMENT ->
+                            "Investment event: "
+                        else ->
+                            "Funding account: "
                     }
                 ) +
                     item.fundingAccountName +
@@ -2415,6 +2447,9 @@ private fun RelationshipReviewRow(
                                     RelationshipReviewKind
                                         .LIABILITY_PAYMENT ->
                                         "Mark as repayment to this debt"
+                                    RelationshipReviewKind
+                                        .INVESTMENT_SETTLEMENT ->
+                                        "Use as investment settlement"
                                 }
                             )
                         }
@@ -2439,6 +2474,9 @@ private fun RelationshipReviewRow(
                         RelationshipReviewKind
                             .LIABILITY_PAYMENT ->
                             "This was not a debt repayment"
+                        RelationshipReviewKind
+                            .INVESTMENT_SETTLEMENT ->
+                            "None of these settled it"
                     }
                 )
             }
