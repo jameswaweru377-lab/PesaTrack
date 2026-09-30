@@ -424,6 +424,14 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                         'lock savings',
                         'lock saving'
                       )
+                  AND EXISTS (
+                        SELECT 1
+                        FROM financial_entities
+                        WHERE provider_key IN (
+                            'NCBA_MSHWARI_SAVINGS',
+                            'NCBA_MSHWARI_LOCK_SAVINGS'
+                        )
+                      )
                 """.trimIndent(),
                 null
             ).use { cursor ->
