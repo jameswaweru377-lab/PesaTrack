@@ -7,6 +7,7 @@ import org.json.JSONObject
 enum class FinancialIngestionDiagnosticCode {
     UNRECOGNIZED_FINANCIAL_LANGUAGE,
     UNDERSTOOD_NO_LEDGER_EFFECT,
+    LINKED_OBSERVATION,
     OBSERVATION_ONLY,
     PENDING_REVIEW,
     INGESTED
@@ -23,7 +24,8 @@ data class FinancialIngestionDiagnostic(
     val code: FinancialIngestionDiagnosticCode,
     val insertedTransactions: Int,
     val insertedFinancialEvents: Int,
-    val pendingReviewEvents: Int
+    val pendingReviewEvents: Int,
+    val linkedTransactionId: Long?
 )
 
 class FinancialIngestionDiagnosticsStore private constructor(
@@ -46,6 +48,8 @@ class FinancialIngestionDiagnosticsStore private constructor(
         receivedAtEpochMs: Long,
         financialCandidate: Boolean,
         semanticUnderstood: Boolean,
+        linkedTransactionId: Long?,
+        linkedByCorrelation: Boolean,
         result: FinancialMessageIngestionResult
     ) {
         if (!financialCandidate && !result.recognized) {
@@ -53,6 +57,9 @@ class FinancialIngestionDiagnosticsStore private constructor(
         }
 
         val code = when {
+            linkedByCorrelation ->
+                FinancialIngestionDiagnosticCode
+                    .LINKED_OBSERVATION
             !result.recognized &&
                 semanticUnderstood ->
                 FinancialIngestionDiagnosticCode
@@ -150,6 +157,17 @@ class FinancialIngestionDiagnosticsStore private constructor(
                     "pendingReviewEvents",
                     result.pendingReviewEvents
                 )
+                if (linkedTransactionId != null) {
+                    put(
+                        "linkedTransactionId",
+                        linkedTransactionId
+                    )
+                } else {
+                    put(
+                        "linkedTransactionId",
+                        JSONObject.NULL
+                    )
+                }
             }
         )
 
@@ -263,7 +281,19 @@ class FinancialIngestionDiagnosticsStore private constructor(
                         pendingReviewEvents =
                             item.optInt(
                                 "pendingReviewEvents"
-                            )
+                            ),
+                        linkedTransactionId =
+                            if (
+                                item.isNull(
+                                    "linkedTransactionId"
+                                )
+                            ) {
+                                null
+                            } else {
+                                item.optLong(
+                                    "linkedTransactionId"
+                                )
+                            }
                     )
                 )
             }

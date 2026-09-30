@@ -1198,3 +1198,172 @@ Priority order:
 Permanent rule remains:
 
 **PesaTrack learns financial language and relationships, not provider-specific parsers.**
+
+
+## Financial Intelligence V2 — Phase 3 cross-message correlation — PR #82
+
+Status on 2026-09-30: **implemented and Android CI verified on code head `833061a45df0326eeea81bab92700e52946f6cc8` before this documentation commit.**
+
+Phase 3 links multiple financial-message observations that describe one real-world money movement while preserving the source observations for audit.
+
+Primary use case:
+
+- bank message describes a bank -> wallet transfer;
+- wallet message describes the corresponding receipt;
+- the two messages may contain different local references but share one external reference;
+- Activity should keep the two source observations visible;
+- only one canonical ledger movement should affect totals.
+
+### Correlation evidence hierarchy
+
+`MirrorTransactionMatcher` now returns an explicit match confidence and reason instead of only a boolean.
+
+Current confidence levels:
+
+- HIGH: safe for automatic linking;
+- MEDIUM: possible match, do not auto-link;
+- NONE: unrelated / insufficient evidence.
+
+Current correlation reasons include:
+
+- SAME_TRANSACTION_CODE;
+- EXACT_SHARED_REFERENCE;
+- COMPLEMENTARY_ACCOUNTS;
+- SHARED_IDENTITY;
+- COMPLEMENTARY_DIRECTION;
+- CODED_CODELESS_VERY_CLOSE;
+- ULTRA_CLOSE_DISTINCT_SOURCE.
+
+The matcher keeps amount agreement as a hard prerequisite for normal mirror correlation. A conflicting amount blocks the link even if a reference happens to match.
+
+Reversals are excluded from ordinary mirror correlation.
+
+### Reference-first correlation
+
+A new local table, `transaction_external_references`, stores normalized external references associated with canonical transactions.
+
+Database version is now **19**.
+
+The migration backfills existing non-empty `transactions.transaction_code` values into the external-reference index so older canonical transaction codes are immediately searchable.
+
+New interpreted messages can contribute multiple references extracted by the Phase 2 semantic layer.
+
+Example:
+
+- bank-side observation:
+  - local bank ref `EQA...`
+  - wallet/M-Pesa ref `UFT...`
+- M-Pesa-side observation:
+  - transaction code `UFT...`
+
+If the shared `UFT...` reference and amount agree, the observations can link even when the timestamps are outside the normal short heuristic window.
+
+Production correlation logic does **not** ask which bank supplied the reference.
+
+### Ambiguity protection
+
+Automatic linking is intentionally conservative.
+
+Rules include:
+
+- exact shared reference + same amount -> high confidence;
+- multiple transactions matching the same external reference -> do not auto-link;
+- shared account-path evidence can produce a high-confidence link;
+- weak identity/direction fallbacks require distinct observation sources;
+- one coded + one codeless observation can auto-link only inside a very tight window;
+- two fully codeless observations that are merely close in time are MEDIUM confidence and are not auto-linked;
+- user-classified and excluded transactions are protected from automatic correlation rewrites.
+
+An important Android detail discovered by regression testing: messages from two different financial institutions can both arrive through the same SMS application. Therefore Android package/source kind is not treated as equivalent to financial-provider identity.
+
+### Canonical transaction-code stability
+
+When a correlated observation is merged into an existing canonical transaction:
+
+- an empty canonical transaction code can be upgraded from a later coded observation;
+- an already populated canonical transaction code is kept stable rather than being overwritten by a different provider-side code;
+- all discovered codes/references remain associated through the external-reference table.
+
+This avoids making the canonical row depend on which provider observation arrived last.
+
+### Existing mirror reconciliation
+
+Historical mirror reconciliation now reads external references as evidence and preserves references from the removed duplicate on the surviving canonical transaction.
+
+The one-time mirror reconciliation key was bumped to `mirror_transaction_reconciliation_v3` so the stronger correlation pass can run on installations upgraded from the earlier matcher.
+
+Historical messages that contained additional references which were never previously stored still need a re-import to expose those references to the new semantic/correlation pipeline.
+
+### Financial-event linkage
+
+Interpreted transfer/cash financial-event records now fall back to the external-reference index when the canonical transaction uses a different transaction code.
+
+This keeps the financial-understanding/event layer connected to the surviving canonical ledger row even when two providers describe the same movement using different references.
+
+### Source-feed behavior
+
+The privacy-safe financial diagnostic feed now supports `LINKED_OBSERVATION`.
+
+When a second financial message is understood and linked to an existing canonical movement without inserting another transaction, Activity shows its source observation as:
+
+`Linked`
+
+instead of treating it as another captured ledger movement or as not understood.
+
+The raw SMS body is **not** stored in the correlation-reference table or diagnostic feed.
+
+### Phase 3 regression coverage
+
+Regression tests now explicitly protect:
+
+- a bank-side message and wallet-side message sharing one semantic external reference;
+- different bank/wallet local codes linked through the common external reference;
+- amount conflict blocking a shared-reference merge;
+- provider-agnostic coded/codeless bank-wallet mirror behavior;
+- two genuine M-Pesa transactions with different codes staying separate;
+- account-path correlation;
+- fully codeless time-only similarity remaining review-only;
+- exact same transaction code remaining linkable.
+
+The Phase 3 development CI exposed and corrected:
+
+1. a diagnostic JSON nullable-field compile mistake;
+2. diagnostic reference scope missing inside the helper;
+3. same-SMS-app bank/wallet observations being incorrectly rejected;
+4. weak shared-counterparty evidence accidentally allowing two real coded M-Pesa transactions to merge.
+
+Final code head `833061a45df0326eeea81bab92700e52946f6cc8` passed Android CI run #335:
+
+- entity-enrichment Worker validation: passed;
+- Android compilation: passed;
+- Android unit tests: passed;
+- debug APK assembly: passed.
+
+### Deliberately not solved in Phase 3
+
+Phase 3 creates the core correlation engine, but several larger product areas remain separate:
+
+- investment holdings/portfolio persistence from broker execution messages;
+- a dedicated UI for manually resolving MEDIUM-confidence correlation candidates;
+- unlimited long-term source-observation storage (the diagnostic source feed still has its existing bounded retention);
+- every possible real Kenyan message wording;
+- offline ML/SLM inference.
+
+Do not weaken the correlation thresholds merely to remove duplicate-looking rows. Ambiguous matches should remain reviewable rather than silently combining separate real transactions.
+
+### Recommended next work after real-device validation
+
+Before starting another large intelligence phase, install the latest rolling APK and re-import a controlled history window.
+
+Validate specifically:
+
+1. bank -> M-Pesa transaction where the bank SMS contains the M-Pesa reference;
+2. matching M-Pesa receipt appears as a separate source observation but only one ledger movement affects totals;
+3. same-amount genuine separate M-Pesa transactions remain separate;
+4. M-Shwari loan balance continues to populate debt correctly;
+5. Branch-style disbursement + processing confirmation does not become two loans;
+6. any remaining `Not understood` messages are captured as sanitized language fixtures before changing production grammar.
+
+Permanent architecture rule remains:
+
+**financial language defines meaning; references/accounts/amount/time define relationships; provider names do not define transaction logic.**

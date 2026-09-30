@@ -110,6 +110,12 @@ class FinancialMessageIngestionCoordinator private constructor(
                 title = title,
                 body = body
             )
+        val correlationReferences =
+            interpretation.semanticAssessment
+                ?.references
+                ?.map { it.value }
+                ?.toSet()
+                .orEmpty()
 
         var changed = false
         interpretation.balances.forEach { fact ->
@@ -250,7 +256,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 rebuildPayCycles =
                                     rebuildPayCycles,
                                 accountTransferOverride =
-                                    ownTransfer
+                                    ownTransfer,
+                                externalReferences =
+                                    correlationReferences
                             )
 
                     if (inserted) {
@@ -265,6 +273,11 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     findByTransactionCode
                             )
                             ?.id
+                            ?: transactionStore
+                                .findByAnyExternalReference(
+                                    correlationReferences
+                                )
+                                ?.id
 
                     understandingStore.recordTransfer(
                         event = event,
@@ -360,7 +373,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 rebuildPayCycles =
                                     rebuildPayCycles,
                                 accountIdOverride =
-                                    sourceAccountId
+                                    sourceAccountId,
+                                externalReferences =
+                                    correlationReferences
                             )
 
                     if (inserted) {
@@ -452,7 +467,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 rebuildPayCycles =
                                     rebuildPayCycles,
                                 accountIdOverride =
-                                    effectiveAccountId
+                                    effectiveAccountId,
+                                externalReferences =
+                                    correlationReferences
                             )
 
                     if (inserted) {
@@ -591,7 +608,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 rebuildPayCycles =
                                     rebuildPayCycles,
                                 accountTransferOverride =
-                                    ownTransfer
+                                    ownTransfer,
+                                externalReferences =
+                                    correlationReferences
                             )
 
                     if (inserted) {
@@ -606,6 +625,11 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     findByTransactionCode
                             )
                             ?.id
+                            ?: transactionStore
+                                .findByAnyExternalReference(
+                                    correlationReferences
+                                )
+                                ?.id
                     understandingStore.recordTransfer(
                         event = transfer,
                         messageFingerprint =
@@ -744,7 +768,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 rebuildPayCycles =
                                     rebuildPayCycles,
                                 accountTransferOverride =
-                                    ownTransfer
+                                    ownTransfer,
+                                externalReferences =
+                                    correlationReferences
                             )
 
                     if (inserted) {
@@ -759,6 +785,11 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     findByTransactionCode
                             )
                             ?.id
+                            ?: transactionStore
+                                .findByAnyExternalReference(
+                                    correlationReferences
+                                )
+                                ?.id
                     understandingStore.recordTransfer(
                         event = transfer,
                         messageFingerprint =
@@ -846,7 +877,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 rebuildPayCycles =
                                     rebuildPayCycles,
                                 accountIdOverride =
-                                    accountId
+                                    accountId,
+                                externalReferences =
+                                    correlationReferences
                             )
 
                     if (inserted) {
@@ -919,7 +952,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 reversalOfCode =
                                     event.referencedTransactionCode,
                                 accountIdOverride =
-                                    accountId
+                                    accountId,
+                                externalReferences =
+                                    correlationReferences
                             )
 
                     if (inserted) {
@@ -1083,6 +1118,21 @@ class FinancialMessageIngestionCoordinator private constructor(
                 sourceDisplayName =
                     sourceReference?.displayName
             )
+        val correlationReferences =
+            interpretation.semanticAssessment
+                ?.references
+                ?.map { it.value }
+                ?.toSet()
+                .orEmpty()
+
+        val correlatedTransactionId =
+            transactionStore.findByAnyExternalReference(
+                correlationReferences
+            )?.id
+        val linkedByCorrelation =
+            correlatedTransactionId != null &&
+                result.insertedTransactions == 0 &&
+                correlationReferences.isNotEmpty()
 
         diagnosticsStore.record(
             title = title,
@@ -1098,6 +1148,10 @@ class FinancialMessageIngestionCoordinator private constructor(
                 relevance.isRelevant,
             semanticUnderstood =
                 interpretation.semanticallyUnderstood,
+            linkedTransactionId =
+                correlatedTransactionId,
+            linkedByCorrelation =
+                linkedByCorrelation,
             result = result
         )
     }

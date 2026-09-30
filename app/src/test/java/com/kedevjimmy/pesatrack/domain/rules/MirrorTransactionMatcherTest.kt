@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -82,14 +83,15 @@ class MirrorTransactionMatcherTest {
     }
 
     @Test
-    fun codeLessCopiesFromDifferentAppsCanMergeWhenUltraClose() {
-        assertTrue(
-            MirrorTransactionMatcher.isMirror(
+    fun codeLessCopiesFromDifferentAppsAreReviewOnlyWhenUltraClose() {
+        val match =
+            MirrorTransactionMatcher.match(
                 bank(
                     amount = 2_000L,
                     receivedAt = 1_000_000L,
                     counterparty = null,
-                    sourcePackage = "com.google.android.apps.messaging"
+                    sourcePackage =
+                        "com.google.android.apps.messaging"
                 ),
                 bank(
                     amount = 2_000L,
@@ -98,7 +100,12 @@ class MirrorTransactionMatcherTest {
                     sourcePackage = "com.truecaller"
                 )
             )
+
+        assertEquals(
+            MirrorMatchConfidence.MEDIUM,
+            match.confidence
         )
+        assertFalse(match.autoLink)
     }
 
     @Test
@@ -176,6 +183,115 @@ class MirrorTransactionMatcherTest {
                     code = "AAA111"
                 )
             )
+        )
+    }
+
+
+    @Test
+    fun exactSharedExternalReferenceLinksDifferentProviderCodes() {
+        val first =
+            bank(
+                amount = 500_000L,
+                receivedAt = 1_000_000L,
+                counterparty = "M-Pesa"
+            ).copy(
+                transactionCode = "EQA12345",
+                externalReferences =
+                    setOf("EQA12345", "UFT98765")
+            )
+        val second =
+            mpesa(
+                amount = 500_000L,
+                receivedAt = 1_090_000L,
+                counterparty = "Example Bank",
+                code = "UFT98765",
+                direction = "INCOME"
+            ).copy(
+                externalReferences =
+                    setOf("UFT98765")
+            )
+
+        val match =
+            MirrorTransactionMatcher.match(
+                first,
+                second
+            )
+
+        assertTrue(match.autoLink)
+        assertEquals(
+            MirrorMatchReason.EXACT_SHARED_REFERENCE,
+            match.reason
+        )
+        assertEquals(
+            "UFT98765",
+            match.sharedReference
+        )
+    }
+
+    @Test
+    fun conflictingAmountsNeverLinkEvenWithSharedReference() {
+        val first =
+            bank(
+                amount = 500_000L,
+                receivedAt = 1_000_000L,
+                counterparty = null
+            ).copy(
+                externalReferences =
+                    setOf("REF12345")
+            )
+        val second =
+            mpesa(
+                amount = 700_000L,
+                receivedAt = 1_001_000L,
+                counterparty = null,
+                code = "REF12345"
+            )
+
+        assertFalse(
+            MirrorTransactionMatcher
+                .match(first, second)
+                .autoLink
+        )
+    }
+
+    @Test
+    fun sharedAccountPathAndComplementarySourceCanLinkWithoutReference() {
+        val first =
+            bank(
+                amount = 200_000L,
+                receivedAt = 1_000_000L,
+                counterparty = null,
+                direction = "TRANSFER"
+            ).copy(
+                accountIds =
+                    setOf(
+                        "account-bank",
+                        "account-mpesa"
+                    )
+            )
+        val second =
+            mpesa(
+                amount = 200_000L,
+                receivedAt = 1_040_000L,
+                counterparty = null,
+                code = "",
+                direction = "INCOME"
+            ).copy(
+                transactionCode = null,
+                accountIds =
+                    setOf("account-mpesa")
+            )
+
+        val match =
+            MirrorTransactionMatcher.match(
+                first,
+                second
+            )
+
+        assertTrue(match.autoLink)
+        assertEquals(
+            MirrorMatchReason.COMPLEMENTARY_ACCOUNTS,
+            match.reason
         )
     }
 

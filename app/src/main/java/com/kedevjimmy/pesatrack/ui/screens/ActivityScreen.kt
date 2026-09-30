@@ -2726,6 +2726,8 @@ private fun CapturedFinancialMessageRow(
                 .UNDERSTOOD_NO_LEDGER_EFFECT ->
                 "blue"
             FinancialIngestionDiagnosticCode
+                .LINKED_OBSERVATION -> "green"
+            FinancialIngestionDiagnosticCode
                 .OBSERVATION_ONLY -> "blue"
             FinancialIngestionDiagnosticCode
                 .UNRECOGNIZED_FINANCIAL_LANGUAGE ->
@@ -2741,6 +2743,8 @@ private fun CapturedFinancialMessageRow(
             FinancialIngestionDiagnosticCode
                 .UNDERSTOOD_NO_LEDGER_EFFECT ->
                 "Understood"
+            FinancialIngestionDiagnosticCode
+                .LINKED_OBSERVATION -> "Linked"
             FinancialIngestionDiagnosticCode
                 .OBSERVATION_ONLY -> "Observed"
             FinancialIngestionDiagnosticCode
