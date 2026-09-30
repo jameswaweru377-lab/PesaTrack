@@ -1482,149 +1482,92 @@ fun SmartOnboardingSetupScreen(
                             salaryAccepted,
                         importResult =
                             importResult,
+                        selectedOwnershipKeys =
+                            selectedOwnershipKeys
+                                .toSet(),
+                        applying =
+                            reviewApplying,
+                        error =
+                            reviewError,
                         onSalaryAccepted = {
                             salaryAccepted = it
                         },
-                        onConfirmAccount = {
+                        onToggleAccount = {
                                 entity ->
-                            setupScope.launch {
-                                withContext(
-                                    Dispatchers.IO
-                                ) {
-                                    financialUnderstandingStore
-                                        .confirmEntityOwned(
-                                            entity.entityKey
-                                        )
-                                    financialCoordinator
-                                        .reconcilePendingTransfers(
-                                            entity.entityKey
-                                        )
-
-                                    if (
-                                        smsGranted &&
-                                        importMonths >
-                                            0
+                            val current =
+                                selectedOwnershipKeys
+                                    .toMutableSet()
+                            if (
+                                entity.entityKey in
+                                current
+                            ) {
+                                current.remove(
+                                    entity.entityKey
+                                )
+                            } else {
+                                current.add(
+                                    entity.entityKey
+                                )
+                            }
+                            selectedOwnershipKeys =
+                                current.toList()
+                            reviewError = null
+                        },
+                        onManualSalary = {
+                            if (!reviewApplying) {
+                                setupScope.launch {
+                                    reviewApplying =
+                                        true
+                                    reviewError = null
+                                    try {
+                                        applySelectedOwnerships()
+                                        stage =
+                                            SmartSetupStage
+                                                .SALARY_MANUAL
+                                    } catch (
+                                        _: Exception
                                     ) {
-                                        HistoryImportWindow
-                                            .importStartEpochMs(
-                                                importMonths
-                                            )
-                                            ?.let {
-                                                startEpochMs ->
-                                                HistoricalSmsImporter(
-                                                    context
-                                                        .applicationContext
-                                                ).importSince(
-                                                    startEpochMs
-                                                )
-                                            }
+                                        reviewError =
+                                            "Could not save those account choices. Please try again."
+                                    } finally {
+                                        reviewApplying =
+                                            false
                                     }
-                                    payCycleStore
-                                        .rebuild()
-                                }
-                                availableAccounts =
-                                    ownedSetupAccounts(
-                                        accountStore =
-                                            accountStore,
-                                        financialStore =
-                                            financialUnderstandingStore
-                                    )
-                                pendingOwnershipEntities =
-                                    onboardingOwnershipCandidates(
-                                        financialUnderstandingStore
-                                            .pendingEntities()
-                                    )
-
-                                val refreshedSalary =
-                                    withContext(
-                                        Dispatchers.IO
-                                    ) {
-                                        val cutoff =
-                                            HistoryImportWindow
-                                                .importStartEpochMs(
-                                                    importMonths
-                                                        .coerceAtLeast(
-                                                            1
-                                                        )
-                                                )
-                                                ?: (
-                                                    System.currentTimeMillis() -
-                                                        31L *
-                                                            ONE_DAY_MS
-                                                    )
-                                        val observations =
-                                            transactionStore
-                                                .recent(500)
-                                                .filter {
-                                                    it.receivedAtEpochMs >=
-                                                        cutoff
-                                                }
-                                                .map {
-                                                    item ->
-                                                    OnboardingTransactionObservation(
-                                                        counterparty =
-                                                            item.counterparty,
-                                                        counterpartyPhone =
-                                                            item.counterpartyPhone,
-                                                        amountMinor =
-                                                            item.amountMinor,
-                                                        occurredAtEpochMs =
-                                                            item.occurredAtEpochMs,
-                                                        direction =
-                                                            runCatching {
-                                                                MoneyDirection
-                                                                    .valueOf(
-                                                                        item.direction
-                                                                    )
-                                                            }.getOrDefault(
-                                                                MoneyDirection
-                                                                    .NEUTRAL
-                                                            ),
-                                                        accountId =
-                                                            item.accountId
-                                                    )
-                                                }
-                                        OnboardingDiscoveryEngine
-                                            .salarySuggestion(
-                                                observations
-                                            )
-                                    }
-                                if (
-                                    refreshedSalary !=
-                                    null
-                                ) {
-                                    salarySuggestion =
-                                        refreshedSalary
-                                    salaryAccepted =
-                                        refreshedSalary
-                                            .signalStrength ==
-                                            SalarySignalStrength
-                                                .EXPLICIT_PAYROLL
-                                    manualSalaryAccountId =
-                                        refreshedSalary
-                                            .accountId
                                 }
                             }
                         },
-                        onManualSalary = {
-                            stage =
-                                SmartSetupStage
-                                    .SALARY_MANUAL
-                        },
                         onContinue = {
-                            setupScope.launch {
-                                applySalaryIfConfirmed()
-                                stage =
-                                    if (
-                                        mpesaPhoneSuggestion !=
-                                        null
+                            if (!reviewApplying) {
+                                setupScope.launch {
+                                    reviewApplying =
+                                        true
+                                    reviewError = null
+                                    try {
+                                        applySelectedOwnerships()
+                                        applySalaryIfConfirmed()
+                                        stageBeforeMpesa =
+                                            SmartSetupStage.REVIEW
+                                        stage =
+                                            if (
+                                                mpesaPhoneSuggestion !=
+                                                null
+                                            ) {
+                                                SmartSetupStage
+                                                    .MPESA_CONFIRM
+                                            } else {
+                                                SmartSetupStage
+                                                    .LIVE_CAPTURE
+                                            }
+                                    } catch (
+                                        _: Exception
                                     ) {
-                                        SmartSetupStage
-                                            .MPESA_CONFIRM
-                                    } else {
-                                        SmartSetupStage
-                                            .LIVE_CAPTURE
+                                        reviewError =
+                                            "Could not finish these setup choices. Please try again."
+                                    } finally {
+                                        reviewApplying =
+                                            false
                                     }
+                                }
                             }
                         }
                     )
