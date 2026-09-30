@@ -1619,194 +1619,239 @@ private fun ReviewDiscoveryPage(
     salaryAccepted: Boolean,
     importResult: HistoricalImportResult?,
     onSalaryAccepted: (Boolean) -> Unit,
+    onManualSalary: () -> Unit,
     onContinue: () -> Unit
 ) {
-    SetupHero(
-        icon = Icons.Rounded.CheckCircle,
-        title = "Here's what we found",
-        body =
-            "Confirm the useful signals. You can change account and rule details later."
-    )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
+    ) {
+        SetupHero(
+            icon = Icons.Rounded.CheckCircle,
+            title = "Here's what we found",
+            body =
+                "These are signals from your real messages. Confirm what looks right; PesaTrack will not invent missing accounts."
+        )
 
-    if (sources.isEmpty()) {
-        PesaCard {
-            Column(
-                Modifier.padding(18.dp)
-            ) {
-                Text(
-                    "No accounts confirmed yet",
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium
-                )
-                Text(
-                    if (importResult == null) {
-                        "That's fine. PesaTrack will discover M-Pesa, banks and other money sources as messages arrive."
-                    } else {
-                        "PesaTrack imported what it could, but there wasn't enough evidence to confidently name an account yet."
-                    },
-                    modifier =
-                        Modifier.padding(top = 5.dp),
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
+        if (sources.isEmpty()) {
+            PesaCard {
+                Column(
+                    Modifier.padding(18.dp)
+                ) {
+                    Text(
+                        "No money accounts confirmed yet",
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurface
+                    )
+                    Text(
+                        if (importResult == null) {
+                            "That's fine. PesaTrack can start empty and learn from future financial activity."
+                        } else {
+                            "PesaTrack imported your history but did not find enough strong sender evidence to safely name an account."
+                        },
+                        modifier =
+                            Modifier.padding(top = 5.dp),
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            sources.forEach { source ->
+                DiscoveredSourceCard(source)
             }
         }
-    } else {
-        sources.forEach { source ->
-            DiscoveredSourceCard(source)
-        }
-    }
 
-    if (salarySuggestion != null) {
-        Surface(
+        if (salarySuggestion != null) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onSalaryAccepted(
+                            !salaryAccepted
+                        )
+                    },
+                shape =
+                    RoundedCornerShape(22.dp),
+                color =
+                    if (salaryAccepted) {
+                        pesaToneContainer("amber")
+                    } else {
+                        MaterialTheme.colorScheme
+                            .surface
+                    }
+            ) {
+                Row(
+                    modifier =
+                        Modifier.padding(16.dp),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    IconBubble(
+                        Icons.Rounded.Payments,
+                        size = 46.dp,
+                        background =
+                            pesaToneContainer(
+                                "amber"
+                            ),
+                        tint =
+                            pesaToneContent("amber")
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 12.dp)
+                    ) {
+                        Text(
+                            "Possible salary",
+                            style =
+                                MaterialTheme.typography
+                                    .labelLarge,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .primary
+                        )
+                        Text(
+                            salarySuggestion.label,
+                            style =
+                                MaterialTheme.typography
+                                    .titleMedium,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurface
+                        )
+                        Text(
+                            salarySuggestion
+                                .monthCount
+                                .toString() +
+                                " months • recent " +
+                                formatSetupMoney(
+                                    salarySuggestion
+                                        .representativeAmountMinor
+                                ),
+                            style =
+                                MaterialTheme.typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        if (salaryAccepted) {
+                            Icons.Rounded.CheckCircle
+                        } else {
+                            Icons.Rounded.Payments
+                        },
+                        contentDescription =
+                            if (salaryAccepted) {
+                                "Marked as salary"
+                            } else {
+                                "Not marked as salary"
+                            },
+                        tint =
+                            if (salaryAccepted) {
+                                MaterialTheme.colorScheme
+                                    .primary
+                            } else {
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant
+                            }
+                    )
+                }
+            }
+
+            Text(
+                "Tap the salary card if this is not your pay. PesaTrack creates the salary rule only after your confirmation.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        } else {
+            PesaCard {
+                Row(
+                    Modifier.padding(16.dp),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    IconBubble(
+                        Icons.Rounded.Payments,
+                        size = 44.dp
+                    )
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .padding(
+                                start = 11.dp
+                            )
+                    ) {
+                        Text(
+                            "Salary wasn't found",
+                            style =
+                                MaterialTheme.typography
+                                    .titleMedium,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurface
+                        )
+                        Text(
+                            "Some banks don't send a useful salary SMS. Add one recent salary manually so Money In and your current pay cycle start correctly.",
+                            style =
+                                MaterialTheme.typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        if (
+            salarySuggestion == null ||
+            !salaryAccepted
+        ) {
+            OutlinedButton(
+                onClick = onManualSalary,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 54.dp),
+                shape =
+                    RoundedCornerShape(18.dp)
+            ) {
+                Text("Set up salary manually")
+            }
+        }
+
+        Button(
+            onClick = onContinue,
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable {
-                    onSalaryAccepted(
-                        !salaryAccepted
-                    )
-                },
-            shape = RoundedCornerShape(22.dp),
-            color =
-                if (salaryAccepted) {
-                    pesaToneContainer("amber")
-                } else {
-                    MaterialTheme.colorScheme
-                        .surface
-                }
+                .heightIn(min = 56.dp),
+            shape =
+                RoundedCornerShape(18.dp)
         ) {
-            Row(
-                modifier =
-                    Modifier.padding(16.dp),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                IconBubble(
-                    Icons.Rounded.Payments,
-                    size = 46.dp,
-                    background =
-                        pesaToneContainer(
-                            "amber"
-                        ),
-                    tint =
-                        pesaToneContent("amber")
-                )
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp)
+            Text(
+                if (
+                    salarySuggestion == null
                 ) {
-                    Text(
-                        "Possible salary",
-                        style =
-                            MaterialTheme.typography
-                                .labelLarge,
-                        color =
-                            MaterialTheme.colorScheme
-                                .primary
-                    )
-                    Text(
-                        salarySuggestion.label,
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium
-                    )
-                    Text(
-                        salarySuggestion
-                            .monthCount
-                            .toString() +
-                            " months • recent " +
-                            formatSetupMoney(
-                                salarySuggestion
-                                    .representativeAmountMinor
-                            ),
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
+                    "Continue without salary"
+                } else {
+                    "Looks good"
                 }
-                Icon(
-                    if (salaryAccepted) {
-                        Icons.Rounded.CheckCircle
-                    } else {
-                        Icons.Rounded.Payments
-                    },
-                    contentDescription =
-                        if (salaryAccepted) {
-                            "Marked as salary"
-                        } else {
-                            "Not marked as salary"
-                        },
-                    tint =
-                        if (salaryAccepted) {
-                            MaterialTheme.colorScheme
-                                .primary
-                        } else {
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                        }
-                )
-            }
+            )
         }
-
-        Text(
-            "Tap the salary card to include or exclude it. PesaTrack only creates the salary rule after your confirmation.",
-            style =
-                MaterialTheme.typography
-                    .bodySmall,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
-        )
-    } else {
-        PesaCard {
-            Row(
-                Modifier.padding(16.dp),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                IconBubble(
-                    Icons.Rounded.Payments,
-                    size = 44.dp
-                )
-                Column(
-                    Modifier.padding(
-                        start = 11.dp
-                    )
-                ) {
-                    Text(
-                        "Salary can be learned later",
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium
-                    )
-                    Text(
-                        "We didn't see a repeated payer across multiple months, so PesaTrack won't guess.",
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
-
-    Button(
-        onClick = onContinue,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 56.dp),
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Text("Looks good")
     }
 }
 
