@@ -3333,7 +3333,8 @@ private fun SalaryAccountChoice(
                 size = 40.dp
             )
             Text(
-                account.name,
+                AccountIdentityPresentation
+                    .title(account),
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 10.dp),
