@@ -51,6 +51,7 @@ import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.DebtStore
+import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
@@ -102,6 +103,11 @@ fun HomeScreen(
     val budgetStore = remember { BudgetStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
     val debtStore = remember { DebtStore.get(context) }
+    val financialStore =
+        remember {
+            FinancialUnderstandingStore
+                .get(context)
+        }
     val ruleStore = remember { RuleStore.get(context) }
     val preferences = remember {
         context.getSharedPreferences(
@@ -146,10 +152,20 @@ fun HomeScreen(
         )
     }
 
+    val confirmedAccountIds =
+        financialStore
+            .confirmedAccountIds()
     val visibleAccountGroups =
         AccountDisplayPolicy.groups(
             trackedAccounts
-        )
+        ).filter { group ->
+            group.accounts.any {
+                it.id in
+                    confirmedAccountIds ||
+                    !it.identifier
+                        .isNullOrBlank()
+            }
+        }
     val activeDebtAccounts =
         debtAccounts
             .filter {
