@@ -325,7 +325,7 @@ class FinancialInterpretationPipelineTest {
             FinancialMessageInterpreter.interpret(
                 title = "M-SHWARI",
                 body =
-                    "Your M-Shwari Lock Savings balance is KES 8,500.00."
+                    "Lock Savings balance is KES 8,500.00."
             )
 
         assertTrue(interpretation.recognized)
