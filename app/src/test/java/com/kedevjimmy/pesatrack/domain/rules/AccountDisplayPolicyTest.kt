@@ -9,7 +9,7 @@ import org.junit.Test
 
 class AccountDisplayPolicyTest {
     @Test
-    fun groupsMshwariFamilyIntoOneVisibleAccount() {
+    fun keepsMshwariAndLockSavingsAsSeparateBalances() {
         val groups =
             AccountDisplayPolicy.groups(
                 listOf(
@@ -26,14 +26,62 @@ class AccountDisplayPolicyTest {
                 )
             )
 
-        assertEquals(1, groups.size)
+        assertEquals(2, groups.size)
+        assertTrue(
+            groups.any {
+                it.displayName ==
+                    "M-Shwari" &&
+                    it.accountIds ==
+                        setOf("mshwari")
+            }
+        )
+        assertTrue(
+            groups.any {
+                it.displayName ==
+                    "M-Shwari Lock Savings" &&
+                    it.accountIds ==
+                        setOf("lock")
+            }
+        )
+    }
+
+    @Test
+    fun legacyLockSavingsAliasUsesCanonicalDisplayName() {
+        val groups =
+            AccountDisplayPolicy.groups(
+                listOf(
+                    MoneyAccount(
+                        id = "legacy-lock",
+                        name = "Lock Savings",
+                        type = AccountType.SAVINGS
+                    )
+                )
+            )
+
         assertEquals(
-            "M-Shwari",
+            "M-Shwari Lock Savings",
             groups.single().displayName
         )
+    }
+
+    @Test
+    fun dynamicIdentifierIsMaskedInAccountLabel() {
+        val label =
+            AccountDisplayPolicy
+                .displayLabel(
+                    MoneyAccount(
+                        id = "mpesa",
+                        name = "M-Pesa",
+                        type =
+                            AccountType.MOBILE_WALLET,
+                        identifier =
+                            "+254700008497"
+                    )
+                )
+
         assertEquals(
-            setOf("mshwari", "lock"),
-            groups.single().accountIds
+            "M-Pesa (•••• 8497)",
+            label
         )
     }
 
@@ -101,6 +149,12 @@ class AccountDisplayPolicyTest {
             )
         )
         assertTrue(
+            AccountDisplayPolicy.matchesSource(
+                mshwari,
+                "M-Shwari Lock Savings"
+            )
+        )
+        assertFalse(
             AccountDisplayPolicy.matchesSource(
                 mshwari,
                 "M-Shwari"
