@@ -21,6 +21,8 @@ object TransactionDateResolver {
         "d-M-yyyy 'at' h:mm a",
         "d/M/yy 'at' H:mm",
         "d/M/yyyy 'at' H:mm",
+        "d-M-yy 'at' H:mm",
+        "d-M-yyyy 'at' H:mm",
         "d/M/yy h:mm:ss a",
         "d/M/yyyy h:mm:ss a",
         "d-M-yy h:mm:ss a",
@@ -31,10 +33,12 @@ object TransactionDateResolver {
         "d-M-yyyy H:mm:ss",
         "d/M/yy h:mm a",
         "d/M/yyyy h:mm a",
-        "d-M/yy h:mm a",
+        "d-M-yy h:mm a",
         "d-M-yyyy h:mm a",
         "d/M/yy H:mm",
-        "d/M/yyyy H:mm"
+        "d/M/yyyy H:mm",
+        "d-M-yy H:mm",
+        "d-M-yyyy H:mm"
     )
 
     fun resolve(
