@@ -310,10 +310,20 @@ fun ActivityScreen(
                 diagnostic.receivedAtEpochMs <
                     nextMonthEpochMs
         }
+    val confirmedAccountIds =
+        financialStore
+            .confirmedAccountIds()
     val ownedAccountGroups =
         AccountDisplayPolicy.groups(
             accountsById.values.toList()
-        )
+        ).filter { group ->
+            group.accounts.any {
+                it.id in
+                    confirmedAccountIds ||
+                    !it.identifier
+                        .isNullOrBlank()
+            }
+        }
     val ownedAccountDiagnostics =
         monthDiagnostics.mapNotNull {
                 diagnostic ->
