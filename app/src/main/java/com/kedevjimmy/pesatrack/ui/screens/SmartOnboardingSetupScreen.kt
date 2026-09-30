@@ -1030,23 +1030,33 @@ fun SmartOnboardingSetupScreen(
 
             completed.forEach {
                     (draft, amountMinor, paidAt) ->
-                val alreadyBackedByHistory =
-                    draft.matchedTransactionId !=
-                        null ||
-                        historyMatches.any {
-                            match ->
-                            match.amountMinor ==
-                                amountMinor &&
-                                kotlin.math.abs(
-                                    match.occurredAtEpochMs -
-                                        paidAt
-                                ) <=
-                                ONE_DAY_MS
-                        }
+                val backingTransactionId =
+                    draft.matchedTransactionId
+                        ?: historyMatches
+                            .firstOrNull {
+                                match ->
+                                match.amountMinor ==
+                                    amountMinor &&
+                                    kotlin.math.abs(
+                                        match.occurredAtEpochMs -
+                                            paidAt
+                                    ) <=
+                                    ONE_DAY_MS
+                            }
+                            ?.transactionId
 
                 if (
-                    !alreadyBackedByHistory
+                    backingTransactionId !=
+                    null
                 ) {
+                    transactionStore
+                        .applyRuleToTransaction(
+                            transactionId =
+                                backingTransactionId,
+                            rule =
+                                salaryRule
+                        )
+                } else {
                     transactionStore
                         .insertManualIncome(
                             amountMinor =
