@@ -20,6 +20,8 @@ class PayCycleStore private constructor(context: Context) {
         PesaTrackDatabase(appContext)
     private val paydaySnapshotStore =
         PaydaySnapshotStore.get(appContext)
+    private val cycleProtectionStore =
+        CycleProtectionStore.get(appContext)
 
     @Synchronized
     fun rebuild() {
@@ -228,6 +230,13 @@ class PayCycleStore private constructor(context: Context) {
         val totals = cycleTotals(cycle)
         val commitments = commitmentsFor(cycle)
         val remainingCommitments = commitments.sumOf { it.remainingMinor }
+        val userProtectedMinor =
+            cycleProtectionStore
+                .get(
+                    cycle.startTransactionId
+                )
+                ?.amountMinor
+                ?: 0L
         val startingFunds = cycle.openingIncomeMinor + cycle.carryoverMinor
         val available = startingFunds +
             totals.additionalIncomeMinor +
@@ -235,7 +244,8 @@ class PayCycleStore private constructor(context: Context) {
             totals.spentMinor -
             totals.feesMinor -
             totals.savingsMinor -
-            remainingCommitments
+            remainingCommitments -
+            userProtectedMinor
         val unexplainedFundingGap = FundingGapPolicy.unexplainedGap(
             startingFundsMinor = startingFunds,
             additionalIncomeMinor =
@@ -273,7 +283,9 @@ class PayCycleStore private constructor(context: Context) {
             pendingSalary = pending,
             unexplainedFundingGapMinor = unexplainedFundingGap,
             refundsMinor = totals.refundsMinor,
-            paydaySnapshot = paydaySnapshot
+            paydaySnapshot = paydaySnapshot,
+            userProtectedMinor =
+                userProtectedMinor
         )
     }
 
