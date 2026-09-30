@@ -253,4 +253,45 @@ class FinancialProviderRegistryTest {
         )
     }
 
+
+    @Test
+    fun mshwariMessageSourceAnchorsRegularSavingsAccount() {
+        val account =
+            FinancialProviderRegistry
+                .resolveObservedAccount(
+                    title = "M-Shwari",
+                    balances = emptyList()
+                )
+
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            account?.providerKey
+        )
+    }
+
+    @Test
+    fun lockSavingsLabelUsesMshwariContextWithoutGlobalGuessing() {
+        val contextual =
+            FinancialProviderRegistry
+                .resolveAccountInMessageContext(
+                    rawLabel =
+                        "your Lock Savings Account",
+                    title = "M-Shwari"
+                )
+        val unscoped =
+            FinancialProviderRegistry
+                .resolveAccount(
+                    "Lock Savings Account"
+                )
+
+        assertEquals(
+            "NCBA_MSHWARI_LOCK_SAVINGS",
+            contextual.providerKey
+        )
+        assertEquals(
+            null,
+            unscoped.providerKey
+        )
+    }
+
 }
