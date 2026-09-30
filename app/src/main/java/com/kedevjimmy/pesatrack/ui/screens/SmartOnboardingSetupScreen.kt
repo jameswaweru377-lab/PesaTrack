@@ -1431,12 +1431,13 @@ private fun SmsPermissionPage(
 
 @Composable
 private fun AnalysisPage(
-    importing: Boolean
+    importing: Boolean,
+    step: AnalysisStep
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 30.dp),
+            .padding(vertical = 22.dp),
         horizontalAlignment =
             Alignment.CenterHorizontally
     ) {
@@ -1466,13 +1467,17 @@ private fun AnalysisPage(
             style =
                 MaterialTheme.typography
                     .headlineMedium,
+            color =
+                MaterialTheme.colorScheme
+                    .onBackground,
+            fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
         Text(
             if (importing) {
-                "PesaTrack is scanning your selected history, finding accounts and looking for recurring income."
+                "PesaTrack is working through your selected history one step at a time."
             } else {
-                "PesaTrack is preparing a clean starting point. It will learn from new activity as it arrives."
+                "PesaTrack is preparing a clean starting point and will learn as new activity arrives."
             },
             modifier =
                 Modifier.padding(top = 8.dp),
@@ -1489,19 +1494,35 @@ private fun AnalysisPage(
             Column(
                 Modifier.padding(16.dp),
                 verticalArrangement =
-                    Arrangement.spacedBy(13.dp)
+                    Arrangement.spacedBy(16.dp)
             ) {
                 AnalysisRow(
-                    "Scanning financial messages"
+                    label =
+                        "Scanning financial messages",
+                    target =
+                        AnalysisStep.SCANNING,
+                    current = step
                 )
                 AnalysisRow(
-                    "Finding your accounts"
+                    label =
+                        "Finding your accounts",
+                    target =
+                        AnalysisStep.ACCOUNTS,
+                    current = step
                 )
                 AnalysisRow(
-                    "Looking for recurring income"
+                    label =
+                        "Looking for recurring income",
+                    target =
+                        AnalysisStep.INCOME,
+                    current = step
                 )
                 AnalysisRow(
-                    "Checking duplicate evidence"
+                    label =
+                        "Checking duplicate evidence",
+                    target =
+                        AnalysisStep.DUPLICATES,
+                    current = step
                 )
             }
         }
@@ -1510,26 +1531,82 @@ private fun AnalysisPage(
 
 @Composable
 private fun AnalysisRow(
-    label: String
+    label: String,
+    target: AnalysisStep,
+    current: AnalysisStep
 ) {
+    val complete =
+        current == AnalysisStep.COMPLETE ||
+            current.ordinal >
+                target.ordinal
+    val active =
+        !complete &&
+            current == target
+
     Row(
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment =
             Alignment.CenterVertically
     ) {
-        Icon(
-            Icons.Rounded.CheckCircle,
-            contentDescription = null,
-            tint =
-                MaterialTheme.colorScheme
-                    .primary
-        )
+        Box(
+            modifier = Modifier.size(24.dp),
+            contentAlignment =
+                Alignment.Center
+        ) {
+            when {
+                complete -> {
+                    Icon(
+                        Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        tint =
+                            MaterialTheme
+                                .colorScheme
+                                .primary,
+                        modifier =
+                            Modifier.size(24.dp)
+                    )
+                }
+
+                active -> {
+                    CircularProgressIndicator(
+                        modifier =
+                            Modifier.size(22.dp),
+                        strokeWidth = 2.5.dp
+                    )
+                }
+
+                else -> {
+                    Surface(
+                        modifier =
+                            Modifier.size(10.dp),
+                        shape = CircleShape,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .outlineVariant
+                    ) {}
+                }
+            }
+        }
+
         Text(
             label,
             modifier =
-                Modifier.padding(start = 10.dp),
+                Modifier.padding(start = 12.dp),
             color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
+                if (active || complete) {
+                    MaterialTheme.colorScheme
+                        .onSurface
+                } else {
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+                },
+            fontWeight =
+                if (active) {
+                    FontWeight.SemiBold
+                } else {
+                    FontWeight.Normal
+                }
         )
     }
 }
