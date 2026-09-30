@@ -79,6 +79,7 @@ import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.data.local.RuleStore
+import com.kedevjimmy.pesatrack.data.local.SalaryHistoryCandidate
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
@@ -127,6 +128,20 @@ private enum class AnalysisStep {
     DUPLICATES,
     COMPLETE
 }
+
+private enum class SalaryHistoryMode {
+    LATEST_ONLY,
+    IMPORT_WINDOW
+}
+
+private data class ManualSalaryDraft(
+    val monthKey: String,
+    val monthLabel: String,
+    val amount: String = "",
+    val paidAtEpochMs: Long? = null,
+    val matchedTransactionId: Long? = null
+)
+
 
 private data class DetectedSetupSource(
     val name: String,
@@ -228,11 +243,24 @@ fun SmartOnboardingSetupScreen(
     var manualSalaryPayer by rememberSaveable {
         mutableStateOf("")
     }
-    var manualSalaryAmount by rememberSaveable {
-        mutableStateOf("")
+    var manualSalaryHistoryMode by rememberSaveable {
+        mutableStateOf(
+            if (importMonths > 1) {
+                SalaryHistoryMode.IMPORT_WINDOW
+            } else {
+                SalaryHistoryMode.LATEST_ONLY
+            }
+        )
     }
-    var manualSalaryDateEpochMs by rememberSaveable {
-        mutableStateOf<Long?>(null)
+    var manualSalaryDrafts by remember {
+        mutableStateOf(
+            defaultManualSalaryDrafts(
+                importMonths
+            )
+        )
+    }
+    var salaryHistorySearchStatus by remember {
+        mutableStateOf<String?>(null)
     }
     var manualSalaryError by remember {
         mutableStateOf<String?>(null)
