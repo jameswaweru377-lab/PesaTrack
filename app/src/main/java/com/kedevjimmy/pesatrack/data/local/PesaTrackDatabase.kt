@@ -792,6 +792,19 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         db.execSQL(
             """
+            CREATE TABLE IF NOT EXISTS investment_event_references (
+                investment_event_id INTEGER NOT NULL,
+                reference_value TEXT NOT NULL,
+                PRIMARY KEY(
+                    investment_event_id,
+                    reference_value
+                )
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
             CREATE TABLE IF NOT EXISTS investment_positions (
                 instrument_key TEXT PRIMARY KEY,
                 instrument_label TEXT NOT NULL,
@@ -922,6 +935,9 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_investment_events_linked_transaction ON investment_events(linked_transaction_id)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_investment_event_reference_value ON investment_event_references(reference_value)"
         )
     }
 
