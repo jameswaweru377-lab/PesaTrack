@@ -398,6 +398,15 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             )
         }
 
+        if (oldVersion < 28) {
+            addColumnIfMissing(
+                db,
+                "entity_enrichment_cache",
+                "business_role",
+                "TEXT"
+            )
+        }
+
         createIndexes(db)
         createTriggers(db)
     }
@@ -1179,6 +1188,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 domain TEXT,
                 logo_url TEXT,
                 category_hint TEXT,
+                business_role TEXT,
                 confidence TEXT NOT NULL,
                 source TEXT NOT NULL,
                 fetched_at_epoch_ms INTEGER NOT NULL,
@@ -1320,6 +1330,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 27
+        private const val DATABASE_VERSION = 28
     }
 }
