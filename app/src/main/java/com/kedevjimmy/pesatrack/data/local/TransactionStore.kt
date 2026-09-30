@@ -241,6 +241,73 @@ class TransactionStore private constructor(context: Context) {
             }
         }
 
+        val existingFingerprint =
+            getByFingerprint(fingerprint)
+        if (existingFingerprint != null) {
+            val values =
+                ContentValues().apply {
+                    if (
+                        existingFingerprint.accountId ==
+                            null &&
+                        accountId != null
+                    ) {
+                        put(
+                            "account_id",
+                            accountId
+                        )
+                    }
+                    if (
+                        existingFingerprint.linkedAccountId ==
+                            null &&
+                        linkedAccountId != null
+                    ) {
+                        put(
+                            "linked_account_id",
+                            linkedAccountId
+                        )
+                    }
+                    if (
+                        matchedRule != null
+                    ) {
+                        put(
+                            "direction",
+                            classification.direction.name
+                        )
+                        put(
+                            "category",
+                            classification.category.name
+                        )
+                        put(
+                            "review_state",
+                            classification.reviewState.name
+                        )
+                        put(
+                            "rule_id",
+                            matchedRule.id
+                        )
+                        put(
+                            "planning_month",
+                            classification.planningMonth
+                        )
+                    }
+                }
+            if (values.size() > 0) {
+                database.writableDatabase
+                    .update(
+                        "transactions",
+                        values,
+                        "id = ?",
+                        arrayOf(
+                            existingFingerprint.id
+                                .toString()
+                        )
+                    )
+                LedgerUpdateBus
+                    .notifyChanged()
+            }
+            return false
+        }
+
         val correlationReferences =
             normalizedCorrelationReferences(
                 transactionCode =
@@ -2932,6 +2999,25 @@ class TransactionStore private constructor(context: Context) {
                 while (cursor.moveToNext()) add(cursor.toStoredTransaction())
             }
         }
+
+    private fun getByFingerprint(
+        fingerprint: String
+    ): StoredTransaction? =
+        database.readableDatabase
+            .rawQuery(
+                BASE_SELECT +
+                    " WHERE fingerprint = ? LIMIT 1",
+                arrayOf(fingerprint)
+            )
+            .use { cursor ->
+                if (
+                    cursor.moveToFirst()
+                ) {
+                    cursor.toStoredTransaction()
+                } else {
+                    null
+                }
+            }
 
     private fun hasLegacyFingerprintAt(
         fingerprint: String,
