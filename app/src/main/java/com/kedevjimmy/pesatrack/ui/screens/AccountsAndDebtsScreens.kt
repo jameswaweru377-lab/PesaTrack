@@ -489,7 +489,8 @@ private fun AccountBalanceCard(
                     .padding(start = 12.dp)
             ) {
                 Text(
-                    group.displayName,
+                    AccountDisplayPolicy
+                        .displayLabel(group),
                     style =
                         MaterialTheme.typography
                             .titleMedium,
