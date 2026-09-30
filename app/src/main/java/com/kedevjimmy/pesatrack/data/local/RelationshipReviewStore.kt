@@ -13,7 +13,8 @@ import kotlin.math.max
 enum class RelationshipReviewKind {
     REPAYMENT_FUNDING,
     REPAYMENT_BALANCE,
-    LIABILITY_PAYMENT
+    LIABILITY_PAYMENT,
+    INVESTMENT_SETTLEMENT
 }
 
 data class RelationshipReviewCandidate(
@@ -30,6 +31,7 @@ data class RelationshipReviewItem(
     val kind: RelationshipReviewKind,
     val debtEventId: Long? = null,
     val transactionId: Long? = null,
+    val investmentEventId: Long? = null,
     val debtName: String,
     val fundingAccountName: String,
     val repaymentAmountMinor: Long,
@@ -56,7 +58,8 @@ class RelationshipReviewStore private constructor(
         (
             pendingFundingReviews() +
                 pendingBalanceReviews() +
-                pendingLiabilityPaymentReviews()
+                pendingLiabilityPaymentReviews() +
+                pendingInvestmentSettlementReviews()
             )
             .sortedByDescending {
                 it.occurredAtEpochMs
@@ -292,6 +295,266 @@ class RelationshipReviewStore private constructor(
             LedgerUpdateBus.notifyChanged()
         }
         return stored
+    }
+
+    @Synchronized
+    fun resolveInvestmentSettlement(
+        investmentEventId: Long,
+        transactionId: Long?
+    ): Boolean {
+        val item =
+            pendingInvestmentSettlementReviews()
+                .firstOrNull {
+                    it.investmentEventId ==
+                        investmentEventId
+                }
+                ?: return false
+
+        if (
+            transactionId != null &&
+            item.candidates.none {
+                it.targetId == transactionId
+            }
+        ) {
+            return false
+        }
+
+        return InvestmentStore.get(appContext)
+            .resolveManualSettlement(
+                eventId = investmentEventId,
+                transactionId = transactionId
+            )
+    }
+
+    private fun pendingInvestmentSettlementReviews():
+        List<RelationshipReviewItem> =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT id,
+                   event_type,
+                   instrument_label,
+                   value_minor,
+                   occurred_at_epoch_ms
+            FROM investment_events
+            WHERE linked_transaction_id IS NULL
+              AND settlement_user_decision IS NULL
+              AND event_type IN (?, ?)
+              AND value_minor IS NOT NULL
+              AND value_minor > 0
+            ORDER BY occurred_at_epoch_ms DESC,
+                     id DESC
+            LIMIT 200
+            """.trimIndent(),
+            arrayOf(
+                InvestmentEventType
+                    .BUY_EXECUTED.name,
+                InvestmentEventType
+                    .SELL_EXECUTED.name
+            )
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    val event =
+                        InvestmentSettlementForReview(
+                            id = cursor.getLong(0),
+                            eventType =
+                                InvestmentEventType
+                                    .valueOf(
+                                        cursor.getString(1)
+                                    ),
+                            instrumentLabel =
+                                cursor.getString(2),
+                            valueMinor =
+                                cursor.getLong(3),
+                            occurredAtEpochMs =
+                                cursor.getLong(4)
+                        )
+                    val candidates =
+                        investmentSettlementCandidates(
+                            event
+                        )
+                    if (candidates.isEmpty()) {
+                        continue
+                    }
+
+                    add(
+                        RelationshipReviewItem(
+                            key =
+                                "investment-settlement-" +
+                                    event.id,
+                            kind =
+                                RelationshipReviewKind
+                                    .INVESTMENT_SETTLEMENT,
+                            investmentEventId =
+                                event.id,
+                            debtName =
+                                event.instrumentLabel,
+                            fundingAccountName =
+                                when (
+                                    event.eventType
+                                ) {
+                                    InvestmentEventType
+                                        .BUY_EXECUTED ->
+                                        "Executed buy"
+                                    InvestmentEventType
+                                        .SELL_EXECUTED ->
+                                        "Executed sale"
+                                    InvestmentEventType
+                                        .ORDER_SUBMITTED ->
+                                        "Investment order"
+                                },
+                            repaymentAmountMinor =
+                                event.valueMinor,
+                            occurredAtEpochMs =
+                                event.occurredAtEpochMs,
+                            candidates = candidates
+                        )
+                    )
+                }
+            }
+        }
+
+    private fun investmentSettlementCandidates(
+        event: InvestmentSettlementForReview
+    ): List<RelationshipReviewCandidate> {
+        val expectedDirection =
+            when (event.eventType) {
+                InvestmentEventType.BUY_EXECUTED ->
+                    MoneyDirection.EXPENSE
+                InvestmentEventType.SELL_EXECUTED ->
+                    MoneyDirection.INCOME
+                InvestmentEventType.ORDER_SUBMITTED ->
+                    return emptyList()
+            }
+
+        return database.readableDatabase.rawQuery(
+            """
+            SELECT
+                t.id,
+                t.amount_minor,
+                t.occurred_at_epoch_ms,
+                COALESCE(
+                    NULLIF(TRIM(t.counterparty), ''),
+                    NULLIF(TRIM(t.transaction_code), ''),
+                    NULLIF(TRIM(a.name), ''),
+                    t.source_kind
+                ),
+                EXISTS(
+                    SELECT 1
+                    FROM investment_event_references ir
+                    JOIN transaction_external_references tr
+                      ON tr.reference_value =
+                            ir.reference_value
+                    WHERE ir.investment_event_id = ?
+                      AND tr.transaction_id = t.id
+                )
+            FROM transactions t
+            LEFT JOIN money_accounts a
+              ON a.id = t.account_id
+            WHERE t.amount_minor = ?
+              AND t.direction = ?
+              AND t.rule_id IS NULL
+              AND t.relation_type IS NULL
+              AND t.review_state != ?
+              AND t.review_state != ?
+              AND t.id NOT IN (
+                    SELECT linked_transaction_id
+                    FROM investment_events
+                    WHERE linked_transaction_id
+                        IS NOT NULL
+              )
+              AND (
+                    EXISTS(
+                        SELECT 1
+                        FROM investment_event_references ir
+                        JOIN transaction_external_references tr
+                          ON tr.reference_value =
+                                ir.reference_value
+                        WHERE ir.investment_event_id = ?
+                          AND tr.transaction_id = t.id
+                    )
+                    OR t.occurred_at_epoch_ms
+                        BETWEEN ? AND ?
+                  )
+            ORDER BY
+                EXISTS(
+                    SELECT 1
+                    FROM investment_event_references ir
+                    JOIN transaction_external_references tr
+                      ON tr.reference_value =
+                            ir.reference_value
+                    WHERE ir.investment_event_id = ?
+                      AND tr.transaction_id = t.id
+                ) DESC,
+                ABS(
+                    t.occurred_at_epoch_ms -
+                        ?
+                ) ASC,
+                t.id DESC
+            LIMIT 8
+            """.trimIndent(),
+            arrayOf(
+                event.id.toString(),
+                event.valueMinor.toString(),
+                expectedDirection.name,
+                ReviewState.USER_CLASSIFIED.name,
+                ReviewState.EXCLUDED.name,
+                event.id.toString(),
+                (
+                    event.occurredAtEpochMs -
+                        INVESTMENT_REVIEW_WINDOW_MS
+                    ).toString(),
+                (
+                    event.occurredAtEpochMs +
+                        INVESTMENT_REVIEW_WINDOW_MS
+                    ).toString(),
+                event.id.toString(),
+                event.occurredAtEpochMs
+                    .toString()
+            )
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    val transactionId =
+                        cursor.getLong(0)
+                    val amountMinor =
+                        cursor.getLong(1)
+                    val occurredAt =
+                        cursor.getLong(2)
+                    val label =
+                        cursor.getString(3)
+                    val sharesReference =
+                        cursor.getInt(4) != 0
+                    val delta =
+                        abs(
+                            occurredAt -
+                                event.occurredAtEpochMs
+                        )
+
+                    add(
+                        RelationshipReviewCandidate(
+                            targetId =
+                                transactionId,
+                            amountMinor =
+                                amountMinor,
+                            occurredAtEpochMs =
+                                occurredAt,
+                            label = label,
+                            reason =
+                                if (sharesReference) {
+                                    "Shares an exact external reference and the same investment value, but automatic settlement remained ambiguous."
+                                } else {
+                                    "Same investment value and correct cash direction within " +
+                                        reviewDistanceLabel(
+                                            delta
+                                        ) +
+                                        " of the execution."
+                                }
+                        )
+                    )
+                }
+            }
+        }
     }
 
     private fun pendingLiabilityPaymentReviews():
@@ -903,6 +1166,26 @@ class RelationshipReviewStore private constructor(
         }
     }
 
+    private data class InvestmentSettlementForReview(
+        val id: Long,
+        val eventType: InvestmentEventType,
+        val instrumentLabel: String,
+        val valueMinor: Long,
+        val occurredAtEpochMs: Long
+    )
+
+    private fun reviewDistanceLabel(
+        deltaMs: Long
+    ): String {
+        val minutes =
+            max(1L, deltaMs / 60_000L)
+        return if (minutes == 1L) {
+            "about one minute"
+        } else {
+            "about $minutes minutes"
+        }
+    }
+
     private data class RepaymentForReview(
         val id: Long,
         val amountMinor: Long,
@@ -922,6 +1205,8 @@ class RelationshipReviewStore private constructor(
             "USER_LINKED"
         private const val DECISION_KEEP_UNLINKED =
             "USER_KEEP_UNLINKED"
+        private const val INVESTMENT_REVIEW_WINDOW_MS =
+            10L * 60L * 1000L
 
         @Volatile
         private var instance:
