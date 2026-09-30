@@ -265,6 +265,15 @@ class TransactionStore private constructor(context: Context) {
                 sourceKind = sourceKind,
                 observedAtEpochMs = receivedAtEpochMs
             )
+            if (correlationReferences.isNotEmpty()) {
+                InvestmentStore.get(appContext)
+                    .reconcileTransaction(
+                        transactionId =
+                            mirrorCandidate.id,
+                        references =
+                            correlationReferences
+                    )
+            }
 
             if (parsed.transactionCode.isNullOrBlank()) {
                 return false
@@ -386,6 +395,14 @@ class TransactionStore private constructor(context: Context) {
                 sourceKind = sourceKind,
                 observedAtEpochMs = receivedAtEpochMs
             )
+            if (correlationReferences.isNotEmpty()) {
+                InvestmentStore.get(appContext)
+                    .reconcileTransaction(
+                        transactionId = rowId,
+                        references =
+                            correlationReferences
+                    )
+            }
             DebtStore.get(appContext)
                 .reconcilePendingDrawdownsForTransaction(
                     transactionId = rowId,
