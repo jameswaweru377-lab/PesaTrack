@@ -9,10 +9,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kedevjimmy.pesatrack.ui.components.AppScaffold
 import com.kedevjimmy.pesatrack.ui.components.MainTab
+import com.kedevjimmy.pesatrack.ui.screens.AccountsScreen
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.BudgetScreen
 import com.kedevjimmy.pesatrack.ui.screens.CommunityScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalDetailScreen
+import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
@@ -107,6 +109,44 @@ fun PesaTrackApp(
                     },
                     onBudgetClick = {
                         navController.navigate("budgets")
+                    },
+                    onAccountsClick = {
+                        navController.navigate(
+                            "accounts"
+                        )
+                    },
+                    onDebtsClick = {
+                        navController.navigate(
+                            "debts"
+                        )
+                    }
+                )
+            }
+        }
+
+        composable("accounts") {
+            AppScaffold(
+                currentTab = MainTab.HOME,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                AccountsScreen(
+                    scaffoldPadding = padding,
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+        }
+
+        composable("debts") {
+            AppScaffold(
+                currentTab = MainTab.HOME,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                DebtsScreen(
+                    scaffoldPadding = padding,
+                    onBack = {
+                        navController.popBackStack()
                     }
                 )
             }
