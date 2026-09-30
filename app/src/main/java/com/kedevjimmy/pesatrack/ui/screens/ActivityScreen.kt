@@ -326,10 +326,12 @@ fun ActivityScreen(
             accountsById.values.toList()
         ).filter { group ->
             group.accounts.any {
-                it.id in
-                    confirmedAccountIds ||
-                    !it.identifier
-                        .isNullOrBlank()
+                AccountDisplayPolicy
+                    .isConfirmedOwned(
+                        account = it,
+                        confirmedAccountIds =
+                            confirmedAccountIds
+                    )
             }
         }
     val ownedAccountDiagnostics =
