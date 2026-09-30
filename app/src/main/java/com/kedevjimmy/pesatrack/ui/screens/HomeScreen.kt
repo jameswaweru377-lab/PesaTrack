@@ -496,6 +496,15 @@ fun HomeScreen(
             )
         }
 
+        if (cycleSnapshot.cycle != null) {
+            item {
+                PaydayContextCard(
+                    snapshot =
+                        cycleSnapshot
+                )
+            }
+        }
+
         item {
             val cycle = cycleSnapshot.cycle
             val helper = cycle?.let {
@@ -1231,6 +1240,225 @@ private fun expectedSalaryPrompt(
 }
 
 @Composable
+private fun PaydayContextCard(
+    snapshot: PayCycleSnapshot
+) {
+    val cycle =
+        snapshot.cycle
+            ?: return
+    val payday =
+        snapshot.paydaySnapshot
+    val startingResources =
+        cycle.openingIncomeMinor +
+            cycle.carryoverMinor
+
+    PesaCard {
+        Column(
+            modifier =
+                Modifier.padding(16.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+                    Text(
+                        "Payday picture",
+                        style =
+                            MaterialTheme.typography
+                                .titleLarge,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                    Text(
+                        "Cycle started " +
+                            formatShortDate(
+                                cycle.startEpochMs
+                            ),
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+                Text(
+                    formatMoney(
+                        startingResources
+                    ),
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    fontWeight =
+                        FontWeight.Bold
+                )
+            }
+
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(10.dp)
+            ) {
+                PaydayValue(
+                    label = "Carried in",
+                    value =
+                        formatMoney(
+                            cycle.carryoverMinor
+                        ),
+                    modifier =
+                        Modifier.weight(1f)
+                )
+                PaydayValue(
+                    label = "Salary",
+                    value =
+                        formatMoney(
+                            cycle.openingIncomeMinor
+                        ),
+                    modifier =
+                        Modifier.weight(1f)
+                )
+            }
+
+            payday?.let { context ->
+                if (
+                    context.protectedSavingsMinor >
+                    0L ||
+                    context.debtOutstandingMinor >
+                    0L
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(
+                                10.dp
+                            )
+                    ) {
+                        PaydayValue(
+                            label =
+                                "Protected savings",
+                            value =
+                                formatMoney(
+                                    context
+                                        .protectedSavingsMinor
+                                ),
+                            modifier =
+                                Modifier.weight(
+                                    1f
+                                )
+                        )
+                        PaydayValue(
+                            label =
+                                "Debt at payday",
+                            value =
+                                formatMoney(
+                                    context
+                                        .debtOutstandingMinor
+                                ),
+                            modifier =
+                                Modifier.weight(
+                                    1f
+                                )
+                        )
+                    }
+                }
+
+                if (
+                    context
+                        .unknownLiquidAccountCount >
+                    0
+                ) {
+                    Text(
+                        context
+                            .unknownLiquidAccountCount
+                            .toString() +
+                            " spendable account balance" +
+                            if (
+                                context
+                                    .unknownLiquidAccountCount ==
+                                1
+                            ) {
+                                " was"
+                            } else {
+                                "s were"
+                            } +
+                            " unknown at payday, so carried-in cash is a known minimum rather than a guess.",
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .secondary
+                    )
+                }
+            }
+
+            Text(
+                "PesaTrack treats existing cash and new salary as one spendable pool. It does not pretend to know which individual shilling funded a purchase.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun PaydayValue(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape =
+            androidx.compose.foundation.shape
+                .RoundedCornerShape(16.dp),
+        color =
+            MaterialTheme.colorScheme
+                .surfaceVariant
+                .copy(alpha = .48f)
+    ) {
+        Column(
+            modifier =
+                Modifier.padding(12.dp)
+        ) {
+            Text(
+                label,
+                style =
+                    MaterialTheme.typography
+                        .labelMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+            Text(
+                value,
+                modifier =
+                    Modifier.padding(top = 3.dp),
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                fontWeight =
+                    FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
 private fun ExpectedSalaryCard(
     prompt: ExpectedSalaryPrompt,
     onAddSalary: () -> Unit,
@@ -1418,6 +1646,24 @@ private fun homeInsight(
             } else {
                 "s are waiting for review before they enter trusted totals."
             }
+    cycleSnapshot.paydaySnapshot
+        ?.unknownLiquidAccountCount
+        ?.let { it > 0 } == true ->
+        cycleSnapshot.paydaySnapshot!!
+            .unknownLiquidAccountCount
+            .toString() +
+            " spendable account balance" +
+            if (
+                cycleSnapshot.paydaySnapshot!!
+                    .unknownLiquidAccountCount ==
+                1
+            ) {
+                " was"
+            } else {
+                "s were"
+            } +
+            " unknown at payday. Your carried-in amount is conservative."
+
     cycleSnapshot.unexplainedFundingGapMinor > 0L ->
         "Some spending still needs a funding source. Reconcile it before relying on the full picture."
     cycleSnapshot.cycle == null ->
