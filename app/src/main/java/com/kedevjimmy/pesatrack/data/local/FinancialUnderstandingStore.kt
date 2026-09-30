@@ -8,6 +8,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.BalanceObservationFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialEventKind
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import java.security.MessageDigest
@@ -490,18 +491,63 @@ class FinancialUnderstandingStore private constructor(
         ) {
             "Debt products cannot be added as cash or savings accounts."
         }
-        val accountType = runCatching {
-            com.kedevjimmy.pesatrack.domain.model.AccountType
-                .valueOf(entity.accountTypeHint)
-        }.getOrDefault(
-            com.kedevjimmy.pesatrack.domain.model.AccountType.OTHER
-        )
+        val registryReference =
+            FinancialProviderRegistry
+                .resolveAccount(
+                    entity.displayName
+                )
+        val accountType =
+            if (
+                registryReference.providerKey !=
+                null
+            ) {
+                registryReference.accountTypeHint
+            } else {
+                runCatching {
+                    com.kedevjimmy.pesatrack.domain.model.AccountType
+                        .valueOf(
+                            entity.accountTypeHint
+                        )
+                }.getOrDefault(
+                    com.kedevjimmy.pesatrack.domain.model.AccountType.OTHER
+                )
+            }
+        val canonicalName =
+            if (
+                registryReference.providerKey !=
+                null
+            ) {
+                registryReference.displayName
+            } else {
+                entity.displayName
+            }
         val account = accountStore.findOrCreate(
-            name = entity.displayName,
+            name = canonicalName,
             type = accountType
         )
 
         val values = ContentValues().apply {
+            put(
+                "display_name",
+                canonicalName
+            )
+            if (
+                registryReference.providerKey !=
+                null
+            ) {
+                put(
+                    "provider_key",
+                    registryReference.providerKey
+                )
+                put(
+                    "account_type_hint",
+                    registryReference.accountTypeHint.name
+                )
+                put(
+                    "nature_hint",
+                    registryReference.nature.name
+                )
+            }
             put(
                 "ownership_hint",
                 AccountOwnershipHint.USER_OWNED.name
