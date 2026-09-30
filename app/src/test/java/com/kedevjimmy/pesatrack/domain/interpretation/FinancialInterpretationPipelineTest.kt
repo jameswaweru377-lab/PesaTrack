@@ -299,4 +299,47 @@ class FinancialInterpretationPipelineTest {
                 ?.toSet()
         )
     }
+    @Test
+    fun currentBalanceLanguageDoesNotCreateCurrentAccount() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "EQUITY",
+                body =
+                    "Your current balance is KES 12,450.00."
+            )
+
+        assertTrue(interpretation.recognized)
+        assertEquals(1, interpretation.balances.size)
+        assertEquals(
+            "Equity Bank Kenya",
+            interpretation.balances
+                .single()
+                .account
+                .displayName
+        )
+    }
+
+    @Test
+    fun mshwariLockSavingsGetsCanonicalAccountIdentity() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "M-SHWARI",
+                body =
+                    "Lock Savings balance is KES 8,500.00."
+            )
+
+        assertTrue(interpretation.recognized)
+        val balance =
+            interpretation.balances.single()
+
+        assertEquals(
+            "NCBA_MSHWARI_LOCK_SAVINGS",
+            balance.account.providerKey
+        )
+        assertEquals(
+            "M-Shwari Lock Savings",
+            balance.account.displayName
+        )
+    }
+
 }

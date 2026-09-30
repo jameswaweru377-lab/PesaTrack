@@ -385,7 +385,10 @@ class FinancialUnderstandingStore private constructor(
             """
             SELECT o.entity_key,
                    e.display_name,
-                   o.account_id,
+                   COALESCE(
+                       o.account_id,
+                       e.confirmed_account_id
+                   ),
                    o.balance_minor,
                    o.confidence,
                    o.observed_at_epoch_ms

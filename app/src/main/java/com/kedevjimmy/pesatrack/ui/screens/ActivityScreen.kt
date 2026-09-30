@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -103,6 +104,8 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageIngestionCoordinator
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnostic
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticCode
@@ -307,48 +310,68 @@ fun ActivityScreen(
                 diagnostic.receivedAtEpochMs <
                     nextMonthEpochMs
         }
-    val sourceSummaries =
-        monthDiagnostics
-            .groupBy { diagnostic ->
-                financialSourceKey(
-                    financialSourceDisplayName(
-                        diagnostic
-                    )
+    val ownedAccountGroups =
+        AccountDisplayPolicy.groups(
+            accountsById.values.toList()
+        )
+    val ownedAccountDiagnostics =
+        monthDiagnostics.mapNotNull {
+                diagnostic ->
+            val sourceName =
+                financialSourceDisplayName(
+                    diagnostic
                 )
-            }
+            val group =
+                ownedAccountGroups
+                    .firstOrNull {
+                        AccountDisplayPolicy
+                            .matchesSource(
+                                it,
+                                sourceName
+                            )
+                    }
+                ?: return@mapNotNull null
+            group.key to diagnostic
+        }
+    val sourceSummaries =
+        ownedAccountDiagnostics
+            .groupBy { it.first }
             .mapNotNull { (key, entries) ->
-                val displayName =
-                    entries.firstOrNull()
-                        ?.let(
-                            ::financialSourceDisplayName
-                        )
+                val group =
+                    ownedAccountGroups
+                        .firstOrNull {
+                            it.key == key
+                        }
                         ?: return@mapNotNull null
                 FinancialSourceSummary(
                     key = key,
-                    displayName = displayName,
+                    displayName =
+                        group.displayName,
                     sourceType =
-                        entries.firstOrNull()
-                            ?.let(
-                                ::financialSourceType
-                            )
-                            ?: "Financial",
-                    messageCount = entries.size
+                        accountGroupTypeLabel(
+                            group
+                        ),
+                    messageCount =
+                        entries.size
                 )
             }
             .sortedWith(
                 compareByDescending<
                     FinancialSourceSummary
                 > { it.messageCount }
-                    .thenBy { it.displayName }
+                    .thenBy {
+                        it.displayName
+                    }
             )
     val selectedSourceDiagnostics =
         selectedFinancialSource
             ?.let { selectedKey ->
-                monthDiagnostics.filter {
-                    financialSourceKey(
-                        financialSourceDisplayName(it)
-                    ) == selectedKey
-                }
+                ownedAccountDiagnostics
+                    .filter {
+                        it.first ==
+                            selectedKey
+                    }
+                    .map { it.second }
             }
             .orEmpty()
             .sortedByDescending {
@@ -468,6 +491,8 @@ fun ActivityScreen(
                         entity =
                             reviewableFinancialEntities
                                 .first(),
+                        diagnostics =
+                            financialDiagnostics,
                         remainingCount =
                             reviewableFinancialEntities
                                 .size - 1,
@@ -1021,6 +1046,8 @@ fun ActivityScreen(
     accountReviewEntity?.let { entity ->
         FinancialAccountReviewDialog(
             entity = entity,
+            diagnostics =
+                financialDiagnostics,
             onDismiss = {
                 accountReviewEntity = null
             },
@@ -1053,12 +1080,15 @@ fun ActivityScreen(
 @Composable
 private fun FinancialAccountDiscoveryCard(
     entity: DiscoveredFinancialEntity,
+    diagnostics:
+        List<FinancialIngestionDiagnostic>,
     remainingCount: Int,
     onReview: () -> Unit
 ) {
     val displayName =
         financialEntityReviewDisplayName(
-            entity
+            entity = entity,
+            diagnostics = diagnostics
         )
 
     PesaCard {
@@ -1112,6 +1142,17 @@ private fun FinancialAccountDiscoveryCard(
                     MaterialTheme.colorScheme
                         .onSurfaceVariant
             )
+            Text(
+                ownershipEvidenceLabel(
+                    entity
+                ),
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
 
             if (remainingCount > 0) {
                 Text(
@@ -1148,13 +1189,16 @@ private fun FinancialAccountDiscoveryCard(
 @Composable
 private fun FinancialAccountReviewDialog(
     entity: DiscoveredFinancialEntity,
+    diagnostics:
+        List<FinancialIngestionDiagnostic>,
     onDismiss: () -> Unit,
     onConfirmOwned: () -> Unit,
     onNotMine: () -> Unit
 ) {
     val displayName =
         financialEntityReviewDisplayName(
-            entity
+            entity = entity,
+            diagnostics = diagnostics
         )
 
     AlertDialog(
@@ -1176,6 +1220,17 @@ private fun FinancialAccountReviewDialog(
                             .titleLarge,
                     fontWeight =
                         FontWeight.SemiBold
+                )
+                Text(
+                    ownershipEvidenceLabel(
+                        entity
+                    ),
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
                 )
                 Text(
                     "Choose “Yes, my account” only if this is one of your own bank, wallet or savings accounts."
@@ -3158,13 +3213,13 @@ private fun FinancialSourceNavigator(
             Arrangement.spacedBy(7.dp)
     ) {
         Text(
-            "Scanned financial sources",
+            "Your account messages",
             style =
                 MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
         Text(
-            "Tap a source to see every financial message PesaTrack captured before duplicate reconciliation.",
+            "Only confirmed accounts are shown. The badge is the number of captured messages for this month.",
             style =
                 MaterialTheme.typography.bodySmall,
             color =
@@ -3183,7 +3238,28 @@ private fun FinancialSourceNavigator(
                         onSourceSelected(null)
                     },
                     label = {
-                        Text("All sources")
+                        Row(
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Text("All accounts")
+                            val total =
+                                sources.sumOf {
+                                    it.messageCount
+                                }
+                            if (total > 0) {
+                                Badge(
+                                    modifier =
+                                        Modifier.padding(
+                                            start = 6.dp
+                                        )
+                                ) {
+                                    Text(
+                                        total.toString()
+                                    )
+                                }
+                            }
+                        }
                     }
                 )
             }
@@ -3199,11 +3275,25 @@ private fun FinancialSourceNavigator(
                             )
                         },
                         label = {
-                            Text(
-                                source.displayName +
-                                    " " +
-                                    source.messageCount
-                            )
+                            Row(
+                                verticalAlignment =
+                                    Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    source.displayName
+                                )
+                                Badge(
+                                    modifier =
+                                        Modifier.padding(
+                                            start = 6.dp
+                                        )
+                                ) {
+                                    Text(
+                                        source.messageCount
+                                            .toString()
+                                    )
+                                }
+                            }
                         }
                     )
                 }
@@ -3458,6 +3548,18 @@ private fun CapturedFinancialMessageRow(
     }
 }
 
+private fun accountGroupTypeLabel(
+    group: TrackedAccountGroup
+): String =
+    when (group.type) {
+        AccountType.BANK -> "Bank"
+        AccountType.MOBILE_WALLET ->
+            "Wallet"
+        AccountType.SAVINGS ->
+            "Savings"
+        else -> "Account"
+    }
+
 private fun financialSourceDisplayName(
     diagnostic: FinancialIngestionDiagnostic
 ): String =
@@ -3507,20 +3609,130 @@ private fun financialSourceType(
 }
 
 private fun financialEntityReviewDisplayName(
-    entity: DiscoveredFinancialEntity
-): String =
+    entity: DiscoveredFinancialEntity,
+    diagnostics:
+        List<FinancialIngestionDiagnostic>
+): String {
     KenyanBankDirectory
         .matchSender(
             entity.displayName
         )
         ?.name
-        ?: entity.displayName
+        ?.let {
+            return it
+        }
+
+    val resolved =
+        FinancialProviderRegistry
+            .resolveAccount(
+                entity.displayName
+            )
+    if (resolved.providerKey != null) {
+        return resolved.displayName
+    }
+
+    val normalized =
+        ownershipReviewKey(
+            entity.displayName
+        )
+    if (
+        normalized in
+            setOf(
+                "locksaving",
+                "locksavings",
+                "locksavingsaccount"
+            ) &&
+        diagnostics.any {
+            val title =
+                it.title.orEmpty()
+            val source =
+                it.sourceDisplayName
+                    .orEmpty()
+            val combined =
+                (title + " " + source)
+                    .uppercase()
+                    .replace(
+                        Regex("""[^A-Z0-9]+"""),
+                        " "
+                    )
+            combined.contains(
+                "M SHWARI"
+            )
+        }
+    ) {
+        return "M-Shwari Lock Savings"
+    }
+
+    return entity.displayName
+}
+
+private fun ownershipEvidenceLabel(
+    entity: DiscoveredFinancialEntity
+): String {
+    val type =
+        runCatching {
+            AccountType.valueOf(
+                entity.accountTypeHint
+            )
+        }.getOrDefault(
+            AccountType.OTHER
+        )
+    val typeLabel =
+        when (type) {
+            AccountType.BANK -> "Bank"
+            AccountType.MOBILE_WALLET ->
+                "Wallet"
+            AccountType.SAVINGS ->
+                "Savings"
+            else -> "Financial account"
+        }
+
+    val seen =
+        SimpleDateFormat(
+            "d MMM, h:mm a",
+            Locale.getDefault()
+        ).format(
+            Date(
+                entity.lastSeenEpochMs
+            )
+        )
+
+    return "$typeLabel • last seen $seen"
+}
 
 private fun shouldOfferOwnershipReview(
     entity: DiscoveredFinancialEntity,
     diagnostics:
         List<FinancialIngestionDiagnostic>
 ): Boolean {
+    if (
+        !AccountDisplayPolicy
+            .isMeaningfulAccountName(
+                entity.displayName
+            )
+    ) {
+        return false
+    }
+
+    val type =
+        runCatching {
+            AccountType.valueOf(
+                entity.accountTypeHint
+            )
+        }.getOrDefault(
+            AccountType.OTHER
+        )
+    if (
+        type !in
+            setOf(
+                AccountType.BANK,
+                AccountType.MOBILE_WALLET,
+                AccountType.SAVINGS
+            )
+    ) {
+        return false
+    }
+
     if (entity.providerKey != null) {
         return true
     }

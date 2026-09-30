@@ -87,6 +87,8 @@ object KenyanBankDirectory {
         setOf(
             "",
             "BANK",
+            "KENYA",
+            "BANKKENYA",
             "BULK",
             "SMS",
             "BULKSMS",
