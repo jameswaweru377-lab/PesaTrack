@@ -120,7 +120,7 @@ object FinancialCandidateExtractor {
         )
     )
     private val availableBalanceRegex = Regex(
-        """(?:^|[.!?]\s+)(?:available|current|closing)\s+balance\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:^|[.!?]\s+)(?:your\s+)?(?:(?:available|current|closing)\s+)?balance\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.MULTILINE
