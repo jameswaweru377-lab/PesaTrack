@@ -98,7 +98,7 @@ object FinancialCandidateExtractor {
         RegexOption.IGNORE_CASE
     )
     private val occurredAtRegex = Regex(
-        """\bon\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+(?:at\s+)?\d{1,2}:\d{2}\s*(?:AM|PM)?)""",
+        """\bon\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)""",
         RegexOption.IGNORE_CASE
     )
     private val balanceRegex = Regex(
@@ -207,11 +207,15 @@ object FinancialCandidateExtractor {
         )
     )
     private val transactionCreditedToRegex = Regex(
-        """\b(?:your\s+)?transaction\s+of\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?credited\s+to\s+(?!your\s+(?:a/?c|account|wallet)\b)([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,100}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|m-?pesa\s+ref)\b|[.;]|$)""",
+        """\b(?:your\s+)?transaction\s+of\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?credited\s+to\s+(?!your\s+(?:a/?c|account|wallet)\b)(?:(?:\+?254|0)\d{9}\s+)?([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,100}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|m-?pesa\s+ref)\b|[.;]|$)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.DOT_MATCHES_ALL
         )
+    )
+    private val transactionCreditedToPhoneRegex = Regex(
+        """\bcredited\s+to\s+((?:\+?254|0)\d{9})\b""",
+        RegexOption.IGNORE_CASE
     )
 
     private val receiptRegex = Regex(
@@ -726,6 +730,13 @@ object FinancialCandidateExtractor {
                     .TRANSACTION_CREDITED_TO,
             ruleId =
                 "payment.transaction_credited_to",
+            partyPhone =
+                transactionCreditedToPhoneRegex
+                    .find(body)
+                    ?.groups
+                    ?.get(1)
+                    ?.value
+                    ?.let(::normalizeKenyanPhone),
             cleanPersonParty = true
         )
     }
