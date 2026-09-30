@@ -392,8 +392,251 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             createCycleProtectionTable(db)
         }
 
+        if (oldVersion < 27) {
+            migrateMshwariLockSavingsAliases(
+                db
+            )
+        }
+
         createIndexes(db)
         createTriggers(db)
+    }
+
+    private fun migrateMshwariLockSavingsAliases(
+        db: SQLiteDatabase
+    ) {
+        val canonicalName =
+            "M-Shwari Lock Savings"
+        val canonicalId =
+            db.rawQuery(
+                """
+                SELECT id
+                FROM money_accounts
+                WHERE type = 'SAVINGS'
+                  AND LOWER(name) =
+                      LOWER(?)
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf(canonicalName)
+            ).use { cursor ->
+                if (
+                    cursor.moveToFirst()
+                ) {
+                    cursor.getString(0)
+                } else {
+                    null
+                }
+            }
+
+        val legacyIds =
+            db.rawQuery(
+                """
+                SELECT id
+                FROM money_accounts
+                WHERE type = 'SAVINGS'
+                  AND LOWER(TRIM(name)) IN (
+                      'lock savings',
+                      'lock saving'
+                  )
+                ORDER BY created_at_epoch_ms ASC
+                """.trimIndent(),
+                null
+            ).use { cursor ->
+                buildList {
+                    while (
+                        cursor.moveToNext()
+                    ) {
+                        add(
+                            cursor.getString(0)
+                        )
+                    }
+                }
+            }
+
+        if (
+            canonicalId == null &&
+            legacyIds.isEmpty()
+        ) {
+            return
+        }
+
+        val targetId =
+            canonicalId
+                ?: legacyIds.first()
+
+        db.execSQL(
+            """
+            UPDATE money_accounts
+            SET name = ?,
+                enabled = 1,
+                updated_at_epoch_ms = ?
+            WHERE id = ?
+            """.trimIndent(),
+            arrayOf(
+                canonicalName,
+                System.currentTimeMillis(),
+                targetId
+            )
+        )
+
+        legacyIds
+            .filterNot {
+                it == targetId
+            }
+            .forEach { legacyId ->
+                db.execSQL(
+                    """
+                    UPDATE money_accounts
+                    SET opening_balance_minor =
+                        COALESCE(
+                            opening_balance_minor,
+                            (
+                                SELECT opening_balance_minor
+                                FROM money_accounts
+                                WHERE id = ?
+                            )
+                        ),
+                        opening_balance_as_of_epoch_ms =
+                        COALESCE(
+                            opening_balance_as_of_epoch_ms,
+                            (
+                                SELECT opening_balance_as_of_epoch_ms
+                                FROM money_accounts
+                                WHERE id = ?
+                            )
+                        )
+                    WHERE id = ?
+                    """.trimIndent(),
+                    arrayOf(
+                        legacyId,
+                        legacyId,
+                        targetId
+                    )
+                )
+
+                listOf(
+                    "transactions" to
+                        "account_id",
+                    "transactions" to
+                        "linked_account_id",
+                    "smart_rules" to
+                        "account_id",
+                    "smart_rules" to
+                        "linked_account_id",
+                    "debt_events" to
+                        "funding_account_id",
+                    "financial_entities" to
+                        "confirmed_account_id",
+                    "account_balance_observations" to
+                        "account_id",
+                    "payday_snapshots" to
+                        "salary_account_id"
+                ).forEach {
+                        (table, column) ->
+                    db.execSQL(
+                        """
+                        UPDATE $table
+                        SET $column = ?
+                        WHERE $column = ?
+                        """.trimIndent(),
+                        arrayOf(
+                            targetId,
+                            legacyId
+                        )
+                    )
+                }
+
+                db.execSQL(
+                    """
+                    INSERT OR IGNORE INTO
+                        payday_snapshot_accounts(
+                            snapshot_id,
+                            account_id,
+                            account_name,
+                            account_type,
+                            balance_minor,
+                            balance_quality,
+                            reference_epoch_ms,
+                            spendability
+                        )
+                    SELECT
+                        snapshot_id,
+                        ?,
+                        ?,
+                        account_type,
+                        balance_minor,
+                        balance_quality,
+                        reference_epoch_ms,
+                        spendability
+                    FROM payday_snapshot_accounts
+                    WHERE account_id = ?
+                    """.trimIndent(),
+                    arrayOf(
+                        targetId,
+                        canonicalName,
+                        legacyId
+                    )
+                )
+                db.execSQL(
+                    """
+                    DELETE FROM
+                        payday_snapshot_accounts
+                    WHERE account_id = ?
+                    """.trimIndent(),
+                    arrayOf(legacyId)
+                )
+                db.execSQL(
+                    """
+                    UPDATE money_accounts
+                    SET enabled = 0,
+                        updated_at_epoch_ms = ?
+                    WHERE id = ?
+                    """.trimIndent(),
+                    arrayOf(
+                        System.currentTimeMillis(),
+                        legacyId
+                    )
+                )
+            }
+
+        db.execSQL(
+            """
+            UPDATE financial_entities
+            SET display_name = ?,
+                provider_key =
+                    COALESCE(
+                        provider_key,
+                        'NCBA_MSHWARI_LOCK_SAVINGS'
+                    ),
+                account_type_hint = 'SAVINGS',
+                confirmed_account_id =
+                    CASE
+                        WHEN confirmed_account_id
+                            IS NOT NULL
+                        THEN ?
+                        ELSE confirmed_account_id
+                    END
+            WHERE UPPER(
+                    REPLACE(
+                        REPLACE(
+                            display_name,
+                            '-',
+                            ' '
+                        ),
+                        '_',
+                        ' '
+                    )
+                  ) IN (
+                    'LOCK SAVINGS',
+                    'LOCK SAVING',
+                    'M SHWARI LOCK SAVINGS'
+                  )
+            """.trimIndent(),
+            arrayOf(
+                canonicalName,
+                targetId
+            )
+        )
     }
 
     private fun addColumnIfMissing(
@@ -1093,6 +1336,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 26
+        private const val DATABASE_VERSION = 27
     }
 }
