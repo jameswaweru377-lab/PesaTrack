@@ -1068,7 +1068,159 @@ class DebtStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun reconcilePendingChainsForFundingAccount(
+        accountId: String,
+        entityKey: String
+    ) {
+        ContentValues().apply {
+            put("funding_account_id", accountId)
+        }.also { values ->
+            database.writableDatabase.update(
+                "debt_events",
+                values,
+                "funding_account_key = ?" +
+                    " AND funding_account_id IS NULL",
+                arrayOf(entityKey)
+            )
+        }
+
+        val eventIds =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT id
+                FROM debt_events
+                WHERE event_type = ?
+                  AND funding_account_id = ?
+                ORDER BY occurred_at_epoch_ms ASC, id ASC
+                """.trimIndent(),
+                arrayOf(
+                    DebtEventType.REPAYMENT.name,
+                    accountId
+                )
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(cursor.getLong(0))
+                    }
+                }
+            }
+
+        eventIds.forEach { eventId ->
+            reconcileRepaymentFromDebtProceeds(eventId)
+            reconcileRepaymentEvent(eventId)
+            reconcileRepaymentBalance(eventId)
+        }
+    }
+
+    private fun ensureEventChainsReconciled() {
+        val preferences =
+            appContext.getSharedPreferences(
+                "pesatrack_preferences",
+                Context.MODE_PRIVATE
+            )
+        if (
+            preferences.getBoolean(
+                EVENT_CHAIN_RECONCILIATION_KEY,
+                false
+            )
+        ) {
+            return
+        }
+
+        val unresolvedFunding =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT id, funding_account_key
+                FROM debt_events
+                WHERE event_type = ?
+                  AND funding_account_id IS NULL
+                  AND funding_account_key IS NOT NULL
+                ORDER BY occurred_at_epoch_ms ASC, id ASC
+                """.trimIndent(),
+                arrayOf(DebtEventType.REPAYMENT.name)
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(
+                            cursor.getLong(0) to
+                                cursor.getString(1)
+                        )
+                    }
+                }
+            }
+
+        unresolvedFunding.forEach {
+            (eventId, entityKey) ->
+            val accountId =
+                database.readableDatabase.rawQuery(
+                    """
+                    SELECT confirmed_account_id
+                    FROM financial_entities
+                    WHERE entity_key = ?
+                    LIMIT 1
+                    """.trimIndent(),
+                    arrayOf(entityKey)
+                ).use { cursor ->
+                    if (
+                        cursor.moveToFirst() &&
+                        !cursor.isNull(0)
+                    ) {
+                        cursor.getString(0)
+                    } else {
+                        null
+                    }
+                }
+            if (accountId != null) {
+                ContentValues().apply {
+                    put(
+                        "funding_account_id",
+                        accountId
+                    )
+                }.also { values ->
+                    database.writableDatabase.update(
+                        "debt_events",
+                        values,
+                        "id = ?",
+                        arrayOf(eventId.toString())
+                    )
+                }
+            }
+        }
+
+        val repaymentIds =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT id
+                FROM debt_events
+                WHERE event_type = ?
+                ORDER BY occurred_at_epoch_ms ASC, id ASC
+                """.trimIndent(),
+                arrayOf(DebtEventType.REPAYMENT.name)
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(cursor.getLong(0))
+                    }
+                }
+            }
+
+        repaymentIds.forEach { eventId ->
+            reconcileRepaymentFromDebtProceeds(eventId)
+            reconcileRepaymentEvent(eventId)
+            reconcileRepaymentBalance(eventId)
+        }
+
+        preferences.edit()
+            .putBoolean(
+                EVENT_CHAIN_RECONCILIATION_KEY,
+                true
+            )
+            .apply()
+    }
+
+    @Synchronized
     fun accounts(): List<DebtAccountSnapshot> {
+        ensureEventChainsReconciled()
         return database.readableDatabase.rawQuery(
             """
             SELECT id, provider_key, name, outstanding_minor,
@@ -1124,8 +1276,9 @@ class DebtStore private constructor(context: Context) {
     fun recentEvents(
         debtAccountId: String,
         limit: Int = 50
-    ): List<DebtEventRecord> =
-        database.readableDatabase.rawQuery(
+    ): List<DebtEventRecord> {
+        ensureEventChainsReconciled()
+        return database.readableDatabase.rawQuery(
             """
             SELECT id, debt_account_id, event_type, amount_minor,
                    fee_minor, outstanding_after_minor,
@@ -1263,6 +1416,7 @@ class DebtStore private constructor(context: Context) {
                 }
             }
         }
+    }
 
     @Synchronized
     fun sumFeesBetween(
@@ -2247,6 +2401,8 @@ class DebtStore private constructor(context: Context) {
             10L * 60L * 1000L
         private const val DRAW_DOWN_LINK_WINDOW_MS =
             3L * 60L * 1000L
+        private const val EVENT_CHAIN_RECONCILIATION_KEY =
+            "financial_event_chain_reconciliation_v1"
         @Volatile
         private var instance: DebtStore? = null
 
