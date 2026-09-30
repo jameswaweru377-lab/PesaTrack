@@ -1780,10 +1780,30 @@ class DebtStore private constructor(context: Context) {
         LedgerUpdateBus.notifyChanged()
     }
 
-    private fun latestMpesaBalanceBefore(
+    private fun latestBalanceBefore(
+        accountId: String,
+        entityKey: String?,
         epochMs: Long
-    ): Long? =
-        database.readableDatabase.rawQuery(
+    ): Long? {
+        val entityClause =
+            if (entityKey == null) {
+                "0"
+            } else {
+                "entity_key = ?"
+            }
+        val args =
+            buildList {
+                add(accountId)
+                add(epochMs.toString())
+                add(accountId)
+                add(epochMs.toString())
+                if (entityKey != null) {
+                    add(entityKey)
+                }
+                add(epochMs.toString())
+            }.toTypedArray()
+
+        return database.readableDatabase.rawQuery(
             """
             SELECT balance_minor
             FROM (
@@ -1797,12 +1817,12 @@ class DebtStore private constructor(context: Context) {
 
                 UNION ALL
 
-                SELECT wallet_balance_after_minor AS balance_minor,
-                       occurred_at_epoch_ms AS observed_at,
+                SELECT balance_minor,
+                       observed_at_epoch_ms AS observed_at,
                        1 AS priority
-                FROM debt_events
-                WHERE wallet_balance_after_minor IS NOT NULL
-                  AND occurred_at_epoch_ms < ?
+                FROM account_balance_observations
+                WHERE account_id = ?
+                  AND observed_at_epoch_ms < ?
 
                 UNION ALL
 
@@ -1810,19 +1830,13 @@ class DebtStore private constructor(context: Context) {
                        observed_at_epoch_ms AS observed_at,
                        2 AS priority
                 FROM account_balance_observations
-                WHERE account_id = ?
+                WHERE $entityClause
                   AND observed_at_epoch_ms < ?
             )
             ORDER BY observed_at DESC, priority DESC
             LIMIT 1
             """.trimIndent(),
-            arrayOf(
-                AccountStore.DEFAULT_MPESA_ID,
-                epochMs.toString(),
-                epochMs.toString(),
-                AccountStore.DEFAULT_MPESA_ID,
-                epochMs.toString()
-            )
+            args
         ).use { cursor ->
             if (cursor.moveToFirst()) {
                 cursor.getLong(0)
@@ -1830,6 +1844,7 @@ class DebtStore private constructor(context: Context) {
                 null
             }
         }
+    }
 
     private fun debtEventPrefix(
         reference: FinancialAccountReference,
@@ -1907,6 +1922,7 @@ class DebtStore private constructor(context: Context) {
         val amountMinor: Long,
         val walletBalanceAfterMinor: Long?,
         val fundingAccountKey: String?,
+        val fundingAccountId: String?,
         val occurredAtEpochMs: Long
     )
 
@@ -1920,8 +1936,6 @@ class DebtStore private constructor(context: Context) {
             10L * 60L * 1000L
         private const val DRAW_DOWN_LINK_WINDOW_MS =
             3L * 60L * 1000L
-        private const val MPESA_PROVIDER_KEY =
-            "SAFARICOM_MPESA"
         @Volatile
         private var instance: DebtStore? = null
 
