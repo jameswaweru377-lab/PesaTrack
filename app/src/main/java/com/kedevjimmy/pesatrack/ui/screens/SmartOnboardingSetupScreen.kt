@@ -1676,6 +1676,8 @@ fun SmartOnboardingSetupScreen(
                         manualPhone =
                             manualMpesaPhone,
                         error = phoneError,
+                        busy =
+                            mpesaConfirming,
                         onManualChanged = {
                             manualMpesaPhone = it
                             phoneError = null
@@ -1684,35 +1686,51 @@ fun SmartOnboardingSetupScreen(
                             val suggested =
                                 mpesaPhoneSuggestion
                                     .orEmpty()
-                            setupScope.launch {
-                                    if (
-                                        confirmMpesaPhone(
-                                            suggested
-                                        )
-                                    ) {
-                                        applySalaryIfConfirmed()
-                                        stage =
-                                            SmartSetupStage
-                                                .LIVE_CAPTURE
+                            if (!mpesaConfirming) {
+                                mpesaConfirming = true
+                                setupScope.launch {
+                                    try {
+                                        if (
+                                            confirmMpesaPhone(
+                                                suggested
+                                            )
+                                        ) {
+                                            applySalaryIfConfirmed()
+                                            stage =
+                                                SmartSetupStage
+                                                    .LIVE_CAPTURE
+                                        }
+                                    } finally {
+                                        mpesaConfirming =
+                                            false
                                     }
                                 }
+                            }
                         },
                         onChooseAnother = {
                             manualPhoneMode = true
                         },
                         onSaveManual = {
-                            setupScope.launch {
-                                    if (
-                                        confirmMpesaPhone(
-                                            manualMpesaPhone
-                                        )
-                                    ) {
-                                        applySalaryIfConfirmed()
-                                        stage =
-                                            SmartSetupStage
-                                                .LIVE_CAPTURE
+                            if (!mpesaConfirming) {
+                                mpesaConfirming = true
+                                setupScope.launch {
+                                    try {
+                                        if (
+                                            confirmMpesaPhone(
+                                                manualMpesaPhone
+                                            )
+                                        ) {
+                                            applySalaryIfConfirmed()
+                                            stage =
+                                                SmartSetupStage
+                                                    .LIVE_CAPTURE
+                                        }
+                                    } finally {
+                                        mpesaConfirming =
+                                            false
                                     }
                                 }
+                            }
                         },
                         onSkip = {
                             setupScope.launch {
@@ -3239,7 +3257,8 @@ private fun SalaryAccountChoice(
                 size = 40.dp
             )
             Text(
-                account.name,
+                AccountDisplayPolicy
+                    .displayLabel(account),
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 10.dp),
@@ -3270,6 +3289,7 @@ private fun MpesaConfirmationPage(
     manualMode: Boolean,
     manualPhone: String,
     error: String?,
+    busy: Boolean,
     onManualChanged: (String) -> Unit,
     onConfirmSuggested: () -> Unit,
     onChooseAnother: () -> Unit,
@@ -3296,10 +3316,14 @@ private fun MpesaConfirmationPage(
                 Alignment.CenterHorizontally
         ) {
             Text(
-                maskPhone(suggestedPhone),
+                "M-Pesa (" +
+                    maskPhone(
+                        suggestedPhone
+                    ) +
+                    ")",
                 style =
                     MaterialTheme.typography
-                        .headlineMedium,
+                        .headlineSmall,
                 fontWeight = FontWeight.Bold
             )
             Text(
@@ -3319,16 +3343,30 @@ private fun MpesaConfirmationPage(
     if (!manualMode) {
         Button(
             onClick = onConfirmSuggested,
+            enabled = !busy,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 54.dp),
             shape = RoundedCornerShape(18.dp)
         ) {
-            Text("Yes, this is mine")
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(
+                    Modifier.size(8.dp)
+                )
+                Text("Confirming…")
+            } else {
+                Text("Yes, this is mine")
+            }
         }
 
         OutlinedButton(
             onClick = onChooseAnother,
+            enabled = !busy,
             modifier =
                 Modifier.fillMaxWidth()
         ) {
@@ -3365,15 +3403,29 @@ private fun MpesaConfirmationPage(
         }
         Button(
             onClick = onSaveManual,
+            enabled = !busy,
             modifier =
                 Modifier.fillMaxWidth()
         ) {
-            Text("Save and continue")
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(
+                    Modifier.size(8.dp)
+                )
+                Text("Saving…")
+            } else {
+                Text("Save and continue")
+            }
         }
     }
 
     TextButton(
         onClick = onSkip,
+        enabled = !busy,
         modifier = Modifier.fillMaxWidth()
     ) {
         Text("I'll do this later")
