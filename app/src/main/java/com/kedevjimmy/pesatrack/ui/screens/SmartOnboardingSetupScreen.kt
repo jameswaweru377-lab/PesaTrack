@@ -75,6 +75,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
@@ -89,9 +90,11 @@ import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingDiscoveryEngine
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingSalarySuggestion
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingTransactionObservation
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
+import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.HistoryImportWindow
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
+import com.kedevjimmy.pesatrack.ingestion.FinancialMessageIngestionCoordinator
 import com.kedevjimmy.pesatrack.ingestion.HistoricalImportResult
 import com.kedevjimmy.pesatrack.ingestion.HistoricalSmsImporter
 import com.kedevjimmy.pesatrack.ingestion.MpesaNotificationListenerService
@@ -173,6 +176,11 @@ fun SmartOnboardingSetupScreen(
             FinancialUnderstandingStore
                 .get(context)
         }
+    val financialCoordinator =
+        remember {
+            FinancialMessageIngestionCoordinator
+                .get(context)
+        }
 
     var stage by rememberSaveable {
         mutableStateOf(SmartSetupStage.IMPORT)
@@ -196,6 +204,11 @@ fun SmartOnboardingSetupScreen(
         mutableStateOf<List<DetectedSetupSource>>(
             emptyList()
         )
+    }
+    var pendingOwnershipEntities by remember {
+        mutableStateOf<
+            List<DiscoveredFinancialEntity>
+        >(emptyList())
     }
     var salarySuggestion by remember {
         mutableStateOf<OnboardingSalarySuggestion?>(null)
