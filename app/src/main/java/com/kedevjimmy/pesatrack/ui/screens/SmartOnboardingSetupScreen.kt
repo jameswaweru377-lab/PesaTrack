@@ -1995,8 +1995,32 @@ private fun ImportChoicePage(
             )
         }
 
+        error?.let { message ->
+            Surface(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                shape =
+                    RoundedCornerShape(
+                        16.dp
+                    ),
+                color =
+                    MaterialTheme.colorScheme
+                        .errorContainer
+            ) {
+                Text(
+                    message,
+                    modifier =
+                        Modifier.padding(14.dp),
+                    color =
+                        MaterialTheme.colorScheme
+                            .onErrorContainer
+                )
+            }
+        }
+
         Button(
             onClick = onContinue,
+            enabled = !applying,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp),
@@ -2365,8 +2389,11 @@ private fun ReviewDiscoveryPage(
         OnboardingSalarySuggestion?,
     salaryAccepted: Boolean,
     importResult: HistoricalImportResult?,
+    selectedOwnershipKeys: Set<String>,
+    applying: Boolean,
+    error: String?,
     onSalaryAccepted: (Boolean) -> Unit,
-    onConfirmAccount:
+    onToggleAccount:
         (DiscoveredFinancialEntity) -> Unit,
     onManualSalary: () -> Unit,
     onContinue: () -> Unit
@@ -2445,8 +2472,12 @@ private fun ReviewDiscoveryPage(
                 .forEach { entity ->
                     OwnershipCandidateCard(
                         entity = entity,
-                        onConfirm = {
-                            onConfirmAccount(
+                        selected =
+                            entity.entityKey in
+                                selectedOwnershipKeys,
+                        enabled = !applying,
+                        onToggle = {
+                            onToggleAccount(
                                 entity
                             )
                         }
@@ -2609,6 +2640,7 @@ private fun ReviewDiscoveryPage(
         ) {
             OutlinedButton(
                 onClick = onManualSalary,
+                enabled = !applying,
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -2628,15 +2660,31 @@ private fun ReviewDiscoveryPage(
             shape =
                 RoundedCornerShape(18.dp)
         ) {
-            Text(
-                if (
-                    salarySuggestion == null
-                ) {
-                    "Continue without salary"
-                } else {
-                    "Looks good"
-                }
-            )
+            if (applying) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    "Saving…",
+                    modifier =
+                        Modifier.padding(
+                            start = 8.dp
+                        )
+                )
+            } else {
+                Text(
+                    if (
+                        salarySuggestion == null ||
+                        !salaryAccepted
+                    ) {
+                        "Continue without salary"
+                    } else {
+                        "Looks good"
+                    }
+                )
+            }
         }
     }
 }
