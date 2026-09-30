@@ -1995,6 +1995,7 @@ private fun ImportChoicePage(
 
         Button(
             onClick = onContinue,
+            enabled = !busy,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp),
@@ -2363,8 +2364,11 @@ private fun ReviewDiscoveryPage(
         OnboardingSalarySuggestion?,
     salaryAccepted: Boolean,
     importResult: HistoricalImportResult?,
+    selectedOwnershipEntityKeys:
+        Set<String>,
+    busy: Boolean,
     onSalaryAccepted: (Boolean) -> Unit,
-    onConfirmAccount:
+    onToggleAccount:
         (DiscoveredFinancialEntity) -> Unit,
     onManualSalary: () -> Unit,
     onContinue: () -> Unit
@@ -2443,8 +2447,12 @@ private fun ReviewDiscoveryPage(
                 .forEach { entity ->
                     OwnershipCandidateCard(
                         entity = entity,
-                        onConfirm = {
-                            onConfirmAccount(
+                        selected =
+                            entity.entityKey in
+                                selectedOwnershipEntityKeys,
+                        enabled = !busy,
+                        onToggle = {
+                            onToggleAccount(
                                 entity
                             )
                         }
@@ -2642,7 +2650,9 @@ private fun ReviewDiscoveryPage(
 @Composable
 private fun OwnershipCandidateCard(
     entity: DiscoveredFinancialEntity,
-    onConfirm: () -> Unit
+    selected: Boolean,
+    enabled: Boolean,
+    onToggle: () -> Unit
 ) {
     PesaCard {
         Row(
@@ -2700,9 +2710,38 @@ private fun OwnershipCandidateCard(
                 )
             }
             TextButton(
-                onClick = onConfirm
+                onClick = onToggle,
+                enabled = enabled
             ) {
-                Text("This is mine")
+                Row(
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    if (selected) {
+                        Icon(
+                            Icons.Rounded.CheckCircle,
+                            contentDescription =
+                                "Selected",
+                            tint =
+                                MaterialTheme
+                                    .colorScheme
+                                    .primary,
+                            modifier =
+                                Modifier.size(18.dp)
+                        )
+                        Spacer(
+                            modifier =
+                                Modifier.size(5.dp)
+                        )
+                    }
+                    Text(
+                        if (selected) {
+                            "Selected"
+                        } else {
+                            "This is mine"
+                        }
+                    )
+                }
             }
         }
     }
