@@ -1925,6 +1925,299 @@ private fun DiscoveredSourceCard(
 }
 
 @Composable
+private fun ManualSalaryPage(
+    context: Context,
+    accounts: List<MoneyAccount>,
+    selectedAccountId: String,
+    payer: String,
+    amount: String,
+    paidAtEpochMs: Long?,
+    error: String?,
+    onAccountSelected: (String) -> Unit,
+    onPayerChanged: (String) -> Unit,
+    onAmountChanged: (String) -> Unit,
+    onDateSelected: (Long) -> Unit,
+    onSave: () -> Unit,
+    onSkip: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
+    ) {
+        SetupHero(
+            icon = Icons.Rounded.Payments,
+            title = "Add one recent salary",
+            body =
+                "Just enough information to start your pay cycle. You don't need to enter months of salary history."
+        )
+
+        PesaCard {
+            Column(
+                modifier =
+                    Modifier.padding(16.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Where did it arrive?",
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurface
+                )
+
+                accounts.forEach { account ->
+                    SalaryAccountChoice(
+                        account = account,
+                        selected =
+                            account.id ==
+                                selectedAccountId,
+                        onClick = {
+                            onAccountSelected(
+                                account.id
+                            )
+                        }
+                    )
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = payer,
+            onValueChange = onPayerChanged,
+            label = {
+                Text(
+                    "Name shown on the salary transaction"
+                )
+            },
+            placeholder = {
+                Text(
+                    "Example: XYZ PAYROLL or employer statement name"
+                )
+            },
+            supportingText = {
+                Text(
+                    "Use the wording you normally see on the bank or M-Pesa transaction. It can differ from the company's legal name. Leave blank if your bank never shows a payer."
+                )
+            },
+            modifier =
+                Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        OutlinedTextField(
+            value = amount,
+            onValueChange = onAmountChanged,
+            label = {
+                Text("Most recent salary amount")
+            },
+            prefix = {
+                Text("KES ")
+            },
+            keyboardOptions =
+                KeyboardOptions(
+                    keyboardType =
+                        KeyboardType.Decimal
+                ),
+            modifier =
+                Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        OutlinedButton(
+            onClick = {
+                val initial =
+                    Calendar.getInstance()
+                        .apply {
+                            if (
+                                paidAtEpochMs !=
+                                null
+                            ) {
+                                timeInMillis =
+                                    paidAtEpochMs
+                            }
+                        }
+
+                DatePickerDialog(
+                    context,
+                    {
+                            _,
+                            year,
+                            month,
+                            dayOfMonth ->
+                        val selected =
+                            Calendar
+                                .getInstance()
+                                .apply {
+                                    clear()
+                                    set(
+                                        year,
+                                        month,
+                                        dayOfMonth,
+                                        12,
+                                        0,
+                                        0
+                                    )
+                                }
+                                .timeInMillis
+                        onDateSelected(
+                            selected
+                        )
+                    },
+                    initial.get(
+                        Calendar.YEAR
+                    ),
+                    initial.get(
+                        Calendar.MONTH
+                    ),
+                    initial.get(
+                        Calendar.DAY_OF_MONTH
+                    )
+                ).apply {
+                    datePicker.maxDate =
+                        System.currentTimeMillis()
+                }.show()
+            },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 54.dp)
+        ) {
+            Text(
+                paidAtEpochMs
+                    ?.let(
+                        ::formatSetupDate
+                    )
+                    ?: "Choose the date salary arrived"
+            )
+        }
+
+        error?.let { message ->
+            Surface(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                shape =
+                    RoundedCornerShape(16.dp),
+                color =
+                    MaterialTheme.colorScheme
+                        .errorContainer
+            ) {
+                Text(
+                    message,
+                    modifier =
+                        Modifier.padding(14.dp),
+                    color =
+                        MaterialTheme.colorScheme
+                            .onErrorContainer
+                )
+            }
+        }
+
+        Button(
+            onClick = onSave,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+            shape =
+                RoundedCornerShape(18.dp)
+        ) {
+            Text("Save salary and continue")
+        }
+
+        TextButton(
+            onClick = onSkip,
+            modifier =
+                Modifier.fillMaxWidth()
+        ) {
+            Text("Skip for now")
+        }
+
+        Text(
+            "This manual salary is counted once, on the date you choose. It is not duplicated as another month of income.",
+            style =
+                MaterialTheme.typography
+                    .bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun SalaryAccountChoice(
+    account: MoneyAccount,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape =
+            RoundedCornerShape(16.dp),
+        color =
+            if (selected) {
+                MaterialTheme.colorScheme
+                    .primaryContainer
+            } else {
+                MaterialTheme.colorScheme
+                    .surfaceVariant
+                    .copy(alpha = .55f)
+            }
+    ) {
+        Row(
+            modifier =
+                Modifier.padding(13.dp),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            IconBubble(
+                icon =
+                    when (account.type) {
+                        AccountType.BANK ->
+                            Icons.Rounded
+                                .AccountBalance
+                        AccountType.MOBILE_WALLET ->
+                            Icons.Rounded
+                                .PhoneAndroid
+                        AccountType.CASH ->
+                            Icons.Rounded.Wallet
+                        else ->
+                            Icons.Rounded.Payments
+                    },
+                size = 40.dp
+            )
+            Text(
+                account.name,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 10.dp),
+                style =
+                    MaterialTheme.typography
+                        .titleSmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurface
+            )
+            if (selected) {
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    contentDescription =
+                        "Selected",
+                    tint =
+                        MaterialTheme.colorScheme
+                            .primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun MpesaConfirmationPage(
     suggestedPhone: String,
     manualMode: Boolean,
