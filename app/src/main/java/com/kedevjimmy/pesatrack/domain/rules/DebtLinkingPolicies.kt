@@ -4,7 +4,8 @@ import kotlin.math.abs
 
 enum class RepaymentChainConfidence {
     HIGH,
-    MEDIUM
+    MEDIUM,
+    USER_CONFIRMED
 }
 
 data class RepaymentFundingCandidate(
