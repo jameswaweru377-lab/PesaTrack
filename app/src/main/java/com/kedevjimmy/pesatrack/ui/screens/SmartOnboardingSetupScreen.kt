@@ -568,7 +568,10 @@ fun SmartOnboardingSetupScreen(
                         }
                         ?.id
                     ?: availableAccounts
-                        .firstOrNull()
+                        .firstOrNull {
+                            it.type ==
+                                AccountType.CASH
+                        }
                         ?.id
                         .orEmpty()
         }
@@ -857,7 +860,10 @@ fun SmartOnboardingSetupScreen(
                         }
                         ?.id
                     ?: availableAccounts
-                        .firstOrNull()
+                        .firstOrNull {
+                            it.type ==
+                                AccountType.CASH
+                        }
                         ?.id
                         .orEmpty()
         }
@@ -2884,7 +2890,29 @@ private fun ManualSalaryPage(
                             .onSurface
                 )
 
-                accounts.forEach { account ->
+                val salaryAccounts =
+                    accounts.filter {
+                        it.type in
+                            setOf(
+                                AccountType.BANK,
+                                AccountType.MOBILE_WALLET,
+                                AccountType.CASH
+                            )
+                    }
+
+                if (salaryAccounts.isEmpty()) {
+                    Text(
+                        "Confirm a bank or M-Pesa account first, or choose Cash if your salary is paid in cash.",
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
+                salaryAccounts.forEach { account ->
                     SalaryAccountChoice(
                         account = account,
                         selected =
