@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -103,6 +104,8 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageIngestionCoordinator
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnostic
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticCode
@@ -307,48 +310,68 @@ fun ActivityScreen(
                 diagnostic.receivedAtEpochMs <
                     nextMonthEpochMs
         }
-    val sourceSummaries =
-        monthDiagnostics
-            .groupBy { diagnostic ->
-                financialSourceKey(
-                    financialSourceDisplayName(
-                        diagnostic
-                    )
+    val ownedAccountGroups =
+        AccountDisplayPolicy.groups(
+            accountsById.values.toList()
+        )
+    val ownedAccountDiagnostics =
+        monthDiagnostics.mapNotNull {
+                diagnostic ->
+            val sourceName =
+                financialSourceDisplayName(
+                    diagnostic
                 )
-            }
+            val group =
+                ownedAccountGroups
+                    .firstOrNull {
+                        AccountDisplayPolicy
+                            .matchesSource(
+                                it,
+                                sourceName
+                            )
+                    }
+                ?: return@mapNotNull null
+            group.key to diagnostic
+        }
+    val sourceSummaries =
+        ownedAccountDiagnostics
+            .groupBy { it.first }
             .mapNotNull { (key, entries) ->
-                val displayName =
-                    entries.firstOrNull()
-                        ?.let(
-                            ::financialSourceDisplayName
-                        )
+                val group =
+                    ownedAccountGroups
+                        .firstOrNull {
+                            it.key == key
+                        }
                         ?: return@mapNotNull null
                 FinancialSourceSummary(
                     key = key,
-                    displayName = displayName,
+                    displayName =
+                        group.displayName,
                     sourceType =
-                        entries.firstOrNull()
-                            ?.let(
-                                ::financialSourceType
-                            )
-                            ?: "Financial",
-                    messageCount = entries.size
+                        accountGroupTypeLabel(
+                            group
+                        ),
+                    messageCount =
+                        entries.size
                 )
             }
             .sortedWith(
                 compareByDescending<
                     FinancialSourceSummary
                 > { it.messageCount }
-                    .thenBy { it.displayName }
+                    .thenBy {
+                        it.displayName
+                    }
             )
     val selectedSourceDiagnostics =
         selectedFinancialSource
             ?.let { selectedKey ->
-                monthDiagnostics.filter {
-                    financialSourceKey(
-                        financialSourceDisplayName(it)
-                    ) == selectedKey
-                }
+                ownedAccountDiagnostics
+                    .filter {
+                        it.first ==
+                            selectedKey
+                    }
+                    .map { it.second }
             }
             .orEmpty()
             .sortedByDescending {
