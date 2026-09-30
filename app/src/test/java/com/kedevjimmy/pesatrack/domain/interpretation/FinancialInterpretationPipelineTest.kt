@@ -277,7 +277,7 @@ class FinancialInterpretationPipelineTest {
             payment.counterpartyPhone
         )
         assertEquals(
-            "Equity Bank",
+            "Equity Bank Kenya",
             payment.source.displayName
         )
         assertEquals(
