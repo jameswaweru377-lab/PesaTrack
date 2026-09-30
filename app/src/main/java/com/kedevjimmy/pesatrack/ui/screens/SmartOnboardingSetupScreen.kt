@@ -254,6 +254,9 @@ fun SmartOnboardingSetupScreen(
             AnalysisStep.SCANNING
         )
     }
+    var analysisBackPreview by remember {
+        mutableStateOf(false)
+    }
     var smsAppInfoVisited by rememberSaveable {
         mutableStateOf(false)
     }
@@ -401,7 +404,8 @@ fun SmartOnboardingSetupScreen(
     LaunchedEffect(stage, importMonths, smsGranted) {
         if (
             stage !=
-            SmartSetupStage.ANALYZE
+                SmartSetupStage.ANALYZE ||
+            analysisBackPreview
         ) {
             return@LaunchedEffect
         }
@@ -1358,11 +1362,17 @@ fun SmartOnboardingSetupScreen(
                 SmartSetupStage.SMS_PERMISSION ->
                     SmartSetupStage.IMPORT
 
-                SmartSetupStage.ANALYZE ->
+                SmartSetupStage.ANALYZE -> {
+                    analysisBackPreview = false
                     SmartSetupStage.IMPORT
+                }
 
-                SmartSetupStage.REVIEW ->
-                    SmartSetupStage.IMPORT
+                SmartSetupStage.REVIEW -> {
+                    analysisBackPreview = true
+                    analysisStep =
+                        AnalysisStep.COMPLETE
+                    SmartSetupStage.ANALYZE
+                }
 
                 SmartSetupStage.SALARY_MANUAL ->
                     SmartSetupStage.REVIEW
@@ -1501,7 +1511,16 @@ fun SmartOnboardingSetupScreen(
                         importing =
                             importMonths > 0 &&
                                 smsGranted,
-                        step = analysisStep
+                        step = analysisStep,
+                        showContinue =
+                            analysisBackPreview,
+                        onContinue = {
+                            analysisBackPreview =
+                                false
+                            stage =
+                                SmartSetupStage
+                                    .REVIEW
+                        }
                     )
                 }
             }
@@ -2191,7 +2210,9 @@ private fun SmsPermissionPage(
 @Composable
 private fun AnalysisPage(
     importing: Boolean,
-    step: AnalysisStep
+    step: AnalysisStep,
+    showContinue: Boolean,
+    onContinue: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -2283,6 +2304,21 @@ private fun AnalysisPage(
                         AnalysisStep.DUPLICATES,
                     current = step
                 )
+            }
+        }
+
+        if (showContinue) {
+            Button(
+                onClick = onContinue,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 18.dp)
+                        .heightIn(min = 54.dp),
+                shape =
+                    RoundedCornerShape(18.dp)
+            ) {
+                Text("Continue to review")
             }
         }
     }
