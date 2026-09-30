@@ -373,3 +373,194 @@ object DebtRepaymentBalancePolicy {
         )
     }
 }
+
+
+data class LiabilityPaymentCandidate(
+    val debtAccountId: String,
+    val displayName: String,
+    val providerKey: String,
+    val outstandingMinor: Long,
+    val hasObservedOutstanding: Boolean
+)
+
+data class LiabilityPaymentMatch(
+    val debtAccountId: String,
+    val confidence: RepaymentChainConfidence,
+    val reason: String
+)
+
+/**
+ * Provider-neutral bridge from an outgoing payment counterparty to an
+ * already-known liability.
+ *
+ * The policy compares normalized institution identity only. Generic
+ * words such as BANK, LOAN, FINANCE, LIMITED and KENYA are ignored.
+ * It never contains provider names.
+ */
+object LiabilityPaymentLinkPolicy {
+    fun candidates(
+        counterparty: String?,
+        amountMinor: Long,
+        candidates: List<LiabilityPaymentCandidate>
+    ): List<LiabilityPaymentMatch> {
+        if (
+            counterparty.isNullOrBlank() ||
+            amountMinor <= 0L
+        ) {
+            return emptyList()
+        }
+
+        val counterpartyTokens =
+            identityTokens(counterparty)
+        if (counterpartyTokens.isEmpty()) {
+            return emptyList()
+        }
+
+        val matches =
+            candidates.mapNotNull { candidate ->
+                val identityVariants =
+                    listOf(
+                        identityTokens(
+                            candidate.displayName
+                        ),
+                        identityTokens(
+                            candidate.providerKey
+                                .removePrefix(
+                                    "discovered:"
+                                )
+                        )
+                    )
+                        .filter(Set<String>::isNotEmpty)
+
+                val exactIdentity =
+                    identityVariants.any {
+                        it == counterpartyTokens
+                    }
+                val containedIdentity =
+                    identityVariants.any { identity ->
+                        identity.isNotEmpty() &&
+                            (
+                                identity.all(
+                                    counterpartyTokens::contains
+                                ) ||
+                                counterpartyTokens.all(
+                                    identity::contains
+                                )
+                                )
+                    }
+
+                if (
+                    !exactIdentity &&
+                    !containedIdentity
+                ) {
+                    return@mapNotNull null
+                }
+
+                val amountFitsObservedDebt =
+                    candidate.hasObservedOutstanding &&
+                        candidate.outstandingMinor > 0L &&
+                        amountMinor <=
+                            candidate.outstandingMinor
+
+                LiabilityPaymentMatch(
+                    debtAccountId =
+                        candidate.debtAccountId,
+                    confidence =
+                        if (
+                            exactIdentity &&
+                            amountFitsObservedDebt
+                        ) {
+                            RepaymentChainConfidence.HIGH
+                        } else {
+                            RepaymentChainConfidence.MEDIUM
+                        },
+                    reason =
+                        when {
+                            exactIdentity &&
+                                amountFitsObservedDebt ->
+                                "Counterparty identity exactly matched one known liability and the payment did not exceed its observed outstanding balance."
+                            exactIdentity ->
+                                "Counterparty identity exactly matched a known liability, but the outstanding balance is not strong enough for automatic linking."
+                            else ->
+                                "Counterparty identity strongly overlaps a known liability, but requires confirmation."
+                        }
+                )
+            }
+
+        /*
+         * If two liabilities resolve to the same identity, automatic
+         * certainty is impossible even if one individual candidate
+         * scored HIGH. Downgrade the whole set for review.
+         */
+        return if (matches.size <= 1) {
+            matches
+        } else {
+            matches.map {
+                it.copy(
+                    confidence =
+                        RepaymentChainConfidence.MEDIUM,
+                    reason =
+                        "More than one known liability matches this counterparty identity; choose the correct debt explicitly."
+                )
+            }
+        }
+    }
+
+    fun chooseAutomatic(
+        counterparty: String?,
+        amountMinor: Long,
+        candidates: List<LiabilityPaymentCandidate>
+    ): LiabilityPaymentMatch? =
+        candidates(
+            counterparty = counterparty,
+            amountMinor = amountMinor,
+            candidates = candidates
+        )
+            .singleOrNull {
+                it.confidence ==
+                    RepaymentChainConfidence.HIGH
+            }
+
+    private fun identityTokens(
+        raw: String
+    ): Set<String> =
+        raw.uppercase()
+            .replace(
+                Regex("""[^A-Z0-9]+"""),
+                " "
+            )
+            .trim()
+            .split(Regex("""\s+"""))
+            .asSequence()
+            .filter(String::isNotBlank)
+            .filterNot(GENERIC_IDENTITY_WORDS::contains)
+            .filter { token ->
+                token.length >= 2 ||
+                    token.any(Char::isDigit)
+            }
+            .toSet()
+
+    private val GENERIC_IDENTITY_WORDS =
+        setOf(
+            "LOAN",
+            "BANK",
+            "FINANCE",
+            "FINANCIAL",
+            "CREDIT",
+            "LENDING",
+            "LIMITED",
+            "LTD",
+            "PLC",
+            "INTERNATIONAL",
+            "KENYA",
+            "APP",
+            "MOBILE",
+            "PAYMENT",
+            "PAYMENTS",
+            "ACCOUNT",
+            "COMPANY",
+            "CO",
+            "GROUP",
+            "SERVICES"
+        )
+}
