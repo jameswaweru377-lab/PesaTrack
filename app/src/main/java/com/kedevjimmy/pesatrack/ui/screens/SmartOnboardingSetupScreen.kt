@@ -2529,6 +2529,9 @@ private fun SetupCompletePage(
             style =
                 MaterialTheme.typography
                     .headlineLarge,
+            color =
+                MaterialTheme.colorScheme
+                    .onBackground,
             fontWeight = FontWeight.Bold
         )
         Text(
@@ -2653,6 +2656,9 @@ private fun SetupHero(
             style =
                 MaterialTheme.typography
                     .headlineMedium,
+            color =
+                MaterialTheme.colorScheme
+                    .onBackground,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
@@ -2785,6 +2791,61 @@ private fun FeatureRow(
     }
 }
 
+private fun parseSetupMoneyMinor(
+    raw: String
+): Long? =
+    runCatching {
+        raw.replace(",", "")
+            .trim()
+            .toBigDecimal()
+            .movePointRight(2)
+            .setScale(
+                0,
+                java.math.RoundingMode.HALF_UP
+            )
+            .longValueExact()
+    }.getOrNull()
+
+private fun formatSetupDate(
+    epochMs: Long
+): String =
+    SimpleDateFormat(
+        "d MMM yyyy",
+        Locale.getDefault()
+    ).format(
+        Date(epochMs)
+    )
+
+private fun isLikelySideloaded(
+    context: Context
+): Boolean {
+    val installer =
+        runCatching {
+            if (
+                Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.R
+            ) {
+                context.packageManager
+                    .getInstallSourceInfo(
+                        context.packageName
+                    )
+                    .installingPackageName
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager
+                    .getInstallerPackageName(
+                        context.packageName
+                    )
+            }
+        }.getOrNull()
+
+    return installer
+        ?.contains(
+            "vending",
+            ignoreCase = true
+        ) != true
+}
+
 private fun hasSmsPermission(
     context: Context
 ): Boolean =
@@ -2879,6 +2940,9 @@ private fun formatSetupMoney(
             amountMinor / 100.0
         )
 }
+
+private const val MIN_PROGRESS_STEP_MS =
+    180L
 
 private const val SEVEN_DAYS_MS =
     7L * 24L * 60L * 60L * 1000L
