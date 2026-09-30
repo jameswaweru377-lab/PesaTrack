@@ -998,21 +998,48 @@ class TransactionStore private constructor(context: Context) {
         var removed = 0
 
         mpesaCanonical.forEach { canonical ->
-            val canonicalObservation = canonical.toMirrorObservation()
+            val canonicalReferences =
+                externalReferencesForTransaction(
+                    canonical.id
+                )
+            val canonicalObservation =
+                canonical.toMirrorObservation(
+                    externalReferences =
+                        canonicalReferences
+                )
             val candidate = duplicates
                 .asSequence()
                 .filter { it.id != canonical.id }
                 .filter { it.id !in claimedDuplicateIds }
                 .filter { it.amountMinor == canonical.amountMinor }
-                .filter {
-                    kotlin.math.abs(
-                        it.receivedAtEpochMs - canonical.receivedAtEpochMs
-                    ) <= MirrorTransactionMatcher.MAX_TIME_DELTA_MS
+                .filter { duplicate ->
+                    val duplicateReferences =
+                        externalReferencesForTransaction(
+                            duplicate.id
+                        )
+                    val sharedReference =
+                        canonicalReferences
+                            .intersect(
+                                duplicateReferences
+                            )
+                            .isNotEmpty()
+                    sharedReference ||
+                        kotlin.math.abs(
+                            duplicate.receivedAtEpochMs -
+                                canonical.receivedAtEpochMs
+                        ) <=
+                        MirrorTransactionMatcher
+                            .MAX_TIME_DELTA_MS
                 }
-                .filter {
+                .filter { duplicate ->
                     MirrorTransactionMatcher.isMirror(
                         canonicalObservation,
-                        it.toMirrorObservation()
+                        duplicate.toMirrorObservation(
+                            externalReferences =
+                                externalReferencesForTransaction(
+                                    duplicate.id
+                                )
+                        )
                     )
                 }
                 .minByOrNull {
@@ -1022,6 +1049,17 @@ class TransactionStore private constructor(context: Context) {
                 } ?: return@forEach
 
             claimedDuplicateIds += candidate.id
+
+            attachExternalReferences(
+                transactionId = canonical.id,
+                references =
+                    externalReferencesForTransaction(
+                        candidate.id
+                    ),
+                sourceKind = candidate.sourceKind,
+                observedAtEpochMs =
+                    candidate.receivedAtEpochMs
+            )
 
             if (canonical.ruleId == null && candidate.ruleId != null) {
                 val values = ContentValues().apply {
@@ -2665,7 +2703,7 @@ class TransactionStore private constructor(context: Context) {
 
     companion object {
         private const val MIRROR_RECONCILIATION_KEY =
-            "mirror_transaction_reconciliation_v2"
+            "mirror_transaction_reconciliation_v3"
         private const val BUILT_IN_RECOGNITION_RECONCILIATION_KEY =
             "built_in_recognition_reconciliation_v2"
         private const val REFUND_RECONCILIATION_KEY =
