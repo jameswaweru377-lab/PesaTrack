@@ -2692,9 +2692,29 @@ private fun ReviewDiscoveryPage(
 @Composable
 private fun OwnershipCandidateCard(
     entity: DiscoveredFinancialEntity,
-    onConfirm: () -> Unit
+    selected: Boolean,
+    enabled: Boolean,
+    onToggle: () -> Unit
 ) {
-    PesaCard {
+    Surface(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(
+                    enabled = enabled,
+                    onClick = onToggle
+                ),
+        shape =
+            RoundedCornerShape(20.dp),
+        color =
+            if (selected) {
+                MaterialTheme.colorScheme
+                    .primaryContainer
+            } else {
+                MaterialTheme.colorScheme
+                    .surface
+            }
+    ) {
         Row(
             modifier =
                 Modifier.padding(16.dp),
@@ -2727,9 +2747,12 @@ private fun OwnershipCandidateCard(
                 size = 44.dp
             )
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 11.dp)
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(
+                            start = 11.dp
+                        )
             ) {
                 Text(
                     entity.displayName,
@@ -2740,7 +2763,11 @@ private fun OwnershipCandidateCard(
                         FontWeight.SemiBold
                 )
                 Text(
-                    "Detected account • ownership not assumed",
+                    if (selected) {
+                        "Selected as one of your accounts"
+                    } else {
+                        "Detected account • ownership not assumed"
+                    },
                     style =
                         MaterialTheme.typography
                             .bodySmall,
@@ -2749,10 +2776,26 @@ private fun OwnershipCandidateCard(
                             .onSurfaceVariant
                 )
             }
-            TextButton(
-                onClick = onConfirm
-            ) {
-                Text("This is mine")
+
+            if (selected) {
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    contentDescription =
+                        "Selected",
+                    tint =
+                        MaterialTheme.colorScheme
+                            .primary
+                )
+            } else {
+                Text(
+                    "This is mine",
+                    style =
+                        MaterialTheme.typography
+                            .labelLarge,
+                    color =
+                        MaterialTheme.colorScheme
+                            .primary
+                )
             }
         }
     }
