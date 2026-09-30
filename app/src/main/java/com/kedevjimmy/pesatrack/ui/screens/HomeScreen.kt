@@ -464,20 +464,20 @@ fun HomeScreen(
                     false
             },
             onSave = { amountMinor ->
-                val cycle =
+                val activeCycle =
                     cycleSnapshot.cycle
-                        ?: return@ProtectMoneyDialog
-                            false
-                cycleProtectionStore.set(
-                    cycleStartTransactionId =
-                        cycle.startTransactionId,
-                    amountMinor =
-                        amountMinor
-                )
-                showProtectionDialog =
+                if (activeCycle == null) {
                     false
-                refresh()
-                true
+                } else {
+                    cycleProtectionStore.set(
+                        cycleStartTransactionId =
+                            activeCycle.startTransactionId,
+                        amountMinor = amountMinor
+                    )
+                    showProtectionDialog = false
+                    refresh()
+                    true
+                }
             }
         )
     }
