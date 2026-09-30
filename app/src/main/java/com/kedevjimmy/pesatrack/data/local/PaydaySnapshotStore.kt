@@ -558,6 +558,42 @@ class PaydaySnapshotStore private constructor(
             )
         }
 
+        if (
+            openingBalance != null &&
+            openingEpoch != null &&
+            openingEpoch > snapshotEpochMs &&
+            openingEpoch -
+                snapshotEpochMs <=
+                MAX_BACKCAST_WINDOW_MS
+        ) {
+            val laterDelta =
+                accountDelta(
+                    db = db,
+                    accountId = account.id,
+                    fromExclusive =
+                        snapshotEpochMs,
+                    toInclusive =
+                        openingEpoch
+                )
+            return PaydayAccountSnapshot(
+                accountId = account.id,
+                accountName = account.name,
+                accountType = account.type,
+                balanceMinor =
+                    openingBalance -
+                        laterDelta,
+                quality =
+                    PaydayBalanceQuality
+                        .RECONSTRUCTED,
+                referenceEpochMs =
+                    openingEpoch,
+                spendability =
+                    spendability(
+                        account.type
+                    )
+            )
+        }
+
         val later =
             earliestBalanceAnchorAfter(
                 db = db,
@@ -1096,7 +1132,7 @@ class PaydaySnapshotStore private constructor(
             5L * 60L * 1000L
         private const val
             MAX_BACKCAST_WINDOW_MS =
-            60L * 24L * 60L * 60L *
+            120L * 24L * 60L * 60L *
                 1000L
 
         @Volatile
