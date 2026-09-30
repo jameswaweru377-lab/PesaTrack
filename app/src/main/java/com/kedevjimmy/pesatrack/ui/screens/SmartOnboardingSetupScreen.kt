@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -210,6 +211,14 @@ fun SmartOnboardingSetupScreen(
             List<DiscoveredFinancialEntity>
         >(emptyList())
     }
+    var selectedOwnershipEntityKeys by remember {
+        mutableStateOf<Set<String>>(
+            emptySet()
+        )
+    }
+    var ownershipApplying by remember {
+        mutableStateOf(false)
+    }
     var salarySuggestion by remember {
         mutableStateOf<OnboardingSalarySuggestion?>(null)
     }
@@ -227,6 +236,9 @@ fun SmartOnboardingSetupScreen(
     }
     var phoneError by remember {
         mutableStateOf<String?>(null)
+    }
+    var mpesaConfirming by remember {
+        mutableStateOf(false)
     }
     var notificationGranted by remember {
         mutableStateOf(hasNotificationAccess(context))
