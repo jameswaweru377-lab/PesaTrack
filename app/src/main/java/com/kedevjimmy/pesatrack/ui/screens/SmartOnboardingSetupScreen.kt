@@ -2526,7 +2526,16 @@ private fun ReviewDiscoveryPage(
                             .padding(start = 12.dp)
                     ) {
                         Text(
-                            "Possible salary",
+                            if (
+                                salarySuggestion
+                                    .signalStrength ==
+                                SalarySignalStrength
+                                    .EXPLICIT_PAYROLL
+                            ) {
+                                "Salary signal found"
+                            } else {
+                                "Recurring income found"
+                            },
                             style =
                                 MaterialTheme.typography
                                     .labelLarge,
@@ -2585,7 +2594,16 @@ private fun ReviewDiscoveryPage(
             }
 
             Text(
-                "Tap the salary card if this is not your pay. PesaTrack creates the salary rule only after your confirmation.",
+                if (
+                    salarySuggestion
+                        .signalStrength ==
+                    SalarySignalStrength
+                        .EXPLICIT_PAYROLL
+                ) {
+                    "The payer name contains payroll language. Tap the card to correct it if this is not your salary."
+                } else {
+                    "This payer repeats across months, but repetition alone is not salary proof. Select the card only if this really is your salary."
+                },
                 style =
                     MaterialTheme.typography
                         .bodySmall,
