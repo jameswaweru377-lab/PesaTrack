@@ -168,6 +168,131 @@ class FinancialIntelligenceV2SemanticTest {
     }
 
     @Test
+    fun executedInvestmentExtractsSettlementFacts() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "Broker",
+                body =
+                    "You have successfully bought 3 EQA shares " +
+                        "valued at KES 3,021 via code UFT12345."
+            )
+
+        val investment =
+            interpretation
+                .semanticAssessment
+                ?.investment
+                ?: error(
+                    "Expected investment execution fact."
+                )
+
+        assertEquals(
+            SemanticInvestmentStage.EXECUTED,
+            investment.stage
+        )
+        assertEquals(
+            SemanticInvestmentAction.BUY,
+            investment.action
+        )
+        assertEquals(
+            3_000_000L,
+            investment.quantityMicrounits
+        )
+        assertEquals(
+            "EQA",
+            investment.instrumentLabel
+        )
+        assertEquals(
+            "instrument:EQA",
+            investment.instrumentKey
+        )
+        assertEquals(
+            302_100L,
+            investment.valueMinor
+        )
+    }
+
+    @Test
+    fun submittedInvestmentOrderExtractsPendingFactsOnly() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "Broker",
+                body =
+                    "Your buy order of 10 SAMPLE shares " +
+                        "valued at KES 367 has been submitted."
+            )
+
+        val investment =
+            interpretation
+                .semanticAssessment
+                ?.investment
+                ?: error(
+                    "Expected pending investment fact."
+                )
+
+        assertEquals(
+            SemanticInvestmentStage.ORDER_SUBMITTED,
+            investment.stage
+        )
+        assertEquals(
+            SemanticInvestmentAction.BUY,
+            investment.action
+        )
+        assertEquals(
+            10_000_000L,
+            investment.quantityMicrounits
+        )
+        assertEquals(
+            "SAMPLE",
+            investment.instrumentLabel
+        )
+        assertEquals(
+            36_700L,
+            investment.valueMinor
+        )
+        assertFalse(interpretation.recognized)
+    }
+
+    @Test
+    fun executedInvestmentSaleExtractsSellDelta() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "Broker",
+                body =
+                    "You successfully sold 2.5 ACME shares " +
+                        "valued at KES 1,250.00 via code ABC12345."
+            )
+
+        val investment =
+            interpretation
+                .semanticAssessment
+                ?.investment
+                ?: error(
+                    "Expected investment sale fact."
+                )
+
+        assertEquals(
+            SemanticInvestmentAction.SELL,
+            investment.action
+        )
+        assertEquals(
+            SemanticInvestmentStage.EXECUTED,
+            investment.stage
+        )
+        assertEquals(
+            2_500_000L,
+            investment.quantityMicrounits
+        )
+        assertEquals(
+            "ACME",
+            investment.instrumentLabel
+        )
+        assertEquals(
+            125_000L,
+            investment.valueMinor
+        )
+    }
+
+    @Test
     fun investmentOrderIsUnderstoodWithoutPretendingSharesWereBought() {
         val interpretation =
             FinancialMessageInterpreter.interpret(

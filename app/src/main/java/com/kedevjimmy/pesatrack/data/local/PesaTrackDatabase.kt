@@ -22,6 +22,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createFinancialUnderstandingTables(db)
         createTransactionExternalReferencesTable(db)
         createLiabilityPaymentDecisionsTable(db)
+        createInvestmentTables(db)
         createEntityEnrichmentCacheTable(db)
         seedDefaultAccounts(db)
         createIndexes(db)
@@ -318,6 +319,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 22) {
             createLiabilityPaymentDecisionsTable(db)
+        }
+
+        if (oldVersion < 23) {
+            createInvestmentTables(db)
         }
 
         createIndexes(db)
@@ -762,6 +767,55 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createInvestmentTables(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS investment_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_key TEXT NOT NULL UNIQUE,
+                event_type TEXT NOT NULL,
+                instrument_key TEXT NOT NULL,
+                instrument_label TEXT NOT NULL,
+                quantity_microunits INTEGER NOT NULL,
+                value_minor INTEGER,
+                linked_transaction_id INTEGER,
+                primary_reference TEXT,
+                source_package TEXT,
+                source_kind TEXT NOT NULL,
+                occurred_at_epoch_ms INTEGER NOT NULL,
+                created_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS investment_event_references (
+                investment_event_id INTEGER NOT NULL,
+                reference_value TEXT NOT NULL,
+                PRIMARY KEY(
+                    investment_event_id,
+                    reference_value
+                )
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS investment_positions (
+                instrument_key TEXT PRIMARY KEY,
+                instrument_label TEXT NOT NULL,
+                net_observed_quantity_microunits INTEGER NOT NULL DEFAULT 0,
+                quality TEXT NOT NULL DEFAULT 'OBSERVED_EVENTS_ONLY',
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun createEntityEnrichmentCacheTable(
         db: SQLiteDatabase
     ) {
@@ -876,6 +930,15 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_liability_payment_decision_debt ON liability_payment_decisions(debt_account_id)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_investment_events_instrument_time ON investment_events(instrument_key, occurred_at_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_investment_events_linked_transaction ON investment_events(linked_transaction_id)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_investment_event_reference_value ON investment_event_references(reference_value)"
+        )
     }
 
     private fun createTriggers(db: SQLiteDatabase) {
@@ -896,6 +959,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 22
+        private const val DATABASE_VERSION = 23
     }
 }

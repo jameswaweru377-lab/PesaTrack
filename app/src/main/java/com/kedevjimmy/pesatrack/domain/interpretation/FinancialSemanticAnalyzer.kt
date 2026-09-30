@@ -63,6 +63,27 @@ data class SemanticAccountFact(
     val span: MessageSpan
 )
 
+enum class SemanticInvestmentAction {
+    BUY,
+    SELL
+}
+
+enum class SemanticInvestmentStage {
+    ORDER_SUBMITTED,
+    EXECUTED
+}
+
+data class SemanticInvestmentFact(
+    val action: SemanticInvestmentAction,
+    val stage: SemanticInvestmentStage,
+    val quantityMicrounits: Long,
+    val instrumentLabel: String,
+    val instrumentKey: String,
+    val valueMinor: Long?,
+    val quantitySpan: MessageSpan,
+    val instrumentSpan: MessageSpan
+)
+
 data class FinancialSemanticAssessment(
     val primaryIntent: FinancialSemanticIntent,
     val intents: Set<FinancialSemanticIntent>,
@@ -70,6 +91,7 @@ data class FinancialSemanticAssessment(
     val amounts: List<SemanticAmountFact>,
     val references: List<SemanticReferenceFact>,
     val accounts: List<SemanticAccountFact>,
+    val investment: SemanticInvestmentFact? = null,
     val confidence: InterpretationConfidence,
     val ruleIds: Set<String>
 ) {
@@ -130,6 +152,16 @@ object FinancialSemanticAnalyzer {
             RegexOption.IGNORE_CASE,
             RegexOption.DOT_MATCHES_ALL
         )
+    )
+
+    private val investmentExecutionDetailsRegex = Regex(
+        """\b(?:successfully\s+)?(bought|sold)\s+([0-9]+(?:\.\d{1,6})?)\s+([A-Za-z][A-Za-z0-9.&'’()/_-]*(?:\s+[A-Za-z0-9.&'’()/_-]+){0,4})\s+(?:shares?|stocks?|units?)\b""",
+        RegexOption.IGNORE_CASE
+    )
+
+    private val investmentOrderDetailsRegex = Regex(
+        """\b(buy|sell)\s+order\s+(?:of\s+)?([0-9]+(?:\.\d{1,6})?)\s+([A-Za-z][A-Za-z0-9.&'’()/_-]*(?:\s+[A-Za-z0-9.&'’()/_-]+){0,4})\s+(?:shares?|stocks?|units?)\b""",
+        RegexOption.IGNORE_CASE
     )
 
     private val transferRegex = Regex(
@@ -483,6 +515,12 @@ object FinancialSemanticAnalyzer {
         val amounts = extractAmounts(body)
         val references = extractReferences(body)
         val accounts = extractAccounts(body)
+        val investment =
+            extractInvestment(
+                body = body,
+                primaryIntent = primaryIntent,
+                amounts = amounts
+            )
 
         val confidence = when {
             primaryIntent ==
@@ -519,10 +557,113 @@ object FinancialSemanticAnalyzer {
             amounts = amounts,
             references = references,
             accounts = accounts,
+            investment = investment,
             confidence = confidence,
             ruleIds = rules
         )
     }
+
+    private fun extractInvestment(
+        body: String,
+        primaryIntent: FinancialSemanticIntent,
+        amounts: List<SemanticAmountFact>
+    ): SemanticInvestmentFact? {
+        val stage =
+            when (primaryIntent) {
+                FinancialSemanticIntent
+                    .INVESTMENT_EXECUTED ->
+                    SemanticInvestmentStage.EXECUTED
+                FinancialSemanticIntent
+                    .INVESTMENT_ORDER ->
+                    SemanticInvestmentStage
+                        .ORDER_SUBMITTED
+                else -> return null
+            }
+
+        val match =
+            when (stage) {
+                SemanticInvestmentStage.EXECUTED ->
+                    investmentExecutionDetailsRegex
+                        .find(body)
+                SemanticInvestmentStage
+                    .ORDER_SUBMITTED ->
+                    investmentOrderDetailsRegex
+                        .find(body)
+            } ?: return null
+
+        val actionGroup =
+            match.groups[1] ?: return null
+        val quantityGroup =
+            match.groups[2] ?: return null
+        val instrumentGroup =
+            match.groups[3] ?: return null
+        val instrumentLabel =
+            instrumentGroup.value
+                .trim()
+                .replace(
+                    Regex("""\s+"""),
+                    " "
+                )
+        if (instrumentLabel.isBlank()) {
+            return null
+        }
+
+        val valueMinor =
+            amounts.firstOrNull {
+                it.role ==
+                    SemanticAmountRole.INVESTMENT_VALUE
+            }?.amountMinor
+
+        return SemanticInvestmentFact(
+            action =
+                when (
+                    actionGroup.value.lowercase()
+                ) {
+                    "buy",
+                    "bought" ->
+                        SemanticInvestmentAction.BUY
+                    "sell",
+                    "sold" ->
+                        SemanticInvestmentAction.SELL
+                    else -> return null
+                },
+            stage = stage,
+            quantityMicrounits =
+                quantityToMicrounits(
+                    quantityGroup.value
+                ),
+            instrumentLabel =
+                instrumentLabel,
+            instrumentKey =
+                instrumentKey(instrumentLabel),
+            valueMinor = valueMinor,
+            quantitySpan =
+                quantityGroup.range.toSpan(),
+            instrumentSpan =
+                instrumentGroup.range.toSpan()
+        )
+    }
+
+    private fun quantityToMicrounits(
+        raw: String
+    ): Long =
+        raw.toBigDecimal()
+            .movePointRight(6)
+            .setScale(0, RoundingMode.HALF_UP)
+            .longValueExact()
+
+    private fun instrumentKey(
+        label: String
+    ): String =
+        "instrument:" +
+            label.trim()
+                .uppercase()
+                .replace(
+                    Regex("""[^A-Z0-9]+"""),
+                    "_"
+                )
+                .trim('_')
+                .take(64)
 
     private fun hasSpecificEventEvidence(
         intents: Set<FinancialSemanticIntent>,
