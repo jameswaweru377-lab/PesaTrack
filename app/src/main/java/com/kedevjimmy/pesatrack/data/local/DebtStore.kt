@@ -10,6 +10,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
+import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.rules.DebtFundingCandidate
 import com.kedevjimmy.pesatrack.domain.rules.DebtFundingPairingPolicy
@@ -17,6 +18,9 @@ import com.kedevjimmy.pesatrack.domain.rules.DebtProceedsEventCandidate
 import com.kedevjimmy.pesatrack.domain.rules.DebtProceedsRepaymentLinkPolicy
 import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentBalancePolicy
 import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentChainPolicy
+import com.kedevjimmy.pesatrack.domain.rules.LiabilityPaymentCandidate
+import com.kedevjimmy.pesatrack.domain.rules.LiabilityPaymentLinkPolicy
+import com.kedevjimmy.pesatrack.domain.rules.LiabilityPaymentMatch
 import com.kedevjimmy.pesatrack.domain.rules.RepaymentBalanceCandidate
 import com.kedevjimmy.pesatrack.domain.rules.RepaymentChainConfidence
 import com.kedevjimmy.pesatrack.domain.rules.RepaymentFundingCandidate
@@ -182,8 +186,10 @@ class DebtStore private constructor(context: Context) {
             availableCreditAfterMinor =
                 event.availableCreditAfterMinor,
             repaymentCompletion = null,
-            fundingLinkConfidence = null,
-            fundingLinkReason = null,
+            fundingLinkConfidence =
+                fundingLinkConfidenceOverride,
+            fundingLinkReason =
+                fundingLinkReasonOverride,
             sourcePackage = sourcePackage,
             sourceKind = sourceKind,
             occurredAtEpochMs = occurredAtEpochMs
@@ -259,7 +265,12 @@ class DebtStore private constructor(context: Context) {
         messageFingerprint: String,
         sourcePackage: String?,
         sourceKind: String,
-        occurredAtEpochMs: Long
+        occurredAtEpochMs: Long,
+        linkedTransactionIdOverride: Long? = null,
+        fundingAccountIdOverride: String? = null,
+        fundingLinkConfidenceOverride:
+            RepaymentChainConfidence? = null,
+        fundingLinkReasonOverride: String? = null
     ): DebtWriteResult {
         val identity =
             debtAccountIdentity(event.liability)
@@ -270,11 +281,12 @@ class DebtStore private constructor(context: Context) {
         )
 
         val fundingAccountId =
-            event.fundingAccount?.let {
-                FinancialUnderstandingStore
-                    .get(appContext)
-                    .accountIdFor(it)
-            }
+            fundingAccountIdOverride
+                ?: event.fundingAccount?.let {
+                    FinancialUnderstandingStore
+                        .get(appContext)
+                        .accountIdFor(it)
+                }
 
         val insert = insertEvent(
             eventKey = debtEventKey(
@@ -294,7 +306,8 @@ class DebtStore private constructor(context: Context) {
             feeMinor = 0L,
             outstandingAfterMinor =
                 event.outstandingAfterMinor,
-            linkedTransactionId = null,
+            linkedTransactionId =
+                linkedTransactionIdOverride,
             walletBalanceAfterMinor =
                 event.walletBalanceAfterMinor,
             fundingAccountKey =
@@ -349,7 +362,9 @@ class DebtStore private constructor(context: Context) {
         )
 
         if (fundingAccountId != null) {
-            reconcileRepaymentEvent(insert.id)
+            if (linkedTransactionIdOverride == null) {
+                reconcileRepaymentEvent(insert.id)
+            }
             reconcileRepaymentBalance(insert.id)
         }
 
@@ -361,6 +376,339 @@ class DebtStore private constructor(context: Context) {
             linkedTransactionId = linked
         )
     }
+
+    @Synchronized
+    fun liabilityPaymentMatches(
+        counterparty: String?,
+        amountMinor: Long
+    ): List<LiabilityPaymentMatch> =
+        LiabilityPaymentLinkPolicy.candidates(
+            counterparty = counterparty,
+            amountMinor = amountMinor,
+            candidates =
+                accounts().map { account ->
+                    LiabilityPaymentCandidate(
+                        debtAccountId = account.id,
+                        displayName = account.name,
+                        providerKey =
+                            account.providerKey,
+                        outstandingMinor =
+                            account.outstandingMinor,
+                        hasObservedOutstanding =
+                            account.balanceQuality ==
+                                DebtBalanceQuality
+                                    .OBSERVED &&
+                                account.observedAtEpochMs !=
+                                null
+                    )
+                }
+        )
+
+    @Synchronized
+    fun tryAutoLinkOutgoingPayment(
+        transactionId: Long
+    ): Boolean {
+        if (
+            hasLiabilityPaymentDecision(
+                transactionId
+            ) ||
+            hasRepaymentLinkedToTransaction(
+                transactionId
+            )
+        ) {
+            return false
+        }
+
+        val payment =
+            paymentForLiabilityLink(
+                transactionId
+            ) ?: return false
+
+        val match =
+            LiabilityPaymentLinkPolicy
+                .chooseAutomatic(
+                    counterparty =
+                        payment.counterparty,
+                    amountMinor =
+                        payment.amountMinor,
+                    candidates =
+                        accounts().map { account ->
+                            LiabilityPaymentCandidate(
+                                debtAccountId =
+                                    account.id,
+                                displayName =
+                                    account.name,
+                                providerKey =
+                                    account.providerKey,
+                                outstandingMinor =
+                                    account.outstandingMinor,
+                                hasObservedOutstanding =
+                                    account.balanceQuality ==
+                                        DebtBalanceQuality
+                                            .OBSERVED &&
+                                        account
+                                            .observedAtEpochMs !=
+                                            null
+                            )
+                        }
+                ) ?: return false
+
+        return recordPaymentAsRepayment(
+            transactionId = transactionId,
+            debtAccountId =
+                match.debtAccountId,
+            userConfirmed = false
+        )
+    }
+
+    @Synchronized
+    fun recordPaymentAsRepayment(
+        transactionId: Long,
+        debtAccountId: String,
+        userConfirmed: Boolean
+    ): Boolean {
+        if (
+            hasRepaymentLinkedToTransaction(
+                transactionId
+            )
+        ) {
+            return true
+        }
+
+        val payment =
+            paymentForLiabilityLink(
+                transactionId
+            ) ?: return false
+        val debt =
+            accounts().firstOrNull {
+                it.id == debtAccountId
+            } ?: return false
+        val currentMatches =
+            liabilityPaymentMatches(
+                counterparty =
+                    payment.counterparty,
+                amountMinor =
+                    payment.amountMinor
+            )
+        val selected =
+            currentMatches.firstOrNull {
+                it.debtAccountId ==
+                    debtAccountId
+            } ?: return false
+
+        if (
+            !userConfirmed &&
+            selected.confidence !=
+                RepaymentChainConfidence.HIGH
+        ) {
+            return false
+        }
+
+        val liability =
+            debtAccountReferenceForProvider(
+                debt.providerKey
+            ).copy(
+                displayName = debt.name,
+                nature =
+                    FinancialAccountNature.LIABILITY
+            )
+        val confidence =
+            if (userConfirmed) {
+                RepaymentChainConfidence
+                    .USER_CONFIRMED
+            } else {
+                RepaymentChainConfidence.HIGH
+            }
+        val reason =
+            if (userConfirmed) {
+                "User confirmed this outgoing payment repaid the selected liability."
+            } else {
+                selected.reason
+            }
+
+        val result =
+            recordRepayment(
+                event =
+                    DebtRepaymentEventFact(
+                        amountMinor =
+                            payment.amountMinor,
+                        liability = liability,
+                        fundingAccount = null,
+                        completion =
+                            DebtCompletion.UNKNOWN,
+                        outstandingAfterMinor = null,
+                        availableCreditAfterMinor =
+                            null,
+                        walletBalanceAfterMinor =
+                            payment.balanceMinor,
+                        confidence =
+                            InterpretationConfidence.HIGH
+                    ),
+                transactionCode =
+                    payment.transactionCode,
+                messageFingerprint =
+                    "linked-payment:" +
+                        transactionId +
+                        ":" +
+                        debtAccountId,
+                sourcePackage =
+                    payment.sourcePackage,
+                sourceKind =
+                    "liability_payment_bridge:" +
+                        payment.sourceKind,
+                occurredAtEpochMs =
+                    payment.occurredAtEpochMs,
+                linkedTransactionIdOverride =
+                    transactionId,
+                fundingAccountIdOverride =
+                    payment.accountId,
+                fundingLinkConfidenceOverride =
+                    confidence,
+                fundingLinkReasonOverride =
+                    reason
+            )
+
+        val classified =
+            TransactionStore.get(appContext)
+                .markDebtRepayment(
+                    transactionId =
+                        transactionId,
+                    debtEventId = result.eventId,
+                    debtName = debt.name,
+                    userConfirmed =
+                        userConfirmed
+                )
+
+        return result.inserted || classified
+    }
+
+    private fun paymentForLiabilityLink(
+        transactionId: Long
+    ): PaymentForLiabilityLink? =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT amount_minor,
+                   counterparty,
+                   account_id,
+                   balance_minor,
+                   occurred_at_epoch_ms,
+                   transaction_code,
+                   source_package,
+                   source_kind,
+                   direction,
+                   review_state,
+                   rule_id,
+                   relation_type
+            FROM transactions
+            WHERE id = ?
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(transactionId.toString())
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) {
+                null
+            } else {
+                val direction =
+                    cursor.getString(8)
+                val reviewState =
+                    cursor.getString(9)
+                val ruleId =
+                    if (cursor.isNull(10)) {
+                        null
+                    } else {
+                        cursor.getString(10)
+                    }
+                val relationType =
+                    if (cursor.isNull(11)) {
+                        null
+                    } else {
+                        cursor.getString(11)
+                    }
+
+                if (
+                    direction !=
+                        com.kedevjimmy.pesatrack
+                            .domain.model
+                            .MoneyDirection.EXPENSE.name ||
+                    reviewState ==
+                        com.kedevjimmy.pesatrack
+                            .domain.model
+                            .ReviewState.USER_CLASSIFIED
+                            .name ||
+                    reviewState ==
+                        com.kedevjimmy.pesatrack
+                            .domain.model
+                            .ReviewState.EXCLUDED.name ||
+                    ruleId != null ||
+                    relationType != null ||
+                    cursor.isNull(1) ||
+                    cursor.isNull(2)
+                ) {
+                    null
+                } else {
+                    PaymentForLiabilityLink(
+                        amountMinor =
+                            cursor.getLong(0),
+                        counterparty =
+                            cursor.getString(1),
+                        accountId =
+                            cursor.getString(2),
+                        balanceMinor =
+                            if (cursor.isNull(3)) {
+                                null
+                            } else {
+                                cursor.getLong(3)
+                            },
+                        occurredAtEpochMs =
+                            cursor.getLong(4),
+                        transactionCode =
+                            if (cursor.isNull(5)) {
+                                null
+                            } else {
+                                cursor.getString(5)
+                            },
+                        sourcePackage =
+                            if (cursor.isNull(6)) {
+                                null
+                            } else {
+                                cursor.getString(6)
+                            },
+                        sourceKind =
+                            cursor.getString(7)
+                    )
+                }
+            }
+        }
+
+    private fun hasRepaymentLinkedToTransaction(
+        transactionId: Long
+    ): Boolean =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT 1
+            FROM debt_events
+            WHERE event_type = ?
+              AND linked_transaction_id = ?
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(
+                DebtEventType.REPAYMENT.name,
+                transactionId.toString()
+            )
+        ).use { it.moveToFirst() }
+
+    private fun hasLiabilityPaymentDecision(
+        transactionId: Long
+    ): Boolean =
+        database.readableDatabase.rawQuery(
+            """
+            SELECT 1
+            FROM liability_payment_decisions
+            WHERE transaction_id = ?
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(transactionId.toString())
+        ).use { it.moveToFirst() }
 
     @Synchronized
     fun reconcilePendingRepaymentsAround(
@@ -2350,6 +2698,17 @@ class DebtStore private constructor(context: Context) {
                 "%02x".format(byte)
             }
     }
+
+    private data class PaymentForLiabilityLink(
+        val amountMinor: Long,
+        val counterparty: String,
+        val accountId: String,
+        val balanceMinor: Long?,
+        val occurredAtEpochMs: Long,
+        val transactionCode: String?,
+        val sourcePackage: String?,
+        val sourceKind: String
+    )
 
     private data class DebtAccountIdentity(
         val id: String,
