@@ -14,12 +14,18 @@ data class OnboardingTransactionObservation(
     val accountId: String?
 )
 
+enum class SalarySignalStrength {
+    EXPLICIT_PAYROLL,
+    RECURRING_ONLY
+}
+
 data class OnboardingSalarySuggestion(
     val label: String,
     val accountId: String,
     val occurrenceCount: Int,
     val monthCount: Int,
-    val representativeAmountMinor: Long
+    val representativeAmountMinor: Long,
+    val signalStrength: SalarySignalStrength
 )
 
 /**
@@ -73,21 +79,46 @@ object OnboardingDiscoveryEngine {
                         latest.accountId
                             ?: return@mapNotNull null
 
+                    val label =
+                        latest.counterparty
+                            ?.trim()
+                            .orEmpty()
                     OnboardingSalarySuggestion(
-                        label =
-                            latest.counterparty
-                                ?.trim()
-                                .orEmpty(),
+                        label = label,
                         accountId = accountId,
                         occurrenceCount = group.size,
                         monthCount = months.size,
                         representativeAmountMinor =
-                            latest.amountMinor
+                            latest.amountMinor,
+                        signalStrength =
+                            if (
+                                EXPLICIT_PAYROLL_REGEX
+                                    .containsMatchIn(
+                                        label
+                                    )
+                            ) {
+                                SalarySignalStrength
+                                    .EXPLICIT_PAYROLL
+                            } else {
+                                SalarySignalStrength
+                                    .RECURRING_ONLY
+                            }
                     )
                 }
 
         return candidates.maxWithOrNull(
             compareBy<OnboardingSalarySuggestion>(
+                {
+                    if (
+                        it.signalStrength ==
+                        SalarySignalStrength
+                            .EXPLICIT_PAYROLL
+                    ) {
+                        1
+                    } else {
+                        0
+                    }
+                },
                 { it.monthCount },
                 { it.occurrenceCount },
                 { it.representativeAmountMinor }
@@ -134,6 +165,12 @@ object OnboardingDiscoveryEngine {
         return strongest.key
             .takeIf { strongest.value >= 2 }
     }
+
+    private val EXPLICIT_PAYROLL_REGEX =
+        Regex(
+            """\b(?:SALARY|PAYROLL|WAGES?|PAYSLIP|SAL\s+PAY)\b""",
+            RegexOption.IGNORE_CASE
+        )
 
     private fun normalizeLabel(
         value: String
