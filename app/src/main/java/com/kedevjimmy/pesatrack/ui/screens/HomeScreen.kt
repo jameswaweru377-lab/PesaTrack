@@ -60,6 +60,7 @@ import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
+import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
 import com.kedevjimmy.pesatrack.ui.components.BudgetProgressCard
@@ -90,7 +91,9 @@ fun HomeScreen(
     onImportClick: () -> Unit = {},
     onRulesClick: () -> Unit = {},
     onGoalsClick: () -> Unit = {},
-    onBudgetClick: () -> Unit = {}
+    onBudgetClick: () -> Unit = {},
+    onAccountsClick: () -> Unit = {},
+    onDebtsClick: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val cycleStore = remember { PayCycleStore.get(context) }
@@ -142,6 +145,27 @@ fun HomeScreen(
             )
         )
     }
+
+    val visibleAccountGroups =
+        AccountDisplayPolicy.groups(
+            trackedAccounts
+        )
+    val activeDebtAccounts =
+        debtAccounts
+            .filter {
+                it.outstandingMinor > 0L
+            }
+            .sortedWith(
+                compareByDescending<
+                    com.kedevjimmy.pesatrack
+                        .data.local
+                        .DebtAccountSnapshot
+                > {
+                    it.outstandingMinor
+                }.thenBy {
+                    it.name.lowercase()
+                }
+            )
 
     fun refresh() {
         cycleSnapshot = cycleStore.snapshot()
@@ -555,10 +579,13 @@ fun HomeScreen(
             }
         }
 
-        if (debtAccounts.isNotEmpty()) {
+        if (activeDebtAccounts.isNotEmpty()) {
             item {
                 DebtOverviewCard(
-                    accounts = debtAccounts
+                    accounts =
+                        activeDebtAccounts,
+                    onViewAll =
+                        onDebtsClick
                 )
             }
         }
@@ -604,10 +631,11 @@ fun HomeScreen(
                     ledgerSnapshot
                         .latestBalanceObservedAtEpochMs,
                 trackedAccountCount =
-                    trackedAccounts.count {
-                        it.id !=
-                            AccountStore.DEFAULT_CASH_ID
-                    }
+                    visibleAccountGroups.size,
+                onSeeAll =
+                    onAccountsClick,
+                onTrackedAccountsClick =
+                    onAccountsClick
             )
         }
     }
@@ -618,7 +646,8 @@ private fun DebtOverviewCard(
     accounts: List<
         com.kedevjimmy.pesatrack.data.local
             .DebtAccountSnapshot
-        >
+        >,
+    onViewAll: () -> Unit
 ) {
     val sortedAccounts =
         accounts.sortedWith(
@@ -672,6 +701,10 @@ private fun DebtOverviewCard(
                     )
                 }
                 Surface(
+                    modifier =
+                        Modifier.clickable(
+                            onClick = onViewAll
+                        ),
                     shape =
                         androidx.compose.foundation.shape
                             .RoundedCornerShape(999.dp),
@@ -713,10 +746,58 @@ private fun DebtOverviewCard(
                 }
             }
 
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                shape =
+                    androidx.compose.foundation.shape
+                        .RoundedCornerShape(16.dp),
+                color =
+                    MaterialTheme.colorScheme
+                        .surfaceVariant
+                        .copy(alpha = .42f)
+            ) {
+                Row(
+                    modifier =
+                        Modifier.padding(
+                            horizontal = 13.dp,
+                            vertical = 11.dp
+                        ),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Total outstanding",
+                        modifier =
+                            Modifier.weight(1f),
+                        style =
+                            MaterialTheme.typography
+                                .bodyMedium,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                    Text(
+                        formatMoney(
+                            sortedAccounts
+                                .sumOf {
+                                    it.outstandingMinor
+                                }
+                        ),
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                }
+            }
+
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp)
+                    .padding(top = 10.dp)
             ) {
                 val visibleCount =
                     if (maxWidth >= 600.dp) {
@@ -834,7 +915,9 @@ private fun DebtOverviewCard(
 private fun WalletsAndBalancesCard(
     mpesaBalanceMinor: Long?,
     mpesaObservedAtEpochMs: Long?,
-    trackedAccountCount: Int
+    trackedAccountCount: Int,
+    onSeeAll: () -> Unit,
+    onTrackedAccountsClick: () -> Unit
 ) {
     PesaCard {
         Column(Modifier.padding(15.dp)) {
@@ -852,6 +935,10 @@ private fun WalletsAndBalancesCard(
                 )
                 Text(
                     "See all",
+                    modifier =
+                        Modifier.clickable(
+                            onClick = onSeeAll
+                        ),
                     style =
                         MaterialTheme.typography
                             .labelMedium,
@@ -885,7 +972,8 @@ private fun WalletsAndBalancesCard(
             WalletBalanceRow(
                 icon = Icons.Rounded.AccountBalance,
                 label = "Tracked accounts",
-                supportingText = null,
+                supportingText =
+                    "Open your confirmed accounts and balances",
                 value =
                     trackedAccountCount.toString() +
                         if (trackedAccountCount == 1) {
@@ -894,7 +982,12 @@ private fun WalletsAndBalancesCard(
                             " accounts"
                         },
                 tone = 1,
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .clickable(
+                        onClick =
+                            onTrackedAccountsClick
+                    )
             )
         }
     }
