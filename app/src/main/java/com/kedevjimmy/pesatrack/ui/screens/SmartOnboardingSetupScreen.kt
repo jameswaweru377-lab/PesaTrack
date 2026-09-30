@@ -1094,6 +1094,15 @@ fun SmartOnboardingSetupScreen(
                             notificationGranted,
                         settingsVisited =
                             notificationSettingsVisited,
+                        restrictedInstall =
+                            isLikelySideloaded(
+                                context
+                            ),
+                        restrictedPrepared =
+                            !isLikelySideloaded(
+                                context
+                            ) ||
+                                smsAppInfoVisited,
                         onEnable = {
                             if (
                                 notificationGranted
@@ -1101,6 +1110,24 @@ fun SmartOnboardingSetupScreen(
                                 stage =
                                     SmartSetupStage
                                         .COMPLETE
+                            } else if (
+                                isLikelySideloaded(
+                                    context
+                                ) &&
+                                !smsAppInfoVisited
+                            ) {
+                                smsAppInfoVisited =
+                                    true
+                                appInfoLauncher.launch(
+                                    Intent(
+                                        Settings
+                                            .ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        Uri.parse(
+                                            "package:" +
+                                                context.packageName
+                                        )
+                                    )
+                                )
                             } else {
                                 notificationSettingsVisited =
                                     true
@@ -1112,7 +1139,8 @@ fun SmartOnboardingSetupScreen(
                             }
                         },
                         onOpenAppInfo = {
-                            settingsLauncher.launch(
+                            smsAppInfoVisited = true
+                            appInfoLauncher.launch(
                                 Intent(
                                     Settings
                                         .ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -2361,6 +2389,8 @@ private fun MpesaConfirmationPage(
 private fun LiveCapturePage(
     alreadyEnabled: Boolean,
     settingsVisited: Boolean,
+    restrictedInstall: Boolean,
+    restrictedPrepared: Boolean,
     onEnable: () -> Unit,
     onOpenAppInfo: () -> Unit,
     onLater: () -> Unit
@@ -2441,12 +2471,53 @@ private fun LiveCapturePage(
         shape = RoundedCornerShape(18.dp)
     ) {
         Text(
-            if (alreadyEnabled) {
-                "Continue"
-            } else {
-                "Enable live tracking"
+            when {
+                alreadyEnabled ->
+                    "Continue"
+                restrictedInstall &&
+                    !restrictedPrepared ->
+                    "Open App info first"
+                else ->
+                    "Enable live tracking"
             }
         )
+    }
+
+    if (
+        restrictedInstall &&
+        !restrictedPrepared &&
+        !alreadyEnabled
+    ) {
+        Surface(
+            modifier =
+                Modifier.fillMaxWidth(),
+            shape =
+                RoundedCornerShape(18.dp),
+            color =
+                pesaToneContainer("amber")
+        ) {
+            Column(
+                Modifier.padding(15.dp)
+            ) {
+                Text(
+                    "Debug install protection",
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium
+                )
+                Text(
+                    "Because this APK was installed outside Google Play, Android may block Notification Access until you manually turn on “Allow restricted settings” in App info.",
+                    modifier =
+                        Modifier.padding(top = 4.dp),
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+        }
     }
 
     if (
