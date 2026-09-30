@@ -2,7 +2,6 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,24 +10,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Payments
-import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.ui.components.BrandWordmark
@@ -40,13 +33,20 @@ import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 
 @Composable
 fun OnboardingScreen(
-    onContinue: () -> Unit,
-    onSkip: () -> Unit
+    onContinue: () -> Unit
 ) {
     LazyColumn(
-        modifier = Modifier.background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        modifier =
+            Modifier.background(
+                MaterialTheme.colorScheme.background
+            ),
+        contentPadding =
+            PaddingValues(
+                horizontal = 18.dp,
+                vertical = 20.dp
+            ),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
     ) {
         item {
             BrandWordmark()
@@ -56,59 +56,98 @@ fun OnboardingScreen(
             LandscapeBackdrop(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp)
+                    .height(360.dp)
             ) {
                 Column(
-                    Modifier
+                    modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp)
+                        .padding(22.dp)
                 ) {
                     Text(
-                        "Know what your",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onBackground
+                        "Your money.",
+                        style =
+                            MaterialTheme.typography
+                                .displaySmall,
+                        fontWeight =
+                            FontWeight.Bold
                     )
                     Text(
-                        "money can really do.",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        "In one place.",
+                        style =
+                            MaterialTheme.typography
+                                .displaySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .primary,
+                        fontWeight =
+                            FontWeight.Bold
                     )
                     Text(
-                        "PesaTrack learns from your real money activity and keeps the setup simple.",
-                        modifier = Modifier.padding(top = 12.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "PesaTrack turns M-Pesa, bank and other financial messages into one clear picture of your money.",
+                        modifier =
+                            Modifier.padding(
+                                top = 12.dp
+                            ),
+                        style =
+                            MaterialTheme.typography
+                                .bodyLarge,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
                     )
 
-                    Spacer(Modifier.weight(1f))
+                    Spacer(
+                        Modifier.weight(1f)
+                    )
 
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = .96f)
-                    ) {
+                    PesaCard {
                         Row(
-                            Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier =
+                                Modifier.padding(14.dp)
                         ) {
                             IconBubble(
-                                Icons.Rounded.Lock,
-                                size = 42.dp,
-                                background = pesaToneContainer("green"),
-                                tint = pesaToneContent("green")
+                                Icons.Rounded
+                                    .AutoAwesome,
+                                size = 44.dp,
+                                background =
+                                    pesaToneContainer(
+                                        "green"
+                                    ),
+                                tint =
+                                    pesaToneContent(
+                                        "green"
+                                    )
                             )
                             Column(
-                                Modifier
-                                    .weight(1f)
-                                    .padding(start = 10.dp)
+                                modifier =
+                                    Modifier.padding(
+                                        start = 11.dp
+                                    )
                             ) {
                                 Text(
-                                    "Private by design",
-                                    style = MaterialTheme.typography.titleMedium
+                                    "Setup that learns",
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .titleMedium,
+                                    fontWeight =
+                                        FontWeight
+                                            .SemiBold
                                 )
                                 Text(
-                                    "Money messages are processed on your phone.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    "PesaTrack finds what it can first, then asks only when it needs your confirmation.",
+                                    modifier =
+                                        Modifier.padding(
+                                            top = 3.dp
+                                        ),
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
                                 )
                             }
                         }
@@ -120,23 +159,26 @@ fun OnboardingScreen(
         item {
             PesaCard {
                 Column(
-                    Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    modifier =
+                        Modifier.padding(16.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(14.dp)
                 ) {
-                    BenefitRow(
-                        Icons.Rounded.Payments,
-                        "Start with where your money comes from",
-                        "A few guided choices replace a long setup form."
+                    WelcomeBenefit(
+                        icon =
+                            Icons.Rounded.Payments,
+                        title =
+                            "Understand real activity",
+                        body =
+                            "Import recent money messages or start fresh and let PesaTrack learn over time."
                     )
-                    BenefitRow(
-                        Icons.Rounded.SmartToy,
-                        "Teach it once",
-                        "Classify one familiar payment and matching history can follow."
-                    )
-                    BenefitRow(
-                        Icons.Rounded.Shield,
-                        "Nothing uncertain is guessed",
-                        "New or ambiguous transactions stay in Needs review."
+                    WelcomeBenefit(
+                        icon =
+                            Icons.Rounded.Lock,
+                        title =
+                            "Private by design",
+                        body =
+                            "Financial messages are interpreted on your phone."
                     )
                 }
             }
@@ -147,56 +189,76 @@ fun OnboardingScreen(
                 onClick = onContinue,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 56.dp),
-                shape = RoundedCornerShape(18.dp)
+                    .heightIn(min = 58.dp),
+                shape =
+                    RoundedCornerShape(18.dp)
             ) {
                 Text("Get started")
-                Icon(
+                androidx.compose.material3.Icon(
                     Icons.Rounded.ArrowForward,
                     contentDescription = null,
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier =
+                        Modifier.padding(
+                            start = 8.dp
+                        )
                 )
             }
         }
 
         item {
             Text(
-                "You can change accounts and smart rules later in Settings.",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                "No long form. No fixed payday required. You can change everything later in Settings.",
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp),
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
             )
         }
     }
 }
 
 @Composable
-private fun BenefitRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+private fun WelcomeBenefit(
+    icon:
+        androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     body: String
 ) {
     Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier.fillMaxWidth()
     ) {
-        IconBubble(icon, size = 42.dp)
+        IconBubble(
+            icon,
+            size = 42.dp
+        )
         Column(
-            Modifier
-                .weight(1f)
-                .padding(start = 11.dp)
+            modifier =
+                Modifier.padding(start = 11.dp)
         ) {
             Text(
                 title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                fontWeight =
+                    FontWeight.SemiBold
             )
             Text(
                 body,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                modifier =
+                    Modifier.padding(top = 3.dp),
+                style =
+                    MaterialTheme.typography
+                        .bodyMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
             )
         }
     }

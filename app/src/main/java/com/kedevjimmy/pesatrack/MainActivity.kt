@@ -34,15 +34,6 @@ class MainActivity : ComponentActivity() {
             var setupComplete by remember {
                 mutableStateOf(preferences.getBoolean("setup_complete", false))
             }
-            var permissionSetupComplete by remember {
-                mutableStateOf(
-                    preferences.getBoolean(
-                        "permission_setup_complete_v1",
-                        false
-                    )
-                )
-            }
-
             val systemDark = isSystemInDarkTheme()
             val useDark = when (themeMode) {
                 ThemeMode.SYSTEM -> systemDark
@@ -60,14 +51,9 @@ class MainActivity : ComponentActivity() {
                     setupComplete = setupComplete,
                     onSetupComplete = {
                         setupComplete = true
-                        preferences.edit().putBoolean("setup_complete", true).apply()
-                    },
-                    permissionSetupComplete = permissionSetupComplete,
-                    onPermissionSetupComplete = {
-                        permissionSetupComplete = true
                         preferences.edit()
                             .putBoolean(
-                                "permission_setup_complete_v1",
+                                "setup_complete",
                                 true
                             )
                             .apply()
