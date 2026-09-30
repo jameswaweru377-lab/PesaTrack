@@ -15,7 +15,9 @@ import com.kedevjimmy.pesatrack.domain.rules.DebtFundingCandidate
 import com.kedevjimmy.pesatrack.domain.rules.DebtFundingPairingPolicy
 import com.kedevjimmy.pesatrack.domain.rules.DebtProceedsEventCandidate
 import com.kedevjimmy.pesatrack.domain.rules.DebtProceedsRepaymentLinkPolicy
+import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentBalancePolicy
 import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentChainPolicy
+import com.kedevjimmy.pesatrack.domain.rules.RepaymentBalanceCandidate
 import com.kedevjimmy.pesatrack.domain.rules.RepaymentChainConfidence
 import com.kedevjimmy.pesatrack.domain.rules.RepaymentFundingCandidate
 import java.security.MessageDigest
@@ -55,6 +57,10 @@ data class DebtEventRecord(
     val relatedDebtEventId: Long?,
     val walletBalanceAfterMinor: Long?,
     val fundingAccountKey: String?,
+    val fundingAccountId: String?,
+    val resultingBalanceObservationId: Long?,
+    val balanceLinkConfidence: RepaymentChainConfidence?,
+    val balanceLinkReason: String?,
     val availableCreditAfterMinor: Long?,
     val repaymentCompletion: DebtCompletion?,
     val fundingLinkConfidence: RepaymentChainConfidence?,
@@ -123,6 +129,12 @@ class DebtStore private constructor(context: Context) {
             FinancialProviderRegistry.debtBehaviorFor(
                 event.liability
             )
+        val fundingAccountId =
+            event.proceedsAccount?.let {
+                FinancialUnderstandingStore
+                    .get(appContext)
+                    .accountIdFor(it)
+            }
         val linkedTransactionId =
             linkedTransactionIdOverride
                 ?: when (
@@ -165,6 +177,8 @@ class DebtStore private constructor(context: Context) {
             walletBalanceAfterMinor = null,
             fundingAccountKey =
                 event.proceedsAccount?.entityKey,
+            fundingAccountId =
+                fundingAccountId,
             availableCreditAfterMinor =
                 event.availableCreditAfterMinor,
             repaymentCompletion = null,
@@ -255,6 +269,13 @@ class DebtStore private constructor(context: Context) {
             name = identity.name
         )
 
+        val fundingAccountId =
+            event.fundingAccount?.let {
+                FinancialUnderstandingStore
+                    .get(appContext)
+                    .accountIdFor(it)
+            }
+
         val insert = insertEvent(
             eventKey = debtEventKey(
                 prefix =
@@ -278,6 +299,8 @@ class DebtStore private constructor(context: Context) {
                 event.walletBalanceAfterMinor,
             fundingAccountKey =
                 event.fundingAccount?.entityKey,
+            fundingAccountId =
+                fundingAccountId,
             availableCreditAfterMinor =
                 event.availableCreditAfterMinor,
             repaymentCompletion =
@@ -325,11 +348,9 @@ class DebtStore private constructor(context: Context) {
             eventId = insert.id
         )
 
-        if (
-            event.fundingAccount?.providerKey ==
-                MPESA_PROVIDER_KEY
-        ) {
+        if (fundingAccountId != null) {
             reconcileRepaymentEvent(insert.id)
+            reconcileRepaymentBalance(insert.id)
         }
 
         val linked = linkedTransactionId(insert.id)
@@ -343,8 +364,57 @@ class DebtStore private constructor(context: Context) {
 
     @Synchronized
     fun reconcilePendingRepaymentsAround(
+        transactionId: Long,
         occurredAtEpochMs: Long
     ) {
+        val transactionAccounts =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT account_id, linked_account_id
+                FROM transactions
+                WHERE id = ?
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf(transactionId.toString())
+            ).use { cursor ->
+                if (!cursor.moveToFirst()) {
+                    emptySet()
+                } else {
+                    buildSet {
+                        if (!cursor.isNull(0)) {
+                            add(cursor.getString(0))
+                        }
+                        if (!cursor.isNull(1)) {
+                            add(cursor.getString(1))
+                        }
+                    }
+                }
+            }
+
+        if (transactionAccounts.isEmpty()) {
+            return
+        }
+
+        val placeholders =
+            transactionAccounts.joinToString(",") { "?" }
+        val args =
+            buildList {
+                add(DebtEventType.REPAYMENT.name)
+                addAll(transactionAccounts)
+                add(
+                    (
+                        occurredAtEpochMs -
+                            REPAYMENT_LINK_WINDOW_MS
+                        ).toString()
+                )
+                add(
+                    (
+                        occurredAtEpochMs +
+                            REPAYMENT_LINK_WINDOW_MS
+                        ).toString()
+                )
+            }.toTypedArray()
+
         val eventIds =
             database.readableDatabase.rawQuery(
                 """
@@ -352,27 +422,11 @@ class DebtStore private constructor(context: Context) {
                 FROM debt_events
                 WHERE event_type = ?
                   AND linked_transaction_id IS NULL
-                  AND (
-                        funding_account_key IS NULL
-                        OR funding_account_key = ?
-                      )
+                  AND funding_account_id IN ($placeholders)
                   AND occurred_at_epoch_ms BETWEEN ? AND ?
                 ORDER BY occurred_at_epoch_ms ASC, id ASC
                 """.trimIndent(),
-                arrayOf(
-                    DebtEventType.REPAYMENT.name,
-                    FinancialProviderRegistry
-                        .mpesaAccount()
-                        .entityKey,
-                    (
-                        occurredAtEpochMs -
-                            REPAYMENT_LINK_WINDOW_MS
-                    ).toString(),
-                    (
-                        occurredAtEpochMs +
-                            REPAYMENT_LINK_WINDOW_MS
-                    ).toString()
-                )
+                args
             ).use { cursor ->
                 buildList {
                     while (cursor.moveToNext()) {
@@ -381,7 +435,10 @@ class DebtStore private constructor(context: Context) {
                 }
             }
 
-        eventIds.forEach(::reconcileRepaymentEvent)
+        eventIds.forEach { eventId ->
+            reconcileRepaymentEvent(eventId)
+            reconcileRepaymentBalance(eventId)
+        }
     }
 
     private fun reconcileRepaymentEvent(
