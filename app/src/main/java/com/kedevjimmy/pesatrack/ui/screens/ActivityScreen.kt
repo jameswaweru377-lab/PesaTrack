@@ -247,14 +247,20 @@ fun ActivityScreen(
     val reviewableFinancialEntities =
         remember(
             pendingFinancialEntities,
-            financialDiagnostics
+            financialDiagnostics,
+            accountsById
         ) {
             pendingFinancialEntities
                 .filter {
                     shouldOfferOwnershipReview(
                         entity = it,
                         diagnostics =
-                            financialDiagnostics
+                            financialDiagnostics,
+                        mpesaIdentifier =
+                            accountsById[
+                                AccountStore
+                                    .DEFAULT_MPESA_ID
+                            ]?.identifier
                     )
                 }
         }
@@ -3743,8 +3749,21 @@ private fun ownershipEvidenceLabel(
 private fun shouldOfferOwnershipReview(
     entity: DiscoveredFinancialEntity,
     diagnostics:
-        List<FinancialIngestionDiagnostic>
+        List<FinancialIngestionDiagnostic>,
+    mpesaIdentifier: String? = null
 ): Boolean {
+    if (
+        !mpesaIdentifier.isNullOrBlank() &&
+        entity.providerKey in
+            setOf(
+                "SAFARICOM_MPESA",
+                "NCBA_MSHWARI_SAVINGS",
+                "NCBA_MSHWARI_LOCK_SAVINGS"
+            )
+    ) {
+        return false
+    }
+
     if (
         !AccountDisplayPolicy
             .isMeaningfulAccountName(
