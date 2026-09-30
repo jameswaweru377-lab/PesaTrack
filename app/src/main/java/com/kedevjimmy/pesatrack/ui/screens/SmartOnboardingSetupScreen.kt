@@ -2110,11 +2110,15 @@ private fun AnalysisRow(
 @Composable
 private fun ReviewDiscoveryPage(
     sources: List<DetectedSetupSource>,
+    ownershipCandidates:
+        List<DiscoveredFinancialEntity>,
     salarySuggestion:
         OnboardingSalarySuggestion?,
     salaryAccepted: Boolean,
     importResult: HistoricalImportResult?,
     onSalaryAccepted: (Boolean) -> Unit,
+    onConfirmAccount:
+        (DiscoveredFinancialEntity) -> Unit,
     onManualSalary: () -> Unit,
     onContinue: () -> Unit
 ) {
@@ -2162,6 +2166,43 @@ private fun ReviewDiscoveryPage(
             sources.forEach { source ->
                 DiscoveredSourceCard(source)
             }
+        }
+
+        if (
+            ownershipCandidates.isNotEmpty()
+        ) {
+            Text(
+                "Confirm accounts you recognize",
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurface,
+                fontWeight =
+                    FontWeight.SemiBold
+            )
+            Text(
+                "PesaTrack can identify a bank or savings product without assuming it belongs to you. Confirm only accounts you actually use; anything you skip can be reviewed later in Activity.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+
+            ownershipCandidates
+                .forEach { entity ->
+                    OwnershipCandidateCard(
+                        entity = entity,
+                        onConfirm = {
+                            onConfirmAccount(
+                                entity
+                            )
+                        }
+                    )
+                }
         }
 
         if (salarySuggestion != null) {
@@ -2347,6 +2388,75 @@ private fun ReviewDiscoveryPage(
                     "Looks good"
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun OwnershipCandidateCard(
+    entity: DiscoveredFinancialEntity,
+    onConfirm: () -> Unit
+) {
+    PesaCard {
+        Row(
+            modifier =
+                Modifier.padding(16.dp),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            IconBubble(
+                icon =
+                    when (
+                        runCatching {
+                            AccountType
+                                .valueOf(
+                                    entity
+                                        .accountTypeHint
+                                )
+                        }.getOrDefault(
+                            AccountType.OTHER
+                        )
+                    ) {
+                        AccountType.BANK ->
+                            Icons.Rounded
+                                .AccountBalance
+                        AccountType.MOBILE_WALLET ->
+                            Icons.Rounded
+                                .PhoneAndroid
+                        else ->
+                            Icons.Rounded
+                                .Savings
+                    },
+                size = 44.dp
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 11.dp)
+            ) {
+                Text(
+                    entity.displayName,
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
+                Text(
+                    "Detected account • ownership not assumed",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+            TextButton(
+                onClick = onConfirm
+            ) {
+                Text("This is mine")
+            }
         }
     }
 }
