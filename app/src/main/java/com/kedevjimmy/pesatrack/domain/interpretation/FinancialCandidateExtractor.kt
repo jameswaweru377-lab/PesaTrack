@@ -8,6 +8,7 @@ enum class FinancialActionCandidateKind {
     PAYMENT_SENT_TO,
     PAYMENT_PAID_TO,
     ACCOUNT_DEBIT_TO,
+    TRANSACTION_CREDITED_TO,
     AIRTIME_PURCHASE,
     RECEIPT_FROM,
     RECEIPT_CREDITED_FROM
@@ -205,6 +206,14 @@ object FinancialCandidateExtractor {
             )
         )
     )
+    private val transactionCreditedToRegex = Regex(
+        """\b(?:your\s+)?transaction\s+of\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?credited\s+to\s+(?!your\s+(?:a/?c|account|wallet)\b)([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,100}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|m-?pesa\s+ref)\b|[.;]|$)""",
+        setOf(
+            RegexOption.IGNORE_CASE,
+            RegexOption.DOT_MATCHES_ALL
+        )
+    )
+
     private val receiptRegex = Regex(
         """(?:you\s+have\s+)?received\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+(.+?)(?=\s+(?:\+?254|0)\d{9}\b|\s+on\s+\d|\.\s*(?:New\s+)?M-PESA|$)""",
         setOf(
@@ -302,28 +311,13 @@ object FinancialCandidateExtractor {
     fun extract(
         message: NormalizedFinancialMessage
     ): FinancialMessageCandidates {
-        if (!message.hasCurrencyHint) {
-            return FinancialMessageCandidates(
-                transactionCode = null,
-                occurredAt = null,
-                moneyValues = emptyList(),
-                balances = emptyList(),
-                fee = null,
-                reversal = null,
-                cashMovements = emptyList(),
-                actions = emptyList(),
-                debt = DebtMessageCandidates(
-                    drawdown = null,
-                    repayment = null
-                )
-            )
-        }
-
         val body = message.body
         val actions = buildList {
             transferFromCandidate(body)?.let(::add)
             transferToCandidate(body)?.let(::add)
             accountDebitCandidate(body)?.let(::add)
+            transactionCreditedToCandidate(body)
+                ?.let(::add)
             paymentCandidate(body)?.let(::add)
             paidToCandidate(body)?.let(::add)
             airtimePurchaseCandidate(body)?.let(::add)
@@ -714,6 +708,24 @@ object FinancialCandidateExtractor {
                 FinancialActionCandidateKind
                     .ACCOUNT_DEBIT_TO,
             ruleId = "payment.account_debit_to",
+            cleanPersonParty = true
+        )
+    }
+
+    private fun transactionCreditedToCandidate(
+        body: String
+    ): FinancialActionCandidate? {
+        val match =
+            transactionCreditedToRegex.find(body)
+                ?: return null
+
+        return actionCandidate(
+            match = match,
+            kind =
+                FinancialActionCandidateKind
+                    .TRANSACTION_CREDITED_TO,
+            ruleId =
+                "payment.transaction_credited_to",
             cleanPersonParty = true
         )
     }
