@@ -38,37 +38,103 @@ object OnboardingDiscoveryEngine {
             observations
                 .asSequence()
                 .filter {
-                    it.direction == MoneyDirection.INCOME &&
-                        it.amountMinor > 0L &&
-                        !it.counterparty.isNullOrBlank() &&
-                        !it.accountId.isNullOrBlank()
+                    it.direction ==
+                        MoneyDirection.INCOME &&
+                        it.amountMinor >=
+                            MIN_AUTOMATIC_SALARY_MINOR &&
+                        !it.counterparty
+                            .isNullOrBlank() &&
+                        !it.accountId
+                            .isNullOrBlank()
                 }
                 .groupBy {
-                    normalizeLabel(it.counterparty.orEmpty())
+                    normalizeLabel(
+                        it.counterparty
+                            .orEmpty()
+                    ) +
+                        "|" +
+                        it.accountId
+                            .orEmpty()
                 }
                 .values
                 .mapNotNull { group ->
-                    val months =
-                        group.map {
+                    val byMonth =
+                        group.groupBy {
                             monthKey(
                                 it.occurredAtEpochMs,
                                 timeZone
                             )
-                        }.toSet()
+                        }
 
-                    // A single incoming payment is not enough evidence
-                    // to label something as salary during onboarding.
                     if (
-                        group.size < 2 ||
-                        months.size < 2
+                        byMonth.size < 2 ||
+                        byMonth.values.any {
+                            it.size >
+                                MAX_SALARY_CREDITS_PER_MONTH
+                        }
+                    ) {
+                        return@mapNotNull null
+                    }
+
+                    val representativeByMonth =
+                        byMonth.values
+                            .mapNotNull { month ->
+                                month.maxByOrNull {
+                                    it.amountMinor
+                                }
+                            }
+                            .sortedBy {
+                                it.occurredAtEpochMs
+                            }
+
+                    val gaps =
+                        representativeByMonth
+                            .zipWithNext {
+                                    first,
+                                    second ->
+                                (
+                                    second.occurredAtEpochMs -
+                                        first.occurredAtEpochMs
+                                    ) /
+                                    DAY_MS
+                            }
+
+                    if (
+                        gaps.isNotEmpty() &&
+                        gaps.any {
+                            it <
+                                MIN_MONTHLY_GAP_DAYS ||
+                                it >
+                                MAX_MONTHLY_GAP_DAYS
+                        }
+                    ) {
+                        return@mapNotNull null
+                    }
+
+                    val amounts =
+                        representativeByMonth
+                            .map {
+                                it.amountMinor
+                            }
+                    val minAmount =
+                        amounts.minOrNull()
+                            ?: return@mapNotNull null
+                    val maxAmount =
+                        amounts.maxOrNull()
+                            ?: return@mapNotNull null
+
+                    if (
+                        minAmount * 100L <
+                        maxAmount *
+                            MIN_AMOUNT_STABILITY_PERCENT
                     ) {
                         return@mapNotNull null
                     }
 
                     val latest =
-                        group.maxByOrNull {
-                            it.occurredAtEpochMs
-                        } ?: return@mapNotNull null
+                        representativeByMonth
+                            .lastOrNull()
+                            ?: return@mapNotNull null
                     val accountId =
                         latest.accountId
                             ?: return@mapNotNull null
@@ -79,18 +145,26 @@ object OnboardingDiscoveryEngine {
                                 ?.trim()
                                 .orEmpty(),
                         accountId = accountId,
-                        occurrenceCount = group.size,
-                        monthCount = months.size,
+                        occurrenceCount =
+                            representativeByMonth
+                                .size,
+                        monthCount =
+                            representativeByMonth
+                                .size,
                         representativeAmountMinor =
                             latest.amountMinor
                     )
                 }
 
         return candidates.maxWithOrNull(
-            compareBy<OnboardingSalarySuggestion>(
+            compareBy<
+                OnboardingSalarySuggestion
+            >(
                 { it.monthCount },
                 { it.occurrenceCount },
-                { it.representativeAmountMinor }
+                {
+                    it.representativeAmountMinor
+                }
             )
         )
     }
@@ -148,6 +222,24 @@ object OnboardingDiscoveryEngine {
                 " "
             )
             .trim()
+
+    private const val
+        MIN_AUTOMATIC_SALARY_MINOR =
+        5_000_00L
+    private const val
+        MAX_SALARY_CREDITS_PER_MONTH =
+        2
+    private const val
+        MIN_MONTHLY_GAP_DAYS =
+        20L
+    private const val
+        MAX_MONTHLY_GAP_DAYS =
+        45L
+    private const val
+        MIN_AMOUNT_STABILITY_PERCENT =
+        55L
+    private const val DAY_MS =
+        24L * 60L * 60L * 1000L
 
     private fun monthKey(
         epochMs: Long,
