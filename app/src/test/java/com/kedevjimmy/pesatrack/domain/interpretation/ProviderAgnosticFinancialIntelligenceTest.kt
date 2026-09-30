@@ -22,7 +22,7 @@ class ProviderAgnosticFinancialIntelligenceTest {
         assertEquals(250_000L, payment.amountMinor)
         assertEquals("SAMPLE PERSON", payment.counterparty)
         assertEquals(
-            "Equity Bank",
+            "Equity Bank Kenya",
             payment.source.displayName
         )
         assertEquals(
@@ -33,7 +33,10 @@ class ProviderAgnosticFinancialIntelligenceTest {
             FinancialAccountNature.ASSET,
             payment.source.nature
         )
-        assertNull(payment.source.providerKey)
+        assertEquals(
+            "KENYAN_BANK_EQUITY",
+            payment.source.providerKey
+        )
     }
 
     @Test
@@ -58,7 +61,10 @@ class ProviderAgnosticFinancialIntelligenceTest {
             "SAFARICOM_MPESA",
             transfer.destination.providerKey
         )
-        assertNull(transfer.source.providerKey)
+        assertEquals(
+            "KENYAN_BANK_COOPERATIVE",
+            transfer.source.providerKey
+        )
     }
 
 
@@ -81,7 +87,84 @@ class ProviderAgnosticFinancialIntelligenceTest {
             AccountOwnershipHint.USER_OWNED,
             payment.source.ownershipHint
         )
-        assertNull(payment.source.providerKey)
+        assertEquals(
+            "KENYAN_BANK_FAMILY",
+            payment.source.providerKey
+        )
+    }
+
+    @Test
+    fun arbitrarySenderIsNotTurnedIntoBankFromCreditedWording() {
+        val source =
+            FinancialProviderRegistry
+                .resolveMessageSourceAccount(
+                    title = "APPLE",
+                    bankLike = true
+                )
+
+        assertEquals(
+            "APPLE",
+            source?.displayName
+        )
+        assertEquals(
+            com.kedevjimmy.pesatrack.domain.model.AccountType.OTHER,
+            source?.accountTypeHint
+        )
+        assertNull(source?.providerKey)
+
+        assertNull(
+            FinancialProviderRegistry
+                .resolveOwnedMessageSourceAccount(
+                    title = "APPLE",
+                    bankLike = true
+                )
+        )
+    }
+
+    @Test
+    fun knownBankBulkSenderCanonicalizesWithoutParserSpecificLogic() {
+        val source =
+            FinancialProviderRegistry
+                .resolveMessageSourceAccount(
+                    title = "EQUITY BULK",
+                    bankLike = true
+                )
+
+        assertEquals(
+            "Equity Bank Kenya",
+            source?.displayName
+        )
+        assertEquals(
+            "KENYAN_BANK_EQUITY",
+            source?.providerKey
+        )
+        assertEquals(
+            com.kedevjimmy.pesatrack.domain.model.AccountType.BANK,
+            source?.accountTypeHint
+        )
+    }
+
+    @Test
+    fun unknownExplicitBankTitleStillWorksAsProviderNeutralBank() {
+        val source =
+            FinancialProviderRegistry
+                .resolveOwnedMessageSourceAccount(
+                    title = "ACME BANK",
+                    bankLike = true
+                )
+
+        assertEquals(
+            "ACME BANK",
+            source?.displayName
+        )
+        assertEquals(
+            com.kedevjimmy.pesatrack.domain.model.AccountType.BANK,
+            source?.accountTypeHint
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            source?.ownershipHint
+        )
     }
 
     @Test
