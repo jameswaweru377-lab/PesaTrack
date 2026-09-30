@@ -18,7 +18,7 @@ object KenyanBankDirectory {
         KenyanBank("absa", "Absa Bank Kenya", listOf("ABSA", "ABSA BANK")),
         KenyanBank("stanbic", "Stanbic Bank Kenya", listOf("STANBIC", "STANBIC BANK")),
         KenyanBank("standard-chartered", "Standard Chartered Bank Kenya", listOf("SCB", "STANDARD CHARTERED", "STANCHART")),
-        KenyanBank("i-and-m", "I&M Bank Kenya", listOf("I&M", "I&M BANK", "IM BANK", "IMBANK")),
+        KenyanBank("i-and-m", "I&M Bank Kenya", listOf("I&M", "I&M BANK", "IM BANK", "IMBANK", "IANDBANK", "IANDM BANK")),
         KenyanBank("dtb", "Diamond Trust Bank Kenya", listOf("DTB", "DTB BANK")),
         KenyanBank("family", "Family Bank", listOf("FAMILY BANK")),
         KenyanBank("ecobank", "Ecobank Kenya", listOf("ECOBANK")),
