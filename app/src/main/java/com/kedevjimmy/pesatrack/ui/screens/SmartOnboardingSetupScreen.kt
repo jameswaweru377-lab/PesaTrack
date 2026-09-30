@@ -979,15 +979,24 @@ fun SmartOnboardingSetupScreen(
                     }
 
             val salaryRule =
-                existing ?: ruleStore.save(
+                ruleStore.save(
                     name = "Salary",
                     counterpartyContains =
-                        payer,
+                        payer.ifBlank {
+                            existing
+                                ?.counterpartyContains
+                                .orEmpty()
+                        },
                     counterpartyExact =
                         if (
                             payer.isBlank()
                         ) {
-                            ruleLabel
+                            existing
+                                ?.counterpartyExact
+                                ?.takeIf {
+                                    it.isNotBlank()
+                                }
+                                ?: ruleLabel
                         } else {
                             ""
                         },
@@ -995,12 +1004,49 @@ fun SmartOnboardingSetupScreen(
                         TransactionCategory.INCOME,
                     direction =
                         MoneyDirection.INCOME,
+                    notificationTitleContains =
+                        existing
+                            ?.notificationTitleContains
+                            .orEmpty(),
+                    messageContains =
+                        existing
+                            ?.messageContains
+                            .orEmpty(),
+                    planningMonthOffset =
+                        existing
+                            ?.planningMonthOffset
+                            ?: 0,
                     displayLabel =
                         "Salary",
+                    maximumAmountMinor =
+                        existing
+                            ?.maximumAmountMinor,
+                    enabled = true,
                     preset =
                         RulePreset.SALARY,
+                    plannedAmountMinor =
+                        existing
+                            ?.plannedAmountMinor,
                     startsPayCycle = true,
-                    accountId = account.id
+                    accountId = account.id,
+                    linkedAccountId =
+                        existing
+                            ?.linkedAccountId,
+                    payWindowStartDay =
+                        existing
+                            ?.payWindowStartDay,
+                    payWindowEndDay =
+                        existing
+                            ?.payWindowEndDay,
+                    counterpartyPhoneEquals =
+                        existing
+                            ?.counterpartyPhoneEquals
+                            .orEmpty(),
+                    id =
+                        existing?.id
+                            ?: java.util.UUID
+                                .randomUUID()
+                                .toString()
                 )
 
             transactionStore
