@@ -4139,6 +4139,29 @@ private fun onboardingOwnershipCandidates(
                     "NCBA_MSHWARI_LOCK_SAVINGS"
                 )
         }
+        .map { entity ->
+            val canonical =
+                entity.providerKey
+                    ?.let {
+                        FinancialProviderRegistry
+                            .referenceForProviderKey(
+                                it
+                            )
+                            ?.displayName
+                    }
+                    ?: FinancialProviderRegistry
+                        .resolveAccount(
+                            entity.displayName
+                        )
+                        .takeIf {
+                            it.providerKey != null
+                        }
+                        ?.displayName
+                    ?: entity.displayName
+            entity.copy(
+                displayName = canonical
+            )
+        }
         .distinctBy {
             it.entityKey
         }
