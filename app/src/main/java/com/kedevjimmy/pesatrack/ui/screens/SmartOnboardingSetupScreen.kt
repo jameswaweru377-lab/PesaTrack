@@ -1729,6 +1729,9 @@ fun SmartOnboardingSetupScreen(
                                 if (
                                     applyManualSalary()
                                 ) {
+                                    stageBeforeMpesa =
+                                        SmartSetupStage
+                                            .SALARY_MANUAL
                                     stage =
                                         if (
                                             mpesaPhoneSuggestion !=
@@ -1744,6 +1747,9 @@ fun SmartOnboardingSetupScreen(
                             }
                         },
                         onSkip = {
+                            stageBeforeMpesa =
+                                SmartSetupStage
+                                    .SALARY_MANUAL
                             stage =
                                 if (
                                     mpesaPhoneSuggestion !=
