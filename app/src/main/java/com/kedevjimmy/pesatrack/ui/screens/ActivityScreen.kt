@@ -1222,6 +1222,17 @@ private fun FinancialAccountReviewDialog(
                         FontWeight.SemiBold
                 )
                 Text(
+                    ownershipEvidenceLabel(
+                        entity
+                    ),
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+                Text(
                     "Choose “Yes, my account” only if this is one of your own bank, wallet or savings accounts."
                 )
                 Text(
