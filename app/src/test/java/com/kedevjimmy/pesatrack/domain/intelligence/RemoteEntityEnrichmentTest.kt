@@ -144,4 +144,55 @@ class RemoteEntityEnrichmentTest {
                 )
         )
     }
+
+    @Test
+    fun paymentProcessorRoleRulesOutRecurringIncomeAsSalary() {
+        val result =
+            RemoteEntityEnrichment(
+                canonicalName =
+                    "Example Payments",
+                domain = "example.test",
+                logoUrl = null,
+                categoryHint = null,
+                confidence =
+                    EntityMatchConfidence.HIGH,
+                source = "test",
+                businessRole =
+                    RemoteEntityBusinessRole
+                        .PAYMENT_PROCESSOR
+            )
+
+        assertTrue(
+            OnboardingBusinessRolePolicy
+                .rulesOutRecurringIncomeAsSalary(
+                    result
+                )
+        )
+    }
+
+    @Test
+    fun unknownBusinessRoleDoesNotPretendToRuleOutSalary() {
+        val result =
+            RemoteEntityEnrichment(
+                canonicalName =
+                    "Example Limited",
+                domain = "example.test",
+                logoUrl = null,
+                categoryHint = null,
+                confidence =
+                    EntityMatchConfidence.LIKELY,
+                source = "test",
+                businessRole =
+                    RemoteEntityBusinessRole
+                        .UNKNOWN
+            )
+
+        assertFalse(
+            OnboardingBusinessRolePolicy
+                .rulesOutRecurringIncomeAsSalary(
+                    result
+                )
+        )
+    }
+
 }
