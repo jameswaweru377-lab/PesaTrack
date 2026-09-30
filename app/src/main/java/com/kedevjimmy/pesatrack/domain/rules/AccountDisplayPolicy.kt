@@ -113,6 +113,48 @@ object AccountDisplayPolicy {
             normalized !in genericLabels
     }
 
+    fun displayLabel(
+        group: TrackedAccountGroup
+    ): String {
+        val identifier =
+            group.accounts
+                .mapNotNull {
+                    it.identifier
+                        ?.trim()
+                        ?.takeIf(
+                            String::isNotBlank
+                        )
+                }
+                .distinct()
+                .singleOrNull()
+
+        return if (identifier == null) {
+            group.displayName
+        } else {
+            group.displayName +
+                " (" +
+                maskIdentifier(identifier) +
+                ")"
+        }
+    }
+
+    fun maskIdentifier(
+        raw: String
+    ): String {
+        val compact =
+            raw.trim()
+                .replace(
+                    Regex("""s+"""),
+                    ""
+                )
+        if (compact.length <= 4) {
+            return compact
+        }
+
+        return "•••• " +
+            compact.takeLast(4)
+    }
+
     fun matchesSource(
         group: TrackedAccountGroup,
         sourceName: String
@@ -144,44 +186,47 @@ object AccountDisplayPolicy {
 
     private fun groupKey(
         account: MoneyAccount
-    ): String {
-        val normalized =
-            normalize(account.name)
-        if (
-            account.type ==
-                AccountType.SAVINGS &&
-            normalized.startsWith(
-                "m shwari"
-            )
-        ) {
-            return "m-shwari"
-        }
-
-        return normalize(
+    ): String =
+        normalize(
             canonicalDisplayName(
                 account
             )
         )
-    }
 
     private fun canonicalDisplayName(
         account: MoneyAccount
-    ): String =
+    ): String {
         if (
             account.type ==
-                AccountType.SAVINGS &&
-            normalize(account.name)
-                .startsWith(
-                    "m shwari"
-                )
+            AccountType.SAVINGS
         ) {
-            "M-Shwari"
-        } else {
-            canonicalName(
-                account.name,
-                account.type
-            )
+            val normalized =
+                normalize(account.name)
+            if (
+                normalized.startsWith(
+                    "m shwari lock saving"
+                )
+            ) {
+                return "M-Shwari Lock Savings"
+            }
+            if (
+                normalized == "m shwari" ||
+                normalized.startsWith(
+                    "m shwari savings"
+                ) ||
+                normalized.startsWith(
+                    "m shwari deposit"
+                )
+            ) {
+                return "M-Shwari"
+            }
         }
+
+        return canonicalName(
+            account.name,
+            account.type
+        )
+    }
 
     private fun canonicalName(
         raw: String,
