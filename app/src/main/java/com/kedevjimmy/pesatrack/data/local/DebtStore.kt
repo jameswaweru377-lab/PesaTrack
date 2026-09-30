@@ -2216,6 +2216,22 @@ class DebtStore private constructor(context: Context) {
         val occurredAtEpochMs: Long
     )
 
+    private data class RepaymentBalanceContext(
+        val amountMinor: Long,
+        val explicitBalanceAfterMinor: Long?,
+        val fundingAccountKey: String?,
+        val fundingAccountId: String?,
+        val occurredAtEpochMs: Long,
+        val linkedTransactionId: Long?,
+        val resultingBalanceObservationId: Long?
+    )
+
+    private data class RepaymentFundingForBalance(
+        val amountMinor: Long,
+        val occurredAtEpochMs: Long,
+        val priorBalanceMinor: Long?
+    )
+
     private data class DebtEventInsertResult(
         val id: Long,
         val inserted: Boolean
