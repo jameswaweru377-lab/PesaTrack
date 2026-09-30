@@ -96,14 +96,20 @@ class PayCycleStore private constructor(context: Context) {
             }
 
             paydaySnapshotStore.rebuildForSalaryAnchors(
-                accepted.map { event ->
-                    PaydaySalaryAnchor(
-                        transactionId = event.transactionId,
-                        occurredAtEpochMs = event.occurredAtEpochMs,
-                        amountMinor = event.amountMinor,
-                        accountId = event.accountId
-                    )
-                }
+                db = db,
+                anchors =
+                    accepted.map { event ->
+                        PaydaySalaryAnchor(
+                            transactionId =
+                                event.transactionId,
+                            occurredAtEpochMs =
+                                event.occurredAtEpochMs,
+                            amountMinor =
+                                event.amountMinor,
+                            accountId =
+                                event.accountId
+                        )
+                    }
             )
 
             var previousEnding: Long? = null
