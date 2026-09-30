@@ -210,6 +210,18 @@ class FinancialUnderstandingStore private constructor(
                     observedAtEpochMs =
                         observedAtEpochMs
                 )
+        } else if (
+            inserted &&
+            accountId != null
+        ) {
+            DebtStore.get(appContext)
+                .reconcilePendingRepaymentBalancesAround(
+                    accountId = accountId,
+                    entityKey =
+                        fact.account.entityKey,
+                    observedAtEpochMs =
+                        observedAtEpochMs
+                )
         }
 
         if (inserted) {
@@ -472,6 +484,12 @@ class FinancialUnderstandingStore private constructor(
             "entity_key = ? AND account_id IS NULL",
             arrayOf(entityKey)
         )
+
+        DebtStore.get(appContext)
+            .reconcilePendingChainsForFundingAccount(
+                accountId = account.id,
+                entityKey = entityKey
+            )
 
         LedgerUpdateBus.notifyChanged()
         return account.id

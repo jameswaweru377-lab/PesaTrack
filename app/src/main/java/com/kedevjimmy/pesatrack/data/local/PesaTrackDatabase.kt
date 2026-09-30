@@ -259,6 +259,47 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             )
         }
 
+        if (oldVersion < 20) {
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "funding_account_id",
+                "TEXT"
+            )
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "resulting_balance_observation_id",
+                "INTEGER"
+            )
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "balance_link_confidence",
+                "TEXT"
+            )
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "balance_link_reason",
+                "TEXT"
+            )
+            db.execSQL(
+                """
+                UPDATE debt_events
+                SET funding_account_id = (
+                    SELECT confirmed_account_id
+                    FROM financial_entities
+                    WHERE entity_key =
+                        debt_events.funding_account_key
+                    LIMIT 1
+                )
+                WHERE funding_account_id IS NULL
+                  AND funding_account_key IS NOT NULL
+                """.trimIndent()
+            )
+        }
+
         createIndexes(db)
         createTriggers(db)
     }
@@ -500,6 +541,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 related_debt_event_id INTEGER,
                 wallet_balance_after_minor INTEGER,
                 funding_account_key TEXT,
+                funding_account_id TEXT,
+                resulting_balance_observation_id INTEGER,
+                balance_link_confidence TEXT,
+                balance_link_reason TEXT,
                 available_credit_after_minor INTEGER,
                 repayment_completion TEXT,
                 funding_link_confidence TEXT,
@@ -761,6 +806,12 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             "CREATE INDEX IF NOT EXISTS idx_debt_events_linked_transaction ON debt_events(linked_transaction_id)"
         )
         db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_debt_events_funding_account ON debt_events(funding_account_id, occurred_at_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_debt_events_result_balance ON debt_events(resulting_balance_observation_id)"
+        )
+        db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_financial_entities_provider ON financial_entities(provider_key)"
         )
         db.execSQL(
@@ -804,6 +855,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 19
+        private const val DATABASE_VERSION = 20
     }
 }

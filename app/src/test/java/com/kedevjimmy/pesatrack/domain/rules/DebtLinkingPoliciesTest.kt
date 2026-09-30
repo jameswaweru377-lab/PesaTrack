@@ -269,4 +269,98 @@ class DebtLinkingPoliciesTest {
         assertNull(match)
     }
 
+
+    @Test
+    fun linksExplicitResultingBalanceObservation() {
+        val match =
+            DebtRepaymentBalancePolicy.choose(
+                explicitBalanceAfterMinor =
+                    1_300_000L,
+                computedBalanceAfterMinor = null,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(
+                    RepaymentBalanceCandidate(
+                        observationId = 51L,
+                        balanceMinor = 1_300_000L,
+                        observedAtEpochMs = 605_000L
+                    )
+                )
+            )
+
+        assertEquals(51L, match?.observationId)
+        assertEquals(
+            RepaymentChainConfidence.HIGH,
+            match?.confidence
+        )
+    }
+
+    @Test
+    fun linksBalanceFromDeterministicFundingEquation() {
+        val match =
+            DebtRepaymentBalancePolicy.choose(
+                explicitBalanceAfterMinor = null,
+                computedBalanceAfterMinor =
+                    1_300_000L,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(
+                    RepaymentBalanceCandidate(
+                        observationId = 52L,
+                        balanceMinor = 1_300_000L,
+                        observedAtEpochMs = 650_000L
+                    )
+                )
+            )
+
+        assertEquals(52L, match?.observationId)
+        assertEquals(
+            RepaymentChainConfidence.HIGH,
+            match?.confidence
+        )
+    }
+
+    @Test
+    fun refusesAmbiguousResultingBalances() {
+        val match =
+            DebtRepaymentBalancePolicy.choose(
+                explicitBalanceAfterMinor =
+                    1_300_000L,
+                computedBalanceAfterMinor = null,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(
+                    RepaymentBalanceCandidate(
+                        observationId = 52L,
+                        balanceMinor = 1_300_000L,
+                        observedAtEpochMs = 605_000L
+                    ),
+                    RepaymentBalanceCandidate(
+                        observationId = 53L,
+                        balanceMinor = 1_300_000L,
+                        observedAtEpochMs = 610_000L
+                    )
+                )
+            )
+
+        assertNull(match)
+    }
+
+    @Test
+    fun doesNotTreatAvailableCreditAsCashBalance() {
+        val match =
+            DebtRepaymentBalancePolicy.choose(
+                explicitBalanceAfterMinor =
+                    13_000_00L,
+                computedBalanceAfterMinor = null,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(
+                    RepaymentBalanceCandidate(
+                        observationId = 54L,
+                        balanceMinor = 1_440_00L,
+                        observedAtEpochMs = 605_000L
+                    )
+                )
+            )
+
+        assertNull(match)
+    }
+
 }

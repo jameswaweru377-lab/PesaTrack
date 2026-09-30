@@ -1367,3 +1367,165 @@ Validate specifically:
 Permanent architecture rule remains:
 
 **financial language defines meaning; references/accounts/amount/time define relationships; provider names do not define transaction logic.**
+
+
+## Financial Intelligence V2 — Phase 4 event-chain reconciliation — PR #83
+
+Status on 2026-09-30: **implemented and Android CI verified on code head `a5122fb01fd715a6148726a25f3505e029be8131` before this documentation commit.**
+
+Phase 4 extends Phase 3 from observation deduplication to deterministic multi-event relationships.
+
+Phase 3 answers:
+
+`Are these two messages observations of the same movement?`
+
+Phase 4 answers:
+
+`Do these different financial events belong to one observed financial sequence?`
+
+The first Phase 4 production scope is debt-repayment chains because PesaTrack already receives enough deterministic evidence to reason about them without provider-specific parsers.
+
+### Primary event chain
+
+The canonical chain is:
+
+`incoming funds -> debt repayment -> resulting account balance`
+
+A second supported relationship already present in the generic debt ledger remains:
+
+`loan drawdown -> proceeds account -> repayment of another liability`
+
+Example financial sequence:
+
+- KES 14,381 enters an owned funding account;
+- KES 1,381 is automatically used to repay a liability;
+- the resulting owned-account balance is KES 13,000.
+
+PesaTrack can now preserve those as separate observed financial facts while linking them as one deterministic event chain.
+
+The repayment itself remains a **debt event**. It is not converted into income or spending.
+
+### Provider-neutral funding account identity
+
+The earlier repayment reconciler still contained an M-Pesa-specific runtime gate.
+
+Phase 4 removes that assumption.
+
+Debt events now persist both:
+
+- `funding_account_key` — semantic financial entity identity;
+- `funding_account_id` — confirmed local owned-account identity when available.
+
+Repayment funding correlation now uses account relationships rather than provider names.
+
+For an incoming canonical movement to fund a repayment:
+
+- INCOME must arrive into the funding account; or
+- an owned-account TRANSFER must have the funding account as its destination.
+
+The correlator does not ask whether the account is M-Pesa, Equity, Co-op, KCB, M-Shwari, or a future institution.
+
+If account ownership/identity is not known, Phase 4 does not invent the relationship.
+
+### Resulting-balance reconciliation
+
+A new provider-neutral `DebtRepaymentBalancePolicy` links a repayment event to a resulting `account_balance_observations` row.
+
+Evidence priority:
+
+1. explicit final funding-account balance carried by the repayment message;
+2. otherwise a deterministic balance equation:
+   `previous balance + incoming funds - repayment = resulting balance`;
+3. the resulting balance observation must be unique inside the bounded time window.
+
+If multiple balance observations satisfy the same candidate chain, PesaTrack refuses the automatic link.
+
+The policy deliberately receives only amounts/timestamps/observation IDs. It has no provider-name logic.
+
+### Available credit remains separate from cash
+
+Phase 4 preserves the existing distinction between:
+
+- debt outstanding;
+- available credit / available loan limit;
+- spendable asset-account balance.
+
+For example, an available loan limit of KES 1,440 is not allowed to satisfy an expected M-Pesa/bank balance of KES 13,000.
+
+Available credit remains stored on the liability/debt account, not as spendable cash.
+
+### Out-of-order ingestion
+
+The event chain can be completed when evidence arrives in different orders.
+
+Reconciliation is triggered when:
+
+- a debt repayment is recorded;
+- a qualifying incoming transaction is inserted or correlated;
+- a funding-account balance observation is recorded;
+- an uncertain financial entity is later confirmed by the user as an owned account.
+
+When ownership is confirmed, existing debt events using that semantic entity are backfilled with the confirmed local account ID and reconsidered.
+
+### Historical reconciliation
+
+Schema version is now **20**.
+
+The v20 migration adds:
+
+- `debt_events.funding_account_id`;
+- `debt_events.resulting_balance_observation_id`;
+- `debt_events.balance_link_confidence`;
+- `debt_events.balance_link_reason`.
+
+Existing debt events backfill `funding_account_id` from confirmed financial entities when possible.
+
+A one-time `financial_event_chain_reconciliation_v1` pass reconsiders existing repayment events using the new account/balance evidence. Later incoming transactions, balances, and ownership confirmations continue to trigger targeted reconciliation.
+
+### Ambiguity and safety rules
+
+Phase 4 must remain conservative.
+
+It does not:
+
+- fabricate a missing incoming transaction;
+- infer account ownership from provider name alone;
+- treat a nearby outgoing transfer as repayment funding;
+- choose between multiple matching balance observations;
+- turn available credit into asset balance;
+- convert a debt repayment into normal expense/income;
+- weaken Phase 3 transaction-correlation safeguards.
+
+Existing drawdown/repayment ambiguity protection remains in place.
+
+### Regression coverage
+
+The debt-linking regression suite now also covers:
+
+- explicit final balance -> resulting balance observation;
+- deterministic computed final balance -> resulting balance observation;
+- ambiguous duplicate result balances -> no automatic link;
+- available-credit amount -> cannot masquerade as resulting cash balance.
+
+Code head `a5122fb01fd715a6148726a25f3505e029be8131` passed Android CI run #340:
+
+- entity-enrichment Worker validation: passed;
+- Android compilation: passed;
+- Android unit tests: passed;
+- debug APK assembly: passed.
+
+### Deliberately outside this Phase 4 slice
+
+This phase does not yet add:
+
+- a visual multi-event chain explorer;
+- manual UI for ambiguous chain candidates;
+- investment holdings / execution settlement chains;
+- ML/SLM inference;
+- provider-specific debt rules for ordinary lenders/banks.
+
+Those should only be added when measured real-device evidence requires them.
+
+Permanent architecture rule remains:
+
+**financial language defines meaning; observed accounts/references/amounts/balances/time define relationships; provider names do not define transaction logic.**
