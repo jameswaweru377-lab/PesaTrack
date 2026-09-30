@@ -118,7 +118,8 @@ object FinancialRelationshipResolver {
             .mapNotNull { candidate ->
                 resolveBalance(
                     candidate = candidate,
-                    actions = candidates.actions
+                    actions = candidates.actions,
+                    message = message
                 )
             }
             .distinctBy {
@@ -252,7 +253,8 @@ object FinancialRelationshipResolver {
 
     private fun resolveBalance(
         candidate: BalanceCandidate,
-        actions: List<FinancialActionCandidate>
+        actions: List<FinancialActionCandidate>,
+        message: NormalizedFinancialMessage
     ): BalanceObservationFact? {
         if (
             FinancialProviderRegistry
@@ -264,9 +266,25 @@ object FinancialRelationshipResolver {
         }
 
         val direct =
-            FinancialProviderRegistry.resolveAccount(
-                candidate.rawAccountLabel
-            )
+            if (
+                candidate.ruleId ==
+                    "balance.message_source_available"
+            ) {
+                FinancialProviderRegistry
+                    .resolveOwnedMessageSourceAccount(
+                        title = message.title,
+                        bankLike = true
+                    )
+                    ?: FinancialProviderRegistry
+                        .resolveAccount(
+                            candidate.rawAccountLabel
+                        )
+            } else {
+                FinancialProviderRegistry
+                    .resolveAccount(
+                        candidate.rawAccountLabel
+                    )
+            }
         val contextual =
             if (direct.providerKey != null) {
                 null
