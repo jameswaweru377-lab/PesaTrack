@@ -78,8 +78,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
+import com.kedevjimmy.pesatrack.data.local.EntityEnrichmentCoordinator
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
+import com.kedevjimmy.pesatrack.domain.intelligence.OnboardingBusinessRolePolicy
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
@@ -181,6 +183,11 @@ fun SmartOnboardingSetupScreen(
     val financialCoordinator =
         remember {
             FinancialMessageIngestionCoordinator
+                .get(context)
+        }
+    val entityEnrichmentCoordinator =
+        remember {
+            EntityEnrichmentCoordinator
                 .get(context)
         }
 
