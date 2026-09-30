@@ -366,7 +366,8 @@ fun ActivityScreen(
                 FinancialSourceSummary(
                     key = key,
                     displayName =
-                        group.displayName,
+                        AccountDisplayPolicy
+                            .displayLabel(group),
                     sourceType =
                         accountGroupTypeLabel(
                             group
