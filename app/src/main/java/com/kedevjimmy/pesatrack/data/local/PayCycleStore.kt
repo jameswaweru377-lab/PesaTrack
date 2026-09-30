@@ -323,7 +323,8 @@ class PayCycleStore private constructor(context: Context) {
                    COALESCE(t.counterparty, r.display_label, r.name),
                    t.cycle_override,
                    r.pay_window_start_day,
-                   r.pay_window_end_day
+                   r.pay_window_end_day,
+                   t.account_id
             FROM transactions t
             JOIN smart_rules r ON t.rule_id = r.id
             WHERE r.starts_pay_cycle = 1
@@ -343,8 +344,12 @@ class PayCycleStore private constructor(context: Context) {
                             amountMinor = cursor.getLong(2),
                             label = cursor.getString(3) ?: "Salary",
                             override = if (cursor.isNull(4)) null else cursor.getString(4),
-                            payWindowStartDay = if (cursor.isNull(5)) null else cursor.getInt(5),
-                            payWindowEndDay = if (cursor.isNull(6)) null else cursor.getInt(6)
+                            payWindowStartDay =
+                                if (cursor.isNull(5)) null else cursor.getInt(5),
+                            payWindowEndDay =
+                                if (cursor.isNull(6)) null else cursor.getInt(6),
+                            accountId =
+                                if (cursor.isNull(7)) null else cursor.getString(7)
                         )
                     )
                 }
@@ -665,7 +670,8 @@ class PayCycleStore private constructor(context: Context) {
         val label: String,
         val override: String?,
         val payWindowStartDay: Int?,
-        val payWindowEndDay: Int?
+        val payWindowEndDay: Int?,
+        val accountId: String?
     )
 
     private data class CycleTotals(
