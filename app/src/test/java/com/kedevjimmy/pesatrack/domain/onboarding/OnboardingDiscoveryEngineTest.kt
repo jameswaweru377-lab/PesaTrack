@@ -152,6 +152,69 @@ class OnboardingDiscoveryEngineTest {
         assertNull(phone)
     }
 
+    @Test
+    fun tinyRecurringCreditsAreNotAutoSuggestedAsSalary() {
+        val suggestion =
+            OnboardingDiscoveryEngine
+                .salarySuggestion(
+                    listOf(
+                        observation(
+                            label = "QUIDEXPLUS KENYA LIMITED",
+                            amountMinor = 220_00L,
+                            month = Calendar.AUGUST,
+                            day = 15,
+                            direction =
+                                MoneyDirection.INCOME,
+                            accountId = "bank-equity"
+                        ),
+                        observation(
+                            label = "QUIDEXPLUS KENYA LIMITED",
+                            amountMinor = 220_00L,
+                            month = Calendar.SEPTEMBER,
+                            day = 15,
+                            direction =
+                                MoneyDirection.INCOME,
+                            accountId = "bank-equity"
+                        )
+                    ),
+                    utc
+                )
+
+        assertNull(suggestion)
+    }
+
+    @Test
+    fun merchantSettlementLanguageIsNotAutoSuggestedAsSalary() {
+        val suggestion =
+            OnboardingDiscoveryEngine
+                .salarySuggestion(
+                    listOf(
+                        observation(
+                            label = "SAMPLE PAYMENTS SETTLEMENT",
+                            amountMinor = 15_000_00L,
+                            month = Calendar.AUGUST,
+                            day = 15,
+                            direction =
+                                MoneyDirection.INCOME,
+                            accountId = "bank-equity"
+                        ),
+                        observation(
+                            label = "SAMPLE PAYMENTS SETTLEMENT",
+                            amountMinor = 15_000_00L,
+                            month = Calendar.SEPTEMBER,
+                            day = 15,
+                            direction =
+                                MoneyDirection.INCOME,
+                            accountId = "bank-equity"
+                        )
+                    ),
+                    utc
+                )
+
+        assertNull(suggestion)
+    }
+
+
     private fun observation(
         label: String,
         amountMinor: Long,
