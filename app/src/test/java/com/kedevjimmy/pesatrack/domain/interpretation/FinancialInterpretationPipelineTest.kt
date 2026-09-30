@@ -342,4 +342,80 @@ class FinancialInterpretationPipelineTest {
         )
     }
 
+
+    @Test
+    fun realMshwariLockWithdrawalMovesToRegularMshwariAndUpdatesBalance() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "M-Shwari",
+                body =
+                    "Dear Customer, Ksh.16,000.00 has been moved from your Lock Savings Account to your M-Shwari account. New M-Shwari balance is Ksh.16,000.43.Transaction cost 0.00."
+            )
+
+        assertTrue(interpretation.recognized)
+
+        val transfer =
+            interpretation.events
+                .filterIsInstance<
+                    TransferEventFact
+                >()
+                .single()
+
+        assertEquals(
+            "NCBA_MSHWARI_LOCK_SAVINGS",
+            transfer.source.providerKey
+        )
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            transfer.destination.providerKey
+        )
+        assertEquals(
+            1_600_000L,
+            transfer.amountMinor
+        )
+
+        val mshwariBalance =
+            interpretation.balances
+                .first {
+                    it.account.providerKey ==
+                        "NCBA_MSHWARI_SAVINGS"
+                }
+        assertEquals(
+            1_600_043L,
+            mshwariBalance.balanceMinor
+        )
+    }
+
+    @Test
+    fun mshwariTransferToMpesaKeepsBothOwnedAccountsDistinct() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "M-Shwari",
+                body =
+                    "Dear Customer, Ksh.5,000.00 has been moved to your M-PESA account. New M-Shwari balance is Ksh.11,000.43. Transaction cost 0.00."
+            )
+
+        assertTrue(interpretation.recognized)
+
+        val transfer =
+            interpretation.events
+                .filterIsInstance<
+                    TransferEventFact
+                >()
+                .single()
+
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            transfer.source.providerKey
+        )
+        assertEquals(
+            "SAFARICOM_MPESA",
+            transfer.destination.providerKey
+        )
+        assertEquals(
+            500_000L,
+            transfer.amountMinor
+        )
+    }
+
 }
