@@ -156,6 +156,40 @@ object FinancialProviderRegistry {
         )
     }
 
+    fun resolveAccountInContext(
+        rawLabel: String,
+        title: String?,
+        body: String
+    ): FinancialAccountReference {
+        val cleaned =
+            cleanAccountLabel(rawLabel)
+        val normalized =
+            normalize(cleaned)
+        val context =
+            normalize(
+                title.orEmpty() +
+                    " " +
+                    body
+            )
+
+        if (
+            normalized in
+                setOf(
+                    "LOCK SAVING",
+                    "LOCK SAVINGS"
+                ) &&
+            "M SHWARI" in context
+        ) {
+            return referenceForProviderKey(
+                "NCBA_MSHWARI_LOCK_SAVINGS"
+            ) ?: resolveAccount(
+                "M-Shwari Lock Savings"
+            )
+        }
+
+        return resolveAccount(rawLabel)
+    }
+
     fun resolveObservedAccount(
         title: String?,
         balances: List<BalanceObservationFact>

@@ -899,18 +899,22 @@ object FinancialRelationshipResolver {
             FinancialActionCandidateKind
                 .TRANSFER_FROM_ACCOUNT ->
                 resolveTransferFrom(
-                    action,
-                    ownedMessageSource,
-                    fee
+                    action = action,
+                    observedAccount =
+                        ownedMessageSource,
+                    message = message,
+                    fee = fee
                 )
             FinancialActionCandidateKind
                 .TRANSFER_TO_ACCOUNT,
             FinancialActionCandidateKind
                 .TRANSACTION_CREDITED_TO ->
                 resolveTransferTo(
-                    action,
-                    ownedMessageSource,
-                    fee
+                    action = action,
+                    observedAccount =
+                        ownedMessageSource,
+                    message = message,
+                    fee = fee
                 )
             FinancialActionCandidateKind
                 .PAYMENT_SENT_TO ->
@@ -966,13 +970,19 @@ object FinancialRelationshipResolver {
     private fun resolveTransferFrom(
         action: FinancialActionCandidate,
         observedAccount: FinancialAccountReference?,
+        message: NormalizedFinancialMessage,
         fee: FeeCandidate?
     ): ResolvedFinancialRelationship? {
-        val destination = observedAccount ?: return null
+        val destination =
+            observedAccount ?: return null
         val source =
-            FinancialProviderRegistry.resolveAccount(
-                action.partyLabel
-            )
+            FinancialProviderRegistry
+                .resolveAccountInContext(
+                    rawLabel =
+                        action.partyLabel,
+                    title = message.title,
+                    body = message.body
+                )
         if (source.entityKey == destination.entityKey) {
             return null
         }
@@ -1014,13 +1024,19 @@ object FinancialRelationshipResolver {
     private fun resolveTransferTo(
         action: FinancialActionCandidate,
         observedAccount: FinancialAccountReference?,
+        message: NormalizedFinancialMessage,
         fee: FeeCandidate?
     ): ResolvedFinancialRelationship? {
-        val source = observedAccount ?: return null
+        val source =
+            observedAccount ?: return null
         val destination =
-            FinancialProviderRegistry.resolveAccount(
-                action.partyLabel
-            )
+            FinancialProviderRegistry
+                .resolveAccountInContext(
+                    rawLabel =
+                        action.partyLabel,
+                    title = message.title,
+                    body = message.body
+                )
         if (source.entityKey == destination.entityKey) {
             return null
         }

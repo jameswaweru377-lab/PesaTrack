@@ -8,6 +8,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.BalanceObservationFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialEventKind
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import java.security.MessageDigest
@@ -483,54 +484,159 @@ class FinancialUnderstandingStore private constructor(
     fun confirmEntityOwned(
         entityKey: String
     ): String? {
-        val entity = entityByKey(entityKey) ?: return null
+        val entity =
+            entityByKey(entityKey)
+                ?: return null
         require(
             entity.natureHint !=
-                FinancialAccountNature.LIABILITY
+                FinancialAccountNature
+                    .LIABILITY
         ) {
             "Debt products cannot be added as cash or savings accounts."
         }
-        val accountType = runCatching {
-            com.kedevjimmy.pesatrack.domain.model.AccountType
-                .valueOf(entity.accountTypeHint)
-        }.getOrDefault(
-            com.kedevjimmy.pesatrack.domain.model.AccountType.OTHER
-        )
-        val account = accountStore.findOrCreate(
-            name = entity.displayName,
-            type = accountType
-        )
 
-        val values = ContentValues().apply {
-            put(
-                "ownership_hint",
-                AccountOwnershipHint.USER_OWNED.name
+        val canonical =
+            canonicalOwnedReference(
+                entity
             )
-            put("confirmed_account_id", account.id)
-            put(
-                "last_seen_epoch_ms",
-                maxOf(
-                    entity.lastSeenEpochMs,
-                    System.currentTimeMillis()
+        val accountType =
+            canonical?.accountTypeHint
+                ?: runCatching {
+                    com.kedevjimmy
+                        .pesatrack
+                        .domain.model
+                        .AccountType
+                        .valueOf(
+                            entity
+                                .accountTypeHint
+                        )
+                }.getOrDefault(
+                    com.kedevjimmy
+                        .pesatrack
+                        .domain.model
+                        .AccountType
+                        .OTHER
                 )
+        val accountName =
+            canonical?.displayName
+                ?: entity.displayName
+        val account =
+            accountStore.findOrCreate(
+                name = accountName,
+                type = accountType
             )
-        }
-        database.writableDatabase.update(
-            "financial_entities",
-            values,
-            "entity_key = ?",
-            arrayOf(entityKey)
-        )
 
-        val observationValues = ContentValues().apply {
-            put("account_id", account.id)
+        val values =
+            ContentValues().apply {
+                put(
+                    "ownership_hint",
+                    AccountOwnershipHint
+                        .USER_OWNED.name
+                )
+                put(
+                    "confirmed_account_id",
+                    account.id
+                )
+                put(
+                    "display_name",
+                    accountName
+                )
+                canonical?.providerKey
+                    ?.let {
+                        put(
+                            "provider_key",
+                            it
+                        )
+                    }
+                put(
+                    "account_type_hint",
+                    accountType.name
+                )
+                put(
+                    "last_seen_epoch_ms",
+                    maxOf(
+                        entity
+                            .lastSeenEpochMs,
+                        System
+                            .currentTimeMillis()
+                    )
+                )
+            }
+        database.writableDatabase
+            .update(
+                "financial_entities",
+                values,
+                "entity_key = ?",
+                arrayOf(entityKey)
+            )
+
+        val observationValues =
+            ContentValues().apply {
+                put(
+                    "account_id",
+                    account.id
+                )
+            }
+        database.writableDatabase
+            .update(
+                "account_balance_observations",
+                observationValues,
+                "entity_key = ? AND account_id IS NULL",
+                arrayOf(entityKey)
+            )
+
+        if (
+            canonical?.providerKey != null
+        ) {
+            val siblingValues =
+                ContentValues().apply {
+                    put(
+                        "ownership_hint",
+                        AccountOwnershipHint
+                            .USER_OWNED.name
+                    )
+                    put(
+                        "confirmed_account_id",
+                        account.id
+                    )
+                    put(
+                        "display_name",
+                        canonical.displayName
+                    )
+                    put(
+                        "account_type_hint",
+                        canonical
+                            .accountTypeHint
+                            .name
+                    )
+                }
+            database.writableDatabase
+                .update(
+                    "financial_entities",
+                    siblingValues,
+                    "provider_key = ?",
+                    arrayOf(
+                        canonical.providerKey
+                    )
+                )
+            database.writableDatabase
+                .execSQL(
+                    """
+                    UPDATE account_balance_observations
+                    SET account_id = ?
+                    WHERE entity_key IN (
+                        SELECT entity_key
+                        FROM financial_entities
+                        WHERE provider_key = ?
+                    )
+                      AND account_id IS NULL
+                    """.trimIndent(),
+                    arrayOf(
+                        account.id,
+                        canonical.providerKey
+                    )
+                )
         }
-        database.writableDatabase.update(
-            "account_balance_observations",
-            observationValues,
-            "entity_key = ? AND account_id IS NULL",
-            arrayOf(entityKey)
-        )
 
         DebtStore.get(appContext)
             .reconcilePendingChainsForFundingAccount(
@@ -542,90 +648,257 @@ class FinancialUnderstandingStore private constructor(
         return account.id
     }
 
+    private fun canonicalOwnedReference(
+        entity: DiscoveredFinancialEntity
+    ): FinancialAccountReference? {
+        entity.providerKey
+            ?.let {
+                FinancialProviderRegistry
+                    .referenceForProviderKey(
+                        it
+                    )
+            }
+            ?.let {
+                return it
+            }
+
+        FinancialProviderRegistry
+            .resolveAccount(
+                entity.displayName
+            )
+            .takeIf {
+                it.providerKey != null
+            }
+            ?.let {
+                return it
+            }
+
+        val normalized =
+            entity.displayName
+                .uppercase()
+                .replace(
+                    Regex(
+                        """[^A-Z0-9]+"""
+                    ),
+                    " "
+                )
+                .replace(
+                    Regex("""\s+"""),
+                    " "
+                )
+                .trim()
+
+        if (
+            normalized in
+                setOf(
+                    "LOCK SAVING",
+                    "LOCK SAVINGS"
+                ) &&
+            hasMshwariEvidence()
+        ) {
+            return FinancialProviderRegistry
+                .referenceForProviderKey(
+                    "NCBA_MSHWARI_LOCK_SAVINGS"
+                )
+        }
+
+        return null
+    }
+
+    private fun hasMshwariEvidence():
+        Boolean =
+        database.readableDatabase
+            .rawQuery(
+                """
+                SELECT 1
+                FROM financial_entities
+                WHERE provider_key IN (
+                    'NCBA_MSHWARI_SAVINGS',
+                    'NCBA_MSHWARI_LOCK_SAVINGS'
+                )
+                   OR UPPER(display_name)
+                        LIKE '%M-SHWARI%'
+                LIMIT 1
+                """.trimIndent(),
+                null
+            ).use {
+                it.moveToFirst()
+            }
+
     @Synchronized
     fun confirmProviderOwned(
         providerKey: String,
         accountId: String? = null
     ): String? {
-        val entity =
+        val providerReference =
+            FinancialProviderRegistry
+                .referenceForProviderKey(
+                    providerKey
+                )
+
+        val matchingEntities =
             database.readableDatabase
                 .rawQuery(
                     """
                     SELECT entity_key,
                            display_name,
-                           account_type_hint
+                           account_type_hint,
+                           provider_key
                     FROM financial_entities
-                    WHERE provider_key = ?
-                    ORDER BY last_seen_epoch_ms DESC
-                    LIMIT 1
                     """.trimIndent(),
-                    arrayOf(providerKey)
+                    null
                 ).use { cursor ->
-                    if (!cursor.moveToFirst()) {
-                        null
-                    } else {
-                        Triple(
-                            cursor.getString(0),
-                            cursor.getString(1),
-                            cursor.getString(2)
-                        )
+                    buildList {
+                        while (
+                            cursor.moveToNext()
+                        ) {
+                            val entityProvider =
+                                if (
+                                    cursor.isNull(3)
+                                ) {
+                                    null
+                                } else {
+                                    cursor.getString(3)
+                                }
+                            val displayName =
+                                cursor.getString(1)
+                            val resolvedProvider =
+                                FinancialProviderRegistry
+                                    .resolveAccount(
+                                        displayName
+                                    )
+                                    .providerKey
+
+                            if (
+                                entityProvider ==
+                                    providerKey ||
+                                resolvedProvider ==
+                                    providerKey
+                            ) {
+                                add(
+                                    Triple(
+                                        cursor.getString(0),
+                                        displayName,
+                                        cursor.getString(2)
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
-                ?: return accountId
+
+        if (
+            matchingEntities.isEmpty()
+        ) {
+            return accountId
+        }
 
         val resolvedAccountId =
             accountId
-                ?: accountStore.findOrCreate(
-                    name = entity.second,
-                    type =
-                        runCatching {
-                            com.kedevjimmy
-                                .pesatrack
-                                .domain.model
-                                .AccountType
-                                .valueOf(
-                                    entity.third
+                ?: providerReference
+                    ?.let { reference ->
+                        accountStore.findOrCreate(
+                            name =
+                                reference.displayName,
+                            type =
+                                reference
+                                    .accountTypeHint
+                        ).id
+                    }
+                ?: matchingEntities
+                    .firstOrNull()
+                    ?.let { entity ->
+                        accountStore.findOrCreate(
+                            name =
+                                entity.second,
+                            type =
+                                runCatching {
+                                    com.kedevjimmy
+                                        .pesatrack
+                                        .domain
+                                        .model
+                                        .AccountType
+                                        .valueOf(
+                                            entity.third
+                                        )
+                                }.getOrDefault(
+                                    com.kedevjimmy
+                                        .pesatrack
+                                        .domain
+                                        .model
+                                        .AccountType
+                                        .OTHER
                                 )
-                        }.getOrDefault(
-                            com.kedevjimmy
-                                .pesatrack
-                                .domain.model
-                                .AccountType
-                                .OTHER
-                        )
-                ).id
+                        ).id
+                    }
+                ?: return null
 
-        val values =
+        val canonicalName =
+            providerReference?.displayName
+        val canonicalType =
+            providerReference
+                ?.accountTypeHint
+                ?.name
+
+        matchingEntities.forEach {
+                entity ->
+            val values =
+                ContentValues().apply {
+                    put(
+                        "ownership_hint",
+                        AccountOwnershipHint
+                            .USER_OWNED.name
+                    )
+                    put(
+                        "confirmed_account_id",
+                        resolvedAccountId
+                    )
+                    put(
+                        "provider_key",
+                        providerKey
+                    )
+                    if (
+                        canonicalName != null
+                    ) {
+                        put(
+                            "display_name",
+                            canonicalName
+                        )
+                    }
+                    if (
+                        canonicalType != null
+                    ) {
+                        put(
+                            "account_type_hint",
+                            canonicalType
+                        )
+                    }
+                }
+            database.writableDatabase
+                .update(
+                    "financial_entities",
+                    values,
+                    "entity_key = ?",
+                    arrayOf(entity.first)
+                )
+
             ContentValues().apply {
                 put(
-                    "ownership_hint",
-                    AccountOwnershipHint
-                        .USER_OWNED.name
-                )
-                put(
-                    "confirmed_account_id",
+                    "account_id",
                     resolvedAccountId
                 )
+            }.also {
+                    observationValues ->
+                database.writableDatabase
+                    .update(
+                        "account_balance_observations",
+                        observationValues,
+                        "entity_key = ? AND account_id IS NULL",
+                        arrayOf(
+                            entity.first
+                        )
+                    )
             }
-        database.writableDatabase.update(
-            "financial_entities",
-            values,
-            "entity_key = ?",
-            arrayOf(entity.first)
-        )
-
-        ContentValues().apply {
-            put(
-                "account_id",
-                resolvedAccountId
-            )
-        }.also { observationValues ->
-            database.writableDatabase.update(
-                "account_balance_observations",
-                observationValues,
-                "entity_key = ? AND account_id IS NULL",
-                arrayOf(entity.first)
-            )
         }
 
         LedgerUpdateBus.notifyChanged()
