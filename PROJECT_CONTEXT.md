@@ -1701,3 +1701,132 @@ The likely candidates are:
 Permanent architecture rule remains:
 
 **automatic intelligence may propose relationships; ambiguous financial truth requires explicit evidence or an explicit user decision.**
+
+
+## Financial Intelligence V2 — real-device correctness repair — PR #85
+
+Status on 2026-09-30: **implemented and Android CI verified on code head `24f1ebe32f38ddf46215334d16e7c13d136c5b53` before this documentation commit.**
+
+This corrective slice was triggered by real-device evidence after Phases 1–5:
+
+- Equity-originated outgoing transfers were missing from the ledger;
+- an existing M-Shwari loan balance could still remain at zero;
+- lender cash disbursement can differ from the true debt obligation when fees/taxes/interest are not fully stated in the SMS.
+
+### Equity-style destination-credit wording
+
+Historical SMS import was already scanning all SMS and routing every nonblank message through the generic Financial Message Ingestion Coordinator.
+
+Therefore the missing Equity transactions were not caused by an Equity sender allowlist or by historical SMS pre-filtering.
+
+The actual parser gap was provider-neutral wording such as:
+
+`Your transaction of KES 20,000 has been credited to SAMPLE PERSON.`
+
+The generic parser previously understood:
+
+- account debited -> beneficiary;
+- sent/paid -> beneficiary;
+- credited/received <- sender;
+
+but did not treat destination-credit wording as an outgoing movement.
+
+Phase #85 adds a new generic semantic action:
+
+`TRANSACTION_CREDITED_TO`
+
+It is resolved through the same existing `resolveTransferTo` path:
+
+- destination looks like another financial account -> TRANSFER;
+- destination looks like a person/entity -> PAYMENT.
+
+No Equity-specific production branch was added.
+
+The regression fixture deliberately uses an Equity-style sender only to prove that the provider-neutral grammar works with the real wording family.
+
+### M-Shwari loan balance without a currency marker
+
+The Phase 1 relevance gate could already identify explicit debt language such as:
+
+`Your total loan balance is 1,075.00.`
+
+However, `FinancialCandidateExtractor` still returned immediately when no canonical KES currency marker was present.
+
+That meant a message could be semantically understood as financial/debt language while never producing the balance fact needed by `FinancialUnderstandingStore.recordBalance` and `DebtStore.recordObservedOutstanding`.
+
+The unconditional currency-hint early return has now been removed.
+
+Safety remains at the Phase 1 relevance gate. The generic action regexes still require their own financial structure, while the existing balance grammar can now safely extract an explicit debt balance from a relevant message even when the sender omitted `KES/Ksh/Kshs`.
+
+Regression coverage verifies:
+
+- sender `M-Shwari`;
+- body `Your total loan balance is 1,075.00.`;
+- resulting liability provider key `NCBA_MSHWARI_LOAN`;
+- observed outstanding amount KES 1,075.00.
+
+### Lender payout is not automatically loan principal
+
+A lender message such as:
+
+`Your loan of KES 464 has been disbursed to your Mobile Wallet account.`
+
+does not provide enough universal evidence to assume that KES 464 is the full principal/outstanding obligation. Some lending products can withhold fees/taxes or otherwise present cash proceeds separately from the amount ultimately owed.
+
+Generic sender-scoped loan disbursements are therefore now marked:
+
+`amountIsNetProceeds = true`
+
+unless independent principal/outstanding evidence is present through richer debt grammar.
+
+The debt ledger already respects this flag:
+
+- the drawdown/proceeds event can be retained;
+- the amount is not blindly added to outstanding debt as an estimated principal;
+- a later explicit outstanding-balance observation can establish the true liability;
+- a later repayment relationship can be reconciled without inventing a principal.
+
+Do **not** add a Branch-specific reverse formula such as payout / (1 - fee rate). Published lender fee/rate schedules can change and may not describe the exact product/offer or whether a fee is withheld from cash proceeds.
+
+### Repayment-to-lender follow-up
+
+This PR deliberately does not convert every M-Pesa payment to a lender-looking counterparty into a debt repayment.
+
+The correct provider-neutral next step is:
+
+1. observe the outgoing M-Pesa payment;
+2. compare its destination identity to an existing known liability/debt account;
+3. if the liability relationship is unique and strongly evidenced, propose/link it as a debt repayment;
+4. if ambiguous, send the relationship to the existing Activity Links review queue;
+5. never require a provider-specific Branch/Tala/KCB/M-Shwari branch.
+
+This is especially important for lenders that may not send a separate repayment-confirmation SMS.
+
+### Regression coverage
+
+`RealDeviceFinancialMessageRegressionTest` now protects:
+
+- generic bank destination-credit wording -> outgoing payment;
+- M-Shwari-style explicit loan balance without a currency marker -> liability balance;
+- generic lender disbursement -> net proceeds, with no invented outstanding balance.
+
+Code head `24f1ebe32f38ddf46215334d16e7c13d136c5b53` passed Android CI run #347:
+
+- entity-enrichment Worker validation: passed;
+- Android compilation: passed;
+- Android unit tests: passed;
+- debug APK assembly: passed.
+
+### Real-device validation after merge
+
+After installing the new rolling APK, re-import a controlled history window and verify:
+
+1. Equity direct-to-person transfer appears in Activity and reduces the Equity account movement correctly;
+2. Equity + M-Pesa shared-reference transfer still correlates to one canonical movement;
+3. current M-Shwari outstanding loan balance appears from an explicit balance SMS even if no original drawdown exists;
+4. lender cash disbursement does not invent an outstanding principal when only net proceeds are known;
+5. M-Pesa repayment to a known lender remains available for the next provider-neutral liability-payment relationship slice.
+
+Permanent architecture rule remains:
+
+**financial language defines meaning; explicit debt evidence defines liability amounts; never infer provider-specific loan arithmetic from a brand name.**

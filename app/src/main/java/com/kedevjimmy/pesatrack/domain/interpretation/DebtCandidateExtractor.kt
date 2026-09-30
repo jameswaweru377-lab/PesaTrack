@@ -327,8 +327,12 @@ object DebtCandidateExtractor {
                                 destination
                                     ?.range
                                     ?.toSpan(),
+                            // A lender's "disbursed" amount can be
+                            // net cash after fees/taxes. Without an
+                            // explicit principal/outstanding figure,
+                            // do not manufacture the debt balance.
                             amountIsNetProceeds =
-                                false,
+                                true,
                             ruleId =
                                 "debt.drawdown.sender_scoped"
                         ),

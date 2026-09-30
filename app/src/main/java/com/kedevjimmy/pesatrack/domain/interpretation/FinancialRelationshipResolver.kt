@@ -886,7 +886,9 @@ object FinancialRelationshipResolver {
                     fee
                 )
             FinancialActionCandidateKind
-                .TRANSFER_TO_ACCOUNT ->
+                .TRANSFER_TO_ACCOUNT,
+            FinancialActionCandidateKind
+                .TRANSACTION_CREDITED_TO ->
                 resolveTransferTo(
                     action,
                     ownedMessageSource,
@@ -1290,7 +1292,9 @@ object FinancialRelationshipResolver {
             FinancialActionCandidateKind
                 .TRANSFER_FROM_ACCOUNT -> 0
             FinancialActionCandidateKind
-                .TRANSFER_TO_ACCOUNT -> 1
+                .TRANSFER_TO_ACCOUNT,
+            FinancialActionCandidateKind
+                .TRANSACTION_CREDITED_TO -> 1
             FinancialActionCandidateKind
                 .PAYMENT_SENT_TO -> 2
             FinancialActionCandidateKind
