@@ -838,6 +838,10 @@ class DebtStore private constructor(context: Context) {
                    related_debt_event_id,
                    wallet_balance_after_minor,
                    funding_account_key,
+                   funding_account_id,
+                   resulting_balance_observation_id,
+                   balance_link_confidence,
+                   balance_link_reason,
                    available_credit_after_minor,
                    repayment_completion,
                    funding_link_confidence,
@@ -894,24 +898,19 @@ class DebtStore private constructor(context: Context) {
                                 } else {
                                     cursor.getString(9)
                                 },
-                            availableCreditAfterMinor =
+                            fundingAccountId =
                                 if (cursor.isNull(10)) {
                                     null
                                 } else {
-                                    cursor.getLong(10)
+                                    cursor.getString(10)
                                 },
-                            repaymentCompletion =
+                            resultingBalanceObservationId =
                                 if (cursor.isNull(11)) {
                                     null
                                 } else {
-                                    runCatching {
-                                        DebtCompletion
-                                            .valueOf(
-                                                cursor.getString(11)
-                                            )
-                                    }.getOrNull()
+                                    cursor.getLong(11)
                                 },
-                            fundingLinkConfidence =
+                            balanceLinkConfidence =
                                 if (cursor.isNull(12)) {
                                     null
                                 } else {
@@ -922,14 +921,48 @@ class DebtStore private constructor(context: Context) {
                                             )
                                     }.getOrNull()
                                 },
-                            fundingLinkReason =
+                            balanceLinkReason =
                                 if (cursor.isNull(13)) {
                                     null
                                 } else {
                                     cursor.getString(13)
                                 },
+                            availableCreditAfterMinor =
+                                if (cursor.isNull(14)) {
+                                    null
+                                } else {
+                                    cursor.getLong(14)
+                                },
+                            repaymentCompletion =
+                                if (cursor.isNull(15)) {
+                                    null
+                                } else {
+                                    runCatching {
+                                        DebtCompletion
+                                            .valueOf(
+                                                cursor.getString(15)
+                                            )
+                                    }.getOrNull()
+                                },
+                            fundingLinkConfidence =
+                                if (cursor.isNull(16)) {
+                                    null
+                                } else {
+                                    runCatching {
+                                        RepaymentChainConfidence
+                                            .valueOf(
+                                                cursor.getString(16)
+                                            )
+                                    }.getOrNull()
+                                },
+                            fundingLinkReason =
+                                if (cursor.isNull(17)) {
+                                    null
+                                } else {
+                                    cursor.getString(17)
+                                },
                             occurredAtEpochMs =
-                                cursor.getLong(14)
+                                cursor.getLong(18)
                         )
                     )
                 }
