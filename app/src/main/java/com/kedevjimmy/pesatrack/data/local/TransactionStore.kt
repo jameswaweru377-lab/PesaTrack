@@ -1076,6 +1076,76 @@ class TransactionStore private constructor(context: Context) {
         }
 
     @Synchronized
+    fun applyRuleToTransaction(
+        transactionId: Long,
+        rule: SmartRule
+    ): Boolean {
+        val stored =
+            getById(transactionId)
+                ?: return false
+        val parsed =
+            stored.toParsedTransaction()
+        val classification =
+            classify(
+                parsed,
+                rule,
+                stored.occurredAtEpochMs
+            )
+        val values =
+            ContentValues().apply {
+                put(
+                    "direction",
+                    classification.direction.name
+                )
+                put(
+                    "category",
+                    classification.category.name
+                )
+                put(
+                    "review_state",
+                    ReviewState.USER_CLASSIFIED.name
+                )
+                put("rule_id", rule.id)
+                put(
+                    "planning_month",
+                    classification.planningMonth
+                )
+                if (
+                    rule.accountId != null
+                ) {
+                    put(
+                        "account_id",
+                        rule.accountId
+                    )
+                }
+                if (
+                    rule.linkedAccountId !=
+                    null
+                ) {
+                    put(
+                        "linked_account_id",
+                        rule.linkedAccountId
+                    )
+                }
+            }
+        val changed =
+            database.writableDatabase
+                .update(
+                    "transactions",
+                    values,
+                    "id = ?",
+                    arrayOf(
+                        transactionId.toString()
+                    )
+                ) > 0
+        if (changed) {
+            LedgerUpdateBus
+                .notifyChanged()
+        }
+        return changed
+    }
+
+    @Synchronized
     fun reapplyRule(rule: SmartRule): Int {
         val db = database.writableDatabase
         var changed = 0
