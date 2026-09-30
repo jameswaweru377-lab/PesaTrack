@@ -1746,6 +1746,8 @@ fun SmartOnboardingSetupScreen(
                         manualPhone =
                             manualMpesaPhone,
                         error = phoneError,
+                        busy =
+                            mpesaConfirmationBusy,
                         onManualChanged = {
                             manualMpesaPhone = it
                             phoneError = null
@@ -1754,35 +1756,57 @@ fun SmartOnboardingSetupScreen(
                             val suggested =
                                 mpesaPhoneSuggestion
                                     .orEmpty()
-                            setupScope.launch {
-                                    if (
-                                        confirmMpesaPhone(
-                                            suggested
-                                        )
-                                    ) {
-                                        applySalaryIfConfirmed()
-                                        stage =
-                                            SmartSetupStage
-                                                .LIVE_CAPTURE
+                            if (
+                                !mpesaConfirmationBusy
+                            ) {
+                                mpesaConfirmationBusy =
+                                    true
+                                setupScope.launch {
+                                    try {
+                                        if (
+                                            confirmMpesaPhone(
+                                                suggested
+                                            )
+                                        ) {
+                                            applySalaryIfConfirmed()
+                                            stage =
+                                                SmartSetupStage
+                                                    .LIVE_CAPTURE
+                                        }
+                                    } finally {
+                                        mpesaConfirmationBusy =
+                                            false
                                     }
                                 }
+                            }
                         },
                         onChooseAnother = {
                             manualPhoneMode = true
                         },
                         onSaveManual = {
-                            setupScope.launch {
-                                    if (
-                                        confirmMpesaPhone(
-                                            manualMpesaPhone
-                                        )
-                                    ) {
-                                        applySalaryIfConfirmed()
-                                        stage =
-                                            SmartSetupStage
-                                                .LIVE_CAPTURE
+                            if (
+                                !mpesaConfirmationBusy
+                            ) {
+                                mpesaConfirmationBusy =
+                                    true
+                                setupScope.launch {
+                                    try {
+                                        if (
+                                            confirmMpesaPhone(
+                                                manualMpesaPhone
+                                            )
+                                        ) {
+                                            applySalaryIfConfirmed()
+                                            stage =
+                                                SmartSetupStage
+                                                    .LIVE_CAPTURE
+                                        }
+                                    } finally {
+                                        mpesaConfirmationBusy =
+                                            false
                                     }
                                 }
+                            }
                         },
                         onSkip = {
                             setupScope.launch {
@@ -3340,6 +3364,7 @@ private fun MpesaConfirmationPage(
     manualMode: Boolean,
     manualPhone: String,
     error: String?,
+    busy: Boolean,
     onManualChanged: (String) -> Unit,
     onConfirmSuggested: () -> Unit,
     onChooseAnother: () -> Unit,
@@ -3389,16 +3414,33 @@ private fun MpesaConfirmationPage(
     if (!manualMode) {
         Button(
             onClick = onConfirmSuggested,
+            enabled = !busy,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 54.dp),
             shape = RoundedCornerShape(18.dp)
         ) {
-            Text("Yes, this is mine")
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    "Confirming…",
+                    modifier =
+                        Modifier.padding(
+                            start = 10.dp
+                        )
+                )
+            } else {
+                Text("Yes, this is mine")
+            }
         }
 
         OutlinedButton(
             onClick = onChooseAnother,
+            enabled = !busy,
             modifier =
                 Modifier.fillMaxWidth()
         ) {
@@ -3435,15 +3477,32 @@ private fun MpesaConfirmationPage(
         }
         Button(
             onClick = onSaveManual,
+            enabled = !busy,
             modifier =
                 Modifier.fillMaxWidth()
         ) {
-            Text("Save and continue")
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    "Confirming…",
+                    modifier =
+                        Modifier.padding(
+                            start = 10.dp
+                        )
+                )
+            } else {
+                Text("Save and continue")
+            }
         }
     }
 
     TextButton(
         onClick = onSkip,
+        enabled = !busy,
         modifier = Modifier.fillMaxWidth()
     ) {
         Text("I'll do this later")
