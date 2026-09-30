@@ -349,6 +349,14 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 25) {
             createPaydaySnapshotTables(db)
+            db.execSQL(
+                """
+                UPDATE financial_entities
+                SET ownership_hint = 'UNKNOWN'
+                WHERE confirmed_account_id IS NULL
+                  AND nature_hint != 'LIABILITY'
+                """.trimIndent()
+            )
         }
 
         createIndexes(db)
