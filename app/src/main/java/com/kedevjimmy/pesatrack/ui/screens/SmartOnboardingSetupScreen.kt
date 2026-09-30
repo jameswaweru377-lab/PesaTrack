@@ -187,6 +187,15 @@ fun SmartOnboardingSetupScreen(
             FinancialMessageIngestionCoordinator
                 .get(context)
         }
+    val entityEnrichmentCache =
+        remember {
+            EntityEnrichmentCacheStore
+                .get(context)
+        }
+    val entityEnrichmentRemote =
+        remember {
+            EntityEnrichmentHttpClient()
+        }
 
     var stage by rememberSaveable {
         mutableStateOf(SmartSetupStage.IMPORT)
@@ -216,6 +225,20 @@ fun SmartOnboardingSetupScreen(
             List<DiscoveredFinancialEntity>
         >(emptyList())
     }
+    var selectedOwnershipEntityKeys by
+        rememberSaveable {
+            mutableStateOf<Set<String>>(
+                emptySet()
+            )
+        }
+    var reviewCommitInProgress by
+        rememberSaveable {
+            mutableStateOf(false)
+        }
+    var mpesaConfirmInProgress by
+        rememberSaveable {
+            mutableStateOf(false)
+        }
     var salarySuggestion by remember {
         mutableStateOf<OnboardingSalarySuggestion?>(null)
     }
