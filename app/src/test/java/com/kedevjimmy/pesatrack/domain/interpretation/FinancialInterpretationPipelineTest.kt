@@ -342,4 +342,72 @@ class FinancialInterpretationPipelineTest {
         )
     }
 
+    @Test
+    fun mshwariLockToRegularSavingsIsInternalTransferWithDestinationBalance() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "M-Shwari",
+                body =
+                    "Dear Customer, Ksh.16,000.00 has been moved from your Lock Savings Account to your M-Shwari account. New M-Shwari balance is Ksh.16,000.43.Transaction cost 0.00."
+            )
+
+        assertTrue(interpretation.recognized)
+        val transfer =
+            interpretation.events.single() as
+                TransferEventFact
+
+        assertEquals(
+            "NCBA_MSHWARI_LOCK_SAVINGS",
+            transfer.source.providerKey
+        )
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            transfer.destination.providerKey
+        )
+        assertEquals(
+            1_600_000L,
+            transfer.amountMinor
+        )
+
+        val balance =
+            interpretation.balances
+                .first {
+                    it.account.providerKey ==
+                        "NCBA_MSHWARI_SAVINGS"
+                }
+        assertEquals(
+            1_600_043L,
+            balance.balanceMinor
+        )
+    }
+
+    @Test
+    fun mshwariToMpesaExplicitDestinationIsInternalTransfer() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "M-Shwari",
+                body =
+                    "Dear Customer, Ksh 5,000.00 has been moved from your M-Shwari account to your M-PESA account. New M-Shwari balance is Ksh 0.43. Transaction cost 0.00."
+            )
+
+        assertTrue(interpretation.recognized)
+        val transfer =
+            interpretation.events.single() as
+                TransferEventFact
+
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            transfer.source.providerKey
+        )
+        assertEquals(
+            "SAFARICOM_MPESA",
+            transfer.destination.providerKey
+        )
+        assertEquals(
+            500_000L,
+            transfer.amountMinor
+        )
+    }
+
+
 }
