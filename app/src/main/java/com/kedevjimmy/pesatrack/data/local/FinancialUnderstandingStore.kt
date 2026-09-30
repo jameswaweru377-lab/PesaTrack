@@ -485,6 +485,12 @@ class FinancialUnderstandingStore private constructor(
             arrayOf(entityKey)
         )
 
+        DebtStore.get(appContext)
+            .reconcilePendingChainsForFundingAccount(
+                accountId = account.id,
+                entityKey = entityKey
+            )
+
         LedgerUpdateBus.notifyChanged()
         return account.id
     }
