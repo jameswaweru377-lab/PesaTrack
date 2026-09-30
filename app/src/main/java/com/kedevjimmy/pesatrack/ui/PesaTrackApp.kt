@@ -71,11 +71,6 @@ fun PesaTrackApp(
                     navController.navigate(
                         "smart-onboarding-setup"
                     )
-                },
-                onSkip = {
-                    navController.navigate(
-                        "smart-onboarding-setup"
-                    )
                 }
             )
         }
