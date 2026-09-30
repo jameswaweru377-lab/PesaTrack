@@ -2,6 +2,31 @@ package com.kedevjimmy.pesatrack.domain.rules
 
 import kotlin.math.abs
 
+enum class MirrorMatchConfidence {
+    NONE,
+    MEDIUM,
+    HIGH
+}
+
+enum class MirrorMatchReason {
+    NONE,
+    EXACT_SHARED_REFERENCE,
+    SAME_TRANSACTION_CODE,
+    COMPLEMENTARY_ACCOUNTS,
+    SHARED_IDENTITY,
+    COMPLEMENTARY_DIRECTION,
+    ULTRA_CLOSE_DISTINCT_SOURCE
+}
+
+data class MirrorTransactionMatch(
+    val confidence: MirrorMatchConfidence,
+    val reason: MirrorMatchReason,
+    val sharedReference: String? = null
+) {
+    val autoLink: Boolean
+        get() = confidence == MirrorMatchConfidence.HIGH
+}
+
 data class MirrorTransactionObservation(
     val amountMinor: Long,
     val occurredAtEpochMs: Long,
@@ -12,7 +37,9 @@ data class MirrorTransactionObservation(
     val type: String,
     val counterparty: String?,
     val counterpartyPhone: String?,
-    val direction: String? = null
+    val direction: String? = null,
+    val externalReferences: Set<String> = emptySet(),
+    val accountIds: Set<String> = emptySet()
 )
 
 object MirrorTransactionMatcher {
@@ -41,83 +68,240 @@ object MirrorTransactionMatcher {
     fun isMirror(
         first: MirrorTransactionObservation,
         second: MirrorTransactionObservation
-    ): Boolean {
-        if (first.amountMinor <= 0L || first.amountMinor != second.amountMinor) {
-            return false
+    ): Boolean =
+        match(first, second).autoLink
+
+    fun match(
+        first: MirrorTransactionObservation,
+        second: MirrorTransactionObservation
+    ): MirrorTransactionMatch {
+        if (
+            first.amountMinor <= 0L ||
+            first.amountMinor != second.amountMinor
+        ) {
+            return none()
         }
         if (
-            first.type.equals("REVERSAL", ignoreCase = true) ||
-            second.type.equals("REVERSAL", ignoreCase = true)
+            first.type.equals(
+                "REVERSAL",
+                ignoreCase = true
+            ) ||
+            second.type.equals(
+                "REVERSAL",
+                ignoreCase = true
+            )
         ) {
-            return false
+            return none()
         }
 
-        val receivedDelta = abs(
-            first.receivedAtEpochMs - second.receivedAtEpochMs
-        )
-        val occurredDelta = abs(
-            first.occurredAtEpochMs - second.occurredAtEpochMs
-        )
-        val bestDelta = minOf(receivedDelta, occurredDelta)
-        if (bestDelta > MAX_TIME_DELTA_MS) return false
+        val firstCode =
+            normalizeReference(first.transactionCode)
+        val secondCode =
+            normalizeReference(second.transactionCode)
 
-        val firstCode = first.transactionCode
-            ?.trim()
-            ?.uppercase()
-            ?.takeIf(String::isNotBlank)
-        val secondCode = second.transactionCode
-            ?.trim()
-            ?.uppercase()
-            ?.takeIf(String::isNotBlank)
+        val firstReferences =
+            normalizedReferences(first)
+        val secondReferences =
+            normalizedReferences(second)
+        val sharedReferences =
+            firstReferences.intersect(secondReferences)
 
-        if (firstCode != null && secondCode != null) {
-            return firstCode == secondCode
+        if (sharedReferences.isNotEmpty()) {
+            val shared = sharedReferences.first()
+            return MirrorTransactionMatch(
+                confidence = MirrorMatchConfidence.HIGH,
+                reason =
+                    if (
+                        firstCode != null &&
+                        secondCode != null &&
+                        firstCode == secondCode
+                    ) {
+                        MirrorMatchReason
+                            .SAME_TRANSACTION_CODE
+                    } else {
+                        MirrorMatchReason
+                            .EXACT_SHARED_REFERENCE
+                    },
+                sharedReference = shared
+            )
         }
 
-        val samePhone = normalizePhone(first.counterpartyPhone) != null &&
-            normalizePhone(first.counterpartyPhone) ==
+        val receivedDelta =
+            abs(
+                first.receivedAtEpochMs -
+                    second.receivedAtEpochMs
+            )
+        val occurredDelta =
+            abs(
+                first.occurredAtEpochMs -
+                    second.occurredAtEpochMs
+            )
+        val bestDelta =
+            minOf(receivedDelta, occurredDelta)
+        if (bestDelta > MAX_TIME_DELTA_MS) {
+            return none()
+        }
+
+        val distinctSources =
+            hasDistinctSources(first, second)
+        if (!distinctSources) {
+            return none()
+        }
+
+        val sharedAccount =
+            first.accountIds
+                .mapNotNull(::normalizeAccountId)
+                .toSet()
+                .intersect(
+                    second.accountIds
+                        .mapNotNull(::normalizeAccountId)
+                        .toSet()
+                )
+                .isNotEmpty()
+
+        val accountPathEvidence =
+            sharedAccount &&
+                (
+                    first.accountIds.size >= 2 ||
+                    second.accountIds.size >= 2
+                )
+
+        if (
+            accountPathEvidence &&
+            bestDelta <= MAX_TIME_DELTA_MS
+        ) {
+            return MirrorTransactionMatch(
+                confidence = MirrorMatchConfidence.HIGH,
+                reason =
+                    MirrorMatchReason
+                        .COMPLEMENTARY_ACCOUNTS
+            )
+        }
+
+        val samePhone =
+            normalizePhone(first.counterpartyPhone) != null &&
+                normalizePhone(first.counterpartyPhone) ==
                 normalizePhone(second.counterpartyPhone)
 
         val sharedIdentityToken =
             identityTokens(first.counterparty)
-                .intersect(identityTokens(second.counterparty))
+                .intersect(
+                    identityTokens(second.counterparty)
+                )
                 .isNotEmpty()
 
-        val distinctSources = hasDistinctSources(first, second)
-        val complementaryDirections =
-            areComplementaryDirections(first.direction, second.direction)
-
-        val exactlyOneHasCode = (firstCode == null) != (secondCode == null)
-        if (exactlyOneHasCode) {
-            return samePhone ||
-                sharedIdentityToken ||
-                bestDelta <= VERY_CLOSE_MS ||
-                (
-                    complementaryDirections &&
-                        bestDelta <= COMPLEMENTARY_DIRECTION_MS
-                    )
+        if (
+            (samePhone || sharedIdentityToken) &&
+            bestDelta <= MAX_TIME_DELTA_MS
+        ) {
+            return MirrorTransactionMatch(
+                confidence = MirrorMatchConfidence.HIGH,
+                reason = MirrorMatchReason.SHARED_IDENTITY
+            )
         }
 
-        return distinctSources &&
-            (
-                samePhone ||
-                    sharedIdentityToken ||
-                    bestDelta <= CODELESS_ULTRA_CLOSE_MS
-                )
+        val complementaryDirections =
+            areComplementaryDirections(
+                first.direction,
+                second.direction
+            )
+
+        if (
+            complementaryDirections &&
+            bestDelta <= COMPLEMENTARY_DIRECTION_MS
+        ) {
+            return MirrorTransactionMatch(
+                confidence = MirrorMatchConfidence.HIGH,
+                reason =
+                    MirrorMatchReason
+                        .COMPLEMENTARY_DIRECTION
+            )
+        }
+
+        val exactlyOneHasStrongReference =
+            firstReferences.isEmpty() !=
+                secondReferences.isEmpty()
+
+        if (
+            exactlyOneHasStrongReference &&
+            bestDelta <= VERY_CLOSE_MS
+        ) {
+            return MirrorTransactionMatch(
+                confidence = MirrorMatchConfidence.HIGH,
+                reason =
+                    MirrorMatchReason
+                        .ULTRA_CLOSE_DISTINCT_SOURCE
+            )
+        }
+
+        if (
+            firstReferences.isEmpty() &&
+            secondReferences.isEmpty() &&
+            bestDelta <= CODELESS_ULTRA_CLOSE_MS
+        ) {
+            return MirrorTransactionMatch(
+                confidence = MirrorMatchConfidence.MEDIUM,
+                reason =
+                    MirrorMatchReason
+                        .ULTRA_CLOSE_DISTINCT_SOURCE
+            )
+        }
+
+        return none()
     }
+
+    private fun normalizedReferences(
+        observation: MirrorTransactionObservation
+    ): Set<String> =
+        buildSet {
+            normalizeReference(
+                observation.transactionCode
+            )?.let(::add)
+            observation.externalReferences
+                .mapNotNull(::normalizeReference)
+                .forEach(::add)
+        }
+
+    private fun normalizeReference(
+        value: String?
+    ): String? =
+        value
+            ?.trim()
+            ?.uppercase()
+            ?.replace(
+                Regex("""[^A-Z0-9-]"""),
+                ""
+            )
+            ?.takeIf { it.length >= 5 }
+
+    private fun normalizeAccountId(
+        value: String?
+    ): String? =
+        value
+            ?.trim()
+            ?.lowercase()
+            ?.takeIf(String::isNotBlank)
+
+    private fun none(): MirrorTransactionMatch =
+        MirrorTransactionMatch(
+            confidence = MirrorMatchConfidence.NONE,
+            reason = MirrorMatchReason.NONE
+        )
 
     private fun hasDistinctSources(
         first: MirrorTransactionObservation,
         second: MirrorTransactionObservation
     ): Boolean {
-        val firstPackage = first.sourcePackage
-            ?.trim()
-            ?.lowercase()
-            ?.takeIf(String::isNotBlank)
-        val secondPackage = second.sourcePackage
-            ?.trim()
-            ?.lowercase()
-            ?.takeIf(String::isNotBlank)
+        val firstPackage =
+            first.sourcePackage
+                ?.trim()
+                ?.lowercase()
+                ?.takeIf(String::isNotBlank)
+        val secondPackage =
+            second.sourcePackage
+                ?.trim()
+                ?.lowercase()
+                ?.takeIf(String::isNotBlank)
 
         if (
             firstPackage != null &&
@@ -134,12 +318,22 @@ object MirrorTransactionMatcher {
         first: String?,
         second: String?
     ): Boolean =
-        setOf(first, second) == setOf("INCOME", "EXPENSE")
+        setOf(first, second) ==
+            setOf("INCOME", "EXPENSE") ||
+            setOf(first, second) ==
+            setOf("TRANSFER", "INCOME") ||
+            setOf(first, second) ==
+            setOf("TRANSFER", "EXPENSE")
 
-    private fun identityTokens(value: String?): Set<String> =
+    private fun identityTokens(
+        value: String?
+    ): Set<String> =
         value.orEmpty()
             .lowercase()
-            .replace(Regex("""[^a-z0-9]+"""), " ")
+            .replace(
+                Regex("""[^a-z0-9]+"""),
+                " "
+            )
             .split(Regex("""\s+"""))
             .asSequence()
             .map(String::trim)
@@ -147,11 +341,17 @@ object MirrorTransactionMatcher {
             .filterNot(ignoredIdentityTokens::contains)
             .toSet()
 
-    private fun normalizePhone(value: String?): String? {
-        val digits = value.orEmpty().filter(Char::isDigit)
+    private fun normalizePhone(
+        value: String?
+    ): String? {
+        val digits =
+            value.orEmpty().filter(Char::isDigit)
         return when {
-            digits.length == 12 && digits.startsWith("254") -> digits
-            digits.length == 10 && digits.startsWith("0") ->
+            digits.length == 12 &&
+                digits.startsWith("254") ->
+                digits
+            digits.length == 10 &&
+                digits.startsWith("0") ->
                 "254" + digits.drop(1)
             else -> null
         }
