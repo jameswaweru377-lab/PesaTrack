@@ -39,9 +39,13 @@ object OnboardingDiscoveryEngine {
                 .asSequence()
                 .filter {
                     it.direction == MoneyDirection.INCOME &&
-                        it.amountMinor > 0L &&
+                        it.amountMinor >=
+                            MIN_AUTO_SALARY_MINOR &&
                         !it.counterparty.isNullOrBlank() &&
-                        !it.accountId.isNullOrBlank()
+                        !it.accountId.isNullOrBlank() &&
+                        !looksLikeNonSalarySource(
+                            it.counterparty.orEmpty()
+                        )
                 }
                 .groupBy {
                     normalizeLabel(it.counterparty.orEmpty())
@@ -72,6 +76,40 @@ object OnboardingDiscoveryEngine {
                     val accountId =
                         latest.accountId
                             ?: return@mapNotNull null
+
+                    val monthlyCounts =
+                        group.groupingBy {
+                            monthKey(
+                                it.occurredAtEpochMs,
+                                timeZone
+                            )
+                        }.eachCount()
+                    if (
+                        monthlyCounts.values.any {
+                            it > MAX_MONTHLY_OCCURRENCES
+                        }
+                    ) {
+                        return@mapNotNull null
+                    }
+
+                    val amounts =
+                        group.map {
+                            it.amountMinor
+                        }
+                    val minAmount =
+                        amounts.minOrNull()
+                            ?: return@mapNotNull null
+                    val maxAmount =
+                        amounts.maxOrNull()
+                            ?: return@mapNotNull null
+                    if (
+                        maxAmount > 0L &&
+                        minAmount.toDouble() /
+                            maxAmount.toDouble() <
+                            MIN_AMOUNT_STABILITY_RATIO
+                    ) {
+                        return@mapNotNull null
+                    }
 
                     OnboardingSalarySuggestion(
                         label =
@@ -135,6 +173,23 @@ object OnboardingDiscoveryEngine {
             .takeIf { strongest.value >= 2 }
     }
 
+    private fun looksLikeNonSalarySource(
+        value: String
+    ): Boolean {
+        val normalized =
+            normalizeLabel(value)
+        return NON_SALARY_SOURCE_WORDS.any {
+            word ->
+            Regex(
+                """(?:^|\s)""" +
+                    Regex.escape(word) +
+                    """(?:\s|$)"""
+            ).containsMatchIn(
+                normalized
+            )
+        }
+    }
+
     private fun normalizeLabel(
         value: String
     ): String =
@@ -148,6 +203,30 @@ object OnboardingDiscoveryEngine {
                 " "
             )
             .trim()
+
+    private val NON_SALARY_SOURCE_WORDS =
+        setOf(
+            "REFUND",
+            "CASHBACK",
+            "REWARD",
+            "REVERSAL",
+            "SETTLEMENT",
+            "PAYOUT",
+            "PAYMENT",
+            "PAYMENTS",
+            "MERCHANT",
+            "TRANSPORT",
+            "TAXI",
+            "RIDESHARE",
+            "RIDE"
+        )
+
+    private const val MIN_AUTO_SALARY_MINOR =
+        1_000_00L
+    private const val MAX_MONTHLY_OCCURRENCES =
+        2
+    private const val MIN_AMOUNT_STABILITY_RATIO =
+        0.45
 
     private fun monthKey(
         epochMs: Long,
