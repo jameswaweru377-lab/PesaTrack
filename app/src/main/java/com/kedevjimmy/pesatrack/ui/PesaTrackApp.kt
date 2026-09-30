@@ -16,15 +16,14 @@ import com.kedevjimmy.pesatrack.ui.screens.GoalDetailScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
-import com.kedevjimmy.pesatrack.ui.screens.InitialMoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoreScreen
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
-import com.kedevjimmy.pesatrack.ui.screens.PermissionSetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
 import com.kedevjimmy.pesatrack.ui.screens.ProfileScreen
 import com.kedevjimmy.pesatrack.ui.screens.SettingsScreen
+import com.kedevjimmy.pesatrack.ui.screens.SmartOnboardingSetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.TransactionDetailScreen
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 
@@ -51,17 +50,19 @@ fun PesaTrackApp(
 
     fun finishSetup() {
         onSetupComplete()
+        onPermissionSetupComplete()
         navController.navigate(MainTab.HOME.route) {
             popUpTo("onboarding") { inclusive = true }
             launchSingleTop = true
         }
     }
 
-    val startDestination = when {
-        !setupComplete -> "onboarding"
-        !permissionSetupComplete -> "permission-setup-existing"
-        else -> MainTab.HOME.route
-    }
+    val startDestination =
+        if (!setupComplete) {
+            "onboarding"
+        } else {
+            MainTab.HOME.route
+        }
 
     NavHost(
         navController = navController,
@@ -71,72 +72,21 @@ fun PesaTrackApp(
             OnboardingScreen(
                 onContinue = {
                     navController.navigate(
-                        if (permissionSetupComplete) {
-                            "money-setup-initial"
-                        } else {
-                            "permission-setup"
-                        }
+                        "smart-onboarding-setup"
                     )
                 },
                 onSkip = {
                     navController.navigate(
-                        if (permissionSetupComplete) {
-                            "money-setup-initial"
-                        } else {
-                            "permission-setup"
-                        }
+                        "smart-onboarding-setup"
                     )
                 }
             )
         }
 
-        composable("permission-setup") {
-            PermissionSetupScreen(
-                onContinue = {
-                    onPermissionSetupComplete()
-                    navController.navigate("money-setup-initial") {
-                        popUpTo("permission-setup") {
-                            inclusive = true
-                        }
-                    }
-                },
-                onSkip = {
-                    onPermissionSetupComplete()
-                    navController.navigate("money-setup-initial") {
-                        popUpTo("permission-setup") {
-                            inclusive = true
-                        }
-                    }
-                }
-            )
-        }
-
-        composable("permission-setup-existing") {
-            PermissionSetupScreen(
-                onContinue = {
-                    onPermissionSetupComplete()
-                    navController.navigate(MainTab.HOME.route) {
-                        popUpTo("permission-setup-existing") {
-                            inclusive = true
-                        }
-                        launchSingleTop = true
-                    }
-                },
-                onSkip = {
-                    onPermissionSetupComplete()
-                    navController.navigate(MainTab.HOME.route) {
-                        popUpTo("permission-setup-existing") {
-                            inclusive = true
-                        }
-                        launchSingleTop = true
-                    }
-                }
-            )
-        }
-
-        composable("money-setup-initial") {
-            InitialMoneySetupScreen(
-                scaffoldPadding = PaddingValues(),
+        composable("smart-onboarding-setup") {
+            SmartOnboardingSetupScreen(
+                scaffoldPadding =
+                    PaddingValues(),
                 onDone = ::finishSetup
             )
         }
