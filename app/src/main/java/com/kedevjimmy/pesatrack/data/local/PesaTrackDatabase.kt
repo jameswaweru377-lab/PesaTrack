@@ -24,6 +24,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createLiabilityPaymentDecisionsTable(db)
         createInvestmentTables(db)
         createEntityEnrichmentCacheTable(db)
+        createPaydaySnapshotTables(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -344,6 +345,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 "settlement_reason",
                 "TEXT"
             )
+        }
+
+        if (oldVersion < 25) {
+            createPaydaySnapshotTables(db)
         }
 
         createIndexes(db)
@@ -840,6 +845,45 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createPaydaySnapshotTables(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS payday_snapshots (
+                id TEXT PRIMARY KEY,
+                salary_transaction_id INTEGER NOT NULL UNIQUE,
+                salary_epoch_ms INTEGER NOT NULL,
+                salary_account_id TEXT,
+                salary_amount_minor INTEGER NOT NULL,
+                liquid_carryover_minor INTEGER NOT NULL DEFAULT 0,
+                protected_savings_minor INTEGER NOT NULL DEFAULT 0,
+                debt_outstanding_minor INTEGER NOT NULL DEFAULT 0,
+                unknown_liquid_account_count INTEGER NOT NULL DEFAULT 0,
+                known_liquid_account_count INTEGER NOT NULL DEFAULT 0,
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS payday_snapshot_accounts (
+                snapshot_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                account_name TEXT NOT NULL,
+                account_type TEXT NOT NULL,
+                balance_minor INTEGER,
+                balance_quality TEXT NOT NULL,
+                reference_epoch_ms INTEGER,
+                spendability TEXT NOT NULL,
+                PRIMARY KEY(snapshot_id, account_id)
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun createEntityEnrichmentCacheTable(
         db: SQLiteDatabase
     ) {
@@ -963,6 +1007,12 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_investment_event_reference_value ON investment_event_references(reference_value)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_payday_snapshots_salary_time ON payday_snapshots(salary_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_payday_snapshot_accounts_snapshot ON payday_snapshot_accounts(snapshot_id)"
+        )
     }
 
     private fun createTriggers(db: SQLiteDatabase) {
@@ -983,6 +1033,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 24
+        private const val DATABASE_VERSION = 25
     }
 }
