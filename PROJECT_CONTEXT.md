@@ -2018,3 +2018,214 @@ Use a controlled history window and verify:
 Permanent rule remains:
 
 **financial language establishes the event; existing liability identity and explicit evidence establish debt relationships; uncertain debt relationships require the user.**
+
+
+## Financial Intelligence V2 — investment settlement foundation — PR #87
+
+Status on 2026-09-30: **implemented and Android CI verified on code head `d796d593ec115ac92c1ffc0c3209c706882d2c69` before this documentation commit.**
+
+This slice extends the provider-agnostic semantic engine into investment settlement without turning broker names into parser logic.
+
+### Problem being solved
+
+Phase 2 could already distinguish:
+
+- `INVESTMENT_ORDER`;
+- `INVESTMENT_EXECUTED`.
+
+However, those facts were diagnostic-only. PesaTrack did not yet persist an order/execution lifecycle, track observed position changes, or connect an executed trade to the wallet/bank transaction that funded it or received its proceeds.
+
+The target language is generic financial language such as:
+
+- `Your buy order of 10 SAMPLE shares ... has been submitted.`
+- `You have successfully bought 3 EQA shares valued at KES 3,021 via code UFT12345.`
+- `You successfully sold 2.5 ACME shares valued at KES 1,250 via code ABC12345.`
+
+Names/symbols in tests are fixtures only. Production logic does not branch on Zidi, a broker, EQA, ACME, or any provider/security name.
+
+### Semantic investment facts
+
+`FinancialSemanticAnalyzer` now extracts an optional structured investment fact:
+
+- action: BUY or SELL;
+- stage: ORDER_SUBMITTED or EXECUTED;
+- quantity in fixed-point microunits;
+- instrument label;
+- normalized instrument key;
+- investment value when stated;
+- source message spans for quantity/instrument.
+
+Fractional quantities are supported without floating-point storage. One whole share/unit equals 1,000,000 quantity microunits.
+
+### Order submitted is not execution
+
+A submitted order is persisted as pending investment evidence only.
+
+It does **not**:
+
+- modify observed position quantity;
+- create a cash transaction;
+- reclassify an existing payment;
+- imply that shares were actually bought or sold.
+
+Only an explicit executed-trade semantic fact can create an observed position delta.
+
+### Local investment event ledger
+
+Schema version is now **23**.
+
+New local tables:
+
+- `investment_events`;
+- `investment_event_references`;
+- `investment_positions`.
+
+`investment_events` stores:
+
+- ORDER_SUBMITTED, BUY_EXECUTED or SELL_EXECUTED;
+- instrument identity;
+- quantity;
+- stated investment value;
+- linked canonical money transaction when proven;
+- source/time metadata.
+
+`investment_event_references` preserves all normalized references observed for an investment event.
+
+Raw SMS text is not stored in these tables.
+
+### Duplicate execution protection
+
+Executed trades can be reported by more than one observation or by slightly different message text.
+
+To avoid double-counting a position:
+
+- event identity prefers shared external references plus event type/instrument/quantity/value;
+- before inserting a new event, PesaTrack searches existing investment events for the same semantic facts sharing any reference;
+- only one unique match is reused;
+- only a newly inserted executed event changes the observed position.
+
+If identity is ambiguous, the store does not collapse multiple events into one automatically.
+
+### Observed position quality
+
+`investment_positions` tracks **net observed quantity change from imported execution events**.
+
+This is intentionally not labelled as an authoritative brokerage holding.
+
+For example:
+
+- observed BUY 3 -> net observed +3;
+- later observed SELL 1 -> net observed +2.
+
+If imported history begins with a sale larger than the buys PesaTrack has observed, the position is marked `INCOMPLETE_HISTORY` rather than pretending the negative observed delta is the user's true holding.
+
+A future broker statement/position baseline can establish authoritative holdings separately.
+
+### Exact-reference settlement
+
+An executed trade is linked to a wallet/bank transaction only when strong deterministic evidence exists.
+
+Automatic settlement requires:
+
+1. an exact external reference shared by the investment execution and exactly one canonical transaction;
+2. stated execution value equals the canonical transaction amount;
+3. BUY corresponds to an outgoing/expense movement;
+4. SELL corresponds to an incoming movement;
+5. the transaction is not excluded;
+6. the transaction is not user-classified;
+7. no Smart Rule protects it;
+8. it is not already part of another relationship.
+
+No amount/time-only investment matching is used in this slice.
+
+### Accounting treatment of a strongly linked trade
+
+When the settlement link is proven:
+
+- category becomes `INVESTMENT`;
+- direction becomes `TRANSFER`;
+- relation type becomes `INVESTMENT_BUY` or `INVESTMENT_SELL`;
+- evidence records that exact shared-reference settlement established the relationship.
+
+This prevents:
+
+- a purchase of shares being counted as ordinary consumption spending;
+- sale proceeds being counted as ordinary income.
+
+The original money movement remains the canonical transaction.
+
+### Out-of-order ingestion
+
+Settlement works in either order.
+
+If the investment execution arrives first:
+
+- the investment event is persisted;
+- later arrival/re-import of a transaction carrying the same reference can reconcile it.
+
+If the money transaction arrives first:
+
+- its existing external-reference index is available;
+- the later executed investment event can link immediately.
+
+A single cash transaction is not allowed to auto-settle multiple investment executions.
+
+### Semantic-only ingestion
+
+Investment order/execution messages can now be persisted even when the ordinary transaction interpreter intentionally produces no ledger movement.
+
+This preserves the distinction:
+
+- semantic understanding means PesaTrack understands the investment event;
+- ledger recognition means PesaTrack has an actual cash/accounting movement.
+
+The semantic investment event does not invent missing money movement.
+
+### Regression coverage
+
+The semantic regression suite now protects:
+
+- executed BUY extraction;
+- submitted BUY order extraction without pretending it executed;
+- executed SELL extraction;
+- fractional quantity conversion;
+- instrument normalization;
+- investment-value extraction;
+- existing order/execution semantic roles.
+
+Code head `d796d593ec115ac92c1ffc0c3209c706882d2c69` passed Android CI run #354:
+
+- entity-enrichment Worker validation: passed;
+- Android compilation: passed;
+- Android unit tests: passed;
+- debug APK assembly: passed.
+
+### Deliberately outside this slice
+
+This phase does not yet add:
+
+- an authoritative brokerage position/balance import;
+- market-price valuation or unrealized P/L;
+- corporate actions such as splits/rights issues;
+- dividend settlement into holdings;
+- manual review UI for ambiguous investment settlement;
+- broker API synchronization;
+- provider-specific fee/tax arithmetic.
+
+Do not infer a complete portfolio from partial SMS history.
+
+### Recommended real-device validation
+
+After the rolling APK contains this merge, validate with a controlled history window:
+
+1. submitted investment order appears as understood/pending and does not change observed quantity;
+2. executed BUY creates one investment execution and one positive observed quantity delta;
+3. re-importing the same execution does not add quantity twice;
+4. executed trade + wallet transaction sharing the same reference/value produces one canonical investment transfer;
+5. executed SELL with a matching incoming movement is not treated as normal income;
+6. execution without a shared transaction reference remains an investment event without inventing a cash link;
+7. unrelated same-amount transactions do not settle the trade.
+
+Permanent architecture rule remains:
+
+**financial language establishes investment intent and execution; exact references establish settlement; partial message history is not an authoritative brokerage position.**
