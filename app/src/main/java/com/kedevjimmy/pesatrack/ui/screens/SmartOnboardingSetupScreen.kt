@@ -1290,6 +1290,28 @@ fun SmartOnboardingSetupScreen(
                                         .reconcilePendingTransfers(
                                             entity.entityKey
                                         )
+
+                                    if (
+                                        smsGranted &&
+                                        importMonths >
+                                            0
+                                    ) {
+                                        HistoryImportWindow
+                                            .importStartEpochMs(
+                                                importMonths
+                                            )
+                                            ?.let {
+                                                startEpochMs ->
+                                                HistoricalSmsImporter(
+                                                    context
+                                                        .applicationContext
+                                                ).importSince(
+                                                    startEpochMs
+                                                )
+                                            }
+                                    }
+                                    payCycleStore
+                                        .rebuild()
                                 }
                                 availableAccounts =
                                     accountStore
