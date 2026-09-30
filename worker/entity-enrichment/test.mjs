@@ -1,10 +1,28 @@
-import worker from "./src/index.js";
+import worker, { mapBusinessRole } from "./src/index.js";
 
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
 }
+
+assert(
+  mapBusinessRole(
+    "Financial Services",
+    "Example Payments",
+    "example.test"
+  ) === "PAYMENT_PROCESSOR",
+  "financial/payment providers should be identified as payment processors"
+);
+
+assert(
+  mapBusinessRole(
+    "Transportation",
+    "Example Ride",
+    "example.test"
+  ) === "TRANSPORT",
+  "transport providers should be identified generically"
+);
 
 const health = await worker.fetch(
   new Request(
