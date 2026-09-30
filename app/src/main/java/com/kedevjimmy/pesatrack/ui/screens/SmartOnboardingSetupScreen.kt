@@ -1201,6 +1201,210 @@ fun SmartOnboardingSetupScreen(
         return true
     }
 
+    suspend fun applySelectedAccountOwnership() {
+        if (reviewSaving) {
+            return
+        }
+
+        reviewSaving = true
+        try {
+            val selectedKeys =
+                selectedOwnershipEntityKeys
+            withContext(Dispatchers.IO) {
+                selectedKeys.forEach {
+                        entityKey ->
+                    financialUnderstandingStore
+                        .confirmEntityOwned(
+                            entityKey
+                        )
+                    financialCoordinator
+                        .reconcilePendingTransfers(
+                            entityKey
+                        )
+                }
+
+                if (
+                    selectedKeys.isNotEmpty() &&
+                    smsGranted &&
+                    importMonths > 0
+                ) {
+                    HistoryImportWindow
+                        .importStartEpochMs(
+                            importMonths
+                        )
+                        ?.let {
+                            startEpochMs ->
+                            HistoricalSmsImporter(
+                                context
+                                    .applicationContext
+                            ).importSince(
+                                startEpochMs
+                            )
+                        }
+                }
+
+                if (
+                    selectedKeys.isNotEmpty()
+                ) {
+                    payCycleStore.rebuild()
+                }
+            }
+
+            availableAccounts =
+                ownedSetupAccounts(
+                    accountStore =
+                        accountStore,
+                    financialStore =
+                        financialUnderstandingStore
+                )
+            pendingOwnershipEntities =
+                onboardingOwnershipCandidates(
+                    financialUnderstandingStore
+                        .pendingEntities()
+                )
+            selectedOwnershipEntityKeys =
+                emptySet()
+
+            if (
+                availableAccounts.none {
+                    it.id ==
+                        manualSalaryAccountId
+                }
+            ) {
+                manualSalaryAccountId =
+                    availableAccounts
+                        .firstOrNull {
+                            it.type ==
+                                AccountType.BANK
+                        }
+                        ?.id
+                        ?: availableAccounts
+                            .firstOrNull {
+                                it.id ==
+                                    AccountStore
+                                        .DEFAULT_MPESA_ID
+                            }
+                            ?.id
+                        ?: availableAccounts
+                            .firstOrNull()
+                            ?.id
+                            .orEmpty()
+            }
+
+            val cutoff =
+                HistoryImportWindow
+                    .importStartEpochMs(
+                        importMonths
+                            .coerceAtLeast(1)
+                    )
+                    ?: (
+                        System.currentTimeMillis() -
+                            31L * ONE_DAY_MS
+                        )
+            val refreshedSalary =
+                withContext(
+                    Dispatchers.IO
+                ) {
+                    val observations =
+                        transactionStore
+                            .recent(500)
+                            .filter {
+                                it.receivedAtEpochMs >=
+                                    cutoff
+                            }
+                            .map { item ->
+                                OnboardingTransactionObservation(
+                                    counterparty =
+                                        item.counterparty,
+                                    counterpartyPhone =
+                                        item.counterpartyPhone,
+                                    amountMinor =
+                                        item.amountMinor,
+                                    occurredAtEpochMs =
+                                        item.occurredAtEpochMs,
+                                    direction =
+                                        runCatching {
+                                            MoneyDirection
+                                                .valueOf(
+                                                    item.direction
+                                                )
+                                        }.getOrDefault(
+                                            MoneyDirection
+                                                .NEUTRAL
+                                        ),
+                                    accountId =
+                                        item.accountId
+                                )
+                            }
+
+                    OnboardingDiscoveryEngine
+                        .salarySuggestion(
+                            observations
+                        )
+                }
+
+            salarySuggestion =
+                refreshedSalary
+            salaryAccepted =
+                refreshedSalary != null
+            if (
+                refreshedSalary != null
+            ) {
+                manualSalaryAccountId =
+                    refreshedSalary.accountId
+            }
+        } finally {
+            reviewSaving = false
+        }
+    }
+
+    BackHandler(
+        enabled =
+            stage !=
+                SmartSetupStage.IMPORT &&
+                !reviewSaving &&
+                !mpesaConfirmationBusy
+    ) {
+        stage =
+            when (stage) {
+                SmartSetupStage
+                    .SMS_PERMISSION,
+                SmartSetupStage
+                    .ANALYZE,
+                SmartSetupStage
+                    .REVIEW ->
+                    SmartSetupStage.IMPORT
+
+                SmartSetupStage
+                    .SALARY_MANUAL ->
+                    SmartSetupStage.REVIEW
+
+                SmartSetupStage
+                    .MPESA_CONFIRM ->
+                    SmartSetupStage.REVIEW
+
+                SmartSetupStage
+                    .LIVE_CAPTURE ->
+                    if (
+                        mpesaPhoneSuggestion !=
+                        null
+                    ) {
+                        SmartSetupStage
+                            .MPESA_CONFIRM
+                    } else {
+                        SmartSetupStage.REVIEW
+                    }
+
+                SmartSetupStage
+                    .COMPLETE ->
+                    SmartSetupStage
+                        .LIVE_CAPTURE
+
+                SmartSetupStage.IMPORT ->
+                    SmartSetupStage.IMPORT
+            }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
