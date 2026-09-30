@@ -3852,70 +3852,26 @@ private fun onboardingOwnershipCandidates(
         }
 
 private fun defaultSmartSalaryDrafts(
-    months: Int,
-    nowEpochMs: Long =
-        System.currentTimeMillis()
+    months: Int
 ): List<SmartSalaryDraft> {
     val count =
         months.coerceIn(1, 3)
-    val calendar =
-        Calendar.getInstance()
-            .apply {
-                timeInMillis =
-                    nowEpochMs
-                set(
-                    Calendar.DAY_OF_MONTH,
-                    1
-                )
-                set(
-                    Calendar.HOUR_OF_DAY,
-                    12
-                )
-                set(
-                    Calendar.MINUTE,
-                    0
-                )
-                set(
-                    Calendar.SECOND,
-                    0
-                )
-                set(
-                    Calendar.MILLISECOND,
-                    0
-                )
-            }
-    val keyFormatter =
-        SimpleDateFormat(
-            "yyyy-MM",
-            Locale.ROOT
-        )
-    val labelFormatter =
-        SimpleDateFormat(
-            "MMMM yyyy",
-            Locale.getDefault()
-        )
 
     return List(count) {
             index ->
-        val month =
-            calendar.clone()
-                as Calendar
-        month.add(
-            Calendar.MONTH,
-            -index
-        )
         SmartSalaryDraft(
             monthKey =
-                keyFormatter.format(
-                    month.time
-                ),
+                "salary-slot-" + index,
             monthLabel =
-                if (count == 1) {
-                    "Most recent salary"
-                } else {
-                    labelFormatter.format(
-                        month.time
-                    )
+                when (index) {
+                    0 ->
+                        "Most recent salary"
+                    1 ->
+                        "Previous salary"
+                    else ->
+                        (index + 1)
+                            .toString() +
+                            " salaries ago"
                 }
         )
     }
