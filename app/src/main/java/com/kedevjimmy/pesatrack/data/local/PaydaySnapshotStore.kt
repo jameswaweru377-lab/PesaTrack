@@ -173,6 +173,20 @@ class PaydaySnapshotStore private constructor(
             cycleStartTransactionId
         )
 
+    @Synchronized
+    fun currentAccountSnapshot(
+        account: MoneyAccount,
+        nowEpochMs: Long =
+            System.currentTimeMillis()
+    ): PaydayAccountSnapshot =
+        accountSnapshotAt(
+            db =
+                database.readableDatabase,
+            account = account,
+            snapshotEpochMs =
+                nowEpochMs
+        )
+
     private fun rebuildSnapshot(
         db: SQLiteDatabase,
         anchor: PaydaySalaryAnchor

@@ -63,6 +63,7 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
 import com.kedevjimmy.pesatrack.ui.components.BudgetProgressCard
@@ -712,7 +713,21 @@ fun HomeScreen(
         }
 
         item {
+            val mpesaAccount =
+                trackedAccounts
+                    .firstOrNull {
+                        it.id ==
+                            AccountStore
+                                .DEFAULT_MPESA_ID
+                    }
             WalletsAndBalancesCard(
+                mpesaLabel =
+                    mpesaAccount
+                        ?.let {
+                            AccountIdentityPresentation
+                                .title(it)
+                        }
+                        ?: "M-Pesa",
                 mpesaBalanceMinor =
                     ledgerSnapshot.latestBalanceMinor,
                 mpesaObservedAtEpochMs =
@@ -1001,6 +1016,7 @@ private fun DebtOverviewCard(
 
 @Composable
 private fun WalletsAndBalancesCard(
+    mpesaLabel: String,
     mpesaBalanceMinor: Long?,
     mpesaObservedAtEpochMs: Long?,
     trackedAccountCount: Int,
@@ -1037,7 +1053,7 @@ private fun WalletsAndBalancesCard(
 
             WalletBalanceRow(
                 icon = Icons.Rounded.AccountBalanceWallet,
-                label = "M-PESA balance",
+                label = mpesaLabel,
                 supportingText =
                     if (
                         mpesaObservedAtEpochMs != null
