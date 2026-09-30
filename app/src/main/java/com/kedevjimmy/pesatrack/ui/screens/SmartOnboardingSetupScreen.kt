@@ -3478,6 +3478,7 @@ private fun MpesaConfirmationPage(
     manualMode: Boolean,
     manualPhone: String,
     error: String?,
+    busy: Boolean,
     onManualChanged: (String) -> Unit,
     onConfirmSuggested: () -> Unit,
     onChooseAnother: () -> Unit,
@@ -3527,16 +3528,33 @@ private fun MpesaConfirmationPage(
     if (!manualMode) {
         Button(
             onClick = onConfirmSuggested,
+            enabled = !busy,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 54.dp),
             shape = RoundedCornerShape(18.dp)
         ) {
-            Text("Yes, this is mine")
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    "Confirming…",
+                    modifier =
+                        Modifier.padding(
+                            start = 8.dp
+                        )
+                )
+            } else {
+                Text("Yes, this is mine")
+            }
         }
 
         OutlinedButton(
             onClick = onChooseAnother,
+            enabled = !busy,
             modifier =
                 Modifier.fillMaxWidth()
         ) {
@@ -3573,6 +3591,7 @@ private fun MpesaConfirmationPage(
         }
         Button(
             onClick = onSaveManual,
+            enabled = !busy,
             modifier =
                 Modifier.fillMaxWidth()
         ) {
@@ -3582,6 +3601,7 @@ private fun MpesaConfirmationPage(
 
     TextButton(
         onClick = onSkip,
+        enabled = !busy,
         modifier = Modifier.fillMaxWidth()
     ) {
         Text("I'll do this later")
