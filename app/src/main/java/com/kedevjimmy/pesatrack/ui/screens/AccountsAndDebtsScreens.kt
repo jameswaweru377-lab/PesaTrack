@@ -50,11 +50,18 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private data class AccountComponentPresentation(
+    val label: String,
+    val balanceMinor: Long?,
+    val observedAtEpochMs: Long?
+)
+
 private data class AccountBalancePresentation(
     val group: TrackedAccountGroup,
     val balanceMinor: Long?,
     val observedAtEpochMs: Long?,
-    val observedSubaccounts: Int
+    val components:
+        List<AccountComponentPresentation>
 )
 
 @Composable
@@ -513,14 +520,14 @@ private fun AccountBalanceCard(
                             }
                         )
                         if (
-                            group.accounts.size >
-                            1
+                            group.displayName ==
+                                "M-Shwari" &&
+                            presentation
+                                .components
+                                .size > 1
                         ) {
                             append(
-                                " • includes " +
-                                    group.accounts
-                                        .size +
-                                    " linked savings balances"
+                                " • regular + lock savings"
                             )
                         }
                     },
@@ -566,6 +573,57 @@ private fun AccountBalanceCard(
                 fontWeight =
                     FontWeight.Bold
             )
+        }
+
+        if (
+            group.displayName ==
+                "M-Shwari" &&
+            presentation.components.size > 1
+        ) {
+            Column(
+                modifier =
+                    Modifier.padding(
+                        start = 71.dp,
+                        end = 15.dp,
+                        bottom = 14.dp
+                    ),
+                verticalArrangement =
+                    Arrangement.spacedBy(6.dp)
+            ) {
+                presentation.components
+                    .forEach { component ->
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Text(
+                                component.label,
+                                modifier =
+                                    Modifier.weight(1f),
+                                style =
+                                    MaterialTheme.typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .onSurfaceVariant
+                            )
+                            Text(
+                                component.balanceMinor
+                                    ?.let(
+                                        ::formatDetailMoney
+                                    )
+                                    ?: "—",
+                                style =
+                                    MaterialTheme.typography
+                                        .bodySmall,
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                        }
+                    }
+            }
         }
     }
 }
@@ -697,6 +755,60 @@ private fun accountBalancePresentation(
         AccountStore.DEFAULT_MPESA_ID in
             group.accountIds
 
+    val latestById =
+        latestByAccount
+            .associateBy {
+                it.accountId
+            }
+
+    val components =
+        group.accounts.map { account ->
+            val observed =
+                latestById[
+                    account.id
+                ]
+            AccountComponentPresentation(
+                label =
+                    mshwariComponentLabel(
+                        account.name
+                    ),
+                balanceMinor =
+                    observed?.balanceMinor
+                        ?: if (
+                            account.id ==
+                            AccountStore
+                                .DEFAULT_MPESA_ID
+                        ) {
+                            fallbackMpesaBalanceMinor
+                        } else {
+                            account.openingBalanceMinor
+                        },
+                observedAtEpochMs =
+                    observed
+                        ?.observedAtEpochMs
+                        ?: if (
+                            account.id ==
+                            AccountStore
+                                .DEFAULT_MPESA_ID
+                        ) {
+                            fallbackMpesaObservedAt
+                        } else {
+                            account
+                                .openingBalanceAsOfEpochMs
+                        }
+            )
+        }
+            .distinctBy {
+                it.label
+            }
+            .sortedBy {
+                when (it.label) {
+                    "Regular M-Shwari" -> 0
+                    "Lock Savings" -> 1
+                    else -> 2
+                }
+            }
+
     return AccountBalancePresentation(
         group = group,
         balanceMinor =
@@ -727,9 +839,36 @@ private fun accountBalancePresentation(
                         }
                         .maxOrNull()
                 },
-        observedSubaccounts =
-            latestByAccount.size
+        components = components
     )
+}
+
+private fun mshwariComponentLabel(
+    raw: String
+): String {
+    val normalized =
+        raw.uppercase()
+            .replace(
+                Regex("""[^A-Z0-9]+"""),
+                " "
+            )
+            .replace(
+                Regex("""\s+"""),
+                " "
+            )
+            .trim()
+
+    return when {
+        "LOCK SAVING" in
+            normalized ->
+            "Lock Savings"
+
+        "M SHWARI" in
+            normalized ->
+            "Regular M-Shwari"
+
+        else -> raw
+    }
 }
 
 private fun formatDetailMoney(
