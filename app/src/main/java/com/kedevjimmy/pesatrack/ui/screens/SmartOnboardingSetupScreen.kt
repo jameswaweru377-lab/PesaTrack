@@ -2371,12 +2371,15 @@ private fun ReviewDiscoveryPage(
     sources: List<DetectedSetupSource>,
     ownershipCandidates:
         List<DiscoveredFinancialEntity>,
+    selectedOwnershipEntityKeys:
+        Set<String>,
     salarySuggestion:
         OnboardingSalarySuggestion?,
     salaryAccepted: Boolean,
     importResult: HistoricalImportResult?,
+    applying: Boolean,
     onSalaryAccepted: (Boolean) -> Unit,
-    onConfirmAccount:
+    onToggleAccount:
         (DiscoveredFinancialEntity) -> Unit,
     onManualSalary: () -> Unit,
     onContinue: () -> Unit
@@ -2455,8 +2458,12 @@ private fun ReviewDiscoveryPage(
                 .forEach { entity ->
                     OwnershipCandidateCard(
                         entity = entity,
-                        onConfirm = {
-                            onConfirmAccount(
+                        selected =
+                            entity.entityKey in
+                                selectedOwnershipEntityKeys,
+                        enabled = !applying,
+                        onToggle = {
+                            onToggleAccount(
                                 entity
                             )
                         }
@@ -2619,6 +2626,7 @@ private fun ReviewDiscoveryPage(
         ) {
             OutlinedButton(
                 onClick = onManualSalary,
+                enabled = !applying,
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -2632,21 +2640,37 @@ private fun ReviewDiscoveryPage(
 
         Button(
             onClick = onContinue,
+            enabled = !applying,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp),
             shape =
                 RoundedCornerShape(18.dp)
         ) {
-            Text(
-                if (
-                    salarySuggestion == null
-                ) {
-                    "Continue without salary"
-                } else {
-                    "Looks good"
-                }
-            )
+            if (applying) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    "Saving accounts…",
+                    modifier =
+                        Modifier.padding(
+                            start = 10.dp
+                        )
+                )
+            } else {
+                Text(
+                    if (
+                        salarySuggestion == null
+                    ) {
+                        "Continue without salary"
+                    } else {
+                        "Looks good"
+                    }
+                )
+            }
         }
     }
 }
@@ -2654,12 +2678,20 @@ private fun ReviewDiscoveryPage(
 @Composable
 private fun OwnershipCandidateCard(
     entity: DiscoveredFinancialEntity,
-    onConfirm: () -> Unit
+    selected: Boolean,
+    enabled: Boolean,
+    onToggle: () -> Unit
 ) {
     PesaCard {
         Row(
             modifier =
-                Modifier.padding(16.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        enabled = enabled,
+                        onClick = onToggle
+                    )
+                    .padding(16.dp),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
@@ -2711,10 +2743,24 @@ private fun OwnershipCandidateCard(
                             .onSurfaceVariant
                 )
             }
-            TextButton(
-                onClick = onConfirm
-            ) {
-                Text("This is mine")
+            if (selected) {
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    contentDescription =
+                        "Selected as my account",
+                    tint =
+                        MaterialTheme.colorScheme
+                            .primary
+                )
+            } else {
+                Text(
+                    "This is mine",
+                    color =
+                        MaterialTheme.colorScheme
+                            .primary,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
             }
         }
     }
