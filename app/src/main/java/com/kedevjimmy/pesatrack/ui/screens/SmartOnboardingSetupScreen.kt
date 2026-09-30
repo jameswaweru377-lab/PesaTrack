@@ -645,6 +645,101 @@ fun SmartOnboardingSetupScreen(
         salaryApplied = true
     }
 
+    suspend fun applyManualSalary(): Boolean {
+        val amountMinor =
+            parseSetupMoneyMinor(
+                manualSalaryAmount
+            )
+        if (
+            amountMinor == null ||
+            amountMinor <= 0L
+        ) {
+            manualSalaryError =
+                "Enter the most recent salary amount."
+            return false
+        }
+
+        val paidAt =
+            manualSalaryDateEpochMs
+        if (paidAt == null) {
+            manualSalaryError =
+                "Choose the date that salary actually arrived."
+            return false
+        }
+
+        val account =
+            availableAccounts
+                .firstOrNull {
+                    it.id ==
+                        manualSalaryAccountId
+                }
+        if (account == null) {
+            manualSalaryError =
+                "Choose where the salary arrived."
+            return false
+        }
+
+        val payer =
+            manualSalaryPayer
+                .trim()
+        val ruleLabel =
+            payer.ifBlank {
+                "Manual salary"
+            }
+
+        withContext(Dispatchers.IO) {
+            val existing =
+                ruleStore
+                    .listRules(
+                        enabledOnly = false
+                    )
+                    .firstOrNull {
+                        it.preset ==
+                            RulePreset.SALARY &&
+                            it.startsPayCycle
+                    }
+
+            val salaryRule =
+                existing ?: ruleStore.save(
+                    name = "Salary",
+                    counterpartyContains = "",
+                    counterpartyExact =
+                        ruleLabel,
+                    category =
+                        TransactionCategory.INCOME,
+                    direction =
+                        MoneyDirection.INCOME,
+                    displayLabel = "Salary",
+                    preset =
+                        RulePreset.SALARY,
+                    startsPayCycle = true,
+                    accountId = account.id
+                )
+
+            transactionStore
+                .reapplyRule(
+                    salaryRule
+                )
+            transactionStore
+                .insertManualIncome(
+                    amountMinor =
+                        amountMinor,
+                    occurredAtEpochMs =
+                        paidAt,
+                    label =
+                        ruleLabel,
+                    matchedRule =
+                        salaryRule
+                )
+            payCycleStore.rebuild()
+        }
+
+        salaryApplied = true
+        salaryAccepted = true
+        manualSalaryError = null
+        return true
+    }
+
     suspend fun confirmMpesaPhone(
         rawPhone: String
     ): Boolean {
@@ -692,11 +787,15 @@ fun SmartOnboardingSetupScreen(
 
     LazyColumn(
         modifier = Modifier
-            .padding(scaffoldPadding)
+            .fillMaxSize()
             .background(
                 MaterialTheme.colorScheme
                     .background
-            ),
+            )
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing
+            )
+            .padding(scaffoldPadding),
         contentPadding =
             PaddingValues(
                 horizontal = 18.dp,
@@ -706,7 +805,9 @@ fun SmartOnboardingSetupScreen(
             Arrangement.spacedBy(16.dp)
     ) {
         item {
-            BrandWordmark()
+            BrandWordmark(
+                compact = true
+            )
         }
 
         item {
@@ -936,13 +1037,6 @@ fun SmartOnboardingSetupScreen(
     }
 }
 
-private data class SetupDiscoveryResult(
-    val importResult: HistoricalImportResult?,
-    val sources: List<DetectedSetupSource>,
-    val salary: OnboardingSalarySuggestion?,
-    val mpesaPhone: String?
-)
-
 @Composable
 private fun StageProgress(
     stage: SmartSetupStage
@@ -953,6 +1047,7 @@ private fun StageProgress(
             SmartSetupStage.SMS_PERMISSION -> 1
             SmartSetupStage.ANALYZE -> 2
             SmartSetupStage.REVIEW -> 3
+            SmartSetupStage.SALARY_MANUAL -> 4
             SmartSetupStage.MPESA_CONFIRM -> 4
             SmartSetupStage.LIVE_CAPTURE -> 5
             SmartSetupStage.COMPLETE -> 6
