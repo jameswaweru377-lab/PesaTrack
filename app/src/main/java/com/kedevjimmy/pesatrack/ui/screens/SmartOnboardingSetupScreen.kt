@@ -203,6 +203,34 @@ fun SmartOnboardingSetupScreen(
     var salaryApplied by rememberSaveable {
         mutableStateOf(false)
     }
+    var analysisStep by remember {
+        mutableStateOf(
+            AnalysisStep.SCANNING
+        )
+    }
+    var smsAppInfoVisited by rememberSaveable {
+        mutableStateOf(false)
+    }
+    var availableAccounts by remember {
+        mutableStateOf<List<MoneyAccount>>(
+            emptyList()
+        )
+    }
+    var manualSalaryAccountId by rememberSaveable {
+        mutableStateOf("")
+    }
+    var manualSalaryPayer by rememberSaveable {
+        mutableStateOf("")
+    }
+    var manualSalaryAmount by rememberSaveable {
+        mutableStateOf("")
+    }
+    var manualSalaryDateEpochMs by rememberSaveable {
+        mutableStateOf<Long?>(null)
+    }
+    var manualSalaryError by remember {
+        mutableStateOf<String?>(null)
+    }
 
     val smsPermissionLauncher =
         rememberLauncherForActivityResult(
@@ -213,6 +241,24 @@ fun SmartOnboardingSetupScreen(
             smsDenied = !granted
             if (granted) {
                 stage = SmartSetupStage.ANALYZE
+            }
+        }
+
+    val appInfoLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts
+                .StartActivityForResult()
+        ) {
+            smsGranted =
+                hasSmsPermission(context)
+            if (smsGranted) {
+                stage =
+                    SmartSetupStage.ANALYZE
+            } else if (
+                stage ==
+                SmartSetupStage.SMS_PERMISSION
+            ) {
+                smsPromptLaunched = false
             }
         }
 
