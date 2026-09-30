@@ -73,6 +73,22 @@ class PaydaySnapshotStore private constructor(
     ) {
         val db =
             database.writableDatabase
+        db.beginTransaction()
+        try {
+            rebuildForSalaryAnchors(
+                db = db,
+                anchors = anchors
+            )
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    internal fun rebuildForSalaryAnchors(
+        db: SQLiteDatabase,
+        anchors: List<PaydaySalaryAnchor>
+    ) {
         val validIds =
             anchors.map {
                 snapshotId(
@@ -80,54 +96,47 @@ class PaydaySnapshotStore private constructor(
                 )
             }.toSet()
 
-        db.beginTransaction()
-        try {
-            val existingIds =
-                db.rawQuery(
-                    """
-                    SELECT id
-                    FROM payday_snapshots
-                    """.trimIndent(),
-                    null
-                ).use { cursor ->
-                    buildList {
-                        while (
-                            cursor.moveToNext()
-                        ) {
-                            add(
-                                cursor.getString(0)
-                            )
-                        }
+        val existingIds =
+            db.rawQuery(
+                """
+                SELECT id
+                FROM payday_snapshots
+                """.trimIndent(),
+                null
+            ).use { cursor ->
+                buildList {
+                    while (
+                        cursor.moveToNext()
+                    ) {
+                        add(
+                            cursor.getString(0)
+                        )
                     }
                 }
+            }
 
-            existingIds
-                .filterNot {
-                    it in validIds
-                }
-                .forEach { staleId ->
-                    db.delete(
-                        "payday_snapshot_accounts",
-                        "snapshot_id = ?",
-                        arrayOf(staleId)
-                    )
-                    db.delete(
-                        "payday_snapshots",
-                        "id = ?",
-                        arrayOf(staleId)
-                    )
-                }
-
-            anchors.forEach {
-                rebuildSnapshot(
-                    db = db,
-                    anchor = it
+        existingIds
+            .filterNot {
+                it in validIds
+            }
+            .forEach { staleId ->
+                db.delete(
+                    "payday_snapshot_accounts",
+                    "snapshot_id = ?",
+                    arrayOf(staleId)
+                )
+                db.delete(
+                    "payday_snapshots",
+                    "id = ?",
+                    arrayOf(staleId)
                 )
             }
 
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
+        anchors.forEach {
+            rebuildSnapshot(
+                db = db,
+                anchor = it
+            )
         }
     }
 
