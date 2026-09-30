@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.data.remote
 import com.kedevjimmy.pesatrack.BuildConfig
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityMatchConfidence
 import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEnrichment
+import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityBusinessRole
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import java.net.HttpURLConnection
 import java.net.URL
@@ -230,6 +231,21 @@ class EntityEnrichmentHttpClient(
                         .trim()
                         .ifBlank {
                             "remote"
+                        },
+                businessRole =
+                    json.optString(
+                        "businessRole"
+                    )
+                        .trim()
+                        .takeIf(
+                            String::isNotBlank
+                        )
+                        ?.let {
+                            raw ->
+                            runCatching {
+                                RemoteEntityBusinessRole
+                                    .valueOf(raw)
+                            }.getOrNull()
                         }
             )
         }.getOrNull()
