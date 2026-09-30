@@ -418,4 +418,37 @@ class FinancialInterpretationPipelineTest {
         )
     }
 
+
+    @Test
+    fun mshwariCanMoveMoneyIntoLockSavingsWithoutCollapsingAccounts() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "M-Shwari",
+                body =
+                    "Dear Customer, Ksh.4,000.00 has been moved from your M-Shwari account to your Lock Savings Account. New M-Shwari balance is Ksh.7,000.43. Transaction cost 0.00."
+            )
+
+        assertTrue(interpretation.recognized)
+
+        val transfer =
+            interpretation.events
+                .filterIsInstance<
+                    TransferEventFact
+                >()
+                .single()
+
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            transfer.source.providerKey
+        )
+        assertEquals(
+            "NCBA_MSHWARI_LOCK_SAVINGS",
+            transfer.destination.providerKey
+        )
+        assertEquals(
+            400_000L,
+            transfer.amountMinor
+        )
+    }
+
 }
