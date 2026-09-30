@@ -848,6 +848,25 @@ fun SmartOnboardingSetupScreen(
                 item {
                     SmsPermissionPage(
                         denied = smsDenied,
+                        restrictedHelp =
+                            smsDenied &&
+                                isLikelySideloaded(
+                                    context
+                                ),
+                        onOpenAppInfo = {
+                            smsAppInfoVisited =
+                                true
+                            appInfoLauncher.launch(
+                                Intent(
+                                    Settings
+                                        .ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.parse(
+                                        "package:" +
+                                            context.packageName
+                                    )
+                                )
+                            )
+                        },
                         onTryAgain = {
                             smsDenied = false
                             smsPromptLaunched =
@@ -873,7 +892,8 @@ fun SmartOnboardingSetupScreen(
                     AnalysisPage(
                         importing =
                             importMonths > 0 &&
-                                smsGranted
+                                smsGranted,
+                        step = analysisStep
                     )
                 }
             }
@@ -892,6 +912,11 @@ fun SmartOnboardingSetupScreen(
                         onSalaryAccepted = {
                             salaryAccepted = it
                         },
+                        onManualSalary = {
+                            stage =
+                                SmartSetupStage
+                                    .SALARY_MANUAL
+                        },
                         onContinue = {
                             setupScope.launch {
                                 applySalaryIfConfirmed()
@@ -907,6 +932,82 @@ fun SmartOnboardingSetupScreen(
                                             .LIVE_CAPTURE
                                     }
                             }
+                        }
+                    )
+                }
+            }
+
+            SmartSetupStage.SALARY_MANUAL -> {
+                item {
+                    ManualSalaryPage(
+                        context = context,
+                        accounts =
+                            availableAccounts,
+                        selectedAccountId =
+                            manualSalaryAccountId,
+                        payer =
+                            manualSalaryPayer,
+                        amount =
+                            manualSalaryAmount,
+                        paidAtEpochMs =
+                            manualSalaryDateEpochMs,
+                        error =
+                            manualSalaryError,
+                        onAccountSelected = {
+                            manualSalaryAccountId =
+                                it
+                            manualSalaryError =
+                                null
+                        },
+                        onPayerChanged = {
+                            manualSalaryPayer =
+                                it
+                            manualSalaryError =
+                                null
+                        },
+                        onAmountChanged = {
+                            manualSalaryAmount =
+                                it
+                            manualSalaryError =
+                                null
+                        },
+                        onDateSelected = {
+                            manualSalaryDateEpochMs =
+                                it
+                            manualSalaryError =
+                                null
+                        },
+                        onSave = {
+                            setupScope.launch {
+                                if (
+                                    applyManualSalary()
+                                ) {
+                                    stage =
+                                        if (
+                                            mpesaPhoneSuggestion !=
+                                            null
+                                        ) {
+                                            SmartSetupStage
+                                                .MPESA_CONFIRM
+                                        } else {
+                                            SmartSetupStage
+                                                .LIVE_CAPTURE
+                                        }
+                                }
+                            }
+                        },
+                        onSkip = {
+                            stage =
+                                if (
+                                    mpesaPhoneSuggestion !=
+                                    null
+                                ) {
+                                    SmartSetupStage
+                                        .MPESA_CONFIRM
+                                } else {
+                                    SmartSetupStage
+                                        .LIVE_CAPTURE
+                                }
                         }
                     )
                 }
@@ -1024,9 +1125,12 @@ fun SmartOnboardingSetupScreen(
                         sources =
                             detectedSources,
                         salaryAccepted =
-                            salaryAccepted &&
-                                salarySuggestion !=
-                                null,
+                            salaryApplied ||
+                                (
+                                    salaryAccepted &&
+                                        salarySuggestion !=
+                                        null
+                                    ),
                         notificationEnabled =
                             notificationGranted,
                         onHome = onDone
