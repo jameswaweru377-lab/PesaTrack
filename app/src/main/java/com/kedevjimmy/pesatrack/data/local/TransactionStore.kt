@@ -306,6 +306,16 @@ class TransactionStore private constructor(context: Context) {
                     tryLinkRefund(mirrorCandidate.id)
                 }
             }
+            if (
+                matchedRule == null &&
+                classification.direction ==
+                    MoneyDirection.EXPENSE
+            ) {
+                DebtStore.get(appContext)
+                    .tryAutoLinkOutgoingPayment(
+                        mirrorCandidate.id
+                    )
+            }
             if (rebuildPayCycles) {
                 PayCycleStore.get(appContext).rebuild()
             }
@@ -408,6 +418,16 @@ class TransactionStore private constructor(context: Context) {
                     tryLinkRefund(rowId)
                 }
             }
+            if (
+                matchedRule == null &&
+                classification.direction ==
+                    MoneyDirection.EXPENSE
+            ) {
+                DebtStore.get(appContext)
+                    .tryAutoLinkOutgoingPayment(
+                        rowId
+                    )
+            }
             if (matchedRule == null) {
                 reconcileReviewTriageForMonth(occurredAtEpochMs)
             }
@@ -475,6 +495,7 @@ class TransactionStore private constructor(context: Context) {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
         ensureRefundsReconciled()
+        ensureLiabilityPaymentsReconciled()
         val db = database.readableDatabase
 
         val count = db.rawQuery("SELECT COUNT(*) FROM transactions", null).use { cursor ->
@@ -611,6 +632,7 @@ class TransactionStore private constructor(context: Context) {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
         ensureRefundsReconciled()
+        ensureLiabilityPaymentsReconciled()
 
         val transactions = allTransactions()
             .filter { it.reviewState != ReviewState.EXCLUDED.name }
@@ -642,6 +664,7 @@ class TransactionStore private constructor(context: Context) {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
         ensureRefundsReconciled()
+        ensureLiabilityPaymentsReconciled()
         reconcileRecentReviewTriage(nowEpochMs, timeZone)
 
         val monthStart = Calendar.getInstance(timeZone).apply {
@@ -1098,6 +1121,75 @@ class TransactionStore private constructor(context: Context) {
             PayCycleStore.get(appContext).rebuild()
         }
         return removed
+    }
+
+    private fun ensureLiabilityPaymentsReconciled() {
+        val preferences = appContext.getSharedPreferences(
+            "pesatrack_preferences",
+            Context.MODE_PRIVATE
+        )
+        if (
+            preferences.getBoolean(
+                LIABILITY_PAYMENT_RECONCILIATION_KEY,
+                false
+            )
+        ) {
+            return
+        }
+
+        val ids =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT id
+                FROM transactions
+                WHERE direction = ?
+                  AND counterparty IS NOT NULL
+                  AND TRIM(counterparty) != ''
+                  AND account_id IS NOT NULL
+                  AND rule_id IS NULL
+                  AND relation_type IS NULL
+                  AND review_state != ?
+                  AND review_state != ?
+                  AND id NOT IN (
+                        SELECT transaction_id
+                        FROM liability_payment_decisions
+                  )
+                  AND id NOT IN (
+                        SELECT linked_transaction_id
+                        FROM debt_events
+                        WHERE linked_transaction_id
+                            IS NOT NULL
+                  )
+                ORDER BY occurred_at_epoch_ms DESC,
+                         id DESC
+                LIMIT 600
+                """.trimIndent(),
+                arrayOf(
+                    MoneyDirection.EXPENSE.name,
+                    ReviewState.USER_CLASSIFIED.name,
+                    ReviewState.EXCLUDED.name
+                )
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(cursor.getLong(0))
+                    }
+                }
+            }
+
+        ids.forEach { transactionId ->
+            DebtStore.get(appContext)
+                .tryAutoLinkOutgoingPayment(
+                    transactionId
+                )
+        }
+
+        preferences.edit()
+            .putBoolean(
+                LIABILITY_PAYMENT_RECONCILIATION_KEY,
+                true
+            )
+            .apply()
     }
 
     private fun ensureMirrorReconciled() {
@@ -2725,6 +2817,9 @@ class TransactionStore private constructor(context: Context) {
             "built_in_recognition_reconciliation_v2"
         private const val REFUND_RECONCILIATION_KEY =
             "refund_reconciliation_v1"
+        internal const val
+            LIABILITY_PAYMENT_RECONCILIATION_KEY =
+            "liability_payment_reconciliation_v1"
         const val RELATION_REFUND = "REFUND"
         private const val DUPLICATE_DECISION_SAME = "SAME_TRANSACTION"
         private const val DUPLICATE_DECISION_KEEP_BOTH = "KEEP_BOTH"
