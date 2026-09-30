@@ -240,10 +240,10 @@ class TransactionStore private constructor(context: Context) {
                     externalReferences
             )
         val correlationAccountIds =
-            setOfNotNull(
+            listOfNotNull(
                 accountId,
                 linkedAccountId
-            )
+            ).toSet()
 
         val mirrorCandidate = findMirrorCandidate(
             parsed = parsed,
@@ -2764,10 +2764,10 @@ private fun StoredTransaction.toMirrorObservation(
         direction = direction,
         externalReferences = externalReferences,
         accountIds =
-            setOfNotNull(
+            listOfNotNull(
                 accountId,
                 linkedAccountId
-            )
+            ).toSet()
     )
 
 private fun StoredTransaction.toPossibleDuplicateObservation():
