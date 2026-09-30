@@ -625,6 +625,23 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun onboardingDuplicateCandidateCount(
+        sinceEpochMs: Long
+    ): Int {
+        val recentTransactions =
+            recent(500).filter {
+                it.receivedAtEpochMs >=
+                    sinceEpochMs &&
+                    it.reviewState !=
+                    ReviewState.EXCLUDED.name
+            }
+
+        return buildPossibleDuplicateGroups(
+            recentTransactions
+        ).size
+    }
+
+    @Synchronized
     fun activityReviewOverview(): ActivityReviewOverview {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
