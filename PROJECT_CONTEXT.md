@@ -1529,3 +1529,175 @@ Those should only be added when measured real-device evidence requires them.
 Permanent architecture rule remains:
 
 **financial language defines meaning; observed accounts/references/amounts/balances/time define relationships; provider names do not define transaction logic.**
+
+
+## Financial Intelligence V2 — Phase 5 manual relationship review — PR #84
+
+Status on 2026-09-30: **implemented and Android CI verified on code head `3f08e7358f654913e7d106f0fe3959fad2ec1217` before this documentation commit.**
+
+Phase 5 closes the intentional safety gap left by Phases 3 and 4:
+
+- automatic correlation stays conservative;
+- ambiguous event-chain relationships are not guessed;
+- the user can now resolve those relationships explicitly in Activity;
+- the user’s decision is persisted and automatic reconciliation cannot overwrite it.
+
+### Activity Links queue
+
+Activity now has a third global review queue:
+
+- Review — unresolved transaction classification;
+- Duplicates — possible duplicate transaction observations;
+- Links — ambiguous multi-event relationships.
+
+The new Links queue currently covers debt-repayment event chains because Phase 4 already has deterministic provider-neutral evidence for those relationships.
+
+Two review types are supported:
+
+1. **Repayment funding**
+   - question: which incoming transaction funded this debt repayment?
+   - candidates must reach the already-confirmed owned funding account;
+   - candidates must be inside the same bounded ten-minute provider-neutral review window used by Phase 4;
+   - the UI shows amount, time and why each candidate is plausible.
+
+2. **Repayment resulting balance**
+   - question: which observed account balance represents the balance after this repayment?
+   - a deterministic target balance must already exist from either:
+     - an explicit final balance in the financial message; or
+     - the Phase 4 balance equation using prior balance + incoming funds - repayment;
+   - only observations matching that deterministic target inside the bounded balance window are offered.
+
+The user can select a candidate or explicitly choose that none of the offered candidates belong to the relationship.
+
+### Durable manual decisions
+
+Schema version is now **21**.
+
+The v21 migration adds two columns to `debt_events`:
+
+- `funding_link_user_decision`;
+- `balance_link_user_decision`.
+
+Manual relationship confidence adds:
+
+- `USER_CONFIRMED`.
+
+When the user confirms a funding transaction:
+
+- `linked_transaction_id` is set;
+- `funding_link_confidence = USER_CONFIRMED`;
+- a human-readable reason states that the user confirmed the link;
+- only downstream resulting-balance reconciliation is rerun.
+
+When the user confirms a resulting balance:
+
+- `resulting_balance_observation_id` is set;
+- `balance_link_confidence = USER_CONFIRMED`;
+- the reason states that the user confirmed the balance relationship.
+
+When the user selects **none of these**:
+
+- the relevant user-decision column is persisted as a keep-unlinked decision;
+- automatic reconciliation no longer retries or silently replaces that choice.
+
+### Revalidation before writes
+
+The UI does not pass arbitrary record IDs directly into the debt ledger.
+
+Before persisting a manual link, `RelationshipReviewStore` rebuilds the current pending review and verifies that the selected transaction/balance observation is still in the provider-neutral candidate set.
+
+If the candidate is no longer valid, the write is rejected.
+
+### Automatic reconciliation protection
+
+Phase 4 repayment funding and resulting-balance reconciliation now require the corresponding manual-decision field to be null.
+
+Therefore:
+
+- automatic HIGH/MEDIUM relationships continue to work where no user decision exists;
+- a confirmed manual relationship remains stable;
+- a manual keep-unlinked decision remains stable;
+- later SMS imports, balance observations, or account confirmations cannot overwrite the user’s decision.
+
+### Accounting boundary
+
+Phase 5 changes **relationships only**.
+
+It does not:
+
+- turn a debt repayment into income or expense;
+- change the repayment amount;
+- change the debt account identity;
+- change the transaction category;
+- fabricate a missing transaction or balance;
+- infer ownership from provider names.
+
+A repayment remains a debt event regardless of how its funding/balance relationship is resolved.
+
+### Provider-neutral candidate generation
+
+The Links queue uses:
+
+- confirmed funding-account identity;
+- transaction direction into that account;
+- amount;
+- bounded time;
+- deterministic balance equations;
+- observed account balances.
+
+It does not contain provider-name branches for M-Pesa, Equity, KCB, Co-op, Branch, M-Shwari or future institutions.
+
+### UI behavior
+
+Each Links review card shows:
+
+- the debt account;
+- repayment amount;
+- funding account;
+- repayment timestamp;
+- each plausible candidate;
+- why the candidate is being offered;
+- an explicit button to use that candidate;
+- an explicit “none of these” action.
+
+The card also tells the user that the decision is remembered and will not be overwritten by automatic reconciliation.
+
+### Verification
+
+The first Phase 5 CI run exposed a schema-migration placement error: the v21 `oldVersion` guard had accidentally been inserted into `onCreate`.
+
+That exact compiler failure was corrected by keeping new-install columns in `createDebtTables` and moving the v21 migration guard into `onUpgrade`.
+
+Code head `3f08e7358f654913e7d106f0fe3959fad2ec1217` then passed Android CI run #344:
+
+- entity-enrichment Worker validation: passed;
+- Android compilation: passed;
+- Android unit tests: passed;
+- debug APK assembly: passed.
+
+### Deliberately outside Phase 5
+
+Phase 5 does not yet add:
+
+- manual editing of arbitrary financial-event semantics;
+- investment settlement/holding chains;
+- long-term unbounded raw source-message retention;
+- ML/SLM inference;
+- provider-specific relationship rules.
+
+The existing Duplicates review remains separate because “two observations of one movement” and “two different events in one chain” are different decisions.
+
+### Recommended next work
+
+After Phase 5, the most useful next engineering step should be driven by real-device evidence rather than another broad parser expansion.
+
+The likely candidates are:
+
+1. investment execution -> funding -> holding/position settlement chains;
+2. a richer event-chain detail view for already-resolved relationships;
+3. corpus-driven semantic expansion for any genuine remaining Not understood messages;
+4. only then evaluate offline ML if deterministic language gaps remain measurable.
+
+Permanent architecture rule remains:
+
+**automatic intelligence may propose relationships; ambiguous financial truth requires explicit evidence or an explicit user decision.**

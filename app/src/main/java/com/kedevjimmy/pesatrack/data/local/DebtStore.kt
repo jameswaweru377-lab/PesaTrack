@@ -422,6 +422,7 @@ class DebtStore private constructor(context: Context) {
                 FROM debt_events
                 WHERE event_type = ?
                   AND linked_transaction_id IS NULL
+                  AND funding_link_user_decision IS NULL
                   AND funding_account_id IN ($placeholders)
                   AND occurred_at_epoch_ms BETWEEN ? AND ?
                 ORDER BY occurred_at_epoch_ms ASC, id ASC
@@ -456,6 +457,7 @@ class DebtStore private constructor(context: Context) {
                 WHERE id = ?
                   AND event_type = ?
                   AND linked_transaction_id IS NULL
+                  AND funding_link_user_decision IS NULL
                 LIMIT 1
                 """.trimIndent(),
                 arrayOf(
@@ -628,6 +630,7 @@ class DebtStore private constructor(context: Context) {
                 WHERE event_type = ?
                   AND resulting_balance_observation_id
                       IS NULL
+                  AND balance_link_user_decision IS NULL
                   AND (
                         funding_account_id = ?
                         OR (
@@ -678,6 +681,7 @@ class DebtStore private constructor(context: Context) {
                 FROM debt_events
                 WHERE id = ?
                   AND event_type = ?
+                  AND balance_link_user_decision IS NULL
                 LIMIT 1
                 """.trimIndent(),
                 arrayOf(
@@ -899,6 +903,13 @@ class DebtStore private constructor(context: Context) {
             )
         }
         LedgerUpdateBus.notifyChanged()
+    }
+
+    @Synchronized
+    fun reconcileBalanceAfterManualFunding(
+        eventId: Long
+    ) {
+        reconcileRepaymentBalance(eventId)
     }
 
     private fun reconcileRepaymentFromDebtProceeds(
