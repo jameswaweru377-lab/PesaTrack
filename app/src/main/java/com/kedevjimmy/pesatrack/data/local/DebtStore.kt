@@ -450,6 +450,7 @@ class DebtStore private constructor(context: Context) {
                 SELECT amount_minor,
                        wallet_balance_after_minor,
                        funding_account_key,
+                       funding_account_id,
                        occurred_at_epoch_ms
                 FROM debt_events
                 WHERE id = ?
@@ -479,11 +480,20 @@ class DebtStore private constructor(context: Context) {
                             } else {
                                 cursor.getString(2)
                             },
+                        fundingAccountId =
+                            if (cursor.isNull(3)) {
+                                null
+                            } else {
+                                cursor.getString(3)
+                            },
                         occurredAtEpochMs =
-                            cursor.getLong(3)
+                            cursor.getLong(4)
                     )
                 }
             } ?: return
+
+        val fundingAccountId =
+            repayment.fundingAccountId ?: return
 
         val candidates =
             database.readableDatabase.rawQuery(
@@ -492,7 +502,11 @@ class DebtStore private constructor(context: Context) {
                        occurred_at_epoch_ms,
                        balance_minor
                 FROM transactions
-                WHERE type IN (?, ?)
+                WHERE (
+                        account_id = ?
+                        OR linked_account_id = ?
+                      )
+                  AND direction IN (?, ?)
                   AND occurred_at_epoch_ms BETWEEN ? AND ?
                   AND review_state != ?
                   AND id NOT IN (
@@ -503,10 +517,12 @@ class DebtStore private constructor(context: Context) {
                 ORDER BY occurred_at_epoch_ms DESC, id DESC
                 """.trimIndent(),
                 arrayOf(
+                    fundingAccountId,
+                    fundingAccountId,
                     com.kedevjimmy.pesatrack.domain.model
-                        .MpesaTransactionType.RECEIVED.name,
+                        .MoneyDirection.INCOME.name,
                     com.kedevjimmy.pesatrack.domain.model
-                        .MpesaTransactionType.DEPOSIT.name,
+                        .MoneyDirection.TRANSFER.name,
                     (
                         repayment.occurredAtEpochMs -
                             REPAYMENT_LINK_WINDOW_MS
@@ -538,24 +554,20 @@ class DebtStore private constructor(context: Context) {
                                         cursor.getLong(3)
                                     },
                                 priorBalanceMinor =
-                                    latestMpesaBalanceBefore(
-                                        candidateAt
+                                    latestBalanceBefore(
+                                        accountId =
+                                            fundingAccountId,
+                                        entityKey =
+                                            repayment
+                                                .fundingAccountKey,
+                                        epochMs =
+                                            candidateAt
                                     )
                             )
                         )
                     }
                 }
             }
-
-        if (
-            repayment.fundingAccountKey != null &&
-            repayment.fundingAccountKey !=
-                FinancialProviderRegistry
-                    .mpesaAccount()
-                    .entityKey
-        ) {
-            return
-        }
 
         val match =
             DebtRepaymentChainPolicy
@@ -590,6 +602,7 @@ class DebtStore private constructor(context: Context) {
             "id = ?",
             arrayOf(eventId.toString())
         )
+        reconcileRepaymentBalance(eventId)
         LedgerUpdateBus.notifyChanged()
     }
 
