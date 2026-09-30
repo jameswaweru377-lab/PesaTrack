@@ -3813,12 +3813,13 @@ private fun ownedSetupAccounts(
                 )
         }
         .filter { account ->
-            account.type ==
-                AccountType.CASH ||
-                account.id in
-                    confirmedIds ||
-                !account.identifier
-                    .isNullOrBlank()
+            AccountDisplayPolicy
+                .isConfirmedOwned(
+                    account = account,
+                    confirmedAccountIds =
+                        confirmedIds,
+                    includeCash = true
+                )
         }
 }
 
