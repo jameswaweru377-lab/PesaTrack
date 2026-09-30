@@ -5,6 +5,7 @@ import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.FinancialEventStatus
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
+import com.kedevjimmy.pesatrack.data.local.InvestmentStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
@@ -71,15 +72,61 @@ class FinancialMessageIngestionCoordinator private constructor(
                 body = body
             )
 
+        val occurredAtEpochMs =
+            TransactionDateResolver.resolve(
+                occurredAtText =
+                    interpretation.occurredAtText,
+                fallbackEpochMs = receivedAtEpochMs
+            )
+        val fingerprint =
+            FinancialUnderstandingStore.fingerprint(
+                title = title,
+                body = body
+            )
+        val correlationReferences =
+            interpretation.semanticAssessment
+                ?.references
+                ?.map { it.value }
+                ?.toSet()
+                .orEmpty()
+        val investmentWrite =
+            interpretation.semanticAssessment
+                ?.investment
+                ?.let { investment ->
+                    InvestmentStore.get(appContext)
+                        .record(
+                            fact = investment,
+                            references =
+                                correlationReferences,
+                            messageFingerprint =
+                                fingerprint,
+                            sourcePackage =
+                                sourcePackage,
+                            sourceKind = sourceKind,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs
+                        )
+                }
+
         if (!interpretation.recognized) {
             val result =
                 FinancialMessageIngestionResult(
                     recognized = false,
                     consumesLegacyTransactionParsing =
                         false,
-                    changed = false,
+                    changed =
+                        investmentWrite?.changed ==
+                            true,
                     insertedTransactions = 0,
-                    insertedFinancialEvents = 0,
+                    insertedFinancialEvents =
+                        if (
+                            investmentWrite
+                                ?.inserted == true
+                        ) {
+                            1
+                        } else {
+                            0
+                        },
                     pendingReviewEvents = 0
                 )
             recordDiagnostic(
@@ -99,25 +146,8 @@ class FinancialMessageIngestionCoordinator private constructor(
             RuleStore.get(appContext)
                 .listRules(enabledOnly = true)
 
-        val occurredAtEpochMs =
-            TransactionDateResolver.resolve(
-                occurredAtText =
-                    interpretation.occurredAtText,
-                fallbackEpochMs = receivedAtEpochMs
-            )
-        val fingerprint =
-            FinancialUnderstandingStore.fingerprint(
-                title = title,
-                body = body
-            )
-        val correlationReferences =
-            interpretation.semanticAssessment
-                ?.references
-                ?.map { it.value }
-                ?.toSet()
-                .orEmpty()
-
-        var changed = false
+        var changed =
+            investmentWrite?.changed == true
         interpretation.balances.forEach { fact ->
             changed =
                 understandingStore.recordBalance(
@@ -130,7 +160,15 @@ class FinancialMessageIngestionCoordinator private constructor(
         }
 
         var insertedTransactions = 0
-        var insertedFinancialEvents = 0
+        var insertedFinancialEvents =
+            if (
+                investmentWrite?.inserted ==
+                    true
+            ) {
+                1
+            } else {
+                0
+            }
         var pendingReviewEvents = 0
 
         interpretation.events.forEach { event ->
