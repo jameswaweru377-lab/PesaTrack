@@ -1330,6 +1330,72 @@ fun SmartOnboardingSetupScreen(
                                         financialUnderstandingStore
                                             .pendingEntities()
                                     )
+
+                                val refreshedSalary =
+                                    withContext(
+                                        Dispatchers.IO
+                                    ) {
+                                        val cutoff =
+                                            HistoryImportWindow
+                                                .importStartEpochMs(
+                                                    importMonths
+                                                        .coerceAtLeast(
+                                                            1
+                                                        )
+                                                )
+                                                ?: (
+                                                    System.currentTimeMillis() -
+                                                        31L *
+                                                            ONE_DAY_MS
+                                                    )
+                                        val observations =
+                                            transactionStore
+                                                .recent(500)
+                                                .filter {
+                                                    it.receivedAtEpochMs >=
+                                                        cutoff
+                                                }
+                                                .map {
+                                                    item ->
+                                                    OnboardingTransactionObservation(
+                                                        counterparty =
+                                                            item.counterparty,
+                                                        counterpartyPhone =
+                                                            item.counterpartyPhone,
+                                                        amountMinor =
+                                                            item.amountMinor,
+                                                        occurredAtEpochMs =
+                                                            item.occurredAtEpochMs,
+                                                        direction =
+                                                            runCatching {
+                                                                MoneyDirection
+                                                                    .valueOf(
+                                                                        item.direction
+                                                                    )
+                                                            }.getOrDefault(
+                                                                MoneyDirection
+                                                                    .NEUTRAL
+                                                            ),
+                                                        accountId =
+                                                            item.accountId
+                                                    )
+                                                }
+                                        OnboardingDiscoveryEngine
+                                            .salarySuggestion(
+                                                observations
+                                            )
+                                    }
+                                if (
+                                    refreshedSalary !=
+                                    null
+                                ) {
+                                    salarySuggestion =
+                                        refreshedSalary
+                                    salaryAccepted = true
+                                    manualSalaryAccountId =
+                                        refreshedSalary
+                                            .accountId
+                                }
                             }
                         },
                         onManualSalary = {
