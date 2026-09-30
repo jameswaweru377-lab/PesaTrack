@@ -220,6 +220,9 @@ fun SmartOnboardingSetupScreen(
     var reviewApplying by remember {
         mutableStateOf(false)
     }
+    var reviewError by remember {
+        mutableStateOf<String?>(null)
+    }
     var salarySuggestion by remember {
         mutableStateOf<OnboardingSalarySuggestion?>(null)
     }
