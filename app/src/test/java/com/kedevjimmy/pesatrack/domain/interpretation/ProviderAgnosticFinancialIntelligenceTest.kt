@@ -103,7 +103,7 @@ class ProviderAgnosticFinancialIntelligenceTest {
                 )
 
         assertEquals(
-            "APPLE",
+            "Apple",
             source?.displayName
         )
         assertEquals(
@@ -154,7 +154,7 @@ class ProviderAgnosticFinancialIntelligenceTest {
                 )
 
         assertEquals(
-            "ACME BANK",
+            "Acme Bank",
             source?.displayName
         )
         assertEquals(
