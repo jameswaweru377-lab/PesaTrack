@@ -212,6 +212,7 @@ object MirrorTransactionMatcher {
                 .isNotEmpty()
 
         if (
+            distinctSources &&
             (samePhone || sharedIdentityToken) &&
             bestDelta <= MAX_TIME_DELTA_MS
         ) {
@@ -228,6 +229,7 @@ object MirrorTransactionMatcher {
             )
 
         if (
+            distinctSources &&
             complementaryDirections &&
             bestDelta <= COMPLEMENTARY_DIRECTION_MS
         ) {
