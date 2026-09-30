@@ -610,8 +610,8 @@ class FinancialUnderstandingStore private constructor(
         database.writableDatabase.update(
             "financial_entities",
             values,
-            "entity_key = ?",
-            arrayOf(entity.first)
+            "provider_key = ?",
+            arrayOf(providerKey)
         )
 
         ContentValues().apply {
@@ -623,8 +623,15 @@ class FinancialUnderstandingStore private constructor(
             database.writableDatabase.update(
                 "account_balance_observations",
                 observationValues,
-                "entity_key = ? AND account_id IS NULL",
-                arrayOf(entity.first)
+                """
+                entity_key IN (
+                    SELECT entity_key
+                    FROM financial_entities
+                    WHERE provider_key = ?
+                )
+                AND account_id IS NULL
+                """.trimIndent(),
+                arrayOf(providerKey)
             )
         }
 
