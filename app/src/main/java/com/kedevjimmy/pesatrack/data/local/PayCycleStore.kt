@@ -198,6 +198,13 @@ class PayCycleStore private constructor(context: Context) {
     ): PayCycleSnapshot {
         val cycle = currentCycle()
         val pending = pendingSalaryCandidate()
+        val paydaySnapshot =
+            cycle?.let {
+                paydaySnapshotStore
+                    .snapshotForCycleStart(
+                        it.startTransactionId
+                    )
+            }
 
         if (cycle == null) {
             return PayCycleSnapshot(
@@ -213,7 +220,8 @@ class PayCycleStore private constructor(context: Context) {
                 estimatedDaysRemaining = null,
                 commitments = emptyList(),
                 pendingSalary = pending,
-                unexplainedFundingGapMinor = 0L
+                unexplainedFundingGapMinor = 0L,
+                paydaySnapshot = null
             )
         }
 
@@ -264,7 +272,8 @@ class PayCycleStore private constructor(context: Context) {
             commitments = commitments,
             pendingSalary = pending,
             unexplainedFundingGapMinor = unexplainedFundingGap,
-            refundsMinor = totals.refundsMinor
+            refundsMinor = totals.refundsMinor,
+            paydaySnapshot = paydaySnapshot
         )
     }
 
