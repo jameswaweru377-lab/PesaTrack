@@ -674,11 +674,41 @@ fun SmartOnboardingSetupScreen(
                         }
                         ?.identifier
 
-                Pair(
+                val salaryCandidate =
                     OnboardingDiscoveryEngine
                         .salarySuggestion(
                             observations
-                        ),
+                        )
+                val screenedSalary =
+                    if (
+                        salaryCandidate
+                            ?.signalStrength ==
+                        SalarySignalStrength
+                            .RECURRING_ONLY
+                    ) {
+                        val business =
+                            entityEnrichmentCoordinator
+                                .resolveDescriptorNow(
+                                    salaryCandidate
+                                        .label
+                                )
+                        if (
+                            business != null &&
+                            OnboardingBusinessRolePolicy
+                                .rulesOutRecurringIncomeAsSalary(
+                                    business
+                                )
+                        ) {
+                            null
+                        } else {
+                            salaryCandidate
+                        }
+                    } else {
+                        salaryCandidate
+                    }
+
+                Pair(
+                    screenedSalary,
                     if (
                         existingMpesaNumber
                             .isNullOrBlank()
