@@ -85,7 +85,17 @@ class FinancialUnderstandingStore private constructor(
             )
             put(
                 "ownership_hint",
-                reference.ownershipHint.name
+                if (accountId != null) {
+                    AccountOwnershipHint
+                        .USER_OWNED.name
+                } else if (
+                    reference.nature ==
+                    FinancialAccountNature.LIABILITY
+                ) {
+                    reference.ownershipHint.name
+                } else {
+                    AccountOwnershipHint.UNKNOWN.name
+                }
             )
             put("nature_hint", reference.nature.name)
             if (accountId != null) {
@@ -113,9 +123,17 @@ class FinancialUnderstandingStore private constructor(
                 "account_type_hint",
                 reference.accountTypeHint.name
             )
-            if (
+            if (accountId != null) {
+                put(
+                    "ownership_hint",
+                    AccountOwnershipHint
+                        .USER_OWNED.name
+                )
+            } else if (
+                reference.nature ==
+                    FinancialAccountNature.LIABILITY &&
                 reference.ownershipHint !=
-                AccountOwnershipHint.UNKNOWN
+                    AccountOwnershipHint.UNKNOWN
             ) {
                 put(
                     "ownership_hint",
