@@ -142,6 +142,38 @@ object AccountDisplayPolicy {
         }
     }
 
+    fun displayName(
+        account: MoneyAccount
+    ): String =
+        canonicalDisplayName(
+            account
+        )
+
+    fun displayLabel(
+        account: MoneyAccount
+    ): String {
+        val name =
+            canonicalDisplayName(
+                account
+            )
+        val identifier =
+            account.identifier
+                ?.trim()
+                ?.takeIf(
+                    String::isNotBlank
+                )
+        return if (identifier == null) {
+            name
+        } else {
+            name +
+                " (" +
+                maskIdentifier(
+                    identifier
+                ) +
+                ")"
+        }
+    }
+
     fun displayLabel(
         group: TrackedAccountGroup
     ): String {
