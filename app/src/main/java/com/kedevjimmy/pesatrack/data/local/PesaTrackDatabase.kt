@@ -392,8 +392,235 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             createCycleProtectionTable(db)
         }
 
+        if (oldVersion < 27) {
+            mergeLegacyMshwariLockSavings(
+                db
+            )
+        }
+
         createIndexes(db)
         createTriggers(db)
+    }
+
+    private fun mergeLegacyMshwariLockSavings(
+        db: SQLiteDatabase
+    ) {
+        val legacyIds =
+            db.rawQuery(
+                """
+                SELECT id
+                FROM money_accounts
+                WHERE type = 'SAVINGS'
+                  AND LOWER(TRIM(name)) IN (
+                        'lock savings',
+                        'lock saving'
+                      )
+                """.trimIndent(),
+                null
+            ).use { cursor ->
+                buildList {
+                    while (
+                        cursor.moveToNext()
+                    ) {
+                        add(
+                            cursor.getString(0)
+                        )
+                    }
+                }
+            }
+
+        if (legacyIds.isEmpty()) {
+            return
+        }
+
+        var targetId =
+            db.rawQuery(
+                """
+                SELECT id
+                FROM money_accounts
+                WHERE type = 'SAVINGS'
+                  AND LOWER(TRIM(name)) =
+                        'm-shwari lock savings'
+                LIMIT 1
+                """.trimIndent(),
+                null
+            ).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    cursor.getString(0)
+                } else {
+                    null
+                }
+            }
+
+        if (targetId == null) {
+            targetId =
+                legacyIds.first()
+            db.execSQL(
+                """
+                UPDATE money_accounts
+                SET name = 'M-Shwari Lock Savings',
+                    updated_at_epoch_ms = ?
+                WHERE id = ?
+                """.trimIndent(),
+                arrayOf<Any?>(
+                    System.currentTimeMillis(),
+                    targetId
+                )
+            )
+        }
+
+        legacyIds
+            .filter {
+                it != targetId
+            }
+            .forEach { sourceId ->
+                db.execSQL(
+                    """
+                    UPDATE transactions
+                    SET account_id = ?
+                    WHERE account_id = ?
+                    """.trimIndent(),
+                    arrayOf<Any?>(
+                        targetId,
+                        sourceId
+                    )
+                )
+                db.execSQL(
+                    """
+                    UPDATE transactions
+                    SET linked_account_id = ?
+                    WHERE linked_account_id = ?
+                    """.trimIndent(),
+                    arrayOf<Any?>(
+                        targetId,
+                        sourceId
+                    )
+                )
+                db.execSQL(
+                    """
+                    UPDATE smart_rules
+                    SET account_id = ?
+                    WHERE account_id = ?
+                    """.trimIndent(),
+                    arrayOf<Any?>(
+                        targetId,
+                        sourceId
+                    )
+                )
+                db.execSQL(
+                    """
+                    UPDATE smart_rules
+                    SET linked_account_id = ?
+                    WHERE linked_account_id = ?
+                    """.trimIndent(),
+                    arrayOf<Any?>(
+                        targetId,
+                        sourceId
+                    )
+                )
+                db.execSQL(
+                    """
+                    UPDATE financial_entities
+                    SET confirmed_account_id = ?
+                    WHERE confirmed_account_id = ?
+                    """.trimIndent(),
+                    arrayOf<Any?>(
+                        targetId,
+                        sourceId
+                    )
+                )
+                db.execSQL(
+                    """
+                    UPDATE account_balance_observations
+                    SET account_id = ?
+                    WHERE account_id = ?
+                    """.trimIndent(),
+                    arrayOf<Any?>(
+                        targetId,
+                        sourceId
+                    )
+                )
+                db.execSQL(
+                    """
+                    UPDATE debt_events
+                    SET funding_account_id = ?
+                    WHERE funding_account_id = ?
+                    """.trimIndent(),
+                    arrayOf<Any?>(
+                        targetId,
+                        sourceId
+                    )
+                )
+                db.execSQL(
+                    """
+                    UPDATE payday_snapshots
+                    SET salary_account_id = ?
+                    WHERE salary_account_id = ?
+                    """.trimIndent(),
+                    arrayOf<Any?>(
+                        targetId,
+                        sourceId
+                    )
+                )
+                db.execSQL(
+                    """
+                    DELETE FROM payday_snapshot_accounts
+                    WHERE account_id = ?
+                      AND snapshot_id IN (
+                            SELECT snapshot_id
+                            FROM payday_snapshot_accounts
+                            WHERE account_id = ?
+                      )
+                    """.trimIndent(),
+                    arrayOf<Any?>(
+                        sourceId,
+                        targetId
+                    )
+                )
+                db.execSQL(
+                    """
+                    UPDATE payday_snapshot_accounts
+                    SET account_id = ?,
+                        account_name =
+                            'M-Shwari Lock Savings'
+                    WHERE account_id = ?
+                    """.trimIndent(),
+                    arrayOf<Any?>(
+                        targetId,
+                        sourceId
+                    )
+                )
+                db.delete(
+                    "money_accounts",
+                    "id = ?",
+                    arrayOf(sourceId)
+                )
+            }
+
+        db.execSQL(
+            """
+            UPDATE financial_entities
+            SET display_name =
+                    'M-Shwari Lock Savings',
+                provider_key =
+                    'NCBA_MSHWARI_LOCK_SAVINGS',
+                account_type_hint =
+                    'SAVINGS',
+                confirmed_account_id =
+                    COALESCE(
+                        confirmed_account_id,
+                        ?
+                    )
+            WHERE LOWER(TRIM(display_name))
+                    IN (
+                        'lock savings',
+                        'lock saving'
+                    )
+            """.trimIndent(),
+            arrayOf<Any?>(
+                targetId
+            )
+        )
     }
 
     private fun addColumnIfMissing(
@@ -1093,6 +1320,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 26
+        private const val DATABASE_VERSION = 27
     }
 }
