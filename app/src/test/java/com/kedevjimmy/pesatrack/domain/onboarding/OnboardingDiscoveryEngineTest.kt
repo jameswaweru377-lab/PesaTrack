@@ -84,6 +84,41 @@ class OnboardingDiscoveryEngineTest {
     }
 
     @Test
+    fun smallRepeatedCreditsAreNotSuggestedAsSalary() {
+        val suggestion =
+            OnboardingDiscoveryEngine
+                .salarySuggestion(
+                    listOf(
+                        observation(
+                            label =
+                                "Sample Transport Merchant",
+                            amountMinor = 220_00L,
+                            month = Calendar.AUGUST,
+                            day = 4,
+                            direction =
+                                MoneyDirection.INCOME,
+                            accountId =
+                                "bank-equity"
+                        ),
+                        observation(
+                            label =
+                                "Sample Transport Merchant",
+                            amountMinor = 220_00L,
+                            month = Calendar.SEPTEMBER,
+                            day = 4,
+                            direction =
+                                MoneyDirection.INCOME,
+                            accountId =
+                                "bank-equity"
+                        )
+                    ),
+                    utc
+                )
+
+        assertNull(suggestion)
+    }
+
+    @Test
     fun repeatedPhoneFromNonMpesaAccountCanBeAskedForOwnership() {
         val phone =
             OnboardingDiscoveryEngine
