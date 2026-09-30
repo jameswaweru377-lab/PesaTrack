@@ -27,10 +27,70 @@ class PayCycleStore private constructor(context: Context) {
 
     @Synchronized
     fun rebuild() {
-        val db = database.writableDatabase
+        val salaryEvents =
+            readSalaryEvents()
+        val accepted =
+            mutableListOf<SalaryEvent>()
+        val candidateReasons =
+            mutableMapOf<Long, String?>()
+        var previousAccepted:
+            SalaryEvent? = null
+
+        salaryEvents.forEach { event ->
+            if (
+                event.override ==
+                OVERRIDE_ADDITIONAL_INCOME
+            ) {
+                candidateReasons[
+                    event.transactionId
+                ] = null
+                return@forEach
+            }
+
+            val reason =
+                if (
+                    event.override ==
+                    OVERRIDE_FORCE_START
+                ) {
+                    null
+                } else {
+                    PayCyclePolicy
+                        .candidateReason(
+                            previousCycleStartEpochMs =
+                                previousAccepted
+                                    ?.occurredAtEpochMs,
+                            currentSalaryEpochMs =
+                                event.occurredAtEpochMs,
+                            payWindowStartDay =
+                                event.payWindowStartDay,
+                            payWindowEndDay =
+                                event.payWindowEndDay
+                        )
+                }
+
+            candidateReasons[
+                event.transactionId
+            ] = reason
+            if (reason == null) {
+                accepted += event
+                previousAccepted = event
+            }
+        }
+
+        val db =
+            database.writableDatabase
+
+        // Phase 1 commits salary-review state before
+        // balance reconstruction. Payday snapshots can
+        // therefore see accepted salary transactions
+        // without opening a nested SQLite transaction.
         db.beginTransaction()
         try {
-            db.delete("pay_cycles", null, null)
+            db.delete(
+                "pay_cycles",
+                null,
+                null
+            )
             db.execSQL(
                 """
                 UPDATE transactions
@@ -39,30 +99,31 @@ class PayCycleStore private constructor(context: Context) {
                 """.trimIndent()
             )
 
-            val salaryEvents = readSalaryEvents()
-            val accepted = mutableListOf<SalaryEvent>()
-            var previousAccepted: SalaryEvent? = null
-
             salaryEvents.forEach { event ->
-                if (event.override == OVERRIDE_ADDITIONAL_INCOME) {
+                if (
+                    event.override ==
+                    OVERRIDE_ADDITIONAL_INCOME
+                ) {
                     db.execSQL(
-                        "UPDATE transactions SET review_state = ? WHERE id = ?",
-                        arrayOf<Any?>(ReviewState.USER_CLASSIFIED.name, event.transactionId)
+                        """
+                        UPDATE transactions
+                        SET review_state = ?,
+                            cycle_candidate_reason = NULL
+                        WHERE id = ?
+                        """.trimIndent(),
+                        arrayOf<Any?>(
+                            ReviewState
+                                .USER_CLASSIFIED.name,
+                            event.transactionId
+                        )
                     )
                     return@forEach
                 }
 
-                val reason = if (event.override == OVERRIDE_FORCE_START) {
-                    null
-                } else {
-                    PayCyclePolicy.candidateReason(
-                        previousCycleStartEpochMs = previousAccepted?.occurredAtEpochMs,
-                        currentSalaryEpochMs = event.occurredAtEpochMs,
-                        payWindowStartDay = event.payWindowStartDay,
-                        payWindowEndDay = event.payWindowEndDay
-                    )
-                }
-
+                val reason =
+                    candidateReasons[
+                        event.transactionId
+                    ]
                 if (reason != null) {
                     db.execSQL(
                         """
@@ -71,11 +132,14 @@ class PayCycleStore private constructor(context: Context) {
                             review_state = ?
                         WHERE id = ?
                         """.trimIndent(),
-                        arrayOf<Any?>(reason, ReviewState.NEEDS_REVIEW.name, event.transactionId)
+                        arrayOf<Any?>(
+                            reason,
+                            ReviewState
+                                .NEEDS_REVIEW.name,
+                            event.transactionId
+                        )
                     )
                 } else {
-                    accepted += event
-                    previousAccepted = event
                     db.execSQL(
                         """
                         UPDATE transactions
@@ -87,32 +151,57 @@ class PayCycleStore private constructor(context: Context) {
                         WHERE id = ?
                         """.trimIndent(),
                         arrayOf<Any?>(
-                            ReviewState.NEEDS_REVIEW.name,
-                            ReviewState.AUTO_CLASSIFIED.name,
+                            ReviewState
+                                .NEEDS_REVIEW.name,
+                            ReviewState
+                                .AUTO_CLASSIFIED.name,
                             event.transactionId
                         )
                     )
                 }
             }
 
-            paydaySnapshotStore.rebuildForSalaryAnchors(
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+
+        paydaySnapshotStore
+            .rebuildForSalaryAnchors(
                 accepted.map { event ->
                     PaydaySalaryAnchor(
-                        transactionId = event.transactionId,
-                        occurredAtEpochMs = event.occurredAtEpochMs,
-                        amountMinor = event.amountMinor,
-                        accountId = event.accountId
+                        transactionId =
+                            event.transactionId,
+                        occurredAtEpochMs =
+                            event.occurredAtEpochMs,
+                        amountMinor =
+                            event.amountMinor,
+                        accountId =
+                            event.accountId
                     )
                 }
             )
 
-            var previousEnding: Long? = null
-            accepted.forEachIndexed { index, event ->
+        // Phase 2 builds cycles after payday snapshots
+        // have committed. This avoids nested writers and
+        // ensures the carryover read sees the snapshot.
+        db.beginTransaction()
+        try {
+            var previousEnding:
+                Long? = null
+
+            accepted.forEachIndexed {
+                    index,
+                    event ->
                 val nextStart =
-                    accepted.getOrNull(index + 1)
+                    accepted
+                        .getOrNull(
+                            index + 1
+                        )
                         ?.occurredAtEpochMs
                 val cycleId =
-                    UUID.randomUUID().toString()
+                    UUID.randomUUID()
+                        .toString()
                 val payday =
                     paydaySnapshotStore
                         .snapshotForSalaryTransaction(
@@ -139,30 +228,89 @@ class PayCycleStore private constructor(context: Context) {
                 val ending =
                     nextStart?.let {
                         trackedRemainder(
-                            startTransactionId = event.transactionId,
-                            startEpochMs = event.occurredAtEpochMs,
+                            startTransactionId =
+                                event.transactionId,
+                            startEpochMs =
+                                event.occurredAtEpochMs,
                             endEpochMs = it,
-                            openingIncomeMinor = event.amountMinor,
-                            carryoverMinor = carryover
+                            openingIncomeMinor =
+                                event.amountMinor,
+                            carryoverMinor =
+                                carryover
                         )
                     }
 
-                val now = System.currentTimeMillis()
-                val values = ContentValues().apply {
-                    put("id", cycleId)
-                    put("start_transaction_id", event.transactionId)
-                    put("start_epoch_ms", event.occurredAtEpochMs)
-                    if (nextStart != null) put("end_epoch_ms", nextStart)
-                    else putNull("end_epoch_ms")
-                    put("opening_income_minor", event.amountMinor)
-                    put("carryover_minor", carryover)
-                    if (ending != null) put("ending_tracked_minor", ending)
-                    else putNull("ending_tracked_minor")
-                    put("state", if (nextStart == null) STATE_ACTIVE else STATE_CLOSED)
-                    put("created_at_epoch_ms", now)
-                    put("updated_at_epoch_ms", now)
-                }
-                db.insertOrThrow("pay_cycles", null, values)
+                val now =
+                    System.currentTimeMillis()
+                val values =
+                    ContentValues().apply {
+                        put(
+                            "id",
+                            cycleId
+                        )
+                        put(
+                            "start_transaction_id",
+                            event.transactionId
+                        )
+                        put(
+                            "start_epoch_ms",
+                            event.occurredAtEpochMs
+                        )
+                        if (
+                            nextStart != null
+                        ) {
+                            put(
+                                "end_epoch_ms",
+                                nextStart
+                            )
+                        } else {
+                            putNull(
+                                "end_epoch_ms"
+                            )
+                        }
+                        put(
+                            "opening_income_minor",
+                            event.amountMinor
+                        )
+                        put(
+                            "carryover_minor",
+                            carryover
+                        )
+                        if (ending != null) {
+                            put(
+                                "ending_tracked_minor",
+                                ending
+                            )
+                        } else {
+                            putNull(
+                                "ending_tracked_minor"
+                            )
+                        }
+                        put(
+                            "state",
+                            if (
+                                nextStart == null
+                            ) {
+                                STATE_ACTIVE
+                            } else {
+                                STATE_CLOSED
+                            }
+                        )
+                        put(
+                            "created_at_epoch_ms",
+                            now
+                        )
+                        put(
+                            "updated_at_epoch_ms",
+                            now
+                        )
+                    }
+
+                db.insertOrThrow(
+                    "pay_cycles",
+                    null,
+                    values
+                )
 
                 val where =
                     if (nextStart == null) {
@@ -172,16 +320,25 @@ class PayCycleStore private constructor(context: Context) {
                     }
                 val args =
                     if (nextStart == null) {
-                        arrayOf(event.occurredAtEpochMs.toString())
+                        arrayOf(
+                            event.occurredAtEpochMs
+                                .toString()
+                        )
                     } else {
                         arrayOf(
-                            event.occurredAtEpochMs.toString(),
+                            event.occurredAtEpochMs
+                                .toString(),
                             nextStart.toString()
                         )
                     }
+
                 ContentValues().apply {
-                    put("pay_cycle_id", cycleId)
-                }.also { transactionValues ->
+                    put(
+                        "pay_cycle_id",
+                        cycleId
+                    )
+                }.also {
+                        transactionValues ->
                     db.update(
                         "transactions",
                         transactionValues,
@@ -191,7 +348,8 @@ class PayCycleStore private constructor(context: Context) {
                 }
 
                 if (ending != null) {
-                    previousEnding = ending
+                    previousEnding =
+                        ending
                 }
             }
 
