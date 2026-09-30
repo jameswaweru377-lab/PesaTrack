@@ -2143,32 +2143,8 @@ private fun ImportChoicePage(
             )
         }
 
-        error?.let { message ->
-            Surface(
-                modifier =
-                    Modifier.fillMaxWidth(),
-                shape =
-                    RoundedCornerShape(
-                        16.dp
-                    ),
-                color =
-                    MaterialTheme.colorScheme
-                        .errorContainer
-            ) {
-                Text(
-                    message,
-                    modifier =
-                        Modifier.padding(14.dp),
-                    color =
-                        MaterialTheme.colorScheme
-                            .onErrorContainer
-                )
-            }
-        }
-
         Button(
             onClick = onContinue,
-            enabled = !applying,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp),
@@ -2818,8 +2794,30 @@ private fun ReviewDiscoveryPage(
             }
         }
 
+        error?.let { message ->
+            Surface(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                shape =
+                    RoundedCornerShape(16.dp),
+                color =
+                    MaterialTheme.colorScheme
+                        .errorContainer
+            ) {
+                Text(
+                    message,
+                    modifier =
+                        Modifier.padding(14.dp),
+                    color =
+                        MaterialTheme.colorScheme
+                            .onErrorContainer
+                )
+            }
+        }
+
         Button(
             onClick = onContinue,
+            enabled = !applying,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp),
