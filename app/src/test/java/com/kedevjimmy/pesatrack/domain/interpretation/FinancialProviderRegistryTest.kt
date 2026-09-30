@@ -217,7 +217,7 @@ class FinancialProviderRegistryTest {
                 )
 
         assertEquals(
-            "Equity Bank",
+            "Equity Bank Kenya",
             account?.displayName
         )
         assertEquals(
@@ -228,7 +228,10 @@ class FinancialProviderRegistryTest {
             AccountOwnershipHint.USER_OWNED,
             account?.ownershipHint
         )
-        assertEquals(null, account?.providerKey)
+        assertEquals(
+            "KENYAN_BANK_EQUITY",
+            account?.providerKey
+        )
     }
 
     @Test

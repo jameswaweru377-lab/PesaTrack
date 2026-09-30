@@ -22,7 +22,7 @@ class RealDeviceFinancialMessageRegressionTest {
                 PaymentEventFact
 
         assertEquals(2_000_000L, event.amountMinor)
-        assertEquals("Equity Bank", event.source.displayName)
+        assertEquals("Equity Bank Kenya", event.source.displayName)
         assertEquals("SAMPLE PERSON", event.counterparty)
         assertEquals(
             FinancialAccountNature.ASSET,

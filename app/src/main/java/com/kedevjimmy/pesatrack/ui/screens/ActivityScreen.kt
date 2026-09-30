@@ -97,6 +97,8 @@ import com.kedevjimmy.pesatrack.data.local.RelationshipReviewKind
 import com.kedevjimmy.pesatrack.data.local.RelationshipReviewStore
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.domain.model.KenyanBankDirectory
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
@@ -225,6 +227,26 @@ fun ActivityScreen(
     var showMonthPicker by remember {
         mutableStateOf(false)
     }
+    var accountReviewEntity by remember {
+        mutableStateOf<DiscoveredFinancialEntity?>(
+            null
+        )
+    }
+
+    val reviewableFinancialEntities =
+        remember(
+            pendingFinancialEntities,
+            financialDiagnostics
+        ) {
+            pendingFinancialEntities
+                .filter {
+                    shouldOfferOwnershipReview(
+                        entity = it,
+                        diagnostics =
+                            financialDiagnostics
+                    )
+                }
+        }
 
     fun selectMonth(epochMs: Long) {
         val normalizedMonth = monthStart(epochMs)
@@ -306,10 +328,9 @@ fun ActivityScreen(
                     displayName = displayName,
                     sourceType =
                         entries.firstOrNull()
-                            ?.sourceType
-                            ?.takeIf {
-                                it.isNotBlank()
-                            }
+                            ?.let(
+                                ::financialSourceType
+                            )
                             ?: "Financial",
                     messageCount = entries.size
                 )
@@ -438,36 +459,22 @@ fun ActivityScreen(
                 )
             }
 
-            if (pendingFinancialEntities.isNotEmpty()) {
+            if (
+                reviewableFinancialEntities
+                    .isNotEmpty()
+            ) {
                 item {
                     FinancialAccountDiscoveryCard(
                         entity =
-                            pendingFinancialEntities.first(),
+                            reviewableFinancialEntities
+                                .first(),
                         remainingCount =
-                            pendingFinancialEntities.size - 1,
-                        onConfirmOwned = {
-                            val entity =
-                                pendingFinancialEntities.first()
-                            financialStore.confirmEntityOwned(
-                                entity.entityKey
-                            )
-                            financialCoordinator
-                                .reconcilePendingTransfers(
-                                    entity.entityKey
-                                )
-                            refresh()
-                        },
-                        onNotMine = {
-                            val entity =
-                                pendingFinancialEntities.first()
-                            financialStore.markEntityExternal(
-                                entity.entityKey
-                            )
-                            financialCoordinator
-                                .reconcileExternalEntity(
-                                    entity.entityKey
-                                )
-                            refresh()
+                            reviewableFinancialEntities
+                                .size - 1,
+                        onReview = {
+                            accountReviewEntity =
+                                reviewableFinancialEntities
+                                    .first()
                         }
                     )
                 }
@@ -1010,28 +1017,70 @@ fun ActivityScreen(
             }
         )
     }
+
+    accountReviewEntity?.let { entity ->
+        FinancialAccountReviewDialog(
+            entity = entity,
+            onDismiss = {
+                accountReviewEntity = null
+            },
+            onConfirmOwned = {
+                financialStore.confirmEntityOwned(
+                    entity.entityKey
+                )
+                financialCoordinator
+                    .reconcilePendingTransfers(
+                        entity.entityKey
+                    )
+                accountReviewEntity = null
+                refresh()
+            },
+            onNotMine = {
+                financialStore.markEntityExternal(
+                    entity.entityKey
+                )
+                financialCoordinator
+                    .reconcileExternalEntity(
+                        entity.entityKey
+                    )
+                accountReviewEntity = null
+                refresh()
+            }
+        )
+    }
 }
 
 @Composable
 private fun FinancialAccountDiscoveryCard(
     entity: DiscoveredFinancialEntity,
     remainingCount: Int,
-    onConfirmOwned: () -> Unit,
-    onNotMine: () -> Unit
+    onReview: () -> Unit
 ) {
+    val displayName =
+        financialEntityReviewDisplayName(
+            entity
+        )
+
     PesaCard {
         Column(
-            modifier = Modifier.padding(15.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier =
+                Modifier.padding(15.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(10.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
                 IconBubble(
-                    icon = Icons.Rounded.AccountBalance,
+                    icon =
+                        Icons.Rounded
+                            .AccountBalance,
                     size = 44.dp,
-                    background = pesaToneContainer("blue"),
-                    tint = pesaToneContent("blue")
+                    background =
+                        pesaToneContainer("blue"),
+                    tint =
+                        pesaToneContent("blue")
                 )
                 Column(
                     modifier = Modifier
@@ -1039,52 +1088,146 @@ private fun FinancialAccountDiscoveryCard(
                         .padding(start = 12.dp)
                 ) {
                     Text(
-                        "New financial account found",
-                        style = MaterialTheme.typography.titleMedium
+                        "Account ownership needs review",
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium
                     )
                     Text(
-                        entity.displayName,
-                        style = MaterialTheme.typography.titleLarge
+                        displayName,
+                        style =
+                            MaterialTheme.typography
+                                .titleLarge
                     )
                 }
                 SmallStatusPill("Review")
             }
 
             Text(
-                "A financial message looks like it refers to this account. PesaTrack has not assumed it belongs to you.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                "PesaTrack saw financial evidence connected to this account name, but it has not assumed the account belongs to you.",
+                style =
+                    MaterialTheme.typography
+                        .bodyMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
             )
 
             if (remainingCount > 0) {
                 Text(
                     "+" + remainingCount +
                         " more account" +
-                        if (remainingCount == 1) "" else "s" +
+                        if (
+                            remainingCount == 1
+                        ) {
+                            ""
+                        } else {
+                            "s"
+                        } +
                         " waiting for review",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
                 )
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Button(
+                onClick = onReview,
+                modifier =
+                    Modifier.fillMaxWidth()
             ) {
-                OutlinedButton(
-                    onClick = onNotMine,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Not mine")
-                }
-                Button(
-                    onClick = onConfirmOwned,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("My account")
-                }
+                Text("Review account")
             }
         }
     }
+}
+
+@Composable
+private fun FinancialAccountReviewDialog(
+    entity: DiscoveredFinancialEntity,
+    onDismiss: () -> Unit,
+    onConfirmOwned: () -> Unit,
+    onNotMine: () -> Unit
+) {
+    val displayName =
+        financialEntityReviewDisplayName(
+            entity
+        )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Does this account belong to you?"
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    displayName,
+                    style =
+                        MaterialTheme.typography
+                            .titleLarge,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
+                Text(
+                    "Choose “Yes, my account” only if this is one of your own bank, wallet or savings accounts."
+                )
+                Text(
+                    "Why it matters: PesaTrack uses ownership to decide whether money is income/expense or simply moving between your own accounts.",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+                Text(
+                    "Nothing is changed until you confirm below.",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .primary
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick =
+                    onConfirmOwned
+            ) {
+                Text("Yes, my account")
+            }
+        },
+        dismissButton = {
+            Row(
+                horizontalArrangement =
+                    Arrangement.spacedBy(6.dp)
+            ) {
+                TextButton(
+                    onClick =
+                        onDismiss
+                ) {
+                    Text("Cancel")
+                }
+                OutlinedButton(
+                    onClick =
+                        onNotMine
+                ) {
+                    Text("No, not mine")
+                }
+            }
+        }
+    )
 }
 
 @Composable
@@ -3178,6 +3321,28 @@ private fun FinancialMessageDateHeader(
 private fun CapturedFinancialMessageRow(
     diagnostic: FinancialIngestionDiagnostic
 ) {
+    val currentSourceType =
+        financialSourceType(
+            diagnostic
+        )
+    val currentEventLabel =
+        if (
+            currentSourceType != "Bank" &&
+            diagnostic.eventLabel
+                .startsWith(
+                    "Bank ",
+                    ignoreCase = true
+                )
+        ) {
+            diagnostic.eventLabel
+                .removePrefix("Bank ")
+                .replaceFirstChar {
+                    it.uppercase()
+                }
+        } else {
+            diagnostic.eventLabel
+        }
+
     val tone =
         when (diagnostic.code) {
             FinancialIngestionDiagnosticCode
@@ -3231,19 +3396,19 @@ private fun CapturedFinancialMessageRow(
             IconBubble(
                 icon =
                     when {
-                        diagnostic.eventLabel
+                        currentEventLabel
                             .contains(
                                 "loan",
                                 ignoreCase = true
                             ) ->
                             Icons.Rounded.ReceiptLong
-                        diagnostic.eventLabel
+                        currentEventLabel
                             .contains(
                                 "transfer",
                                 ignoreCase = true
                             ) ->
                             Icons.Rounded.SyncAlt
-                        diagnostic.eventLabel
+                        currentEventLabel
                             .contains(
                                 "received",
                                 ignoreCase = true
@@ -3264,7 +3429,7 @@ private fun CapturedFinancialMessageRow(
                     .padding(horizontal = 11.dp)
             ) {
                 Text(
-                    diagnostic.eventLabel,
+                    currentEventLabel,
                     style =
                         MaterialTheme.typography
                             .titleSmall,
@@ -3277,7 +3442,7 @@ private fun CapturedFinancialMessageRow(
                             .receivedAtEpochMs
                     ) +
                         "  •  " +
-                        diagnostic.sourceType,
+                        currentSourceType,
                     modifier =
                         Modifier.padding(top = 3.dp),
                     style =
@@ -3296,18 +3461,127 @@ private fun CapturedFinancialMessageRow(
 private fun financialSourceDisplayName(
     diagnostic: FinancialIngestionDiagnostic
 ): String =
-    diagnostic.sourceDisplayName
+    FinancialProviderRegistry
+        .messageSourceDisplayName(
+            title = diagnostic.title,
+            bankLike =
+                diagnostic.sourceType == "Bank"
+        )
         ?.takeIf(String::isNotBlank)
-        ?: FinancialProviderRegistry
-            .messageSourceDisplayName(
-                title = diagnostic.title,
-                bankLike =
-                    diagnostic.sourceType == "Bank"
-            )
-        ?.takeIf(String::isNotBlank)
+        ?: diagnostic.sourceDisplayName
+            ?.takeIf(String::isNotBlank)
         ?: diagnostic.title
             ?.takeIf(String::isNotBlank)
         ?: "Unknown financial source"
+
+private fun financialSourceType(
+    diagnostic: FinancialIngestionDiagnostic
+): String {
+    val source =
+        FinancialProviderRegistry
+            .resolveMessageSourceAccount(
+                title = diagnostic.title,
+                bankLike =
+                    diagnostic.sourceType ==
+                        "Bank"
+            )
+
+    return when (
+        source?.accountTypeHint
+    ) {
+        AccountType.BANK -> "Bank"
+        AccountType.MOBILE_WALLET ->
+            "Wallet"
+        AccountType.SAVINGS ->
+            "Savings"
+        else ->
+            if (
+                diagnostic.sourceType ==
+                "Lender"
+            ) {
+                "Lender"
+            } else {
+                "Financial"
+            }
+    }
+}
+
+private fun financialEntityReviewDisplayName(
+    entity: DiscoveredFinancialEntity
+): String =
+    KenyanBankDirectory
+        .matchSender(
+            entity.displayName
+        )
+        ?.name
+        ?: entity.displayName
+
+private fun shouldOfferOwnershipReview(
+    entity: DiscoveredFinancialEntity,
+    diagnostics:
+        List<FinancialIngestionDiagnostic>
+): Boolean {
+    if (entity.providerKey != null) {
+        return true
+    }
+
+    val display =
+        entity.displayName.trim()
+    if (
+        !display.endsWith(
+            " Bank",
+            ignoreCase = true
+        )
+    ) {
+        return true
+    }
+
+    val base =
+        display.substring(
+            0,
+            display.length - 5
+        ).trim()
+    val baseKey =
+        ownershipReviewKey(base)
+
+    val looksLikeLegacyPseudoBank =
+        diagnostics.any { diagnostic ->
+            val title =
+                diagnostic.title
+                    ?.trim()
+                    ?.takeIf(
+                        String::isNotBlank
+                    )
+                    ?: return@any false
+
+            if (
+                ownershipReviewKey(
+                    title
+                ) != baseKey
+            ) {
+                return@any false
+            }
+
+            FinancialProviderRegistry
+                .resolveMessageSourceAccount(
+                    title = title,
+                    bankLike = true
+                )
+                ?.accountTypeHint !=
+                AccountType.BANK
+        }
+
+    return !looksLikeLegacyPseudoBank
+}
+
+private fun ownershipReviewKey(
+    value: String
+): String =
+    value.lowercase(Locale.ROOT)
+        .replace(
+            Regex("""[^a-z0-9]+"""),
+            ""
+        )
 
 private fun financialSourceKey(
     displayName: String

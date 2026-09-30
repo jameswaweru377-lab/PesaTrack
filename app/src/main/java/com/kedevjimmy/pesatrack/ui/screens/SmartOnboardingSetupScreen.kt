@@ -1,8 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import android.Manifest
-import android.app.Activity
-import android.content.ActivityNotFoundException
+import android.app.DatePickerDialog
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -19,12 +18,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -73,14 +76,17 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
+import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.RulePreset
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingDiscoveryEngine
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingSalarySuggestion
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingTransactionObservation
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.rules.HistoryImportWindow
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
@@ -93,6 +99,9 @@ import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -104,8 +113,17 @@ private enum class SmartSetupStage {
     SMS_PERMISSION,
     ANALYZE,
     REVIEW,
+    SALARY_MANUAL,
     MPESA_CONFIRM,
     LIVE_CAPTURE,
+    COMPLETE
+}
+
+private enum class AnalysisStep {
+    SCANNING,
+    ACCOUNTS,
+    INCOME,
+    DUPLICATES,
     COMPLETE
 }
 
@@ -185,6 +203,34 @@ fun SmartOnboardingSetupScreen(
     var salaryApplied by rememberSaveable {
         mutableStateOf(false)
     }
+    var analysisStep by remember {
+        mutableStateOf(
+            AnalysisStep.SCANNING
+        )
+    }
+    var smsAppInfoVisited by rememberSaveable {
+        mutableStateOf(false)
+    }
+    var availableAccounts by remember {
+        mutableStateOf<List<MoneyAccount>>(
+            emptyList()
+        )
+    }
+    var manualSalaryAccountId by rememberSaveable {
+        mutableStateOf("")
+    }
+    var manualSalaryPayer by rememberSaveable {
+        mutableStateOf("")
+    }
+    var manualSalaryAmount by rememberSaveable {
+        mutableStateOf("")
+    }
+    var manualSalaryDateEpochMs by rememberSaveable {
+        mutableStateOf<Long?>(null)
+    }
+    var manualSalaryError by remember {
+        mutableStateOf<String?>(null)
+    }
 
     val smsPermissionLauncher =
         rememberLauncherForActivityResult(
@@ -195,6 +241,24 @@ fun SmartOnboardingSetupScreen(
             smsDenied = !granted
             if (granted) {
                 stage = SmartSetupStage.ANALYZE
+            }
+        }
+
+    val appInfoLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts
+                .StartActivityForResult()
+        ) {
+            smsGranted =
+                hasSmsPermission(context)
+            if (smsGranted) {
+                stage =
+                    SmartSetupStage.ANALYZE
+            } else if (
+                stage ==
+                SmartSetupStage.SMS_PERMISSION
+            ) {
+                smsPromptLaunched = false
             }
         }
 
@@ -244,7 +308,11 @@ fun SmartOnboardingSetupScreen(
         }
     }
 
-    LaunchedEffect(stage, smsGranted) {
+    LaunchedEffect(
+        stage,
+        smsGranted,
+        smsPromptLaunched
+    ) {
         if (
             stage ==
             SmartSetupStage.SMS_PERMISSION
@@ -252,6 +320,16 @@ fun SmartOnboardingSetupScreen(
             if (smsGranted) {
                 stage =
                     SmartSetupStage.ANALYZE
+            } else if (
+                isLikelySideloaded(
+                    context
+                ) &&
+                !smsAppInfoVisited
+            ) {
+                // Sideloaded builds can be blocked by
+                // Android restricted-settings protection.
+                // The user must explicitly enable that
+                // system setting before we request SMS.
             } else if (!smsPromptLaunched) {
                 smsPromptLaunched = true
                 smsPermissionLauncher.launch(
@@ -274,33 +352,39 @@ fun SmartOnboardingSetupScreen(
                 .importStartEpochMs(
                     importMonths
                 )
+        val cutoff =
+            startEpochMs
+                ?: (
+                    System.currentTimeMillis() -
+                        SEVEN_DAYS_MS
+                    )
 
-        val discovery =
+        analysisStep =
+            AnalysisStep.SCANNING
+        importResult =
             withContext(Dispatchers.IO) {
-                val result =
-                    if (
-                        importMonths > 0 &&
-                        smsGranted &&
-                        startEpochMs != null
-                    ) {
-                        runCatching {
-                            HistoricalSmsImporter(
-                                context.applicationContext
-                            ).importSince(
-                                startEpochMs
-                            )
-                        }.getOrNull()
-                    } else {
-                        null
-                    }
+                if (
+                    importMonths > 0 &&
+                    smsGranted &&
+                    startEpochMs != null
+                ) {
+                    runCatching {
+                        HistoricalSmsImporter(
+                            context.applicationContext
+                        ).importSince(
+                            startEpochMs
+                        )
+                    }.getOrNull()
+                } else {
+                    null
+                }
+            }
+        delay(MIN_PROGRESS_STEP_MS)
 
-                val cutoff =
-                    startEpochMs
-                        ?: (
-                            System.currentTimeMillis() -
-                                SEVEN_DAYS_MS
-                            )
-
+        analysisStep =
+            AnalysisStep.ACCOUNTS
+        val accountDiscovery =
+            withContext(Dispatchers.IO) {
                 val diagnostics =
                     diagnosticsStore
                         .recent(500)
@@ -311,29 +395,51 @@ fun SmartOnboardingSetupScreen(
 
                 val sources =
                     diagnostics
-                        .asSequence()
-                        .filter {
-                            it.sourceType in
-                                setOf(
-                                    "Bank",
-                                    "Wallet",
-                                    "Savings"
-                                )
-                        }
                         .mapNotNull { item ->
-                            item.sourceDisplayName
-                                ?.trim()
-                                ?.takeIf(
-                                    String::isNotBlank
-                                )
-                                ?.let { name ->
-                                    name to
-                                        item.sourceType
+                            val resolved =
+                                FinancialProviderRegistry
+                                    .resolveMessageSourceAccount(
+                                        title =
+                                            item.title,
+                                        bankLike =
+                                            item.sourceType ==
+                                                "Bank"
+                                    )
+                            val type =
+                                when (
+                                    resolved
+                                        ?.accountTypeHint
+                                ) {
+                                    AccountType.BANK ->
+                                        "Bank"
+                                    AccountType.MOBILE_WALLET ->
+                                        "Wallet"
+                                    AccountType.SAVINGS ->
+                                        "Savings"
+                                    else -> null
                                 }
+                            val name =
+                                resolved
+                                    ?.displayName
+                                    ?.trim()
+                                    ?.takeIf(
+                                        String::isNotBlank
+                                    )
+
+                            if (
+                                type == null ||
+                                name == null
+                            ) {
+                                null
+                            } else {
+                                name to type
+                            }
                         }
                         .groupBy {
                             it.first
-                                .lowercase()
+                                .lowercase(
+                                    Locale.ROOT
+                                )
                         }
                         .values
                         .map { entries ->
@@ -348,11 +454,67 @@ fun SmartOnboardingSetupScreen(
                         }
                         .sortedWith(
                             compareBy(
-                                { sourceTypeOrder(it.type) },
-                                { it.name.lowercase() }
+                                {
+                                    sourceTypeOrder(
+                                        it.type
+                                    )
+                                },
+                                {
+                                    it.name.lowercase(
+                                        Locale.ROOT
+                                    )
+                                }
                             )
                         )
 
+                val accounts =
+                    accountStore
+                        .listAccounts()
+                        .filter {
+                            it.type in
+                                setOf(
+                                    AccountType.BANK,
+                                    AccountType.MOBILE_WALLET,
+                                    AccountType.CASH,
+                                    AccountType.SAVINGS
+                                )
+                        }
+
+                sources to accounts
+            }
+
+        detectedSources =
+            accountDiscovery.first
+        availableAccounts =
+            accountDiscovery.second
+        if (
+            manualSalaryAccountId.isBlank()
+        ) {
+            manualSalaryAccountId =
+                availableAccounts
+                    .firstOrNull {
+                        it.type ==
+                            AccountType.BANK
+                    }
+                    ?.id
+                    ?: availableAccounts
+                        .firstOrNull {
+                            it.id ==
+                                AccountStore
+                                    .DEFAULT_MPESA_ID
+                        }
+                        ?.id
+                    ?: availableAccounts
+                        .firstOrNull()
+                        ?.id
+                        .orEmpty()
+        }
+        delay(MIN_PROGRESS_STEP_MS)
+
+        analysisStep =
+            AnalysisStep.INCOME
+        val incomeDiscovery =
+            withContext(Dispatchers.IO) {
                 val transactions =
                     transactionStore
                         .recent(500)
@@ -398,47 +560,50 @@ fun SmartOnboardingSetupScreen(
                         }
                         ?.identifier
 
-                SetupDiscoveryResult(
-                    importResult = result,
-                    sources = sources,
-                    salary =
+                Pair(
+                    OnboardingDiscoveryEngine
+                        .salarySuggestion(
+                            observations
+                        ),
+                    if (
+                        existingMpesaNumber
+                            .isNullOrBlank()
+                    ) {
                         OnboardingDiscoveryEngine
-                            .salarySuggestion(
-                                observations
-                            ),
-                    mpesaPhone =
-                        if (
-                            existingMpesaNumber
-                                .isNullOrBlank()
-                        ) {
-                            OnboardingDiscoveryEngine
-                                .mpesaPhoneSuggestion(
-                                    observations =
-                                        observations,
-                                    mpesaAccountId =
-                                        AccountStore
-                                            .DEFAULT_MPESA_ID
-                                )
-                        } else {
-                            null
-                        }
+                            .mpesaPhoneSuggestion(
+                                observations =
+                                    observations,
+                                mpesaAccountId =
+                                    AccountStore
+                                        .DEFAULT_MPESA_ID
+                            )
+                    } else {
+                        null
+                    }
                 )
             }
 
-        // Keep the analysis page visible long enough to feel
-        // deliberate without turning setup into a waiting screen.
-        delay(700)
-
-        importResult =
-            discovery.importResult
-        detectedSources =
-            discovery.sources
         salarySuggestion =
-            discovery.salary
+            incomeDiscovery.first
         salaryAccepted =
-            discovery.salary != null
+            incomeDiscovery.first != null
         mpesaPhoneSuggestion =
-            discovery.mpesaPhone
+            incomeDiscovery.second
+        delay(MIN_PROGRESS_STEP_MS)
+
+        analysisStep =
+            AnalysisStep.DUPLICATES
+        withContext(Dispatchers.IO) {
+            transactionStore
+                .onboardingDuplicateCandidateCount(
+                    cutoff
+                )
+        }
+        delay(MIN_PROGRESS_STEP_MS)
+
+        analysisStep =
+            AnalysisStep.COMPLETE
+        delay(180)
         stage =
             SmartSetupStage.REVIEW
     }
@@ -490,6 +655,101 @@ fun SmartOnboardingSetupScreen(
         salaryApplied = true
     }
 
+    suspend fun applyManualSalary(): Boolean {
+        val amountMinor =
+            parseSetupMoneyMinor(
+                manualSalaryAmount
+            )
+        if (
+            amountMinor == null ||
+            amountMinor <= 0L
+        ) {
+            manualSalaryError =
+                "Enter the most recent salary amount."
+            return false
+        }
+
+        val paidAt =
+            manualSalaryDateEpochMs
+        if (paidAt == null) {
+            manualSalaryError =
+                "Choose the date that salary actually arrived."
+            return false
+        }
+
+        val account =
+            availableAccounts
+                .firstOrNull {
+                    it.id ==
+                        manualSalaryAccountId
+                }
+        if (account == null) {
+            manualSalaryError =
+                "Choose where the salary arrived."
+            return false
+        }
+
+        val payer =
+            manualSalaryPayer
+                .trim()
+        val ruleLabel =
+            payer.ifBlank {
+                "Manual salary"
+            }
+
+        withContext(Dispatchers.IO) {
+            val existing =
+                ruleStore
+                    .listRules(
+                        enabledOnly = false
+                    )
+                    .firstOrNull {
+                        it.preset ==
+                            RulePreset.SALARY &&
+                            it.startsPayCycle
+                    }
+
+            val salaryRule =
+                existing ?: ruleStore.save(
+                    name = "Salary",
+                    counterpartyContains = "",
+                    counterpartyExact =
+                        ruleLabel,
+                    category =
+                        TransactionCategory.INCOME,
+                    direction =
+                        MoneyDirection.INCOME,
+                    displayLabel = "Salary",
+                    preset =
+                        RulePreset.SALARY,
+                    startsPayCycle = true,
+                    accountId = account.id
+                )
+
+            transactionStore
+                .reapplyRule(
+                    salaryRule
+                )
+            transactionStore
+                .insertManualIncome(
+                    amountMinor =
+                        amountMinor,
+                    occurredAtEpochMs =
+                        paidAt,
+                    label =
+                        ruleLabel,
+                    matchedRule =
+                        salaryRule
+                )
+            payCycleStore.rebuild()
+        }
+
+        salaryApplied = true
+        salaryAccepted = true
+        manualSalaryError = null
+        return true
+    }
+
     suspend fun confirmMpesaPhone(
         rawPhone: String
     ): Boolean {
@@ -537,11 +797,15 @@ fun SmartOnboardingSetupScreen(
 
     LazyColumn(
         modifier = Modifier
-            .padding(scaffoldPadding)
+            .fillMaxSize()
             .background(
                 MaterialTheme.colorScheme
                     .background
-            ),
+            )
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing
+            )
+            .padding(scaffoldPadding),
         contentPadding =
             PaddingValues(
                 horizontal = 18.dp,
@@ -551,7 +815,9 @@ fun SmartOnboardingSetupScreen(
             Arrangement.spacedBy(16.dp)
     ) {
         item {
-            BrandWordmark()
+            BrandWordmark(
+                compact = true
+            )
         }
 
         item {
@@ -592,6 +858,28 @@ fun SmartOnboardingSetupScreen(
                 item {
                     SmsPermissionPage(
                         denied = smsDenied,
+                        restrictedHelp =
+                            isLikelySideloaded(
+                                context
+                            ) &&
+                                (
+                                    !smsAppInfoVisited ||
+                                        smsDenied
+                                    ),
+                        onOpenAppInfo = {
+                            smsAppInfoVisited =
+                                true
+                            appInfoLauncher.launch(
+                                Intent(
+                                    Settings
+                                        .ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.parse(
+                                        "package:" +
+                                            context.packageName
+                                    )
+                                )
+                            )
+                        },
                         onTryAgain = {
                             smsDenied = false
                             smsPromptLaunched =
@@ -617,7 +905,8 @@ fun SmartOnboardingSetupScreen(
                     AnalysisPage(
                         importing =
                             importMonths > 0 &&
-                                smsGranted
+                                smsGranted,
+                        step = analysisStep
                     )
                 }
             }
@@ -636,6 +925,11 @@ fun SmartOnboardingSetupScreen(
                         onSalaryAccepted = {
                             salaryAccepted = it
                         },
+                        onManualSalary = {
+                            stage =
+                                SmartSetupStage
+                                    .SALARY_MANUAL
+                        },
                         onContinue = {
                             setupScope.launch {
                                 applySalaryIfConfirmed()
@@ -651,6 +945,82 @@ fun SmartOnboardingSetupScreen(
                                             .LIVE_CAPTURE
                                     }
                             }
+                        }
+                    )
+                }
+            }
+
+            SmartSetupStage.SALARY_MANUAL -> {
+                item {
+                    ManualSalaryPage(
+                        context = context,
+                        accounts =
+                            availableAccounts,
+                        selectedAccountId =
+                            manualSalaryAccountId,
+                        payer =
+                            manualSalaryPayer,
+                        amount =
+                            manualSalaryAmount,
+                        paidAtEpochMs =
+                            manualSalaryDateEpochMs,
+                        error =
+                            manualSalaryError,
+                        onAccountSelected = {
+                            manualSalaryAccountId =
+                                it
+                            manualSalaryError =
+                                null
+                        },
+                        onPayerChanged = {
+                            manualSalaryPayer =
+                                it
+                            manualSalaryError =
+                                null
+                        },
+                        onAmountChanged = {
+                            manualSalaryAmount =
+                                it
+                            manualSalaryError =
+                                null
+                        },
+                        onDateSelected = {
+                            manualSalaryDateEpochMs =
+                                it
+                            manualSalaryError =
+                                null
+                        },
+                        onSave = {
+                            setupScope.launch {
+                                if (
+                                    applyManualSalary()
+                                ) {
+                                    stage =
+                                        if (
+                                            mpesaPhoneSuggestion !=
+                                            null
+                                        ) {
+                                            SmartSetupStage
+                                                .MPESA_CONFIRM
+                                        } else {
+                                            SmartSetupStage
+                                                .LIVE_CAPTURE
+                                        }
+                                }
+                            }
+                        },
+                        onSkip = {
+                            stage =
+                                if (
+                                    mpesaPhoneSuggestion !=
+                                    null
+                                ) {
+                                    SmartSetupStage
+                                        .MPESA_CONFIRM
+                                } else {
+                                    SmartSetupStage
+                                        .LIVE_CAPTURE
+                                }
                         }
                     )
                 }
@@ -724,6 +1094,15 @@ fun SmartOnboardingSetupScreen(
                             notificationGranted,
                         settingsVisited =
                             notificationSettingsVisited,
+                        restrictedInstall =
+                            isLikelySideloaded(
+                                context
+                            ),
+                        restrictedPrepared =
+                            !isLikelySideloaded(
+                                context
+                            ) ||
+                                smsAppInfoVisited,
                         onEnable = {
                             if (
                                 notificationGranted
@@ -731,6 +1110,24 @@ fun SmartOnboardingSetupScreen(
                                 stage =
                                     SmartSetupStage
                                         .COMPLETE
+                            } else if (
+                                isLikelySideloaded(
+                                    context
+                                ) &&
+                                !smsAppInfoVisited
+                            ) {
+                                smsAppInfoVisited =
+                                    true
+                                appInfoLauncher.launch(
+                                    Intent(
+                                        Settings
+                                            .ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        Uri.parse(
+                                            "package:" +
+                                                context.packageName
+                                        )
+                                    )
+                                )
                             } else {
                                 notificationSettingsVisited =
                                     true
@@ -742,7 +1139,8 @@ fun SmartOnboardingSetupScreen(
                             }
                         },
                         onOpenAppInfo = {
-                            settingsLauncher.launch(
+                            smsAppInfoVisited = true
+                            appInfoLauncher.launch(
                                 Intent(
                                     Settings
                                         .ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -768,9 +1166,12 @@ fun SmartOnboardingSetupScreen(
                         sources =
                             detectedSources,
                         salaryAccepted =
-                            salaryAccepted &&
-                                salarySuggestion !=
-                                null,
+                            salaryApplied ||
+                                (
+                                    salaryAccepted &&
+                                        salarySuggestion !=
+                                        null
+                                    ),
                         notificationEnabled =
                             notificationGranted,
                         onHome = onDone
@@ -780,13 +1181,6 @@ fun SmartOnboardingSetupScreen(
         }
     }
 }
-
-private data class SetupDiscoveryResult(
-    val importResult: HistoricalImportResult?,
-    val sources: List<DetectedSetupSource>,
-    val salary: OnboardingSalarySuggestion?,
-    val mpesaPhone: String?
-)
 
 @Composable
 private fun StageProgress(
@@ -798,6 +1192,7 @@ private fun StageProgress(
             SmartSetupStage.SMS_PERMISSION -> 1
             SmartSetupStage.ANALYZE -> 2
             SmartSetupStage.REVIEW -> 3
+            SmartSetupStage.SALARY_MANUAL -> 4
             SmartSetupStage.MPESA_CONFIRM -> 4
             SmartSetupStage.LIVE_CAPTURE -> 5
             SmartSetupStage.COMPLETE -> 6
@@ -849,164 +1244,241 @@ private fun ImportChoicePage(
     onSelected: (Int) -> Unit,
     onContinue: () -> Unit
 ) {
-    SetupHero(
-        icon = Icons.Rounded.History,
-        title = "Let's find your money messages",
-        body =
-            "Choose how much recent history PesaTrack should use to understand your accounts and patterns."
-    )
-
-    listOf(
-        Triple(
-            3,
-            "Last 3 months",
-            "Recommended for the clearest picture"
-        ),
-        Triple(
-            1,
-            "Last 1 month",
-            "A quick way to get started"
-        ),
-        Triple(
-            0,
-            "Not now",
-            "Start without reading old SMS"
-        )
-    ).forEach { option ->
-        SelectableSetupCard(
-            selected =
-                selectedMonths ==
-                    option.first,
-            title = option.second,
-            body = option.third,
-            icon =
-                if (
-                    option.first == 0
-                ) {
-                    Icons.Rounded.Lock
-                } else {
-                    Icons.Rounded.History
-                },
-            onClick = {
-                onSelected(option.first)
-            }
-        )
-    }
-
-    Button(
-        onClick = onContinue,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 56.dp),
-        shape = RoundedCornerShape(18.dp)
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
     ) {
-        Text("Continue")
-        Icon(
-            Icons.Rounded.ArrowForward,
-            contentDescription = null,
-            modifier =
-                Modifier.padding(start = 8.dp)
+        SetupHero(
+            icon = Icons.Rounded.History,
+            title = "Let's find your money messages",
+            body =
+                "Choose how much recent history PesaTrack should use to understand your accounts and patterns."
+        )
+
+        listOf(
+            Triple(
+                3,
+                "Last 3 months",
+                "Recommended for the clearest picture"
+            ),
+            Triple(
+                1,
+                "Last 1 month",
+                "A quick way to get started"
+            ),
+            Triple(
+                0,
+                "Not now",
+                "Start without reading old SMS"
+            )
+        ).forEach { option ->
+            SelectableSetupCard(
+                selected =
+                    selectedMonths ==
+                        option.first,
+                title = option.second,
+                body = option.third,
+                icon =
+                    if (option.first == 0) {
+                        Icons.Rounded.Lock
+                    } else {
+                        Icons.Rounded.History
+                    },
+                onClick = {
+                    onSelected(option.first)
+                }
+            )
+        }
+
+        Button(
+            onClick = onContinue,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+            shape =
+                RoundedCornerShape(18.dp)
+        ) {
+            Text("Continue")
+            Icon(
+                Icons.Rounded.ArrowForward,
+                contentDescription = null,
+                modifier =
+                    Modifier.padding(
+                        start = 8.dp
+                    )
+            )
+        }
+
+        Text(
+            "You can import or re-import history later from Settings.",
+            style =
+                MaterialTheme.typography
+                    .bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
         )
     }
-
-    Text(
-        "You can import or re-import history later from Settings.",
-        style = MaterialTheme.typography.bodySmall,
-        color =
-            MaterialTheme.colorScheme
-                .onSurfaceVariant
-    )
 }
 
 @Composable
 private fun SmsPermissionPage(
     denied: Boolean,
+    restrictedHelp: Boolean,
+    onOpenAppInfo: () -> Unit,
     onTryAgain: () -> Unit,
     onContinueWithout: () -> Unit
 ) {
-    SetupHero(
-        icon = Icons.Rounded.Message,
-        title = "Allow access to your messages",
-        body =
-            "Android asks for this permission directly. PesaTrack uses it only to read the history you chose."
-    )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
+    ) {
+        SetupHero(
+            icon = Icons.Rounded.Message,
+            title = "Allow access to your messages",
+            body =
+                "Android controls this permission. PesaTrack uses it only to read the history you chose."
+        )
 
-    PesaCard {
-        Column(
-            Modifier.padding(18.dp),
-            horizontalAlignment =
-                Alignment.CenterHorizontally,
-            verticalArrangement =
-                Arrangement.spacedBy(12.dp)
-        ) {
-            IconBubble(
-                Icons.Rounded.Shield,
-                size = 56.dp,
-                background =
-                    pesaToneContainer("green"),
-                tint =
-                    pesaToneContent("green")
-            )
-            Text(
-                if (denied) {
-                    "SMS access wasn't allowed"
-                } else {
-                    "Waiting for Android permission"
-                },
-                style =
-                    MaterialTheme.typography
-                        .titleLarge,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                if (denied) {
-                    "That's okay. You can continue without importing old messages."
-                } else {
-                    "The system Allow / Don't allow dialog should appear automatically."
-                },
-                textAlign = TextAlign.Center,
+        PesaCard {
+            Column(
+                Modifier.padding(18.dp),
+                horizontalAlignment =
+                    Alignment.CenterHorizontally,
+                verticalArrangement =
+                    Arrangement.spacedBy(12.dp)
+            ) {
+                IconBubble(
+                    Icons.Rounded.Shield,
+                    size = 56.dp,
+                    background =
+                        pesaToneContainer("green"),
+                    tint =
+                        pesaToneContent("green")
+                )
+                Text(
+                    when {
+                        restrictedHelp ->
+                            "Android blocked SMS access"
+                        denied ->
+                            "SMS access wasn't allowed"
+                        else ->
+                            "Waiting for Android permission"
+                    },
+                    style =
+                        MaterialTheme.typography
+                            .titleLarge,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurface,
+                    textAlign =
+                        TextAlign.Center
+                )
+                Text(
+                    when {
+                        restrictedHelp ->
+                            "This debug APK was installed outside a trusted app store. On this phone, Android requires you to enable “Allow restricted settings” in App info first."
+                        denied ->
+                            "You can try again or continue without importing old messages."
+                        else ->
+                            "The system Allow / Don't allow dialog should appear automatically."
+                    },
+                    textAlign =
+                        TextAlign.Center,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+        }
+
+        if (restrictedHelp) {
+            Surface(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                shape =
+                    RoundedCornerShape(18.dp),
                 color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-            )
+                    pesaToneContainer("amber")
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        "One Android step is required",
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurface
+                    )
+                    Text(
+                        "Open App info → turn on Allow restricted settings → return to PesaTrack. The SMS permission request will open again automatically.",
+                        style =
+                            MaterialTheme.typography
+                                .bodyMedium,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                    Button(
+                        onClick = onOpenAppInfo,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp)
+                    ) {
+                        Text("Open App info")
+                    }
+                }
+            }
+        } else if (denied) {
+            Button(
+                onClick = onTryAgain,
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+                Text("Try again")
+            }
         }
-    }
 
-    if (denied) {
-        Button(
-            onClick = onTryAgain,
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-            Text("Try again")
+        if (denied) {
+            OutlinedButton(
+                onClick =
+                    onContinueWithout,
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+                Text("Continue without import")
+            }
         }
-        OutlinedButton(
-            onClick =
-                onContinueWithout,
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-            Text("Continue without import")
-        }
-    }
 
-    Text(
-        "Raw SMS text stays on this phone. PesaTrack's optional online merchant enrichment only receives privacy-filtered business descriptors.",
-        style = MaterialTheme.typography.bodySmall,
-        color =
-            MaterialTheme.colorScheme
-                .onSurfaceVariant
-    )
+        Text(
+            "PesaTrack cannot switch Android's restricted-settings protection on by itself. That decision always belongs to you.",
+            style =
+                MaterialTheme.typography
+                    .bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
+    }
 }
 
 @Composable
 private fun AnalysisPage(
-    importing: Boolean
+    importing: Boolean,
+    step: AnalysisStep
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 30.dp),
+            .padding(vertical = 22.dp),
         horizontalAlignment =
             Alignment.CenterHorizontally
     ) {
@@ -1036,13 +1508,17 @@ private fun AnalysisPage(
             style =
                 MaterialTheme.typography
                     .headlineMedium,
+            color =
+                MaterialTheme.colorScheme
+                    .onBackground,
+            fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
         Text(
             if (importing) {
-                "PesaTrack is scanning your selected history, finding accounts and looking for recurring income."
+                "PesaTrack is working through your selected history one step at a time."
             } else {
-                "PesaTrack is preparing a clean starting point. It will learn from new activity as it arrives."
+                "PesaTrack is preparing a clean starting point and will learn as new activity arrives."
             },
             modifier =
                 Modifier.padding(top = 8.dp),
@@ -1059,19 +1535,35 @@ private fun AnalysisPage(
             Column(
                 Modifier.padding(16.dp),
                 verticalArrangement =
-                    Arrangement.spacedBy(13.dp)
+                    Arrangement.spacedBy(16.dp)
             ) {
                 AnalysisRow(
-                    "Scanning financial messages"
+                    label =
+                        "Scanning financial messages",
+                    target =
+                        AnalysisStep.SCANNING,
+                    current = step
                 )
                 AnalysisRow(
-                    "Finding your accounts"
+                    label =
+                        "Finding your accounts",
+                    target =
+                        AnalysisStep.ACCOUNTS,
+                    current = step
                 )
                 AnalysisRow(
-                    "Looking for recurring income"
+                    label =
+                        "Looking for recurring income",
+                    target =
+                        AnalysisStep.INCOME,
+                    current = step
                 )
                 AnalysisRow(
-                    "Checking duplicate evidence"
+                    label =
+                        "Checking duplicate evidence",
+                    target =
+                        AnalysisStep.DUPLICATES,
+                    current = step
                 )
             }
         }
@@ -1080,26 +1572,82 @@ private fun AnalysisPage(
 
 @Composable
 private fun AnalysisRow(
-    label: String
+    label: String,
+    target: AnalysisStep,
+    current: AnalysisStep
 ) {
+    val complete =
+        current == AnalysisStep.COMPLETE ||
+            current.ordinal >
+                target.ordinal
+    val active =
+        !complete &&
+            current == target
+
     Row(
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment =
             Alignment.CenterVertically
     ) {
-        Icon(
-            Icons.Rounded.CheckCircle,
-            contentDescription = null,
-            tint =
-                MaterialTheme.colorScheme
-                    .primary
-        )
+        Box(
+            modifier = Modifier.size(24.dp),
+            contentAlignment =
+                Alignment.Center
+        ) {
+            when {
+                complete -> {
+                    Icon(
+                        Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        tint =
+                            MaterialTheme
+                                .colorScheme
+                                .primary,
+                        modifier =
+                            Modifier.size(24.dp)
+                    )
+                }
+
+                active -> {
+                    CircularProgressIndicator(
+                        modifier =
+                            Modifier.size(22.dp),
+                        strokeWidth = 2.5.dp
+                    )
+                }
+
+                else -> {
+                    Surface(
+                        modifier =
+                            Modifier.size(10.dp),
+                        shape = CircleShape,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .outlineVariant
+                    ) {}
+                }
+            }
+        }
+
         Text(
             label,
             modifier =
-                Modifier.padding(start = 10.dp),
+                Modifier.padding(start = 12.dp),
             color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
+                if (active || complete) {
+                    MaterialTheme.colorScheme
+                        .onSurface
+                } else {
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+                },
+            fontWeight =
+                if (active) {
+                    FontWeight.SemiBold
+                } else {
+                    FontWeight.Normal
+                }
         )
     }
 }
@@ -1112,194 +1660,239 @@ private fun ReviewDiscoveryPage(
     salaryAccepted: Boolean,
     importResult: HistoricalImportResult?,
     onSalaryAccepted: (Boolean) -> Unit,
+    onManualSalary: () -> Unit,
     onContinue: () -> Unit
 ) {
-    SetupHero(
-        icon = Icons.Rounded.CheckCircle,
-        title = "Here's what we found",
-        body =
-            "Confirm the useful signals. You can change account and rule details later."
-    )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
+    ) {
+        SetupHero(
+            icon = Icons.Rounded.CheckCircle,
+            title = "Here's what we found",
+            body =
+                "These are signals from your real messages. Confirm what looks right; PesaTrack will not invent missing accounts."
+        )
 
-    if (sources.isEmpty()) {
-        PesaCard {
-            Column(
-                Modifier.padding(18.dp)
-            ) {
-                Text(
-                    "No accounts confirmed yet",
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium
-                )
-                Text(
-                    if (importResult == null) {
-                        "That's fine. PesaTrack will discover M-Pesa, banks and other money sources as messages arrive."
-                    } else {
-                        "PesaTrack imported what it could, but there wasn't enough evidence to confidently name an account yet."
-                    },
-                    modifier =
-                        Modifier.padding(top = 5.dp),
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
+        if (sources.isEmpty()) {
+            PesaCard {
+                Column(
+                    Modifier.padding(18.dp)
+                ) {
+                    Text(
+                        "No money accounts confirmed yet",
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurface
+                    )
+                    Text(
+                        if (importResult == null) {
+                            "That's fine. PesaTrack can start empty and learn from future financial activity."
+                        } else {
+                            "PesaTrack imported your history but did not find enough strong sender evidence to safely name an account."
+                        },
+                        modifier =
+                            Modifier.padding(top = 5.dp),
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            sources.forEach { source ->
+                DiscoveredSourceCard(source)
             }
         }
-    } else {
-        sources.forEach { source ->
-            DiscoveredSourceCard(source)
-        }
-    }
 
-    if (salarySuggestion != null) {
-        Surface(
+        if (salarySuggestion != null) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onSalaryAccepted(
+                            !salaryAccepted
+                        )
+                    },
+                shape =
+                    RoundedCornerShape(22.dp),
+                color =
+                    if (salaryAccepted) {
+                        pesaToneContainer("amber")
+                    } else {
+                        MaterialTheme.colorScheme
+                            .surface
+                    }
+            ) {
+                Row(
+                    modifier =
+                        Modifier.padding(16.dp),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    IconBubble(
+                        Icons.Rounded.Payments,
+                        size = 46.dp,
+                        background =
+                            pesaToneContainer(
+                                "amber"
+                            ),
+                        tint =
+                            pesaToneContent("amber")
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 12.dp)
+                    ) {
+                        Text(
+                            "Possible salary",
+                            style =
+                                MaterialTheme.typography
+                                    .labelLarge,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .primary
+                        )
+                        Text(
+                            salarySuggestion.label,
+                            style =
+                                MaterialTheme.typography
+                                    .titleMedium,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurface
+                        )
+                        Text(
+                            salarySuggestion
+                                .monthCount
+                                .toString() +
+                                " months • recent " +
+                                formatSetupMoney(
+                                    salarySuggestion
+                                        .representativeAmountMinor
+                                ),
+                            style =
+                                MaterialTheme.typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        if (salaryAccepted) {
+                            Icons.Rounded.CheckCircle
+                        } else {
+                            Icons.Rounded.Payments
+                        },
+                        contentDescription =
+                            if (salaryAccepted) {
+                                "Marked as salary"
+                            } else {
+                                "Not marked as salary"
+                            },
+                        tint =
+                            if (salaryAccepted) {
+                                MaterialTheme.colorScheme
+                                    .primary
+                            } else {
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant
+                            }
+                    )
+                }
+            }
+
+            Text(
+                "Tap the salary card if this is not your pay. PesaTrack creates the salary rule only after your confirmation.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        } else {
+            PesaCard {
+                Row(
+                    Modifier.padding(16.dp),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    IconBubble(
+                        Icons.Rounded.Payments,
+                        size = 44.dp
+                    )
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .padding(
+                                start = 11.dp
+                            )
+                    ) {
+                        Text(
+                            "Salary wasn't found",
+                            style =
+                                MaterialTheme.typography
+                                    .titleMedium,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurface
+                        )
+                        Text(
+                            "Some banks don't send a useful salary SMS. Add one recent salary manually so Money In and your current pay cycle start correctly.",
+                            style =
+                                MaterialTheme.typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        if (
+            salarySuggestion == null ||
+            !salaryAccepted
+        ) {
+            OutlinedButton(
+                onClick = onManualSalary,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 54.dp),
+                shape =
+                    RoundedCornerShape(18.dp)
+            ) {
+                Text("Set up salary manually")
+            }
+        }
+
+        Button(
+            onClick = onContinue,
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable {
-                    onSalaryAccepted(
-                        !salaryAccepted
-                    )
-                },
-            shape = RoundedCornerShape(22.dp),
-            color =
-                if (salaryAccepted) {
-                    pesaToneContainer("amber")
-                } else {
-                    MaterialTheme.colorScheme
-                        .surface
-                }
+                .heightIn(min = 56.dp),
+            shape =
+                RoundedCornerShape(18.dp)
         ) {
-            Row(
-                modifier =
-                    Modifier.padding(16.dp),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                IconBubble(
-                    Icons.Rounded.Payments,
-                    size = 46.dp,
-                    background =
-                        pesaToneContainer(
-                            "amber"
-                        ),
-                    tint =
-                        pesaToneContent("amber")
-                )
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp)
+            Text(
+                if (
+                    salarySuggestion == null
                 ) {
-                    Text(
-                        "Possible salary",
-                        style =
-                            MaterialTheme.typography
-                                .labelLarge,
-                        color =
-                            MaterialTheme.colorScheme
-                                .primary
-                    )
-                    Text(
-                        salarySuggestion.label,
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium
-                    )
-                    Text(
-                        salarySuggestion
-                            .monthCount
-                            .toString() +
-                            " months • recent " +
-                            formatSetupMoney(
-                                salarySuggestion
-                                    .representativeAmountMinor
-                            ),
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
+                    "Continue without salary"
+                } else {
+                    "Looks good"
                 }
-                Icon(
-                    if (salaryAccepted) {
-                        Icons.Rounded.CheckCircle
-                    } else {
-                        Icons.Rounded.Payments
-                    },
-                    contentDescription =
-                        if (salaryAccepted) {
-                            "Marked as salary"
-                        } else {
-                            "Not marked as salary"
-                        },
-                    tint =
-                        if (salaryAccepted) {
-                            MaterialTheme.colorScheme
-                                .primary
-                        } else {
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                        }
-                )
-            }
+            )
         }
-
-        Text(
-            "Tap the salary card to include or exclude it. PesaTrack only creates the salary rule after your confirmation.",
-            style =
-                MaterialTheme.typography
-                    .bodySmall,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
-        )
-    } else {
-        PesaCard {
-            Row(
-                Modifier.padding(16.dp),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                IconBubble(
-                    Icons.Rounded.Payments,
-                    size = 44.dp
-                )
-                Column(
-                    Modifier.padding(
-                        start = 11.dp
-                    )
-                ) {
-                    Text(
-                        "Salary can be learned later",
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium
-                    )
-                    Text(
-                        "We didn't see a repeated payer across multiple months, so PesaTrack won't guess.",
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
-
-    Button(
-        onClick = onContinue,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 56.dp),
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Text("Looks good")
     }
 }
 
@@ -1373,6 +1966,299 @@ private fun DiscoveredSourceCard(
 }
 
 @Composable
+private fun ManualSalaryPage(
+    context: Context,
+    accounts: List<MoneyAccount>,
+    selectedAccountId: String,
+    payer: String,
+    amount: String,
+    paidAtEpochMs: Long?,
+    error: String?,
+    onAccountSelected: (String) -> Unit,
+    onPayerChanged: (String) -> Unit,
+    onAmountChanged: (String) -> Unit,
+    onDateSelected: (Long) -> Unit,
+    onSave: () -> Unit,
+    onSkip: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
+    ) {
+        SetupHero(
+            icon = Icons.Rounded.Payments,
+            title = "Add one recent salary",
+            body =
+                "Just enough information to start your pay cycle. You don't need to enter months of salary history."
+        )
+
+        PesaCard {
+            Column(
+                modifier =
+                    Modifier.padding(16.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Where did it arrive?",
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurface
+                )
+
+                accounts.forEach { account ->
+                    SalaryAccountChoice(
+                        account = account,
+                        selected =
+                            account.id ==
+                                selectedAccountId,
+                        onClick = {
+                            onAccountSelected(
+                                account.id
+                            )
+                        }
+                    )
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = payer,
+            onValueChange = onPayerChanged,
+            label = {
+                Text(
+                    "Name shown on the salary transaction"
+                )
+            },
+            placeholder = {
+                Text(
+                    "Example: XYZ PAYROLL or employer statement name"
+                )
+            },
+            supportingText = {
+                Text(
+                    "Use the wording you normally see on the bank or M-Pesa transaction. It can differ from the company's legal name. Leave blank if your bank never shows a payer."
+                )
+            },
+            modifier =
+                Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        OutlinedTextField(
+            value = amount,
+            onValueChange = onAmountChanged,
+            label = {
+                Text("Most recent salary amount")
+            },
+            prefix = {
+                Text("KES ")
+            },
+            keyboardOptions =
+                KeyboardOptions(
+                    keyboardType =
+                        KeyboardType.Decimal
+                ),
+            modifier =
+                Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        OutlinedButton(
+            onClick = {
+                val initial =
+                    Calendar.getInstance()
+                        .apply {
+                            if (
+                                paidAtEpochMs !=
+                                null
+                            ) {
+                                timeInMillis =
+                                    paidAtEpochMs
+                            }
+                        }
+
+                DatePickerDialog(
+                    context,
+                    {
+                            _,
+                            year,
+                            month,
+                            dayOfMonth ->
+                        val selected =
+                            Calendar
+                                .getInstance()
+                                .apply {
+                                    clear()
+                                    set(
+                                        year,
+                                        month,
+                                        dayOfMonth,
+                                        12,
+                                        0,
+                                        0
+                                    )
+                                }
+                                .timeInMillis
+                        onDateSelected(
+                            selected
+                        )
+                    },
+                    initial.get(
+                        Calendar.YEAR
+                    ),
+                    initial.get(
+                        Calendar.MONTH
+                    ),
+                    initial.get(
+                        Calendar.DAY_OF_MONTH
+                    )
+                ).apply {
+                    datePicker.maxDate =
+                        System.currentTimeMillis()
+                }.show()
+            },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 54.dp)
+        ) {
+            Text(
+                paidAtEpochMs
+                    ?.let(
+                        ::formatSetupDate
+                    )
+                    ?: "Choose the date salary arrived"
+            )
+        }
+
+        error?.let { message ->
+            Surface(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                shape =
+                    RoundedCornerShape(16.dp),
+                color =
+                    MaterialTheme.colorScheme
+                        .errorContainer
+            ) {
+                Text(
+                    message,
+                    modifier =
+                        Modifier.padding(14.dp),
+                    color =
+                        MaterialTheme.colorScheme
+                            .onErrorContainer
+                )
+            }
+        }
+
+        Button(
+            onClick = onSave,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+            shape =
+                RoundedCornerShape(18.dp)
+        ) {
+            Text("Save salary and continue")
+        }
+
+        TextButton(
+            onClick = onSkip,
+            modifier =
+                Modifier.fillMaxWidth()
+        ) {
+            Text("Skip for now")
+        }
+
+        Text(
+            "This manual salary is counted once, on the date you choose. It is not duplicated as another month of income.",
+            style =
+                MaterialTheme.typography
+                    .bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun SalaryAccountChoice(
+    account: MoneyAccount,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape =
+            RoundedCornerShape(16.dp),
+        color =
+            if (selected) {
+                MaterialTheme.colorScheme
+                    .primaryContainer
+            } else {
+                MaterialTheme.colorScheme
+                    .surfaceVariant
+                    .copy(alpha = .55f)
+            }
+    ) {
+        Row(
+            modifier =
+                Modifier.padding(13.dp),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            IconBubble(
+                icon =
+                    when (account.type) {
+                        AccountType.BANK ->
+                            Icons.Rounded
+                                .AccountBalance
+                        AccountType.MOBILE_WALLET ->
+                            Icons.Rounded
+                                .PhoneAndroid
+                        AccountType.CASH ->
+                            Icons.Rounded.Wallet
+                        else ->
+                            Icons.Rounded.Payments
+                    },
+                size = 40.dp
+            )
+            Text(
+                account.name,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 10.dp),
+                style =
+                    MaterialTheme.typography
+                        .titleSmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurface
+            )
+            if (selected) {
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    contentDescription =
+                        "Selected",
+                    tint =
+                        MaterialTheme.colorScheme
+                            .primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun MpesaConfirmationPage(
     suggestedPhone: String,
     manualMode: Boolean,
@@ -1384,6 +2270,11 @@ private fun MpesaConfirmationPage(
     onSaveManual: () -> Unit,
     onSkip: () -> Unit
 ) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
+    ) {
     SetupHero(
         icon = Icons.Rounded.PhoneAndroid,
         title = "Is this your M-Pesa number?",
@@ -1491,16 +2382,24 @@ private fun MpesaConfirmationPage(
             MaterialTheme.colorScheme
                 .onSurfaceVariant
     )
+    }
 }
 
 @Composable
 private fun LiveCapturePage(
     alreadyEnabled: Boolean,
     settingsVisited: Boolean,
+    restrictedInstall: Boolean,
+    restrictedPrepared: Boolean,
     onEnable: () -> Unit,
     onOpenAppInfo: () -> Unit,
     onLater: () -> Unit
 ) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
+    ) {
     SetupHero(
         icon = Icons.Rounded.Notifications,
         title = "Keep PesaTrack updated automatically",
@@ -1572,12 +2471,53 @@ private fun LiveCapturePage(
         shape = RoundedCornerShape(18.dp)
     ) {
         Text(
-            if (alreadyEnabled) {
-                "Continue"
-            } else {
-                "Enable live tracking"
+            when {
+                alreadyEnabled ->
+                    "Continue"
+                restrictedInstall &&
+                    !restrictedPrepared ->
+                    "Open App info first"
+                else ->
+                    "Enable live tracking"
             }
         )
+    }
+
+    if (
+        restrictedInstall &&
+        !restrictedPrepared &&
+        !alreadyEnabled
+    ) {
+        Surface(
+            modifier =
+                Modifier.fillMaxWidth(),
+            shape =
+                RoundedCornerShape(18.dp),
+            color =
+                pesaToneContainer("amber")
+        ) {
+            Column(
+                Modifier.padding(15.dp)
+            ) {
+                Text(
+                    "Debug install protection",
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium
+                )
+                Text(
+                    "Because this APK was installed outside Google Play, Android may block Notification Access until you manually turn on “Allow restricted settings” in App info.",
+                    modifier =
+                        Modifier.padding(top = 4.dp),
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+        }
     }
 
     if (
@@ -1639,6 +2579,7 @@ private fun LiveCapturePage(
             MaterialTheme.colorScheme
                 .onSurfaceVariant
     )
+    }
 }
 
 @Composable
@@ -1684,6 +2625,9 @@ private fun SetupCompletePage(
             style =
                 MaterialTheme.typography
                     .headlineLarge,
+            color =
+                MaterialTheme.colorScheme
+                    .onBackground,
             fontWeight = FontWeight.Bold
         )
         Text(
@@ -1808,6 +2752,9 @@ private fun SetupHero(
             style =
                 MaterialTheme.typography
                     .headlineMedium,
+            color =
+                MaterialTheme.colorScheme
+                    .onBackground,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
@@ -1940,6 +2887,61 @@ private fun FeatureRow(
     }
 }
 
+private fun parseSetupMoneyMinor(
+    raw: String
+): Long? =
+    runCatching {
+        raw.replace(",", "")
+            .trim()
+            .toBigDecimal()
+            .movePointRight(2)
+            .setScale(
+                0,
+                java.math.RoundingMode.HALF_UP
+            )
+            .longValueExact()
+    }.getOrNull()
+
+private fun formatSetupDate(
+    epochMs: Long
+): String =
+    SimpleDateFormat(
+        "d MMM yyyy",
+        Locale.getDefault()
+    ).format(
+        Date(epochMs)
+    )
+
+private fun isLikelySideloaded(
+    context: Context
+): Boolean {
+    val installer =
+        runCatching {
+            if (
+                Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.R
+            ) {
+                context.packageManager
+                    .getInstallSourceInfo(
+                        context.packageName
+                    )
+                    .installingPackageName
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager
+                    .getInstallerPackageName(
+                        context.packageName
+                    )
+            }
+        }.getOrNull()
+
+    return installer
+        ?.contains(
+            "vending",
+            ignoreCase = true
+        ) != true
+}
+
 private fun hasSmsPermission(
     context: Context
 ): Boolean =
@@ -2034,6 +3036,9 @@ private fun formatSetupMoney(
             amountMinor / 100.0
         )
 }
+
+private const val MIN_PROGRESS_STEP_MS =
+    180L
 
 private const val SEVEN_DAYS_MS =
     7L * 24L * 60L * 60L * 1000L
