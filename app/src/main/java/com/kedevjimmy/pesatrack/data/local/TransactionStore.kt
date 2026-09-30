@@ -1643,8 +1643,17 @@ class TransactionStore private constructor(context: Context) {
             existing.ruleId != null && classification.ruleId == null
 
         val values = ContentValues().apply {
-            put("transaction_code", parsed.transactionCode)
-            put("fingerprint", fingerprint)
+            if (
+                existing.transactionCode.isNullOrBlank() &&
+                !parsed.transactionCode.isNullOrBlank()
+            ) {
+                put(
+                    "transaction_code",
+                    parsed.transactionCode
+                )
+                put("fingerprint", fingerprint)
+            }
+
             put("type", parsed.type.name)
             put("fee_minor", parsed.feeMinor)
             if (parsed.balanceMinor != null) {
