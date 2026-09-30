@@ -723,10 +723,9 @@ fun SmartOnboardingSetupScreen(
                         ?.identifier
 
                 Pair(
-                    OnboardingDiscoveryEngine
-                        .salarySuggestion(
-                            observations
-                        ),
+                    screenedSalarySuggestion(
+                        observations
+                    ),
                     if (
                         existingMpesaNumber
                             .isNullOrBlank()
@@ -1527,10 +1526,9 @@ fun SmartOnboardingSetupScreen(
                                                             item.accountId
                                                     )
                                                 }
-                                        OnboardingDiscoveryEngine
-                                            .salarySuggestion(
-                                                observations
-                                            )
+                                        screenedSalarySuggestion(
+                                            observations
+                                        )
                                     }
                                 if (
                                     refreshedSalary !=
