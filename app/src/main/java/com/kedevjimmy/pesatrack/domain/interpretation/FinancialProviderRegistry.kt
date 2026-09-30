@@ -44,7 +44,11 @@ object FinancialProviderRegistry {
             nature = FinancialAccountNature.ASSET,
             aliases = setOf(
                 "M SHWARI LOCK SAVINGS",
-                "MSHWARI LOCK SAVINGS"
+                "MSHWARI LOCK SAVINGS",
+                "LOCK SAVINGS",
+                "LOCK SAVING",
+                "LOCK SAVINGS A C",
+                "LOCK SAVINGS ACCOUNT"
             )
         ),
         FinancialProviderAccountKnowledge(
