@@ -1470,10 +1470,16 @@ fun SmartOnboardingSetupScreen(
                     providerKey =
                         "NCBA_MSHWARI_LOCK_SAVINGS"
                 )
+        }
+
+        setupScope.launch(
+            Dispatchers.IO
+        ) {
             transactionStore
                 .reconcileOwnAccountTransfers()
             payCycleStore.rebuild()
         }
+
         phoneError = null
         return true
     }
@@ -1819,6 +1825,8 @@ fun SmartOnboardingSetupScreen(
                         manualPhone =
                             manualMpesaPhone,
                         error = phoneError,
+                        busy =
+                            mpesaConfirmInProgress,
                         onManualChanged = {
                             manualMpesaPhone = it
                             phoneError = null
@@ -1827,35 +1835,57 @@ fun SmartOnboardingSetupScreen(
                             val suggested =
                                 mpesaPhoneSuggestion
                                     .orEmpty()
-                            setupScope.launch {
-                                    if (
-                                        confirmMpesaPhone(
-                                            suggested
-                                        )
-                                    ) {
-                                        applySalaryIfConfirmed()
-                                        stage =
-                                            SmartSetupStage
-                                                .LIVE_CAPTURE
+                            if (
+                                !mpesaConfirmInProgress
+                            ) {
+                                mpesaConfirmInProgress =
+                                    true
+                                setupScope.launch {
+                                    try {
+                                        if (
+                                            confirmMpesaPhone(
+                                                suggested
+                                            )
+                                        ) {
+                                            applySalaryIfConfirmed()
+                                            stage =
+                                                SmartSetupStage
+                                                    .LIVE_CAPTURE
+                                        }
+                                    } finally {
+                                        mpesaConfirmInProgress =
+                                            false
                                     }
                                 }
+                            }
                         },
                         onChooseAnother = {
                             manualPhoneMode = true
                         },
                         onSaveManual = {
-                            setupScope.launch {
-                                    if (
-                                        confirmMpesaPhone(
-                                            manualMpesaPhone
-                                        )
-                                    ) {
-                                        applySalaryIfConfirmed()
-                                        stage =
-                                            SmartSetupStage
-                                                .LIVE_CAPTURE
+                            if (
+                                !mpesaConfirmInProgress
+                            ) {
+                                mpesaConfirmInProgress =
+                                    true
+                                setupScope.launch {
+                                    try {
+                                        if (
+                                            confirmMpesaPhone(
+                                                manualMpesaPhone
+                                            )
+                                        ) {
+                                            applySalaryIfConfirmed()
+                                            stage =
+                                                SmartSetupStage
+                                                    .LIVE_CAPTURE
+                                        }
+                                    } finally {
+                                        mpesaConfirmInProgress =
+                                            false
                                     }
                                 }
+                            }
                         },
                         onSkip = {
                             setupScope.launch {
