@@ -44,7 +44,12 @@ object FinancialProviderRegistry {
             nature = FinancialAccountNature.ASSET,
             aliases = setOf(
                 "M SHWARI LOCK SAVINGS",
-                "MSHWARI LOCK SAVINGS"
+                "MSHWARI LOCK SAVINGS",
+                "LOCK SAVINGS",
+                "LOCK SAVING",
+                "LOCK SAVINGS ACCOUNT",
+                "M SHWARI LSA",
+                "MSHWARI LSA"
             )
         ),
         FinancialProviderAccountKnowledge(
@@ -118,6 +123,15 @@ object FinancialProviderRegistry {
             ),
             defaultObservedAccountProviderKey =
                 "SAFARICOM_MPESA"
+        ),
+        FinancialMessageSourceProfile(
+            profileKey = "NCBA_MSHWARI_MESSAGES",
+            titleAliases = setOf(
+                "M SHWARI",
+                "MSHWARI"
+            ),
+            defaultObservedAccountProviderKey =
+                "NCBA_MSHWARI_SAVINGS"
         )
     )
 
