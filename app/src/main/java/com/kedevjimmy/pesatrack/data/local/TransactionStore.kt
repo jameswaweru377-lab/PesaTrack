@@ -290,8 +290,10 @@ class TransactionStore private constructor(context: Context) {
                     occurredAtEpochMs = occurredAtEpochMs
                 )
             if (
-                parsed.type == MpesaTransactionType.RECEIVED ||
-                parsed.type == MpesaTransactionType.DEPOSIT
+                classification.direction ==
+                    MoneyDirection.INCOME ||
+                classification.direction ==
+                    MoneyDirection.TRANSFER
             ) {
                 DebtStore.get(appContext)
                     .reconcilePendingRepaymentsAround(
@@ -390,8 +392,10 @@ class TransactionStore private constructor(context: Context) {
                     occurredAtEpochMs = occurredAtEpochMs
                 )
             if (
-                parsed.type == MpesaTransactionType.RECEIVED ||
-                parsed.type == MpesaTransactionType.DEPOSIT
+                classification.direction ==
+                    MoneyDirection.INCOME ||
+                classification.direction ==
+                    MoneyDirection.TRANSFER
             ) {
                 DebtStore.get(appContext)
                     .reconcilePendingRepaymentsAround(
