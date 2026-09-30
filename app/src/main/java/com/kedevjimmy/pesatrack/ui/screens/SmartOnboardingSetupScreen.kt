@@ -1937,6 +1937,7 @@ private fun ImportChoicePage(
 
         Button(
             onClick = onContinue,
+            enabled = !ownershipApplying,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp),
@@ -2301,12 +2302,15 @@ private fun ReviewDiscoveryPage(
     sources: List<DetectedSetupSource>,
     ownershipCandidates:
         List<DiscoveredFinancialEntity>,
+    selectedOwnershipEntityKeys:
+        Set<String>,
+    ownershipApplying: Boolean,
     salarySuggestion:
         OnboardingSalarySuggestion?,
     salaryAccepted: Boolean,
     importResult: HistoricalImportResult?,
     onSalaryAccepted: (Boolean) -> Unit,
-    onConfirmAccount:
+    onToggleAccount:
         (DiscoveredFinancialEntity) -> Unit,
     onManualSalary: () -> Unit,
     onContinue: () -> Unit
@@ -2385,8 +2389,13 @@ private fun ReviewDiscoveryPage(
                 .forEach { entity ->
                     OwnershipCandidateCard(
                         entity = entity,
-                        onConfirm = {
-                            onConfirmAccount(
+                        selected =
+                            entity.entityKey in
+                                selectedOwnershipEntityKeys,
+                        enabled =
+                            !ownershipApplying,
+                        onToggle = {
+                            onToggleAccount(
                                 entity
                             )
                         }
@@ -2549,6 +2558,7 @@ private fun ReviewDiscoveryPage(
         ) {
             OutlinedButton(
                 onClick = onManualSalary,
+                enabled = !ownershipApplying,
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -2569,12 +2579,18 @@ private fun ReviewDiscoveryPage(
                 RoundedCornerShape(18.dp)
         ) {
             Text(
-                if (
+                if (ownershipApplying) {
+                    "Saving accounts…"
+                } else if (
                     salarySuggestion == null
                 ) {
                     "Continue without salary"
-                } else {
+                } else if (
+                    salaryAccepted
+                ) {
                     "Looks good"
+                } else {
+                    "Continue"
                 }
             )
         }
@@ -2584,9 +2600,19 @@ private fun ReviewDiscoveryPage(
 @Composable
 private fun OwnershipCandidateCard(
     entity: DiscoveredFinancialEntity,
-    onConfirm: () -> Unit
+    selected: Boolean,
+    enabled: Boolean,
+    onToggle: () -> Unit
 ) {
-    PesaCard {
+    PesaCard(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(
+                    enabled = enabled,
+                    onClick = onToggle
+                )
+    ) {
         Row(
             modifier =
                 Modifier.padding(16.dp),
@@ -2641,10 +2667,30 @@ private fun OwnershipCandidateCard(
                             .onSurfaceVariant
                 )
             }
-            TextButton(
-                onClick = onConfirm
-            ) {
-                Text("This is mine")
+            if (selected) {
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    contentDescription =
+                        "Selected account",
+                    tint =
+                        MaterialTheme.colorScheme
+                            .primary
+                )
+            } else {
+                Text(
+                    "This is mine",
+                    style =
+                        MaterialTheme.typography
+                            .labelLarge,
+                    color =
+                        if (enabled) {
+                            MaterialTheme.colorScheme
+                                .primary
+                        } else {
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                        }
+                )
             }
         }
     }
