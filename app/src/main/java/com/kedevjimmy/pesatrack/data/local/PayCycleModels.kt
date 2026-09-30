@@ -43,5 +43,6 @@ data class PayCycleSnapshot(
     val pendingSalary: SalaryCycleCandidate?,
     val unexplainedFundingGapMinor: Long = 0L,
     val refundsMinor: Long = 0L,
-    val paydaySnapshot: PaydaySnapshot? = null
+    val paydaySnapshot: PaydaySnapshot? = null,
+    val userProtectedMinor: Long = 0L
 )
