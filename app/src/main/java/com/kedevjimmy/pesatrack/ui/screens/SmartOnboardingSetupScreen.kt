@@ -256,6 +256,9 @@ fun SmartOnboardingSetupScreen(
             AnalysisStep.SCANNING
         )
     }
+    var analysisReviewMode by rememberSaveable {
+        mutableStateOf(false)
+    }
     var smsAppInfoVisited by rememberSaveable {
         mutableStateOf(false)
     }
@@ -400,10 +403,16 @@ fun SmartOnboardingSetupScreen(
         }
     }
 
-    LaunchedEffect(stage, importMonths, smsGranted) {
+    LaunchedEffect(
+        stage,
+        importMonths,
+        smsGranted,
+        analysisReviewMode
+    ) {
         if (
             stage !=
-            SmartSetupStage.ANALYZE
+                SmartSetupStage.ANALYZE ||
+            analysisReviewMode
         ) {
             return@LaunchedEffect
         }
@@ -1368,12 +1377,22 @@ fun SmartOnboardingSetupScreen(
         stage =
             when (stage) {
                 SmartSetupStage
-                    .SMS_PERMISSION,
-                SmartSetupStage
-                    .ANALYZE,
-                SmartSetupStage
-                    .REVIEW ->
+                    .SMS_PERMISSION ->
                     SmartSetupStage.IMPORT
+
+                SmartSetupStage
+                    .ANALYZE -> {
+                    analysisReviewMode = false
+                    SmartSetupStage.IMPORT
+                }
+
+                SmartSetupStage
+                    .REVIEW -> {
+                    analysisReviewMode = true
+                    analysisStep =
+                        AnalysisStep.COMPLETE
+                    SmartSetupStage.ANALYZE
+                }
 
                 SmartSetupStage
                     .SALARY_MANUAL ->
@@ -1516,7 +1535,23 @@ fun SmartOnboardingSetupScreen(
                         importing =
                             importMonths > 0 &&
                                 smsGranted,
-                        step = analysisStep
+                        step = analysisStep,
+                        reviewMode =
+                            analysisReviewMode,
+                        onContinue =
+                            if (
+                                analysisReviewMode
+                            ) {
+                                {
+                                    analysisReviewMode =
+                                        false
+                                    stage =
+                                        SmartSetupStage
+                                            .REVIEW
+                                }
+                            } else {
+                                null
+                            }
                     )
                 }
             }
@@ -2211,7 +2246,9 @@ private fun SmsPermissionPage(
 @Composable
 private fun AnalysisPage(
     importing: Boolean,
-    step: AnalysisStep
+    step: AnalysisStep,
+    reviewMode: Boolean = false,
+    onContinue: (() -> Unit)? = null
 ) {
     Column(
         modifier = Modifier
@@ -2231,11 +2268,32 @@ private fun AnalysisPage(
                 contentAlignment =
                     Alignment.Center
             ) {
-                CircularProgressIndicator(
-                    modifier =
-                        Modifier.size(58.dp),
-                    strokeWidth = 5.dp
-                )
+                if (
+                    reviewMode &&
+                    step ==
+                        AnalysisStep.COMPLETE
+                ) {
+                    Icon(
+                        Icons.Rounded
+                            .CheckCircle,
+                        contentDescription =
+                            null,
+                        modifier =
+                            Modifier.size(
+                                58.dp
+                            ),
+                        tint =
+                            MaterialTheme
+                                .colorScheme
+                                .primary
+                    )
+                } else {
+                    CircularProgressIndicator(
+                        modifier =
+                            Modifier.size(58.dp),
+                        strokeWidth = 5.dp
+                    )
+                }
             }
         }
 
@@ -2302,6 +2360,30 @@ private fun AnalysisPage(
                     target =
                         AnalysisStep.DUPLICATES,
                     current = step
+                )
+            }
+        }
+
+        if (
+            reviewMode &&
+            onContinue != null
+        ) {
+            Button(
+                onClick = onContinue,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 18.dp)
+                        .heightIn(
+                            min = 54.dp
+                        ),
+                shape =
+                    RoundedCornerShape(
+                        18.dp
+                    )
+            ) {
+                Text(
+                    "Continue to what we found"
                 )
             }
         }
