@@ -1103,6 +1103,12 @@ class FinancialMessageIngestionCoordinator private constructor(
                 sourceDisplayName =
                     sourceReference?.displayName
             )
+        val correlationReferences =
+            interpretation.semanticAssessment
+                ?.references
+                ?.map { it.value }
+                ?.toSet()
+                .orEmpty()
 
         val correlatedTransactionId =
             transactionStore.findByAnyExternalReference(
