@@ -308,7 +308,11 @@ fun SmartOnboardingSetupScreen(
         }
     }
 
-    LaunchedEffect(stage, smsGranted) {
+    LaunchedEffect(
+        stage,
+        smsGranted,
+        smsPromptLaunched
+    ) {
         if (
             stage ==
             SmartSetupStage.SMS_PERMISSION
@@ -338,33 +342,39 @@ fun SmartOnboardingSetupScreen(
                 .importStartEpochMs(
                     importMonths
                 )
+        val cutoff =
+            startEpochMs
+                ?: (
+                    System.currentTimeMillis() -
+                        SEVEN_DAYS_MS
+                    )
 
-        val discovery =
+        analysisStep =
+            AnalysisStep.SCANNING
+        importResult =
             withContext(Dispatchers.IO) {
-                val result =
-                    if (
-                        importMonths > 0 &&
-                        smsGranted &&
-                        startEpochMs != null
-                    ) {
-                        runCatching {
-                            HistoricalSmsImporter(
-                                context.applicationContext
-                            ).importSince(
-                                startEpochMs
-                            )
-                        }.getOrNull()
-                    } else {
-                        null
-                    }
+                if (
+                    importMonths > 0 &&
+                    smsGranted &&
+                    startEpochMs != null
+                ) {
+                    runCatching {
+                        HistoricalSmsImporter(
+                            context.applicationContext
+                        ).importSince(
+                            startEpochMs
+                        )
+                    }.getOrNull()
+                } else {
+                    null
+                }
+            }
+        delay(MIN_PROGRESS_STEP_MS)
 
-                val cutoff =
-                    startEpochMs
-                        ?: (
-                            System.currentTimeMillis() -
-                                SEVEN_DAYS_MS
-                            )
-
+        analysisStep =
+            AnalysisStep.ACCOUNTS
+        val accountDiscovery =
+            withContext(Dispatchers.IO) {
                 val diagnostics =
                     diagnosticsStore
                         .recent(500)
@@ -375,29 +385,51 @@ fun SmartOnboardingSetupScreen(
 
                 val sources =
                     diagnostics
-                        .asSequence()
-                        .filter {
-                            it.sourceType in
-                                setOf(
-                                    "Bank",
-                                    "Wallet",
-                                    "Savings"
-                                )
-                        }
                         .mapNotNull { item ->
-                            item.sourceDisplayName
-                                ?.trim()
-                                ?.takeIf(
-                                    String::isNotBlank
-                                )
-                                ?.let { name ->
-                                    name to
-                                        item.sourceType
+                            val resolved =
+                                FinancialProviderRegistry
+                                    .resolveMessageSourceAccount(
+                                        title =
+                                            item.title,
+                                        bankLike =
+                                            item.sourceType ==
+                                                "Bank"
+                                    )
+                            val type =
+                                when (
+                                    resolved
+                                        ?.accountTypeHint
+                                ) {
+                                    AccountType.BANK ->
+                                        "Bank"
+                                    AccountType.MOBILE_WALLET ->
+                                        "Wallet"
+                                    AccountType.SAVINGS ->
+                                        "Savings"
+                                    else -> null
                                 }
+                            val name =
+                                resolved
+                                    ?.displayName
+                                    ?.trim()
+                                    ?.takeIf(
+                                        String::isNotBlank
+                                    )
+
+                            if (
+                                type == null ||
+                                name == null
+                            ) {
+                                null
+                            } else {
+                                name to type
+                            }
                         }
                         .groupBy {
                             it.first
-                                .lowercase()
+                                .lowercase(
+                                    Locale.ROOT
+                                )
                         }
                         .values
                         .map { entries ->
@@ -412,11 +444,67 @@ fun SmartOnboardingSetupScreen(
                         }
                         .sortedWith(
                             compareBy(
-                                { sourceTypeOrder(it.type) },
-                                { it.name.lowercase() }
+                                {
+                                    sourceTypeOrder(
+                                        it.type
+                                    )
+                                },
+                                {
+                                    it.name.lowercase(
+                                        Locale.ROOT
+                                    )
+                                }
                             )
                         )
 
+                val accounts =
+                    accountStore
+                        .listAccounts()
+                        .filter {
+                            it.type in
+                                setOf(
+                                    AccountType.BANK,
+                                    AccountType.MOBILE_WALLET,
+                                    AccountType.CASH,
+                                    AccountType.SAVINGS
+                                )
+                        }
+
+                sources to accounts
+            }
+
+        detectedSources =
+            accountDiscovery.first
+        availableAccounts =
+            accountDiscovery.second
+        if (
+            manualSalaryAccountId.isBlank()
+        ) {
+            manualSalaryAccountId =
+                availableAccounts
+                    .firstOrNull {
+                        it.type ==
+                            AccountType.BANK
+                    }
+                    ?.id
+                    ?: availableAccounts
+                        .firstOrNull {
+                            it.id ==
+                                AccountStore
+                                    .DEFAULT_MPESA_ID
+                        }
+                        ?.id
+                    ?: availableAccounts
+                        .firstOrNull()
+                        ?.id
+                        .orEmpty()
+        }
+        delay(MIN_PROGRESS_STEP_MS)
+
+        analysisStep =
+            AnalysisStep.INCOME
+        val incomeDiscovery =
+            withContext(Dispatchers.IO) {
                 val transactions =
                     transactionStore
                         .recent(500)
@@ -462,47 +550,50 @@ fun SmartOnboardingSetupScreen(
                         }
                         ?.identifier
 
-                SetupDiscoveryResult(
-                    importResult = result,
-                    sources = sources,
-                    salary =
+                Pair(
+                    OnboardingDiscoveryEngine
+                        .salarySuggestion(
+                            observations
+                        ),
+                    if (
+                        existingMpesaNumber
+                            .isNullOrBlank()
+                    ) {
                         OnboardingDiscoveryEngine
-                            .salarySuggestion(
-                                observations
-                            ),
-                    mpesaPhone =
-                        if (
-                            existingMpesaNumber
-                                .isNullOrBlank()
-                        ) {
-                            OnboardingDiscoveryEngine
-                                .mpesaPhoneSuggestion(
-                                    observations =
-                                        observations,
-                                    mpesaAccountId =
-                                        AccountStore
-                                            .DEFAULT_MPESA_ID
-                                )
-                        } else {
-                            null
-                        }
+                            .mpesaPhoneSuggestion(
+                                observations =
+                                    observations,
+                                mpesaAccountId =
+                                    AccountStore
+                                        .DEFAULT_MPESA_ID
+                            )
+                    } else {
+                        null
+                    }
                 )
             }
 
-        // Keep the analysis page visible long enough to feel
-        // deliberate without turning setup into a waiting screen.
-        delay(700)
-
-        importResult =
-            discovery.importResult
-        detectedSources =
-            discovery.sources
         salarySuggestion =
-            discovery.salary
+            incomeDiscovery.first
         salaryAccepted =
-            discovery.salary != null
+            incomeDiscovery.first != null
         mpesaPhoneSuggestion =
-            discovery.mpesaPhone
+            incomeDiscovery.second
+        delay(MIN_PROGRESS_STEP_MS)
+
+        analysisStep =
+            AnalysisStep.DUPLICATES
+        withContext(Dispatchers.IO) {
+            transactionStore
+                .onboardingDuplicateCandidateCount(
+                    cutoff
+                )
+        }
+        delay(MIN_PROGRESS_STEP_MS)
+
+        analysisStep =
+            AnalysisStep.COMPLETE
+        delay(180)
         stage =
             SmartSetupStage.REVIEW
     }
