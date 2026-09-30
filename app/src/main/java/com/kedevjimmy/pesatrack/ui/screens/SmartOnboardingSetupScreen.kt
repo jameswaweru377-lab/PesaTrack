@@ -3490,6 +3490,96 @@ private fun FeatureRow(
     }
 }
 
+private fun defaultManualSalaryDrafts(
+    months: Int,
+    nowEpochMs: Long =
+        System.currentTimeMillis()
+): List<ManualSalaryDraft> {
+    val count =
+        months.coerceIn(1, 3)
+    val calendar =
+        Calendar.getInstance()
+            .apply {
+                timeInMillis =
+                    nowEpochMs
+                set(
+                    Calendar.DAY_OF_MONTH,
+                    1
+                )
+                set(
+                    Calendar.HOUR_OF_DAY,
+                    12
+                )
+                set(
+                    Calendar.MINUTE,
+                    0
+                )
+                set(
+                    Calendar.SECOND,
+                    0
+                )
+                set(
+                    Calendar.MILLISECOND,
+                    0
+                )
+            }
+    val keyFormatter =
+        SimpleDateFormat(
+            "yyyy-MM",
+            Locale.ROOT
+        )
+    val labelFormatter =
+        SimpleDateFormat(
+            "MMMM yyyy",
+            Locale.getDefault()
+        )
+
+    return List(count) {
+            index ->
+        val month =
+            calendar.clone()
+                as Calendar
+        month.add(
+            Calendar.MONTH,
+            -index
+        )
+        ManualSalaryDraft(
+            monthKey =
+                keyFormatter.format(
+                    month.time
+                ),
+            monthLabel =
+                if (count == 1) {
+                    "Most recent salary"
+                } else {
+                    labelFormatter.format(
+                        month.time
+                    )
+                }
+        )
+    }
+}
+
+private fun salaryMonthKey(
+    epochMs: Long
+): String =
+    SimpleDateFormat(
+        "yyyy-MM",
+        Locale.ROOT
+    ).format(
+        Date(epochMs)
+    )
+
+private fun formatSetupAmountInput(
+    amountMinor: Long
+): String =
+    java.math.BigDecimal(
+        amountMinor
+    )
+        .movePointLeft(2)
+        .stripTrailingZeros()
+        .toPlainString()
+
 private fun parseSetupMoneyMinor(
     raw: String
 ): Long? =
@@ -3639,6 +3729,9 @@ private fun formatSetupMoney(
             amountMinor / 100.0
         )
 }
+
+private const val ONE_DAY_MS =
+    24L * 60L * 60L * 1000L
 
 private const val MIN_PROGRESS_STEP_MS =
     180L
