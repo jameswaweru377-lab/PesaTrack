@@ -1335,6 +1335,55 @@ fun SmartOnboardingSetupScreen(
         return true
     }
 
+    BackHandler(
+        enabled =
+            stage !=
+                SmartSetupStage.IMPORT
+    ) {
+        if (
+            ownershipApplying ||
+            mpesaConfirming
+        ) {
+            return@BackHandler
+        }
+
+        stage =
+            when (stage) {
+                SmartSetupStage.SMS_PERMISSION ->
+                    SmartSetupStage.IMPORT
+
+                SmartSetupStage.ANALYZE ->
+                    SmartSetupStage.IMPORT
+
+                SmartSetupStage.REVIEW ->
+                    SmartSetupStage.IMPORT
+
+                SmartSetupStage.SALARY_MANUAL ->
+                    SmartSetupStage.REVIEW
+
+                SmartSetupStage.MPESA_CONFIRM ->
+                    SmartSetupStage.REVIEW
+
+                SmartSetupStage.LIVE_CAPTURE ->
+                    if (
+                        mpesaPhoneSuggestion !=
+                        null
+                    ) {
+                        SmartSetupStage
+                            .MPESA_CONFIRM
+                    } else {
+                        SmartSetupStage.REVIEW
+                    }
+
+                SmartSetupStage.COMPLETE ->
+                    SmartSetupStage
+                        .LIVE_CAPTURE
+
+                SmartSetupStage.IMPORT ->
+                    SmartSetupStage.IMPORT
+            }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -4001,7 +4050,14 @@ private fun onboardingOwnershipCandidates(
                 )
         }
         .filterNot { entity ->
-            entity.providerKey in
+            val providerKey =
+                entity.providerKey
+                    ?: FinancialProviderRegistry
+                        .resolveAccount(
+                            entity.displayName
+                        )
+                        .providerKey
+            providerKey in
                 setOf(
                     "SAFARICOM_MPESA",
                     "NCBA_MSHWARI_SAVINGS",
