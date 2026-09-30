@@ -50,16 +50,25 @@ class InvestmentStore private constructor(
         occurredAtEpochMs: Long
     ): InvestmentWriteResult {
         val eventType = eventType(fact)
-        val eventKey =
-            buildEventKey(
-                messageFingerprint = messageFingerprint,
-                eventType = eventType,
-                fact = fact
-            )
         val normalizedReferences =
             references
                 .mapNotNull(::normalizeReference)
                 .toSet()
+        val existingByReference =
+            findExistingEventByReference(
+                eventType = eventType,
+                fact = fact,
+                references =
+                    normalizedReferences
+            )
+        val eventKey =
+            buildEventKey(
+                messageFingerprint = messageFingerprint,
+                eventType = eventType,
+                fact = fact,
+                references =
+                    normalizedReferences
+            )
 
         val values = ContentValues().apply {
             put("event_key", eventKey)
@@ -112,25 +121,31 @@ class InvestmentStore private constructor(
         }
 
         val rowId =
-            database.writableDatabase
-                .insertWithOnConflict(
-                    "investment_events",
-                    null,
-                    values,
-                    SQLiteDatabase.CONFLICT_IGNORE
-                )
-
-        val eventId =
-            if (rowId != -1L) {
-                rowId
-            } else {
-                eventId(eventKey)
-                    ?: return InvestmentWriteResult(
-                        inserted = false,
-                        linkedTransactionId = null,
-                        changed = false
+            if (existingByReference == null) {
+                database.writableDatabase
+                    .insertWithOnConflict(
+                        "investment_events",
+                        null,
+                        values,
+                        SQLiteDatabase.CONFLICT_IGNORE
                     )
+            } else {
+                -1L
             }
+
+        val inserted = rowId != -1L
+        val eventId =
+            existingByReference
+                ?: if (inserted) {
+                    rowId
+                } else {
+                    eventId(eventKey)
+                        ?: return InvestmentWriteResult(
+                            inserted = false,
+                            linkedTransactionId = null,
+                            changed = false
+                        )
+                }
 
         normalizedReferences.forEach { reference ->
             val refValues =
@@ -154,7 +169,7 @@ class InvestmentStore private constructor(
         }
 
         if (
-            rowId != -1L &&
+            inserted &&
             fact.stage ==
                 SemanticInvestmentStage.EXECUTED
         ) {
@@ -177,7 +192,7 @@ class InvestmentStore private constructor(
             }
 
         val changed =
-            rowId != -1L ||
+            inserted ||
                 linkedTransactionId != null
 
         if (changed) {
@@ -185,7 +200,7 @@ class InvestmentStore private constructor(
         }
 
         return InvestmentWriteResult(
-            inserted = rowId != -1L,
+            inserted = inserted,
             linkedTransactionId =
                 linkedTransactionId,
             changed = changed
@@ -463,6 +478,65 @@ class InvestmentStore private constructor(
             }
         }
 
+    private fun findExistingEventByReference(
+        eventType: InvestmentEventType,
+        fact: SemanticInvestmentFact,
+        references: Set<String>
+    ): Long? {
+        if (references.isEmpty()) {
+            return null
+        }
+
+        val placeholders =
+            references.joinToString(",") { "?" }
+        val valueClause =
+            if (fact.valueMinor == null) {
+                "e.value_minor IS NULL"
+            } else {
+                "e.value_minor = ?"
+            }
+        val args =
+            buildList {
+                add(eventType.name)
+                add(fact.instrumentKey)
+                add(
+                    fact.quantityMicrounits
+                        .toString()
+                )
+                if (fact.valueMinor != null) {
+                    add(fact.valueMinor.toString())
+                }
+                addAll(references)
+            }.toTypedArray()
+
+        val matches =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT DISTINCT e.id
+                FROM investment_events e
+                JOIN investment_event_references r
+                  ON r.investment_event_id = e.id
+                WHERE e.event_type = ?
+                  AND e.instrument_key = ?
+                  AND e.quantity_microunits = ?
+                  AND $valueClause
+                  AND r.reference_value
+                        IN ($placeholders)
+                ORDER BY e.id ASC
+                LIMIT 2
+                """.trimIndent(),
+                args
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(cursor.getLong(0))
+                    }
+                }
+            }
+
+        return matches.singleOrNull()
+    }
+
     private fun eventId(
         eventKey: String
     ): Long? =
@@ -485,16 +559,25 @@ class InvestmentStore private constructor(
     private fun buildEventKey(
         messageFingerprint: String,
         eventType: InvestmentEventType,
-        fact: SemanticInvestmentFact
-    ): String =
-        listOf(
+        fact: SemanticInvestmentFact,
+        references: Set<String>
+    ): String {
+        val identity =
+            references
+                .sorted()
+                .takeIf { it.isNotEmpty() }
+                ?.joinToString(",")
+                ?: messageFingerprint
+
+        return listOf(
             "investment",
-            messageFingerprint,
+            identity,
             eventType.name,
             fact.instrumentKey,
             fact.quantityMicrounits.toString(),
             fact.valueMinor?.toString().orEmpty()
         ).joinToString("|")
+    }
 
     private fun eventType(
         fact: SemanticInvestmentFact
