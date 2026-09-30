@@ -21,6 +21,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createDebtTables(db)
         createFinancialUnderstandingTables(db)
         createTransactionExternalReferencesTable(db)
+        createLiabilityPaymentDecisionsTable(db)
         createEntityEnrichmentCacheTable(db)
         seedDefaultAccounts(db)
         createIndexes(db)
@@ -313,6 +314,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 "balance_link_user_decision",
                 "TEXT"
             )
+        }
+
+        if (oldVersion < 22) {
+            createLiabilityPaymentDecisionsTable(db)
         }
 
         createIndexes(db)
@@ -741,6 +746,22 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createLiabilityPaymentDecisionsTable(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS
+                liability_payment_decisions (
+                    transaction_id INTEGER PRIMARY KEY,
+                    decision TEXT NOT NULL,
+                    debt_account_id TEXT,
+                    created_at_epoch_ms INTEGER NOT NULL
+                )
+            """.trimIndent()
+        )
+    }
+
     private fun createEntityEnrichmentCacheTable(
         db: SQLiteDatabase
     ) {
@@ -852,6 +873,9 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_transaction_external_reference_transaction ON transaction_external_references(transaction_id)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_liability_payment_decision_debt ON liability_payment_decisions(debt_account_id)"
+        )
     }
 
     private fun createTriggers(db: SQLiteDatabase) {
@@ -872,6 +896,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 21
+        private const val DATABASE_VERSION = 22
     }
 }
