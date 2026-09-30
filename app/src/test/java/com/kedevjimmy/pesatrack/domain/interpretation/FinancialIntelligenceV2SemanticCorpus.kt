@@ -13,18 +13,18 @@ data class FinancialIntelligenceV2SemanticFixture(
 object FinancialIntelligenceV2SemanticCorpus {
     val all = listOf(
         FinancialIntelligenceV2SemanticFixture(
-            id = "equity_credit_to_beneficiary",
+            id = "generic_credit_to_phone_and_beneficiary",
             title = "EQUITY",
             body =
-                "Your transaction of Kenya Shillings 20,000.00 has been credited to SAMPLE BENEFICIARY. Equity Ref EQA12345. M-Pesa Ref UFT12345.",
+                "Your transaction of Kshs. 20000.0 has been credited to 254700000001 SAMPLE BENEFICIARY. Ref. EQA94DF3A2EB374. MPESA Ref. UITFT8N12T on 29/09/2026 at 20:54:36.",
             expectedIntent =
                 FinancialSemanticIntent.TRANSFER,
             expectedRole =
                 FinancialSemanticRole.NEW_EVENT,
             expectedReferences =
                 setOf(
-                    "EQA12345",
-                    "UFT12345"
+                    "EQA94DF3A2EB374",
+                    "UITFT8N12T"
                 )
         ),
         FinancialIntelligenceV2SemanticFixture(
