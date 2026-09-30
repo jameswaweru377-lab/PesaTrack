@@ -11,6 +11,7 @@ import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEnrichment
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionFingerprint
 import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKind
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
+import com.kedevjimmy.pesatrack.domain.interpretation.SemanticInvestmentAction
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
@@ -2449,6 +2450,101 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun markInvestmentSettlement(
+        transactionId: Long,
+        action: SemanticInvestmentAction,
+        instrumentLabel: String
+    ): Boolean {
+        val current =
+            getById(transactionId)
+                ?: return false
+        if (
+            current.reviewState ==
+                ReviewState.EXCLUDED.name ||
+            current.reviewState ==
+                ReviewState.USER_CLASSIFIED.name ||
+            current.ruleId != null ||
+            current.relationType != null
+        ) {
+            return false
+        }
+
+        val expectedDirection =
+            when (action) {
+                SemanticInvestmentAction.BUY ->
+                    MoneyDirection.EXPENSE
+                SemanticInvestmentAction.SELL ->
+                    MoneyDirection.INCOME
+            }
+        if (
+            current.direction !=
+                expectedDirection.name
+        ) {
+            return false
+        }
+
+        val relation =
+            when (action) {
+                SemanticInvestmentAction.BUY ->
+                    RELATION_INVESTMENT_BUY
+                SemanticInvestmentAction.SELL ->
+                    RELATION_INVESTMENT_SELL
+            }
+        val label =
+            when (action) {
+                SemanticInvestmentAction.BUY ->
+                    "Investment purchase"
+                SemanticInvestmentAction.SELL ->
+                    "Investment sale"
+            }
+
+        val values = ContentValues().apply {
+            put(
+                "direction",
+                MoneyDirection.TRANSFER.name
+            )
+            put(
+                "category",
+                TransactionCategory.INVESTMENT.name
+            )
+            put(
+                "review_state",
+                ReviewState.AUTO_CLASSIFIED.name
+            )
+            put("relation_type", relation)
+            putNull("related_transaction_id")
+            put(
+                "evidence_label",
+                "$label • $instrumentLabel"
+            )
+            put(
+                "evidence_source",
+                "investment_shared_reference"
+            )
+            put(
+                "evidence_confidence",
+                "HIGH"
+            )
+            putNull("evidence_time_delta_ms")
+            putNull("cycle_candidate_reason")
+        }
+
+        val changed =
+            database.writableDatabase.update(
+                "transactions",
+                values,
+                "id = ?",
+                arrayOf(transactionId.toString())
+            ) > 0
+
+        if (changed) {
+            PayCycleStore.get(appContext).rebuild()
+            LedgerUpdateBus.notifyChanged()
+        }
+        return changed
+    }
+
+    @Synchronized
     fun markDebtRepayment(
         transactionId: Long,
         debtEventId: Long,
@@ -2816,6 +2912,10 @@ class TransactionStore private constructor(context: Context) {
         const val RELATION_REFUND = "REFUND"
         const val RELATION_DEBT_REPAYMENT =
             "DEBT_REPAYMENT"
+        const val RELATION_INVESTMENT_BUY =
+            "INVESTMENT_BUY"
+        const val RELATION_INVESTMENT_SELL =
+            "INVESTMENT_SELL"
         private const val DUPLICATE_DECISION_SAME = "SAME_TRANSACTION"
         private const val DUPLICATE_DECISION_KEEP_BOTH = "KEEP_BOTH"
 
