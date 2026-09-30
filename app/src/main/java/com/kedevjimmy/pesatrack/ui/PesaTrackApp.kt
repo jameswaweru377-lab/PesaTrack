@@ -32,9 +32,7 @@ fun PesaTrackApp(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     setupComplete: Boolean,
-    onSetupComplete: () -> Unit,
-    permissionSetupComplete: Boolean,
-    onPermissionSetupComplete: () -> Unit
+    onSetupComplete: () -> Unit
 ) {
     val navController = rememberNavController()
 
@@ -50,7 +48,6 @@ fun PesaTrackApp(
 
     fun finishSetup() {
         onSetupComplete()
-        onPermissionSetupComplete()
         navController.navigate(MainTab.HOME.route) {
             popUpTo("onboarding") { inclusive = true }
             launchSingleTop = true
