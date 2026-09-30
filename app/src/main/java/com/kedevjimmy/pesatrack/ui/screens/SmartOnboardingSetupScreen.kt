@@ -1338,54 +1338,81 @@ fun SmartOnboardingSetupScreen(
             return false
         }
 
-        withContext(Dispatchers.IO) {
-            val mpesaAccount =
-                accountStore
-                    .listAccounts(
-                        enabledOnly = false
-                    )
-                    .firstOrNull {
-                        it.id ==
+        return try {
+            withContext(Dispatchers.IO) {
+                val mpesaAccount =
+                    accountStore
+                        .listAccounts(
+                            enabledOnly = false
+                        )
+                        .firstOrNull {
+                            it.id ==
+                                AccountStore
+                                    .DEFAULT_MPESA_ID
+                        }
+
+                accountStore.updateDetails(
+                    id =
+                        AccountStore
+                            .DEFAULT_MPESA_ID,
+                    identifier = normalized,
+                    openingBalanceMinor =
+                        mpesaAccount
+                            ?.openingBalanceMinor,
+                    openingBalanceAsOfEpochMs =
+                        mpesaAccount
+                            ?.openingBalanceAsOfEpochMs
+                )
+
+                financialUnderstandingStore
+                    .confirmProviderOwned(
+                        providerKey =
+                            "SAFARICOM_MPESA",
+                        accountId =
                             AccountStore
                                 .DEFAULT_MPESA_ID
-                    }
+                    )
+                financialUnderstandingStore
+                    .confirmProviderOwned(
+                        providerKey =
+                            "NCBA_MSHWARI_SAVINGS"
+                    )
+                financialUnderstandingStore
+                    .confirmProviderOwned(
+                        providerKey =
+                            "NCBA_MSHWARI_LOCK_SAVINGS"
+                    )
 
-            accountStore.updateDetails(
-                id =
-                    AccountStore
-                        .DEFAULT_MPESA_ID,
-                identifier = normalized,
-                openingBalanceMinor =
-                    mpesaAccount
-                        ?.openingBalanceMinor,
-                openingBalanceAsOfEpochMs =
-                    mpesaAccount
-                        ?.openingBalanceAsOfEpochMs
-            )
-            financialUnderstandingStore
-                .confirmProviderOwned(
-                    providerKey =
-                        "SAFARICOM_MPESA",
-                    accountId =
-                        AccountStore
-                            .DEFAULT_MPESA_ID
-                )
-            financialUnderstandingStore
-                .confirmProviderOwned(
-                    providerKey =
-                        "NCBA_MSHWARI_SAVINGS"
-                )
-            financialUnderstandingStore
-                .confirmProviderOwned(
-                    providerKey =
-                        "NCBA_MSHWARI_LOCK_SAVINGS"
-                )
-            transactionStore
-                .reconcileOwnAccountTransfers()
-            payCycleStore.rebuild()
+                if (
+                    smsGranted &&
+                    importMonths > 0
+                ) {
+                    HistoryImportWindow
+                        .importStartEpochMs(
+                            importMonths
+                        )
+                        ?.let {
+                            startEpochMs ->
+                            HistoricalSmsImporter(
+                                context
+                                    .applicationContext
+                            ).importSince(
+                                startEpochMs
+                            )
+                        }
+                }
+
+                transactionStore
+                    .reconcileOwnAccountTransfers()
+                payCycleStore.rebuild()
+            }
+            phoneError = null
+            true
+        } catch (_: Exception) {
+            phoneError =
+                "Could not confirm this M-Pesa number. Please try again."
+            false
         }
-        phoneError = null
-        return true
     }
 
     LazyColumn(
