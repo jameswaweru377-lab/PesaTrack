@@ -1203,154 +1203,230 @@ private fun ImportChoicePage(
     onSelected: (Int) -> Unit,
     onContinue: () -> Unit
 ) {
-    SetupHero(
-        icon = Icons.Rounded.History,
-        title = "Let's find your money messages",
-        body =
-            "Choose how much recent history PesaTrack should use to understand your accounts and patterns."
-    )
-
-    listOf(
-        Triple(
-            3,
-            "Last 3 months",
-            "Recommended for the clearest picture"
-        ),
-        Triple(
-            1,
-            "Last 1 month",
-            "A quick way to get started"
-        ),
-        Triple(
-            0,
-            "Not now",
-            "Start without reading old SMS"
-        )
-    ).forEach { option ->
-        SelectableSetupCard(
-            selected =
-                selectedMonths ==
-                    option.first,
-            title = option.second,
-            body = option.third,
-            icon =
-                if (
-                    option.first == 0
-                ) {
-                    Icons.Rounded.Lock
-                } else {
-                    Icons.Rounded.History
-                },
-            onClick = {
-                onSelected(option.first)
-            }
-        )
-    }
-
-    Button(
-        onClick = onContinue,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 56.dp),
-        shape = RoundedCornerShape(18.dp)
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
     ) {
-        Text("Continue")
-        Icon(
-            Icons.Rounded.ArrowForward,
-            contentDescription = null,
-            modifier =
-                Modifier.padding(start = 8.dp)
+        SetupHero(
+            icon = Icons.Rounded.History,
+            title = "Let's find your money messages",
+            body =
+                "Choose how much recent history PesaTrack should use to understand your accounts and patterns."
+        )
+
+        listOf(
+            Triple(
+                3,
+                "Last 3 months",
+                "Recommended for the clearest picture"
+            ),
+            Triple(
+                1,
+                "Last 1 month",
+                "A quick way to get started"
+            ),
+            Triple(
+                0,
+                "Not now",
+                "Start without reading old SMS"
+            )
+        ).forEach { option ->
+            SelectableSetupCard(
+                selected =
+                    selectedMonths ==
+                        option.first,
+                title = option.second,
+                body = option.third,
+                icon =
+                    if (option.first == 0) {
+                        Icons.Rounded.Lock
+                    } else {
+                        Icons.Rounded.History
+                    },
+                onClick = {
+                    onSelected(option.first)
+                }
+            )
+        }
+
+        Button(
+            onClick = onContinue,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+            shape =
+                RoundedCornerShape(18.dp)
+        ) {
+            Text("Continue")
+            Icon(
+                Icons.Rounded.ArrowForward,
+                contentDescription = null,
+                modifier =
+                    Modifier.padding(
+                        start = 8.dp
+                    )
+            )
+        }
+
+        Text(
+            "You can import or re-import history later from Settings.",
+            style =
+                MaterialTheme.typography
+                    .bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
         )
     }
-
-    Text(
-        "You can import or re-import history later from Settings.",
-        style = MaterialTheme.typography.bodySmall,
-        color =
-            MaterialTheme.colorScheme
-                .onSurfaceVariant
-    )
 }
 
 @Composable
 private fun SmsPermissionPage(
     denied: Boolean,
+    restrictedHelp: Boolean,
+    onOpenAppInfo: () -> Unit,
     onTryAgain: () -> Unit,
     onContinueWithout: () -> Unit
 ) {
-    SetupHero(
-        icon = Icons.Rounded.Message,
-        title = "Allow access to your messages",
-        body =
-            "Android asks for this permission directly. PesaTrack uses it only to read the history you chose."
-    )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
+    ) {
+        SetupHero(
+            icon = Icons.Rounded.Message,
+            title = "Allow access to your messages",
+            body =
+                "Android controls this permission. PesaTrack uses it only to read the history you chose."
+        )
 
-    PesaCard {
-        Column(
-            Modifier.padding(18.dp),
-            horizontalAlignment =
-                Alignment.CenterHorizontally,
-            verticalArrangement =
-                Arrangement.spacedBy(12.dp)
-        ) {
-            IconBubble(
-                Icons.Rounded.Shield,
-                size = 56.dp,
-                background =
-                    pesaToneContainer("green"),
-                tint =
-                    pesaToneContent("green")
-            )
-            Text(
-                if (denied) {
-                    "SMS access wasn't allowed"
-                } else {
-                    "Waiting for Android permission"
-                },
-                style =
-                    MaterialTheme.typography
-                        .titleLarge,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                if (denied) {
-                    "That's okay. You can continue without importing old messages."
-                } else {
-                    "The system Allow / Don't allow dialog should appear automatically."
-                },
-                textAlign = TextAlign.Center,
+        PesaCard {
+            Column(
+                Modifier.padding(18.dp),
+                horizontalAlignment =
+                    Alignment.CenterHorizontally,
+                verticalArrangement =
+                    Arrangement.spacedBy(12.dp)
+            ) {
+                IconBubble(
+                    Icons.Rounded.Shield,
+                    size = 56.dp,
+                    background =
+                        pesaToneContainer("green"),
+                    tint =
+                        pesaToneContent("green")
+                )
+                Text(
+                    when {
+                        restrictedHelp ->
+                            "Android blocked SMS access"
+                        denied ->
+                            "SMS access wasn't allowed"
+                        else ->
+                            "Waiting for Android permission"
+                    },
+                    style =
+                        MaterialTheme.typography
+                            .titleLarge,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurface,
+                    textAlign =
+                        TextAlign.Center
+                )
+                Text(
+                    when {
+                        restrictedHelp ->
+                            "This debug APK was installed outside a trusted app store. On this phone, Android requires you to enable “Allow restricted settings” in App info first."
+                        denied ->
+                            "You can try again or continue without importing old messages."
+                        else ->
+                            "The system Allow / Don't allow dialog should appear automatically."
+                    },
+                    textAlign =
+                        TextAlign.Center,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+        }
+
+        if (restrictedHelp) {
+            Surface(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                shape =
+                    RoundedCornerShape(18.dp),
                 color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-            )
+                    pesaToneContainer("amber")
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        "One Android step is required",
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurface
+                    )
+                    Text(
+                        "Open App info → turn on Allow restricted settings → return to PesaTrack. The SMS permission request will open again automatically.",
+                        style =
+                            MaterialTheme.typography
+                                .bodyMedium,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                    Button(
+                        onClick = onOpenAppInfo,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp)
+                    ) {
+                        Text("Open App info")
+                    }
+                }
+            }
+        } else if (denied) {
+            Button(
+                onClick = onTryAgain,
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+                Text("Try again")
+            }
         }
-    }
 
-    if (denied) {
-        Button(
-            onClick = onTryAgain,
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-            Text("Try again")
+        if (denied) {
+            OutlinedButton(
+                onClick =
+                    onContinueWithout,
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+                Text("Continue without import")
+            }
         }
-        OutlinedButton(
-            onClick =
-                onContinueWithout,
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-            Text("Continue without import")
-        }
-    }
 
-    Text(
-        "Raw SMS text stays on this phone. PesaTrack's optional online merchant enrichment only receives privacy-filtered business descriptors.",
-        style = MaterialTheme.typography.bodySmall,
-        color =
-            MaterialTheme.colorScheme
-                .onSurfaceVariant
-    )
+        Text(
+            "PesaTrack cannot switch Android's restricted-settings protection on by itself. That decision always belongs to you.",
+            style =
+                MaterialTheme.typography
+                    .bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
+    }
 }
 
 @Composable
