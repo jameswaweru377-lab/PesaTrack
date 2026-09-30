@@ -8,6 +8,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.BalanceObservationFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialEventKind
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import java.security.MessageDigest
@@ -496,8 +497,27 @@ class FinancialUnderstandingStore private constructor(
         }.getOrDefault(
             com.kedevjimmy.pesatrack.domain.model.AccountType.OTHER
         )
+        val canonicalName =
+            entity.providerKey
+                ?.let {
+                    FinancialProviderRegistry
+                        .referenceForProviderKey(
+                            it
+                        )
+                        ?.displayName
+                }
+                ?: FinancialProviderRegistry
+                    .resolveAccount(
+                        entity.displayName
+                    )
+                    .takeIf {
+                        it.providerKey != null
+                    }
+                    ?.displayName
+                ?: entity.displayName
+
         val account = accountStore.findOrCreate(
-            name = entity.displayName,
+            name = canonicalName,
             type = accountType
         )
 
