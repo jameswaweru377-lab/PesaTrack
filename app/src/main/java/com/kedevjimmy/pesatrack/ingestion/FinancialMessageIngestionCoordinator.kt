@@ -997,6 +997,13 @@ class FinancialMessageIngestionCoordinator private constructor(
                             changed
                 }
                 is DebtRepaymentEventFact -> {
+                    event.fundingAccount?.let { account ->
+                        understandingStore.observeEntity(
+                            reference = account,
+                            observedAtEpochMs =
+                                occurredAtEpochMs
+                        )
+                    }
                     val result =
                         DebtStore.get(appContext)
                             .recordRepayment(
