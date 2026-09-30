@@ -1528,139 +1528,44 @@ fun SmartOnboardingSetupScreen(
                             detectedSources,
                         ownershipCandidates =
                             pendingOwnershipEntities,
+                        selectedOwnershipEntityKeys =
+                            selectedOwnershipEntityKeys,
                         salarySuggestion =
                             salarySuggestion,
                         salaryAccepted =
                             salaryAccepted,
                         importResult =
                             importResult,
+                        applying =
+                            reviewSaving,
                         onSalaryAccepted = {
                             salaryAccepted = it
                         },
-                        onConfirmAccount = {
+                        onToggleAccount = {
                                 entity ->
-                            setupScope.launch {
-                                withContext(
-                                    Dispatchers.IO
-                                ) {
-                                    financialUnderstandingStore
-                                        .confirmEntityOwned(
-                                            entity.entityKey
-                                        )
-                                    financialCoordinator
-                                        .reconcilePendingTransfers(
-                                            entity.entityKey
-                                        )
-
-                                    if (
-                                        smsGranted &&
-                                        importMonths >
-                                            0
-                                    ) {
-                                        HistoryImportWindow
-                                            .importStartEpochMs(
-                                                importMonths
-                                            )
-                                            ?.let {
-                                                startEpochMs ->
-                                                HistoricalSmsImporter(
-                                                    context
-                                                        .applicationContext
-                                                ).importSince(
-                                                    startEpochMs
-                                                )
-                                            }
-                                    }
-                                    payCycleStore
-                                        .rebuild()
-                                }
-                                availableAccounts =
-                                    ownedSetupAccounts(
-                                        accountStore =
-                                            accountStore,
-                                        financialStore =
-                                            financialUnderstandingStore
-                                    )
-                                pendingOwnershipEntities =
-                                    onboardingOwnershipCandidates(
-                                        financialUnderstandingStore
-                                            .pendingEntities()
-                                    )
-
-                                val refreshedSalary =
-                                    withContext(
-                                        Dispatchers.IO
-                                    ) {
-                                        val cutoff =
-                                            HistoryImportWindow
-                                                .importStartEpochMs(
-                                                    importMonths
-                                                        .coerceAtLeast(
-                                                            1
-                                                        )
-                                                )
-                                                ?: (
-                                                    System.currentTimeMillis() -
-                                                        31L *
-                                                            ONE_DAY_MS
-                                                    )
-                                        val observations =
-                                            transactionStore
-                                                .recent(500)
-                                                .filter {
-                                                    it.receivedAtEpochMs >=
-                                                        cutoff
-                                                }
-                                                .map {
-                                                    item ->
-                                                    OnboardingTransactionObservation(
-                                                        counterparty =
-                                                            item.counterparty,
-                                                        counterpartyPhone =
-                                                            item.counterpartyPhone,
-                                                        amountMinor =
-                                                            item.amountMinor,
-                                                        occurredAtEpochMs =
-                                                            item.occurredAtEpochMs,
-                                                        direction =
-                                                            runCatching {
-                                                                MoneyDirection
-                                                                    .valueOf(
-                                                                        item.direction
-                                                                    )
-                                                            }.getOrDefault(
-                                                                MoneyDirection
-                                                                    .NEUTRAL
-                                                            ),
-                                                        accountId =
-                                                            item.accountId
-                                                    )
-                                                }
-                                        OnboardingDiscoveryEngine
-                                            .salarySuggestion(
-                                                observations
-                                            )
-                                    }
+                            selectedOwnershipEntityKeys =
                                 if (
-                                    refreshedSalary !=
-                                    null
+                                    entity.entityKey in
+                                    selectedOwnershipEntityKeys
                                 ) {
-                                    salarySuggestion =
-                                        refreshedSalary
-                                    salaryAccepted = true
-                                    manualSalaryAccountId =
-                                        refreshedSalary
-                                            .accountId
+                                    selectedOwnershipEntityKeys -
+                                        entity.entityKey
+                                } else {
+                                    selectedOwnershipEntityKeys +
+                                        entity.entityKey
                                 }
-                            }
                         },
                         onManualSalary = {
-                            stage =
-                                SmartSetupStage
-                                    .SALARY_MANUAL
+                            setupScope.launch {
+                                applySelectedAccountOwnership()
+                                stage =
+                                    SmartSetupStage
+                                        .SALARY_MANUAL
+                            }
                         },
                         onContinue = {
                             setupScope.launch {
+                                applySelectedAccountOwnership()
                                 applySalaryIfConfirmed()
                                 stage =
                                     if (
