@@ -495,11 +495,8 @@ class PaydaySnapshotStore private constructor(
                 accountName = account.name,
                 accountType = account.type,
                 balanceMinor =
-                    maxOf(
-                        0L,
-                        prior.balanceMinor +
-                            delta
-                    ),
+                    prior.balanceMinor +
+                        delta,
                 quality =
                     if (exact) {
                         prior.quality
@@ -539,11 +536,8 @@ class PaydaySnapshotStore private constructor(
                 accountName = account.name,
                 accountType = account.type,
                 balanceMinor =
-                    maxOf(
-                        0L,
-                        openingBalance +
-                            delta
-                    ),
+                    openingBalance +
+                        delta,
                 quality =
                     if (
                         openingEpoch ==
@@ -593,11 +587,8 @@ class PaydaySnapshotStore private constructor(
                 accountName = account.name,
                 accountType = account.type,
                 balanceMinor =
-                    maxOf(
-                        0L,
-                        later.balanceMinor -
-                            laterDelta
-                    ),
+                    later.balanceMinor -
+                        laterDelta,
                 quality =
                     PaydayBalanceQuality
                         .RECONSTRUCTED,
