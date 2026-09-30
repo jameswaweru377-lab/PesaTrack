@@ -75,6 +75,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.data.local.RuleStore
@@ -152,6 +153,11 @@ fun SmartOnboardingSetupScreen(
     val diagnosticsStore = remember {
         FinancialIngestionDiagnosticsStore.get(context)
     }
+    val financialUnderstandingStore =
+        remember {
+            FinancialUnderstandingStore
+                .get(context)
+        }
 
     var stage by rememberSaveable {
         mutableStateOf(SmartSetupStage.IMPORT)
@@ -788,8 +794,27 @@ fun SmartOnboardingSetupScreen(
                     mpesaAccount
                         ?.openingBalanceAsOfEpochMs
             )
+            financialUnderstandingStore
+                .confirmProviderOwned(
+                    providerKey =
+                        "SAFARICOM_MPESA",
+                    accountId =
+                        AccountStore
+                            .DEFAULT_MPESA_ID
+                )
+            financialUnderstandingStore
+                .confirmProviderOwned(
+                    providerKey =
+                        "NCBA_MSHWARI_SAVINGS"
+                )
+            financialUnderstandingStore
+                .confirmProviderOwned(
+                    providerKey =
+                        "NCBA_MSHWARI_LOCK_SAVINGS"
+                )
             transactionStore
                 .reconcileOwnAccountTransfers()
+            payCycleStore.rebuild()
         }
         phoneError = null
         return true
