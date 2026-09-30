@@ -32,7 +32,9 @@ data class OnboardingSalarySuggestion(
 object OnboardingDiscoveryEngine {
     fun salarySuggestion(
         observations: List<OnboardingTransactionObservation>,
-        timeZone: TimeZone = TimeZone.getDefault()
+        timeZone: TimeZone = TimeZone.getDefault(),
+        excludedLabels: Set<String> =
+            emptySet()
     ): OnboardingSalarySuggestion? {
         val candidates =
             observations
@@ -42,6 +44,13 @@ object OnboardingDiscoveryEngine {
                         it.amountMinor > 0L &&
                         !it.counterparty.isNullOrBlank() &&
                         !it.accountId.isNullOrBlank()
+                }
+                .filterNot {
+                    normalizeLabel(
+                        it.counterparty.orEmpty()
+                    ) in excludedLabels
+                        .map(::normalizeLabel)
+                        .toSet()
                 }
                 .groupBy {
                     normalizeLabel(it.counterparty.orEmpty())
