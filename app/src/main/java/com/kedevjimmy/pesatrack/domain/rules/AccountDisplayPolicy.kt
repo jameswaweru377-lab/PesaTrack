@@ -63,24 +63,49 @@ object AccountDisplayPolicy {
 
     fun groups(
         accounts: List<MoneyAccount>
-    ): List<TrackedAccountGroup> =
-        accounts
-            .asSequence()
-            .filter { it.enabled }
-            .filter { it.type in supportedTypes }
-            .filter {
-                isMeaningfulAccountName(
-                    it.name
+    ): List<TrackedAccountGroup> {
+        val eligible =
+            accounts
+                .asSequence()
+                .filter { it.enabled }
+                .filter {
+                    it.type in
+                        supportedTypes
+                }
+                .filter {
+                    isMeaningfulAccountName(
+                        it.name
+                    )
+                }
+                .toList()
+
+        val hasMshwariFamily =
+            eligible.any {
+                it.type ==
+                    AccountType.SAVINGS &&
+                    normalize(it.name)
+                        .startsWith(
+                            "m shwari"
+                        )
+            }
+
+        return eligible
+            .groupBy {
+                groupKey(
+                    account = it,
+                    hasMshwariFamily =
+                        hasMshwariFamily
                 )
             }
-            .groupBy(::groupKey)
             .values
             .map { members ->
                 val first =
                     members.first()
                 val canonical =
                     canonicalDisplayName(
-                        first
+                        account = first,
+                        hasMshwariFamily =
+                            hasMshwariFamily
                     )
                 TrackedAccountGroup(
                     key =
@@ -100,9 +125,11 @@ object AccountDisplayPolicy {
                 > {
                     typeOrder(it.type)
                 }.thenBy {
-                    it.displayName.lowercase()
+                    it.displayName
+                        .lowercase()
                 }
             )
+    }
 
     fun isMeaningfulAccountName(
         raw: String
@@ -143,36 +170,62 @@ object AccountDisplayPolicy {
     }
 
     private fun groupKey(
-        account: MoneyAccount
+        account: MoneyAccount,
+        hasMshwariFamily: Boolean
     ): String {
         val normalized =
             normalize(account.name)
         if (
             account.type ==
                 AccountType.SAVINGS &&
-            normalized.startsWith(
-                "m shwari"
-            )
+            (
+                normalized.startsWith(
+                    "m shwari"
+                ) ||
+                    (
+                        hasMshwariFamily &&
+                        normalized in
+                            setOf(
+                                "lock saving",
+                                "lock savings"
+                            )
+                        )
+                )
         ) {
             return "m-shwari"
         }
 
         return normalize(
             canonicalDisplayName(
-                account
+                account =
+                    account,
+                hasMshwariFamily =
+                    hasMshwariFamily
             )
         )
     }
 
     private fun canonicalDisplayName(
-        account: MoneyAccount
-    ): String =
-        if (
+        account: MoneyAccount,
+        hasMshwariFamily: Boolean
+    ): String {
+        val normalized =
+            normalize(account.name)
+        return if (
             account.type ==
                 AccountType.SAVINGS &&
-            normalize(account.name)
-                .startsWith(
+            (
+                normalized.startsWith(
                     "m shwari"
+                ) ||
+                    (
+                        hasMshwariFamily &&
+                        normalized in
+                            setOf(
+                                "lock saving",
+                                "lock savings"
+                            )
+                        )
                 )
         ) {
             "M-Shwari"
@@ -182,6 +235,7 @@ object AccountDisplayPolicy {
                 account.type
             )
         }
+    }
 
     private fun canonicalName(
         raw: String,
