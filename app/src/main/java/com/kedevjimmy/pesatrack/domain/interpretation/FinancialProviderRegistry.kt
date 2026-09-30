@@ -293,11 +293,26 @@ object FinancialProviderRegistry {
         val strongIdentity =
             source.providerKey != null ||
                 (
-                    bankLike &&
-                        title != null &&
-                        STRONG_BANK_TITLE_REGEX
-                            .containsMatchIn(
-                                title
+                    title != null &&
+                        (
+                            (
+                                bankLike &&
+                                    STRONG_BANK_TITLE_REGEX
+                                        .containsMatchIn(
+                                            title
+                                        )
+                                ) ||
+                                (
+                                    source.accountTypeHint in
+                                        setOf(
+                                            AccountType.MOBILE_WALLET,
+                                            AccountType.SAVINGS
+                                        ) &&
+                                        STRONG_NON_BANK_ACCOUNT_TITLE_REGEX
+                                            .containsMatchIn(
+                                                title
+                                            )
+                                    )
                             )
                     )
 
@@ -507,6 +522,12 @@ object FinancialProviderRegistry {
     private val STRONG_BANK_TITLE_REGEX =
         Regex(
             """\b(?:BANK|SACCO|MICROFINANCE|MFB)\b""",
+            RegexOption.IGNORE_CASE
+        )
+
+    private val STRONG_NON_BANK_ACCOUNT_TITLE_REGEX =
+        Regex(
+            """\b(?:WALLET|SAVING|SAVINGS)\b""",
             RegexOption.IGNORE_CASE
         )
 
