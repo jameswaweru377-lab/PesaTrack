@@ -1277,10 +1277,14 @@ fun SmartOnboardingSetupScreen(
                             manualSalaryAccountId,
                         payer =
                             manualSalaryPayer,
-                        amount =
-                            manualSalaryAmount,
-                        paidAtEpochMs =
-                            manualSalaryDateEpochMs,
+                        importMonths =
+                            importMonths,
+                        historyMode =
+                            manualSalaryHistoryMode,
+                        drafts =
+                            manualSalaryDrafts,
+                        searchStatus =
+                            salaryHistorySearchStatus,
                         error =
                             manualSalaryError,
                         onAccountSelected = {
@@ -1288,22 +1292,93 @@ fun SmartOnboardingSetupScreen(
                                 it
                             manualSalaryError =
                                 null
+                            salaryHistorySearchStatus =
+                                null
                         },
                         onPayerChanged = {
                             manualSalaryPayer =
                                 it
                             manualSalaryError =
                                 null
+                            salaryHistorySearchStatus =
+                                null
                         },
-                        onAmountChanged = {
-                            manualSalaryAmount =
-                                it
+                        onHistoryModeChanged = {
+                                mode ->
+                            manualSalaryHistoryMode =
+                                mode
+                            manualSalaryDrafts =
+                                defaultManualSalaryDrafts(
+                                    if (
+                                        mode ==
+                                        SalaryHistoryMode
+                                            .LATEST_ONLY
+                                    ) {
+                                        1
+                                    } else {
+                                        importMonths
+                                            .coerceAtLeast(
+                                                1
+                                            )
+                                    }
+                                )
+                            salaryHistorySearchStatus =
+                                null
                             manualSalaryError =
                                 null
                         },
-                        onDateSelected = {
-                            manualSalaryDateEpochMs =
-                                it
+                        onSearchHistory = {
+                            setupScope.launch {
+                                searchImportedSalaryHistory()
+                            }
+                        },
+                        onDraftAmountChanged = {
+                                index,
+                                value ->
+                            manualSalaryDrafts =
+                                manualSalaryDrafts
+                                    .mapIndexed {
+                                            itemIndex,
+                                            draft ->
+                                        if (
+                                            itemIndex ==
+                                            index
+                                        ) {
+                                            draft.copy(
+                                                amount =
+                                                    value,
+                                                matchedTransactionId =
+                                                    null
+                                            )
+                                        } else {
+                                            draft
+                                        }
+                                    }
+                            manualSalaryError =
+                                null
+                        },
+                        onDraftDateSelected = {
+                                index,
+                                value ->
+                            manualSalaryDrafts =
+                                manualSalaryDrafts
+                                    .mapIndexed {
+                                            itemIndex,
+                                            draft ->
+                                        if (
+                                            itemIndex ==
+                                            index
+                                        ) {
+                                            draft.copy(
+                                                paidAtEpochMs =
+                                                    value,
+                                                matchedTransactionId =
+                                                    null
+                                            )
+                                        } else {
+                                            draft
+                                        }
+                                    }
                             manualSalaryError =
                                 null
                         },
