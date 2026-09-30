@@ -3181,13 +3181,13 @@ private fun FinancialSourceNavigator(
             Arrangement.spacedBy(7.dp)
     ) {
         Text(
-            "Scanned financial sources",
+            "Your account messages",
             style =
                 MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
         Text(
-            "Tap a source to see every financial message PesaTrack captured before duplicate reconciliation.",
+            "Only confirmed accounts are shown. The badge is the number of captured messages for this month.",
             style =
                 MaterialTheme.typography.bodySmall,
             color =
@@ -3206,7 +3206,28 @@ private fun FinancialSourceNavigator(
                         onSourceSelected(null)
                     },
                     label = {
-                        Text("All sources")
+                        Row(
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Text("All accounts")
+                            val total =
+                                sources.sumOf {
+                                    it.messageCount
+                                }
+                            if (total > 0) {
+                                Badge(
+                                    modifier =
+                                        Modifier.padding(
+                                            start = 6.dp
+                                        )
+                                ) {
+                                    Text(
+                                        total.toString()
+                                    )
+                                }
+                            }
+                        }
                     }
                 )
             }
@@ -3222,11 +3243,25 @@ private fun FinancialSourceNavigator(
                             )
                         },
                         label = {
-                            Text(
-                                source.displayName +
-                                    " " +
-                                    source.messageCount
-                            )
+                            Row(
+                                verticalAlignment =
+                                    Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    source.displayName
+                                )
+                                Badge(
+                                    modifier =
+                                        Modifier.padding(
+                                            start = 6.dp
+                                        )
+                                ) {
+                                    Text(
+                                        source.messageCount
+                                            .toString()
+                                    )
+                                }
+                            }
                         }
                     )
                 }
@@ -3480,6 +3515,18 @@ private fun CapturedFinancialMessageRow(
         }
     }
 }
+
+private fun accountGroupTypeLabel(
+    group: TrackedAccountGroup
+): String =
+    when (group.type) {
+        AccountType.BANK -> "Bank"
+        AccountType.MOBILE_WALLET ->
+            "Wallet"
+        AccountType.SAVINGS ->
+            "Savings"
+        else -> "Account"
+    }
 
 private fun financialSourceDisplayName(
     diagnostic: FinancialIngestionDiagnostic
