@@ -91,50 +91,94 @@ class PayCycleStore private constructor(context: Context) {
                 }
             }
 
-            var previousEnding = 0L
-            accepted.forEachIndexed { index, event ->
-                val nextStart = accepted.getOrNull(index + 1)?.occurredAtEpochMs
-                val cycleId = UUID.randomUUID().toString()
-                val ending = nextStart?.let {
-                    trackedRemainder(
-                        startTransactionId = event.transactionId,
-                        startEpochMs = event.occurredAtEpochMs,
-                        endEpochMs = it,
-                        openingIncomeMinor = event.amountMinor,
-                        carryoverMinor = previousEnding
+            paydaySnapshotStore.rebuildForSalaryAnchors(
+                accepted.map { event ->
+                    PaydaySalaryAnchor(
+                        transactionId = event.transactionId,
+                        occurredAtEpochMs = event.occurredAtEpochMs,
+                        amountMinor = event.amountMinor,
+                        accountId = event.accountId
                     )
                 }
+            )
+
+            var previousEnding: Long? = null
+            accepted.forEachIndexed { index, event ->
+                val nextStart =
+                    accepted.getOrNull(index + 1)
+                        ?.occurredAtEpochMs
+                val cycleId =
+                    UUID.randomUUID().toString()
+                val payday =
+                    paydaySnapshotStore
+                        .snapshotForSalaryTransaction(
+                            event.transactionId
+                        )
+                val carryover =
+                    when {
+                        payday?.hasCompleteLiquidPicture == true ->
+                            payday.liquidCarryoverMinor
+                        index == 0 &&
+                            (payday?.knownLiquidAccountCount ?: 0) > 0 ->
+                            payday!!.liquidCarryoverMinor
+                        previousEnding != null ->
+                            previousEnding ?: 0L
+                        (payday?.knownLiquidAccountCount ?: 0) > 0 ->
+                            payday!!.liquidCarryoverMinor
+                        else -> 0L
+                    }
+                val ending =
+                    nextStart?.let {
+                        trackedRemainder(
+                            startTransactionId = event.transactionId,
+                            startEpochMs = event.occurredAtEpochMs,
+                            endEpochMs = it,
+                            openingIncomeMinor = event.amountMinor,
+                            carryoverMinor = carryover
+                        )
+                    }
 
                 val now = System.currentTimeMillis()
                 val values = ContentValues().apply {
                     put("id", cycleId)
                     put("start_transaction_id", event.transactionId)
                     put("start_epoch_ms", event.occurredAtEpochMs)
-                    if (nextStart != null) put("end_epoch_ms", nextStart) else putNull("end_epoch_ms")
+                    if (nextStart != null) put("end_epoch_ms", nextStart)
+                    else putNull("end_epoch_ms")
                     put("opening_income_minor", event.amountMinor)
-                    put("carryover_minor", previousEnding)
-                    if (ending != null) put("ending_tracked_minor", ending) else putNull("ending_tracked_minor")
+                    put("carryover_minor", carryover)
+                    if (ending != null) put("ending_tracked_minor", ending)
+                    else putNull("ending_tracked_minor")
                     put("state", if (nextStart == null) STATE_ACTIVE else STATE_CLOSED)
                     put("created_at_epoch_ms", now)
                     put("updated_at_epoch_ms", now)
                 }
                 db.insertOrThrow("pay_cycles", null, values)
 
-                val where = if (nextStart == null) {
-                    "occurred_at_epoch_ms >= ?"
-                } else {
-                    "occurred_at_epoch_ms >= ? AND occurred_at_epoch_ms < ?"
-                }
-                val args = if (nextStart == null) {
-                    arrayOf(event.occurredAtEpochMs.toString())
-                } else {
-                    arrayOf(event.occurredAtEpochMs.toString(), nextStart.toString())
-                }
-
+                val where =
+                    if (nextStart == null) {
+                        "occurred_at_epoch_ms >= ?"
+                    } else {
+                        "occurred_at_epoch_ms >= ? AND occurred_at_epoch_ms < ?"
+                    }
+                val args =
+                    if (nextStart == null) {
+                        arrayOf(event.occurredAtEpochMs.toString())
+                    } else {
+                        arrayOf(
+                            event.occurredAtEpochMs.toString(),
+                            nextStart.toString()
+                        )
+                    }
                 ContentValues().apply {
                     put("pay_cycle_id", cycleId)
                 }.also { transactionValues ->
-                    db.update("transactions", transactionValues, where, args)
+                    db.update(
+                        "transactions",
+                        transactionValues,
+                        where,
+                        args
+                    )
                 }
 
                 if (ending != null) {
