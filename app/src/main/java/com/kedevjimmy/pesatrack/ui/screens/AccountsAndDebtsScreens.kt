@@ -51,6 +51,7 @@ import java.util.Locale
 
 private data class AccountBalancePresentation(
     val group: TrackedAccountGroup,
+    val displayTitle: String,
     val balanceMinor: Long?,
     val observedAtEpochMs: Long?,
     val observedSubaccounts: Int
@@ -108,10 +109,30 @@ fun AccountsScreen(
                     .latestBalances()
             val transactionSnapshot =
                 transactionStore.snapshot()
+            val mpesaIdentifier =
+                accounts.firstOrNull {
+                    it.id ==
+                        AccountStore
+                            .DEFAULT_MPESA_ID
+                }?.identifier
 
             groups.map { group ->
                 accountBalancePresentation(
                     group = group,
+                    displayTitle =
+                        AccountDisplayPolicy
+                            .displayTitle(
+                                group = group,
+                                inheritedIdentifier =
+                                    if (
+                                        group.key ==
+                                            "m-shwari"
+                                    ) {
+                                        mpesaIdentifier
+                                    } else {
+                                        null
+                                    }
+                            ),
                     balances = balances,
                     fallbackMpesaBalanceMinor =
                         transactionSnapshot
@@ -489,7 +510,7 @@ private fun AccountBalanceCard(
                     .padding(start = 12.dp)
             ) {
                 Text(
-                    group.displayName,
+                    presentation.displayTitle,
                     style =
                         MaterialTheme.typography
                             .titleMedium,
@@ -511,14 +532,20 @@ private fun AccountBalanceCard(
                             }
                         )
                         if (
+                            group.key ==
+                                "m-shwari"
+                        ) {
+                            append(
+                                " • regular + Lock Savings"
+                            )
+                        } else if (
                             group.accounts.size >
                             1
                         ) {
                             append(
-                                " • includes " +
-                                    group.accounts
-                                        .size +
-                                    " linked savings balances"
+                                " • " +
+                                    group.accounts.size +
+                                    " linked accounts"
                             )
                         }
                     },
@@ -659,6 +686,7 @@ private fun DebtAccountCard(
 
 private fun accountBalancePresentation(
     group: TrackedAccountGroup,
+    displayTitle: String,
     balances:
         List<ObservedAccountBalance>,
     fallbackMpesaBalanceMinor: Long?,
@@ -697,6 +725,7 @@ private fun accountBalancePresentation(
 
     return AccountBalancePresentation(
         group = group,
+        displayTitle = displayTitle,
         balanceMinor =
             observedBalance
                 ?: if (isMpesa) {
