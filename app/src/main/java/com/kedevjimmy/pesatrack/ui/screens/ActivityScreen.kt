@@ -3598,20 +3598,130 @@ private fun financialSourceType(
 }
 
 private fun financialEntityReviewDisplayName(
-    entity: DiscoveredFinancialEntity
-): String =
+    entity: DiscoveredFinancialEntity,
+    diagnostics:
+        List<FinancialIngestionDiagnostic>
+): String {
     KenyanBankDirectory
         .matchSender(
             entity.displayName
         )
         ?.name
-        ?: entity.displayName
+        ?.let {
+            return it
+        }
+
+    val resolved =
+        FinancialProviderRegistry
+            .resolveAccount(
+                entity.displayName
+            )
+    if (resolved.providerKey != null) {
+        return resolved.displayName
+    }
+
+    val normalized =
+        ownershipReviewKey(
+            entity.displayName
+        )
+    if (
+        normalized in
+            setOf(
+                "locksaving",
+                "locksavings",
+                "locksavingsaccount"
+            ) &&
+        diagnostics.any {
+            val title =
+                it.title.orEmpty()
+            val source =
+                it.sourceDisplayName
+                    .orEmpty()
+            val combined =
+                (title + " " + source)
+                    .uppercase()
+                    .replace(
+                        Regex("""[^A-Z0-9]+"""),
+                        " "
+                    )
+            combined.contains(
+                "M SHWARI"
+            )
+        }
+    ) {
+        return "M-Shwari Lock Savings"
+    }
+
+    return entity.displayName
+}
+
+private fun ownershipEvidenceLabel(
+    entity: DiscoveredFinancialEntity
+): String {
+    val type =
+        runCatching {
+            AccountType.valueOf(
+                entity.accountTypeHint
+            )
+        }.getOrDefault(
+            AccountType.OTHER
+        )
+    val typeLabel =
+        when (type) {
+            AccountType.BANK -> "Bank"
+            AccountType.MOBILE_WALLET ->
+                "Wallet"
+            AccountType.SAVINGS ->
+                "Savings"
+            else -> "Financial account"
+        }
+
+    val seen =
+        SimpleDateFormat(
+            "d MMM, h:mm a",
+            Locale.getDefault()
+        ).format(
+            Date(
+                entity.lastSeenEpochMs
+            )
+        )
+
+    return "$typeLabel • last seen $seen"
+}
 
 private fun shouldOfferOwnershipReview(
     entity: DiscoveredFinancialEntity,
     diagnostics:
         List<FinancialIngestionDiagnostic>
 ): Boolean {
+    if (
+        !AccountDisplayPolicy
+            .isMeaningfulAccountName(
+                entity.displayName
+            )
+    ) {
+        return false
+    }
+
+    val type =
+        runCatching {
+            AccountType.valueOf(
+                entity.accountTypeHint
+            )
+        }.getOrDefault(
+            AccountType.OTHER
+        )
+    if (
+        type !in
+            setOf(
+                AccountType.BANK,
+                AccountType.MOBILE_WALLET,
+                AccountType.SAVINGS
+            )
+    ) {
+        return false
+    }
+
     if (entity.providerKey != null) {
         return true
     }
