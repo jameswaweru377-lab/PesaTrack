@@ -201,4 +201,53 @@ class AccountDisplayPolicyTest {
         )
     }
 
+
+    @Test
+    fun legacyBareLockSavingsStillGroupsUnderMshwari() {
+        val groups =
+            AccountDisplayPolicy.groups(
+                listOf(
+                    MoneyAccount(
+                        id = "regular",
+                        name = "M-Shwari",
+                        type = AccountType.SAVINGS
+                    ),
+                    MoneyAccount(
+                        id = "legacy-lock",
+                        name = "Lock Savings",
+                        type = AccountType.SAVINGS
+                    )
+                )
+            )
+
+        assertEquals(1, groups.size)
+        assertEquals(
+            "M-Shwari",
+            groups.single().displayName
+        )
+    }
+
+    @Test
+    fun displayTitleUsesMaskedDynamicIdentifier() {
+        val group =
+            AccountDisplayPolicy.groups(
+                listOf(
+                    MoneyAccount(
+                        id = "mpesa",
+                        name = "M-Pesa",
+                        type =
+                            AccountType.MOBILE_WALLET,
+                        identifier =
+                            "+254712348497"
+                    )
+                )
+            ).single()
+
+        assertEquals(
+            "M-Pesa (•••• 8497)",
+            AccountDisplayPolicy
+                .displayTitle(group)
+        )
+    }
+
 }
