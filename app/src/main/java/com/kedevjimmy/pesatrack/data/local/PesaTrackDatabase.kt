@@ -20,6 +20,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createCustomCategoriesTable(db)
         createDebtTables(db)
         createFinancialUnderstandingTables(db)
+        createTransactionExternalReferencesTable(db)
         createEntityEnrichmentCacheTable(db)
         seedDefaultAccounts(db)
         createIndexes(db)
@@ -231,6 +232,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 18) {
             createEntityEnrichmentCacheTable(db)
+        }
+
+        if (oldVersion < 19) {
+            createTransactionExternalReferencesTable(db)
         }
 
         createIndexes(db)
@@ -636,6 +641,23 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createTransactionExternalReferencesTable(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS transaction_external_references (
+                transaction_id INTEGER NOT NULL,
+                reference_value TEXT NOT NULL,
+                reference_label TEXT,
+                source_kind TEXT,
+                observed_at_epoch_ms INTEGER NOT NULL,
+                PRIMARY KEY(transaction_id, reference_value)
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun createEntityEnrichmentCacheTable(
         db: SQLiteDatabase
     ) {
@@ -735,6 +757,12 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_entity_enrichment_expiry ON entity_enrichment_cache(expires_at_epoch_ms)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_transaction_external_reference_value ON transaction_external_references(reference_value)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_transaction_external_reference_transaction ON transaction_external_references(transaction_id)"
+        )
     }
 
     private fun createTriggers(db: SQLiteDatabase) {
@@ -755,6 +783,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 18
+        private const val DATABASE_VERSION = 19
     }
 }
