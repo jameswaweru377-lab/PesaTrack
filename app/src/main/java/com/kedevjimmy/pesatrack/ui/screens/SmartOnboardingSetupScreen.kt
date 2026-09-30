@@ -945,6 +945,104 @@ fun SmartOnboardingSetupScreen(
         manualSalaryError = null
     }
 
+    suspend fun commitSelectedOwnership() {
+        if (
+            reviewCommitInProgress
+        ) {
+            return
+        }
+
+        val selected =
+            pendingOwnershipEntities
+                .filter {
+                    it.entityKey in
+                        selectedOwnershipEntityKeys
+                }
+
+        if (selected.isEmpty()) {
+            availableAccounts =
+                ownedSetupAccounts(
+                    accountStore =
+                        accountStore,
+                    financialStore =
+                        financialUnderstandingStore
+                )
+            return
+        }
+
+        reviewCommitInProgress = true
+        try {
+            withContext(Dispatchers.IO) {
+                selected.forEach {
+                        entity ->
+                    financialUnderstandingStore
+                        .confirmEntityOwned(
+                            entity.entityKey
+                        )
+                    financialCoordinator
+                        .reconcilePendingTransfers(
+                            entity.entityKey
+                        )
+                }
+
+                if (
+                    smsGranted &&
+                    importMonths > 0
+                ) {
+                    HistoryImportWindow
+                        .importStartEpochMs(
+                            importMonths
+                        )
+                        ?.let {
+                            startEpochMs ->
+                            HistoricalSmsImporter(
+                                context
+                                    .applicationContext
+                            ).importSince(
+                                startEpochMs
+                            )
+                        }
+                }
+                payCycleStore.rebuild()
+            }
+
+            availableAccounts =
+                ownedSetupAccounts(
+                    accountStore =
+                        accountStore,
+                    financialStore =
+                        financialUnderstandingStore
+                )
+            pendingOwnershipEntities =
+                onboardingOwnershipCandidates(
+                    financialUnderstandingStore
+                        .pendingEntities()
+                )
+            selectedOwnershipEntityKeys =
+                emptySet()
+
+            if (
+                manualSalaryAccountId
+                    .isBlank()
+            ) {
+                manualSalaryAccountId =
+                    availableAccounts
+                        .firstOrNull {
+                            it.type ==
+                                AccountType.BANK
+                        }
+                        ?.id
+                        ?: availableAccounts
+                            .firstOrNull()
+                            ?.id
+                            .orEmpty()
+            }
+        } finally {
+            reviewCommitInProgress =
+                false
+        }
+    }
+
     suspend fun applySalaryIfConfirmed() {
         val suggestion =
             salarySuggestion
