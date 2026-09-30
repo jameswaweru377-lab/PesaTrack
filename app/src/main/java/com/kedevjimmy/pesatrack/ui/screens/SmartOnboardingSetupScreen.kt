@@ -137,7 +137,7 @@ private enum class SalaryHistoryMode {
     IMPORT_WINDOW
 }
 
-private data class ManualSalaryDraft(
+private data class SmartSalaryDraft(
     val monthKey: String,
     val monthLabel: String,
     val amount: String = "",
@@ -267,7 +267,7 @@ fun SmartOnboardingSetupScreen(
     }
     var manualSalaryDrafts by remember {
         mutableStateOf(
-            defaultManualSalaryDrafts(
+            defaultSmartSalaryDrafts(
                 importMonths
             )
         )
@@ -687,7 +687,7 @@ fun SmartOnboardingSetupScreen(
                 desired
             ) {
                 manualSalaryDrafts =
-                    defaultManualSalaryDrafts(
+                    defaultSmartSalaryDrafts(
                         desired
                     )
             }
@@ -765,7 +765,7 @@ fun SmartOnboardingSetupScreen(
             }
 
         val baseDrafts =
-            defaultManualSalaryDrafts(
+            defaultSmartSalaryDrafts(
                 desired
             )
         var found = 0
@@ -804,7 +804,7 @@ fun SmartOnboardingSetupScreen(
             if (latest != null) {
                 manualSalaryDrafts =
                     listOf(
-                        ManualSalaryDraft(
+                        SmartSalaryDraft(
                             monthKey =
                                 salaryMonthKey(
                                     latest.occurredAtEpochMs
@@ -913,7 +913,7 @@ fun SmartOnboardingSetupScreen(
         val completed =
             mutableListOf<
                 Triple<
-                    ManualSalaryDraft,
+                    SmartSalaryDraft,
                     Long,
                     Long
                 >
@@ -1398,7 +1398,7 @@ fun SmartOnboardingSetupScreen(
                             manualSalaryHistoryMode =
                                 mode
                             manualSalaryDrafts =
-                                defaultManualSalaryDrafts(
+                                defaultSmartSalaryDrafts(
                                     if (
                                         mode ==
                                         SalaryHistoryMode
@@ -2570,7 +2570,7 @@ private fun ManualSalaryPage(
     payer: String,
     importMonths: Int,
     historyMode: SalaryHistoryMode,
-    drafts: List<ManualSalaryDraft>,
+    drafts: List<SmartSalaryDraft>,
     searchStatus: String?,
     error: String?,
     onAccountSelected: (String) -> Unit,
@@ -3731,11 +3731,11 @@ private fun onboardingOwnershipCandidates(
             )
         }
 
-private fun defaultManualSalaryDrafts(
+private fun defaultSmartSalaryDrafts(
     months: Int,
     nowEpochMs: Long =
         System.currentTimeMillis()
-): List<ManualSalaryDraft> {
+): List<SmartSalaryDraft> {
     val count =
         months.coerceIn(1, 3)
     val calendar =
@@ -3784,7 +3784,7 @@ private fun defaultManualSalaryDrafts(
             Calendar.MONTH,
             -index
         )
-        ManualSalaryDraft(
+        SmartSalaryDraft(
             monthKey =
                 keyFormatter.format(
                     month.time
