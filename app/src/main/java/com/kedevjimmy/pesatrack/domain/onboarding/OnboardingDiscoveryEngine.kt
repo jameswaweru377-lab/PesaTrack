@@ -69,7 +69,11 @@ object OnboardingDiscoveryEngine {
                     // to label something as salary during onboarding.
                     if (
                         group.size < 2 ||
-                        months.size < 2
+                        months.size < 2 ||
+                        !hasSalaryLikeCadence(
+                            group = group,
+                            timeZone = timeZone
+                        )
                     ) {
                         return@mapNotNull null
                     }
@@ -144,6 +148,48 @@ object OnboardingDiscoveryEngine {
             .takeIf { strongest.value >= 2 }
     }
 
+    private fun hasSalaryLikeCadence(
+        group:
+            List<OnboardingTransactionObservation>,
+        timeZone: TimeZone
+    ): Boolean {
+        val perMonth =
+            group.groupingBy {
+                monthKey(
+                    it.occurredAtEpochMs,
+                    timeZone
+                )
+            }.eachCount()
+
+        if (
+            perMonth.values.any {
+                it > 2
+            }
+        ) {
+            return false
+        }
+
+        val sorted =
+            group.sortedBy {
+                it.occurredAtEpochMs
+            }
+
+        val salaryLikeIntervals =
+            sorted.zipWithNext()
+                .count {
+                        (first, second) ->
+                    val days =
+                        (
+                            second.occurredAtEpochMs -
+                                first.occurredAtEpochMs
+                            ) /
+                            DAY_MS
+                    days in 20L..40L
+                }
+
+        return salaryLikeIntervals >= 1
+    }
+
     private fun normalizeLabel(
         value: String
     ): String =
@@ -157,6 +203,9 @@ object OnboardingDiscoveryEngine {
                 " "
             )
             .trim()
+
+    private const val DAY_MS =
+        24L * 60L * 60L * 1000L
 
     private fun monthKey(
         epochMs: Long,
