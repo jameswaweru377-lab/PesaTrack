@@ -101,6 +101,17 @@ object FinancialCandidateExtractor {
         """\bon\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)""",
         RegexOption.IGNORE_CASE
     )
+    private val GENERIC_BALANCE_ACCOUNT_LABELS =
+        setOf(
+            "ACCOUNT",
+            "AVAILABLE",
+            "BALANCE",
+            "CLOSING",
+            "CURRENT",
+            "NEW",
+            "YOUR"
+        )
+
     private val balanceRegex = Regex(
         """(?:^|[.!?]\s+)(?:New\s+|Your\s+)?([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,4})\s+balance\s+is\s*(?:(?:Ksh|KES)\s*)?([0-9,]+(?:\.\d{1,2})?)""",
         setOf(
@@ -506,6 +517,13 @@ object FinancialCandidateExtractor {
                     Regex("""\s+"""),
                     " "
                 )
+        if (
+            normalizedAccount in
+                GENERIC_BALANCE_ACCOUNT_LABELS
+        ) {
+            return null
+        }
+
         val sourceScopedLoan =
             normalizedAccount in
                 setOf(
@@ -513,26 +531,59 @@ object FinancialCandidateExtractor {
                     "TOTAL LOAN",
                     "OUTSTANDING LOAN"
                 )
+
+        val sourceLooksMshwari =
+            message.title
+                ?.uppercase()
+                ?.replace(
+                    Regex("""[^A-Z0-9]+"""),
+                    " "
+                )
+                ?.contains("M SHWARI") ==
+                true ||
+                message.body
+                    .uppercase()
+                    .replace(
+                        Regex("""[^A-Z0-9]+"""),
+                        " "
+                    )
+                    .contains("M SHWARI")
+
+        val sourceScopedLockSavings =
+            sourceLooksMshwari &&
+                normalizedAccount in
+                    setOf(
+                        "LOCK SAVING",
+                        "LOCK SAVINGS",
+                        "LOCK SAVINGS ACCOUNT"
+                    )
+
         val accountLabel =
-            if (sourceScopedLoan) {
-                message.title
-                    ?.trim()
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { title ->
-                        if (
-                            title.endsWith(
-                                "loan",
-                                ignoreCase = true
-                            )
-                        ) {
-                            title
-                        } else {
-                            "$title Loan"
+            when {
+                sourceScopedLoan ->
+                    message.title
+                        ?.trim()
+                        ?.takeIf {
+                            it.isNotBlank()
                         }
-                    }
-                    ?: rawAccount
-            } else {
-                rawAccount
+                        ?.let { title ->
+                            if (
+                                title.endsWith(
+                                    "loan",
+                                    ignoreCase = true
+                                )
+                            ) {
+                                title
+                            } else {
+                                "$title Loan"
+                            }
+                        }
+                        ?: rawAccount
+
+                sourceScopedLockSavings ->
+                    "M-Shwari Lock Savings"
+
+                else -> rawAccount
             }
 
         return BalanceCandidate(
