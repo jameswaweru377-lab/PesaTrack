@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityMatchConfidence
 import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEnrichment
+import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityBusinessRole
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 
 class EntityEnrichmentCacheStore private constructor(
@@ -30,6 +31,7 @@ class EntityEnrichmentCacheStore private constructor(
                    domain,
                    logo_url,
                    category_hint,
+                   business_role,
                    confidence,
                    source
             FROM entity_enrichment_cache
@@ -75,14 +77,25 @@ class EntityEnrichmentCacheStore private constructor(
                         runCatching {
                             EntityMatchConfidence
                                 .valueOf(
-                                    cursor.getString(4)
+                                    cursor.getString(5)
                                 )
                         }.getOrDefault(
                             EntityMatchConfidence
                                 .LIKELY
                         ),
                     source =
-                        cursor.getString(5)
+                        cursor.getString(6),
+                    businessRole =
+                        if (cursor.isNull(4)) {
+                            null
+                        } else {
+                            runCatching {
+                                RemoteEntityBusinessRole
+                                    .valueOf(
+                                        cursor.getString(4)
+                                    )
+                            }.getOrNull()
+                        }
                 )
             }
         }
@@ -119,6 +132,14 @@ class EntityEnrichmentCacheStore private constructor(
                 )
             } else {
                 putNull("category_hint")
+            }
+            if (result.businessRole != null) {
+                put(
+                    "business_role",
+                    result.businessRole.name
+                )
+            } else {
+                putNull("business_role")
             }
             put(
                 "confidence",
