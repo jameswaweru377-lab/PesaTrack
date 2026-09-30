@@ -822,6 +822,169 @@ fun SmartOnboardingSetupScreen(
         manualSalaryError = null
     }
 
+    suspend fun refreshOwnedAccountsAndSalary() {
+        availableAccounts =
+            withContext(
+                Dispatchers.IO
+            ) {
+                ownedSetupAccounts(
+                    accountStore =
+                        accountStore,
+                    financialStore =
+                        financialUnderstandingStore
+                )
+            }
+
+        if (
+            manualSalaryAccountId.isBlank() ||
+            availableAccounts.none {
+                it.id ==
+                    manualSalaryAccountId
+            }
+        ) {
+            manualSalaryAccountId =
+                availableAccounts
+                    .firstOrNull {
+                        it.type ==
+                            AccountType.BANK
+                    }
+                    ?.id
+                    ?: availableAccounts
+                        .firstOrNull {
+                            it.id ==
+                                AccountStore
+                                    .DEFAULT_MPESA_ID
+                        }
+                        ?.id
+                    ?: availableAccounts
+                        .firstOrNull()
+                        ?.id
+                        .orEmpty()
+        }
+
+        val cutoff =
+            HistoryImportWindow
+                .importStartEpochMs(
+                    importMonths
+                        .coerceAtLeast(1)
+                )
+                ?: (
+                    System.currentTimeMillis() -
+                        31L * ONE_DAY_MS
+                    )
+        val refreshedSalary =
+            withContext(
+                Dispatchers.IO
+            ) {
+                val observations =
+                    transactionStore
+                        .recent(500)
+                        .filter {
+                            it.receivedAtEpochMs >=
+                                cutoff
+                        }
+                        .map { item ->
+                            OnboardingTransactionObservation(
+                                counterparty =
+                                    item.counterparty,
+                                counterpartyPhone =
+                                    item.counterpartyPhone,
+                                amountMinor =
+                                    item.amountMinor,
+                                occurredAtEpochMs =
+                                    item.occurredAtEpochMs,
+                                direction =
+                                    runCatching {
+                                        MoneyDirection
+                                            .valueOf(
+                                                item.direction
+                                            )
+                                    }.getOrDefault(
+                                        MoneyDirection
+                                            .NEUTRAL
+                                    ),
+                                accountId =
+                                    item.accountId
+                            )
+                        }
+
+                OnboardingDiscoveryEngine
+                    .salarySuggestion(
+                        observations
+                    )
+            }
+
+        salarySuggestion =
+            refreshedSalary
+        salaryAccepted = false
+        if (refreshedSalary != null) {
+            manualSalaryAccountId =
+                refreshedSalary.accountId
+        }
+    }
+
+    suspend fun applySelectedOwnership() {
+        val selected =
+            pendingOwnershipEntities
+                .filter {
+                    it.entityKey in
+                        selectedOwnershipEntityKeys
+                }
+        if (selected.isEmpty()) {
+            refreshOwnedAccountsAndSalary()
+            return
+        }
+
+        ownershipApplying = true
+        try {
+            withContext(
+                Dispatchers.IO
+            ) {
+                selected.forEach { entity ->
+                    financialUnderstandingStore
+                        .confirmEntityOwned(
+                            entity.entityKey
+                        )
+                    financialCoordinator
+                        .reconcilePendingTransfers(
+                            entity.entityKey
+                        )
+                }
+
+                if (
+                    smsGranted &&
+                    importMonths > 0
+                ) {
+                    HistoryImportWindow
+                        .importStartEpochMs(
+                            importMonths
+                        )
+                        ?.let {
+                            startEpochMs ->
+                            HistoricalSmsImporter(
+                                context
+                                    .applicationContext
+                            ).importSince(
+                                startEpochMs
+                            )
+                        }
+                }
+                payCycleStore.rebuild()
+            }
+
+            pendingOwnershipEntities =
+                onboardingOwnershipCandidates(
+                    financialUnderstandingStore
+                        .pendingEntities()
+                )
+            selectedOwnershipEntityKeys =
+                emptySet()
+            refreshOwnedAccountsAndSalary()
+        } finally {
+            ownershipApplying = false
+        }
+    }
+
     suspend fun applySalaryIfConfirmed() {
         val suggestion =
             salarySuggestion
