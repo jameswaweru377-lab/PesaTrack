@@ -1792,8 +1792,7 @@ private fun ProtectMoneyDialog(
                             parsed < 0L ->
                                 "Protected money cannot be negative."
                             parsed >
-                                maximumSuggestedMinor +
-                                    currentMinor ->
+                                maximumSuggestedMinor ->
                                 "That is more than the cash PesaTrack currently knows is available."
                             !onSave(
                                 parsed
