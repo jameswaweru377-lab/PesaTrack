@@ -295,6 +295,8 @@ class TransactionStore private constructor(context: Context) {
             ) {
                 DebtStore.get(appContext)
                     .reconcilePendingRepaymentsAround(
+                        transactionId =
+                            mirrorCandidate.id,
                         occurredAtEpochMs =
                             occurredAtEpochMs
                     )
@@ -393,6 +395,8 @@ class TransactionStore private constructor(context: Context) {
             ) {
                 DebtStore.get(appContext)
                     .reconcilePendingRepaymentsAround(
+                        transactionId =
+                            rowId,
                         occurredAtEpochMs =
                             occurredAtEpochMs
                     )
