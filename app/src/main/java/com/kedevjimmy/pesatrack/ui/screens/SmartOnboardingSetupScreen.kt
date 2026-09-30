@@ -786,6 +786,10 @@ fun SmartOnboardingSetupScreen(
     }
 
     suspend fun refreshSalarySuggestionFromLedger() {
+        val previouslyAccepted =
+            salaryAccepted
+        val previousSuggestion =
+            salarySuggestion
         val cutoff =
             HistoryImportWindow
                 .importStartEpochMs(
@@ -866,10 +870,23 @@ fun SmartOnboardingSetupScreen(
             }
 
         salarySuggestion = refreshed
+        val sameSuggestion =
+            refreshed != null &&
+                previousSuggestion != null &&
+                refreshed.label.equals(
+                    previousSuggestion.label,
+                    ignoreCase = true
+                ) &&
+                refreshed.accountId ==
+                    previousSuggestion.accountId
         salaryAccepted =
-            refreshed?.signalStrength ==
-                SalarySignalStrength
-                    .EXPLICIT_PAYROLL
+            (
+                previouslyAccepted &&
+                    sameSuggestion
+                ) ||
+                refreshed?.signalStrength ==
+                    SalarySignalStrength
+                        .EXPLICIT_PAYROLL
         refreshed?.accountId?.let {
             accountId ->
             if (
