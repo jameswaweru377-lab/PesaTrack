@@ -250,4 +250,53 @@ class FinancialInterpretationPipelineTest {
         )
     }
 
+
+    @Test
+    fun creditedToPhoneAndNameBecomesProviderNeutralPayment() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "EQUITY",
+                body =
+                    "Your transaction of Kshs. 550.0 has been credited to 254700000001 SAMPLE BENEFICIARY. Ref. EQA811473AD0F1A. MPESA Ref. UIGFT6Y4L6 on 16/09/2026 at 9:35:34."
+            )
+
+        assertTrue(interpretation.recognized)
+        assertTrue(interpretation.semanticallyUnderstood)
+
+        val payment =
+            interpretation.events.single() as
+                PaymentEventFact
+
+        assertEquals(55_000L, payment.amountMinor)
+        assertEquals(
+            "SAMPLE BENEFICIARY",
+            payment.counterparty
+        )
+        assertEquals(
+            "+254700000001",
+            payment.counterpartyPhone
+        )
+        assertEquals(
+            "Equity Bank",
+            payment.source.displayName
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            payment.source.ownershipHint
+        )
+        assertEquals(
+            "16/09/2026 at 9:35:34",
+            interpretation.occurredAtText
+        )
+        assertEquals(
+            setOf(
+                "EQA811473AD0F1A",
+                "UIGFT6Y4L6"
+            ),
+            interpretation.semanticAssessment
+                ?.references
+                ?.map { it.value }
+                ?.toSet()
+        )
+    }
 }
