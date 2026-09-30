@@ -489,7 +489,8 @@ private fun AccountBalanceCard(
                     .padding(start = 12.dp)
             ) {
                 Text(
-                    group.displayName,
+                    AccountDisplayPolicy
+                        .displayLabel(group),
                     style =
                         MaterialTheme.typography
                             .titleMedium,
@@ -515,10 +516,10 @@ private fun AccountBalanceCard(
                             1
                         ) {
                             append(
-                                " • includes " +
+                                " • merged from " +
                                     group.accounts
                                         .size +
-                                    " linked savings balances"
+                                    " matching account labels"
                             )
                         }
                     },
@@ -682,14 +683,14 @@ private fun accountBalancePresentation(
                 }
             }
 
-    val observedBalance =
+    val latestObservation =
         latestByAccount
-            .takeIf {
-                it.isNotEmpty()
+            .maxByOrNull {
+                it.observedAtEpochMs
             }
-            ?.sumOf {
-                it.balanceMinor
-            }
+    val observedBalance =
+        latestObservation
+            ?.balanceMinor
 
     val isMpesa =
         AccountStore.DEFAULT_MPESA_ID in
@@ -704,18 +705,28 @@ private fun accountBalancePresentation(
                 } else {
                     group.accounts
                         .mapNotNull {
-                            it.openingBalanceMinor
+                            account ->
+                            account
+                                .openingBalanceMinor
+                                ?.let {
+                                    balance ->
+                                    Triple(
+                                        balance,
+                                        account
+                                            .openingBalanceAsOfEpochMs
+                                            ?: Long.MIN_VALUE,
+                                        account.id
+                                    )
+                                }
                         }
-                        .takeIf {
-                            it.isNotEmpty()
+                        .maxByOrNull {
+                            it.second
                         }
-                        ?.sum()
+                        ?.first
                 },
         observedAtEpochMs =
-            latestByAccount
-                .maxOfOrNull {
-                    it.observedAtEpochMs
-                }
+            latestObservation
+                ?.observedAtEpochMs
                 ?: if (isMpesa) {
                     fallbackMpesaObservedAt
                 } else {
@@ -726,7 +737,13 @@ private fun accountBalancePresentation(
                         .maxOrNull()
                 },
         observedSubaccounts =
-            latestByAccount.size
+            if (
+                latestObservation != null
+            ) {
+                1
+            } else {
+                0
+            }
     )
 }
 
