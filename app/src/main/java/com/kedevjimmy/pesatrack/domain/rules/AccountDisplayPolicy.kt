@@ -142,46 +142,101 @@ object AccountDisplayPolicy {
         }
     }
 
+    fun displayLabel(
+        group: TrackedAccountGroup
+    ): String {
+        val identifier =
+            group.accounts
+                .asSequence()
+                .mapNotNull {
+                    it.identifier
+                        ?.trim()
+                        ?.takeIf(
+                            String::isNotBlank
+                        )
+                }
+                .firstOrNull()
+
+        return if (identifier == null) {
+            group.displayName
+        } else {
+            group.displayName +
+                " (" +
+                maskIdentifier(
+                    identifier
+                ) +
+                ")"
+        }
+    }
+
     private fun groupKey(
         account: MoneyAccount
-    ): String {
-        val normalized =
-            normalize(account.name)
-        if (
-            account.type ==
-                AccountType.SAVINGS &&
-            normalized.startsWith(
-                "m shwari"
-            )
-        ) {
-            return "m-shwari"
-        }
-
-        return normalize(
+    ): String =
+        normalize(
             canonicalDisplayName(
                 account
             )
         )
-    }
 
     private fun canonicalDisplayName(
         account: MoneyAccount
-    ): String =
-        if (
+    ): String {
+        val normalized =
+            normalize(account.name)
+        return when {
             account.type ==
                 AccountType.SAVINGS &&
-            normalize(account.name)
-                .startsWith(
-                    "m shwari"
+                normalized in
+                    setOf(
+                        "lock saving",
+                        "lock savings",
+                        "lock savings account",
+                        "m shwari lock saving",
+                        "m shwari lock savings",
+                        "mshwari lock saving",
+                        "mshwari lock savings"
+                    ) ->
+                "M-Shwari Lock Savings"
+
+            account.type ==
+                AccountType.SAVINGS &&
+                normalized in
+                    setOf(
+                        "m shwari",
+                        "mshwari"
+                    ) ->
+                "M-Shwari"
+
+            else ->
+                canonicalName(
+                    account.name,
+                    account.type
                 )
-        ) {
-            "M-Shwari"
-        } else {
-            canonicalName(
-                account.name,
-                account.type
-            )
         }
+    }
+
+    private fun maskIdentifier(
+        raw: String
+    ): String {
+        val cleaned =
+            raw.trim()
+        val digits =
+            cleaned.filter(
+                Char::isDigit
+            )
+
+        return when {
+            digits.length >= 4 ->
+                "•••• " +
+                    digits.takeLast(4)
+
+            cleaned.length > 4 ->
+                "•••• " +
+                    cleaned.takeLast(4)
+
+            else -> cleaned
+        }
+    }
 
     private fun canonicalName(
         raw: String,
