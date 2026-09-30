@@ -648,8 +648,7 @@ fun SmartOnboardingSetupScreen(
 
         salarySuggestion =
             incomeDiscovery.first
-        salaryAccepted =
-            incomeDiscovery.first != null
+        salaryAccepted = false
         mpesaPhoneSuggestion =
             incomeDiscovery.second
         delay(MIN_PROGRESS_STEP_MS)
@@ -746,20 +745,6 @@ fun SmartOnboardingSetupScreen(
             return
         }
 
-        val byMonth =
-            candidates
-                .groupBy {
-                    salaryMonthKey(
-                        it.occurredAtEpochMs
-                    )
-                }
-                .mapValues {
-                        (_, matches) ->
-                    matches.maxByOrNull {
-                        it.amountMinor
-                    }!!
-                }
-
         val desired =
             if (
                 manualSalaryHistoryMode ==
@@ -771,20 +756,45 @@ fun SmartOnboardingSetupScreen(
                     .coerceAtLeast(1)
             }
 
+        val matchesByMonth =
+            candidates
+                .groupBy {
+                    salaryMonthKey(
+                        it.occurredAtEpochMs
+                    )
+                }
+                .values
+                .mapNotNull { matches ->
+                    matches.maxByOrNull {
+                        it.occurredAtEpochMs
+                    }
+                }
+                .sortedByDescending {
+                    it.occurredAtEpochMs
+                }
+                .take(desired)
+
         val baseDrafts =
             defaultSmartSalaryDrafts(
                 desired
             )
-        var found = 0
+        val found =
+            matchesByMonth.size
         manualSalaryDrafts =
-            baseDrafts.map { draft ->
+            baseDrafts.mapIndexed {
+                    index,
+                    draft ->
                 val match =
-                    byMonth[
-                        draft.monthKey
-                    ]
-                if (match != null) {
-                    found += 1
+                    matchesByMonth
+                        .getOrNull(index)
+                if (match == null) {
+                    draft
+                } else {
                     draft.copy(
+                        monthKey =
+                            salaryMonthKey(
+                                match.occurredAtEpochMs
+                            ),
                         amount =
                             formatSetupAmountInput(
                                 match.amountMinor
@@ -794,43 +804,8 @@ fun SmartOnboardingSetupScreen(
                         matchedTransactionId =
                             match.transactionId
                     )
-                } else {
-                    draft
                 }
             }
-
-        if (
-            manualSalaryHistoryMode ==
-                SalaryHistoryMode.LATEST_ONLY &&
-            found == 0
-        ) {
-            val latest =
-                candidates.maxByOrNull {
-                    it.occurredAtEpochMs
-                }
-            if (latest != null) {
-                manualSalaryDrafts =
-                    listOf(
-                        SmartSalaryDraft(
-                            monthKey =
-                                salaryMonthKey(
-                                    latest.occurredAtEpochMs
-                                ),
-                            monthLabel =
-                                "Most recent salary",
-                            amount =
-                                formatSetupAmountInput(
-                                    latest.amountMinor
-                                ),
-                            paidAtEpochMs =
-                                latest.occurredAtEpochMs,
-                            matchedTransactionId =
-                                latest.transactionId
-                        )
-                    )
-                found = 1
-            }
-        }
 
         salaryHistorySearchStatus =
             if (found > 0) {
@@ -1439,7 +1414,7 @@ fun SmartOnboardingSetupScreen(
                                 ) {
                                     salarySuggestion =
                                         refreshedSalary
-                                    salaryAccepted = true
+                                    salaryAccepted = false
                                     manualSalaryAccountId =
                                         refreshedSalary
                                             .accountId
