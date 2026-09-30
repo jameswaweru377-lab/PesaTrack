@@ -514,6 +514,15 @@ fun ActivityScreen(
                                 .first(),
                         diagnostics =
                             financialDiagnostics,
+                        identifier =
+                            knownIdentifierForEntity(
+                                entity =
+                                    reviewableFinancialEntities
+                                        .first(),
+                                accounts =
+                                    accountsById
+                                        .values
+                            ),
                         remainingCount =
                             reviewableFinancialEntities
                                 .size - 1,
@@ -1069,6 +1078,12 @@ fun ActivityScreen(
             entity = entity,
             diagnostics =
                 financialDiagnostics,
+            identifier =
+                knownIdentifierForEntity(
+                    entity = entity,
+                    accounts =
+                        accountsById.values
+                ),
             onDismiss = {
                 accountReviewEntity = null
             },
@@ -1123,13 +1138,15 @@ private fun FinancialAccountDiscoveryCard(
     entity: DiscoveredFinancialEntity,
     diagnostics:
         List<FinancialIngestionDiagnostic>,
+    identifier: String?,
     remainingCount: Int,
     onReview: () -> Unit
 ) {
     val displayName =
         financialEntityReviewDisplayName(
             entity = entity,
-            diagnostics = diagnostics
+            diagnostics = diagnostics,
+            identifier = identifier
         )
 
     PesaCard {
@@ -1232,6 +1249,7 @@ private fun FinancialAccountReviewDialog(
     entity: DiscoveredFinancialEntity,
     diagnostics:
         List<FinancialIngestionDiagnostic>,
+    identifier: String?,
     onDismiss: () -> Unit,
     onConfirmOwned: () -> Unit,
     onNotMine: () -> Unit
@@ -1239,7 +1257,8 @@ private fun FinancialAccountReviewDialog(
     val displayName =
         financialEntityReviewDisplayName(
             entity = entity,
-            diagnostics = diagnostics
+            diagnostics = diagnostics,
+            identifier = identifier
         )
 
     AlertDialog(
@@ -3652,7 +3671,8 @@ private fun financialSourceType(
 private fun financialEntityReviewDisplayName(
     entity: DiscoveredFinancialEntity,
     diagnostics:
-        List<FinancialIngestionDiagnostic>
+        List<FinancialIngestionDiagnostic>,
+    identifier: String? = null
 ): String {
     KenyanBankDirectory
         .matchSender(
@@ -3704,7 +3724,69 @@ private fun financialEntityReviewDisplayName(
         return "M-Shwari Lock Savings"
     }
 
-    return entity.displayName
+    val base =
+        entity.displayName
+    val suffix =
+        identifier
+            ?.trim()
+            ?.takeIf(
+                String::isNotBlank
+            )
+            ?.let {
+                " (" +
+                    AccountDisplayPolicy
+                        .maskIdentifier(it) +
+                    ")"
+            }
+            .orEmpty()
+    return base + suffix
+}
+
+private fun knownIdentifierForEntity(
+    entity: DiscoveredFinancialEntity,
+    accounts:
+        Collection<
+            com.kedevjimmy.pesatrack
+                .domain.model.MoneyAccount
+        >
+): String? {
+    if (
+        entity.providerKey ==
+        "SAFARICOM_MPESA"
+    ) {
+        return accounts
+            .firstOrNull {
+                it.id ==
+                    AccountStore
+                        .DEFAULT_MPESA_ID
+            }
+            ?.identifier
+    }
+
+    val canonical =
+        KenyanBankDirectory
+            .matchSender(
+                entity.displayName
+            )
+            ?.name
+            ?: entity.displayName
+
+    return accounts
+        .firstOrNull {
+            account ->
+            val accountCanonical =
+                KenyanBankDirectory
+                    .matchSender(
+                        account.name
+                    )
+                    ?.name
+                    ?: account.name
+            accountCanonical.equals(
+                canonical,
+                ignoreCase = true
+            )
+        }
+        ?.identifier
 }
 
 private fun ownershipEvidenceLabel(
