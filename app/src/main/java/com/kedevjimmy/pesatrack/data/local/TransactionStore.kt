@@ -37,6 +37,14 @@ import com.kedevjimmy.pesatrack.domain.rules.TransactionEvidenceResolver
 import java.util.Calendar
 import java.util.TimeZone
 
+data class SalaryHistoryCandidate(
+    val transactionId: Long,
+    val amountMinor: Long,
+    val occurredAtEpochMs: Long,
+    val counterparty: String?,
+    val accountId: String?
+)
+
 class TransactionStore private constructor(context: Context) {
     private val appContext = context.applicationContext
     private val database = PesaTrackDatabase(appContext)
@@ -454,6 +462,112 @@ class TransactionStore private constructor(context: Context) {
             PayCycleStore.get(appContext).rebuild()
         }
         return inserted
+    }
+
+    @Synchronized
+    fun salaryHistoryCandidates(
+        payerQuery: String,
+        sinceEpochMs: Long,
+        accountId: String? = null,
+        limit: Int = 24
+    ): List<SalaryHistoryCandidate> {
+        val query =
+            payerQuery.trim()
+        if (query.isBlank()) {
+            return emptyList()
+        }
+
+        val accountClause =
+            if (accountId == null) {
+                ""
+            } else {
+                " AND account_id = ?"
+            }
+        val args =
+            buildList {
+                add(
+                    MoneyDirection
+                        .INCOME.name
+                )
+                add(
+                    ReviewState
+                        .EXCLUDED.name
+                )
+                add(
+                    sinceEpochMs
+                        .toString()
+                )
+                add("%$query%")
+                if (
+                    accountId != null
+                ) {
+                    add(accountId)
+                }
+                add(
+                    limit.coerceIn(
+                        1,
+                        100
+                    ).toString()
+                )
+            }.toTypedArray()
+
+        return database.readableDatabase
+            .rawQuery(
+                """
+                SELECT id,
+                       amount_minor,
+                       occurred_at_epoch_ms,
+                       counterparty,
+                       account_id
+                FROM transactions
+                WHERE direction = ?
+                  AND review_state != ?
+                  AND occurred_at_epoch_ms >= ?
+                  AND COALESCE(
+                        counterparty,
+                        ''
+                      ) LIKE ?
+                        COLLATE NOCASE
+                  $accountClause
+                ORDER BY occurred_at_epoch_ms DESC,
+                         id DESC
+                LIMIT ?
+                """.trimIndent(),
+                args
+            ).use { cursor ->
+                buildList {
+                    while (
+                        cursor.moveToNext()
+                    ) {
+                        add(
+                            SalaryHistoryCandidate(
+                                transactionId =
+                                    cursor.getLong(0),
+                                amountMinor =
+                                    cursor.getLong(1),
+                                occurredAtEpochMs =
+                                    cursor.getLong(2),
+                                counterparty =
+                                    if (
+                                        cursor.isNull(3)
+                                    ) {
+                                        null
+                                    } else {
+                                        cursor.getString(3)
+                                    },
+                                accountId =
+                                    if (
+                                        cursor.isNull(4)
+                                    ) {
+                                        null
+                                    } else {
+                                        cursor.getString(4)
+                                    }
+                            )
+                        )
+                    }
+                }
+            }
     }
 
     @Synchronized
