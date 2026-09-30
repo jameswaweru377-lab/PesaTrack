@@ -833,10 +833,36 @@ fun SmartOnboardingSetupScreen(
                             )
                         }
 
-                OnboardingDiscoveryEngine
-                    .salarySuggestion(
-                        observations
-                    )
+                val candidate =
+                    OnboardingDiscoveryEngine
+                        .salarySuggestion(
+                            observations
+                        )
+                if (
+                    candidate
+                        ?.signalStrength ==
+                    SalarySignalStrength
+                        .RECURRING_ONLY
+                ) {
+                    val business =
+                        entityEnrichmentCoordinator
+                            .resolveDescriptorNow(
+                                candidate.label
+                            )
+                    if (
+                        business != null &&
+                        OnboardingBusinessRolePolicy
+                            .rulesOutRecurringIncomeAsSalary(
+                                business
+                            )
+                    ) {
+                        null
+                    } else {
+                        candidate
+                    }
+                } else {
+                    candidate
+                }
             }
 
         salarySuggestion = refreshed
