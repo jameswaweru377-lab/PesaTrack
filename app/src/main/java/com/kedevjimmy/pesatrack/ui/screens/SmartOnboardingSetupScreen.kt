@@ -3352,6 +3352,7 @@ private fun ManualSalaryPage(
 
         TextButton(
             onClick = onSkip,
+            enabled = !busy,
             modifier =
                 Modifier.fillMaxWidth()
         ) {
@@ -3436,6 +3437,7 @@ private fun MpesaConfirmationPage(
     manualMode: Boolean,
     manualPhone: String,
     error: String?,
+    busy: Boolean,
     onManualChanged: (String) -> Unit,
     onConfirmSuggested: () -> Unit,
     onChooseAnother: () -> Unit,
@@ -3485,16 +3487,31 @@ private fun MpesaConfirmationPage(
     if (!manualMode) {
         Button(
             onClick = onConfirmSuggested,
+            enabled = !busy,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 54.dp),
             shape = RoundedCornerShape(18.dp)
         ) {
-            Text("Yes, this is mine")
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(
+                    modifier =
+                        Modifier.size(8.dp)
+                )
+                Text("Confirming…")
+            } else {
+                Text("Yes, this is mine")
+            }
         }
 
         OutlinedButton(
             onClick = onChooseAnother,
+            enabled = !busy,
             modifier =
                 Modifier.fillMaxWidth()
         ) {
