@@ -15,6 +15,18 @@ data class TrackedAccountGroup(
 
     val memberNames: Set<String> =
         accounts.map { it.name }.toSet()
+
+    val preferredIdentifier: String? =
+        accounts
+            .asSequence()
+            .mapNotNull {
+                it.identifier
+                    ?.trim()
+                    ?.takeIf(
+                        String::isNotBlank
+                    )
+            }
+            .firstOrNull()
 }
 
 object AccountDisplayPolicy {
@@ -150,8 +162,8 @@ object AccountDisplayPolicy {
         if (
             account.type ==
                 AccountType.SAVINGS &&
-            normalized.startsWith(
-                "m shwari"
+            isMshwariFamilyName(
+                normalized
             )
         ) {
             return "m-shwari"
@@ -170,10 +182,11 @@ object AccountDisplayPolicy {
         if (
             account.type ==
                 AccountType.SAVINGS &&
-            normalize(account.name)
-                .startsWith(
-                    "m shwari"
+            isMshwariFamilyName(
+                normalize(
+                    account.name
                 )
+            )
         ) {
             "M-Shwari"
         } else {
@@ -215,6 +228,64 @@ object AccountDisplayPolicy {
             else ->
                 AccountType.SAVINGS
         }
+
+    fun displayTitle(
+        group: TrackedAccountGroup,
+        inheritedIdentifier: String? = null
+    ): String {
+        val identifier =
+            group.preferredIdentifier
+                ?: inheritedIdentifier
+        val suffix =
+            identifier
+                ?.let(::maskedIdentifier)
+                ?.takeIf {
+                    it.isNotBlank()
+                }
+
+        return if (suffix == null) {
+            group.displayName
+        } else {
+            group.displayName +
+                " (" + suffix + ")"
+        }
+    }
+
+    private fun isMshwariFamilyName(
+        normalized: String
+    ): Boolean =
+        normalized.startsWith(
+            "m shwari"
+        ) ||
+            normalized in
+                setOf(
+                    "lock saving",
+                    "lock savings",
+                    "lock savings a c",
+                    "lock savings account"
+                )
+
+    private fun maskedIdentifier(
+        raw: String
+    ): String {
+        val compact =
+            raw.trim()
+        val visible =
+            compact
+                .filter(
+                    Char::isLetterOrDigit
+                )
+                .takeLast(4)
+
+        return when {
+            visible.isBlank() ->
+                ""
+            compact.length <= 4 ->
+                compact
+            else ->
+                "•••• " + visible
+        }
+    }
 
     private fun typeOrder(
         type: AccountType
