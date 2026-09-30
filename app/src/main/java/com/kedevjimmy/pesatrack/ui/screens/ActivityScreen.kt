@@ -91,6 +91,9 @@ import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PossibleDuplicateGroup
 import com.kedevjimmy.pesatrack.data.local.ReviewGroup
+import com.kedevjimmy.pesatrack.data.local.RelationshipReviewItem
+import com.kedevjimmy.pesatrack.data.local.RelationshipReviewKind
+import com.kedevjimmy.pesatrack.data.local.RelationshipReviewStore
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
@@ -134,6 +137,9 @@ fun ActivityScreen(
     }
     val accountStore = remember {
         AccountStore.get(context)
+    }
+    val relationshipReviewStore = remember {
+        RelationshipReviewStore.get(context)
     }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
     val currentMonthEpochMs = remember {
@@ -188,6 +194,11 @@ fun ActivityScreen(
     }
     var globalOverview by remember {
         mutableStateOf(store.activityReviewOverview())
+    }
+    var relationshipReviews by remember {
+        mutableStateOf(
+            relationshipReviewStore.pendingReviews()
+        )
     }
     var pendingFinancialEntities by remember {
         mutableStateOf(financialStore.pendingEntities())
@@ -244,6 +255,8 @@ fun ActivityScreen(
             )
         )
         globalOverview = store.activityReviewOverview()
+        relationshipReviews =
+            relationshipReviewStore.pendingReviews()
         pendingFinancialEntities =
             financialStore.pendingEntities()
         financialDiagnostics =
@@ -462,6 +475,8 @@ fun ActivityScreen(
             item {
                 GlobalReviewNavigationBar(
                     overview = globalOverview,
+                    relationshipReviewCount =
+                        relationshipReviews.size,
                     selectedQueue = selectedGlobalQueue,
                     onQueueSelected = { queue ->
                         selectedGlobalQueue =
@@ -567,6 +582,81 @@ fun ActivityScreen(
                                         pairKey = group.key,
                                         sameTransaction = false
                                     )
+                                    refresh()
+                                }
+                            )
+                        }
+                    }
+                }
+
+                "Links" -> {
+                    item {
+                        RelationshipReviewHeader(
+                            count =
+                                relationshipReviews.size
+                        )
+                    }
+
+                    if (relationshipReviews.isEmpty()) {
+                        item {
+                            EmptyRelationshipReviewState()
+                        }
+                    } else {
+                        items(
+                            count =
+                                relationshipReviews.size,
+                            key = { index ->
+                                relationshipReviews[
+                                    index
+                                ].key
+                            }
+                        ) { index ->
+                            val review =
+                                relationshipReviews[
+                                    index
+                                ]
+                            RelationshipReviewRow(
+                                item = review,
+                                onLink = { targetId ->
+                                    when (review.kind) {
+                                        RelationshipReviewKind
+                                            .REPAYMENT_FUNDING ->
+                                            relationshipReviewStore
+                                                .resolveFunding(
+                                                    review
+                                                        .debtEventId,
+                                                    targetId
+                                                )
+                                        RelationshipReviewKind
+                                            .REPAYMENT_BALANCE ->
+                                            relationshipReviewStore
+                                                .resolveBalance(
+                                                    review
+                                                        .debtEventId,
+                                                    targetId
+                                                )
+                                    }
+                                    refresh()
+                                },
+                                onKeepUnlinked = {
+                                    when (review.kind) {
+                                        RelationshipReviewKind
+                                            .REPAYMENT_FUNDING ->
+                                            relationshipReviewStore
+                                                .resolveFunding(
+                                                    review
+                                                        .debtEventId,
+                                                    null
+                                                )
+                                        RelationshipReviewKind
+                                            .REPAYMENT_BALANCE ->
+                                            relationshipReviewStore
+                                                .resolveBalance(
+                                                    review
+                                                        .debtEventId,
+                                                    null
+                                                )
+                                    }
                                     refresh()
                                 }
                             )
@@ -1190,6 +1280,7 @@ private fun ActivityMonthPickerDialog(
 @Composable
 private fun GlobalReviewNavigationBar(
     overview: ActivityReviewOverview,
+    relationshipReviewCount: Int,
     selectedQueue: String?,
     onQueueSelected: (String) -> Unit
 ) {
@@ -1219,6 +1310,17 @@ private fun GlobalReviewNavigationBar(
                 onQueueSelected("Duplicates")
             }
         )
+        ActivityQueueButton(
+            label = "Links",
+            count = relationshipReviewCount,
+            icon = Icons.Rounded.SyncAlt,
+            selected = selectedQueue == "Links",
+            tone = "amber",
+            modifier = Modifier.weight(1f),
+            onClick = {
+                onQueueSelected("Links")
+            }
+        )
     }
 }
 
@@ -1236,7 +1338,7 @@ private fun ActivityQueueButton(
         if (tone == "green") {
             MaterialTheme.colorScheme.primary
         } else {
-            pesaToneContainer("violet")
+            pesaToneContainer(tone)
         }
     } else {
         MaterialTheme.colorScheme.surface
@@ -1246,11 +1348,8 @@ private fun ActivityQueueButton(
         tone == "green"
     ) {
         MaterialTheme.colorScheme.onPrimary
-    } else if (
-        selected &&
-        tone == "violet"
-    ) {
-        pesaToneContent("violet")
+    } else if (selected) {
+        pesaToneContent(tone)
     } else {
         MaterialTheme.colorScheme.onSurface
     }
@@ -2029,6 +2128,266 @@ private fun EmptyActivityState(
                 modifier = Modifier.padding(top = 5.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun RelationshipReviewHeader(
+    count: Int
+) {
+    Column {
+        Text(
+            "$count financial relationship" +
+                if (count == 1) {
+                    " needs review"
+                } else {
+                    "s need review"
+                },
+            style = MaterialTheme.typography.titleLarge
+        )
+        Text(
+            "PesaTrack found plausible links but deliberately refused to choose automatically.",
+            modifier = Modifier.padding(top = 4.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun EmptyRelationshipReviewState() {
+    PesaCard {
+        Column(
+            Modifier.padding(20.dp),
+            horizontalAlignment =
+                Alignment.CenterHorizontally
+        ) {
+            IconBubble(
+                Icons.Rounded.SyncAlt,
+                size = 52.dp,
+                background =
+                    pesaToneContainer("green"),
+                tint =
+                    pesaToneContent("green")
+            )
+            Text(
+                "No ambiguous links",
+                modifier =
+                    Modifier.padding(top = 12.dp),
+                style =
+                    MaterialTheme.typography
+                        .titleMedium
+            )
+            Text(
+                "PesaTrack currently has no debt-chain relationships that need a manual decision.",
+                modifier =
+                    Modifier.padding(top = 5.dp),
+                style =
+                    MaterialTheme.typography
+                        .bodyMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun RelationshipReviewRow(
+    item: RelationshipReviewItem,
+    onLink: (Long) -> Unit,
+    onKeepUnlinked: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                IconBubble(
+                    Icons.Rounded.SyncAlt,
+                    size = 42.dp,
+                    background =
+                        pesaToneContainer("amber"),
+                    tint =
+                        pesaToneContent("amber")
+                )
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .padding(start = 11.dp)
+                ) {
+                    Text(
+                        when (item.kind) {
+                            RelationshipReviewKind
+                                .REPAYMENT_FUNDING ->
+                                "Which incoming funds paid this loan?"
+                            RelationshipReviewKind
+                                .REPAYMENT_BALANCE ->
+                                "Which balance came after this repayment?"
+                        },
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium
+                    )
+                    Text(
+                        item.debtName +
+                            " • " +
+                            formatMoney(
+                                item.repaymentAmountMinor
+                            ),
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+            }
+
+            Text(
+                "Funding account: " +
+                    item.fundingAccountName +
+                    " • " +
+                    formatPreciseTime(
+                        item.occurredAtEpochMs
+                    ),
+                modifier = Modifier.padding(top = 12.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+
+            item.candidates.forEachIndexed {
+                    index,
+                    candidate ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp),
+                    shape =
+                        RoundedCornerShape(14.dp),
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .surfaceVariant
+                            .copy(alpha = .45f)
+                ) {
+                    Column(
+                        Modifier.padding(12.dp)
+                    ) {
+                        Text(
+                            candidate.label,
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .labelLarge
+                        )
+                        Text(
+                            formatMoney(
+                                candidate
+                                    .amountMinor
+                            ) +
+                                " • " +
+                                formatPreciseTime(
+                                    candidate
+                                        .occurredAtEpochMs
+                                ),
+                            modifier =
+                                Modifier.padding(
+                                    top = 2.dp
+                                ),
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                        Text(
+                            candidate.reason,
+                            modifier =
+                                Modifier.padding(
+                                    top = 4.dp
+                                ),
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                pesaToneContent(
+                                    "amber"
+                                )
+                        )
+                        Button(
+                            onClick = {
+                                onLink(
+                                    candidate.targetId
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        ) {
+                            Text(
+                                if (
+                                    item.kind ==
+                                    RelationshipReviewKind
+                                        .REPAYMENT_FUNDING
+                                ) {
+                                    "Use as funding transaction"
+                                } else {
+                                    "Use this balance"
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            OutlinedButton(
+                onClick = onKeepUnlinked,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp)
+            ) {
+                Text(
+                    if (
+                        item.kind ==
+                        RelationshipReviewKind
+                            .REPAYMENT_FUNDING
+                    ) {
+                        "None of these funded it"
+                    } else {
+                        "None of these balances"
+                    }
+                )
+            }
+
+            Text(
+                "Your choice is remembered and automatic reconciliation will not overwrite it.",
+                modifier =
+                    Modifier.padding(top = 8.dp),
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
             )
         }
     }
