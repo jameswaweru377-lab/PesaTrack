@@ -12,7 +12,7 @@ class OnboardingDiscoveryEngineTest {
         TimeZone.getTimeZone("UTC")
 
     @Test
-    fun repeatedIncomingPayerAcrossMonthsCanBeSuggestedAsSalary() {
+    fun repeatedIncomingPayerAcrossMonthsIsOnlyRecurringWithoutPayrollEvidence() {
         val observations = listOf(
             observation(
                 label = "Sample Employer",
@@ -58,6 +58,10 @@ class OnboardingDiscoveryEngineTest {
         assertEquals(
             2,
             suggestion?.monthCount
+        )
+        assertEquals(
+            SalarySignalStrength.RECURRING_ONLY,
+            suggestion?.signalStrength
         )
     }
 
@@ -182,4 +186,100 @@ class OnboardingDiscoveryEngineTest {
             direction = direction,
             accountId = accountId
         )
+
+    @Test
+    fun explicitPayrollLabelRanksAboveGenericRecurringIncome() {
+        val observations =
+            listOf(
+                observation(
+                    label = "QUIDEXPLUS KENYA LIMITED",
+                    amountMinor = 220_00L,
+                    month = Calendar.AUGUST,
+                    day = 12,
+                    direction =
+                        MoneyDirection.INCOME,
+                    accountId = "bank-equity"
+                ),
+                observation(
+                    label = "QUIDEXPLUS KENYA LIMITED",
+                    amountMinor = 220_00L,
+                    month = Calendar.SEPTEMBER,
+                    day = 12,
+                    direction =
+                        MoneyDirection.INCOME,
+                    accountId = "bank-equity"
+                ),
+                observation(
+                    label = "ACME PAYROLL",
+                    amountMinor = 60_000_00L,
+                    month = Calendar.AUGUST,
+                    day = 25,
+                    direction =
+                        MoneyDirection.INCOME,
+                    accountId = "bank-equity"
+                ),
+                observation(
+                    label = "ACME PAYROLL",
+                    amountMinor = 60_000_00L,
+                    month = Calendar.SEPTEMBER,
+                    day = 26,
+                    direction =
+                        MoneyDirection.INCOME,
+                    accountId = "bank-equity"
+                )
+            )
+
+        val suggestion =
+            OnboardingDiscoveryEngine
+                .salarySuggestion(
+                    observations,
+                    utc
+                )
+
+        assertEquals(
+            "ACME PAYROLL",
+            suggestion?.label
+        )
+        assertEquals(
+            SalarySignalStrength.EXPLICIT_PAYROLL,
+            suggestion?.signalStrength
+        )
+    }
+
+    @Test
+    fun quidexplusRecurrenceIsNotExplicitPayrollEvidence() {
+        val suggestion =
+            OnboardingDiscoveryEngine
+                .salarySuggestion(
+                    listOf(
+                        observation(
+                            label =
+                                "QUIDEXPLUS KENYA LIMITED",
+                            amountMinor = 220_00L,
+                            month = Calendar.AUGUST,
+                            day = 12,
+                            direction =
+                                MoneyDirection.INCOME,
+                            accountId = "bank-equity"
+                        ),
+                        observation(
+                            label =
+                                "QUIDEXPLUS KENYA LIMITED",
+                            amountMinor = 220_00L,
+                            month = Calendar.SEPTEMBER,
+                            day = 12,
+                            direction =
+                                MoneyDirection.INCOME,
+                            accountId = "bank-equity"
+                        )
+                    ),
+                    utc
+                )
+
+        assertEquals(
+            SalarySignalStrength.RECURRING_ONLY,
+            suggestion?.signalStrength
+        )
+    }
+
 }
