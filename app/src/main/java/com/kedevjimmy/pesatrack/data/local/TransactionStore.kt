@@ -2470,7 +2470,8 @@ class TransactionStore private constructor(context: Context) {
     fun markInvestmentSettlement(
         transactionId: Long,
         action: SemanticInvestmentAction,
-        instrumentLabel: String
+        instrumentLabel: String,
+        userConfirmed: Boolean = false
     ): Boolean {
         val current =
             getById(transactionId)
@@ -2536,11 +2537,19 @@ class TransactionStore private constructor(context: Context) {
             )
             put(
                 "evidence_source",
-                "investment_shared_reference"
+                if (userConfirmed) {
+                    "investment_user_confirmed"
+                } else {
+                    "investment_shared_reference"
+                }
             )
             put(
                 "evidence_confidence",
-                "HIGH"
+                if (userConfirmed) {
+                    "USER_CONFIRMED"
+                } else {
+                    "HIGH"
+                }
             )
             putNull("evidence_time_delta_ms")
             putNull("cycle_candidate_reason")
