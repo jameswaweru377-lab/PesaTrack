@@ -392,6 +392,48 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             createCycleProtectionTable(db)
         }
 
+        if (oldVersion < 27) {
+            db.execSQL(
+                """
+                UPDATE money_accounts
+                SET name = 'M-Shwari Lock Savings',
+                    updated_at_epoch_ms =
+                        strftime('%s','now') * 1000
+                WHERE LOWER(TRIM(name)) IN (
+                    'lock saving',
+                    'lock savings',
+                    'lock savings account',
+                    'm-shwari lock saving',
+                    'm-shwari lock savings',
+                    'mshwari lock saving',
+                    'mshwari lock savings'
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE financial_entities
+                SET display_name =
+                        'M-Shwari Lock Savings',
+                    provider_key =
+                        'NCBA_MSHWARI_LOCK_SAVINGS',
+                    account_type_hint =
+                        'SAVINGS',
+                    nature_hint =
+                        'ASSET'
+                WHERE LOWER(TRIM(display_name)) IN (
+                    'lock saving',
+                    'lock savings',
+                    'lock savings account',
+                    'm-shwari lock saving',
+                    'm-shwari lock savings',
+                    'mshwari lock saving',
+                    'mshwari lock savings'
+                )
+                """.trimIndent()
+            )
+        }
+
         createIndexes(db)
         createTriggers(db)
     }
@@ -1093,6 +1135,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 26
+        private const val DATABASE_VERSION = 27
     }
 }
