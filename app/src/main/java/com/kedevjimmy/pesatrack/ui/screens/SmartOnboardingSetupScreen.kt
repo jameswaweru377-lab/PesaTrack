@@ -2229,6 +2229,11 @@ private fun MpesaConfirmationPage(
     onSaveManual: () -> Unit,
     onSkip: () -> Unit
 ) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
+    ) {
     SetupHero(
         icon = Icons.Rounded.PhoneAndroid,
         title = "Is this your M-Pesa number?",
@@ -2336,6 +2341,7 @@ private fun MpesaConfirmationPage(
             MaterialTheme.colorScheme
                 .onSurfaceVariant
     )
+    }
 }
 
 @Composable
@@ -2346,6 +2352,11 @@ private fun LiveCapturePage(
     onOpenAppInfo: () -> Unit,
     onLater: () -> Unit
 ) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(16.dp)
+    ) {
     SetupHero(
         icon = Icons.Rounded.Notifications,
         title = "Keep PesaTrack updated automatically",
@@ -2484,6 +2495,7 @@ private fun LiveCapturePage(
             MaterialTheme.colorScheme
                 .onSurfaceVariant
     )
+    }
 }
 
 @Composable
