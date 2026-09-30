@@ -342,4 +342,74 @@ class FinancialInterpretationPipelineTest {
         )
     }
 
+
+    @Test
+    fun mshwariLockSavingsWithdrawalMovesIntoRegularMshwari() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "M-Shwari",
+                body =
+                    "Dear Customer, Ksh.16,000.00 has been moved from your Lock Savings Account to your M-Shwari account. New M-Shwari balance is Ksh.16,000.43.Transaction cost 0.00."
+            )
+
+        assertTrue(
+            interpretation.recognized
+        )
+        val transfer =
+            interpretation.events.single()
+                as TransferEventFact
+
+        assertEquals(
+            "NCBA_MSHWARI_LOCK_SAVINGS",
+            transfer.source.providerKey
+        )
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            transfer.destination.providerKey
+        )
+        assertEquals(
+            1_600_000L,
+            transfer.amountMinor
+        )
+        assertEquals(
+            1_600_043L,
+            interpretation.balances
+                .single {
+                    it.account.providerKey ==
+                        "NCBA_MSHWARI_SAVINGS"
+                }
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun mshwariWithdrawalToMpesaUsesMpesaAsDestination() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "M-PESA",
+                body =
+                    "TA22OI958I Confirmed.Ksh50.00 transferred from M-Shwari account on 2/1/25 at 11:00 AM. M-Shwari balance is Ksh925.46 .M-PESA balance is Ksh359.50 .Transaction cost Ksh.0.00"
+            )
+
+        assertTrue(
+            interpretation.recognized
+        )
+        val transfer =
+            interpretation.events.single()
+                as TransferEventFact
+
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            transfer.source.providerKey
+        )
+        assertEquals(
+            "SAFARICOM_MPESA",
+            transfer.destination.providerKey
+        )
+        assertEquals(
+            5_000L,
+            transfer.amountMinor
+        )
+    }
+
 }
