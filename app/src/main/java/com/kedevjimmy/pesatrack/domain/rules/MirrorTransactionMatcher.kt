@@ -15,6 +15,7 @@ enum class MirrorMatchReason {
     COMPLEMENTARY_ACCOUNTS,
     SHARED_IDENTITY,
     COMPLEMENTARY_DIRECTION,
+    CODED_CODELESS_VERY_CLOSE,
     ULTRA_CLOSE_DISTINCT_SOURCE
 }
 
@@ -161,7 +162,7 @@ object MirrorTransactionMatcher {
                 confidence = MirrorMatchConfidence.HIGH,
                 reason =
                     MirrorMatchReason
-                        .ULTRA_CLOSE_DISTINCT_SOURCE
+                        .CODED_CODELESS_VERY_CLOSE
             )
         }
 
