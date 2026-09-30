@@ -210,6 +210,18 @@ class FinancialUnderstandingStore private constructor(
                     observedAtEpochMs =
                         observedAtEpochMs
                 )
+        } else if (
+            inserted &&
+            accountId != null
+        ) {
+            DebtStore.get(appContext)
+                .reconcilePendingRepaymentBalancesAround(
+                    accountId = accountId,
+                    entityKey =
+                        fact.account.entityKey,
+                    observedAtEpochMs =
+                        observedAtEpochMs
+                )
         }
 
         if (inserted) {
