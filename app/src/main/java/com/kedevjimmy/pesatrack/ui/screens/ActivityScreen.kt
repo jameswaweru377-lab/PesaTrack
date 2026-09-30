@@ -3321,6 +3321,28 @@ private fun FinancialMessageDateHeader(
 private fun CapturedFinancialMessageRow(
     diagnostic: FinancialIngestionDiagnostic
 ) {
+    val currentSourceType =
+        financialSourceType(
+            diagnostic
+        )
+    val currentEventLabel =
+        if (
+            currentSourceType != "Bank" &&
+            diagnostic.eventLabel
+                .startsWith(
+                    "Bank ",
+                    ignoreCase = true
+                )
+        ) {
+            diagnostic.eventLabel
+                .removePrefix("Bank ")
+                .replaceFirstChar {
+                    it.uppercase()
+                }
+        } else {
+            diagnostic.eventLabel
+        }
+
     val tone =
         when (diagnostic.code) {
             FinancialIngestionDiagnosticCode
@@ -3374,19 +3396,19 @@ private fun CapturedFinancialMessageRow(
             IconBubble(
                 icon =
                     when {
-                        diagnostic.eventLabel
+                        currentEventLabel
                             .contains(
                                 "loan",
                                 ignoreCase = true
                             ) ->
                             Icons.Rounded.ReceiptLong
-                        diagnostic.eventLabel
+                        currentEventLabel
                             .contains(
                                 "transfer",
                                 ignoreCase = true
                             ) ->
                             Icons.Rounded.SyncAlt
-                        diagnostic.eventLabel
+                        currentEventLabel
                             .contains(
                                 "received",
                                 ignoreCase = true
@@ -3407,7 +3429,7 @@ private fun CapturedFinancialMessageRow(
                     .padding(horizontal = 11.dp)
             ) {
                 Text(
-                    diagnostic.eventLabel,
+                    currentEventLabel,
                     style =
                         MaterialTheme.typography
                             .titleSmall,
@@ -3420,7 +3442,7 @@ private fun CapturedFinancialMessageRow(
                             .receivedAtEpochMs
                     ) +
                         "  •  " +
-                        diagnostic.sourceType,
+                        currentSourceType,
                     modifier =
                         Modifier.padding(top = 3.dp),
                     style =
