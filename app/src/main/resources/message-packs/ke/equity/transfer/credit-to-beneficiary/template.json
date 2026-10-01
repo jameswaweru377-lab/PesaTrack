@@ -2,10 +2,22 @@
   "id": "ke.equity.transfer.credit-to-beneficiary",
   "revision": 1,
   "country": "KE",
-  "senderIds": ["EQUITY", "EQUITY BANK", "EQUITY BULK"],
-  "requiredAnchors": ["Your transaction of", "has been credited to"],
-  "anyAnchors": ["MPESA Ref", "M-Pesa Ref", "M-Pesa Ref.", "MPESA Ref."],
-  "eventKind": "TRANSFER",
+  "senderIds": [
+    "EQUITY",
+    "EQUITY BANK",
+    "EQUITY BULK"
+  ],
+  "requiredAnchors": [
+    "Your transaction of",
+    "has been credited to"
+  ],
+  "anyAnchors": [
+    "MPESA Ref",
+    "M-Pesa Ref",
+    "M-Pesa Ref.",
+    "MPESA Ref."
+  ],
+  "eventKind": "PAYMENT",
   "productIdentity": "KENYAN_BANK_EQUITY",
   "active": true,
   "extractors": [
