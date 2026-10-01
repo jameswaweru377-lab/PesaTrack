@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.domain.messagepack
 
 import com.google.gson.JsonParser
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
+import com.kedevjimmy.pesatrack.domain.interpretation.PaymentEventFact
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -22,7 +23,7 @@ class MessagePackRouterTest {
             result.errors.isEmpty()
         )
         assertEquals(
-            21,
+            22,
             result.templates.size
         )
         assertEquals(
@@ -134,6 +135,42 @@ class MessagePackRouterTest {
         )
     }
 
+
+    @Test
+    fun equityTemplateAddsProvenanceWhileV2StillOwnsTransferMeaning() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "EQUITY BANK",
+                    body =
+                        "Your transaction of Kenya Shillings 20,000.00 has been credited to SAMPLE BENEFICIARY. Equity Ref EQA12345. M-Pesa Ref UFT12345."
+                )
+
+        assertTrue(
+            interpretation.events
+                .single() is
+                PaymentEventFact
+        )
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            interpretation
+                .parseProvenance
+                .route
+        )
+        assertEquals(
+            "ke.equity.transfer.credit-to-beneficiary",
+            interpretation
+                .parseProvenance
+                .templateId
+        )
+        assertEquals(
+            "KENYAN_BANK_EQUITY",
+            interpretation
+                .parseProvenance
+                .productIdentity
+        )
+    }
+
     @Test
     fun knownShapeRecordsTemplateProvenanceWithoutReplacingV2() {
         val interpretation =
@@ -192,7 +229,8 @@ class MessagePackRouterTest {
     private fun loadFixtures() =
         listOf(
             "message-packs/ke/fixtures-v1.json",
-            "message-packs/ke/fixtures-v2.json"
+            "message-packs/ke/fixtures-v2.json",
+            "message-packs/ke/fixtures-v3.json"
         ).flatMap { path ->
             val stream =
                 javaClass.classLoader
