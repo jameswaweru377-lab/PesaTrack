@@ -6,7 +6,7 @@
   "requiredAnchors": ["transaction of", " was made on card"],
   "anyAnchors": [" at "],
   "eventKind": "PAYMENT",
-  "productIdentity": "KENYAN_BANK_STANDARD-CHARTERED",
+  "productIdentity": "KENYAN_BANK_STANDARD_CHARTERED",
   "active": true,
   "extractors": [
     {"field":"AMOUNT","pattern":"transaction of[ ]+(?:(?:Kshs?|KES|Sh)[.]?[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)[ ]+was made","group":1,"required":true},
