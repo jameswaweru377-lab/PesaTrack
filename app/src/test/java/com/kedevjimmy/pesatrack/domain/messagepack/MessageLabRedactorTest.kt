@@ -68,6 +68,42 @@ class MessageLabRedactorTest {
     }
 
     @Test
+    fun removesMixedCasePersonNamesWithoutErasingKnownProducts() {
+        val redacted =
+            MessageLabRedactor.redact(
+                safeSenderLabel = "M-Pesa",
+                body =
+                    "Hello James, Ksh500.00 sent to Geoffrey Kerongo 0712345678 on 1/10/26 at 7:15 PM. Your M-PESA balance is Ksh2,000.00."
+            )
+
+        assertFalse(
+            redacted.body.contains(
+                "James"
+            )
+        )
+        assertFalse(
+            redacted.body.contains(
+                "Geoffrey Kerongo"
+            )
+        )
+        assertTrue(
+            redacted.body.contains(
+                "<PERSON>"
+            )
+        )
+        assertTrue(
+            redacted.body.contains(
+                "<ENTITY>"
+            )
+        )
+        assertTrue(
+            redacted.body.contains(
+                "M-PESA"
+            )
+        )
+    }
+
+    @Test
     fun unknownSenderIsNotPersistedAsIdentity() {
         val redacted =
             MessageLabRedactor.redact(
