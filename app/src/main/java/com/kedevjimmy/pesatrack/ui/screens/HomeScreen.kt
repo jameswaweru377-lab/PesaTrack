@@ -628,9 +628,11 @@ fun HomeScreen(
         )
     }
 
+    val activeSalaryRule =
+        salaryRule
     if (
         showManualSalaryDialog &&
-        salaryRule != null &&
+        activeSalaryRule != null &&
         expectedSalaryPrompt != null
     ) {
         ManualSalaryEntryDialog(
@@ -643,10 +645,15 @@ fun HomeScreen(
                     amountMinor = amountMinor,
                     occurredAtEpochMs = occurredAtEpochMs,
                     label =
-                        salaryRule.displayLabel
-                            ?: salaryRule.name
-                            .ifBlank { "Salary" },
-                    matchedRule = salaryRule
+                        activeSalaryRule
+                            .displayLabel
+                            ?: activeSalaryRule
+                                .name
+                                .ifBlank {
+                                    "Salary"
+                                },
+                    matchedRule =
+                        activeSalaryRule
                 )
                 if (inserted) {
                     preferences.edit()
