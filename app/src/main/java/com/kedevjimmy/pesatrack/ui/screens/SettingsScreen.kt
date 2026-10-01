@@ -204,7 +204,7 @@ fun SettingsScreen(
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
                     SettingsRow(Icons.Rounded.Info, "About PesaTrack", "Private, local-first money companion")
-                    SettingsRow(Icons.Rounded.Lock, "Privacy", "Financial data stays on your device")
+                    SettingsRow(Icons.Rounded.Lock, "Privacy", "Core records stay local; enrichment uses sanitized business descriptors")
                 }
             }
         }
