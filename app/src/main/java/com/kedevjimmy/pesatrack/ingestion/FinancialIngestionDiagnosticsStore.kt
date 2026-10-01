@@ -1,6 +1,8 @@
 package com.kedevjimmy.pesatrack.ingestion
 
 import android.content.Context
+import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseProvenance
+import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseRoute
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -25,8 +27,33 @@ data class FinancialIngestionDiagnostic(
     val insertedTransactions: Int,
     val insertedFinancialEvents: Int,
     val pendingReviewEvents: Int,
-    val linkedTransactionId: Long?
+    val linkedTransactionId: Long?,
+    val parseRoute: MessageParseRoute =
+        MessageParseRoute.GENERIC_FALLBACK,
+    val templateId: String? = null,
+    val templateRevision: Int? = null,
+    val extractedFieldNames: List<String> =
+        emptyList()
 )
+
+data class FinancialMessageCoverageSnapshot(
+    val totalFinancialObservations: Int,
+    val templateParsed: Int,
+    val genericFallbackParsed: Int,
+    val understoodNoLedgerEffect: Int,
+    val unsupportedFinancial: Int
+) {
+    val templateCoveragePercent: Int
+        get() =
+            if (totalFinancialObservations == 0) {
+                0
+            } else {
+                (
+                    templateParsed * 100.0 /
+                        totalFinancialObservations
+                ).toInt()
+            }
+}
 
 class FinancialIngestionDiagnosticsStore private constructor(
     context: Context
@@ -50,7 +77,8 @@ class FinancialIngestionDiagnosticsStore private constructor(
         semanticUnderstood: Boolean,
         linkedTransactionId: Long?,
         linkedByCorrelation: Boolean,
-        result: FinancialMessageIngestionResult
+        result: FinancialMessageIngestionResult,
+        parseProvenance: MessageParseProvenance
     ) {
         if (!financialCandidate && !result.recognized) {
             return
@@ -145,6 +173,34 @@ class FinancialIngestionDiagnosticsStore private constructor(
                     receivedAtEpochMs
                 )
                 put("code", code.name)
+                put(
+                    "parseRoute",
+                    parseProvenance.route.name
+                )
+                put(
+                    "templateId",
+                    parseProvenance.templateId
+                        ?: JSONObject.NULL
+                )
+                put(
+                    "templateRevision",
+                    parseProvenance
+                        .templateRevision
+                        ?: JSONObject.NULL
+                )
+                put(
+                    "extractedFieldNames",
+                    JSONArray().apply {
+                        parseProvenance
+                            .extractedFields
+                            .map {
+                                it.field
+                            }
+                            .distinct()
+                            .sorted()
+                            .forEach(::put)
+                    }
+                )
                 put(
                     "insertedTransactions",
                     result.insertedTransactions
@@ -293,11 +349,109 @@ class FinancialIngestionDiagnosticsStore private constructor(
                                 item.optLong(
                                     "linkedTransactionId"
                                 )
-                            }
+                            },
+                        parseRoute =
+                            runCatching {
+                                MessageParseRoute
+                                    .valueOf(
+                                        item.optString(
+                                            "parseRoute",
+                                            MessageParseRoute
+                                                .GENERIC_FALLBACK
+                                                .name
+                                        )
+                                    )
+                            }.getOrDefault(
+                                MessageParseRoute
+                                    .GENERIC_FALLBACK
+                            ),
+                        templateId =
+                            if (
+                                item.isNull(
+                                    "templateId"
+                                )
+                            ) {
+                                null
+                            } else {
+                                item.optString(
+                                    "templateId"
+                                ).trim()
+                                    .takeIf(
+                                        String::isNotBlank
+                                    )
+                            },
+                        templateRevision =
+                            if (
+                                item.isNull(
+                                    "templateRevision"
+                                )
+                            ) {
+                                null
+                            } else {
+                                item.optInt(
+                                    "templateRevision"
+                                )
+                            },
+                        extractedFieldNames =
+                            item.optJSONArray(
+                                "extractedFieldNames"
+                            )?.let {
+                                names ->
+                                buildList {
+                                    for (
+                                        nameIndex in
+                                            0 until
+                                                names.length()
+                                    ) {
+                                        names.optString(
+                                            nameIndex
+                                        ).trim()
+                                            .takeIf(
+                                                String::isNotBlank
+                                            )
+                                            ?.let(::add)
+                                    }
+                                }
+                            }.orEmpty()
                     )
                 )
             }
         }
+    }
+
+    fun coverageSnapshot(
+        limit: Int = MAX_ENTRIES
+    ): FinancialMessageCoverageSnapshot {
+        val entries =
+            recent(limit)
+        return FinancialMessageCoverageSnapshot(
+            totalFinancialObservations =
+                entries.size,
+            templateParsed =
+                entries.count {
+                    it.parseRoute ==
+                        MessageParseRoute
+                            .TEMPLATE
+                },
+            genericFallbackParsed =
+                entries.count {
+                    it.parseRoute ==
+                        MessageParseRoute
+                            .GENERIC_FALLBACK
+                },
+            understoodNoLedgerEffect =
+                entries.count {
+                    it.code ==
+                        FinancialIngestionDiagnosticCode
+                            .UNDERSTOOD_NO_LEDGER_EFFECT
+                },
+            unsupportedFinancial =
+                entries.count {
+                    it.code ==
+                        FinancialIngestionDiagnosticCode
+                            .UNRECOGNIZED_FINANCIAL_LANGUAGE
+                }
+        )
     }
 
     companion object {
