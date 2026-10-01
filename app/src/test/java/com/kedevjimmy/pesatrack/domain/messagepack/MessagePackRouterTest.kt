@@ -22,7 +22,7 @@ class MessagePackRouterTest {
             result.errors.isEmpty()
         )
         assertEquals(
-            20,
+            21,
             result.templates.size
         )
         assertEquals(
