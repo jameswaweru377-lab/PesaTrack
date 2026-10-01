@@ -295,6 +295,12 @@ fun SmartOnboardingSetupScreen(
     var manualSalaryError by remember {
         mutableStateOf<String?>(null)
     }
+    var manualSalarySaving by remember {
+        mutableStateOf(false)
+    }
+    var completionNavigating by remember {
+        mutableStateOf(false)
+    }
 
     val smsPermissionLauncher =
         rememberLauncherForActivityResult(
@@ -1071,7 +1077,9 @@ fun SmartOnboardingSetupScreen(
 
             transactionStore
                 .reapplyRule(
-                    salaryRule
+                    rule = salaryRule,
+                    rebuildPayCycles =
+                        false
                 )
 
             val historyMatches =
@@ -1132,7 +1140,9 @@ fun SmartOnboardingSetupScreen(
                             label =
                                 ruleLabel,
                             matchedRule =
-                                salaryRule
+                                salaryRule,
+                            rebuildPayCycles =
+                                false
                         )
                 }
             }
@@ -1639,6 +1649,8 @@ fun SmartOnboardingSetupScreen(
                             salaryHistorySearchStatus,
                         error =
                             manualSalaryError,
+                        saving =
+                            manualSalarySaving,
                         onAccountSelected = {
                             manualSalaryAccountId =
                                 it
@@ -1735,21 +1747,37 @@ fun SmartOnboardingSetupScreen(
                                 null
                         },
                         onSave = {
-                            setupScope.launch {
-                                if (
-                                    applyManualSalary()
-                                ) {
-                                    stage =
+                            if (!manualSalarySaving) {
+                                manualSalarySaving =
+                                    true
+                                manualSalaryError =
+                                    null
+                                setupScope.launch {
+                                    try {
                                         if (
-                                            mpesaPhoneSuggestion !=
-                                            null
+                                            applyManualSalary()
                                         ) {
-                                            SmartSetupStage
-                                                .MPESA_CONFIRM
-                                        } else {
-                                            SmartSetupStage
-                                                .LIVE_CAPTURE
+                                            stage =
+                                                if (
+                                                    mpesaPhoneSuggestion !=
+                                                    null
+                                                ) {
+                                                    SmartSetupStage
+                                                        .MPESA_CONFIRM
+                                                } else {
+                                                    SmartSetupStage
+                                                        .LIVE_CAPTURE
+                                                }
                                         }
+                                    } catch (
+                                        error: Throwable
+                                    ) {
+                                        manualSalaryError =
+                                            "PesaTrack could not save your salary yet. Please try again."
+                                    } finally {
+                                        manualSalarySaving =
+                                            false
+                                    }
                                 }
                             }
                         },
@@ -1942,7 +1970,15 @@ fun SmartOnboardingSetupScreen(
                                     ),
                         notificationEnabled =
                             notificationGranted,
-                        onHome = onDone
+                        navigating =
+                            completionNavigating,
+                        onHome = {
+                            if (!completionNavigating) {
+                                completionNavigating =
+                                    true
+                                onDone()
+                            }
+                        }
                     )
                 }
             }
@@ -2952,6 +2988,7 @@ private fun ManualSalaryPage(
     drafts: List<SmartSalaryDraft>,
     searchStatus: String?,
     error: String?,
+    saving: Boolean,
     onAccountSelected: (String) -> Unit,
     onPayerChanged: (String) -> Unit,
     onHistoryModeChanged:
@@ -3340,28 +3377,45 @@ private fun ManualSalaryPage(
 
         Button(
             onClick = onSave,
+            enabled = !saving,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp),
             shape =
                 RoundedCornerShape(18.dp)
         ) {
-            Text(
-                if (
-                    historyMode ==
-                    SalaryHistoryMode
-                        .IMPORT_WINDOW &&
-                    drafts.size > 1
-                ) {
-                    "Save salary history and continue"
-                } else {
-                    "Save salary and continue"
-                }
-            )
+            if (saving) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    "Saving salary…",
+                    modifier =
+                        Modifier.padding(
+                            start = 10.dp
+                        )
+                )
+            } else {
+                Text(
+                    if (
+                        historyMode ==
+                        SalaryHistoryMode
+                            .IMPORT_WINDOW &&
+                        drafts.size > 1
+                    ) {
+                        "Save salary history and continue"
+                    } else {
+                        "Save salary and continue"
+                    }
+                )
+            }
         }
 
         TextButton(
             onClick = onSkip,
+            enabled = !saving,
             modifier =
                 Modifier.fillMaxWidth()
         ) {
@@ -3809,6 +3863,7 @@ private fun SetupCompletePage(
     sources: List<DetectedSetupSource>,
     salaryAccepted: Boolean,
     notificationEnabled: Boolean,
+    navigating: Boolean,
     onHome: () -> Unit
 ) {
     Column(
@@ -3907,6 +3962,7 @@ private fun SetupCompletePage(
 
         Button(
             onClick = onHome,
+            enabled = !navigating,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 20.dp)
@@ -3914,15 +3970,30 @@ private fun SetupCompletePage(
             shape =
                 RoundedCornerShape(18.dp)
         ) {
-            Text("Go to Home")
-            Icon(
-                Icons.Rounded.ArrowForward,
-                contentDescription = null,
-                modifier =
-                    Modifier.padding(
-                        start = 8.dp
-                    )
-            )
+            if (navigating) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    "Opening Home…",
+                    modifier =
+                        Modifier.padding(
+                            start = 10.dp
+                        )
+                )
+            } else {
+                Text("Go to Home")
+                Icon(
+                    Icons.Rounded.ArrowForward,
+                    contentDescription = null,
+                    modifier =
+                        Modifier.padding(
+                            start = 8.dp
+                        )
+                )
+            }
         }
     }
 }
