@@ -40,4 +40,16 @@ class AccountIdentityPresentationTest {
                 .title(account)
         )
     }
+    @Test
+    fun whitespaceInsideIdentifierDoesNotBreakMasking() {
+        assertEquals(
+            "Equity Bank Kenya (•••• 5678)",
+            AccountIdentityPresentation
+                .title(
+                    base = "Equity Bank Kenya",
+                    identifier = "1234 5678"
+                )
+        )
+    }
+
 }
