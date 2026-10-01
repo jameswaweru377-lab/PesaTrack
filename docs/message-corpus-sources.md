@@ -1,0 +1,74 @@
+# Kenya Message Corpus — Evidence Sources
+
+This file records where PesaTrack Brain v3 message/product knowledge came from.
+
+## Evidence classes
+
+1. **REAL_SANITIZED**
+   - Sanitized message text already present in PesaTrack regression tests or supplied from a real device.
+   - Highest priority for authoring a concrete Message Pack shape.
+
+2. **OFFICIAL_PRODUCT_RULE**
+   - Product mechanics documented by the provider.
+   - Suitable for account/product relationships, but not for inventing exact SMS wording.
+
+3. **PUBLIC_MESSAGE_SAMPLE**
+   - A published screenshot/report containing a message example.
+   - Must be sanitized before becoming a fixture.
+   - Treat historical wording as a shape sample, not a promise that current wording is identical.
+
+## Phase 2 sources
+
+### M-Pesa / M-Shwari / Fuliza
+
+Evidence class: **REAL_SANITIZED**
+
+Primary source:
+- Existing PesaTrack regression corpora under `app/src/test/java/com/kedevjimmy/pesatrack/domain/interpretation/`.
+- Existing real-device M-Shwari samples supplied during development.
+
+The Phase 2 templates for merchant payment, reversal, external account transfer, cash withdrawal, cash deposit, airtime, M-Shwari savings movement and Lock Savings release are authored from these sanitized fixtures.
+
+### KCB M-PESA product model
+
+Evidence class: **OFFICIAL_PRODUCT_RULE**
+
+Official references:
+- https://ke.kcbgroup.com/products/kcb-mpesa
+- https://ke.kcbgroup.com/products/kcb-mpesa-loan
+- https://ke.kcbgroup.com/images/downloads/KCB_MPESA_TERMS_AND_CONDITONS.pdf
+
+Product facts used by PesaTrack:
+- KCB M-PESA has a separate deposit/savings account.
+- Loan proceeds are credited into the KCB M-PESA Deposit Account before the customer moves funds to ordinary M-PESA.
+- The KCB M-PESA loan therefore must not be modeled as a loan whose proceeds account is automatically ordinary M-PESA.
+
+### KCB M-PESA declined repayment sample
+
+Evidence class: **PUBLIC_MESSAGE_SAMPLE**
+
+Public research reference:
+- MicroSave Consulting, *Digital Credit in Kenya — Final Report* (2019).
+- Public PDF: https://www.microsave.net/wp-content/uploads/2019/09/Digital-Credit-Kenya-Final-report.pdf
+
+The report contains a KCB M-PESA SMS screenshot where a loan repayment is declined for insufficient funds and the KCB M-PESA account balance is shown.
+
+PesaTrack stores only a sanitized fixture. The important semantic rule is generic:
+**declined / rejected / failed financial actions do not create ledger movement events.**
+
+### PesaLink
+
+Evidence class: **OFFICIAL_PRODUCT_RULE**
+
+References:
+- https://pesalink.co.ke/for-me/how-to-use-pesalink
+- https://ke.kcbgroup.com/products/pesalink
+- https://ke.kcbgroup.com/images/downloads/KCB_PESALINK_FAQs.pdf
+
+Confirmed product mechanics:
+- PesaLink is an inter-bank instant transfer network.
+- KCB states that a PesaLink transfer can generate a KCB confirmation and a separate PesaLink confirmation.
+- PesaLink/KCB documentation confirms that notifications can contain sender/recipient, amount and bank information.
+
+**No concrete PesaLink Message Pack template is added yet.**
+The official sources describe fields and duplicate-notification behavior but do not provide enough exact current SMS wording for a safe template. Brain v3 should wait for a sanitized real/public message shape rather than invent one.

@@ -124,6 +124,77 @@ class FinancialProviderRegistryTest {
         )
     }
 
+
+    @Test
+    fun resolvesKcbMpesaAsOwnedSavingsAccount() {
+        val account =
+            FinancialProviderRegistry.resolveAccount(
+                "KCB M-PESA Account"
+            )
+
+        assertEquals(
+            "KCB_MPESA_SAVINGS",
+            account.providerKey
+        )
+        assertEquals(
+            AccountType.SAVINGS,
+            account.accountTypeHint
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            account.ownershipHint
+        )
+        assertEquals(
+            FinancialAccountNature.ASSET,
+            account.nature
+        )
+    }
+
+    @Test
+    fun providerProfileKeepsKcbMpesaLoanInsideKcbMpesaDepositAccount() {
+        val account =
+            FinancialProviderRegistry.resolveAccount(
+                "KCB M-PESA Loan"
+            )
+        val behavior =
+            FinancialProviderRegistry
+                .debtBehaviorFor(account)
+
+        assertEquals(
+            "KCB_MPESA_LOAN",
+            account.providerKey
+        )
+        assertEquals(
+            DebtFundingBehavior.CASH_DISBURSEMENT,
+            behavior?.fundingBehavior
+        )
+        assertEquals(
+            "KCB_MPESA_SAVINGS",
+            behavior?.fundingAccountProviderKey
+        )
+    }
+
+    @Test
+    fun senderScopedKcbMpesaLoanRepaymentUsesLoanIdentity() {
+        val account =
+            FinancialProviderRegistry
+                .resolveLiabilityInContext(
+                    rawLabel = "Loan",
+                    title = "KCB M-PESA",
+                    body =
+                        "Your loan repayment of KES 100.00 has been declined due to insufficient funds."
+                )
+
+        assertEquals(
+            "KCB_MPESA_LOAN",
+            account.providerKey
+        )
+        assertEquals(
+            FinancialAccountNature.LIABILITY,
+            account.nature
+        )
+    }
+
     @Test
     fun resolvesMshwariLiabilityInsideMpesaMessageThread() {
         val account =

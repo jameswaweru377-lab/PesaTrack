@@ -1,0 +1,167 @@
+[
+  {
+    "id": "mpesa_merchant_payment",
+    "title": "MPESA",
+    "body": "TST12ABC11 Confirmed. Ksh 850.00 paid to SAMPLE SHOP on 28/9/26 at 7:25 PM. New M-PESA balance is Ksh 8,800.00. Transaction cost, Ksh 0.00.",
+    "templateId": "ke.mpesa.wallet.merchant-payment",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TST12ABC11",
+      "AMOUNT": "850.00",
+      "COUNTERPARTY": "SAMPLE SHOP",
+      "BALANCE": "8,800.00",
+      "FEE": "0.00"
+    }
+  },
+  {
+    "id": "mpesa_reversal_completed",
+    "title": "MPESA",
+    "body": "TST12ABC10 Confirmed. The reversal of transaction TST12ABC04 of Ksh 450.00 has been completed on 28/9/26 at 7:40 PM. New M-PESA balance is Ksh 8,100.00.",
+    "templateId": "ke.mpesa.wallet.reversal-completed",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TST12ABC10",
+      "REFERENCED_TRANSACTION_CODE": "TST12ABC04",
+      "AMOUNT": "450.00",
+      "BALANCE": "8,100.00"
+    }
+  },
+  {
+    "id": "mpesa_reversal_credited",
+    "title": "MPESA",
+    "body": "TST12REV01 Confirmed. Reversal of transaction TST12PAY01 has been successfully reversed on 25/8/26 at 4:19 PM and Ksh276.00 is credited to your M-PESA account. New M-PESA account balance is Ksh939.09.",
+    "templateId": "ke.mpesa.wallet.reversal-credited",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TST12REV01",
+      "REFERENCED_TRANSACTION_CODE": "TST12PAY01",
+      "AMOUNT": "276.00",
+      "BALANCE": "939.09"
+    }
+  },
+  {
+    "id": "mpesa_external_account_transfer",
+    "title": "MPESA",
+    "body": "TST12ABC13 Confirmed. Ksh 10,000.00 transferred to KCB ACCOUNT on 28/9/26 at 9:54 PM. New M-PESA balance is Ksh 2,500.00.",
+    "templateId": "ke.mpesa.wallet.external-account-transfer",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TST12ABC13",
+      "AMOUNT": "10,000.00",
+      "DESTINATION": "KCB ACCOUNT",
+      "BALANCE": "2,500.00"
+    }
+  },
+  {
+    "id": "mpesa_cash_withdrawal",
+    "title": "MPESA",
+    "body": "TST12ABC15 Confirmed. Ksh 1,000.00 withdrawn from M-PESA at SAMPLE AGENT on 28/9/26 at 8:20 AM. New M-PESA balance is Ksh 10,950.00.",
+    "templateId": "ke.mpesa.wallet.cash-withdrawal",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TST12ABC15",
+      "AMOUNT": "1,000.00",
+      "AGENT": "SAMPLE AGENT",
+      "BALANCE": "10,950.00"
+    }
+  },
+  {
+    "id": "mpesa_cash_deposit",
+    "title": "MPESA",
+    "body": "TST12ABC16 Confirmed. Ksh 2,000.00 deposited into your M-PESA on 28/9/26 at 8:30 AM. New M-PESA balance is Ksh 12,950.00.",
+    "templateId": "ke.mpesa.wallet.cash-deposit",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TST12ABC16",
+      "AMOUNT": "2,000.00",
+      "BALANCE": "12,950.00"
+    }
+  },
+  {
+    "id": "mpesa_airtime_purchase",
+    "title": "MPESA",
+    "body": "TST12ABC17 Confirmed. Ksh 100.00 airtime purchased on 28/9/26 at 8:40 AM. New M-PESA balance is Ksh 12,850.00.",
+    "templateId": "ke.mpesa.wallet.airtime-purchase",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TST12ABC17",
+      "AMOUNT": "100.00",
+      "BALANCE": "12,850.00"
+    }
+  },
+  {
+    "id": "mshwari_credit_from_mpesa",
+    "title": "M-Shwari",
+    "body": "Kshs 10,000.00 transferred from M-Pesa to your M-Shwari account. M-Shwari balance is Kshs 16,000.00.",
+    "templateId": "ke.mshwari.savings.credit-from-mpesa",
+    "expectedFields": {
+      "AMOUNT": "10,000.00",
+      "DESTINATION_BALANCE": "16,000.00"
+    }
+  },
+  {
+    "id": "mshwari_lock_release_to_savings",
+    "title": "M-Shwari",
+    "body": "Dear customer, 4,000 has been moved from your locked savings account to your M-Shwari account.",
+    "templateId": "ke.mshwari.lock-savings.release-to-mshwari",
+    "expectedFields": {
+      "AMOUNT": "4,000"
+    }
+  },
+  {
+    "id": "mshwari_loan_balance_sh",
+    "title": "M-Shwari",
+    "body": "Your total loan balance is Sh 1,075.00.",
+    "templateId": "ke.mshwari.loan.balance",
+    "expectedFields": {
+      "OUTSTANDING": "1,075.00"
+    }
+  },
+  {
+    "id": "mpesa_send_masked_phone",
+    "title": "MPESA",
+    "body": "TST12ABC14 Confirmed. Ksh 900.00 sent to SAMPLE PERSON 2547****321 on 28/9/26 at 8:10 AM. New M-PESA balance is Ksh 11,950.00.",
+    "templateId": "ke.mpesa.wallet.send-money",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TST12ABC14",
+      "AMOUNT": "900.00",
+      "BALANCE": "11,950.00"
+    }
+  },
+  {
+    "id": "mpesa_merchant_refund_receipt",
+    "title": "MPESA",
+    "body": "TST12ABC09 Confirmed. You have received Ksh 220.00 from SAMPLE RIDE LIMITED 3000000 on 28/9/26 at 7:30 PM. New M-PESA balance is Ksh 220.00.",
+    "templateId": "ke.mpesa.wallet.receive-money",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TST12ABC09",
+      "AMOUNT": "220.00",
+      "BALANCE": "220.00"
+    }
+  },
+  {
+    "id": "mshwari_approval_with_product_tip",
+    "title": "M-PESA",
+    "body": "UINFT7V1JD Confirmed. Your M-Shwari loan has been approved on 23/9/26 5:27 PM and Ksh985.00 less excise duty has been deposited to your M-PESA account. New M-PESA balance is Ksh985.00. Did you know you can top up your M-Shwari loan once within the first 20 days?",
+    "templateId": "ke.mshwari.loan.approved-to-mpesa",
+    "expectedFields": {
+      "TRANSACTION_CODE": "UINFT7V1JD",
+      "AMOUNT": "985.00",
+      "BALANCE": "985.00"
+    }
+  },
+  {
+    "id": "fuliza_partial_repayment_second_shape",
+    "title": "MPESA",
+    "body": "TST12DEBT9 Confirmed. Ksh 985.00 from your M-PESA has been used to partially pay your outstanding Fuliza M-PESA. Your available Fuliza M-PESA limit is Ksh 1062.29. Your M-PESA balance is 0.00.",
+    "templateId": "ke.fuliza.loan.partial-repayment",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TST12DEBT9",
+      "AMOUNT": "985.00",
+      "AVAILABLE_CREDIT": "1062.29"
+    }
+  },
+  {
+    "id": "kcb_mpesa_declined_repayment",
+    "title": "KCB M-PESA",
+    "body": "Dear SAMPLE CUSTOMER, your loan repayment of KES 100.00 has been declined due to insufficient funds. Your KCB M-PESA Account balance is KES 0.00.",
+    "templateId": "ke.kcb-mpesa.loan.repayment-declined",
+    "expectedFields": {
+      "AMOUNT": "100.00",
+      "BALANCE": "0.00"
+    }
+  }
+]

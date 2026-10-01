@@ -16,6 +16,7 @@ enum class FinancialSemanticIntent {
     INVESTMENT_ORDER,
     INVESTMENT_EXECUTED,
     CONFIRMATION_ONLY,
+    FAILED_ACTION,
     UNKNOWN
 }
 
@@ -220,6 +221,11 @@ object FinancialSemanticAnalyzer {
         RegexOption.IGNORE_CASE
     )
 
+    private val failedActionRegex = Regex(
+        """\b(?:declined|rejected|unsuccessful|failed|not successful|could not be (?:processed|completed)|has not been (?:processed|completed)|insufficient funds)\b""",
+        RegexOption.IGNORE_CASE
+    )
+
     private val reminderRegex = Regex(
         """\b(?:due\s+(?:on|by)|repay\s+by|payment\s+due|loan\s+due|repayment\s+due|reminder)\b""",
         RegexOption.IGNORE_CASE
@@ -299,6 +305,13 @@ object FinancialSemanticAnalyzer {
         ) {
             intents += intent
             rules += ruleId
+        }
+
+        if (failedActionRegex.containsMatchIn(body)) {
+            addIntent(
+                FinancialSemanticIntent.FAILED_ACTION,
+                "semantic.failed_action"
+            )
         }
 
         if (reversalRegex.containsMatchIn(body)) {
@@ -490,6 +503,9 @@ object FinancialSemanticAnalyzer {
             primaryIntent ==
                 FinancialSemanticIntent.UNKNOWN ->
                 FinancialSemanticRole.NEEDS_REVIEW
+            primaryIntent ==
+                FinancialSemanticIntent.FAILED_ACTION ->
+                FinancialSemanticRole.CONFIRMATION
             FinancialSemanticIntent
                 .CONFIRMATION_ONLY in intents ->
                 FinancialSemanticRole.CONFIRMATION
@@ -931,6 +947,7 @@ object FinancialSemanticAnalyzer {
             .longValueExact()
 
     private val PRIMARY_INTENT_PRIORITY = listOf(
+        FinancialSemanticIntent.FAILED_ACTION,
         FinancialSemanticIntent.REVERSAL,
         FinancialSemanticIntent.REFUND,
         FinancialSemanticIntent.LOAN_DISBURSEMENT,

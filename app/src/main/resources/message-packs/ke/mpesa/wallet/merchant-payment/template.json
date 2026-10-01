@@ -1,0 +1,18 @@
+{
+  "id": "ke.mpesa.wallet.merchant-payment",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["MPESA"],
+  "requiredAnchors": ["Confirmed.", " paid to ", "M-PESA balance"],
+  "anyAnchors": [],
+  "eventKind": "PAYMENT",
+  "productIdentity": "SAFARICOM_MPESA",
+  "active": true,
+  "extractors": [
+    {"field":"TRANSACTION_CODE","pattern":"^([A-Z0-9]{10})[ ]+Confirmed[.]","group":1,"required":true},
+    {"field":"AMOUNT","pattern":"(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+paid to","group":1,"required":true},
+    {"field":"COUNTERPARTY","pattern":"paid to[ ]+(.+?)[ ]+on[ ]+[0-9]","group":1,"required":true},
+    {"field":"BALANCE","pattern":"(?:New[ ]+)?M-PESA(?:[ ]+account)?[ ]+balance[ ]+is[ ]+(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)","group":1},
+    {"field":"FEE","pattern":"Transaction[ ]+(?:cost|fee)[,:]?[ ]*(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)","group":1}
+  ]
+}

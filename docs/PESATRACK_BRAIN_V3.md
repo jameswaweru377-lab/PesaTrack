@@ -78,3 +78,35 @@ Implemented in this milestone:
 Do **not** jump to Home redesign.
 
 Continue Phase 2: grow the Kenya core corpus, beginning with message shapes for the M-Pesa ecosystem that produce the most transfer/debt ambiguity. Each supported shape should accumulate multiple sanitized fixtures and expected extraction output.
+
+
+## Phase 2 — Kenya core corpus, increment 1
+
+Branch milestone: `feature/brain-v3-kenya-core-corpus-v1`.
+
+This increment expands the Message Pack from 11 to 21 active templates.
+
+Evidence-backed additions:
+
+- M-Pesa merchant payment;
+- completed reversal;
+- reversal with explicit credited amount;
+- transfer to another named account;
+- cash withdrawal;
+- cash deposit;
+- airtime purchase;
+- M-Shwari credit from M-Pesa wording;
+- Lock Savings release back to M-Shwari;
+- KCB M-PESA declined loan repayment.
+
+Additional hardening:
+
+- M-Shwari loan-balance template revised to accept `Sh`, `Ksh`, `Kshs` and `KES`;
+- every active template must have at least one sanitized golden fixture;
+- multiple examples are now required across several core shapes;
+- KCB M-PESA savings and loan identities are explicit and separate;
+- KCB M-PESA loan proceeds are modeled as funding the KCB M-PESA deposit/savings account, not ordinary M-Pesa;
+- provider-agnostic failed/declined/rejected financial actions are understood but cannot create movement/debt ledger events;
+- observed balances from a failed action may still be retained.
+
+PesaLink remains intentionally untemplated until an exact sanitized message shape is available. Official documentation is used only for the known dual-notification/correlation behavior.

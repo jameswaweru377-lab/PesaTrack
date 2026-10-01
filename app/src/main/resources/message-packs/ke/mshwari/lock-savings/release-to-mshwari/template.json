@@ -1,0 +1,14 @@
+{
+  "id": "ke.mshwari.lock-savings.release-to-mshwari",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["MSHWARI"],
+  "requiredAnchors": ["moved from your locked savings account to your M-Shwari account"],
+  "anyAnchors": [],
+  "eventKind": "TRANSFER",
+  "productIdentity": "NCBA_MSHWARI_LOCK_SAVINGS",
+  "active": true,
+  "extractors": [
+    {"field":"AMOUNT","pattern":"(?:(?:Kshs?|KES|Sh)[.]?[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)[ ]+has been moved from your locked savings account","group":1,"required":true}
+  ]
+}

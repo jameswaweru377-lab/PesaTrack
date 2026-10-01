@@ -22,7 +22,7 @@ class MessagePackRouterTest {
             result.errors.isEmpty()
         )
         assertEquals(
-            11,
+            21,
             result.templates.size
         )
         assertEquals(
@@ -43,22 +43,8 @@ class MessagePackRouterTest {
                     .templates
             )
 
-        val stream =
-            javaClass.classLoader
-                ?.getResourceAsStream(
-                    "message-packs/ke/fixtures-v1.json"
-                )
-        assertNotNull(stream)
-
         val fixtures =
-            InputStreamReader(
-                stream!!,
-                Charsets.UTF_8
-            ).use {
-                JsonParser
-                    .parseReader(it)
-                    .asJsonArray
-            }
+            loadFixtures()
 
         fixtures.forEach { item ->
             val fixture =
@@ -103,6 +89,49 @@ class MessagePackRouterTest {
                     )
                 }
         }
+    }
+
+
+    @Test
+    fun everyActiveTemplateHasAtLeastOneSanitizedFixture() {
+        val templateIds =
+            BundledKenyaMessagePackLoader
+                .load()
+                .templates
+                .map { it.id }
+                .toSet()
+        val fixtureTemplateIds =
+            loadFixtures()
+                .map {
+                    it.asJsonObject
+                        .get("templateId")
+                        .asString
+                }
+                .toSet()
+
+        assertEquals(
+            templateIds,
+            fixtureTemplateIds
+        )
+    }
+
+    @Test
+    fun corpusAlreadyHasMultipleExamplesForCoreShapes() {
+        val counts =
+            loadFixtures()
+                .map {
+                    it.asJsonObject
+                        .get("templateId")
+                        .asString
+                }
+                .groupingBy { it }
+                .eachCount()
+
+        assertTrue(
+            counts.values.count {
+                it >= 2
+            } >= 5
+        )
     }
 
     @Test
@@ -159,4 +188,31 @@ class MessagePackRouterTest {
                 .route
         )
     }
+
+    private fun loadFixtures() =
+        listOf(
+            "message-packs/ke/fixtures-v1.json",
+            "message-packs/ke/fixtures-v2.json"
+        ).flatMap { path ->
+            val stream =
+                javaClass.classLoader
+                    ?.getResourceAsStream(
+                        path
+                    )
+            assertNotNull(
+                "Missing fixture resource $path",
+                stream
+            )
+
+            InputStreamReader(
+                stream!!,
+                Charsets.UTF_8
+            ).use {
+                JsonParser
+                    .parseReader(it)
+                    .asJsonArray
+                    .toList()
+            }
+        }
+
 }

@@ -1366,6 +1366,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                 "Investment order"
             FinancialSemanticIntent.INVESTMENT_EXECUTED ->
                 "Investment executed"
+            FinancialSemanticIntent.FAILED_ACTION ->
+                "Failed financial action"
             FinancialSemanticIntent.CONFIRMATION_ONLY ->
                 when {
                     FinancialSemanticIntent.TRANSFER in

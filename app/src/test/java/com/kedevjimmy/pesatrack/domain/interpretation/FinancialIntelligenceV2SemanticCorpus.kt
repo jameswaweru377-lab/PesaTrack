@@ -60,6 +60,16 @@ object FinancialIntelligenceV2SemanticCorpus {
                 FinancialSemanticRole.CONFIRMATION
         ),
         FinancialIntelligenceV2SemanticFixture(
+            id = "declined_loan_repayment",
+            title = "KCB M-PESA",
+            body =
+                "Dear SAMPLE CUSTOMER, your loan repayment of KES 100.00 has been declined due to insufficient funds. Your KCB M-PESA Account balance is KES 0.00.",
+            expectedIntent =
+                FinancialSemanticIntent.FAILED_ACTION,
+            expectedRole =
+                FinancialSemanticRole.CONFIRMATION
+        ),
+        FinancialIntelligenceV2SemanticFixture(
             id = "generic_loan_repayment",
             title = "Future Finance",
             body =

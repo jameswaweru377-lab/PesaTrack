@@ -59,7 +59,12 @@ object FinancialMessageInterpreter {
             )
         val classified =
             FinancialEventClassifier.classify(
-                resolved
+                resolved = resolved,
+                suppressMovementEvents =
+                    semanticAssessment
+                        .primaryIntent ==
+                    FinancialSemanticIntent
+                        .FAILED_ACTION
             )
 
         return classified.copy(
