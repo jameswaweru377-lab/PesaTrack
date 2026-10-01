@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Payments
@@ -203,7 +203,7 @@ fun OnboardingScreen(
             ) {
                 Text("Get started")
                 androidx.compose.material3.Icon(
-                    Icons.Rounded.ArrowForward,
+                    Icons.AutoMirrored.Rounded.ArrowForward,
                     contentDescription = null,
                     modifier =
                         Modifier.padding(
