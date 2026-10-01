@@ -3980,7 +3980,7 @@ private fun iconFor(
     TransactionCategory.GROCERIES.name ->
         Icons.Rounded.ShoppingCart
     TransactionCategory.EATING_OUT.name,
-    TransactionCategory.LUNCH.name ->
+    "LUNCH" ->
         Icons.Rounded.Restaurant
     TransactionCategory.ELECTRICITY.name ->
         Icons.Rounded.Bolt
