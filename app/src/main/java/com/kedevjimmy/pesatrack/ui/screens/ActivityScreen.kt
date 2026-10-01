@@ -732,18 +732,30 @@ fun ActivityScreen(
                             PossibleDuplicateRow(
                                 group = group,
                                 onSameTransaction = {
-                                    store.resolvePossibleDuplicate(
-                                        pairKey = group.key,
-                                        sameTransaction = true
-                                    )
-                                    refresh()
+                                    activityScope.launch {
+                                        withContext(
+                                            Dispatchers.IO
+                                        ) {
+                                            store.resolvePossibleDuplicate(
+                                                pairKey = group.key,
+                                                sameTransaction = true
+                                            )
+                                        }
+                                        refresh()
+                                    }
                                 },
                                 onKeepBoth = {
-                                    store.resolvePossibleDuplicate(
-                                        pairKey = group.key,
-                                        sameTransaction = false
-                                    )
-                                    refresh()
+                                    activityScope.launch {
+                                        withContext(
+                                            Dispatchers.IO
+                                        ) {
+                                            store.resolvePossibleDuplicate(
+                                                pairKey = group.key,
+                                                sameTransaction = false
+                                            )
+                                        }
+                                        refresh()
+                                    }
                                 }
                             )
                         }
@@ -779,7 +791,11 @@ fun ActivityScreen(
                             RelationshipReviewRow(
                                 item = review,
                                 onLink = { candidate ->
-                                    when (review.kind) {
+                                    activityScope.launch {
+                                        withContext(
+                                            Dispatchers.IO
+                                        ) {
+                                            when (review.kind) {
                                         RelationshipReviewKind
                                             .REPAYMENT_FUNDING -> {
                                             val eventId =
@@ -849,11 +865,17 @@ fun ActivityScreen(
                                                     )
                                             }
                                         }
+                                            }
+                                        }
+                                        refresh()
                                     }
-                                    refresh()
                                 },
                                 onKeepUnlinked = {
-                                    when (review.kind) {
+                                    activityScope.launch {
+                                        withContext(
+                                            Dispatchers.IO
+                                        ) {
+                                            when (review.kind) {
                                         RelationshipReviewKind
                                             .REPAYMENT_FUNDING ->
                                             review.debtEventId
@@ -894,8 +916,10 @@ fun ActivityScreen(
                                                             null
                                                         )
                                                 }
+                                            }
+                                        }
+                                        refresh()
                                     }
-                                    refresh()
                                 }
                             )
                         }
@@ -1213,15 +1237,23 @@ fun ActivityScreen(
                 }
             },
             onNotMine = {
-                financialStore.markEntityExternal(
-                    entity.entityKey
-                )
-                financialCoordinator
-                    .reconcileExternalEntity(
-                        entity.entityKey
-                    )
-                accountReviewEntity = null
-                refresh()
+                activityScope.launch {
+                    withContext(
+                        Dispatchers.IO
+                    ) {
+                        financialStore
+                            .markEntityExternal(
+                                entity.entityKey
+                            )
+                        financialCoordinator
+                            .reconcileExternalEntity(
+                                entity.entityKey
+                            )
+                    }
+                    accountReviewEntity =
+                        null
+                    refresh()
+                }
             }
         )
     }
