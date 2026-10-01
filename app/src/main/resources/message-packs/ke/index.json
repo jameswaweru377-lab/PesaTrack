@@ -12,6 +12,15 @@
     "mshwari/loan/balance/template.json",
     "fuliza/loan/drawdown/template.json",
     "fuliza/loan/partial-repayment/template.json",
-    "fuliza/loan/full-repayment/template.json"
+    "fuliza/loan/full-repayment/template.json",
+    "mpesa/wallet/merchant-payment/template.json",
+    "mpesa/wallet/reversal-completed/template.json",
+    "mpesa/wallet/reversal-credited/template.json",
+    "mpesa/wallet/external-account-transfer/template.json",
+    "mpesa/wallet/cash-withdrawal/template.json",
+    "mpesa/wallet/cash-deposit/template.json",
+    "mpesa/wallet/airtime-purchase/template.json",
+    "mshwari/savings/credit-from-mpesa/template.json",
+    "mshwari/lock-savings/release-to-mshwari/template.json"
   ]
 }
