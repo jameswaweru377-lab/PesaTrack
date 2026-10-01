@@ -2519,3 +2519,34 @@ Official PesaLink/KCB documentation confirms that PesaLink is an inter-bank tran
 No concrete PesaLink Message Pack template is added in this increment because the official documentation describes fields/behavior but does not provide enough exact current SMS wording. Wait for a sanitized real/public message fixture rather than inventing syntax.
 
 Evidence references are recorded in `docs/message-corpus-sources.md`.
+
+
+## Brain v3 Phase 2 — bank corpus + Message Pack candidate bridge — 2026-10-01
+
+This increment continues the PDF/Brain-v3 order. It does not start Identity Graph, personal learning or the Home redesign.
+
+### Coverage
+
+The Kenya Message Pack grows from 22 to 35 active templates.
+
+Public-template-backed shapes are added for:
+
+- I&M Bank payment;
+- KCB Bank credit, app receipt, card purchase, paid-to, salary credit, M-Pesa transfer variants and PesaLink send;
+- PesaLink sent/received network confirmations;
+- Standard Chartered card purchase.
+
+Source provenance is recorded in `docs/message-corpus-sources.md` and `docs/third-party-reference/sms-transaction-parser.md`.
+
+### Architectural correction
+
+A Message Pack match is not considered sufficient intelligence by itself.
+
+`MessagePackCandidateBridge` now supplies a V2 action candidate only when:
+1. generic V2 extraction found no action;
+2. the matched template has explicit amount evidence;
+3. the matched template has the explicit counterparty/source/destination required for that action type.
+
+The bridge does not classify or persist transactions. FinancialRelationshipResolver and FinancialEventClassifier remain the accounting authority.
+
+PesaLink remains a transfer-network observation and must not be promoted into a fake owned account when no source/destination bank account is explicit.
