@@ -65,6 +65,34 @@ object FinancialProviderRegistry {
             )
         ),
         FinancialProviderAccountKnowledge(
+            providerKey = "KCB_MPESA_LOAN",
+            canonicalName = "KCB M-PESA Loan",
+            accountType = AccountType.OTHER,
+            ownershipHint = AccountOwnershipHint.UNKNOWN,
+            nature = FinancialAccountNature.LIABILITY,
+            aliases = setOf(
+                "KCB M PESA LOAN",
+                "KCB MPESA LOAN"
+            ),
+            debtBehavior = DebtProductBehavior(
+                fundingBehavior =
+                    DebtFundingBehavior.CASH_DISBURSEMENT,
+                fundingAccountProviderKey =
+                    "KCB_MPESA_SAVINGS"
+            )
+        ),
+        FinancialProviderAccountKnowledge(
+            providerKey = "KCB_MPESA_SAVINGS",
+            canonicalName = "KCB M-PESA",
+            accountType = AccountType.SAVINGS,
+            ownershipHint = AccountOwnershipHint.USER_OWNED,
+            nature = FinancialAccountNature.ASSET,
+            aliases = setOf(
+                "KCB M PESA",
+                "KCB MPESA"
+            )
+        ),
+        FinancialProviderAccountKnowledge(
             providerKey = "SAFARICOM_FULIZA",
             canonicalName = "Fuliza M-PESA",
             accountType = AccountType.OTHER,
@@ -110,6 +138,15 @@ object FinancialProviderRegistry {
     )
 
     private val messageSources = listOf(
+        FinancialMessageSourceProfile(
+            profileKey = "KCB_MPESA_MESSAGES",
+            titleAliases = setOf(
+                "KCB M PESA",
+                "KCB MPESA"
+            ),
+            defaultObservedAccountProviderKey =
+                "KCB_MPESA_SAVINGS"
+        ),
         FinancialMessageSourceProfile(
             profileKey = "SAFARICOM_MPESA_MESSAGES",
             titleAliases = setOf(
