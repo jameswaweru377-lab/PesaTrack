@@ -2,7 +2,7 @@ package com.kedevjimmy.pesatrack.domain.messagepack
 
 import com.google.gson.JsonParser
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
-import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.PaymentEventFact
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -149,7 +149,7 @@ class MessagePackRouterTest {
         assertTrue(
             interpretation.events
                 .single() is
-                TransferEventFact
+                PaymentEventFact
         )
         assertEquals(
             MessageParseRoute.TEMPLATE,
