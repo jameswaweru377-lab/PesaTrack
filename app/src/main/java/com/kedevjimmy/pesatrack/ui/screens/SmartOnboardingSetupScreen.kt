@@ -83,6 +83,8 @@ import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentFetchResult
+import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentHttpClient
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.RulePreset
@@ -90,6 +92,8 @@ import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingDiscoveryEngine
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingSalarySuggestion
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingTransactionObservation
+import com.kedevjimmy.pesatrack.domain.intelligence.EntityDescriptorPrivacyPolicy
+import com.kedevjimmy.pesatrack.domain.intelligence.SalaryCandidateRemotePolicy
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
@@ -183,6 +187,10 @@ fun SmartOnboardingSetupScreen(
         remember {
             FinancialMessageIngestionCoordinator
                 .get(context)
+        }
+    val entityEnrichmentClient =
+        remember {
+            EntityEnrichmentHttpClient()
         }
 
     var stage by rememberSaveable {
@@ -643,10 +651,15 @@ fun SmartOnboardingSetupScreen(
                         ?.identifier
 
                 Pair(
-                    OnboardingDiscoveryEngine
-                        .salarySuggestion(
-                            observations
-                        ),
+                    verifiedSalarySuggestion(
+                        local =
+                            OnboardingDiscoveryEngine
+                                .salarySuggestion(
+                                    observations
+                                ),
+                        client =
+                            entityEnrichmentClient
+                    ),
                     if (
                         existingMpesaNumber
                             .isNullOrBlank()
@@ -1356,10 +1369,15 @@ fun SmartOnboardingSetupScreen(
                                 )
                             }
 
-                    OnboardingDiscoveryEngine
-                        .salarySuggestion(
-                            observations
-                        )
+                    verifiedSalarySuggestion(
+                        local =
+                            OnboardingDiscoveryEngine
+                                .salarySuggestion(
+                                    observations
+                                ),
+                        client =
+                            entityEnrichmentClient
+                    )
                 }
 
             salarySuggestion =
@@ -4209,6 +4227,46 @@ private fun ownedSetupAccounts(
                     includeCash = true
                 )
         }
+}
+
+private fun verifiedSalarySuggestion(
+    local: OnboardingSalarySuggestion?,
+    client: EntityEnrichmentHttpClient
+): OnboardingSalarySuggestion? {
+    val suggestion =
+        local ?: return null
+    val descriptor =
+        EntityDescriptorPrivacyPolicy
+            .sanitize(
+                suggestion.label
+            )
+            ?: return suggestion
+
+    if (!client.isConfigured()) {
+        return suggestion
+    }
+
+    return when (
+        val result =
+            client.fetch(
+                descriptor
+            )
+    ) {
+        is EntityEnrichmentFetchResult
+            .Resolved ->
+            if (
+                SalaryCandidateRemotePolicy
+                    .shouldReject(
+                        result.value
+                    )
+            ) {
+                null
+            } else {
+                suggestion
+            }
+
+        else -> suggestion
+    }
 }
 
 private fun onboardingOwnershipCandidates(
