@@ -24,8 +24,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
-import androidx.compose.material.icons.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Business
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -798,7 +798,7 @@ fun InitialMoneySetupScreen(
                 if (stage != SetupStage.SOURCES) {
                     IconButton(onClick = ::goBack) {
                         Icon(
-                            Icons.Rounded.ArrowBack,
+                            Icons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -1047,7 +1047,7 @@ fun InitialMoneySetupScreen(
                         }
                     )
                     Icon(
-                        Icons.Rounded.ArrowForward,
+                        Icons.AutoMirrored.Rounded.ArrowForward,
                         contentDescription = null,
                         modifier = Modifier.padding(start = 8.dp)
                     )
