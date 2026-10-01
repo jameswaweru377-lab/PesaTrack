@@ -3,13 +3,34 @@ package com.kedevjimmy.pesatrack.domain.intelligence
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 
+enum class RemoteOrganizationRole {
+    PAYMENT_PROCESSOR,
+    TRANSPORT,
+    MERCHANT,
+    FINANCIAL_INSTITUTION,
+    EMPLOYER_LIKE,
+    UNKNOWN
+}
+
+enum class SalaryCandidateSuitability {
+    ALLOW,
+    REVIEW,
+    REJECT
+}
+
 data class RemoteEntityEnrichment(
     val canonicalName: String,
     val domain: String?,
     val logoUrl: String?,
     val categoryHint: TransactionCategory?,
     val confidence: EntityMatchConfidence,
-    val source: String
+    val source: String,
+    val organizationRole:
+        RemoteOrganizationRole =
+            RemoteOrganizationRole.UNKNOWN,
+    val salaryCandidateSuitability:
+        SalaryCandidateSuitability =
+            SalaryCandidateSuitability.REVIEW
 )
 
 object EntityDescriptorPrivacyPolicy {
@@ -159,6 +180,38 @@ object EntityDescriptorPrivacyPolicy {
                 }
         }
     }
+}
+
+object SalaryCandidateRemotePolicy {
+    fun shouldReject(
+        result: RemoteEntityEnrichment
+    ): Boolean =
+        result.salaryCandidateSuitability ==
+            SalaryCandidateSuitability.REJECT ||
+            result.organizationRole in
+                setOf(
+                    RemoteOrganizationRole
+                        .PAYMENT_PROCESSOR,
+                    RemoteOrganizationRole
+                        .TRANSPORT,
+                    RemoteOrganizationRole
+                        .MERCHANT
+                ) ||
+            result.categoryHint in
+                setOf(
+                    TransactionCategory.TRANSPORT,
+                    TransactionCategory.GROCERIES,
+                    TransactionCategory.EATING_OUT,
+                    TransactionCategory.SHOPPING,
+                    TransactionCategory.ENTERTAINMENT,
+                    TransactionCategory.HEALTH,
+                    TransactionCategory.EDUCATION,
+                    TransactionCategory.PERSONAL_CARE,
+                    TransactionCategory.PHONE_AND_DATA,
+                    TransactionCategory.ELECTRICITY,
+                    TransactionCategory.WATER,
+                    TransactionCategory.INTERNET
+                )
 }
 
 object RemoteEntityEligibilityPolicy {
