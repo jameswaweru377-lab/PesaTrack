@@ -137,7 +137,8 @@ object FinancialRelationshipResolver {
         val debtRelationship =
             resolveDebt(
                 candidates = candidates,
-                balances = balances
+                balances = balances,
+                message = message
             )
         val reversalRelationship =
             resolveReversal(
@@ -581,12 +582,15 @@ object FinancialRelationshipResolver {
 
     private fun resolveDebt(
         candidates: FinancialMessageCandidates,
-        balances: List<BalanceObservationFact>
+        balances: List<BalanceObservationFact>,
+        message: NormalizedFinancialMessage
     ): ResolvedFinancialRelationship? {
         candidates.debt.repayment?.let { repayment ->
             val liability =
                 resolveLiability(
-                    repayment.liabilityLabel
+                    rawLabel =
+                        repayment.liabilityLabel,
+                    message = message
                 )
             val funding =
                 repayment.fundingAccountLabel
@@ -726,7 +730,9 @@ object FinancialRelationshipResolver {
         candidates.debt.drawdown?.let { drawdown ->
             val liability =
                 resolveLiability(
-                    drawdown.liabilityLabel
+                    rawLabel =
+                        drawdown.liabilityLabel,
+                    message = message
                 )
             val proceedsAccount =
                 drawdown.proceedsAccountLabel
@@ -858,26 +864,15 @@ object FinancialRelationshipResolver {
     }
 
     private fun resolveLiability(
-        rawLabel: String
-    ): FinancialAccountReference {
-        val resolved =
-            FinancialProviderRegistry
-                .resolveAccount(rawLabel)
-
-        return if (
-            resolved.nature ==
-                FinancialAccountNature.LIABILITY
-        ) {
-            resolved
-        } else {
-            resolved.copy(
-                ownershipHint =
-                    AccountOwnershipHint.USER_OWNED,
-                nature =
-                    FinancialAccountNature.LIABILITY
+        rawLabel: String,
+        message: NormalizedFinancialMessage
+    ): FinancialAccountReference =
+        FinancialProviderRegistry
+            .resolveLiabilityInContext(
+                rawLabel = rawLabel,
+                title = message.title,
+                body = message.body
             )
-        }
-    }
 
     private fun resolveAction(
         action: FinancialActionCandidate,
