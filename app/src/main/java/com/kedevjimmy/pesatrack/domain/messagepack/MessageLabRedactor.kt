@@ -7,7 +7,9 @@ data class RedactedMessageShape(
 
 object MessageLabRedactor {
     private val transactionCodeRegex =
-        Regex("""\b[A-Z0-9]{10}\b""")
+        Regex(
+            """\b(?=[A-Z0-9]{10}\b)(?=[A-Z0-9]*[A-Z])[A-Z0-9]{10}\b"""
+        )
     private val phoneRegex =
         Regex(
             """(?<![0-9])(?:\+?254|0)7[0-9*]{8,9}(?![0-9])"""
