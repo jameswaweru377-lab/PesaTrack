@@ -1,10 +1,26 @@
 package com.kedevjimmy.pesatrack.domain.interpretation
 
+import com.kedevjimmy.pesatrack.domain.messagepack.KenyaMessagePack
+import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseProvenance
+
 object FinancialMessageInterpreter {
     fun interpret(
         title: String?,
         body: String
     ): FinancialMessageInterpretation {
+        val messagePackMatch =
+            KenyaMessagePack.route(
+                title = title,
+                body = body
+            )
+        val provenance =
+            messagePackMatch
+                ?.let(
+                    MessageParseProvenance::template
+                )
+                ?: MessageParseProvenance
+                    .genericFallback()
+
         val normalized =
             FinancialMessageNormalizer.normalize(
                 title = title,
@@ -21,7 +37,9 @@ object FinancialMessageInterpreter {
                 transactionCode = null,
                 occurredAtText = null,
                 balances = emptyList(),
-                events = emptyList()
+                events = emptyList(),
+                parseProvenance =
+                    provenance
             )
         }
 
@@ -46,7 +64,9 @@ object FinancialMessageInterpreter {
 
         return classified.copy(
             semanticAssessment =
-                semanticAssessment
+                semanticAssessment,
+            parseProvenance =
+                provenance
         )
     }
 }

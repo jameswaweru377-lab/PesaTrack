@@ -15,6 +15,7 @@ import com.kedevjimmy.pesatrack.ui.screens.BudgetScreen
 import com.kedevjimmy.pesatrack.ui.screens.CommunityScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalDetailScreen
 import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
+import com.kedevjimmy.pesatrack.ui.screens.DataHealthScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
@@ -230,6 +231,9 @@ fun PesaTrackApp(
                     onPlanClick = {
                         navController.navigate("plan")
                     },
+                    onDataHealthClick = {
+                        navController.navigate("data-health")
+                    },
                     onSettingsClick = {
                         navController.navigate("settings")
                     }
@@ -278,6 +282,20 @@ fun PesaTrackApp(
                     scaffoldPadding = padding,
                     onBack = { navController.popBackStack() },
                     onSettingsClick = { navController.navigate("settings") }
+                )
+            }
+        }
+
+        composable("data-health") {
+            AppScaffold(
+                currentTab = MainTab.MORE,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                DataHealthScreen(
+                    scaffoldPadding = padding,
+                    onBack = {
+                        navController.popBackStack()
+                    }
                 )
             }
         }

@@ -1,0 +1,17 @@
+{
+  "id": "ke.fuliza.loan.partial-repayment",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["MPESA"],
+  "requiredAnchors": ["from your M-PESA has been used to partially pay", "Fuliza M-PESA"],
+  "anyAnchors": ["available Fuliza", "M-PESA balance"],
+  "eventKind": "DEBT_REPAYMENT",
+  "productIdentity": "SAFARICOM_FULIZA",
+  "active": true,
+  "extractors": [
+    {"field":"TRANSACTION_CODE","pattern":"^([A-Z0-9]{10})[ ]+Confirmed[.]","group":1},
+    {"field":"AMOUNT","pattern":"(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+from your M-PESA has been used to partially pay","group":1,"required":true},
+    {"field":"AVAILABLE_CREDIT","pattern":"available Fuliza(?: M-PESA)?(?: balance)? limit is[ ]+(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)","group":1},
+    {"field":"BALANCE","pattern":"M-PESA[ ]+balance[ ]+is[ ]+(?:(?:Ksh|KES)[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)","group":1}
+  ]
+}

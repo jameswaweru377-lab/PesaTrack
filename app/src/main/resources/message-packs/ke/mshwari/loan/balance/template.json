@@ -1,0 +1,15 @@
+{
+  "id": "ke.mshwari.loan.balance",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["MSHWARI", "MPESA"],
+  "requiredAnchors": ["loan balance"],
+  "anyAnchors": ["M-Shwari", "Mshwari", "total loan balance", "outstanding loan balance"],
+  "eventKind": "LOAN_BALANCE",
+  "productIdentity": "NCBA_MSHWARI_LOAN",
+  "active": true,
+  "extractors": [
+    {"field":"OUTSTANDING","pattern":"loan[ ]+balance[ ]+(?:is|of)[ ]*(?:(?:Ksh|KES)[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)","group":1,"required":true},
+    {"field":"DUE_DATE","pattern":"due[ ]+([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})","group":1}
+  ]
+}
