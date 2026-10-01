@@ -72,3 +72,19 @@ Confirmed product mechanics:
 
 **No concrete PesaLink Message Pack template is added yet.**
 The official sources describe fields and duplicate-notification behavior but do not provide enough exact current SMS wording for a safe template. Brain v3 should wait for a sanitized real/public message shape rather than invent one.
+
+
+### Equity beneficiary / M-Pesa transfer confirmation
+
+Evidence class: **REAL_SANITIZED**
+
+Source:
+- Existing PesaTrack Financial Intelligence V2 sanitized regression corpus.
+
+Two variants are retained as golden fixtures:
+- a compact `Kshs.` form containing a beneficiary phone/name, bank reference and M-Pesa reference;
+- a `Kenya Shillings` form using explicit `Equity Ref` and `M-Pesa Ref` labels.
+
+Both belong to the stable template ID `ke.equity.transfer.credit-to-beneficiary`.
+
+This does **not** imply that every Equity SMS is now supported by the Message Pack. Other Equity transaction families remain on Financial Intelligence V2 fallback until a concrete sanitized shape is available.
