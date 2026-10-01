@@ -71,6 +71,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.9.8")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("androidx.work:work-runtime:2.12.0")
+    implementation("com.google.code.gson:gson:2.13.1")
 
     testImplementation("junit:junit:4.13.2")
 }
