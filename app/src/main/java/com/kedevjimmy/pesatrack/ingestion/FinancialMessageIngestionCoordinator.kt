@@ -6,6 +6,7 @@ import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.FinancialEventStatus
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.InvestmentStore
+import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
@@ -58,6 +59,8 @@ class FinancialMessageIngestionCoordinator private constructor(
         )
     private val messageLabStore =
         MessageLabStore.get(appContext)
+    private val identityGraphStore =
+        IdentityGraphStore.get(appContext)
 
     @Synchronized
     fun ingest(
@@ -140,6 +143,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                 receivedAtEpochMs =
                     receivedAtEpochMs,
                 result = result
+            )
+            updateIdentityGraph(
+                result
             )
             return result
         }
@@ -1119,7 +1125,30 @@ class FinancialMessageIngestionCoordinator private constructor(
                 receivedAtEpochMs,
             result = result
         )
+        updateIdentityGraph(
+            result
+        )
         return result
+    }
+
+    private fun updateIdentityGraph(
+        result: FinancialMessageIngestionResult
+    ) {
+        if (
+            result.insertedTransactions <= 0
+        ) {
+            return
+        }
+
+        // Identity learning is downstream metadata.
+        // A graph failure must never invalidate an
+        // already-correct financial ledger write.
+        runCatching {
+            identityGraphStore
+                .synchronize(
+                    transactionLimit = 100
+                )
+        }
     }
 
     private fun recordDiagnostic(
