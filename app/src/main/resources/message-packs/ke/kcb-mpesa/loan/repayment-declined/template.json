@@ -1,0 +1,15 @@
+{
+  "id": "ke.kcb-mpesa.loan.repayment-declined",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["KCB M-PESA", "KCBMPESA"],
+  "requiredAnchors": ["loan repayment of", "has been declined", "KCB M-PESA Account balance"],
+  "anyAnchors": ["insufficient funds"],
+  "eventKind": "FAILED_DEBT_REPAYMENT",
+  "productIdentity": "KCB_MPESA_LOAN",
+  "active": true,
+  "extractors": [
+    {"field":"AMOUNT","pattern":"loan repayment of[ ]+(?:Kshs?|KES|Sh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+has been declined","group":1,"required":true},
+    {"field":"BALANCE","pattern":"KCB M-PESA Account balance is[ ]+(?:Kshs?|KES|Sh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)","group":1,"required":true}
+  ]
+}
