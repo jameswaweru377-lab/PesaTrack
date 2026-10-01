@@ -32,9 +32,35 @@ object MessageLabRedactor {
         Regex(
             """(?<![0-9])[0-9]{4,}(?![0-9])"""
         )
-    private val uppercaseEntityRegex =
+    private val contextualEntityRegex =
         Regex(
-            """\b(sent to|paid to|received from|from|to)[ ]+([A-Z][A-Z0-9 &'’.-]{2,60}?)(?=[ ]+(?:<PHONE>|on|for|at|ref|reference|account)\b|[.,;]|$)"""
+            """(?i)\b(sent to|paid to|received from|transferred from|transferred to|credited to|debited from|from|to)[ ]+(.+?)(?=[ ]+(?:<PHONE>|on|for|at|ref|reference|account|balance|has|was|is)\b|[.,;]|$)"""
+        )
+    private val salutationRegex =
+        Regex(
+            """(?i)\b(dear|hello|hi)[ ]+([A-Z][A-Za-z'’.-]+(?:[ ]+[A-Z][A-Za-z'’.-]+){0,2})(?=[,.:;])"""
+        )
+
+    private val protectedProducts =
+        listOf(
+            Regex(
+                """(?i)Fuliza[ ]+M-PESA"""
+            ) to "<PRODUCT_FULIZA>",
+            Regex(
+                """(?i)M-Shwari[ ]+Lock[ ]+Savings"""
+            ) to "<PRODUCT_MSHWARI_LOCK>",
+            Regex(
+                """(?i)KCB[ ]+M-PESA"""
+            ) to "<PRODUCT_KCB_MPESA>",
+            Regex(
+                """(?i)M-Shwari"""
+            ) to "<PRODUCT_MSHWARI>",
+            Regex(
+                """(?i)M-PESA"""
+            ) to "<PRODUCT_MPESA>",
+            Regex(
+                """(?i)PesaLink"""
+            ) to "<PRODUCT_PESALINK>"
         )
 
     fun redact(
@@ -51,7 +77,19 @@ object MessageLabRedactor {
                 ?: "<SENDER>"
 
         var redacted =
-            body.replace(
+            body
+
+        protectedProducts.forEach {
+            (pattern, replacement) ->
+            redacted =
+                redacted.replace(
+                    pattern,
+                    replacement
+                )
+        }
+
+        redacted =
+            redacted.replace(
                 transactionCodeRegex,
                 "<TX_CODE>"
             )
@@ -83,12 +121,55 @@ object MessageLabRedactor {
                 )
 
         redacted =
-            uppercaseEntityRegex
+            salutationRegex
                 .replace(redacted) {
                     match ->
                     match.groupValues[1] +
-                        " <ENTITY>"
+                        " <PERSON>"
                 }
+
+        redacted =
+            contextualEntityRegex
+                .replace(redacted) {
+                    match ->
+                    val entity =
+                        match.groupValues[2]
+                    if (
+                        "<PRODUCT_" in
+                        entity
+                    ) {
+                        match.value
+                    } else {
+                        match.groupValues[1] +
+                            " <ENTITY>"
+                    }
+                }
+
+        protectedProducts.forEach {
+            (_, replacement) ->
+            val display =
+                when (replacement) {
+                    "<PRODUCT_FULIZA>" ->
+                        "Fuliza M-PESA"
+                    "<PRODUCT_MSHWARI_LOCK>" ->
+                        "M-Shwari Lock Savings"
+                    "<PRODUCT_KCB_MPESA>" ->
+                        "KCB M-PESA"
+                    "<PRODUCT_MSHWARI>" ->
+                        "M-Shwari"
+                    "<PRODUCT_MPESA>" ->
+                        "M-PESA"
+                    "<PRODUCT_PESALINK>" ->
+                        "PesaLink"
+                    else ->
+                        replacement
+                }
+            redacted =
+                redacted.replace(
+                    replacement,
+                    display
+                )
+        }
 
         redacted =
             redacted
