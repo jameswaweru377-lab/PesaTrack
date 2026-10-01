@@ -1240,7 +1240,10 @@ fun SmartOnboardingSetupScreen(
                         "NCBA_MSHWARI_LOCK_SAVINGS"
                 )
             transactionStore
-                .reconcileOwnAccountTransfers()
+                .reconcileOwnAccountTransfers(
+                    rebuildPayCycles =
+                        false
+                )
             payCycleStore.rebuild()
         }
         phoneError = null
@@ -1265,7 +1268,10 @@ fun SmartOnboardingSetupScreen(
                         )
                     financialCoordinator
                         .reconcilePendingTransfers(
-                            entityKey
+                            entityKey =
+                                entityKey,
+                            rebuildPayCycles =
+                                false
                         )
                 }
 
@@ -1284,7 +1290,10 @@ fun SmartOnboardingSetupScreen(
                                 context
                                     .applicationContext
                             ).importSince(
-                                startEpochMs
+                                sinceEpochMs =
+                                    startEpochMs,
+                                rebuildPayCycles =
+                                    false
                             )
                         }
                 }
