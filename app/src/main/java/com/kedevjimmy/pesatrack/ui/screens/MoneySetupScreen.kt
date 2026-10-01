@@ -1042,12 +1042,15 @@ private fun TransactionCategory.prettyName(): String =
         TransactionCategory.DEBT_LOAN -> "Debt repayment"
         TransactionCategory.FAMILY -> "Family support"
         TransactionCategory.INVESTMENT -> "Investments"
-        TransactionCategory.LUNCH,
         TransactionCategory.EATING_OUT -> "Eating out"
         else ->
-            name.lowercase()
-                .replace('_', ' ')
-                .replaceFirstChar { it.uppercase() }
+            if (name == "LUNCH") {
+                "Eating out"
+            } else {
+                name.lowercase()
+                    .replace('_', ' ')
+                    .replaceFirstChar { it.uppercase() }
+            }
     }
 
 private fun accountTypeLabel(type: AccountType): String =
