@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
@@ -33,6 +34,7 @@ fun MoreScreen(
     scaffoldPadding: PaddingValues,
     onProfileClick: () -> Unit,
     onPlanClick: () -> Unit,
+    onDataHealthClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
     LazyColumn(
@@ -75,6 +77,15 @@ fun MoreScreen(
         }
         item {
             SectionHeader("Account & app")
+        }
+        item {
+            MoreRow(
+                icon = Icons.Rounded.Info,
+                title = "Data Health",
+                subtitle = "Message coverage, fallbacks and unsupported shapes",
+                tone = "amber",
+                onClick = onDataHealthClick
+            )
         }
         item {
             MoreRow(
