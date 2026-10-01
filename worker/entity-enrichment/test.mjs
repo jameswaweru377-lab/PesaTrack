@@ -123,6 +123,26 @@ assert(
 
 assert(
   classifyOrganizationRole(
+    "Financial Services",
+    "pawaPay",
+    "pawapay.io"
+  ) === "PAYMENT_PROCESSOR",
+  "payment-gateway brands like pawaPay must be rejected as salary employers"
+);
+
+assert(
+  salarySuitabilityForRole(
+    classifyOrganizationRole(
+      "Financial Services",
+      "pawaPay",
+      "pawapay.io"
+    )
+  ) === "REJECT",
+  "payment-gateway intermediaries must not surface as possible salary"
+);
+
+assert(
+  classifyOrganizationRole(
     "Transportation",
     "Sample Mobility Ltd",
     "sample.example"
