@@ -1,0 +1,17 @@
+{
+  "id": "ke.mshwari.savings.to-mpesa",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["MPESA", "MSHWARI"],
+  "requiredAnchors": ["transferred from M-Shwari", "M-Shwari balance", "M-PESA balance"],
+  "anyAnchors": [],
+  "eventKind": "TRANSFER",
+  "productIdentity": "NCBA_MSHWARI_SAVINGS",
+  "active": true,
+  "extractors": [
+    {"field":"TRANSACTION_CODE","pattern":"^([A-Z0-9]{10})[ ]+Confirmed[.]","group":1},
+    {"field":"AMOUNT","pattern":"(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+transferred from M-Shwari","group":1,"required":true},
+    {"field":"SOURCE_BALANCE","pattern":"M-Shwari[ ]+balance[ ]+is[ ]+(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)","group":1},
+    {"field":"DESTINATION_BALANCE","pattern":"M-PESA[ ]+balance[ ]+is[ ]+(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)","group":1}
+  ]
+}
