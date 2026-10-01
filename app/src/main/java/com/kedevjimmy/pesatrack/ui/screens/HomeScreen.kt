@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,17 +50,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
+import com.kedevjimmy.pesatrack.data.local.ActivitySummary
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.CycleProtectionStore
+import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
 import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
+import com.kedevjimmy.pesatrack.data.local.LedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
+import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.SalaryCycleCandidate
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
@@ -85,6 +93,50 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private data class HomeLoadedState(
+    val cycleSnapshot: PayCycleSnapshot,
+    val ledgerSnapshot: LedgerSnapshot,
+    val activitySnapshot: ActivityLedgerSnapshot,
+    val monthlyBudgets: List<MonthlyBudget>,
+    val debtAccounts: List<DebtAccountSnapshot>,
+    val trackedAccounts: List<MoneyAccount>,
+    val confirmedAccountIds: Set<String>,
+    val salaryRule: SmartRule?
+)
+
+private fun emptyPayCycleSnapshot() =
+    PayCycleSnapshot(
+        cycle = null,
+        startingFundsMinor = 0L,
+        additionalIncomeMinor = 0L,
+        spentMinor = 0L,
+        feesMinor = 0L,
+        savingsMinor = 0L,
+        remainingCommitmentsMinor = 0L,
+        availableToLiveMinor = 0L,
+        safeTodayMinor = null,
+        estimatedDaysRemaining = null,
+        commitments = emptyList(),
+        pendingSalary = null
+    )
+
+private fun emptyActivitySnapshot() =
+    ActivityLedgerSnapshot(
+        transactions = emptyList(),
+        summary =
+            ActivitySummary(
+                incomeMinor = 0L,
+                spentMinor = 0L,
+                feesMinor = 0L,
+                transferMinor = 0L,
+                netMinor = 0L,
+                needsReviewCount = 0
+            )
+    )
 
 @Composable
 fun HomeScreen(
@@ -121,7 +173,10 @@ fun HomeScreen(
             android.content.Context.MODE_PRIVATE
         )
     }
-    val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
+    val ledgerUpdateState by
+        LedgerUpdateBus.state.collectAsState()
+    val homeScope =
+        rememberCoroutineScope()
     var salaryPromptDeferredUntil by remember {
         mutableStateOf(
             preferences.getLong(
@@ -136,34 +191,147 @@ fun HomeScreen(
     var showProtectionDialog by remember {
         mutableStateOf(false)
     }
+    var homeLoading by remember {
+        mutableStateOf(true)
+    }
+    var homeLoaded by remember {
+        mutableStateOf(false)
+    }
 
     var cycleSnapshot by remember {
-        cycleStore.rebuild()
-        mutableStateOf(cycleStore.snapshot())
+        mutableStateOf(
+            emptyPayCycleSnapshot()
+        )
     }
     var ledgerSnapshot by remember {
-        mutableStateOf(transactionStore.snapshot())
-    }
-    var activitySnapshot by remember {
-        mutableStateOf(transactionStore.activitySnapshot())
-    }
-    var monthlyBudgets by remember {
-        mutableStateOf(budgetStore.list())
-    }
-    var debtAccounts by remember {
-        mutableStateOf(debtStore.accounts())
-    }
-    var trackedAccounts by remember {
         mutableStateOf(
-            accountStore.listAccounts(
-                enabledOnly = true
+            LedgerSnapshot(
+                transactionCount = 0,
+                latestTransaction = null,
+                latestBalanceMinor = null,
+                latestBalanceObservedAtEpochMs =
+                    null
             )
         )
     }
+    var activitySnapshot by remember {
+        mutableStateOf(
+            emptyActivitySnapshot()
+        )
+    }
+    var monthlyBudgets by remember {
+        mutableStateOf<
+            List<MonthlyBudget>
+        >(emptyList())
+    }
+    var debtAccounts by remember {
+        mutableStateOf<
+            List<DebtAccountSnapshot>
+        >(emptyList())
+    }
+    var trackedAccounts by remember {
+        mutableStateOf<
+            List<MoneyAccount>
+        >(emptyList())
+    }
+    var confirmedAccountIds by remember {
+        mutableStateOf<Set<String>>(
+            emptySet()
+        )
+    }
+    var salaryRule by remember {
+        mutableStateOf<SmartRule?>(
+            null
+        )
+    }
 
-    val confirmedAccountIds =
-        financialStore
-            .confirmedAccountIds()
+    suspend fun loadHomeState(
+        rebuildCycles: Boolean
+    ): HomeLoadedState =
+        withContext(Dispatchers.IO) {
+            if (rebuildCycles) {
+                cycleStore.rebuild()
+            }
+            HomeLoadedState(
+                cycleSnapshot =
+                    cycleStore.snapshot(),
+                ledgerSnapshot =
+                    transactionStore.snapshot(),
+                activitySnapshot =
+                    transactionStore
+                        .activitySnapshot(),
+                monthlyBudgets =
+                    budgetStore.list(),
+                debtAccounts =
+                    debtStore.accounts(),
+                trackedAccounts =
+                    accountStore.listAccounts(
+                        enabledOnly = true
+                    ),
+                confirmedAccountIds =
+                    financialStore
+                        .confirmedAccountIds(),
+                salaryRule =
+                    ruleStore
+                        .listRules(
+                            enabledOnly = true
+                        )
+                        .firstOrNull {
+                            it.startsPayCycle
+                        }
+            )
+        }
+
+    fun refresh(
+        rebuildCycles: Boolean = false
+    ) {
+        homeScope.launch {
+            try {
+                val loaded =
+                    loadHomeState(
+                        rebuildCycles =
+                            rebuildCycles
+                    )
+                cycleSnapshot =
+                    loaded.cycleSnapshot
+                ledgerSnapshot =
+                    loaded.ledgerSnapshot
+                activitySnapshot =
+                    loaded.activitySnapshot
+                monthlyBudgets =
+                    loaded.monthlyBudgets
+                debtAccounts =
+                    loaded.debtAccounts
+                trackedAccounts =
+                    loaded.trackedAccounts
+                confirmedAccountIds =
+                    loaded.confirmedAccountIds
+                salaryRule =
+                    loaded.salaryRule
+                homeLoaded = true
+            } finally {
+                homeLoading = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        refresh(
+            rebuildCycles = true
+        )
+    }
+
+    LaunchedEffect(
+        ledgerUpdateState.revision
+    ) {
+        if (
+            homeLoaded &&
+            ledgerUpdateState.revision > 0L
+        ) {
+            refresh()
+        }
+    }
+
     val visibleAccountGroups =
         AccountDisplayPolicy.groups(
             trackedAccounts
@@ -184,38 +352,13 @@ fun HomeScreen(
             }
             .sortedWith(
                 compareByDescending<
-                    com.kedevjimmy.pesatrack
-                        .data.local
-                        .DebtAccountSnapshot
+                    DebtAccountSnapshot
                 > {
                     it.outstandingMinor
                 }.thenBy {
                     it.name.lowercase()
                 }
             )
-
-    fun refresh() {
-        cycleSnapshot = cycleStore.snapshot()
-        ledgerSnapshot = transactionStore.snapshot()
-        activitySnapshot = transactionStore.activitySnapshot()
-        monthlyBudgets = budgetStore.list()
-        debtAccounts = debtStore.accounts()
-        trackedAccounts =
-            accountStore.listAccounts(
-                enabledOnly = true
-            )
-    }
-
-    LaunchedEffect(ledgerUpdateState.revision) {
-        if (ledgerUpdateState.revision > 0L) {
-            refresh()
-        }
-    }
-
-    val salaryRule = remember(ledgerUpdateState.revision) {
-        ruleStore.listRules(enabledOnly = true)
-            .firstOrNull { it.startsPayCycle }
-    }
     val expectedSalaryPrompt = remember(
         cycleSnapshot,
         salaryRule,
@@ -227,6 +370,88 @@ fun HomeScreen(
             nowEpochMs = System.currentTimeMillis(),
             deferredUntilEpochMs = salaryPromptDeferredUntil
         )
+    }
+
+    if (homeLoading) {
+        LazyColumn(
+            modifier = Modifier
+                .padding(scaffoldPadding)
+                .background(
+                    MaterialTheme.colorScheme
+                        .background
+                ),
+            contentPadding =
+                PaddingValues(
+                    horizontal = 16.dp,
+                    vertical = 14.dp
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                PesaTrackTopBar(
+                    onProfileClick =
+                        onProfileClick,
+                    showProfile = false
+                )
+            }
+            item {
+                GreetingBlock(
+                    onProfileClick =
+                        onProfileClick
+                )
+            }
+            item {
+                PesaCard {
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                        verticalAlignment =
+                            Alignment
+                                .CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier =
+                                Modifier.size(
+                                    26.dp
+                                ),
+                            strokeWidth = 2.dp
+                        )
+                        Column(
+                            modifier =
+                                Modifier.padding(
+                                    start = 14.dp
+                                )
+                        ) {
+                            Text(
+                                "Preparing your money picture",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium,
+                                fontWeight =
+                                    FontWeight
+                                        .SemiBold
+                            )
+                            Text(
+                                "Loading your accounts, pay cycle and balances without blocking the app.",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        return
     }
 
     val spendSlices = remember(activitySnapshot) {
