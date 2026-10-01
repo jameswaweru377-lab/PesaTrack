@@ -2208,13 +2208,13 @@ private fun homeInsight(
     cycleSnapshot.paydaySnapshot
         ?.unknownLiquidAccountCount
         ?.let { it > 0 } == true ->
-        cycleSnapshot.paydaySnapshot!!
-            .unknownLiquidAccountCount
+        (cycleSnapshot.paydaySnapshot
+            ?.unknownLiquidAccountCount ?: 0)
             .toString() +
             " spendable account balance" +
             if (
-                cycleSnapshot.paydaySnapshot!!
-                    .unknownLiquidAccountCount ==
+                (cycleSnapshot.paydaySnapshot
+                    ?.unknownLiquidAccountCount ?: 0) ==
                 1
             ) {
                 " was"
