@@ -20,7 +20,7 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.CreditCard
-import androidx.compose.material.icons.rounded.FactCheck
+import androidx.compose.material.icons.automirrored.rounded.FactCheck
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Savings
@@ -875,7 +875,7 @@ fun HomeScreen(
             ) {
                 QuickAction(
                     label = "Review",
-                    icon = Icons.Rounded.FactCheck,
+                    icon = Icons.AutoMirrored.Rounded.FactCheck,
                     tone = "amber",
                     onClick = onReviewClick
                 )
