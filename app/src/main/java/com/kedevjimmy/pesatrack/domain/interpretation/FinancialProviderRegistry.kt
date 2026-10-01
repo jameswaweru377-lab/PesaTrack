@@ -190,6 +190,112 @@ object FinancialProviderRegistry {
         return resolveAccount(rawLabel)
     }
 
+    /**
+     * Resolve a debt/liability label using the words that are actually
+     * present in the message rather than assuming the SMS sender is the
+     * lender. This matters for embedded products such as a loan whose
+     * notifications arrive in a wallet provider's message thread.
+     */
+    fun resolveLiabilityInContext(
+        rawLabel: String,
+        title: String?,
+        body: String
+    ): FinancialAccountReference {
+        val direct = resolveAccount(rawLabel)
+        if (
+            direct.nature ==
+                FinancialAccountNature.LIABILITY &&
+            direct.providerKey != null
+        ) {
+            return direct
+        }
+
+        knownLiabilityInContext(
+            rawLabel = rawLabel,
+            title = title,
+            body = body
+        )?.let {
+            return it
+        }
+
+        return direct.copy(
+            ownershipHint =
+                AccountOwnershipHint.USER_OWNED,
+            nature =
+                FinancialAccountNature.LIABILITY
+        )
+    }
+
+    fun knownLiabilityInContext(
+        rawLabel: String,
+        title: String?,
+        body: String
+    ): FinancialAccountReference? {
+        val normalizedLabel =
+            normalize(
+                cleanAccountLabel(rawLabel)
+            )
+        val normalizedTitle =
+            normalize(title.orEmpty())
+        val context =
+            normalize(
+                title.orEmpty() +
+                    " " +
+                    body
+            )
+
+        val liabilityProviders =
+            known.filter {
+                it.nature ==
+                    FinancialAccountNature.LIABILITY
+            }
+
+        val explicit =
+            liabilityProviders
+                .sortedByDescending { provider ->
+                    provider.aliases
+                        .maxOfOrNull {
+                            it.length
+                        } ?: 0
+                }
+                .firstOrNull { provider ->
+                    provider.aliases.any { alias ->
+                        containsNormalizedPhrase(
+                            context,
+                            alias
+                        )
+                    }
+                }
+
+        if (explicit != null) {
+            return referenceForProviderKey(
+                explicit.providerKey
+            )
+        }
+
+        val familyMatch =
+            liabilityProviders
+                .firstOrNull { provider ->
+                    provider.aliases.any { alias ->
+                        val family =
+                            debtFamilyAlias(alias)
+                        family.isNotBlank() &&
+                            (
+                                normalizedLabel ==
+                                    family ||
+                                    normalizedTitle ==
+                                        family
+                                )
+                    }
+                }
+
+        return familyMatch?.let {
+            referenceForProviderKey(
+                it.providerKey
+            )
+        }
+    }
+
     fun resolveObservedAccount(
         title: String?,
         balances: List<BalanceObservationFact>
@@ -533,6 +639,22 @@ object FinancialProviderRegistry {
                 FinancialAccountNature.LIABILITY
             else -> FinancialAccountNature.UNKNOWN
         }
+
+    private fun containsNormalizedPhrase(
+        context: String,
+        phrase: String
+    ): Boolean =
+        context == phrase ||
+            context.startsWith("$phrase ") ||
+            context.endsWith(" $phrase") ||
+            " $phrase " in context
+
+    private fun debtFamilyAlias(
+        alias: String
+    ): String =
+        alias.removeSuffix(" LOAN")
+            .removeSuffix(" OVERDRAFT")
+            .trim()
 
     private fun normalize(value: String): String =
         value.uppercase()
