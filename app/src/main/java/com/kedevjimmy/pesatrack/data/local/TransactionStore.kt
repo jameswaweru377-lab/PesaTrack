@@ -2385,7 +2385,9 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
-    fun reconcileOwnAccountTransfers(): Int {
+    fun reconcileOwnAccountTransfers(
+        rebuildPayCycles: Boolean = true
+    ): Int {
         val accounts = AccountStore.get(appContext).listAccounts()
         val db = database.writableDatabase
         var changed = 0
@@ -2428,7 +2430,10 @@ class TransactionStore private constructor(context: Context) {
             )
         }
 
-        if (changed > 0) {
+        if (
+            changed > 0 &&
+            rebuildPayCycles
+        ) {
             PayCycleStore.get(appContext).rebuild()
         }
         return changed
