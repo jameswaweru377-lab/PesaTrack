@@ -187,7 +187,7 @@ fun TransactionDetailScreen(
             ?.let(store::getById)
 
     if (current != null && pendingCategoryId != null) {
-        val categoryId = pendingCategoryId
+        val categoryId = pendingCategoryId!!
         val category = runCatching {
             TransactionCategory.valueOf(categoryId)
         }.getOrNull()
