@@ -1,0 +1,16 @@
+{
+  "id": "ke.kcb.account.salary-credit",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["KCB"],
+  "requiredAnchors": ["credited with KES", "Salary Payment"],
+  "anyAnchors": ["KCB Channel:"],
+  "eventKind": "RECEIPT",
+  "productIdentity": "KENYAN_BANK_KCB",
+  "active": true,
+  "extractors": [
+    {"field":"AMOUNT","pattern":"credited with KES[ ]+([0-9,]+(?:[.][0-9]{1,2})?)[- ]*Salary","group":1,"required":true},
+    {"field":"REFERENCE","pattern":"KCB Channel:[ ]*([^.]*)[.]","group":1},
+    {"field":"DATE","pattern":"Date:[ ]*([^.]*)[.]","group":1}
+  ]
+}
