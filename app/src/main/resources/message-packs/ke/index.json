@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "country": "KE",
+  "templates": [
+    "mpesa/wallet/send-money/template.json",
+    "mpesa/wallet/receive-money/template.json",
+    "mpesa/wallet/paybill/template.json",
+    "mshwari/savings/to-mpesa/template.json",
+    "mshwari/savings/from-mpesa/template.json",
+    "mshwari/lock-savings/deposit/template.json",
+    "mshwari/loan/approved-to-mpesa/template.json",
+    "mshwari/loan/balance/template.json",
+    "fuliza/loan/drawdown/template.json",
+    "fuliza/loan/partial-repayment/template.json",
+    "fuliza/loan/full-repayment/template.json"
+  ]
+}
