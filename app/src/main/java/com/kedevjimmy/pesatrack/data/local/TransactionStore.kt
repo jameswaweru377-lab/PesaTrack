@@ -642,7 +642,8 @@ class TransactionStore private constructor(context: Context) {
         amountMinor: Long,
         occurredAtEpochMs: Long,
         label: String,
-        matchedRule: SmartRule
+        matchedRule: SmartRule,
+        rebuildPayCycles: Boolean = true
     ): Boolean {
         require(amountMinor > 0L) { "Income amount must be greater than zero." }
 
@@ -665,7 +666,9 @@ class TransactionStore private constructor(context: Context) {
             sourceKind = "manual_setup",
             receivedAtEpochMs = System.currentTimeMillis(),
             occurredAtEpochMs = occurredAtEpochMs,
-            matchedRule = matchedRule
+            matchedRule = matchedRule,
+            rebuildPayCycles =
+                rebuildPayCycles
         )
     }
 
@@ -1213,7 +1216,10 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
-    fun reapplyRule(rule: SmartRule): Int {
+    fun reapplyRule(
+        rule: SmartRule,
+        rebuildPayCycles: Boolean = true
+    ): Int {
         val db = database.writableDatabase
         var changed = 0
 
@@ -1242,7 +1248,10 @@ class TransactionStore private constructor(context: Context) {
             )
         }
 
-        if (changed > 0) {
+        if (
+            changed > 0 &&
+            rebuildPayCycles
+        ) {
             PayCycleStore.get(appContext).rebuild()
         }
         return changed
