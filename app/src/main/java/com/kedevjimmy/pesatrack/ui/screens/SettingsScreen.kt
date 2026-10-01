@@ -92,7 +92,7 @@ fun SettingsScreen(
                             .weight(1f)
                             .padding(start = 12.dp)
                     ) {
-                        Text("James Waweru", style = MaterialTheme.typography.titleLarge)
+                        Text("PesaTrack user", style = MaterialTheme.typography.titleLarge)
                         Text(
                             "Personal finance profile",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -216,12 +216,18 @@ private fun SettingsRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    onClick: () -> Unit = {}
+    onClick: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -246,10 +252,12 @@ private fun SettingsRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Icon(
-            Icons.Rounded.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (onClick != null) {
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
