@@ -18,6 +18,8 @@ object BundledKenyaMessagePackLoader {
         classLoader: ClassLoader =
             BundledKenyaMessagePackLoader::class.java
                 .classLoader
+                ?: ClassLoader
+                    .getSystemClassLoader()
     ): MessagePackLoadResult {
         val errors = mutableListOf<String>()
         val index =
