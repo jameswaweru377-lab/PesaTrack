@@ -13,7 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material3.Icon
@@ -422,7 +422,7 @@ private fun DetailPageHeader(
             onClick = onBack
         ) {
             Icon(
-                Icons.Rounded.ArrowBack,
+                Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = "Back"
             )
         }
