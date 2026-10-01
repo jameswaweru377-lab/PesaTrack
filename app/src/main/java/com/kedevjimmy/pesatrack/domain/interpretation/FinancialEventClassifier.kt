@@ -2,10 +2,14 @@ package com.kedevjimmy.pesatrack.domain.interpretation
 
 object FinancialEventClassifier {
     fun classify(
-        resolved: ResolvedFinancialMessage
+        resolved: ResolvedFinancialMessage,
+        suppressMovementEvents: Boolean = false
     ): FinancialMessageInterpretation {
         val relationship = resolved.relationship
-        val events = when (relationship) {
+        val events =
+            if (suppressMovementEvents) {
+                emptyList()
+            } else when (relationship) {
             is ResolvedTransferRelationship ->
                 listOf(
                     TransferEventFact(
