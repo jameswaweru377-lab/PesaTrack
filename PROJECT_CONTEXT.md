@@ -2390,3 +2390,48 @@ Use a controlled history window and verify:
 Permanent rule remains:
 
 **financial language establishes investment execution; exact evidence may establish settlement automatically; ambiguous settlement requires an explicit user decision.**
+
+
+## Repository audit and cleanup — 2026-10-01
+
+A repository-wide handoff audit was performed from current `main` after PR #104.
+
+### Verified state
+
+- Current main head at audit start: `3e39179c67666ee992e19bbc3490706750a83cd0`.
+- Android CI run `36877863453` passed on that head.
+- Worker contract validation passed.
+- Android unit tests and debug APK assembly passed.
+- The repository contains 163 tracked files: 95 production Kotlin files, 48 Kotlin unit-test files, 4 Android resource files, 2 GitHub workflows, project documentation/build files and the entity-enrichment Worker.
+- Home, Activity, Plan, accounts, debts, budgets and transaction details are connected to the local source of truth.
+- Goals and Goal Details remain intentional preview UI. Do not connect them by treating unspent cash as saved money.
+- The online entity-enrichment boundary still rejects sensitive descriptors and no audit evidence showed raw SMS logging or raw SMS upload to the Worker.
+
+### Cleanup applied on audit branch
+
+Branch: `audit/repository-cleanup-2026-10-01`.
+
+The cleanup intentionally avoids changing financial semantics. It:
+
+- upgrades deprecated GitHub Actions runtime dependencies used by Android CI and Worker deployment;
+- removes the nullable deque-access warning in the notification listener;
+- makes mixed SQLite bind-argument arrays explicit for Kotlin 2.6 compatibility;
+- removes unnecessary non-null assertions in Home, transaction details, onboarding, review grouping and debt-balance update code;
+- preserves the legacy `LUNCH` migration value without directly referencing the deprecated enum entry;
+- migrates directional Compose icons to AutoMirrored variants and moves `LocalLifecycleOwner` to lifecycle-runtime-compose 2.9.4, retaining compileSdk 36 compatibility;
+- moves the data-heavy Activity, Plan, Accounts/Debts and Budget read/rebuild paths off the Compose main thread, and moves Activity review/reconciliation writes to `Dispatchers.IO`;
+- adds workflow concurrency so superseded Android CI and Worker deployment runs can be cancelled instead of consuming CI capacity in parallel;
+- refreshes the repository README so it describes the actual SQLite/Financial Intelligence V2 architecture instead of the old bootstrap state.
+
+### Audit findings intentionally not converted into automatic fixes
+
+- Several large files remain candidates for later refactoring: `SmartOnboardingSetupScreen.kt`, `ActivityScreen.kt`, `TransactionStore.kt`, `DebtStore.kt`, `HomeScreen.kt` and `FinancialMessageIngestionCoordinator.kt`. Their size is a maintainability concern, but splitting them during a cleanup-only pass would create unnecessary regression risk.
+- Goals/Goal Details still contain preview amounts/dates by design.
+- Profile is still a presentation-only surface, but the repository cleanup removed the hard-coded personal name and disables the unfinished Edit Profile action instead of exposing a dead button.
+- Settings rows without destinations are now rendered as informational rows without click affordances; only wired destinations show chevrons/click behavior. Privacy copy now accurately states that core records stay local while optional enrichment uses sanitized business descriptors.
+- Compose AutoMirrored icon deprecations were cleaned up, and `LocalLifecycleOwner` now uses the lifecycle-runtime-compose API. Any remaining compiler warnings after CI should be treated as focused compatibility cleanup rather than mixed into financial-semantics changes.
+- There are 48 JVM unit-test files but currently no `app/src/androidTest` instrumentation tests. Real-device validation remains important for permission flows, notification capture, onboarding/back navigation, database migrations, responsive Compose behavior and lifecycle behavior.
+- The entity-enrichment Worker intentionally exposes a public `/v1/entity/resolve` route. The provider secret remains server-side and the descriptor privacy filter is intact, but the endpoint can still be abused for quota/cost consumption. Before broad distribution, add a Cloudflare rate-limiting binding or equivalent edge rate limit; do not put a shared secret in the APK.
+- The Android activity is still portrait-locked. Treat any orientation/tablet policy change as a focused responsive-UI task rather than silently changing it during cleanup.
+
+Permanent audit rule: prefer small evidence-backed corrections over broad refactors when changing ingestion, accounting, relationship reconciliation or payday logic.

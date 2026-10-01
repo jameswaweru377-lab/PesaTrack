@@ -472,7 +472,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 updated_at_epoch_ms = ?
             WHERE id = ?
             """.trimIndent(),
-            arrayOf(
+            arrayOf<Any>(
                 canonicalName,
                 System.currentTimeMillis(),
                 targetId
@@ -592,7 +592,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                         updated_at_epoch_ms = ?
                     WHERE id = ?
                     """.trimIndent(),
-                    arrayOf(
+                    arrayOf<Any>(
                         System.currentTimeMillis(),
                         legacyId
                     )

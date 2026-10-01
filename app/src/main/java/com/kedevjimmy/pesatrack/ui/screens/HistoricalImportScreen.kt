@@ -19,12 +19,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Message
+import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -121,7 +121,7 @@ fun HistoricalImportScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Column {
                     Text("Import M-Pesa history", style = MaterialTheme.typography.headlineMedium)
@@ -140,7 +140,7 @@ fun HistoricalImportScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconBubble(
-                        if (permissionGranted) Icons.Rounded.CheckCircle else Icons.Rounded.Message,
+                        if (permissionGranted) Icons.Rounded.CheckCircle else Icons.AutoMirrored.Rounded.Message,
                         size = 48.dp
                     )
                     Column(

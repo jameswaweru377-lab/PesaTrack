@@ -14,7 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Chair
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -22,7 +22,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Savings
-import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -64,7 +64,7 @@ fun GoalDetailScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Couch", style = MaterialTheme.typography.headlineMedium)
@@ -178,7 +178,7 @@ fun GoalDetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconBubble(
-                        Icons.Rounded.TrendingUp,
+                        Icons.AutoMirrored.Rounded.TrendingUp,
                         tint = pesaToneContent("amber"),
                         background = pesaToneContainer("amber"),
                         size = 48.dp

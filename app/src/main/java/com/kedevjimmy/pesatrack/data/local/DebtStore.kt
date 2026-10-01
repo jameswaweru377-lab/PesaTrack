@@ -2515,11 +2515,10 @@ class DebtStore private constructor(context: Context) {
             }
         }
 
-        if (
-            current.second != null &&
-            occurredAtEpochMs < current.second!!
-        ) {
-            return
+        current.second?.let { lastObservedAt ->
+            if (occurredAtEpochMs < lastObservedAt) {
+                return
+            }
         }
 
         updateBalance(

@@ -19,7 +19,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Paid
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +54,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.max
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun PlanScreen(scaffoldPadding: PaddingValues) {
@@ -61,19 +63,15 @@ fun PlanScreen(scaffoldPadding: PaddingValues) {
     val store = remember { PayCycleStore.get(context) }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
     var snapshot by remember {
-        store.rebuild()
-        mutableStateOf(store.snapshot())
-    }
-
-    fun refresh() {
-        store.rebuild()
-        snapshot = store.snapshot()
+        mutableStateOf(emptyPlanSnapshot())
     }
 
     LaunchedEffect(ledgerUpdateState.revision) {
-        if (ledgerUpdateState.revision > 0L) {
-            refresh()
-        }
+        snapshot =
+            withContext(Dispatchers.IO) {
+                store.rebuild()
+                store.snapshot()
+            }
     }
 
     LazyColumn(
@@ -276,7 +274,7 @@ private fun PlanHero(snapshot: PayCycleSnapshot) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Icons.Rounded.TrendingUp,
+                        Icons.AutoMirrored.Rounded.TrendingUp,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -450,3 +448,20 @@ private fun formatSignedPlanMoney(minor: Long): String =
 
 private fun formatPlanDate(epochMs: Long): String =
     SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(epochMs))
+
+
+private fun emptyPlanSnapshot(): PayCycleSnapshot =
+    PayCycleSnapshot(
+        cycle = null,
+        startingFundsMinor = 0L,
+        additionalIncomeMinor = 0L,
+        spentMinor = 0L,
+        feesMinor = 0L,
+        savingsMinor = 0L,
+        remainingCommitmentsMinor = 0L,
+        availableToLiveMinor = 0L,
+        safeTodayMinor = null,
+        estimatedDaysRemaining = null,
+        commitments = emptyList(),
+        pendingSalary = null
+    )

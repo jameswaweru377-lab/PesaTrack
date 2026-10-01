@@ -21,7 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.FactCheck
+import androidx.compose.material.icons.automirrored.rounded.FactCheck
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.BarChart
@@ -29,20 +29,20 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.CallReceived
+import androidx.compose.material.icons.automirrored.rounded.CallReceived
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.HelpOutline
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalAtm
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Paid
 import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Savings
@@ -86,6 +86,7 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivityMonthBucket
 import com.kedevjimmy.pesatrack.data.local.ActivityReviewOverview
+import com.kedevjimmy.pesatrack.data.local.ActivitySummary
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
@@ -102,6 +103,7 @@ import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.KenyanBankDirectory
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
@@ -130,6 +132,32 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private data class ActivityScreenData(
+    val monthBuckets: List<ActivityMonthBucket>,
+    val snapshot: ActivityLedgerSnapshot,
+    val previousSnapshot: ActivityLedgerSnapshot,
+    val globalOverview: ActivityReviewOverview,
+    val relationshipReviews: List<RelationshipReviewItem>,
+    val pendingFinancialEntities: List<DiscoveredFinancialEntity>,
+    val financialDiagnostics: List<FinancialIngestionDiagnostic>,
+    val accountsById: Map<String, MoneyAccount>,
+    val confirmedAccountIds: Set<String>
+)
+
+private fun emptyActivityLedgerSnapshot(): ActivityLedgerSnapshot =
+    ActivityLedgerSnapshot(
+        transactions = emptyList(),
+        summary =
+            ActivitySummary(
+                incomeMinor = 0L,
+                spentMinor = 0L,
+                feesMinor = 0L,
+                transferMinor = 0L,
+                netMinor = 0L,
+                needsReviewCount = 0
+            )
+    )
 
 @Composable
 fun ActivityScreen(
@@ -161,28 +189,16 @@ fun ActivityScreen(
         monthStart(System.currentTimeMillis())
     }
 
-    fun loadMonthBuckets(): List<ActivityMonthBucket> {
-        val existing = store.activityMonths().toMutableList()
-        if (
-            existing.none {
-                it.monthStartEpochMs == currentMonthEpochMs
-            }
-        ) {
-            existing.add(
-                0,
+    var monthBuckets by remember {
+        mutableStateOf(
+            listOf(
                 ActivityMonthBucket(
-                    monthStartEpochMs = currentMonthEpochMs,
+                    monthStartEpochMs =
+                        currentMonthEpochMs,
                     transactionCount = 0
                 )
             )
-        }
-        return existing.sortedByDescending {
-            it.monthStartEpochMs
-        }
-    }
-
-    var monthBuckets by remember {
-        mutableStateOf(loadMonthBuckets())
+        )
     }
     var selectedMonthEpochMs by rememberSaveable {
         mutableStateOf(currentMonthEpochMs)
@@ -192,31 +208,31 @@ fun ActivityScreen(
     }
     var snapshot by remember {
         mutableStateOf(
-            store.activitySnapshot(
-                nowEpochMs = selectedMonthEpochMs
-            )
+            emptyActivityLedgerSnapshot()
         )
     }
     var previousSnapshot by remember {
         mutableStateOf(
-            store.activitySnapshot(
-                nowEpochMs = shiftMonth(
-                    selectedMonthEpochMs,
-                    -1
-                )
-            )
+            emptyActivityLedgerSnapshot()
         )
     }
     var globalOverview by remember {
-        mutableStateOf(store.activityReviewOverview())
+        mutableStateOf(
+            ActivityReviewOverview(
+                reviewGroups = emptyList(),
+                possibleDuplicates = emptyList()
+            )
+        )
     }
     var relationshipReviews by remember {
-        mutableStateOf(
-            relationshipReviewStore.pendingReviews()
+        mutableStateOf<List<RelationshipReviewItem>>(
+            emptyList()
         )
     }
     var pendingFinancialEntities by remember {
-        mutableStateOf(financialStore.pendingEntities())
+        mutableStateOf<List<DiscoveredFinancialEntity>>(
+            emptyList()
+        )
     }
     var selectedFilter by remember {
         mutableStateOf("All")
@@ -225,12 +241,18 @@ fun ActivityScreen(
         mutableStateOf<String?>(null)
     }
     var financialDiagnostics by remember {
-        mutableStateOf(diagnosticsStore.recent(500))
+        mutableStateOf<List<FinancialIngestionDiagnostic>>(
+            emptyList()
+        )
     }
     var accountsById by remember {
-        mutableStateOf(
-            accountStore.listAccounts(enabledOnly = false)
-                .associateBy { it.id }
+        mutableStateOf<Map<String, MoneyAccount>>(
+            emptyMap()
+        )
+    }
+    var confirmedAccountIds by remember {
+        mutableStateOf<Set<String>>(
+            emptySet()
         )
     }
     var selectedGlobalQueue by rememberSaveable {
@@ -243,6 +265,93 @@ fun ActivityScreen(
         mutableStateOf<DiscoveredFinancialEntity?>(
             null
         )
+    }
+
+    suspend fun loadActivityData(
+        monthEpochMs: Long
+    ): ActivityScreenData =
+        withContext(Dispatchers.IO) {
+            val existing =
+                store.activityMonths()
+                    .toMutableList()
+            if (
+                existing.none {
+                    it.monthStartEpochMs ==
+                        currentMonthEpochMs
+                }
+            ) {
+                existing.add(
+                    0,
+                    ActivityMonthBucket(
+                        monthStartEpochMs =
+                            currentMonthEpochMs,
+                        transactionCount = 0
+                    )
+                )
+            }
+
+            ActivityScreenData(
+                monthBuckets =
+                    existing.sortedByDescending {
+                        it.monthStartEpochMs
+                    },
+                snapshot =
+                    store.activitySnapshot(
+                        nowEpochMs =
+                            monthEpochMs
+                    ),
+                previousSnapshot =
+                    store.activitySnapshot(
+                        nowEpochMs =
+                            shiftMonth(
+                                monthEpochMs,
+                                -1
+                            )
+                    ),
+                globalOverview =
+                    store.activityReviewOverview(),
+                relationshipReviews =
+                    relationshipReviewStore
+                        .pendingReviews(),
+                pendingFinancialEntities =
+                    financialStore
+                        .pendingEntities(),
+                financialDiagnostics =
+                    diagnosticsStore
+                        .recent(500),
+                accountsById =
+                    accountStore
+                        .listAccounts(
+                            enabledOnly = false
+                        )
+                        .associateBy {
+                            it.id
+                        },
+                confirmedAccountIds =
+                    financialStore
+                        .confirmedAccountIds()
+            )
+        }
+
+    fun applyActivityData(
+        data: ActivityScreenData
+    ) {
+        monthBuckets = data.monthBuckets
+        snapshot = data.snapshot
+        previousSnapshot =
+            data.previousSnapshot
+        globalOverview =
+            data.globalOverview
+        relationshipReviews =
+            data.relationshipReviews
+        pendingFinancialEntities =
+            data.pendingFinancialEntities
+        financialDiagnostics =
+            data.financialDiagnostics
+        accountsById =
+            data.accountsById
+        confirmedAccountIds =
+            data.confirmedAccountIds
     }
 
     val reviewableFinancialEntities =
@@ -261,50 +370,49 @@ fun ActivityScreen(
         }
 
     fun selectMonth(epochMs: Long) {
-        val normalizedMonth = monthStart(epochMs)
-        selectedMonthEpochMs = normalizedMonth
-        expandedMonthEpochMs = normalizedMonth
+        val normalizedMonth =
+            monthStart(epochMs)
+        selectedMonthEpochMs =
+            normalizedMonth
+        expandedMonthEpochMs =
+            normalizedMonth
         selectedFilter = "All"
         selectedFinancialSource = null
         selectedGlobalQueue = null
-        snapshot = store.activitySnapshot(
-            nowEpochMs = normalizedMonth
-        )
-        previousSnapshot = store.activitySnapshot(
-            nowEpochMs = shiftMonth(
-                normalizedMonth,
-                -1
-            )
-        )
     }
 
     fun refresh() {
-        monthBuckets = loadMonthBuckets()
-        snapshot = store.activitySnapshot(
-            nowEpochMs = selectedMonthEpochMs
-        )
-        previousSnapshot = store.activitySnapshot(
-            nowEpochMs = shiftMonth(
-                selectedMonthEpochMs,
-                -1
-            )
-        )
-        globalOverview = store.activityReviewOverview()
-        relationshipReviews =
-            relationshipReviewStore.pendingReviews()
-        pendingFinancialEntities =
-            financialStore.pendingEntities()
-        financialDiagnostics =
-            diagnosticsStore.recent(500)
-        accountsById =
-            accountStore.listAccounts(
-                enabledOnly = false
-            ).associateBy { it.id }
+        val requestedMonth =
+            selectedMonthEpochMs
+        activityScope.launch {
+            val data =
+                loadActivityData(
+                    requestedMonth
+                )
+            if (
+                selectedMonthEpochMs ==
+                requestedMonth
+            ) {
+                applyActivityData(data)
+            }
+        }
     }
 
-    LaunchedEffect(ledgerUpdateState.revision) {
-        if (ledgerUpdateState.revision > 0L) {
-            refresh()
+    LaunchedEffect(
+        ledgerUpdateState.revision,
+        selectedMonthEpochMs
+    ) {
+        val requestedMonth =
+            selectedMonthEpochMs
+        val data =
+            loadActivityData(
+                requestedMonth
+            )
+        if (
+            selectedMonthEpochMs ==
+            requestedMonth
+        ) {
+            applyActivityData(data)
         }
     }
 
@@ -319,9 +427,6 @@ fun ActivityScreen(
                 diagnostic.receivedAtEpochMs <
                     nextMonthEpochMs
         }
-    val confirmedAccountIds =
-        financialStore
-            .confirmedAccountIds()
     val ownedAccountGroups =
         AccountDisplayPolicy.groups(
             accountsById.values.toList()
@@ -627,18 +732,30 @@ fun ActivityScreen(
                             PossibleDuplicateRow(
                                 group = group,
                                 onSameTransaction = {
-                                    store.resolvePossibleDuplicate(
-                                        pairKey = group.key,
-                                        sameTransaction = true
-                                    )
-                                    refresh()
+                                    activityScope.launch {
+                                        withContext(
+                                            Dispatchers.IO
+                                        ) {
+                                            store.resolvePossibleDuplicate(
+                                                pairKey = group.key,
+                                                sameTransaction = true
+                                            )
+                                        }
+                                        refresh()
+                                    }
                                 },
                                 onKeepBoth = {
-                                    store.resolvePossibleDuplicate(
-                                        pairKey = group.key,
-                                        sameTransaction = false
-                                    )
-                                    refresh()
+                                    activityScope.launch {
+                                        withContext(
+                                            Dispatchers.IO
+                                        ) {
+                                            store.resolvePossibleDuplicate(
+                                                pairKey = group.key,
+                                                sameTransaction = false
+                                            )
+                                        }
+                                        refresh()
+                                    }
                                 }
                             )
                         }
@@ -674,7 +791,11 @@ fun ActivityScreen(
                             RelationshipReviewRow(
                                 item = review,
                                 onLink = { candidate ->
-                                    when (review.kind) {
+                                    activityScope.launch {
+                                        withContext(
+                                            Dispatchers.IO
+                                        ) {
+                                            when (review.kind) {
                                         RelationshipReviewKind
                                             .REPAYMENT_FUNDING -> {
                                             val eventId =
@@ -744,11 +865,17 @@ fun ActivityScreen(
                                                     )
                                             }
                                         }
+                                            }
+                                        }
+                                        refresh()
                                     }
-                                    refresh()
                                 },
                                 onKeepUnlinked = {
-                                    when (review.kind) {
+                                    activityScope.launch {
+                                        withContext(
+                                            Dispatchers.IO
+                                        ) {
+                                            when (review.kind) {
                                         RelationshipReviewKind
                                             .REPAYMENT_FUNDING ->
                                             review.debtEventId
@@ -789,8 +916,10 @@ fun ActivityScreen(
                                                             null
                                                         )
                                                 }
+                                            }
+                                        }
+                                        refresh()
                                     }
-                                    refresh()
                                 }
                             )
                         }
@@ -1108,15 +1237,23 @@ fun ActivityScreen(
                 }
             },
             onNotMine = {
-                financialStore.markEntityExternal(
-                    entity.entityKey
-                )
-                financialCoordinator
-                    .reconcileExternalEntity(
-                        entity.entityKey
-                    )
-                accountReviewEntity = null
-                refresh()
+                activityScope.launch {
+                    withContext(
+                        Dispatchers.IO
+                    ) {
+                        financialStore
+                            .markEntityExternal(
+                                entity.entityKey
+                            )
+                        financialCoordinator
+                            .reconcileExternalEntity(
+                                entity.entityKey
+                            )
+                    }
+                    accountReviewEntity =
+                        null
+                    refresh()
+                }
             }
         )
     }
@@ -1618,7 +1755,7 @@ private fun GlobalReviewNavigationBar(
         ActivityQueueButton(
             label = "Review",
             count = overview.reviewGroups.size,
-            icon = Icons.Rounded.FactCheck,
+            icon = Icons.AutoMirrored.Rounded.FactCheck,
             selected = selectedQueue == "Review",
             tone = "green",
             modifier = Modifier.weight(1f),
@@ -1791,7 +1928,7 @@ private fun EmptyGlobalReviewState() {
                 Alignment.CenterHorizontally
         ) {
             IconBubble(
-                Icons.Rounded.HelpOutline,
+                Icons.AutoMirrored.Rounded.HelpOutline,
                 size = 52.dp,
                 background =
                     pesaToneContainer("green"),
@@ -2344,7 +2481,7 @@ private fun ResponsiveActivityMetrics(
                         "Income",
                         formatMoney(summary.incomeMinor),
                         "$monthLabel",
-                        Icons.Rounded.CallReceived,
+                        Icons.AutoMirrored.Rounded.CallReceived,
                         "green",
                         Modifier.weight(1f)
                     )
@@ -2354,7 +2491,7 @@ private fun ResponsiveActivityMetrics(
                         "Fees",
                         formatMoney(summary.feesMinor),
                         "M-Pesa + Fuliza",
-                        Icons.Rounded.ReceiptLong,
+                        Icons.AutoMirrored.Rounded.ReceiptLong,
                         "amber",
                         Modifier.weight(1f)
                     )
@@ -2371,8 +2508,8 @@ private fun ResponsiveActivityMetrics(
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 ActivityMetric("Spent", formatMoney(summary.spentMinor), "$monthLabel", Icons.Rounded.Paid, "red", Modifier.weight(1f))
-                ActivityMetric("Income", formatMoney(summary.incomeMinor), "$monthLabel", Icons.Rounded.CallReceived, "green", Modifier.weight(1f))
-                ActivityMetric("Fees", formatMoney(summary.feesMinor), "M-Pesa fees", Icons.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
+                ActivityMetric("Income", formatMoney(summary.incomeMinor), "$monthLabel", Icons.AutoMirrored.Rounded.CallReceived, "green", Modifier.weight(1f))
+                ActivityMetric("Fees", formatMoney(summary.feesMinor), "M-Pesa fees", Icons.AutoMirrored.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
                 ActivityMetric("Net", formatSignedMoney(summary.netMinor), "Cash flow", Icons.Rounded.AccountBalance, "blue", Modifier.weight(1f))
             }
         }
@@ -2428,7 +2565,7 @@ private fun EmptyActivityState(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             IconBubble(
-                if (selectedFilter == "Review") Icons.Rounded.HelpOutline else Icons.Rounded.ReceiptLong,
+                if (selectedFilter == "Review") Icons.AutoMirrored.Rounded.HelpOutline else Icons.AutoMirrored.Rounded.ReceiptLong,
                 size = 52.dp,
                 background = pesaToneContainer(if (selectedFilter == "Review") "amber" else "green"),
                 tint = pesaToneContent(if (selectedFilter == "Review") "amber" else "green")
@@ -2959,7 +3096,7 @@ private fun ReviewQueueCallout(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconBubble(
-                Icons.Rounded.HelpOutline,
+                Icons.AutoMirrored.Rounded.HelpOutline,
                 size = 42.dp,
                 background = MaterialTheme.colorScheme.surface.copy(alpha = .7f),
                 tint = pesaToneContent("amber")
@@ -3010,7 +3147,7 @@ private fun ReviewGroupRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconBubble(
-                Icons.Rounded.HelpOutline,
+                Icons.AutoMirrored.Rounded.HelpOutline,
                 size = 42.dp,
                 background = pesaToneContainer("amber"),
                 tint = pesaToneContent("amber")
@@ -3542,7 +3679,7 @@ private fun CapturedFinancialMessageRow(
                                 "loan",
                                 ignoreCase = true
                             ) ->
-                            Icons.Rounded.ReceiptLong
+                            Icons.AutoMirrored.Rounded.ReceiptLong
                         currentEventLabel
                             .contains(
                                 "transfer",
@@ -3554,7 +3691,7 @@ private fun CapturedFinancialMessageRow(
                                 "received",
                                 ignoreCase = true
                             ) ->
-                            Icons.Rounded.CallReceived
+                            Icons.AutoMirrored.Rounded.CallReceived
                         else ->
                             Icons.Rounded.AccountBalance
                     },
@@ -3980,7 +4117,7 @@ private fun iconFor(
     TransactionCategory.GROCERIES.name ->
         Icons.Rounded.ShoppingCart
     TransactionCategory.EATING_OUT.name,
-    TransactionCategory.LUNCH.name ->
+    "LUNCH" ->
         Icons.Rounded.Restaurant
     TransactionCategory.ELECTRICITY.name ->
         Icons.Rounded.Bolt
@@ -3997,11 +4134,11 @@ private fun iconFor(
     TransactionCategory.FEES.name,
     TransactionCategory.DEBT_LOAN.name,
     TransactionCategory.EDUCATION.name ->
-        Icons.Rounded.ReceiptLong
+        Icons.AutoMirrored.Rounded.ReceiptLong
     TransactionCategory.PHONE_AND_DATA.name ->
         Icons.Rounded.PhoneAndroid
     TransactionCategory.INCOME.name ->
-        Icons.Rounded.CallReceived
+        Icons.AutoMirrored.Rounded.CallReceived
     TransactionCategory.TRANSFER.name ->
         Icons.Rounded.SyncAlt
     TransactionCategory.CASH.name ->
@@ -4020,7 +4157,7 @@ private fun iconFor(
         if (type == MpesaTransactionType.REVERSAL.name) {
             Icons.Rounded.SyncAlt
         } else {
-            Icons.Rounded.HelpOutline
+            Icons.AutoMirrored.Rounded.HelpOutline
         }
     else -> Icons.Rounded.MoreHoriz
 }

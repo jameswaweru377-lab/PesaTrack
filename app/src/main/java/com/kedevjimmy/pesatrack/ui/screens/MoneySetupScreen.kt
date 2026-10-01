@@ -15,11 +15,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Payments
-import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -304,7 +304,7 @@ fun MoneySetupScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (onBack != null) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                     }
                 }
                 Column(Modifier.weight(1f)) {
@@ -905,7 +905,7 @@ private fun RuleRow(
                 when (rule.direction) {
                     MoneyDirection.INCOME -> Icons.Rounded.Payments
                     MoneyDirection.TRANSFER -> Icons.Rounded.SwapHoriz
-                    else -> Icons.Rounded.ReceiptLong
+                    else -> Icons.AutoMirrored.Rounded.ReceiptLong
                 },
                 size = 42.dp
             )
@@ -1042,12 +1042,15 @@ private fun TransactionCategory.prettyName(): String =
         TransactionCategory.DEBT_LOAN -> "Debt repayment"
         TransactionCategory.FAMILY -> "Family support"
         TransactionCategory.INVESTMENT -> "Investments"
-        TransactionCategory.LUNCH,
         TransactionCategory.EATING_OUT -> "Eating out"
         else ->
-            name.lowercase()
-                .replace('_', ' ')
-                .replaceFirstChar { it.uppercase() }
+            if (name == "LUNCH") {
+                "Eating out"
+            } else {
+                name.lowercase()
+                    .replace('_', ' ')
+                    .replaceFirstChar { it.uppercase() }
+            }
     }
 
 private fun accountTypeLabel(type: AccountType): String =

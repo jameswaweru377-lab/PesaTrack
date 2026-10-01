@@ -15,7 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
@@ -64,7 +64,7 @@ fun SettingsScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Text("Settings", style = MaterialTheme.typography.headlineMedium)
             }
@@ -92,7 +92,7 @@ fun SettingsScreen(
                             .weight(1f)
                             .padding(start = 12.dp)
                     ) {
-                        Text("James Waweru", style = MaterialTheme.typography.titleLarge)
+                        Text("PesaTrack user", style = MaterialTheme.typography.titleLarge)
                         Text(
                             "Personal finance profile",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -204,7 +204,7 @@ fun SettingsScreen(
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
                     SettingsRow(Icons.Rounded.Info, "About PesaTrack", "Private, local-first money companion")
-                    SettingsRow(Icons.Rounded.Lock, "Privacy", "Financial data stays on your device")
+                    SettingsRow(Icons.Rounded.Lock, "Privacy", "Core records stay local; enrichment uses sanitized business descriptors")
                 }
             }
         }
@@ -216,12 +216,18 @@ private fun SettingsRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    onClick: () -> Unit = {}
+    onClick: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -246,10 +252,12 @@ private fun SettingsRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Icon(
-            Icons.Rounded.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (onClick != null) {
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

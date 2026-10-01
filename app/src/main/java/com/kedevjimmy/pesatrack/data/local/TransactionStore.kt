@@ -1100,7 +1100,7 @@ class TransactionStore private constructor(context: Context) {
                 ) ?: "transaction:${item.id}"
             }
             .map { (key, items) ->
-                val latest = items.maxByOrNull(StoredTransaction::occurredAtEpochMs)!!
+                val latest = items.maxBy(StoredTransaction::occurredAtEpochMs)
                 ReviewGroup(
                     key = key,
                     label = latest.counterparty

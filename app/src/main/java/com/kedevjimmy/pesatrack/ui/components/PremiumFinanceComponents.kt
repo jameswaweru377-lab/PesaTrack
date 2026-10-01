@@ -20,8 +20,8 @@ import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.TrendingDown
-import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.TrendingDown
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -230,7 +230,7 @@ fun AvailableToLiveHero(
                     DailyHeroMetric(
                         label = "Spent today",
                         amount = spentToday ?: "—",
-                        icon = Icons.Rounded.TrendingDown,
+                        icon = Icons.AutoMirrored.Rounded.TrendingDown,
                         modifier = Modifier.weight(1f)
                     )
                     DailyHeroMetric(
@@ -335,7 +335,7 @@ fun MoneySummaryTile(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconBubble(
-                if (incoming) Icons.Rounded.TrendingUp else Icons.Rounded.TrendingDown,
+                if (incoming) Icons.AutoMirrored.Rounded.TrendingUp else Icons.AutoMirrored.Rounded.TrendingDown,
                 size = 34.dp,
                 background = MaterialTheme.colorScheme.surface.copy(alpha = .68f),
                 tint = pesaToneContent(tone)

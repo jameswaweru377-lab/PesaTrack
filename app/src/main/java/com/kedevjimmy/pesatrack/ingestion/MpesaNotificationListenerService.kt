@@ -158,8 +158,9 @@ class MpesaNotificationListenerService : NotificationListenerService() {
     private fun pruneEvidence(nowEpochMs: Long) {
         val cutoff = nowEpochMs - TransactionEvidenceResolver.MAX_WINDOW_MS
         while (
-            recentEvidence.isNotEmpty() &&
-            recentEvidence.peekFirst().observedAtEpochMs < cutoff
+            recentEvidence.firstOrNull()
+                ?.observedAtEpochMs
+                ?.let { it < cutoff } == true
         ) {
             recentEvidence.removeFirst()
         }

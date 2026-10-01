@@ -35,11 +35,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
-import androidx.compose.material.icons.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Message
+import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Savings
@@ -67,7 +67,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -792,9 +792,9 @@ fun SmartOnboardingSetupScreen(
                 }
                 .mapValues {
                         (_, matches) ->
-                    matches.maxByOrNull {
+                    matches.maxBy {
                         it.amountMinor
-                    }!!
+                    }
                 }
 
         val desired =
@@ -2170,7 +2170,7 @@ private fun ImportChoicePage(
         ) {
             Text("Continue")
             Icon(
-                Icons.Rounded.ArrowForward,
+                Icons.AutoMirrored.Rounded.ArrowForward,
                 contentDescription = null,
                 modifier =
                     Modifier.padding(
@@ -2205,7 +2205,7 @@ private fun SmsPermissionPage(
             Arrangement.spacedBy(16.dp)
     ) {
         SetupHero(
-            icon = Icons.Rounded.Message,
+            icon = Icons.AutoMirrored.Rounded.Message,
             title = "Allow access to your messages",
             body =
                 "Android controls this permission. PesaTrack uses it only to read the history you chose."
@@ -3752,7 +3752,7 @@ private fun LiveCapturePage(
         ) {
             FeatureRow(
                 icon =
-                    Icons.Rounded.Message,
+                    Icons.AutoMirrored.Rounded.Message,
                 title = "New money messages",
                 body =
                     "Processed locally when they arrive"
@@ -4047,7 +4047,7 @@ private fun SetupCompletePage(
             } else {
                 Text("Go to Home")
                 Icon(
-                    Icons.Rounded.ArrowForward,
+                    Icons.AutoMirrored.Rounded.ArrowForward,
                     contentDescription = null,
                     modifier =
                         Modifier.padding(

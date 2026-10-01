@@ -20,7 +20,7 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.CreditCard
-import androidx.compose.material.icons.rounded.FactCheck
+import androidx.compose.material.icons.automirrored.rounded.FactCheck
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Savings
@@ -875,7 +875,7 @@ fun HomeScreen(
             ) {
                 QuickAction(
                     label = "Review",
-                    icon = Icons.Rounded.FactCheck,
+                    icon = Icons.AutoMirrored.Rounded.FactCheck,
                     tone = "amber",
                     onClick = onReviewClick
                 )
@@ -2197,7 +2197,11 @@ private fun parseHomeDate(raw: String): Long? =
 private fun homeInsight(
     cycleSnapshot: PayCycleSnapshot,
     needsReviewCount: Int
-): String = when {
+): String {
+    val paydaySnapshot =
+        cycleSnapshot.paydaySnapshot
+
+    return when {
     needsReviewCount > 0 ->
         "$needsReviewCount transaction" +
             if (needsReviewCount == 1) {
@@ -2205,15 +2209,14 @@ private fun homeInsight(
             } else {
                 "s are waiting for review before they enter trusted totals."
             }
-    cycleSnapshot.paydaySnapshot
-        ?.unknownLiquidAccountCount
-        ?.let { it > 0 } == true ->
-        cycleSnapshot.paydaySnapshot!!
+    paydaySnapshot != null &&
+        paydaySnapshot.unknownLiquidAccountCount > 0 ->
+        paydaySnapshot
             .unknownLiquidAccountCount
             .toString() +
             " spendable account balance" +
             if (
-                cycleSnapshot.paydaySnapshot!!
+                paydaySnapshot
                     .unknownLiquidAccountCount ==
                 1
             ) {
@@ -2232,6 +2235,7 @@ private fun homeInsight(
             " is still protected for commitments this cycle."
     else ->
         "Your tracked commitments for this cycle are covered. Keep reviewing new transactions as they arrive."
+    }
 }
 
 private fun formatMoney(minor: Long): String {

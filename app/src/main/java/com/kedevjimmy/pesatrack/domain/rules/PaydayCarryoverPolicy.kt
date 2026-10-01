@@ -23,13 +23,13 @@ object PaydayCarryoverPolicy {
 
             cycleIndex == 0 &&
                 (payday?.knownLiquidAccountCount ?: 0) > 0 ->
-                payday!!.knownLiquidMinor
+                payday?.knownLiquidMinor ?: 0L
 
             previousTrackedEndingMinor != null ->
                 previousTrackedEndingMinor
 
             (payday?.knownLiquidAccountCount ?: 0) > 0 ->
-                payday!!.knownLiquidMinor
+                payday?.knownLiquidMinor ?: 0L
 
             else -> 0L
         }

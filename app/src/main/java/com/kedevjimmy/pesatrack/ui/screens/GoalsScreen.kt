@@ -26,7 +26,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.SportsEsports
-import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -176,7 +176,7 @@ fun GoalsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconBubble(
-                        Icons.Rounded.TrendingUp,
+                        Icons.AutoMirrored.Rounded.TrendingUp,
                         size = 50.dp,
                         background = pesaToneContainer("amber"),
                         tint = pesaToneContent("amber")

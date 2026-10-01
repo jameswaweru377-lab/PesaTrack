@@ -13,7 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Edit
@@ -51,7 +51,7 @@ fun ProfileScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Text(
                     "Profile",
@@ -77,7 +77,7 @@ fun ProfileScreen(
                     PesaLogoMark(size = 92.dp)
                 }
                 Text(
-                    "James Waweru",
+                    "PesaTrack user",
                     modifier = Modifier.padding(top = 12.dp),
                     style = MaterialTheme.typography.headlineMedium
                 )
@@ -110,7 +110,7 @@ fun ProfileScreen(
             Spacer(Modifier.padding(top = 2.dp))
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    ProfileDetailRow(Icons.Rounded.Person, "Name", "James Waweru")
+                    ProfileDetailRow(Icons.Rounded.Person, "Name", "Not set")
                     ProfileDetailRow(Icons.Rounded.Badge, "Profile type", "Personal")
                     ProfileDetailRow(Icons.Rounded.Language, "Currency", "Kenyan shilling (KES)")
                     ProfileDetailRow(Icons.Rounded.CalendarMonth, "Planning cycle", "Monthly")
@@ -142,11 +142,15 @@ fun ProfileScreen(
         item {
             Button(
                 onClick = {},
+                enabled = false,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp)
             ) {
                 Icon(Icons.Rounded.Edit, contentDescription = null)
-                Text("Edit profile", modifier = Modifier.padding(start = 8.dp))
+                Text(
+                    "Profile editing is not available yet",
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
         }
     }
