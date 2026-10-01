@@ -792,9 +792,9 @@ fun SmartOnboardingSetupScreen(
                 }
                 .mapValues {
                         (_, matches) ->
-                    matches.maxByOrNull {
+                    matches.maxBy {
                         it.amountMinor
-                    }!!
+                    }
                 }
 
         val desired =
