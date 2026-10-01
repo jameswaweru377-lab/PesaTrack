@@ -1,0 +1,15 @@
+{
+  "id": "ke.pesalink.transfer.sent",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["PESALINK"],
+  "requiredAnchors": [" sent to ", " A/C "],
+  "anyAnchors": [],
+  "eventKind": "TRANSFER",
+  "productIdentity": null,
+  "active": true,
+  "extractors": [
+    {"field":"AMOUNT","pattern":"KES[ ]+([0-9,]+(?:[.][0-9]{1,2})?)[ ]+sent to","group":1,"required":true},
+    {"field":"COUNTERPARTY","pattern":"sent to[ ]+(.+?)[ ]+A/C[ ]+","group":1,"required":true}
+  ]
+}

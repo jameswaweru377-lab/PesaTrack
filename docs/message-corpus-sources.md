@@ -70,8 +70,9 @@ Confirmed product mechanics:
 - KCB states that a PesaLink transfer can generate a KCB confirmation and a separate PesaLink confirmation.
 - PesaLink/KCB documentation confirms that notifications can contain sender/recipient, amount and bank information.
 
-**No concrete PesaLink Message Pack template is added yet.**
-The official sources describe fields and duplicate-notification behavior but do not provide enough exact current SMS wording for a safe template. Brain v3 should wait for a sanitized real/public message shape rather than invent one.
+The official sources above establish PesaLink's role and duplicate-notification behavior.
+
+Phase 2 increment 3 additionally uses the Apache-2.0 public template schema from `peteretelej/sms-transaction-parser` as **PUBLIC_TEMPLATE_SCHEMA** evidence for PesaLink sent/received wording. Those fixtures are synthetic sanitized examples reconstructed from published anchors; they are not represented as current screenshots from a user's device.
 
 
 ### Equity beneficiary / M-Pesa transfer confirmation
@@ -88,3 +89,32 @@ Two variants are retained as golden fixtures:
 Both belong to the stable template ID `ke.equity.transfer.credit-to-beneficiary`.
 
 This does **not** imply that every Equity SMS is now supported by the Message Pack. Other Equity transaction families remain on Financial Intelligence V2 fallback until a concrete sanitized shape is available.
+
+
+### KCB Bank, I&M Bank, PesaLink and Standard Chartered public template schemas
+
+Evidence class: **PUBLIC_TEMPLATE_SCHEMA**
+
+Source:
+- Repository: `peteretelej/sms-transaction-parser`
+- License: Apache-2.0
+- Public Kenya provider templates reviewed on 1 October 2026.
+
+Upstream shapes adapted into the PesaTrack Message Pack:
+- `iandmbank_paid_to.json`
+- `kcb_account_credit.json`
+- `kcb_app_received.json`
+- `kcb_card.json`
+- `kcb_mpesa_received.json`
+- `kcb_mpesa_sent.json`
+- `kcb_paid_to.json`
+- `kcb_salary_credit.json`
+- `kcb_send_to_mpesa.json`
+- `kcb_send_to_pesalink.json`
+- `pesalink_received.json`
+- `pesalink_sent.json`
+- `stanchart_card.json`
+
+PesaTrack adapts the published anchors and field boundaries into its own versioned schema. The associated `fixtures-v4.json` messages are synthetic sanitized examples constructed to exercise those published shapes. They must not be described as exact current messages from a customer's device.
+
+Permanent rule: a public template can expand language coverage, but real-device samples should be added later as additional golden fixtures rather than silently replacing the public-source evidence trail.

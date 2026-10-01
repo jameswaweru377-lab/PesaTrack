@@ -1,0 +1,146 @@
+[
+  {
+    "id": "iandm_paid_to_public_template",
+    "title": "IANDMBANK",
+    "body": "KES 1,250.00 paid to SAMPLE MERCHANT (Acc 123456) Ref: IM12345. on 1/10/26 at 12:30 PM.",
+    "templateId": "ke.i-and-m.payment.paid-to",
+    "expectedFields": {
+      "AMOUNT": "1,250.00",
+      "COUNTERPARTY": "SAMPLE MERCHANT",
+      "REFERENCE": "IM12345",
+      "DATE": "1/10/26"
+    }
+  },
+  {
+    "id": "kcb_account_credit_public_template",
+    "title": "KCB",
+    "body": "Dear customer, your acc 1234 has been credited KES 5,000.00 at SAMPLE EMPLOYER at 10:20 AM on 1/10/26.",
+    "templateId": "ke.kcb.account.credit",
+    "expectedFields": {
+      "AMOUNT": "5,000.00",
+      "COUNTERPARTY": "SAMPLE EMPLOYER",
+      "DATE": "1/10/26"
+    }
+  },
+  {
+    "id": "kcb_app_received_public_template",
+    "title": "KCB",
+    "body": "KCBAPP123 Confirmed! You have received KES 700.00 from SAMPLE PERSON - KCB App.",
+    "templateId": "ke.kcb.app.received",
+    "expectedFields": {
+      "REFERENCE": "KCBAPP123",
+      "AMOUNT": "700.00",
+      "COUNTERPARTY": "SAMPLE PERSON"
+    }
+  },
+  {
+    "id": "kcb_card_public_template",
+    "title": "KCB",
+    "body": "KES 2,300.00 transaction made on KCB card 1234 at SAMPLE STORE on 1/10/26.",
+    "templateId": "ke.kcb.card.purchase",
+    "expectedFields": {
+      "AMOUNT": "2,300.00",
+      "COUNTERPARTY": "SAMPLE STORE"
+    }
+  },
+  {
+    "id": "kcb_mpesa_received_public_template",
+    "title": "KCB",
+    "body": "You have received KES 2,000.00 from SAMPLE PERSON. M-PESA Ref MP12345. Transaction Ref No KCB12345",
+    "templateId": "ke.kcb.mpesa.received",
+    "expectedFields": {
+      "AMOUNT": "2,000.00",
+      "COUNTERPARTY": "SAMPLE PERSON",
+      "REFERENCE": "KCB12345"
+    }
+  },
+  {
+    "id": "kcb_mpesa_sent_public_template",
+    "title": "KCB",
+    "body": "KCB123 completed.KES 1,000.00 sent to M-PESA SAMPLE PERSON on 1/10/26 at 12:00 PM. Transaction cost KES 10.00 Incl tax.",
+    "templateId": "ke.kcb.mpesa.sent",
+    "expectedFields": {
+      "REFERENCE": "KCB123",
+      "AMOUNT": "1,000.00",
+      "COUNTERPARTY": "SAMPLE PERSON",
+      "FEE": "10.00",
+      "DATE": "1/10/26"
+    }
+  },
+  {
+    "id": "kcb_paid_to_public_template",
+    "title": "KCB",
+    "body": "KES 950.00 paid to SAMPLE MERCHANT (Acc 555000) Ref: KCBPAY01. on 1/10/26 at 1:15 PM.",
+    "templateId": "ke.kcb.payment.paid-to",
+    "expectedFields": {
+      "AMOUNT": "950.00",
+      "COUNTERPARTY": "SAMPLE MERCHANT",
+      "REFERENCE": "KCBPAY01",
+      "DATE": "1/10/26"
+    }
+  },
+  {
+    "id": "kcb_salary_credit_public_template",
+    "title": "KCB",
+    "body": "Your account has been credited with KES 60,000.00-Salary Payment 00-SAMPLE EMPLOYER. KCB Channel: CH001. Date: 1/10/26.",
+    "templateId": "ke.kcb.account.salary-credit",
+    "expectedFields": {
+      "AMOUNT": "60,000.00",
+      "REFERENCE": "CH001",
+      "DATE": "1/10/26",
+      "COUNTERPARTY": "SAMPLE EMPLOYER"
+    }
+  },
+  {
+    "id": "kcb_send_to_mpesa_public_template",
+    "title": "KCB",
+    "body": "SEND TO M-PESA request of KES 1,500.00 from 123456 has been processed. M-PESA REF: MPREF123. Transaction cost KES 20.00 Incl tax.",
+    "templateId": "ke.kcb.transfer.send-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "1,500.00",
+      "DESTINATION": "M-PESA",
+      "REFERENCE": "MPREF123",
+      "FEE": "20.00"
+    }
+  },
+  {
+    "id": "kcb_send_to_pesalink_public_template",
+    "title": "KCB",
+    "body": "SEND TO PESALINK request of KES 2,500.00 from 123456 has been processed. Transaction cost KES 30.00 Incl tax.",
+    "templateId": "ke.kcb.transfer.send-to-pesalink",
+    "expectedFields": {
+      "AMOUNT": "2,500.00",
+      "FEE": "30.00"
+    }
+  },
+  {
+    "id": "pesalink_received_public_template",
+    "title": "PESALINK",
+    "body": "KES 3,000.00 received from SAMPLE PERSON into A/C 123456.",
+    "templateId": "ke.pesalink.transfer.received",
+    "expectedFields": {
+      "AMOUNT": "3,000.00",
+      "COUNTERPARTY": "SAMPLE PERSON"
+    }
+  },
+  {
+    "id": "pesalink_sent_public_template",
+    "title": "PESALINK",
+    "body": "KES 4,000.00 sent to SAMPLE PERSON A/C 654321.",
+    "templateId": "ke.pesalink.transfer.sent",
+    "expectedFields": {
+      "AMOUNT": "4,000.00",
+      "COUNTERPARTY": "SAMPLE PERSON"
+    }
+  },
+  {
+    "id": "stanchart_card_public_template",
+    "title": "StanChart",
+    "body": "A transaction of KES 5,500.00 was made on card 1234 at SAMPLE HOTEL on 1/10/26.",
+    "templateId": "ke.standard-chartered.card.purchase",
+    "expectedFields": {
+      "AMOUNT": "5,500.00",
+      "COUNTERPARTY": "SAMPLE HOTEL"
+    }
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "id": "ke.kcb.transfer.send-to-pesalink",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["KCB"],
+  "requiredAnchors": ["SEND TO PESALINK request of", " has been processed"],
+  "anyAnchors": ["Transaction cost KES"],
+  "eventKind": "TRANSFER",
+  "productIdentity": "KENYAN_BANK_KCB",
+  "active": true,
+  "extractors": [
+    {"field":"AMOUNT","pattern":"request of KES[ ]+([0-9,]+(?:[.][0-9]{1,2})?)[ ]+from[ ]+","group":1,"required":true},
+    {"field":"FEE","pattern":"Transaction cost KES[ ]+([0-9,]+(?:[.][0-9]{1,2})?)[ ]+Incl","group":1}
+  ]
+}

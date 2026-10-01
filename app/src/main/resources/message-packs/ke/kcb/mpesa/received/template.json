@@ -1,0 +1,16 @@
+{
+  "id": "ke.kcb.mpesa.received",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["KCB"],
+  "requiredAnchors": ["You have received KES", "M-PESA Ref"],
+  "anyAnchors": ["Transaction Ref No"],
+  "eventKind": "TRANSFER",
+  "productIdentity": "KENYAN_BANK_KCB",
+  "active": true,
+  "extractors": [
+    {"field":"AMOUNT","pattern":"You have received KES[ ]+([0-9,]+(?:[.][0-9]{1,2})?)[ ]+from[ ]+","group":1,"required":true},
+    {"field":"COUNTERPARTY","pattern":"[ ]from[ ]+(.+?)[.]?[ ]+M-PESA","group":1,"required":true},
+    {"field":"REFERENCE","pattern":"Transaction Ref No[ ]+([^.]*)","group":1}
+  ]
+}

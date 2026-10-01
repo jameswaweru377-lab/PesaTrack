@@ -1,0 +1,15 @@
+{
+  "id": "ke.kcb.card.purchase",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["KCB"],
+  "requiredAnchors": ["transaction made on KCB card", " at "],
+  "anyAnchors": [],
+  "eventKind": "PAYMENT",
+  "productIdentity": "KENYAN_BANK_KCB",
+  "active": true,
+  "extractors": [
+    {"field":"AMOUNT","pattern":"^(?:(?:Kshs?|KES|Sh)[.]?[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)[ ]+transaction made on KCB card","group":1,"required":true},
+    {"field":"COUNTERPARTY","pattern":"[ ]at[ ]+(.+?)[ ]+on[ ]+","group":1,"required":true}
+  ]
+}
