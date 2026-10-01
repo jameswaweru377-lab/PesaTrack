@@ -1,0 +1,16 @@
+{
+  "id": "ke.mpesa.wallet.cash-deposit",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["MPESA"],
+  "requiredAnchors": ["Confirmed.", "deposited into your M-PESA", "M-PESA balance"],
+  "anyAnchors": [],
+  "eventKind": "CASH_DEPOSIT",
+  "productIdentity": "SAFARICOM_MPESA",
+  "active": true,
+  "extractors": [
+    {"field":"TRANSACTION_CODE","pattern":"^([A-Z0-9]{10})[ ]+Confirmed[.]","group":1,"required":true},
+    {"field":"AMOUNT","pattern":"(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+deposited into your M-PESA","group":1,"required":true},
+    {"field":"BALANCE","pattern":"(?:New[ ]+)?M-PESA(?:[ ]+account)?[ ]+balance[ ]+is[ ]+(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)","group":1}
+  ]
+}
