@@ -146,6 +146,43 @@ class FinancialIntelligenceV2SemanticTest {
     }
 
     @Test
+    fun declinedRepaymentNeverCreatesLedgerMovementButKeepsObservedBalance() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "KCB M-PESA",
+                body =
+                    "Dear SAMPLE CUSTOMER, your loan repayment of KES 100.00 has been declined due to insufficient funds. Your KCB M-PESA Account balance is KES 0.00."
+            )
+
+        assertTrue(
+            interpretation
+                .semanticallyUnderstood
+        )
+        assertEquals(
+            FinancialSemanticIntent.FAILED_ACTION,
+            interpretation
+                .semanticAssessment
+                ?.primaryIntent
+        )
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+        assertEquals(
+            0L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+        assertEquals(
+            "KCB_MPESA_SAVINGS",
+            interpretation.balances
+                .single()
+                .account
+                .providerKey
+        )
+    }
+
+    @Test
     fun confirmationOnlyMessageNeverCreatesSecondLedgerEvent() {
         val interpretation =
             FinancialMessageInterpreter.interpret(
