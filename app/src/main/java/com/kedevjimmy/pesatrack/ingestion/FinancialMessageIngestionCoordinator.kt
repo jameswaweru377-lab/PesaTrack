@@ -1485,7 +1485,8 @@ class FinancialMessageIngestionCoordinator private constructor(
 
     @Synchronized
     fun reconcilePendingTransfers(
-        entityKey: String
+        entityKey: String,
+        rebuildPayCycles: Boolean = true
     ): Int {
         val pending =
             understandingStore.pendingTransfersForEntity(
@@ -1587,7 +1588,10 @@ class FinancialMessageIngestionCoordinator private constructor(
             }
         }
 
-        if (pending.isNotEmpty()) {
+        if (
+            pending.isNotEmpty() &&
+            rebuildPayCycles
+        ) {
             com.kedevjimmy.pesatrack.data.local.PayCycleStore
                 .get(appContext)
                 .rebuild()
