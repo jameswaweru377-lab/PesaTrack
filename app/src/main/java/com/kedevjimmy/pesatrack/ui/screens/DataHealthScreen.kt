@@ -389,10 +389,12 @@ fun DataHealthScreen(
                             "Learned from " +
                                 identityBackfillCount +
                                 " older transaction" +
-                                if (
-                                    identityBackfillCount ==
-                                    1
-                                ) "" else "s" +
+                                (
+                                    if (
+                                        identityBackfillCount ==
+                                        1
+                                    ) "" else "s"
+                                ) +
                                 " during this scan.",
                             style =
                                 MaterialTheme
