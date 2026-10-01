@@ -107,9 +107,19 @@ class MessagePackRouter(
                 regex.find(body)
             val group =
                 match?.groups
-                    ?.getOrNull(
-                        extractor.group
-                    )
+                    ?.let { groups ->
+                        if (
+                            extractor.group >= 0 &&
+                            extractor.group <
+                                groups.size
+                        ) {
+                            groups[
+                                extractor.group
+                            ]
+                        } else {
+                            null
+                        }
+                    }
 
             if (
                 extractor.required &&
