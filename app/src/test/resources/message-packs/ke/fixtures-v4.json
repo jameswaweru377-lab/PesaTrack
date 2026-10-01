@@ -82,12 +82,13 @@
   {
     "id": "kcb_salary_credit_public_template",
     "title": "KCB",
-    "body": "Your account has been credited with KES 60,000.00-Salary Payment. KCB Channel: CH001. Date: 1/10/26.",
+    "body": "Your account has been credited with KES 60,000.00-Salary Payment 00-SAMPLE EMPLOYER. KCB Channel: CH001. Date: 1/10/26.",
     "templateId": "ke.kcb.account.salary-credit",
     "expectedFields": {
       "AMOUNT": "60,000.00",
       "REFERENCE": "CH001",
-      "DATE": "1/10/26"
+      "DATE": "1/10/26",
+      "COUNTERPARTY": "SAMPLE EMPLOYER"
     }
   },
   {
