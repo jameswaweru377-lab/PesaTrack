@@ -2197,7 +2197,11 @@ private fun parseHomeDate(raw: String): Long? =
 private fun homeInsight(
     cycleSnapshot: PayCycleSnapshot,
     needsReviewCount: Int
-): String = when {
+): String {
+    val paydaySnapshot =
+        cycleSnapshot.paydaySnapshot
+
+    return when {
     needsReviewCount > 0 ->
         "$needsReviewCount transaction" +
             if (needsReviewCount == 1) {
@@ -2205,15 +2209,14 @@ private fun homeInsight(
             } else {
                 "s are waiting for review before they enter trusted totals."
             }
-    cycleSnapshot.paydaySnapshot
-        ?.unknownLiquidAccountCount
-        ?.let { it > 0 } == true ->
-        cycleSnapshot.paydaySnapshot
+    paydaySnapshot != null &&
+        paydaySnapshot.unknownLiquidAccountCount > 0 ->
+        paydaySnapshot
             .unknownLiquidAccountCount
             .toString() +
             " spendable account balance" +
             if (
-                cycleSnapshot.paydaySnapshot
+                paydaySnapshot
                     .unknownLiquidAccountCount ==
                 1
             ) {
