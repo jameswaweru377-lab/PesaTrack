@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.domain.messagepack
 
 import com.google.gson.JsonParser
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
+import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -131,6 +132,42 @@ class MessagePackRouterTest {
             counts.values.count {
                 it >= 2
             } >= 5
+        )
+    }
+
+
+    @Test
+    fun equityTemplateAddsProvenanceWhileV2StillOwnsTransferMeaning() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "EQUITY BANK",
+                    body =
+                        "Your transaction of Kenya Shillings 20,000.00 has been credited to SAMPLE BENEFICIARY. Equity Ref EQA12345. M-Pesa Ref UFT12345."
+                )
+
+        assertTrue(
+            interpretation.events
+                .single() is
+                TransferEventFact
+        )
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            interpretation
+                .parseProvenance
+                .route
+        )
+        assertEquals(
+            "ke.equity.transfer.credit-to-beneficiary",
+            interpretation
+                .parseProvenance
+                .templateId
+        )
+        assertEquals(
+            "KENYAN_BANK_EQUITY",
+            interpretation
+                .parseProvenance
+                .productIdentity
         )
     }
 
