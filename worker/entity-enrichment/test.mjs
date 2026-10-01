@@ -113,6 +113,16 @@ assert(
 
 assert(
   classifyOrganizationRole(
+    "Financial Services",
+    "AcmePay",
+    "acmepay.example"
+  ) === "PAYMENT_PROCESSOR",
+  "financial-service payment brands should be screened as payment processors"
+);
+
+
+assert(
+  classifyOrganizationRole(
     "Transportation",
     "Sample Mobility Ltd",
     "sample.example"
