@@ -52,6 +52,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +68,7 @@ import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
+import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
 import com.kedevjimmy.pesatrack.data.local.PesaCategory
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
@@ -76,6 +78,14 @@ import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import java.math.RoundingMode
 import java.text.NumberFormat
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+private data class BudgetUiData(
+    val budgets: List<MonthlyBudget> = emptyList(),
+    val categories: List<PesaCategory> = emptyList(),
+    val trackedByCategory: Map<String, Long> = emptyMap()
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,47 +108,77 @@ fun BudgetScreen(
     var showBudgetSheet by remember { mutableStateOf(false) }
 
     val revision = ledgerUpdateState.revision
-    val budgets = remember(revision) { budgetStore.list() }
-    val categories = remember(revision) { categoryStore.budgetCategories() }
-    val activity = remember(revision) { transactionStore.activitySnapshot() }
-    val trackedByCategory = remember(activity) {
-        activity.transactions
-            .filter {
-                it.reviewState != ReviewState.EXCLUDED.name &&
-                    it.reviewState != ReviewState.NEEDS_REVIEW.name
-            }
-            .groupBy { categoryStore.canonicalId(it.category) }
-            .mapValues { (_, transactions) ->
-                maxOf(
-                    0L,
-                    transactions.sumOf { item ->
-                        if (
-                            item.relationType ==
-                            TransactionStore.RELATION_REFUND
-                        ) {
-                            val original =
-                                item.relatedTransactionId
-                                    ?.let(transactionStore::getById)
-                            if (
-                                original != null &&
-                                original.direction ==
-                                    com.kedevjimmy.pesatrack.domain.model.MoneyDirection.EXPENSE.name &&
-                                original.reviewState !=
-                                    ReviewState.EXCLUDED.name &&
-                                original.reviewState !=
-                                    ReviewState.NEEDS_REVIEW.name
-                            ) {
-                                -item.amountMinor
-                            } else {
-                                0L
-                            }
-                        } else {
-                            item.amountMinor + item.feeMinor
+    var uiData by remember {
+        mutableStateOf(BudgetUiData())
+    }
+
+    LaunchedEffect(revision) {
+        uiData =
+            withContext(Dispatchers.IO) {
+                val activity =
+                    transactionStore.activitySnapshot()
+                val trackedByCategory =
+                    activity.transactions
+                        .filter {
+                            it.reviewState !=
+                                ReviewState.EXCLUDED.name &&
+                                it.reviewState !=
+                                ReviewState.NEEDS_REVIEW.name
                         }
-                    }
+                        .groupBy {
+                            categoryStore
+                                .canonicalId(it.category)
+                        }
+                        .mapValues {
+                                (_, transactions) ->
+                            maxOf(
+                                0L,
+                                transactions.sumOf { item ->
+                                    if (
+                                        item.relationType ==
+                                        TransactionStore
+                                            .RELATION_REFUND
+                                    ) {
+                                        val original =
+                                            item.relatedTransactionId
+                                                ?.let(
+                                                    transactionStore::getById
+                                                )
+                                        if (
+                                            original != null &&
+                                            original.direction ==
+                                                com.kedevjimmy.pesatrack.domain.model.MoneyDirection.EXPENSE.name &&
+                                            original.reviewState !=
+                                                ReviewState.EXCLUDED.name &&
+                                            original.reviewState !=
+                                                ReviewState.NEEDS_REVIEW.name
+                                        ) {
+                                            -item.amountMinor
+                                        } else {
+                                            0L
+                                        }
+                                    } else {
+                                        item.amountMinor +
+                                            item.feeMinor
+                                    }
+                                }
+                            )
+                        }
+
+                BudgetUiData(
+                    budgets = budgetStore.list(),
+                    categories =
+                        categoryStore.budgetCategories(),
+                    trackedByCategory =
+                        trackedByCategory
                 )
             }
     }
+
+    val budgets = uiData.budgets
+    val categories = uiData.categories
+    val trackedByCategory =
+        uiData.trackedByCategory
 
     fun selectCategory(
         category: PesaCategory,
