@@ -2235,6 +2235,7 @@ private fun homeInsight(
             " is still protected for commitments this cycle."
     else ->
         "Your tracked commitments for this cycle are covered. Keep reviewing new transactions as they arrive."
+    }
 }
 
 private fun formatMoney(minor: Long): String {
