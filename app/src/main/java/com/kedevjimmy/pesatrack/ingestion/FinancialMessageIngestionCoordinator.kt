@@ -56,6 +56,8 @@ class FinancialMessageIngestionCoordinator private constructor(
         FinancialIngestionDiagnosticsStore.get(
             appContext
         )
+    private val messageLabStore =
+        MessageLabStore.get(appContext)
 
     @Synchronized
     fun ingest(
@@ -1220,8 +1222,31 @@ class FinancialMessageIngestionCoordinator private constructor(
                 correlatedTransactionId,
             linkedByCorrelation =
                 linkedByCorrelation,
-            result = result
+            result = result,
+            parseProvenance =
+                interpretation
+                    .parseProvenance
         )
+
+        if (
+            relevance.isRelevant &&
+            !interpretation.recognized &&
+            !interpretation
+                .semanticallyUnderstood
+        ) {
+            messageLabStore.recordUnsupported(
+                safeSenderLabel =
+                    sourceReference
+                        ?.takeIf {
+                            it.providerKey !=
+                                null
+                        }
+                        ?.displayName,
+                body = body,
+                observedAtEpochMs =
+                    receivedAtEpochMs
+            )
+        }
     }
 
     private fun diagnosticEventLabel(
