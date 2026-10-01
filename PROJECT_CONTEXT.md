@@ -2418,6 +2418,7 @@ The cleanup intentionally avoids changing financial semantics. It:
 - makes mixed SQLite bind-argument arrays explicit for Kotlin 2.6 compatibility;
 - removes unnecessary non-null assertions in Home, transaction details, onboarding, review grouping and debt-balance update code;
 - preserves the legacy `LUNCH` migration value without directly referencing the deprecated enum entry;
+- migrates directional Compose icons to AutoMirrored variants and moves `LocalLifecycleOwner` to lifecycle-runtime-compose;
 - refreshes the repository README so it describes the actual SQLite/Financial Intelligence V2 architecture instead of the old bootstrap state.
 
 ### Audit findings intentionally not converted into automatic fixes
@@ -2426,7 +2427,7 @@ The cleanup intentionally avoids changing financial semantics. It:
 - Goals/Goal Details still contain preview amounts/dates by design.
 - Profile currently contains a static profile presentation and Edit Profile is not wired.
 - Some Settings rows are presentation-only.
-- Compose still reports AutoMirrored icon deprecations and the old `LocalLifecycleOwner` import path. These are compatibility cleanup items rather than financial-correctness defects and should be handled in a focused UI/dependency pass if they remain after CI.
+- Compose AutoMirrored icon deprecations were cleaned up, and `LocalLifecycleOwner` now uses the lifecycle-runtime-compose API. Any remaining compiler warnings after CI should be treated as focused compatibility cleanup rather than mixed into financial-semantics changes.
 - Instrumented/UI tests are still much thinner than the pure unit-test coverage. Real-device validation remains important for permission flows, notification capture, onboarding/back navigation, Redmi Note 14 responsiveness and lifecycle behavior.
 
 Permanent audit rule: prefer small evidence-backed corrections over broad refactors when changing ingestion, accounting, relationship reconciliation or payday logic.
