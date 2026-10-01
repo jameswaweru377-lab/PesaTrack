@@ -228,6 +228,29 @@ export function classifyOrganizationRole(
     return "PAYMENT_PROCESSOR";
   }
 
+  const financeCategory =
+    value.includes("financial services") ||
+    value.includes("fintech");
+  const brandIdentity = [
+    canonicalName,
+    domain,
+  ]
+    .filter((part) => typeof part === "string")
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+  if (
+    financeCategory &&
+    (
+      brandIdentity.includes("pay") ||
+      brandIdentity.includes("wallet") ||
+      brandIdentity.includes("gateway")
+    )
+  ) {
+    return "PAYMENT_PROCESSOR";
+  }
+
   if (
     [
       "transport",
