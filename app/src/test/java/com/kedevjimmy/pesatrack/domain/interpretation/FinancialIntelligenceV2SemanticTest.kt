@@ -145,6 +145,31 @@ class FinancialIntelligenceV2SemanticTest {
         )
     }
 
+
+    @Test
+    fun failedActionVetoesOtherwiseParseableBankTransfer() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "Future Bank",
+                body =
+                    "Your account has been debited KES 500.00 for transfer to SAMPLE PERSON on 1/10/2026. Transaction failed due to insufficient funds."
+            )
+
+        assertEquals(
+            FinancialSemanticIntent.FAILED_ACTION,
+            interpretation
+                .semanticAssessment
+                ?.primaryIntent
+        )
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+        assertTrue(
+            interpretation
+                .semanticallyUnderstood
+        )
+    }
+
     @Test
     fun declinedRepaymentNeverCreatesLedgerMovementButKeepsObservedBalance() {
         val interpretation =
