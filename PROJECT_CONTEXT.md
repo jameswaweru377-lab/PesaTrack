@@ -2550,3 +2550,64 @@ A Message Pack match is not considered sufficient intelligence by itself.
 The bridge does not classify or persist transactions. FinancialRelationshipResolver and FinancialEventClassifier remain the accounting authority.
 
 PesaLink remains a transfer-network observation and must not be promoted into a fake owned account when no source/destination bank account is explicit.
+
+
+## Brain v3 Phase 3 — Identity Graph foundation — 2026-10-01
+
+The blueprint has now moved from message-language coverage to durable identity understanding.
+
+### Database
+
+Schema advances from v27 to **v28** with four new local-first tables:
+
+- `identity_nodes`
+- `identity_aliases`
+- `identity_links`
+- `identity_observations`
+
+`identity_observations.transaction_id` is the idempotence key so historical synchronization cannot count the same ledger transaction repeatedly.
+
+### Identity model
+
+The graph distinguishes:
+
+- SELF
+- PERSON
+- BUSINESS
+- BILLER
+- FINANCIAL_INSTITUTION
+- FINANCIAL_ACCOUNT
+- UNKNOWN
+
+Aliases can be NAME, PHONE, ACCOUNT_ID, ACCOUNT_IDENTIFIER, PROVIDER_KEY or SMS_SENDER.
+
+Evidence records whether an identity came from user confirmation, account storage, a confirmed financial entity, transaction counterparty evidence, the local entity catalogue, remote enrichment or a message source.
+
+### Safe learning rules
+
+- Enabled money accounts are modeled as owned financial accounts and linked from SELF using `OWNS`.
+- A valid user-account phone identifier can seed a user-confirmed SELF phone alias.
+- Known local entities such as Naivas/Kenya Power/KCB can retain their catalogue type.
+- An unknown name remains UNKNOWN regardless of frequency.
+- A repeated name without stronger evidence is a provisional cluster only.
+- Phone evidence can distinguish two counterparties sharing the same name.
+- Own-account transfer evidence may create a question candidate, never automatic self-identity.
+- Repeated unknown counterparties may create a classification question; frequency itself is not the classification.
+
+### Integration
+
+After a canonical transaction is successfully inserted, FinancialMessageIngestionCoordinator performs a bounded Identity Graph sync.
+
+Graph synchronization is intentionally isolated from accounting: graph errors are non-authoritative metadata failures and must not roll back correct financial ingestion.
+
+Data Health runs a larger history backfill and reports identity nodes, aliases, confirmed self aliases, pending questions and still-unclassified identities.
+
+### Next increment
+
+Build the actual Identity Review experience and persist explicit answers:
+
+- Yes, this is my phone.
+- Yes, this is my transaction name.
+- Person / Business / Biller / Financial institution / Not sure.
+
+Do not start personal category learning or the Home redesign before those identity decisions are safely reviewable and durable.
