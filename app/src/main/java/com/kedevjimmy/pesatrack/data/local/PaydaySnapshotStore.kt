@@ -202,10 +202,10 @@ class PaydaySnapshotStore private constructor(
             )
 
         val accounts =
-            accountStore
-                .listAccounts(
-                    enabledOnly = true
-                )
+            listAccounts(
+                db = db,
+                enabledOnly = true
+            )
                 .filter {
                     it.type in
                         TRACKED_ACCOUNT_TYPES
@@ -403,6 +403,75 @@ class PaydaySnapshotStore private constructor(
                 SQLiteDatabase
                     .CONFLICT_REPLACE
             )
+        }
+    }
+
+    private fun listAccounts(
+        db: SQLiteDatabase,
+        enabledOnly: Boolean
+    ): List<MoneyAccount> {
+        val where =
+            if (enabledOnly) {
+                "WHERE enabled = 1"
+            } else {
+                ""
+            }
+
+        return db.rawQuery(
+            """
+            SELECT id, name, type, enabled, identifier,
+                   opening_balance_minor,
+                   opening_balance_as_of_epoch_ms
+            FROM money_accounts
+            $where
+            ORDER BY
+                CASE type
+                    WHEN 'MOBILE_WALLET' THEN 0
+                    WHEN 'BANK' THEN 1
+                    WHEN 'SAVINGS' THEN 2
+                    WHEN 'CASH' THEN 3
+                    ELSE 4
+                END,
+                name COLLATE NOCASE
+            """.trimIndent(),
+            null
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        MoneyAccount(
+                            id =
+                                cursor.getString(0),
+                            name =
+                                cursor.getString(1),
+                            type =
+                                AccountType.valueOf(
+                                    cursor.getString(2)
+                                ),
+                            enabled =
+                                cursor.getInt(3) == 1,
+                            identifier =
+                                if (cursor.isNull(4)) {
+                                    null
+                                } else {
+                                    cursor.getString(4)
+                                },
+                            openingBalanceMinor =
+                                if (cursor.isNull(5)) {
+                                    null
+                                } else {
+                                    cursor.getLong(5)
+                                },
+                            openingBalanceAsOfEpochMs =
+                                if (cursor.isNull(6)) {
+                                    null
+                                } else {
+                                    cursor.getLong(6)
+                                }
+                        )
+                    )
+                }
+            }
         }
     }
 
