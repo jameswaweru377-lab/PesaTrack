@@ -21,9 +21,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Message
+import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -137,7 +137,7 @@ fun PermissionSetupScreen(
                     "Optional, but needed to import older M-Pesa and bank SMS."
                 },
                 complete = smsGranted,
-                icon = Icons.Rounded.Message
+                icon = Icons.AutoMirrored.Rounded.Message
             ) {
                 if (!smsGranted) {
                     OutlinedButton(
@@ -178,7 +178,7 @@ fun PermissionSetupScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(
-                            Icons.Rounded.OpenInNew,
+                            Icons.AutoMirrored.Rounded.OpenInNew,
                             contentDescription = null
                         )
                         Text(
