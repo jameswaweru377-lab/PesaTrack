@@ -266,6 +266,12 @@ fun ActivityScreen(
             null
         )
     }
+    var accountReviewBusyKey by remember {
+        mutableStateOf<String?>(null)
+    }
+    var accountReviewError by remember {
+        mutableStateOf<String?>(null)
+    }
 
     suspend fun loadActivityData(
         monthEpochMs: Long
@@ -1202,57 +1208,124 @@ fun ActivityScreen(
                 financialDiagnostics,
             accountsById =
                 accountsById,
+            isWorking =
+                accountReviewBusyKey ==
+                    entity.entityKey,
+            errorText =
+                accountReviewError,
             onDismiss = {
-                accountReviewEntity = null
-            },
-            onConfirmOwned = {
-                activityScope.launch {
-                    withContext(
-                        Dispatchers.IO
-                    ) {
-                        financialStore
-                            .confirmEntityOwned(
-                                entity.entityKey
-                            )
-                        financialCoordinator
-                            .reconcilePendingTransfers(
-                                entity.entityKey
-                            )
-                        runCatching {
-                            HistoryImportWindow
-                                .importStartEpochMs(3)
-                                ?.let {
-                                    HistoricalSmsImporter(
-                                        context
-                                            .applicationContext
-                                    ).importSince(
-                                        it
-                                    )
-                                }
-                        }
-                    }
+                if (
+                    accountReviewBusyKey ==
+                    null
+                ) {
+                    accountReviewError =
+                        null
                     accountReviewEntity =
                         null
-                    refresh()
+                }
+            },
+            onConfirmOwned = {
+                if (
+                    accountReviewBusyKey ==
+                    null
+                ) {
+                    accountReviewBusyKey =
+                        entity.entityKey
+                    accountReviewError =
+                        null
+                    activityScope.launch {
+                        val result =
+                            withContext(
+                                Dispatchers.IO
+                            ) {
+                                runCatching {
+                                    financialStore
+                                        .confirmEntityOwned(
+                                            entity.entityKey
+                                        )
+                                        ?: error(
+                                            "Account confirmation did not persist."
+                                        )
+                                    financialCoordinator
+                                        .reconcilePendingTransfers(
+                                            entity.entityKey
+                                        )
+                                }
+                            }
+
+                        result.onSuccess {
+                            accountReviewBusyKey =
+                                null
+                            accountReviewEntity =
+                                null
+                            refresh()
+
+                            activityScope.launch(
+                                Dispatchers.IO
+                            ) {
+                                runCatching {
+                                    HistoryImportWindow
+                                        .importStartEpochMs(
+                                            3
+                                        )
+                                        ?.let {
+                                            HistoricalSmsImporter(
+                                                context
+                                                    .applicationContext
+                                            ).importSince(
+                                                it
+                                            )
+                                        }
+                                }
+                            }
+                        }.onFailure {
+                            accountReviewBusyKey =
+                                null
+                            accountReviewError =
+                                "PesaTrack could not confirm this account yet. Please try again."
+                        }
+                    }
                 }
             },
             onNotMine = {
-                activityScope.launch {
-                    withContext(
-                        Dispatchers.IO
-                    ) {
-                        financialStore
-                            .markEntityExternal(
-                                entity.entityKey
-                            )
-                        financialCoordinator
-                            .reconcileExternalEntity(
-                                entity.entityKey
-                            )
-                    }
-                    accountReviewEntity =
+                if (
+                    accountReviewBusyKey ==
+                    null
+                ) {
+                    accountReviewBusyKey =
+                        entity.entityKey
+                    accountReviewError =
                         null
-                    refresh()
+                    activityScope.launch {
+                        val result =
+                            withContext(
+                                Dispatchers.IO
+                            ) {
+                                runCatching {
+                                    financialStore
+                                        .markEntityExternal(
+                                            entity.entityKey
+                                        )
+                                    financialCoordinator
+                                        .reconcileExternalEntity(
+                                            entity.entityKey
+                                        )
+                                }
+                            }
+
+                        result.onSuccess {
+                            accountReviewBusyKey =
+                                null
+                            accountReviewEntity =
+                                null
+                            refresh()
+                        }.onFailure {
+                            accountReviewBusyKey =
+                                null
+                            accountReviewError =
+                                "PesaTrack could not save this decision yet. Please try again."
+                        }
+                    }
                 }
             }
         )
@@ -1378,6 +1451,8 @@ private fun FinancialAccountReviewDialog(
         List<FinancialIngestionDiagnostic>,
     accountsById:
         Map<String, com.kedevjimmy.pesatrack.domain.model.MoneyAccount>,
+    isWorking: Boolean,
+    errorText: String?,
     onDismiss: () -> Unit,
     onConfirmOwned: () -> Unit,
     onNotMine: () -> Unit
@@ -1390,7 +1465,11 @@ private fun FinancialAccountReviewDialog(
         )
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (!isWorking) {
+                onDismiss()
+            }
+        },
         title = {
             Text(
                 "Does this account belong to you?"
@@ -1433,7 +1512,11 @@ private fun FinancialAccountReviewDialog(
                             .onSurfaceVariant
                 )
                 Text(
-                    "Nothing is changed until you confirm below.",
+                    if (isWorking) {
+                        "Saving your decision…"
+                    } else {
+                        "Nothing is changed until you confirm below."
+                    },
                     style =
                         MaterialTheme.typography
                             .bodySmall,
@@ -1441,14 +1524,33 @@ private fun FinancialAccountReviewDialog(
                         MaterialTheme.colorScheme
                             .primary
                 )
+                errorText?.let {
+                    Text(
+                        it,
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .error
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick =
-                    onConfirmOwned
+                    onConfirmOwned,
+                enabled =
+                    !isWorking
             ) {
-                Text("Yes, my account")
+                Text(
+                    if (isWorking) {
+                        "Saving…"
+                    } else {
+                        "Yes, my account"
+                    }
+                )
             }
         },
         dismissButton = {
@@ -1458,13 +1560,17 @@ private fun FinancialAccountReviewDialog(
             ) {
                 TextButton(
                     onClick =
-                        onDismiss
+                        onDismiss,
+                    enabled =
+                        !isWorking
                 ) {
                     Text("Cancel")
                 }
                 OutlinedButton(
                     onClick =
-                        onNotMine
+                        onNotMine,
+                    enabled =
+                        !isWorking
                 ) {
                     Text("No, not mine")
                 }
