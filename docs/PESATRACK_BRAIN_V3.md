@@ -110,3 +110,62 @@ Additional hardening:
 - observed balances from a failed action may still be retained.
 
 PesaLink remains intentionally untemplated until an exact sanitized message shape is available. Official documentation is used only for the known dual-notification/correlation behavior.
+
+
+## Phase 2 — Kenya core corpus, increment 2
+
+Merged on `main` before this branch.
+
+- Added the Equity beneficiary-credit / M-Pesa transfer confirmation shape.
+- Retained two sanitized Equity variants as fixtures.
+- Message Pack reached 22 active templates.
+- Financial Intelligence V2 remained the canonical event engine.
+
+## Phase 2 — bank corpus + candidate bridge, increment 3
+
+Branch milestone: `feature/brain-v3-bank-corpus-kcb-pesalink-v1`.
+
+This increment expands the Message Pack from 22 to 35 active templates using **PUBLIC_TEMPLATE_SCHEMA** evidence from the documented Apache-2.0 Kenyan parser source.
+
+Added shapes:
+
+- I&M Bank paid-to;
+- KCB account credit;
+- KCB app received;
+- KCB card purchase;
+- KCB M-Pesa received notice;
+- KCB sent-to-M-Pesa confirmation;
+- KCB paid-to;
+- KCB salary credit;
+- KCB send-to-M-Pesa;
+- KCB send-to-PesaLink;
+- PesaLink received;
+- PesaLink sent;
+- Standard Chartered card purchase.
+
+### Message Pack -> V2 bridge
+
+A new fallback-only bridge converts explicit Message Pack fields into V2 action candidates **only when the existing generic extractor found no action**.
+
+Allowed bridge facts are narrow and deterministic:
+
+- PAYMENT requires an explicit amount + counterparty;
+- RECEIPT requires an explicit amount + counterparty;
+- TRANSFER requires an explicit amount + source or destination account label.
+
+Permanent safety rules:
+
+- the bridge never overwrites an action V2 already extracted;
+- the bridge never writes to the ledger directly;
+- V2 relationship resolution and event classification remain authoritative;
+- PesaLink network messages do not invent a PesaLink-owned account merely because a sent/received template matched;
+- template spans are re-located against normalized text before becoming evidence;
+- a template without enough explicit fields remains provenance only.
+
+The purpose of the bridge is to prevent a dangerous false milestone where Data Health says "template matched" while the app still cannot create a correct canonical event.
+
+### Fixture provenance
+
+`fixtures-v4.json` contains sanitized synthetic examples reconstructed from published upstream template anchors. They are test vectors for the public schema, not claims about exact current customer SMS wording.
+
+Real-device samples should later be added as additional fixtures without deleting this evidence trail.
