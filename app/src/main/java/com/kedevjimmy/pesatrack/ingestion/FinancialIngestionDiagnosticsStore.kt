@@ -198,7 +198,10 @@ class FinancialIngestionDiagnosticsStore private constructor(
                             }
                             .distinct()
                             .sorted()
-                            .forEach(::put)
+                            .forEach {
+                                fieldName ->
+                                put(fieldName)
+                            }
                     }
                 )
                 put(
