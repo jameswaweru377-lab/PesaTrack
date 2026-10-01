@@ -350,7 +350,13 @@ fun DebtsScreen(
                         Modifier.padding(16.dp)
                 ) {
                     Text(
-                        "Total outstanding debt",
+                        if (
+                            unknownBalanceCount > 0
+                        ) {
+                            "Known outstanding debt"
+                        } else {
+                            "Total outstanding debt"
+                        },
                         style =
                             MaterialTheme.typography
                                 .labelLarge,
