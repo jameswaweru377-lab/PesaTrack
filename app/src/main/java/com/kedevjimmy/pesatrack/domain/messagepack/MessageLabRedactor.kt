@@ -36,7 +36,7 @@ object MessageLabRedactor {
         )
     private val contextualEntityRegex =
         Regex(
-            """(?i)\b(sent to|paid to|received from|transferred from|transferred to|credited to|debited from|from|to)[ ]+(.+?)(?=[ ]+(?:<PHONE>|on|for|at|ref|reference|account|balance|has|was|is)\b|[.,;]|$)"""
+            """(?i)\b(sent to|paid to|received from|transferred from|transferred to|credited to|debited from|from|to)[ ]+(.+?)(?=[ ]+(?:<PHONE>|on\b|for\b|at\b|ref\b|reference\b|account\b|balance\b|has\b|was\b|is\b)|[.,;]|$)"""
         )
     private val salutationRegex =
         Regex(
