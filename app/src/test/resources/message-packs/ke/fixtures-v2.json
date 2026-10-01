@@ -153,5 +153,15 @@
       "AMOUNT": "985.00",
       "AVAILABLE_CREDIT": "1062.29"
     }
+  },
+  {
+    "id": "kcb_mpesa_declined_repayment",
+    "title": "KCB M-PESA",
+    "body": "Dear SAMPLE CUSTOMER, your loan repayment of KES 100.00 has been declined due to insufficient funds. Your KCB M-PESA Account balance is KES 0.00.",
+    "templateId": "ke.kcb-mpesa.loan.repayment-declined",
+    "expectedFields": {
+      "AMOUNT": "100.00",
+      "BALANCE": "0.00"
+    }
   }
 ]
