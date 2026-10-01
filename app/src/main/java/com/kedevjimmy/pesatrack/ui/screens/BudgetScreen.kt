@@ -16,7 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Chair
 import androidx.compose.material.icons.rounded.CreditCard
@@ -35,7 +35,7 @@ import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.ShoppingBag
-import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.AlertDialog
@@ -278,7 +278,7 @@ fun BudgetScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Budgets", style = MaterialTheme.typography.headlineMedium)
@@ -713,7 +713,7 @@ private fun categoryIcon(id: String): ImageVector =
         TransactionCategory.SAVINGS.name ->
             Icons.Rounded.Savings
         TransactionCategory.INVESTMENT.name ->
-            Icons.Rounded.TrendingUp
+            Icons.AutoMirrored.Rounded.TrendingUp
         TransactionCategory.FEES.name ->
             Icons.Rounded.Paid
         else -> Icons.Rounded.MoreHoriz
