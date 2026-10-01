@@ -108,7 +108,7 @@ class CategoryStore private constructor(context: Context) {
 
     fun canonicalId(id: String): String =
         when (id) {
-            TransactionCategory.LUNCH.name -> TransactionCategory.EATING_OUT.name
+            "LUNCH" -> TransactionCategory.EATING_OUT.name
             else -> id
         }
 
@@ -183,7 +183,7 @@ class CategoryStore private constructor(context: Context) {
 
         fun builtIn(id: String): PesaCategory? =
             BUILT_INS.firstOrNull {
-                it.id == if (id == TransactionCategory.LUNCH.name) {
+                it.id == if (id == "LUNCH") {
                     TransactionCategory.EATING_OUT.name
                 } else {
                     id
