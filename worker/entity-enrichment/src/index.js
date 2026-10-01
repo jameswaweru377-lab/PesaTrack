@@ -192,6 +192,115 @@ function mapCategory(raw) {
   return null;
 }
 
+export function classifyOrganizationRole(
+  rawCategory,
+  canonicalName,
+  domain,
+) {
+  const value = [
+    rawCategory,
+    canonicalName,
+    domain,
+  ]
+    .filter((part) => typeof part === "string")
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const paymentSignals = [
+    "payment processing",
+    "payment processor",
+    "payment gateway",
+    "merchant acquiring",
+    "merchant services",
+    "payments platform",
+    "mobile money payments",
+    "payment service provider",
+  ];
+
+  if (
+    paymentSignals.some((signal) =>
+      value.includes(signal)
+    )
+  ) {
+    return "PAYMENT_PROCESSOR";
+  }
+
+  if (
+    [
+      "transport",
+      "transportation",
+      "taxi",
+      "ride share",
+      "rideshare",
+      "mobility",
+    ].some((signal) => value.includes(signal))
+  ) {
+    return "TRANSPORT";
+  }
+
+  if (
+    [
+      "retail",
+      "shopping",
+      "supermarket",
+      "restaurant",
+      "food",
+      "hospital",
+      "pharmacy",
+      "hotel",
+      "merchant",
+    ].some((signal) => value.includes(signal))
+  ) {
+    return "MERCHANT";
+  }
+
+  if (
+    [
+      "bank",
+      "banking",
+      "financial institution",
+      "credit union",
+      "sacco",
+      "insurance",
+    ].some((signal) => value.includes(signal))
+  ) {
+    return "FINANCIAL_INSTITUTION";
+  }
+
+  if (
+    [
+      "employment",
+      "employer",
+      "staffing",
+      "human resources",
+      "payroll services",
+    ].some((signal) => value.includes(signal))
+  ) {
+    return "EMPLOYER_LIKE";
+  }
+
+  return "UNKNOWN";
+}
+
+export function salarySuitabilityForRole(role) {
+  if (
+    role === "PAYMENT_PROCESSOR" ||
+    role === "TRANSPORT" ||
+    role === "MERCHANT"
+  ) {
+    return "REJECT";
+  }
+
+  if (role === "EMPLOYER_LIKE") {
+    return "ALLOW";
+  }
+
+  return "REVIEW";
+}
+
 async function resolveMerchant(descriptor, env) {
   if (!env.LOGO_DEV_SECRET_KEY) {
     return {
@@ -236,6 +345,16 @@ async function resolveMerchant(descriptor, env) {
       ? data.logo.trim()
       : null;
   const categoryHint = mapCategory(data.category);
+  const organizationRole =
+    classifyOrganizationRole(
+      data.category,
+      canonicalName,
+      domain,
+    );
+  const salaryCandidateSuitability =
+    salarySuitabilityForRole(
+      organizationRole,
+    );
   const ambiguous = data.ambiguous === true;
 
   if (
@@ -261,6 +380,8 @@ async function resolveMerchant(descriptor, env) {
       categoryHint,
       confidence,
       source: "logo_dev",
+      organizationRole,
+      salaryCandidateSuitability,
     },
     status: 200,
   };
