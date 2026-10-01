@@ -1,4 +1,7 @@
-import worker from "./src/index.js";
+import worker, {
+  classifyOrganizationRole,
+  salarySuitabilityForRole,
+} from "./src/index.js";
 
 function assert(condition, message) {
   if (!condition) {
@@ -90,6 +93,31 @@ const safeWithoutProvider = await worker.fetch(
 assert(
   safeWithoutProvider.status === 503,
   "safe descriptor should reach provider boundary"
+);
+
+assert(
+  classifyOrganizationRole(
+    "Payment Processing",
+    "Sample Payments Ltd",
+    "samplepay.example"
+  ) === "PAYMENT_PROCESSOR",
+  "payment processors must be identified before salary inference"
+);
+
+assert(
+  salarySuitabilityForRole(
+    "PAYMENT_PROCESSOR"
+  ) === "REJECT",
+  "payment processors must not be suggested as employers"
+);
+
+assert(
+  classifyOrganizationRole(
+    "Transportation",
+    "Sample Mobility Ltd",
+    "sample.example"
+  ) === "TRANSPORT",
+  "transport companies should be recognized as transaction intermediaries"
 );
 
 console.log(
