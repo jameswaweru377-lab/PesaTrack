@@ -21,7 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.FactCheck
+import androidx.compose.material.icons.automirrored.rounded.FactCheck
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.BarChart
@@ -29,20 +29,20 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.CallReceived
+import androidx.compose.material.icons.automirrored.rounded.CallReceived
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.HelpOutline
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalAtm
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Paid
 import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Savings
@@ -1618,7 +1618,7 @@ private fun GlobalReviewNavigationBar(
         ActivityQueueButton(
             label = "Review",
             count = overview.reviewGroups.size,
-            icon = Icons.Rounded.FactCheck,
+            icon = Icons.AutoMirrored.Rounded.FactCheck,
             selected = selectedQueue == "Review",
             tone = "green",
             modifier = Modifier.weight(1f),
@@ -1791,7 +1791,7 @@ private fun EmptyGlobalReviewState() {
                 Alignment.CenterHorizontally
         ) {
             IconBubble(
-                Icons.Rounded.HelpOutline,
+                Icons.AutoMirrored.Rounded.HelpOutline,
                 size = 52.dp,
                 background =
                     pesaToneContainer("green"),
@@ -2344,7 +2344,7 @@ private fun ResponsiveActivityMetrics(
                         "Income",
                         formatMoney(summary.incomeMinor),
                         "$monthLabel",
-                        Icons.Rounded.CallReceived,
+                        Icons.AutoMirrored.Rounded.CallReceived,
                         "green",
                         Modifier.weight(1f)
                     )
@@ -2354,7 +2354,7 @@ private fun ResponsiveActivityMetrics(
                         "Fees",
                         formatMoney(summary.feesMinor),
                         "M-Pesa + Fuliza",
-                        Icons.Rounded.ReceiptLong,
+                        Icons.AutoMirrored.Rounded.ReceiptLong,
                         "amber",
                         Modifier.weight(1f)
                     )
@@ -2371,8 +2371,8 @@ private fun ResponsiveActivityMetrics(
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 ActivityMetric("Spent", formatMoney(summary.spentMinor), "$monthLabel", Icons.Rounded.Paid, "red", Modifier.weight(1f))
-                ActivityMetric("Income", formatMoney(summary.incomeMinor), "$monthLabel", Icons.Rounded.CallReceived, "green", Modifier.weight(1f))
-                ActivityMetric("Fees", formatMoney(summary.feesMinor), "M-Pesa fees", Icons.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
+                ActivityMetric("Income", formatMoney(summary.incomeMinor), "$monthLabel", Icons.AutoMirrored.Rounded.CallReceived, "green", Modifier.weight(1f))
+                ActivityMetric("Fees", formatMoney(summary.feesMinor), "M-Pesa fees", Icons.AutoMirrored.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
                 ActivityMetric("Net", formatSignedMoney(summary.netMinor), "Cash flow", Icons.Rounded.AccountBalance, "blue", Modifier.weight(1f))
             }
         }
@@ -2428,7 +2428,7 @@ private fun EmptyActivityState(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             IconBubble(
-                if (selectedFilter == "Review") Icons.Rounded.HelpOutline else Icons.Rounded.ReceiptLong,
+                if (selectedFilter == "Review") Icons.AutoMirrored.Rounded.HelpOutline else Icons.AutoMirrored.Rounded.ReceiptLong,
                 size = 52.dp,
                 background = pesaToneContainer(if (selectedFilter == "Review") "amber" else "green"),
                 tint = pesaToneContent(if (selectedFilter == "Review") "amber" else "green")
@@ -2959,7 +2959,7 @@ private fun ReviewQueueCallout(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconBubble(
-                Icons.Rounded.HelpOutline,
+                Icons.AutoMirrored.Rounded.HelpOutline,
                 size = 42.dp,
                 background = MaterialTheme.colorScheme.surface.copy(alpha = .7f),
                 tint = pesaToneContent("amber")
@@ -3010,7 +3010,7 @@ private fun ReviewGroupRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconBubble(
-                Icons.Rounded.HelpOutline,
+                Icons.AutoMirrored.Rounded.HelpOutline,
                 size = 42.dp,
                 background = pesaToneContainer("amber"),
                 tint = pesaToneContent("amber")
@@ -3542,7 +3542,7 @@ private fun CapturedFinancialMessageRow(
                                 "loan",
                                 ignoreCase = true
                             ) ->
-                            Icons.Rounded.ReceiptLong
+                            Icons.AutoMirrored.Rounded.ReceiptLong
                         currentEventLabel
                             .contains(
                                 "transfer",
@@ -3554,7 +3554,7 @@ private fun CapturedFinancialMessageRow(
                                 "received",
                                 ignoreCase = true
                             ) ->
-                            Icons.Rounded.CallReceived
+                            Icons.AutoMirrored.Rounded.CallReceived
                         else ->
                             Icons.Rounded.AccountBalance
                     },
@@ -3997,11 +3997,11 @@ private fun iconFor(
     TransactionCategory.FEES.name,
     TransactionCategory.DEBT_LOAN.name,
     TransactionCategory.EDUCATION.name ->
-        Icons.Rounded.ReceiptLong
+        Icons.AutoMirrored.Rounded.ReceiptLong
     TransactionCategory.PHONE_AND_DATA.name ->
         Icons.Rounded.PhoneAndroid
     TransactionCategory.INCOME.name ->
-        Icons.Rounded.CallReceived
+        Icons.AutoMirrored.Rounded.CallReceived
     TransactionCategory.TRANSFER.name ->
         Icons.Rounded.SyncAlt
     TransactionCategory.CASH.name ->
@@ -4020,7 +4020,7 @@ private fun iconFor(
         if (type == MpesaTransactionType.REVERSAL.name) {
             Icons.Rounded.SyncAlt
         } else {
-            Icons.Rounded.HelpOutline
+            Icons.AutoMirrored.Rounded.HelpOutline
         }
     else -> Icons.Rounded.MoreHoriz
 }
