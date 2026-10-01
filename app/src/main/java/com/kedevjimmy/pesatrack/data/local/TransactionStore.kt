@@ -141,6 +141,8 @@ class TransactionStore private constructor(context: Context) {
         occurredAtEpochMs: Long = receivedAtEpochMs,
         matchedRule: SmartRule? = null,
         rebuildPayCycles: Boolean = true,
+        runRelationshipReconciliation: Boolean = true,
+        runMirrorCorrelation: Boolean = true,
         evidence: TransactionEvidenceMatch? = null,
         accountTransferOverride:
             com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null,
@@ -321,18 +323,26 @@ class TransactionStore private constructor(context: Context) {
                 linkedAccountId
             ).toSet()
 
-        val mirrorCandidate = findMirrorCandidate(
-            parsed = parsed,
-            sourcePackage = sourcePackage,
-            sourceKind = sourceKind,
-            receivedAtEpochMs = receivedAtEpochMs,
-            occurredAtEpochMs = occurredAtEpochMs,
-            direction = classification.direction.name,
-            externalReferences =
-                correlationReferences,
-            accountIds =
-                correlationAccountIds
-        )
+        val mirrorCandidate =
+            if (runMirrorCorrelation) {
+                findMirrorCandidate(
+                    parsed = parsed,
+                    sourcePackage = sourcePackage,
+                    sourceKind = sourceKind,
+                    receivedAtEpochMs =
+                        receivedAtEpochMs,
+                    occurredAtEpochMs =
+                        occurredAtEpochMs,
+                    direction =
+                        classification.direction.name,
+                    externalReferences =
+                        correlationReferences,
+                    accountIds =
+                        correlationAccountIds
+                )
+            } else {
+                null
+            }
         if (mirrorCandidate != null) {
             attachExternalReferences(
                 transactionId = mirrorCandidate.id,
@@ -368,27 +378,33 @@ class TransactionStore private constructor(context: Context) {
                 linkedAccountId = linkedAccountId,
                 evidence = evidence
             )
-            DebtStore.get(appContext)
-                .reconcilePendingDrawdownsForTransaction(
-                    transactionId = mirrorCandidate.id,
-                    parsed = parsed,
-                    occurredAtEpochMs = occurredAtEpochMs
-                )
-            if (
-                classification.direction ==
-                    MoneyDirection.INCOME ||
-                classification.direction ==
-                    MoneyDirection.TRANSFER
-            ) {
+            if (runRelationshipReconciliation) {
                 DebtStore.get(appContext)
-                    .reconcilePendingRepaymentsAround(
+                    .reconcilePendingDrawdownsForTransaction(
                         transactionId =
                             mirrorCandidate.id,
+                        parsed = parsed,
                         occurredAtEpochMs =
                             occurredAtEpochMs
                     )
-                if (matchedRule == null) {
-                    tryLinkRefund(mirrorCandidate.id)
+                if (
+                    classification.direction ==
+                        MoneyDirection.INCOME ||
+                    classification.direction ==
+                        MoneyDirection.TRANSFER
+                ) {
+                    DebtStore.get(appContext)
+                        .reconcilePendingRepaymentsAround(
+                            transactionId =
+                                mirrorCandidate.id,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs
+                        )
+                    if (matchedRule == null) {
+                        tryLinkRefund(
+                            mirrorCandidate.id
+                        )
+                    }
                 }
             }
             if (rebuildPayCycles) {
@@ -478,27 +494,30 @@ class TransactionStore private constructor(context: Context) {
                             correlationReferences
                     )
             }
-            DebtStore.get(appContext)
-                .reconcilePendingDrawdownsForTransaction(
-                    transactionId = rowId,
-                    parsed = parsed,
-                    occurredAtEpochMs = occurredAtEpochMs
-                )
-            if (
-                classification.direction ==
-                    MoneyDirection.INCOME ||
-                classification.direction ==
-                    MoneyDirection.TRANSFER
-            ) {
+            if (runRelationshipReconciliation) {
                 DebtStore.get(appContext)
-                    .reconcilePendingRepaymentsAround(
-                        transactionId =
-                            rowId,
+                    .reconcilePendingDrawdownsForTransaction(
+                        transactionId = rowId,
+                        parsed = parsed,
                         occurredAtEpochMs =
                             occurredAtEpochMs
                     )
-                if (matchedRule == null) {
-                    tryLinkRefund(rowId)
+                if (
+                    classification.direction ==
+                        MoneyDirection.INCOME ||
+                    classification.direction ==
+                        MoneyDirection.TRANSFER
+                ) {
+                    DebtStore.get(appContext)
+                        .reconcilePendingRepaymentsAround(
+                            transactionId =
+                                rowId,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs
+                        )
+                    if (matchedRule == null) {
+                        tryLinkRefund(rowId)
+                    }
                 }
             }
             if (matchedRule == null) {
@@ -668,7 +687,11 @@ class TransactionStore private constructor(context: Context) {
             occurredAtEpochMs = occurredAtEpochMs,
             matchedRule = matchedRule,
             rebuildPayCycles =
-                rebuildPayCycles
+                rebuildPayCycles,
+            runRelationshipReconciliation =
+                false,
+            runMirrorCorrelation =
+                false
         )
     }
 
