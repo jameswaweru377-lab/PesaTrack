@@ -22,7 +22,7 @@ class MessagePackRouterTest {
             result.errors.isEmpty()
         )
         assertEquals(
-            21,
+            22,
             result.templates.size
         )
         assertEquals(
@@ -192,7 +192,8 @@ class MessagePackRouterTest {
     private fun loadFixtures() =
         listOf(
             "message-packs/ke/fixtures-v1.json",
-            "message-packs/ke/fixtures-v2.json"
+            "message-packs/ke/fixtures-v2.json",
+            "message-packs/ke/fixtures-v3.json"
         ).flatMap { path ->
             val stream =
                 javaClass.classLoader
