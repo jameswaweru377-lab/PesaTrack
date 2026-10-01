@@ -48,9 +48,18 @@ object FinancialMessageInterpreter {
                 normalized
             )
 
-        val candidates =
+        val extractedCandidates =
             FinancialCandidateExtractor.extract(
                 normalized
+            )
+        val candidates =
+            MessagePackCandidateBridge.enrich(
+                candidates =
+                    extractedCandidates,
+                match =
+                    messagePackMatch,
+                message =
+                    normalized
             )
         val resolved =
             FinancialRelationshipResolver.resolve(
