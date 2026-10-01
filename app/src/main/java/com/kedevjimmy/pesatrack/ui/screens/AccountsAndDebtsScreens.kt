@@ -22,9 +22,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +53,8 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private data class AccountComponentPresentation(
     val label: String,
@@ -92,42 +97,50 @@ fun AccountsScreen(
     val revision =
         ledgerUpdateState.revision
 
-    val presentations =
-        remember(revision) {
-            val accounts =
-                accountStore.listAccounts(
-                    enabledOnly = true
-                )
-            val confirmedAccountIds =
-                understandingStore
-                    .confirmedAccountIds()
-            val groups =
-                AccountDisplayPolicy.groups(
-                    accounts
-                ).filter { group ->
-                    group.accounts.any {
-                        AccountDisplayPolicy
-                            .isConfirmedOwned(
-                                account = it,
-                                confirmedAccountIds =
-                                    confirmedAccountIds
-                            )
-                    }
-                }
-            groups.map { group ->
-                accountBalancePresentation(
-                    group = group,
-                    snapshots =
-                        group.accounts.map {
-                            account ->
-                            balanceStore
-                                .currentAccountSnapshot(
-                                    account
+    var presentations:
+        List<AccountBalancePresentation> by
+        remember {
+            mutableStateOf(emptyList())
+        }
+
+    LaunchedEffect(revision) {
+        presentations =
+            withContext(Dispatchers.IO) {
+                val accounts =
+                    accountStore.listAccounts(
+                        enabledOnly = true
+                    )
+                val confirmedAccountIds =
+                    understandingStore
+                        .confirmedAccountIds()
+                val groups =
+                    AccountDisplayPolicy.groups(
+                        accounts
+                    ).filter { group ->
+                        group.accounts.any {
+                            AccountDisplayPolicy
+                                .isConfirmedOwned(
+                                    account = it,
+                                    confirmedAccountIds =
+                                        confirmedAccountIds
                                 )
                         }
-                )
+                    }
+                groups.map { group ->
+                    accountBalancePresentation(
+                        group = group,
+                        snapshots =
+                            group.accounts.map {
+                                account ->
+                                balanceStore
+                                    .currentAccountSnapshot(
+                                        account
+                                    )
+                            }
+                    )
+                }
             }
-        }
+    }
 
     val knownTotalMinor =
         presentations
@@ -267,22 +280,30 @@ fun DebtsScreen(
     val revision =
         ledgerUpdateState.revision
 
-    val activeDebts =
-        remember(revision) {
-            debtStore.accounts()
-                .filter {
-                    it.outstandingMinor > 0L
-                }
-                .sortedWith(
-                    compareByDescending<
-                        DebtAccountSnapshot
-                    > {
-                        it.outstandingMinor
-                    }.thenBy {
-                        it.name.lowercase()
-                    }
-                )
+    var activeDebts:
+        List<DebtAccountSnapshot> by
+        remember {
+            mutableStateOf(emptyList())
         }
+
+    LaunchedEffect(revision) {
+        activeDebts =
+            withContext(Dispatchers.IO) {
+                debtStore.accounts()
+                    .filter {
+                        it.outstandingMinor > 0L
+                    }
+                    .sortedWith(
+                        compareByDescending<
+                            DebtAccountSnapshot
+                        > {
+                            it.outstandingMinor
+                        }.thenBy {
+                            it.name.lowercase()
+                        }
+                    )
+            }
+    }
 
     val totalDebtMinor =
         activeDebts.sumOf {
