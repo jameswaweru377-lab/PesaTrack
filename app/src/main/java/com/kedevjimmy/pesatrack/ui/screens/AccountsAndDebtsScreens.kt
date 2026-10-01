@@ -291,7 +291,8 @@ fun DebtsScreen(
             withContext(Dispatchers.IO) {
                 debtStore.accounts()
                     .filter {
-                        it.outstandingMinor > 0L
+                        it.outstandingMinor > 0L ||
+                            it.hasUnresolvedDrawdown
                     }
                     .sortedWith(
                         compareByDescending<
@@ -305,10 +306,18 @@ fun DebtsScreen(
             }
     }
 
+    val unknownBalanceCount =
+        activeDebts.count(
+            ::hasUnknownDebtBalance
+        )
     val totalDebtMinor =
-        activeDebts.sumOf {
-            it.outstandingMinor
-        }
+        activeDebts
+            .filterNot(
+                ::hasUnknownDebtBalance
+            )
+            .sumOf {
+                it.outstandingMinor
+            }
 
     LazyColumn(
         modifier = Modifier
@@ -341,7 +350,13 @@ fun DebtsScreen(
                         Modifier.padding(16.dp)
                 ) {
                     Text(
-                        "Total outstanding debt",
+                        if (
+                            unknownBalanceCount > 0
+                        ) {
+                            "Known outstanding debt"
+                        } else {
+                            "Total outstanding debt"
+                        },
                         style =
                             MaterialTheme.typography
                                 .labelLarge,
@@ -350,9 +365,17 @@ fun DebtsScreen(
                                 .onSurfaceVariant
                     )
                     Text(
-                        formatDetailMoney(
-                            totalDebtMinor
-                        ),
+                        if (
+                            activeDebts.isNotEmpty() &&
+                            unknownBalanceCount ==
+                                activeDebts.size
+                        ) {
+                            "Balance pending"
+                        } else {
+                            formatDetailMoney(
+                                totalDebtMinor
+                            )
+                        },
                         modifier =
                             Modifier.padding(top = 4.dp),
                         style =
@@ -365,16 +388,32 @@ fun DebtsScreen(
                         if (activeDebts.isEmpty()) {
                             "No outstanding debt is currently recorded."
                         } else {
-                            activeDebts.size
-                                .toString() +
-                                " active debt account" +
+                            buildString {
+                                append(
+                                    activeDebts.size
+                                )
+                                append(
+                                    " active debt account"
+                                )
                                 if (
-                                    activeDebts.size == 1
+                                    activeDebts.size != 1
                                 ) {
-                                    ""
-                                } else {
-                                    "s"
+                                    append("s")
                                 }
+                                if (
+                                    unknownBalanceCount > 0
+                                ) {
+                                    append(
+                                        " • "
+                                    )
+                                    append(
+                                        unknownBalanceCount
+                                    )
+                                    append(
+                                        " awaiting an observed balance"
+                                    )
+                                }
+                            }
                         },
                         modifier =
                             Modifier.padding(top = 4.dp),
@@ -400,7 +439,7 @@ fun DebtsScreen(
                                     .titleMedium
                         )
                         Text(
-                            "A loan will appear only when PesaTrack has a positive outstanding balance.",
+                            "A loan appears when PesaTrack has a positive outstanding balance or a confirmed drawdown whose exact balance is still waiting for evidence.",
                             modifier =
                                 Modifier.padding(top = 5.dp),
                             color =
@@ -724,13 +763,16 @@ private fun DebtAccountCard(
                         FontWeight.SemiBold
                 )
                 Text(
-                    if (
+                    when {
+                        hasUnknownDebtBalance(
+                            debt
+                        ) ->
+                            "Loan detected • exact outstanding balance not observed yet"
                         debt.balanceQuality ==
-                        DebtBalanceQuality.OBSERVED
-                    ) {
-                        "Observed outstanding balance"
-                    } else {
-                        "Estimated from recorded loan activity"
+                            DebtBalanceQuality.OBSERVED ->
+                            "Observed outstanding balance"
+                        else ->
+                            "Estimated from recorded loan activity"
                     },
                     modifier =
                         Modifier.padding(top = 2.dp),
@@ -763,9 +805,17 @@ private fun DebtAccountCard(
                     }
             }
             Text(
-                formatDetailMoney(
-                    debt.outstandingMinor
-                ),
+                if (
+                    hasUnknownDebtBalance(
+                        debt
+                    )
+                ) {
+                    "—"
+                } else {
+                    formatDetailMoney(
+                        debt.outstandingMinor
+                    )
+                },
                 style =
                     MaterialTheme.typography
                         .titleMedium,
@@ -775,6 +825,14 @@ private fun DebtAccountCard(
         }
     }
 }
+
+private fun hasUnknownDebtBalance(
+    debt: DebtAccountSnapshot
+): Boolean =
+    debt.hasUnresolvedDrawdown &&
+        debt.outstandingMinor == 0L &&
+        debt.balanceQuality ==
+            DebtBalanceQuality.ESTIMATED
 
 private fun accountBalancePresentation(
     group: TrackedAccountGroup,

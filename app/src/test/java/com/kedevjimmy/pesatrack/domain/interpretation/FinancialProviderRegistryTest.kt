@@ -125,6 +125,44 @@ class FinancialProviderRegistryTest {
     }
 
     @Test
+    fun resolvesMshwariLiabilityInsideMpesaMessageThread() {
+        val account =
+            FinancialProviderRegistry
+                .resolveLiabilityInContext(
+                    rawLabel = "M-Shwari",
+                    title = "M-PESA",
+                    body =
+                        "Ksh 500.00 from your M-PESA has been used to partially pay your outstanding M-Shwari."
+                )
+
+        assertEquals(
+            "NCBA_MSHWARI_LOAN",
+            account.providerKey
+        )
+        assertEquals(
+            FinancialAccountNature.LIABILITY,
+            account.nature
+        )
+    }
+
+    @Test
+    fun genericLoanInsideMpesaThreadUsesExplicitMshwariProductEvidence() {
+        val account =
+            FinancialProviderRegistry
+                .resolveLiabilityInContext(
+                    rawLabel = "Loan",
+                    title = "M-PESA",
+                    body =
+                        "Your M-Shwari loan has been approved and Ksh985.00 has been deposited to your M-PESA account."
+                )
+
+        assertEquals(
+            "NCBA_MSHWARI_LOAN",
+            account.providerKey
+        )
+    }
+
+    @Test
     fun messageSourceProfileAnchorsMpesaWithoutBalanceText() {
         val account =
             FinancialProviderRegistry
