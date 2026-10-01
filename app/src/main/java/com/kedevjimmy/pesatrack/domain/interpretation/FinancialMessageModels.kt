@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.domain.interpretation
 
 import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseProvenance
 
 enum class InterpretationConfidence {
     HIGH,
@@ -214,7 +215,11 @@ data class FinancialMessageInterpretation(
     val events: List<FinancialEventFact>,
     val metadataEvidence: List<FieldEvidence> = emptyList(),
     val semanticAssessment:
-        FinancialSemanticAssessment? = null
+        FinancialSemanticAssessment? = null,
+    val parseProvenance:
+        MessageParseProvenance =
+            MessageParseProvenance
+                .genericFallback()
 ) {
     val recognized: Boolean
         get() =
