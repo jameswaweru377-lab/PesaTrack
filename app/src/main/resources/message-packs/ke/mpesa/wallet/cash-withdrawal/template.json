@@ -1,0 +1,17 @@
+{
+  "id": "ke.mpesa.wallet.cash-withdrawal",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["MPESA"],
+  "requiredAnchors": ["Confirmed.", "withdrawn from M-PESA at", "M-PESA balance"],
+  "anyAnchors": [],
+  "eventKind": "CASH_WITHDRAWAL",
+  "productIdentity": "SAFARICOM_MPESA",
+  "active": true,
+  "extractors": [
+    {"field":"TRANSACTION_CODE","pattern":"^([A-Z0-9]{10})[ ]+Confirmed[.]","group":1,"required":true},
+    {"field":"AMOUNT","pattern":"(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+withdrawn from M-PESA","group":1,"required":true},
+    {"field":"AGENT","pattern":"withdrawn from M-PESA at[ ]+(.+?)[ ]+on[ ]+[0-9]","group":1},
+    {"field":"BALANCE","pattern":"(?:New[ ]+)?M-PESA(?:[ ]+account)?[ ]+balance[ ]+is[ ]+(?:Ksh|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)","group":1}
+  ]
+}
