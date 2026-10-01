@@ -23,6 +23,19 @@
     "mshwari/savings/credit-from-mpesa/template.json",
     "mshwari/lock-savings/release-to-mshwari/template.json",
     "kcb-mpesa/loan/repayment-declined/template.json",
-    "equity/transfer/credit-to-beneficiary/template.json"
+    "equity/transfer/credit-to-beneficiary/template.json",
+    "i-and-m/payment/paid-to/template.json",
+    "kcb/account/credit/template.json",
+    "kcb/app/received/template.json",
+    "kcb/card/purchase/template.json",
+    "kcb/mpesa/received/template.json",
+    "kcb/mpesa/sent/template.json",
+    "kcb/payment/paid-to/template.json",
+    "kcb/account/salary-credit/template.json",
+    "kcb/transfer/send-to-mpesa/template.json",
+    "kcb/transfer/send-to-pesalink/template.json",
+    "pesalink/transfer/received/template.json",
+    "pesalink/transfer/sent/template.json",
+    "standard-chartered/card/purchase/template.json"
   ]
 }
