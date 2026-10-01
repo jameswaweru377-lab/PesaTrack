@@ -2435,3 +2435,44 @@ The cleanup intentionally avoids changing financial semantics. It:
 - The Android activity is still portrait-locked. Treat any orientation/tablet policy change as a focused responsive-UI task rather than silently changing it during cleanup.
 
 Permanent audit rule: prefer small evidence-backed corrections over broad refactors when changing ingestion, accounting, relationship reconciliation or payday logic.
+
+
+## M-Shwari debt + ownership confirmation follow-up — 2026-10-01
+
+This follow-up was driven by real-device screenshots/messages after the repository audit.
+
+### M-Shwari semantic correction
+
+- Treat an M-Shwari loan approval whose proceeds are deposited into M-PESA as a debt drawdown whose proceeds account is M-PESA. Do **not** model that message as a withdrawal from M-Shwari savings or Lock Savings.
+- M-Shwari regular savings, M-Shwari Lock Savings and M-Shwari Loan remain separate financial identities.
+- Loan-product identity is resolved from message evidence, not merely from the SMS thread/sender title. This is important because an M-Shwari loan can appear in an M-PESA message thread.
+- Generic debt grammar stays provider-agnostic; the provider registry supplies product identity only when the message contains enough evidence.
+
+### Unknown-principal safety rule
+
+A disbursement message can report net proceeds after excise duty/fees without exposing the exact outstanding principal. PesaTrack must not manufacture the loan balance from that net cash amount.
+
+When a confirmed debt drawdown exists but no explicit outstanding balance has been observed:
+- keep the debt visible;
+- display the outstanding value as pending/unknown;
+- exclude the unknown amount from total-debt arithmetic;
+- replace it once a later explicit loan-balance observation arrives.
+
+### Regression coverage
+
+Added real-message/regression coverage for:
+- M-Shwari approval in an M-PESA thread;
+- M-Shwari loan balance wording using both `balance is` and `balance of`;
+- M-Shwari partial repayment funded from M-PESA;
+- contextual liability resolution so `M-Shwari` in debt grammar maps to `NCBA_MSHWARI_LOAN`, not the savings account.
+
+### Ownership-review UX fix
+
+The Activity ownership dialog now:
+- enters a visible Saving state immediately after Yes/No;
+- disables repeated taps while persistence/reconciliation runs;
+- closes immediately after a successful ownership decision;
+- runs the optional historical SMS re-import only after the dialog is closed;
+- keeps the dialog open and shows a user-visible error if persistence fails.
+
+Do not infer additional M-Shwari Lock Savings transfer/balance grammar from reconstructed balances alone. Add or adjust those rules only from concrete Lock Savings message evidence.
