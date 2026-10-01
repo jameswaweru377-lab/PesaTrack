@@ -21,6 +21,7 @@
     "mpesa/wallet/cash-deposit/template.json",
     "mpesa/wallet/airtime-purchase/template.json",
     "mshwari/savings/credit-from-mpesa/template.json",
-    "mshwari/lock-savings/release-to-mshwari/template.json"
+    "mshwari/lock-savings/release-to-mshwari/template.json",
+    "kcb-mpesa/loan/repayment-declined/template.json"
   ]
 }
