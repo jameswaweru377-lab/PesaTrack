@@ -9,6 +9,10 @@ on:
       - ".github/workflows/entity-enrichment-deploy.yml"
   workflow_dispatch:
 
+concurrency:
+  group: entity-enrichment-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   actions: write
