@@ -113,14 +113,14 @@ object FinancialCandidateExtractor {
         )
 
     private val balanceRegex = Regex(
-        """(?:^|[.!?]\s+)(?:New\s+|Your\s+)?([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,4})\s+balance\s+is\s*(?:(?:Ksh|KES)\s*)?([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:^|[.!?]\s*)(?:New\s+|Your\s+)?([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,4})\s+balance\s+is\s*(?:(?:Ksh|KES)\s*)?([0-9,]+(?:\.\d{1,2})?)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.MULTILINE
         )
     )
     private val availableBalanceRegex = Regex(
-        """(?:^|[.!?]\s+)(?:your\s+)?(?:(?:available|current|closing)\s+)?balance\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:^|[.!?]\s*)(?:your\s+)?(?:(?:available|current|closing)\s+)?balance\s*(?:is\s*)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.MULTILINE

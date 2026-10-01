@@ -396,4 +396,49 @@ class FinancialInterpretationPipelineTest {
         )
     }
 
+    @Test
+    fun realWorldMshwariToMpesaWordingKeepsTransferAndBothBalances() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "M-SHWARI",
+                    body =
+                        "TSTMSH001 Confirmed.Ksh50.00 transferred from M-Shwari account on 2/1/25 at 11:00 AM. M-Shwari balance is Ksh925.46 .M-PESA balance is Ksh359.50 .Transaction cost Ksh.0.00"
+                )
+
+        val transfer =
+            interpretation.events
+                .single() as
+                TransferEventFact
+
+        assertEquals(
+            "NCBA_MSHWARI_SAVINGS",
+            transfer.source.providerKey
+        )
+        assertEquals(
+            "SAFARICOM_MPESA",
+            transfer.destination.providerKey
+        )
+        assertEquals(
+            5_000L,
+            transfer.amountMinor
+        )
+
+        val balanceProviders =
+            interpretation.balances
+                .mapNotNull {
+                    it.account.providerKey
+                }
+                .toSet()
+
+        assertTrue(
+            "NCBA_MSHWARI_SAVINGS" in
+                balanceProviders
+        )
+        assertTrue(
+            "SAFARICOM_MPESA" in
+                balanceProviders
+        )
+    }
+
 }
