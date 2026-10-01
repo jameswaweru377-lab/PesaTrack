@@ -525,11 +525,9 @@ object FinancialCandidateExtractor {
         }
 
         val sourceScopedLoan =
-            normalizedAccount in
-                setOf(
-                    "LOAN",
-                    "TOTAL LOAN",
-                    "OUTSTANDING LOAN"
+            normalizedAccount == "LOAN" ||
+                normalizedAccount.endsWith(
+                    " LOAN"
                 )
 
         val sourceLooksMshwari =
