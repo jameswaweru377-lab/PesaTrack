@@ -6,7 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +27,7 @@ enum class MainTab(
     val icon: ImageVector
 ) {
     HOME("home", "Home", Icons.Rounded.Home),
-    ACTIVITY("activity", "Activity", Icons.Rounded.ReceiptLong),
+    ACTIVITY("activity", "Activity", Icons.AutoMirrored.Rounded.ReceiptLong),
     COMMUNITY("community", "Community", Icons.Rounded.Groups),
     GOALS("goals", "Goals", Icons.Rounded.TrackChanges),
     MORE("more", "More", Icons.Rounded.MoreHoriz)
