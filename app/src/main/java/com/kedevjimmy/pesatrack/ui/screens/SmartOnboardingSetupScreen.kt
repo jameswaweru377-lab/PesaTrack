@@ -306,6 +306,11 @@ fun SmartOnboardingSetupScreen(
     var manualSalarySaving by remember {
         mutableStateOf(false)
     }
+    var manualSalarySavingLabel by remember {
+        mutableStateOf(
+            "Saving salary…"
+        )
+    }
     var completionNavigating by remember {
         mutableStateOf(false)
     }
@@ -1088,12 +1093,16 @@ fun SmartOnboardingSetupScreen(
                                 .toString()
                 )
 
-            transactionStore
-                .reapplyRule(
-                    rule = salaryRule,
-                    rebuildPayCycles =
-                        false
-                )
+            if (payer.isNotBlank()) {
+                transactionStore
+                    .reapplyRuleForCounterparty(
+                        rule = salaryRule,
+                        counterpartyQuery =
+                            payer,
+                        rebuildPayCycles =
+                            false
+                    )
+            }
 
             val historyMatches =
                 if (payer.isBlank()) {
@@ -1160,6 +1169,11 @@ fun SmartOnboardingSetupScreen(
                 }
             }
 
+        }
+
+        manualSalarySavingLabel =
+            "Building your payday picture…"
+        withContext(Dispatchers.IO) {
             payCycleStore.rebuild()
         }
 
@@ -1226,7 +1240,10 @@ fun SmartOnboardingSetupScreen(
                         "NCBA_MSHWARI_LOCK_SAVINGS"
                 )
             transactionStore
-                .reconcileOwnAccountTransfers()
+                .reconcileOwnAccountTransfers(
+                    rebuildPayCycles =
+                        false
+                )
             payCycleStore.rebuild()
         }
         phoneError = null
@@ -1251,7 +1268,10 @@ fun SmartOnboardingSetupScreen(
                         )
                     financialCoordinator
                         .reconcilePendingTransfers(
-                            entityKey
+                            entityKey =
+                                entityKey,
+                            rebuildPayCycles =
+                                false
                         )
                 }
 
@@ -1270,7 +1290,10 @@ fun SmartOnboardingSetupScreen(
                                 context
                                     .applicationContext
                             ).importSince(
-                                startEpochMs
+                                sinceEpochMs =
+                                    startEpochMs,
+                                rebuildPayCycles =
+                                    false
                             )
                         }
                 }
@@ -1395,13 +1418,28 @@ fun SmartOnboardingSetupScreen(
         }
     }
 
+    val onboardingBusy =
+        reviewSaving ||
+            mpesaConfirmationBusy ||
+            manualSalarySaving ||
+            completionNavigating ||
+            (
+                stage ==
+                    SmartSetupStage.ANALYZE &&
+                    !analysisReviewMode &&
+                    analysisStep !=
+                        AnalysisStep.COMPLETE
+                )
+
     BackHandler(
         enabled =
             stage !=
-                SmartSetupStage.IMPORT &&
-                !reviewSaving &&
-                !mpesaConfirmationBusy
+                SmartSetupStage.IMPORT
     ) {
+        if (onboardingBusy) {
+            return@BackHandler
+        }
+
         stage =
             when (stage) {
                 SmartSetupStage
@@ -1669,6 +1707,8 @@ fun SmartOnboardingSetupScreen(
                             manualSalaryError,
                         saving =
                             manualSalarySaving,
+                        savingLabel =
+                            manualSalarySavingLabel,
                         onAccountSelected = {
                             manualSalaryAccountId =
                                 it
@@ -1768,6 +1808,8 @@ fun SmartOnboardingSetupScreen(
                             if (!manualSalarySaving) {
                                 manualSalarySaving =
                                     true
+                                manualSalarySavingLabel =
+                                    "Saving salary entries…"
                                 manualSalaryError =
                                     null
                                 setupScope.launch {
@@ -3007,6 +3049,7 @@ private fun ManualSalaryPage(
     searchStatus: String?,
     error: String?,
     saving: Boolean,
+    savingLabel: String,
     onAccountSelected: (String) -> Unit,
     onPayerChanged: (String) -> Unit,
     onHistoryModeChanged:
@@ -3409,7 +3452,7 @@ private fun ManualSalaryPage(
                     strokeWidth = 2.dp
                 )
                 Text(
-                    "Saving salary…",
+                    savingLabel,
                     modifier =
                         Modifier.padding(
                             start = 10.dp

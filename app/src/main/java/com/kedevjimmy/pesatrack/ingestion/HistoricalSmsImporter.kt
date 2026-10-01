@@ -23,7 +23,10 @@ data class HistoricalImportResult(
 class HistoricalSmsImporter(
     private val context: Context
 ) {
-    fun importSince(sinceEpochMs: Long): HistoricalImportResult {
+    fun importSince(
+        sinceEpochMs: Long,
+        rebuildPayCycles: Boolean = true
+    ): HistoricalImportResult {
         val rules = RuleStore.get(context).listRules(enabledOnly = true)
         val accounts = AccountStore.get(context).listAccounts()
         val store = TransactionStore.get(context)
@@ -152,7 +155,9 @@ class HistoricalSmsImporter(
             }
         }
 
-        PayCycleStore.get(context).rebuild()
+        if (rebuildPayCycles) {
+            PayCycleStore.get(context).rebuild()
+        }
 
         return HistoricalImportResult(
             scanned = scanned,

@@ -141,6 +141,8 @@ class TransactionStore private constructor(context: Context) {
         occurredAtEpochMs: Long = receivedAtEpochMs,
         matchedRule: SmartRule? = null,
         rebuildPayCycles: Boolean = true,
+        runRelationshipReconciliation: Boolean = true,
+        runMirrorCorrelation: Boolean = true,
         evidence: TransactionEvidenceMatch? = null,
         accountTransferOverride:
             com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null,
@@ -321,18 +323,26 @@ class TransactionStore private constructor(context: Context) {
                 linkedAccountId
             ).toSet()
 
-        val mirrorCandidate = findMirrorCandidate(
-            parsed = parsed,
-            sourcePackage = sourcePackage,
-            sourceKind = sourceKind,
-            receivedAtEpochMs = receivedAtEpochMs,
-            occurredAtEpochMs = occurredAtEpochMs,
-            direction = classification.direction.name,
-            externalReferences =
-                correlationReferences,
-            accountIds =
-                correlationAccountIds
-        )
+        val mirrorCandidate =
+            if (runMirrorCorrelation) {
+                findMirrorCandidate(
+                    parsed = parsed,
+                    sourcePackage = sourcePackage,
+                    sourceKind = sourceKind,
+                    receivedAtEpochMs =
+                        receivedAtEpochMs,
+                    occurredAtEpochMs =
+                        occurredAtEpochMs,
+                    direction =
+                        classification.direction.name,
+                    externalReferences =
+                        correlationReferences,
+                    accountIds =
+                        correlationAccountIds
+                )
+            } else {
+                null
+            }
         if (mirrorCandidate != null) {
             attachExternalReferences(
                 transactionId = mirrorCandidate.id,
@@ -368,27 +378,33 @@ class TransactionStore private constructor(context: Context) {
                 linkedAccountId = linkedAccountId,
                 evidence = evidence
             )
-            DebtStore.get(appContext)
-                .reconcilePendingDrawdownsForTransaction(
-                    transactionId = mirrorCandidate.id,
-                    parsed = parsed,
-                    occurredAtEpochMs = occurredAtEpochMs
-                )
-            if (
-                classification.direction ==
-                    MoneyDirection.INCOME ||
-                classification.direction ==
-                    MoneyDirection.TRANSFER
-            ) {
+            if (runRelationshipReconciliation) {
                 DebtStore.get(appContext)
-                    .reconcilePendingRepaymentsAround(
+                    .reconcilePendingDrawdownsForTransaction(
                         transactionId =
                             mirrorCandidate.id,
+                        parsed = parsed,
                         occurredAtEpochMs =
                             occurredAtEpochMs
                     )
-                if (matchedRule == null) {
-                    tryLinkRefund(mirrorCandidate.id)
+                if (
+                    classification.direction ==
+                        MoneyDirection.INCOME ||
+                    classification.direction ==
+                        MoneyDirection.TRANSFER
+                ) {
+                    DebtStore.get(appContext)
+                        .reconcilePendingRepaymentsAround(
+                            transactionId =
+                                mirrorCandidate.id,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs
+                        )
+                    if (matchedRule == null) {
+                        tryLinkRefund(
+                            mirrorCandidate.id
+                        )
+                    }
                 }
             }
             if (rebuildPayCycles) {
@@ -478,27 +494,30 @@ class TransactionStore private constructor(context: Context) {
                             correlationReferences
                     )
             }
-            DebtStore.get(appContext)
-                .reconcilePendingDrawdownsForTransaction(
-                    transactionId = rowId,
-                    parsed = parsed,
-                    occurredAtEpochMs = occurredAtEpochMs
-                )
-            if (
-                classification.direction ==
-                    MoneyDirection.INCOME ||
-                classification.direction ==
-                    MoneyDirection.TRANSFER
-            ) {
+            if (runRelationshipReconciliation) {
                 DebtStore.get(appContext)
-                    .reconcilePendingRepaymentsAround(
-                        transactionId =
-                            rowId,
+                    .reconcilePendingDrawdownsForTransaction(
+                        transactionId = rowId,
+                        parsed = parsed,
                         occurredAtEpochMs =
                             occurredAtEpochMs
                     )
-                if (matchedRule == null) {
-                    tryLinkRefund(rowId)
+                if (
+                    classification.direction ==
+                        MoneyDirection.INCOME ||
+                    classification.direction ==
+                        MoneyDirection.TRANSFER
+                ) {
+                    DebtStore.get(appContext)
+                        .reconcilePendingRepaymentsAround(
+                            transactionId =
+                                rowId,
+                            occurredAtEpochMs =
+                                occurredAtEpochMs
+                        )
+                    if (matchedRule == null) {
+                        tryLinkRefund(rowId)
+                    }
                 }
             }
             if (matchedRule == null) {
@@ -668,7 +687,11 @@ class TransactionStore private constructor(context: Context) {
             occurredAtEpochMs = occurredAtEpochMs,
             matchedRule = matchedRule,
             rebuildPayCycles =
-                rebuildPayCycles
+                rebuildPayCycles,
+            runRelationshipReconciliation =
+                false,
+            runMirrorCorrelation =
+                false
         )
     }
 
@@ -1211,6 +1234,140 @@ class TransactionStore private constructor(context: Context) {
         if (changed) {
             LedgerUpdateBus
                 .notifyChanged()
+        }
+        return changed
+    }
+
+    @Synchronized
+    fun reapplyRuleForCounterparty(
+        rule: SmartRule,
+        counterpartyQuery: String,
+        rebuildPayCycles: Boolean = true
+    ): Int {
+        val query =
+            counterpartyQuery.trim()
+        if (query.isBlank()) {
+            return 0
+        }
+
+        val db =
+            database.writableDatabase
+        val candidates =
+            database.readableDatabase
+                .rawQuery(
+                    BASE_SELECT +
+                        " WHERE (" +
+                        "review_state = ? OR " +
+                        "(review_state = ? AND rule_id IS NULL AND category = ?)" +
+                        ") AND COALESCE(counterparty, '') LIKE ? COLLATE NOCASE" +
+                        " ORDER BY occurred_at_epoch_ms DESC, id DESC",
+                    arrayOf(
+                        ReviewState.NEEDS_REVIEW.name,
+                        ReviewState.AUTO_CLASSIFIED.name,
+                        TransactionCategory.OTHER.name,
+                        "%$query%"
+                    )
+                ).use { cursor ->
+                    buildList {
+                        while (
+                            cursor.moveToNext()
+                        ) {
+                            add(
+                                cursor
+                                    .toStoredTransaction()
+                            )
+                        }
+                    }
+                }
+
+        var changed = 0
+        candidates.forEach { stored ->
+            val parsed =
+                stored.toParsedTransaction()
+            if (
+                SmartRuleEngine
+                    .matchTransaction(
+                        parsed,
+                        listOf(rule)
+                    ) == null
+            ) {
+                return@forEach
+            }
+
+            val classification =
+                classify(
+                    parsed,
+                    rule,
+                    stored.occurredAtEpochMs
+                )
+            val values =
+                ContentValues().apply {
+                    put(
+                        "direction",
+                        classification.direction.name
+                    )
+                    put(
+                        "category",
+                        classification.category.name
+                    )
+                    put(
+                        "review_state",
+                        ReviewState.AUTO_CLASSIFIED.name
+                    )
+                    put(
+                        "rule_id",
+                        rule.id
+                    )
+                    put(
+                        "planning_month",
+                        classification.planningMonth
+                    )
+                    if (
+                        rule.accountId != null
+                    ) {
+                        put(
+                            "account_id",
+                            rule.accountId
+                        )
+                    }
+                    if (
+                        rule.linkedAccountId != null
+                    ) {
+                        put(
+                            "linked_account_id",
+                            rule.linkedAccountId
+                        )
+                    }
+                    rule.displayLabel
+                        ?.takeIf {
+                            it.isNotBlank()
+                        }
+                        ?.let {
+                            put(
+                                "counterparty",
+                                it
+                            )
+                        }
+                }
+
+            changed +=
+                db.update(
+                    "transactions",
+                    values,
+                    "id = ?",
+                    arrayOf(
+                        stored.id.toString()
+                    )
+                )
+        }
+
+        if (
+            changed > 0 &&
+            rebuildPayCycles
+        ) {
+            PayCycleStore
+                .get(appContext)
+                .rebuild()
         }
         return changed
     }
@@ -2228,7 +2385,9 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
-    fun reconcileOwnAccountTransfers(): Int {
+    fun reconcileOwnAccountTransfers(
+        rebuildPayCycles: Boolean = true
+    ): Int {
         val accounts = AccountStore.get(appContext).listAccounts()
         val db = database.writableDatabase
         var changed = 0
@@ -2271,7 +2430,10 @@ class TransactionStore private constructor(context: Context) {
             )
         }
 
-        if (changed > 0) {
+        if (
+            changed > 0 &&
+            rebuildPayCycles
+        ) {
             PayCycleStore.get(appContext).rebuild()
         }
         return changed
