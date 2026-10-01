@@ -110,6 +110,60 @@ class RemoteEntityEnrichmentTest {
     }
 
     @Test
+    fun paymentProcessorIsRejectedAsAutomaticSalarySource() {
+        val result =
+            RemoteEntityEnrichment(
+                canonicalName =
+                    "Sample Payments Ltd",
+                domain =
+                    "payments.example",
+                logoUrl = null,
+                categoryHint = null,
+                confidence =
+                    EntityMatchConfidence.HIGH,
+                source = "test",
+                organizationRole =
+                    RemoteOrganizationRole
+                        .PAYMENT_PROCESSOR,
+                salaryCandidateSuitability =
+                    SalaryCandidateSuitability
+                        .REJECT
+            )
+
+        assertTrue(
+            SalaryCandidateRemotePolicy
+                .shouldReject(result)
+        )
+    }
+
+    @Test
+    fun ordinaryFinancialInstitutionIsNotAutomaticallyRejectedAsEmployer() {
+        val result =
+            RemoteEntityEnrichment(
+                canonicalName =
+                    "Sample Bank Ltd",
+                domain =
+                    "bank.example",
+                logoUrl = null,
+                categoryHint = null,
+                confidence =
+                    EntityMatchConfidence.HIGH,
+                source = "test",
+                organizationRole =
+                    RemoteOrganizationRole
+                        .FINANCIAL_INSTITUTION,
+                salaryCandidateSuitability =
+                    SalaryCandidateSuitability
+                        .REVIEW
+            )
+
+        assertFalse(
+            SalaryCandidateRemotePolicy
+                .shouldReject(result)
+        )
+    }
+
+    @Test
     fun onlyMerchantAndBillChannelsMayGoOnline() {
         assertTrue(
             RemoteEntityEligibilityPolicy

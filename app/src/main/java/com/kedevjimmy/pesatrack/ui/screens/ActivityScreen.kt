@@ -106,6 +106,7 @@ import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.HistoryImportWindow
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageIngestionCoordinator
@@ -513,6 +514,8 @@ fun ActivityScreen(
                                 .first(),
                         diagnostics =
                             financialDiagnostics,
+                        accountsById =
+                            accountsById,
                         remainingCount =
                             reviewableFinancialEntities
                                 .size - 1,
@@ -1068,6 +1071,8 @@ fun ActivityScreen(
             entity = entity,
             diagnostics =
                 financialDiagnostics,
+            accountsById =
+                accountsById,
             onDismiss = {
                 accountReviewEntity = null
             },
@@ -1122,13 +1127,16 @@ private fun FinancialAccountDiscoveryCard(
     entity: DiscoveredFinancialEntity,
     diagnostics:
         List<FinancialIngestionDiagnostic>,
+    accountsById:
+        Map<String, com.kedevjimmy.pesatrack.domain.model.MoneyAccount>,
     remainingCount: Int,
     onReview: () -> Unit
 ) {
     val displayName =
         financialEntityReviewDisplayName(
             entity = entity,
-            diagnostics = diagnostics
+            diagnostics = diagnostics,
+            accountsById = accountsById
         )
 
     PesaCard {
@@ -1231,6 +1239,8 @@ private fun FinancialAccountReviewDialog(
     entity: DiscoveredFinancialEntity,
     diagnostics:
         List<FinancialIngestionDiagnostic>,
+    accountsById:
+        Map<String, com.kedevjimmy.pesatrack.domain.model.MoneyAccount>,
     onDismiss: () -> Unit,
     onConfirmOwned: () -> Unit,
     onNotMine: () -> Unit
@@ -1238,7 +1248,8 @@ private fun FinancialAccountReviewDialog(
     val displayName =
         financialEntityReviewDisplayName(
             entity = entity,
-            diagnostics = diagnostics
+            diagnostics = diagnostics,
+            accountsById = accountsById
         )
 
     AlertDialog(
@@ -3651,8 +3662,34 @@ private fun financialSourceType(
 private fun financialEntityReviewDisplayName(
     entity: DiscoveredFinancialEntity,
     diagnostics:
-        List<FinancialIngestionDiagnostic>
+        List<FinancialIngestionDiagnostic>,
+    accountsById:
+        Map<String, com.kedevjimmy.pesatrack.domain.model.MoneyAccount> =
+            emptyMap()
 ): String {
+    val linkedAccount =
+        entity.confirmedAccountId
+            ?.let(accountsById::get)
+            ?: when (
+                entity.providerKey
+            ) {
+                "SAFARICOM_MPESA" ->
+                    accountsById[
+                        AccountStore
+                            .DEFAULT_MPESA_ID
+                    ]
+
+                else -> null
+            }
+
+    if (
+        linkedAccount != null &&
+        !linkedAccount.identifier
+            .isNullOrBlank()
+    ) {
+        return AccountIdentityPresentation
+            .title(linkedAccount)
+    }
     KenyanBankDirectory
         .matchSender(
             entity.displayName

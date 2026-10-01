@@ -40,7 +40,7 @@ object AccountIdentityPresentation {
 
         val compact =
             value.replace(
-                Regex("""s+"""),
+                Regex("""\s+"""),
                 ""
             )
         val suffix =
@@ -52,6 +52,15 @@ object AccountIdentityPresentation {
             )
         return "•••• $suffix"
     }
+
+    fun title(
+        base: String,
+        identifier: String?
+    ): String =
+        withIdentifier(
+            base = base,
+            identifier = identifier
+        )
 
     private fun withIdentifier(
         base: String,
