@@ -47,7 +47,8 @@ data class DebtAccountSnapshot(
     val balanceQuality: DebtBalanceQuality,
     val observedAtEpochMs: Long?,
     val availableCreditMinor: Long?,
-    val availableCreditObservedAtEpochMs: Long?
+    val availableCreditObservedAtEpochMs: Long?,
+    val hasUnresolvedDrawdown: Boolean = false
 )
 
 data class DebtEventRecord(
@@ -1585,7 +1586,35 @@ class DebtStore private constructor(context: Context) {
             SELECT id, provider_key, name, outstanding_minor,
                    balance_quality, last_observed_at_epoch_ms,
                    available_credit_minor,
-                   available_credit_observed_at_epoch_ms
+                   available_credit_observed_at_epoch_ms,
+                   EXISTS(
+                       SELECT 1
+                       FROM debt_events drawdown
+                       WHERE drawdown.debt_account_id =
+                                 debt_accounts.id
+                         AND drawdown.event_type = 'DRAWDOWN'
+                         AND NOT EXISTS(
+                             SELECT 1
+                             FROM debt_events repayment
+                             WHERE repayment.debt_account_id =
+                                       drawdown.debt_account_id
+                               AND repayment.event_type =
+                                   'REPAYMENT'
+                               AND repayment.repayment_completion =
+                                   'FULL'
+                               AND repayment.occurred_at_epoch_ms >=
+                                   drawdown.occurred_at_epoch_ms
+                         )
+                         AND NOT (
+                             debt_accounts.balance_quality =
+                                 'OBSERVED'
+                             AND debt_accounts.outstanding_minor = 0
+                             AND debt_accounts.last_observed_at_epoch_ms
+                                 IS NOT NULL
+                             AND debt_accounts.last_observed_at_epoch_ms >=
+                                 drawdown.occurred_at_epoch_ms
+                         )
+                   ) AS has_unresolved_drawdown
             FROM debt_accounts
             ORDER BY name COLLATE NOCASE
             """.trimIndent(),
@@ -1623,7 +1652,9 @@ class DebtStore private constructor(context: Context) {
                                     null
                                 } else {
                                     cursor.getLong(7)
-                                }
+                                },
+                            hasUnresolvedDrawdown =
+                                cursor.getInt(8) == 1
                         )
                     )
                 }
