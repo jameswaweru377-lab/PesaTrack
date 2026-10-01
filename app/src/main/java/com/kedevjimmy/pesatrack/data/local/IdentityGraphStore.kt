@@ -20,7 +20,6 @@ import com.kedevjimmy.pesatrack.domain.identity.IdentityReviewPromptType
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityLookupCandidate
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityMatchConfidence
 import com.kedevjimmy.pesatrack.domain.intelligence.LocalSeedEntityEnrichmentProvider
-import java.util.Locale
 
 class IdentityGraphStore private constructor(
     context: Context
