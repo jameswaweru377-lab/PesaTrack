@@ -1,0 +1,27 @@
+[
+  {
+    "id": "equity_transfer_mpesa_reference",
+    "title": "EQUITY",
+    "body": "Your transaction of Kshs. 20000.0 has been credited to 254700000001 SAMPLE BENEFICIARY. Ref. EQA94DF3A2EB374. MPESA Ref. UITFT8N12T on 29/09/2026 at 20:54:36.",
+    "templateId": "ke.equity.transfer.credit-to-beneficiary",
+    "expectedFields": {
+      "AMOUNT": "20000.0",
+      "COUNTERPARTY": "SAMPLE BENEFICIARY",
+      "BANK_REFERENCE": "EQA94DF3A2EB374",
+      "EXTERNAL_REFERENCE": "UITFT8N12T",
+      "DATE_TIME": "29/09/2026 at 20:54:36"
+    }
+  },
+  {
+    "id": "equity_transfer_long_currency_wording",
+    "title": "EQUITY BANK",
+    "body": "Your transaction of Kenya Shillings 20,000.00 has been credited to SAMPLE BENEFICIARY. Equity Ref EQA12345. M-Pesa Ref UFT12345.",
+    "templateId": "ke.equity.transfer.credit-to-beneficiary",
+    "expectedFields": {
+      "AMOUNT": "20,000.00",
+      "COUNTERPARTY": "SAMPLE BENEFICIARY",
+      "BANK_REFERENCE": "EQA12345",
+      "EXTERNAL_REFERENCE": "UFT12345"
+    }
+  }
+]
