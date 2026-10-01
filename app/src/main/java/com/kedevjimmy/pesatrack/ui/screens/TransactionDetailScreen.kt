@@ -16,13 +16,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Paid
-import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Tune
@@ -278,7 +278,7 @@ fun TransactionDetailScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Text(
                     "Transaction details",
@@ -427,8 +427,8 @@ fun TransactionDetailScreen(
                             }
                         )
                     }
-                    DetailRow(Icons.Rounded.ReceiptLong, "Type", pretty(current.type))
-                    DetailRow(Icons.Rounded.ReceiptLong, "M-Pesa code", current.transactionCode ?: "Not provided")
+                    DetailRow(Icons.AutoMirrored.Rounded.ReceiptLong, "Type", pretty(current.type))
+                    DetailRow(Icons.AutoMirrored.Rounded.ReceiptLong, "M-Pesa code", current.transactionCode ?: "Not provided")
                     DetailRow(Icons.Rounded.CalendarMonth, "Transaction date", formatDateTime(current.occurredAtEpochMs))
                     if (current.receivedAtEpochMs != current.occurredAtEpochMs) {
                         DetailRow(Icons.Rounded.CalendarMonth, "Message received", formatDateTime(current.receivedAtEpochMs))
@@ -580,7 +580,7 @@ private fun TransactionHero(item: StoredTransaction) {
                     HeroMetric(
                         "Code",
                         item.transactionCode ?: "—",
-                        Icons.Rounded.ReceiptLong,
+                        Icons.AutoMirrored.Rounded.ReceiptLong,
                         Modifier.weight(1f)
                     )
                     HeroMetric(
@@ -671,7 +671,7 @@ private fun FulizaFundingCard(item: StoredTransaction) {
                 HeroMetric(
                     "Access fee",
                     formatMoney(item.fulizaAccessFeeMinor),
-                    Icons.Rounded.ReceiptLong,
+                    Icons.AutoMirrored.Rounded.ReceiptLong,
                     Modifier.weight(1f)
                 )
                 HeroMetric(
