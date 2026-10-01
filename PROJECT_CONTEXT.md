@@ -2418,7 +2418,7 @@ The cleanup intentionally avoids changing financial semantics. It:
 - makes mixed SQLite bind-argument arrays explicit for Kotlin 2.6 compatibility;
 - removes unnecessary non-null assertions in Home, transaction details, onboarding, review grouping and debt-balance update code;
 - preserves the legacy `LUNCH` migration value without directly referencing the deprecated enum entry;
-- migrates directional Compose icons to AutoMirrored variants and moves `LocalLifecycleOwner` to lifecycle-runtime-compose;
+- migrates directional Compose icons to AutoMirrored variants and moves `LocalLifecycleOwner` to lifecycle-runtime-compose 2.9.4, retaining compileSdk 36 compatibility;
 - refreshes the repository README so it describes the actual SQLite/Financial Intelligence V2 architecture instead of the old bootstrap state.
 
 ### Audit findings intentionally not converted into automatic fixes
