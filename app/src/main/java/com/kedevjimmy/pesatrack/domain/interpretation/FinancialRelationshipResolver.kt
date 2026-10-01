@@ -163,7 +163,8 @@ object FinancialRelationshipResolver {
                         action = action,
                         observedAccount = observedAccount,
                         message = message,
-                        fee = candidates.fee
+                        fee = candidates.fee,
+                        balances = balances
                     )
                 }
 
@@ -882,7 +883,8 @@ object FinancialRelationshipResolver {
         action: FinancialActionCandidate,
         observedAccount: FinancialAccountReference?,
         message: NormalizedFinancialMessage,
-        fee: FeeCandidate?
+        fee: FeeCandidate?,
+        balances: List<BalanceObservationFact>
     ): ResolvedFinancialRelationship? {
         val bankLikeSource =
             BANK_SOURCE_LANGUAGE_REGEX
@@ -903,7 +905,8 @@ object FinancialRelationshipResolver {
                     observedAccount =
                         ownedMessageSource,
                     message = message,
-                    fee = fee
+                    fee = fee,
+                    balances = balances
                 )
             FinancialActionCandidateKind
                 .TRANSFER_TO_ACCOUNT,
@@ -971,10 +974,9 @@ object FinancialRelationshipResolver {
         action: FinancialActionCandidate,
         observedAccount: FinancialAccountReference?,
         message: NormalizedFinancialMessage,
-        fee: FeeCandidate?
+        fee: FeeCandidate?,
+        balances: List<BalanceObservationFact>
     ): ResolvedFinancialRelationship? {
-        val destination =
-            observedAccount ?: return null
         val source =
             FinancialProviderRegistry
                 .resolveAccountInContext(
@@ -983,9 +985,30 @@ object FinancialRelationshipResolver {
                     title = message.title,
                     body = message.body
                 )
-        if (source.entityKey == destination.entityKey) {
-            return null
-        }
+        val destination =
+            when {
+                observedAccount != null &&
+                    observedAccount.entityKey !=
+                        source.entityKey ->
+                    observedAccount
+
+                else ->
+                    balances
+                        .map {
+                            it.account
+                        }
+                        .distinctBy {
+                            it.entityKey
+                        }
+                        .filter {
+                            it.entityKey !=
+                                source.entityKey &&
+                                it.nature ==
+                                    FinancialAccountNature.ASSET
+                        }
+                        .singleOrNull()
+            }
+                ?: return null
         if (
             !isLikelyFinancialAccount(
                 source,
