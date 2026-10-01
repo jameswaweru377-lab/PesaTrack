@@ -2419,6 +2419,8 @@ The cleanup intentionally avoids changing financial semantics. It:
 - removes unnecessary non-null assertions in Home, transaction details, onboarding, review grouping and debt-balance update code;
 - preserves the legacy `LUNCH` migration value without directly referencing the deprecated enum entry;
 - migrates directional Compose icons to AutoMirrored variants and moves `LocalLifecycleOwner` to lifecycle-runtime-compose 2.9.4, retaining compileSdk 36 compatibility;
+- moves the data-heavy Activity, Plan, Accounts/Debts and Budget read/rebuild paths off the Compose main thread, and moves Activity review/reconciliation writes to `Dispatchers.IO`;
+- adds workflow concurrency so superseded Android CI and Worker deployment runs can be cancelled instead of consuming CI capacity in parallel;
 - refreshes the repository README so it describes the actual SQLite/Financial Intelligence V2 architecture instead of the old bootstrap state.
 
 ### Audit findings intentionally not converted into automatic fixes
@@ -2428,6 +2430,8 @@ The cleanup intentionally avoids changing financial semantics. It:
 - Profile currently contains a static profile presentation and Edit Profile is not wired.
 - Some Settings rows are presentation-only.
 - Compose AutoMirrored icon deprecations were cleaned up, and `LocalLifecycleOwner` now uses the lifecycle-runtime-compose API. Any remaining compiler warnings after CI should be treated as focused compatibility cleanup rather than mixed into financial-semantics changes.
-- Instrumented/UI tests are still much thinner than the pure unit-test coverage. Real-device validation remains important for permission flows, notification capture, onboarding/back navigation, Redmi Note 14 responsiveness and lifecycle behavior.
+- There are 48 JVM unit-test files but currently no `app/src/androidTest` instrumentation tests. Real-device validation remains important for permission flows, notification capture, onboarding/back navigation, database migrations, responsive Compose behavior and lifecycle behavior.
+- The entity-enrichment Worker intentionally exposes a public `/v1/entity/resolve` route. The provider secret remains server-side and the descriptor privacy filter is intact, but the endpoint can still be abused for quota/cost consumption. Before broad distribution, add a Cloudflare rate-limiting binding or equivalent edge rate limit; do not put a shared secret in the APK.
+- The Android activity is still portrait-locked. Treat any orientation/tablet policy change as a focused responsive-UI task rather than silently changing it during cleanup.
 
 Permanent audit rule: prefer small evidence-backed corrections over broad refactors when changing ingestion, accounting, relationship reconciliation or payday logic.
