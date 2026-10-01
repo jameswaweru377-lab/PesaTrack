@@ -113,7 +113,7 @@ object FinancialCandidateExtractor {
         )
 
     private val balanceRegex = Regex(
-        """(?:^|[.!?]\s*)(?:New\s+|Your\s+)?([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,4})\s+balance\s+is\s*(?:(?:Ksh|KES)\s*)?([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:^|[.!?]\s*)(?:New\s+|Your\s+)?([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,4})\s+balance\s+(?:is|of)\s*(?:(?:Ksh|KES)\s*)?([0-9,]+(?:\.\d{1,2})?)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.MULTILINE
@@ -558,13 +558,35 @@ object FinancialCandidateExtractor {
                         "LOCK SAVINGS ACCOUNT"
                     )
 
+        val contextualLiability =
+            if (sourceScopedLoan) {
+                FinancialProviderRegistry
+                    .knownLiabilityInContext(
+                        rawLabel = rawAccount,
+                        title = message.title,
+                        body = message.body
+                    )
+            } else {
+                null
+            }
+
         val accountLabel =
             when {
+                sourceScopedLoan &&
+                    contextualLiability != null ->
+                    contextualLiability.displayName
+
                 sourceScopedLoan ->
                     message.title
                         ?.trim()
                         ?.takeIf {
-                            it.isNotBlank()
+                            it.isNotBlank() &&
+                                FinancialProviderRegistry
+                                    .resolveMessageSourceAccount(
+                                        it
+                                    )
+                                    ?.providerKey !=
+                                "SAFARICOM_MPESA"
                         }
                         ?.let { title ->
                             if (
@@ -578,7 +600,7 @@ object FinancialCandidateExtractor {
                                 "$title Loan"
                             }
                         }
-                        ?: rawAccount
+                        ?: "Loan"
 
                 sourceScopedLockSavings ->
                     "M-Shwari Lock Savings"
