@@ -126,6 +126,10 @@ object FinancialCandidateExtractor {
             RegexOption.MULTILINE
         )
     )
+    private val genericLoanBalanceRegex = Regex(
+        """\b(?:(?:total|outstanding)\s+)?loan\s+(?:outstanding\s+)?balance\s*(?:is|of|:)?\s*(?:(?:Ksh|KES)\s*)?([0-9,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
     private val feeRegex = Regex(
         """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
@@ -376,6 +380,9 @@ object FinancialCandidateExtractor {
                 availableBalanceCandidate(
                     message = message
                 )?.let(::add)
+                genericLoanBalanceCandidate(
+                    message = message
+                )?.let(::add)
             },
             fee = feeRegex
                 .find(body)
@@ -617,6 +624,68 @@ object FinancialCandidateExtractor {
                 } else {
                     "balance.account_amount"
                 }
+        )
+    }
+
+    private fun genericLoanBalanceCandidate(
+        message: NormalizedFinancialMessage
+    ): BalanceCandidate? {
+        val match =
+            genericLoanBalanceRegex
+                .find(message.body)
+                ?: return null
+        val amount =
+            match.groups[1]
+                ?: return null
+        val knownLiability =
+            FinancialProviderRegistry
+                .knownLiabilityInContext(
+                    rawLabel = "Loan",
+                    title = message.title,
+                    body = message.body
+                )
+        val sourceTitle =
+            message.title
+                ?.trim()
+                ?.takeIf {
+                    it.isNotBlank() &&
+                        FinancialProviderRegistry
+                            .resolveMessageSourceAccount(
+                                it
+                            )
+                            ?.providerKey !=
+                        "SAFARICOM_MPESA"
+                }
+        val accountLabel =
+            knownLiability
+                ?.displayName
+                ?: sourceTitle
+                    ?.let { title ->
+                        if (
+                            title.endsWith(
+                                "loan",
+                                ignoreCase = true
+                            )
+                        ) {
+                            title
+                        } else {
+                            "$title Loan"
+                        }
+                    }
+                ?: "Loan"
+
+        return BalanceCandidate(
+            rawAccountLabel =
+                accountLabel,
+            accountSpan = null,
+            amountMinor =
+                amountToMinor(
+                    amount.value
+                ),
+            amountSpan =
+                amount.range.toSpan(),
+            ruleId =
+                "balance.generic_loan"
         )
     }
 
