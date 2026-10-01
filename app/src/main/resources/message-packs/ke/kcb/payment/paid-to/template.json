@@ -1,0 +1,17 @@
+{
+  "id": "ke.kcb.payment.paid-to",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["KCB"],
+  "requiredAnchors": [" paid to ", " Ref: "],
+  "anyAnchors": [],
+  "eventKind": "PAYMENT",
+  "productIdentity": "KENYAN_BANK_KCB",
+  "active": true,
+  "extractors": [
+    {"field":"AMOUNT","pattern":"^(?:(?:Kshs?|KES|Sh)[.]?[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)[ ]+paid to","group":1,"required":true},
+    {"field":"COUNTERPARTY","pattern":"paid to[ ]+(.+?)[ ]+\\(Acc","group":1,"required":true},
+    {"field":"REFERENCE","pattern":"Ref:[ ]*([^.]*)[.]","group":1},
+    {"field":"DATE","pattern":"[ ]on[ ]+(.+?)[ ]+at[ ]+","group":1}
+  ]
+}
