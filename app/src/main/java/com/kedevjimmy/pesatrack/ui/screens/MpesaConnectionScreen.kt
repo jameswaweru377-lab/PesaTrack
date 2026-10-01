@@ -17,12 +17,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Paid
-import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -81,7 +81,7 @@ fun MpesaConnectionScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
-            Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
             }
             Column {
             Text("M-Pesa connection", style = MaterialTheme.typography.headlineMedium)
@@ -216,7 +216,7 @@ private fun LedgerDiagnostics(snapshot: LedgerSnapshot) {
     PesaCard {
         Column(Modifier.padding(16.dp)) {
             DiagnosticRow(
-                icon = Icons.Rounded.ReceiptLong,
+                icon = Icons.AutoMirrored.Rounded.ReceiptLong,
                 label = "Captured transactions",
                 value = snapshot.transactionCount.toString()
             )
