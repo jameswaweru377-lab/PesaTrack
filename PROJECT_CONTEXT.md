@@ -2476,3 +2476,46 @@ The Activity ownership dialog now:
 - keeps the dialog open and shows a user-visible error if persistence fails.
 
 Do not infer additional M-Shwari Lock Savings transfer/balance grammar from reconstructed balances alone. Add or adjust those rules only from concrete Lock Savings message evidence.
+
+
+## Brain v3 Phase 2 — Kenya core corpus increment 1 — 2026-10-01
+
+Blueprint guardrail: `docs/PESATRACK_BRAIN_V3.md` remains the implementation order. Do not jump to the Identity Graph, personal learning or Home redesign until the Kenya core corpus milestone is deliberately closed.
+
+### Corpus expansion
+
+- Message Pack grows from 11 to 21 active templates.
+- Added evidence-backed M-Pesa shapes for merchant payment, completed reversal, credited reversal, external-account transfer, cash withdrawal, cash deposit and airtime purchase.
+- Added M-Shwari savings credit-from-M-Pesa and Lock Savings release-to-M-Shwari shapes.
+- M-Shwari loan-balance template remains one stable ID and advances to revision 2 for `Sh`, `Ksh`, `Kshs` and `KES` variants.
+- Added a sanitized KCB M-PESA declined-loan-repayment shape from a published message example.
+- Every active Message Pack template must now be represented by at least one sanitized golden fixture.
+- `fixtures-v2.json` adds additional variants for several existing core templates rather than assuming one sentence proves a shape.
+
+### KCB M-PESA product knowledge
+
+Official KCB product mechanics are represented separately from ordinary M-Pesa and ordinary KCB bank accounts:
+
+- `KCB_MPESA_SAVINGS` = KCB M-PESA deposit/savings asset.
+- `KCB_MPESA_LOAN` = KCB M-PESA liability.
+- KCB M-PESA loan proceeds fund the KCB M-PESA deposit/savings account first, not ordinary M-Pesa.
+- The KCB M-PESA sender profile anchors observed KCB M-PESA account balances to the savings/deposit account.
+
+### Failed-action correctness rule
+
+Financial Intelligence V2 now understands a provider-agnostic `FAILED_ACTION` semantic intent for wording such as declined, rejected, unsuccessful, failed or insufficient funds.
+
+Permanent rule:
+- a failed/declined financial attempt must not create payment, transfer, withdrawal, deposit, reversal, drawdown or repayment ledger events;
+- explicit observed balances contained in that message may still be persisted;
+- the message remains semantically understood and can be shown in diagnostics.
+
+This rule was added because a real/public KCB M-PESA repayment-declined example contains both the phrase `loan repayment` and an amount, which would be unsafe to interpret as money movement.
+
+### PesaLink status
+
+Official PesaLink/KCB documentation confirms that PesaLink is an inter-bank transfer network and that one transfer can generate both bank and PesaLink confirmations. This supports PesaTrack's existing cross-message correlation architecture.
+
+No concrete PesaLink Message Pack template is added in this increment because the official documentation describes fields/behavior but does not provide enough exact current SMS wording. Wait for a sanitized real/public message fixture rather than inventing syntax.
+
+Evidence references are recorded in `docs/message-corpus-sources.md`.
