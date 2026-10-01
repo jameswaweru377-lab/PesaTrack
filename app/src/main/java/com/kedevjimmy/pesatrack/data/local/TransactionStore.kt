@@ -1239,6 +1239,140 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun reapplyRuleForCounterparty(
+        rule: SmartRule,
+        counterpartyQuery: String,
+        rebuildPayCycles: Boolean = true
+    ): Int {
+        val query =
+            counterpartyQuery.trim()
+        if (query.isBlank()) {
+            return 0
+        }
+
+        val db =
+            database.writableDatabase
+        val candidates =
+            database.readableDatabase
+                .rawQuery(
+                    BASE_SELECT +
+                        " WHERE (" +
+                        "review_state = ? OR " +
+                        "(review_state = ? AND rule_id IS NULL AND category = ?)" +
+                        ") AND COALESCE(counterparty, '') LIKE ? COLLATE NOCASE" +
+                        " ORDER BY occurred_at_epoch_ms DESC, id DESC",
+                    arrayOf(
+                        ReviewState.NEEDS_REVIEW.name,
+                        ReviewState.AUTO_CLASSIFIED.name,
+                        TransactionCategory.OTHER.name,
+                        "%$query%"
+                    )
+                ).use { cursor ->
+                    buildList {
+                        while (
+                            cursor.moveToNext()
+                        ) {
+                            add(
+                                cursor
+                                    .toStoredTransaction()
+                            )
+                        }
+                    }
+                }
+
+        var changed = 0
+        candidates.forEach { stored ->
+            val parsed =
+                stored.toParsedTransaction()
+            if (
+                SmartRuleEngine
+                    .matchTransaction(
+                        parsed,
+                        listOf(rule)
+                    ) == null
+            ) {
+                return@forEach
+            }
+
+            val classification =
+                classify(
+                    parsed,
+                    rule,
+                    stored.occurredAtEpochMs
+                )
+            val values =
+                ContentValues().apply {
+                    put(
+                        "direction",
+                        classification.direction.name
+                    )
+                    put(
+                        "category",
+                        classification.category.name
+                    )
+                    put(
+                        "review_state",
+                        ReviewState.AUTO_CLASSIFIED.name
+                    )
+                    put(
+                        "rule_id",
+                        rule.id
+                    )
+                    put(
+                        "planning_month",
+                        classification.planningMonth
+                    )
+                    if (
+                        rule.accountId != null
+                    ) {
+                        put(
+                            "account_id",
+                            rule.accountId
+                        )
+                    }
+                    if (
+                        rule.linkedAccountId != null
+                    ) {
+                        put(
+                            "linked_account_id",
+                            rule.linkedAccountId
+                        )
+                    }
+                    rule.displayLabel
+                        ?.takeIf {
+                            it.isNotBlank()
+                        }
+                        ?.let {
+                            put(
+                                "counterparty",
+                                it
+                            )
+                        }
+                }
+
+            changed +=
+                db.update(
+                    "transactions",
+                    values,
+                    "id = ?",
+                    arrayOf(
+                        stored.id.toString()
+                    )
+                )
+        }
+
+        if (
+            changed > 0 &&
+            rebuildPayCycles
+        ) {
+            PayCycleStore
+                .get(appContext)
+                .rebuild()
+        }
+        return changed
+    }
+
+    @Synchronized
     fun reapplyRule(
         rule: SmartRule,
         rebuildPayCycles: Boolean = true
