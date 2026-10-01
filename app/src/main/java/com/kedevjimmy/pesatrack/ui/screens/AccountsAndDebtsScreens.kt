@@ -793,8 +793,8 @@ private fun accountBalancePresentation(
             }
             .sortedBy {
                 when (it.label) {
-                    "Regular M-Shwari" -> 0
-                    "Lock Savings" -> 1
+                    "M-Shwari" -> 0
+                    "M-Shwari Lock Savings" -> 1
                     else -> 2
                 }
             }
@@ -885,11 +885,11 @@ private fun mshwariComponentLabel(
     return when {
         "LOCK SAVING" in
             normalized ->
-            "Lock Savings"
+            "M-Shwari Lock Savings"
 
         "M SHWARI" in
             normalized ->
-            "Regular M-Shwari"
+            "M-Shwari"
 
         else -> raw
     }
