@@ -146,3 +146,33 @@ Current Google Play evidence URLs:
 - https://play.google.com/store/apps/details?id=com.mode.familykenya.ui
 - https://play.google.com/store/apps/details?id=com.ecobank.mobileapp5
 - https://play.google.com/store/apps/details?id=com.mode.chasetest.ui
+
+## Phase 6 verified Zenka and Timiza Android app packages
+
+Evidence class: **OFFICIAL_APP_STORE_PACKAGE_IDENTITY**
+
+Reviewed 2 October 2026 from current Google Play listings.
+
+Package identity added:
+
+- Zenka Loan App Kenya — `com.zenkafinance.microloans` — Zenka Digital Limited.
+- Timiza — `ke.co.absa.digitalwallet` — Absa Group Limited.
+
+Product context from the official listings is used only to choose conservative source identity:
+
+- Zenka describes a Kenyan personal-loan app and states approved loans are received through M-Pesa.
+- Timiza exposes multiple financial functions (loan, transfers, bill payments, insurance and savings), so its app package cannot be treated as a loan account merely because Timiza also offers loans.
+
+Guardrails:
+
+- Both app packages resolve as source identity only.
+- Zenka uses `AccountType.OTHER`, UNKNOWN ownership and UNKNOWN financial nature.
+- Timiza also uses `AccountType.OTHER`, UNKNOWN ownership and UNKNOWN financial nature because the app spans several product types.
+- Neither package creates a loan/debt account or transaction.
+- Neither package chooses a transaction category or transfer direction.
+- Message semantics still require supported notification wording or Financial Intelligence evidence.
+
+Current Google Play evidence URLs:
+
+- https://play.google.com/store/apps/details?id=com.zenkafinance.microloans
+- https://play.google.com/store/apps/details?id=ke.co.absa.digitalwallet
