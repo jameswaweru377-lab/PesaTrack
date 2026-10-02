@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.kedevjimmy.pesatrack.data.local.IdentityGraphBootstrapWorker
 import com.kedevjimmy.pesatrack.ui.PesaTrackApp
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
@@ -16,6 +17,8 @@ import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        IdentityGraphBootstrapWorker
+            .schedule(this)
         enableEdgeToEdge()
         setContent {
             val preferences = remember {
