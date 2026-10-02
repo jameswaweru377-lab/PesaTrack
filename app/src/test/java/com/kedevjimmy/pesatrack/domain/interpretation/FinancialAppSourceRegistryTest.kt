@@ -61,7 +61,11 @@ class FinancialAppSourceRegistryTest {
                 "com.cfcstanbicbank.app" to
                     "Stanbic Bank Kenya",
                 "com.dtb.app" to
-                    "Diamond Trust Bank Kenya"
+                    "Diamond Trust Bank Kenya",
+                "com.scb.breezebanking.ke" to
+                    "Standard Chartered Bank Kenya",
+                "com.mode.familykenya.ui" to
+                    "Family Bank"
             )
 
         expected.forEach {
@@ -250,6 +254,18 @@ class FinancialAppSourceRegistryTest {
             FinancialAppSourceRegistry
                 .isKnownPackage(
                     "skyworld.mwalimu"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.scb.breezebanking.ke"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.mode.familykenya.ui"
                 )
         )
     }
