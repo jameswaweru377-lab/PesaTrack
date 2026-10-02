@@ -51,7 +51,11 @@ import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.identity.IdentityAliasType
+import com.kedevjimmy.pesatrack.domain.identity.IdentityEvidenceSource
 import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningAction
+import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningCorrectionAction
+import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningPolicy
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
@@ -103,6 +107,22 @@ fun TransactionDetailScreen(
             )
         )
     }
+    var learningExplanation by remember(transactionId) {
+        mutableStateOf(
+            transaction?.let(
+                personalLearningStore::
+                    explanationFor
+            )
+        )
+    }
+    var learningPreference by remember(transactionId) {
+        mutableStateOf(
+            transaction?.let(
+                personalLearningStore::
+                    preferenceFor
+            )
+        )
+    }
 
     fun refresh() {
         val updated =
@@ -112,6 +132,16 @@ fun TransactionDetailScreen(
             updated?.let(
                 personalLearningStore::
                     suggestionFor
+            )
+        learningExplanation =
+            updated?.let(
+                personalLearningStore::
+                    explanationFor
+            )
+        learningPreference =
+            updated?.let(
+                personalLearningStore::
+                    preferenceFor
             )
     }
 
@@ -127,6 +157,36 @@ fun TransactionDetailScreen(
             categoryId = canonicalId,
             existingDirection = existingDirection
         )
+        val hadLearningApplication =
+            personalLearningStore
+                .applicationFor(
+                    current.id
+                ) != null
+        val correctionAction =
+            if (hadLearningApplication) {
+                PersonalLearningPolicy
+                    .correctionAction(
+                        categoryId =
+                            canonicalId,
+                        direction =
+                            direction
+                    )
+            } else {
+                null
+            }
+
+        if (hadLearningApplication) {
+            personalLearningStore
+                .correctLearnedPreference(
+                    transaction =
+                        current,
+                    categoryId =
+                        canonicalId,
+                    direction =
+                        direction
+                )
+        }
+
         store.classifyManually(
             id = current.id,
             categoryId = canonicalId,
@@ -134,6 +194,21 @@ fun TransactionDetailScreen(
             markTransfer =
                 canonicalId == TransactionCategory.TRANSFER.name
         )
+
+        if (hadLearningApplication) {
+            learnedMessage =
+                when (correctionAction) {
+                    PersonalLearningCorrectionAction
+                        .UPDATE_PREFERENCE ->
+                        "Correction saved. PesaTrack updated what it learned for this identity."
+
+                    PersonalLearningCorrectionAction
+                        .FORGET_PREFERENCE ->
+                        "Correction saved. The old learned category was removed for this identity."
+
+                    null -> null
+                }
+        }
         refresh()
     }
 
@@ -422,6 +497,176 @@ fun TransactionDetailScreen(
             }
         }
 
+        learningExplanation
+            ?.let { explanation ->
+                item {
+                    PesaCard {
+                        Column(
+                            Modifier.padding(
+                                16.dp
+                            ),
+                            verticalArrangement =
+                                Arrangement.spacedBy(
+                                    10.dp
+                                )
+                        ) {
+                            Row(
+                                verticalAlignment =
+                                    Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Learned by PesaTrack",
+                                    modifier =
+                                        Modifier.weight(1f),
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .titleMedium
+                                )
+                                SmallStatusPill(
+                                    if (
+                                        learningPreference !=
+                                        null
+                                    ) {
+                                        "Auto-applied"
+                                    } else {
+                                        "Learning off"
+                                    },
+                                    if (
+                                        learningPreference !=
+                                        null
+                                    ) {
+                                        "green"
+                                    } else {
+                                        "amber"
+                                    }
+                                )
+                            }
+                            Text(
+                                buildString {
+                                    append(
+                                        categoryStore
+                                            .labelFor(
+                                                explanation
+                                                    .application
+                                                    .categoryId
+                                            )
+                                    )
+                                    append(
+                                        " was applied automatically because "
+                                    )
+                                    append(
+                                        explanation
+                                            .identityLabel
+                                    )
+                                    append(
+                                        " matched a learned identity."
+                                    )
+                                },
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                            Text(
+                                buildString {
+                                    append(
+                                        learningMatchReason(
+                                            explanation
+                                                .matchedAliasType,
+                                            explanation
+                                                .matchedAliasSource
+                                        )
+                                    )
+                                    append(" • ")
+                                    append(
+                                        explanation
+                                            .application
+                                            .confidence
+                                            .name
+                                            .lowercase()
+                                            .replaceFirstChar {
+                                                it.uppercase()
+                                            }
+                                    )
+                                    append(" confidence")
+                                    append(" • ")
+                                    append(
+                                        explanation
+                                            .application
+                                            .confirmationCount
+                                    )
+                                    append(
+                                        if (
+                                            explanation
+                                                .application
+                                                .confirmationCount ==
+                                            1
+                                        ) {
+                                            " confirmation"
+                                        } else {
+                                            " confirmations"
+                                        }
+                                    )
+                                },
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    if (
+                                        personalLearningStore
+                                            .undoAndForget(
+                                                current
+                                            )
+                                    ) {
+                                        learnedMessage =
+                                            "Learned classification undone. This identity will not be auto-classified from that preference again."
+                                    }
+                                    refresh()
+                                },
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "Undo & forget"
+                                )
+                            }
+                            if (
+                                learningPreference != null
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        if (
+                                            personalLearningStore
+                                                .forgetPreferenceFor(
+                                                    current
+                                                )
+                                        ) {
+                                            learnedMessage =
+                                                "Future learning for this identity was removed. This transaction stays unchanged."
+                                        }
+                                        refresh()
+                                    },
+                                    modifier =
+                                        Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        "Keep this, forget future learning"
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
         learningSuggestion
             ?.takeIf {
                 it.action ==
@@ -454,11 +699,18 @@ fun TransactionDetailScreen(
                                 )
                             }
                             Text(
-                                "You previously taught this identity as " +
+                                "You previously taught " +
+                                    suggestion.identityLabel +
+                                    " as " +
                                     categoryStore.labelFor(
                                         suggestion.categoryId
                                     ) +
-                                    ". The identity match is not strong enough to apply automatically.",
+                                    ". " +
+                                    learningMatchReason(
+                                        suggestion.matchedAliasType,
+                                        suggestion.matchedAliasSource
+                                    ) +
+                                    " is only medium confidence, so PesaTrack is asking before changing the transaction.",
                                 modifier =
                                     Modifier.padding(
                                         top = 6.dp
@@ -1244,6 +1496,69 @@ private fun TransactionCategory.prettyName(): String =
     name.lowercase()
         .replace('_', ' ')
         .replaceFirstChar { it.uppercase() }
+
+private fun learningMatchReason(
+    aliasType: IdentityAliasType?,
+    source: IdentityEvidenceSource?
+): String {
+    val match =
+        when (aliasType) {
+            IdentityAliasType.PHONE ->
+                "A matching phone number"
+
+            IdentityAliasType.NAME ->
+                "A matching name"
+
+            IdentityAliasType.ACCOUNT_ID,
+            IdentityAliasType.ACCOUNT_IDENTIFIER ->
+                "A matching account identifier"
+
+            IdentityAliasType.PROVIDER_KEY ->
+                "A matching provider identity"
+
+            IdentityAliasType.SMS_SENDER ->
+                "A matching message sender"
+
+            null ->
+                "The stable identity"
+        }
+
+    val evidence =
+        when (source) {
+            IdentityEvidenceSource
+                .USER_CONFIRMATION ->
+                "you confirmed"
+
+            IdentityEvidenceSource
+                .LOCAL_ENTITY_CATALOG ->
+                "PesaTrack already recognizes"
+
+            IdentityEvidenceSource
+                .REMOTE_ENRICHMENT ->
+                "entity enrichment recognized"
+
+            IdentityEvidenceSource
+                .ACCOUNT_STORE ->
+                "your account setup confirms"
+
+            IdentityEvidenceSource
+                .FINANCIAL_ENTITY ->
+                "financial account evidence confirms"
+
+            IdentityEvidenceSource
+                .TRANSACTION_COUNTERPARTY ->
+                "transaction history matched"
+
+            IdentityEvidenceSource
+                .MESSAGE_SOURCE ->
+                "message-source evidence matched"
+
+            null ->
+                "PesaTrack matched"
+        }
+
+    return "$match that $evidence"
+}
 
 private fun canLearnIdentity(item: StoredTransaction): Boolean {
     if (!item.counterpartyPhone.isNullOrBlank()) return true

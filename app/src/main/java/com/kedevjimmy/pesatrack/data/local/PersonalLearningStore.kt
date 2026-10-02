@@ -5,6 +5,10 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.identity.IdentityNodeKind
 import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningAction
+import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningApplication
+import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningConfidence
+import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningCorrectionAction
+import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningExplanation
 import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningPolicy
 import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningPreference
 import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningSuggestion
@@ -60,74 +64,103 @@ class PersonalLearningStore private constructor(
             return null
         }
 
-        val existing =
-            preferenceForIdentity(
-                resolution.node.identityId
-            )
-        val now =
-            System.currentTimeMillis()
-        val sameDecision =
-            existing?.categoryId == categoryId &&
-                existing.direction == direction
-        val confirmationCount =
-            if (sameDecision) {
-                existing!!.confirmationCount + 1
-            } else {
-                1
-            }
-        val createdAt =
-            existing?.createdAtEpochMs ?: now
-
-        val values =
-            ContentValues().apply {
-                put(
-                    "identity_id",
-                    resolution.node.identityId
-                )
-                put("category_id", categoryId)
-                put("direction", direction.name)
-                put(
-                    "confirmation_count",
-                    confirmationCount
-                )
-                put(
-                    "source_transaction_id",
-                    transaction.id
-                )
-                put(
-                    "created_at_epoch_ms",
-                    createdAt
-                )
-                put(
-                    "updated_at_epoch_ms",
-                    now
-                )
-            }
-
-        val saved =
-            database.writableDatabase
-                .insertWithOnConflict(
-                    "identity_category_preferences",
-                    null,
-                    values,
-                    SQLiteDatabase.CONFLICT_REPLACE
-                ) != -1L
-        if (!saved) {
-            return null
-        }
-
-        return PersonalLearningPreference(
+        return rememberForIdentity(
             identityId =
                 resolution.node.identityId,
-            categoryId = categoryId,
-            direction = direction,
-            confirmationCount =
-                confirmationCount,
-            sourceTransactionId =
+            transactionId =
                 transaction.id,
-            createdAtEpochMs = createdAt,
-            updatedAtEpochMs = now
+            categoryId = categoryId,
+            direction = direction
         )
+    }
+
+    @Synchronized
+    fun preferenceFor(
+        transaction: StoredTransaction
+    ): PersonalLearningPreference? {
+        val identityId =
+            applicationFor(transaction.id)
+                ?.identityId
+                ?: identityGraphStore
+                    .resolve(
+                        name =
+                            transaction.counterparty,
+                        phone =
+                            transaction
+                                .counterpartyPhone
+                    )
+                    ?.node
+                    ?.identityId
+                ?: return null
+
+        return preferenceForIdentity(
+            identityId
+        )
+    }
+
+    @Synchronized
+    fun forgetPreferenceFor(
+        transaction: StoredTransaction
+    ): Boolean {
+        val identityId =
+            applicationFor(transaction.id)
+                ?.identityId
+                ?: identityGraphStore
+                    .resolve(
+                        name =
+                            transaction.counterparty,
+                        phone =
+                            transaction
+                                .counterpartyPhone
+                    )
+                    ?.node
+                    ?.identityId
+                ?: return false
+
+        return forgetPreference(
+            identityId
+        )
+    }
+
+    @Synchronized
+    fun correctLearnedPreference(
+        transaction: StoredTransaction,
+        categoryId: String,
+        direction: MoneyDirection
+    ): PersonalLearningPreference? {
+        val application =
+            applicationFor(
+                transaction.id
+            ) ?: return null
+
+        return when (
+            PersonalLearningPolicy
+                .correctionAction(
+                    categoryId = categoryId,
+                    direction = direction
+                )
+        ) {
+            PersonalLearningCorrectionAction
+                .UPDATE_PREFERENCE ->
+                rememberForIdentity(
+                    identityId =
+                        application.identityId,
+                    transactionId =
+                        transaction.id,
+                    categoryId =
+                        categoryId,
+                    direction =
+                        direction
+                )
+
+            PersonalLearningCorrectionAction
+                .FORGET_PREFERENCE -> {
+                forgetPreference(
+                    application.identityId
+                )
+                null
+            }
+        }
     }
 
     @Synchronized
@@ -186,6 +219,8 @@ class PersonalLearningStore private constructor(
         return PersonalLearningSuggestion(
             identityId =
                 resolution.node.identityId,
+            identityLabel =
+                resolution.node.canonicalName,
             categoryId =
                 preference.categoryId,
             direction =
@@ -193,8 +228,197 @@ class PersonalLearningStore private constructor(
             confidence = confidence,
             action = action,
             confirmationCount =
-                preference.confirmationCount
+                preference.confirmationCount,
+            matchedAliasType =
+                resolution.matchedAlias?.type,
+            matchedAliasSource =
+                resolution.matchedAlias?.source
         )
+    }
+
+    @Synchronized
+    fun applicationFor(
+        transactionId: Long
+    ): PersonalLearningApplication? =
+        database.readableDatabase
+            .rawQuery(
+                """
+                SELECT transaction_id,
+                       identity_id,
+                       category_id,
+                       direction,
+                       confidence,
+                       confirmation_count,
+                       applied_at_epoch_ms
+                FROM personal_learning_applications
+                WHERE transaction_id = ?
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf(
+                    transactionId.toString()
+                )
+            )
+            .use { cursor ->
+                if (!cursor.moveToFirst()) {
+                    return@use null
+                }
+
+                val direction =
+                    runCatching {
+                        MoneyDirection.valueOf(
+                            cursor.getString(3)
+                        )
+                    }.getOrNull()
+                        ?: return@use null
+                val confidence =
+                    runCatching {
+                        PersonalLearningConfidence
+                            .valueOf(
+                                cursor.getString(4)
+                            )
+                    }.getOrNull()
+                        ?: return@use null
+
+                PersonalLearningApplication(
+                    transactionId =
+                        cursor.getLong(0),
+                    identityId =
+                        cursor.getString(1),
+                    categoryId =
+                        cursor.getString(2),
+                    direction = direction,
+                    confidence =
+                        confidence,
+                    confirmationCount =
+                        cursor.getInt(5),
+                    appliedAtEpochMs =
+                        cursor.getLong(6)
+                )
+            }
+
+    @Synchronized
+    fun explanationFor(
+        transaction: StoredTransaction
+    ): PersonalLearningExplanation? {
+        val application =
+            applicationFor(
+                transaction.id
+            ) ?: return null
+        val resolution =
+            identityGraphStore.resolve(
+                name = transaction.counterparty,
+                phone =
+                    transaction.counterpartyPhone
+            )
+
+        return PersonalLearningExplanation(
+            application =
+                application,
+            identityLabel =
+                resolution
+                    ?.takeIf {
+                        it.node.identityId ==
+                            application.identityId
+                    }
+                    ?.node
+                    ?.canonicalName
+                    ?: transaction.counterparty
+                    ?: transaction.counterpartyPhone
+                    ?: "this identity",
+            matchedAliasType =
+                resolution
+                    ?.takeIf {
+                        it.node.identityId ==
+                            application.identityId
+                    }
+                    ?.matchedAlias
+                    ?.type,
+            matchedAliasSource =
+                resolution
+                    ?.takeIf {
+                        it.node.identityId ==
+                            application.identityId
+                    }
+                    ?.matchedAlias
+                    ?.source
+        )
+    }
+
+    @Synchronized
+    fun undoAndForget(
+        transaction: StoredTransaction
+    ): Boolean {
+        val application =
+            applicationFor(
+                transaction.id
+            ) ?: return false
+
+        val db =
+            database.writableDatabase
+        db.beginTransaction()
+        val changed: Boolean
+        try {
+            db.delete(
+                "identity_category_preferences",
+                "identity_id = ?",
+                arrayOf(
+                    application.identityId
+                )
+            )
+
+            val values =
+                ContentValues().apply {
+                    put(
+                        "category",
+                        TransactionCategory
+                            .OTHER
+                            .name
+                    )
+                    put(
+                        "direction",
+                        application.direction.name
+                    )
+                    put(
+                        "review_state",
+                        ReviewState
+                            .NEEDS_REVIEW
+                            .name
+                    )
+                    putNull("rule_id")
+                }
+            changed =
+                db.update(
+                    "transactions",
+                    values,
+                    """
+                    id = ?
+                    AND rule_id IS NULL
+                    """.trimIndent(),
+                    arrayOf(
+                        transaction.id.toString()
+                    )
+                ) > 0
+
+            db.delete(
+                "personal_learning_applications",
+                "transaction_id = ?",
+                arrayOf(
+                    transaction.id.toString()
+                )
+            )
+
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+
+        if (changed) {
+            PayCycleStore.get(appContext)
+                .rebuild()
+            LedgerUpdateBus.notifyChanged()
+        }
+
+        return changed
     }
 
     @Synchronized
@@ -312,6 +536,112 @@ class PersonalLearningStore private constructor(
         scalarCount(
             "SELECT COUNT(*) FROM personal_learning_applications"
         )
+
+    private fun rememberForIdentity(
+        identityId: String,
+        transactionId: Long,
+        categoryId: String,
+        direction: MoneyDirection
+    ): PersonalLearningPreference? {
+        if (
+            !PersonalLearningPolicy
+                .isLearnableCategory(
+                    categoryId = categoryId,
+                    direction = direction
+                )
+        ) {
+            return null
+        }
+
+        val existing =
+            preferenceForIdentity(
+                identityId
+            )
+        val now =
+            System.currentTimeMillis()
+        val sameDecision =
+            existing?.categoryId == categoryId &&
+                existing.direction == direction
+        val confirmationCount =
+            if (sameDecision) {
+                existing!!.confirmationCount + 1
+            } else {
+                1
+            }
+        val createdAt =
+            existing?.createdAtEpochMs ?: now
+
+        val values =
+            ContentValues().apply {
+                put(
+                    "identity_id",
+                    identityId
+                )
+                put(
+                    "category_id",
+                    categoryId
+                )
+                put(
+                    "direction",
+                    direction.name
+                )
+                put(
+                    "confirmation_count",
+                    confirmationCount
+                )
+                put(
+                    "source_transaction_id",
+                    transactionId
+                )
+                put(
+                    "created_at_epoch_ms",
+                    createdAt
+                )
+                put(
+                    "updated_at_epoch_ms",
+                    now
+                )
+            }
+
+        val saved =
+            database.writableDatabase
+                .insertWithOnConflict(
+                    "identity_category_preferences",
+                    null,
+                    values,
+                    SQLiteDatabase.CONFLICT_REPLACE
+                ) != -1L
+        if (!saved) {
+            return null
+        }
+
+        return PersonalLearningPreference(
+            identityId =
+                identityId,
+            categoryId =
+                categoryId,
+            direction =
+                direction,
+            confirmationCount =
+                confirmationCount,
+            sourceTransactionId =
+                transactionId,
+            createdAtEpochMs =
+                createdAt,
+            updatedAtEpochMs =
+                now
+        )
+    }
+
+    private fun forgetPreference(
+        identityId: String
+    ): Boolean =
+        database.writableDatabase
+            .delete(
+                "identity_category_preferences",
+                "identity_id = ?",
+                arrayOf(identityId)
+            ) > 0
 
     private fun preferenceForIdentity(
         identityId: String

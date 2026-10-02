@@ -52,6 +52,23 @@ object PersonalLearningPolicy {
         return categoryId !in STRUCTURAL_CATEGORIES
     }
 
+    fun correctionAction(
+        categoryId: String,
+        direction: MoneyDirection
+    ): PersonalLearningCorrectionAction =
+        if (
+            isLearnableCategory(
+                categoryId = categoryId,
+                direction = direction
+            )
+        ) {
+            PersonalLearningCorrectionAction
+                .UPDATE_PREFERENCE
+        } else {
+            PersonalLearningCorrectionAction
+                .FORGET_PREFERENCE
+        }
+
     private val STRUCTURAL_CATEGORIES =
         setOf(
             TransactionCategory.UNCATEGORIZED.name,

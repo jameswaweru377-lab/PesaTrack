@@ -341,3 +341,42 @@ Data Health reports:
 This is not a probabilistic transaction classifier and it does not learn from raw name repetition. It only generalizes an explicit remembered category through the durable Identity Graph.
 
 The next Phase 4 increment should focus on conflict handling, preference correction/revocation, and stronger explanation of why an identity matched before any Home/Activity simplification work begins.
+
+
+## Phase 4 — Personal Learning, increment 2
+
+Branch milestone: `feature/brain-v3-personal-learning-v2`.
+
+This increment completes the first durable correction/revocation loop required before Product Simplification.
+
+### Correction authority
+
+When a transaction was auto-classified by personal learning and the user changes its category:
+
+- an ordinary expense correction updates the identity's remembered category;
+- a structural correction such as Transfer removes the old expense preference rather than trying to learn an accounting state;
+- the explicit transaction becomes USER_CLASSIFIED and therefore remains authoritative;
+- Smart Rules remain above personal learning and are not rewritten by this layer.
+
+### Reversible provenance
+
+Transaction Details can now explain an auto-applied learned category using:
+
+- the stable identity label;
+- the matched alias type when available;
+- the evidence source when available;
+- the confidence that allowed auto-application;
+- the remembered confirmation count.
+
+The user can:
+
+- **Keep this, forget future learning** — preserve the current transaction category while deleting the reusable identity preference;
+- **Undo & forget** — remove the reusable preference and reopen the transaction as Needs Review / Other.
+
+Medium-confidence suggestions now explain why the identity matched instead of presenting a category guess without provenance.
+
+### Phase boundary
+
+With correction, revocation, explanation and explicit user authority now present, Phase 4 has the minimum durable loop required by the blueprint.
+
+Next: **Phase 5 — Product Simplification**, beginning with the unified Needs Attention model and a calmer Activity hierarchy before doing the full Home visual rewrite.

@@ -2674,3 +2674,24 @@ Personal learning is downstream of deterministic transaction understanding and I
 ### Next
 
 Continue Phase 4 with correction/revocation semantics and conflict handling for remembered identity preferences. Do not begin Product Simplification/Home redesign until the personal-learning authority and correction paths are durable.
+
+
+## Brain v3 Phase 4 — Personal Learning increment 2 — 2026-10-02
+
+Phase 4 personal learning now has a reversible correction path.
+
+Implemented:
+
+- Auto-learned transactions expose human-readable provenance in Transaction Details.
+- Provenance includes stable identity label, alias/evidence path, confidence and prior confirmation count.
+- Correcting an auto-learned ordinary expense updates the identity's learned category.
+- Correcting it into a structural accounting category (for example Transfer) removes the old learned expense preference.
+- **Keep this, forget future learning** deletes the reusable preference without rewriting the current transaction.
+- **Undo & forget** deletes the reusable preference and safely reopens the current item as Needs Review / Other.
+- Medium-confidence suggestions now say why the identity matched.
+- Explicit user classifications and Smart Rules remain authoritative.
+- Added policy tests for correction-versus-forget behavior.
+
+Phase 4 is now ready to hand off into Phase 5 Product Simplification.
+
+Start Phase 5 with the unified Needs Attention question model and Activity hierarchy. Do not remove the underlying duplicate/link/identity/unsupported-message capabilities; hide their technical implementation behind one human review surface.

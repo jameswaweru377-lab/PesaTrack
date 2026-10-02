@@ -70,6 +70,38 @@ class PersonalLearningPolicyTest {
     }
 
     @Test
+    fun expenseCorrectionUpdatesTheLearnedPreference() {
+        assertEquals(
+            PersonalLearningCorrectionAction
+                .UPDATE_PREFERENCE,
+            PersonalLearningPolicy
+                .correctionAction(
+                    categoryId =
+                        TransactionCategory
+                            .GROCERIES.name,
+                    direction =
+                        MoneyDirection.EXPENSE
+                )
+        )
+    }
+
+    @Test
+    fun structuralCorrectionForgetsTheOldPreference() {
+        assertEquals(
+            PersonalLearningCorrectionAction
+                .FORGET_PREFERENCE,
+            PersonalLearningPolicy
+                .correctionAction(
+                    categoryId =
+                        TransactionCategory
+                            .TRANSFER.name,
+                    direction =
+                        MoneyDirection.TRANSFER
+                )
+        )
+    }
+
+    @Test
     fun onlyOrdinaryExpenseCategoriesAreLearnable() {
         assertTrue(
             PersonalLearningPolicy
