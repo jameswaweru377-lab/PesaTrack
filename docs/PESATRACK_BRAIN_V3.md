@@ -1041,3 +1041,19 @@ Therefore:
 The source is a project-supplied internal parsing dictionary with parameterized placeholders. It is useful structured evidence, but it is not represented as current bank-certified live wording. Matching remains narrow and the evidence class is documented as **USER_RESEARCH_REFERENCE**.
 
 Continue Phase 6 from real Coverage-by-source / Message Lab gaps and other concrete sanitized/public message evidence.
+
+
+## Phase 6 — Long-tail coverage, increment 15 — Zenka and Timiza app sources
+
+Branch milestone: `feature/phase6-zenka-timiza-app-sources-v15`.
+
+Verified Android source identity now also covers:
+
+- Zenka Loan App Kenya — `com.zenkafinance.microloans`;
+- Timiza — `ke.co.absa.digitalwallet`.
+
+Zenka resolves to a conservative direct lender source identity. Timiza resolves to a neutral financial-app source identity rather than a debt account because its official app exposes loans, transfers, payments, insurance and savings.
+
+Both keep `AccountType.OTHER`, UNKNOWN ownership and UNKNOWN financial nature at package-identity level.
+
+This improves Coverage by source and Message Lab attribution only. It does not create a loan event, debt account, category, Smart Rule or ownership claim from package identity.
