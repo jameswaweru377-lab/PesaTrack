@@ -602,3 +602,59 @@ Recurring intelligence does not:
 - change ledger arithmetic.
 
 The next Phase 6 increments remain evidence-backed provider/app-notification coverage and additional long-tail institutions.
+
+
+## Phase 6 — Long-tail coverage, increment 3 — Bank-app notifications
+
+Branch milestone: `feature/phase6-bank-app-notifications-v3`.
+
+This increment turns the existing Android notification listener into a provider-agnostic financial-notification capture path instead of an M-Pesa-only surface.
+
+### Local screening boundary
+
+Before a notification reaches Financial Intelligence:
+
+- PesaTrack ignores its own notifications;
+- Android group-summary notifications are ignored;
+- title + body are normalized locally;
+- the existing provider-agnostic `FinancialMessageRelevanceGate` decides whether the notification contains enough financial evidence;
+- OTP/security-code noise, promotions and financial solicitations remain below the relevance threshold;
+- explicit user-configured notification rules can still opt a notification into processing even when the generic relevance gate is conservative.
+
+No raw notification inbox is uploaded or persisted by this screening layer.
+
+### App-notification normalization
+
+If an app emits only a generic title such as `Transaction alert`, `Payment alert` or `Banking alert`, PesaTrack can use the installed app label as the interpretation source label. Meaningful titles such as `Money received` are preserved.
+
+This lets the same Brain v3 message/interpreter path work with bank/app alerts while retaining `sourcePackage` and a dedicated `financial_app_notification` source kind for provenance.
+
+### Duplicate notification updates
+
+Some Android apps update the same notification more than once. A short-lived in-memory SHA-256 fingerprint cache now suppresses identical updates for two minutes using package + notification key + title + normalized body.
+
+Changed bodies, different notification keys and notifications outside the window are treated as new evidence.
+
+This deduplication is capture-layer only; canonical transaction fingerprinting and cross-provider correlation remain authoritative downstream.
+
+### Product copy
+
+Permission/setup/settings copy now describes notification access as financial notification capture for M-Pesa plus supported bank/app alerts, while retaining the local-first privacy explanation.
+
+### Tests
+
+New pure tests cover:
+
+- financial transaction alerts;
+- financial action carried in the notification title;
+- OTP rejection;
+- loan-promotion rejection;
+- self-app rejection;
+- generic-title app-label fallback;
+- meaningful-title preservation;
+- repeated-notification suppression;
+- changed-body acceptance;
+- time-window expiry;
+- independent notification keys.
+
+Provider-specific bank-app templates still require real sanitized/public samples. This increment deliberately does not invent Co-op, Absa, NCBA, Stanbic, Family Bank or other app wording.
