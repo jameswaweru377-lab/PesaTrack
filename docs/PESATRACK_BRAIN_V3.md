@@ -1314,3 +1314,35 @@ No new provider wording is introduced.
 All new examples are sanitized value/reference/date/name/account variants of message structures that were already supported. This raises regression depth without fabricating new bank, SACCO, wallet or payment-provider messages.
 
 Phase 6 can now treat three-fixture coverage as a baseline invariant and use real Coverage-by-source / Message Lab evidence for any future new template.
+
+
+## Phase 6 — increment 21 — Executable readiness gate
+
+Branch milestone: `feature/phase6-readiness-gate-v21`.
+
+Phase 6 now has one explicit CI definition of readiness instead of relying on scattered tests or a manual checklist.
+
+### Readiness thresholds
+
+`Phase6ReadinessGateTest` enforces the blueprint's engineering targets and the stronger guarantees already reached by the repository:
+
+- financial relevance accuracy must be at least **95%** across the sanitized foundation + canonical financial corpora;
+- supported Message Pack field extraction must be at least **90%** across all golden fixtures;
+- every active Kenya Message Pack template must have at least **3** golden fixtures;
+- every supported fixture must produce deterministic TEMPLATE provenance with the expected template ID and a non-empty human-readable reason;
+- the canonical financial corpus must have **no legacy transaction-parser dependency**.
+
+These checks are release/readiness invariants. A future provider addition that lowers the metrics below the threshold fails CI instead of silently weakening PesaTrack.
+
+### Phase 6 boundary
+
+At the current evidence baseline, Phase 6 is structurally complete when this gate is green:
+
+- long-tail Message Pack infrastructure and 62-template Kenya corpus are in place;
+- every active template has the minimum three-fixture floor;
+- verified bank/SACCO/lender app-source attribution is in place;
+- Coverage-by-source + Message Lab provide the real-device expansion loop;
+- guarded lender debt and investment bridges are in place;
+- recurring-payment suggestions remain user-confirmed.
+
+Long-tail coverage itself remains open-ended by design. Future new institutions or message shapes should come from concrete sanitized/public or opt-in redacted device evidence and must preserve this readiness gate.
