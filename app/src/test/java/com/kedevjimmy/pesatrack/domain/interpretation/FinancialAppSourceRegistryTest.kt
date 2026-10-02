@@ -78,6 +78,74 @@ class FinancialAppSourceRegistryTest {
     }
 
     @Test
+    fun identifiesVerifiedDigitalFinanceAppsWithoutInventingAccounts() {
+        val branch =
+            FinancialAppSourceRegistry
+                .identify(
+                    "com.branch_international.branch.branch_demo_android"
+                )
+        val tala =
+            FinancialAppSourceRegistry
+                .identify(
+                    "com.inventureaccess.safarirahisi"
+                )
+        val timiza =
+            FinancialAppSourceRegistry
+                .identify(
+                    "ke.co.absa.digitalwallet"
+                )
+
+        assertEquals(
+            "Branch",
+            branch?.displayName
+        )
+        assertEquals(
+            FinancialAppInstitutionKind
+                .FINANCIAL_PLATFORM,
+            branch?.institutionKind
+        )
+        assertEquals(
+            "Tala",
+            tala?.displayName
+        )
+        assertEquals(
+            FinancialAppInstitutionKind
+                .LENDER,
+            tala?.institutionKind
+        )
+        assertEquals(
+            "Timiza",
+            timiza?.displayName
+        )
+
+        assertNull(
+            FinancialAppSourceRegistry
+                .resolve(
+                    "com.branch_international.branch.branch_demo_android"
+                )
+        )
+        assertNull(
+            FinancialAppSourceRegistry
+                .resolve(
+                    "com.inventureaccess.safarirahisi"
+                )
+        )
+        assertNull(
+            FinancialAppSourceRegistry
+                .resolve(
+                    "ke.co.absa.digitalwallet"
+                )
+        )
+
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.inventureaccess.safarirahisi"
+                )
+        )
+    }
+
+    @Test
     fun unknownPackageDoesNotInventFinancialIdentity() {
         assertNull(
             FinancialAppSourceRegistry.resolve(
