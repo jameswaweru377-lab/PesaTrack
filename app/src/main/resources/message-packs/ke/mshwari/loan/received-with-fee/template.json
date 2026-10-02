@@ -1,0 +1,34 @@
+{
+  "id": "ke.mshwari.loan.received-with-fee",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["M-SHWARI", "MSHWARI", "MPESA"],
+  "requiredAnchors": ["You have received a loan of", "facility fee charged", "Amount sent to M-Pesa", "Repay"],
+  "anyAnchors": [],
+  "eventKind": "DEBT_DRAWDOWN",
+  "productIdentity": "NCBA_MSHWARI_LOAN",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "received a loan of[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "FEE",
+      "pattern": "(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+facility fee charged",
+      "group": 1
+    },
+    {
+      "field": "REPAY_AMOUNT",
+      "pattern": "Repay[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)",
+      "group": 1
+    },
+    {
+      "field": "DATE",
+      "pattern": "Repay[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*[0-9,]+(?:[.][0-9]{1,2})?[ ]+by[ ]+(.+?)[.]?$",
+      "group": 1
+    }
+  ]
+}
