@@ -1,0 +1,28 @@
+{
+  "id": "ke.fundilima-sacco.account.withdrawal",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": [],
+  "requiredAnchors": [
+    "have withdrawn",
+    "from Account",
+    "FUNDILIMA SACCO Mobile Banking Service"
+  ],
+  "anyAnchors": ["Dear Member"],
+  "eventKind": "SACCO_WITHDRAWAL",
+  "productIdentity": "KENYAN_SACCO_FUNDILIMA",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "withdrawn[ ]+(?:(?:KES|Kshs?[.]?|Ksh[.]?)[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)[ ]+from Account",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "ACCOUNT_REFERENCE",
+      "pattern": "from Account[ ]+([A-Z0-9*.-]+)",
+      "group": 1
+    }
+  ]
+}
