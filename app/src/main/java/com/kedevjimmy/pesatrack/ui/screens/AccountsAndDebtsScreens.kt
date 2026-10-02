@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CreditCard
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -75,7 +77,8 @@ private data class AccountBalancePresentation(
 @Composable
 fun AccountsScreen(
     scaffoldPadding: PaddingValues,
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    onDebtsClick: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val accountStore =
@@ -91,6 +94,10 @@ fun AccountsScreen(
         remember {
             PaydaySnapshotStore.get(context)
         }
+    val debtStore =
+        remember {
+            DebtStore.get(context)
+        }
     val ledgerUpdateState by
         LedgerUpdateBus.state.collectAsState()
 
@@ -99,6 +106,11 @@ fun AccountsScreen(
 
     var presentations:
         List<AccountBalancePresentation> by
+        remember {
+            mutableStateOf(emptyList())
+        }
+    var activeDebts:
+        List<DebtAccountSnapshot> by
         remember {
             mutableStateOf(emptyList())
         }
@@ -142,12 +154,30 @@ fun AccountsScreen(
             }
     }
 
+    LaunchedEffect(revision) {
+        activeDebts =
+            withContext(Dispatchers.IO) {
+                debtStore.accounts()
+                    .filter {
+                        it.outstandingMinor >
+                            0L
+                    }
+                    .sortedByDescending {
+                        it.outstandingMinor
+                    }
+            }
+    }
+
     val knownTotalMinor =
         presentations
             .mapNotNull {
                 it.balanceMinor
             }
             .sum()
+    val debtOutstandingMinor =
+        activeDebts.sumOf {
+            it.outstandingMinor
+        }
 
     LazyColumn(
         modifier = Modifier
@@ -166,9 +196,9 @@ fun AccountsScreen(
     ) {
         item {
             DetailPageHeader(
-                title = "Wallets & balances",
+                title = "Accounts",
                 subtitle =
-                    "Only accounts PesaTrack has confirmed as yours.",
+                    "Wallets, banks, savings and debt PesaTrack can support with evidence.",
                 onBack = onBack
             )
         }
@@ -219,6 +249,114 @@ fun AccountsScreen(
                             MaterialTheme.colorScheme
                                 .onSurfaceVariant
                     )
+                }
+            }
+        }
+
+        if (onDebtsClick != null) {
+            item {
+                PesaCard(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                onClick =
+                                    onDebtsClick
+                            )
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.padding(
+                                15.dp
+                            ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            icon =
+                                Icons.Rounded
+                                    .CreditCard,
+                            size = 42.dp
+                        )
+                        Column(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .padding(
+                                        start = 11.dp
+                                    )
+                        ) {
+                            Text(
+                                "Debt",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium
+                            )
+                            Text(
+                                if (
+                                    activeDebts
+                                        .isEmpty()
+                                ) {
+                                    "No active tracked debt"
+                                } else {
+                                    activeDebts
+                                        .size
+                                        .toString() +
+                                        " active account" +
+                                        if (
+                                            activeDebts
+                                                .size ==
+                                            1
+                                        ) {
+                                            ""
+                                        } else {
+                                            "s"
+                                        }
+                                },
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            if (
+                                debtOutstandingMinor >
+                                0L
+                            ) {
+                                formatDetailMoney(
+                                    debtOutstandingMinor
+                                )
+                            } else {
+                                "None"
+                            },
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .titleSmall,
+                            fontWeight =
+                                FontWeight.SemiBold
+                        )
+                        Icon(
+                            Icons.Rounded
+                                .ChevronRight,
+                            contentDescription =
+                                null,
+                            modifier =
+                                Modifier.padding(
+                                    start = 5.dp
+                                ),
+                            tint =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

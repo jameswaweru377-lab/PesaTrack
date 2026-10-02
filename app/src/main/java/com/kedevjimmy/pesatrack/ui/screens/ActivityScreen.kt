@@ -169,7 +169,8 @@ fun ActivityScreen(
     onTransactionClick: (Long) -> Unit = {},
     onProfileClick: () -> Unit = {},
     onIdentityReviewClick: () -> Unit = {},
-    onDataHealthClick: () -> Unit = {}
+    onDataHealthClick: () -> Unit = {},
+    openNeedsAttention: Boolean = false
 ) {
     val context = LocalContext.current
     val activityScope =
@@ -273,9 +274,18 @@ fun ActivityScreen(
     var unsupportedShapeCount by remember {
         mutableStateOf(0)
     }
-    var selectedGlobalQueue by rememberSaveable {
-        mutableStateOf<String?>(null)
-    }
+    var selectedGlobalQueue by
+        rememberSaveable(
+            openNeedsAttention
+        ) {
+            mutableStateOf<String?>(
+                if (openNeedsAttention) {
+                    "Attention"
+                } else {
+                    null
+                }
+            )
+        }
     var showMonthPicker by remember {
         mutableStateOf(false)
     }

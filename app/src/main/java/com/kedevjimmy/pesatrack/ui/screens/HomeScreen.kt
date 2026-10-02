@@ -49,17 +49,17 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivitySummary
-import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.CycleProtectionStore
 import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
 import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
+import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
 import com.kedevjimmy.pesatrack.data.local.LedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
-import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
+import com.kedevjimmy.pesatrack.data.local.RelationshipReviewStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.SalaryCycleCandidate
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
@@ -70,17 +70,14 @@ import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
+import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
-import com.kedevjimmy.pesatrack.ui.components.BudgetProgressCard
-import com.kedevjimmy.pesatrack.ui.components.BudgetProgressItem
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
-import com.kedevjimmy.pesatrack.ui.components.MoneySummaryTile
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.PesaTrackTopBar
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.SmartInsightCard
-import com.kedevjimmy.pesatrack.ui.components.SpendingDonutCard
 import com.kedevjimmy.pesatrack.ui.components.SpendingSlice
 import com.kedevjimmy.pesatrack.ui.components.premiumCategoryColor
 import java.text.NumberFormat
@@ -97,11 +94,11 @@ private data class HomeLoadedState(
     val cycleSnapshot: PayCycleSnapshot,
     val ledgerSnapshot: LedgerSnapshot,
     val activitySnapshot: ActivityLedgerSnapshot,
-    val monthlyBudgets: List<MonthlyBudget>,
     val debtAccounts: List<DebtAccountSnapshot>,
     val trackedAccounts: List<MoneyAccount>,
     val confirmedAccountIds: Set<String>,
-    val salaryRule: SmartRule?
+    val salaryRule: SmartRule?,
+    val needsAttentionCount: Int
 )
 
 private fun emptyPayCycleSnapshot() =
@@ -138,8 +135,10 @@ private fun emptyActivitySnapshot() =
 fun HomeScreen(
     scaffoldPadding: PaddingValues,
     onProfileClick: () -> Unit = {},
-    onReviewClick: () -> Unit = {},
-    onBudgetClick: () -> Unit = {},
+    onAttentionClick: () -> Unit = {},
+    onActivityClick: () -> Unit = {},
+    onTransactionClick: (Long) -> Unit = {},
+    onPlanClick: () -> Unit = {},
     onAccountsClick: () -> Unit = {},
     onDebtsClick: () -> Unit = {}
 ) {
@@ -147,7 +146,6 @@ fun HomeScreen(
     val cycleStore = remember { PayCycleStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
     val accountStore = remember { AccountStore.get(context) }
-    val budgetStore = remember { BudgetStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
     val debtStore = remember { DebtStore.get(context) }
     val cycleProtectionStore =
@@ -160,6 +158,18 @@ fun HomeScreen(
                 .get(context)
         }
     val ruleStore = remember { RuleStore.get(context) }
+    val relationshipReviewStore =
+        remember {
+            RelationshipReviewStore.get(context)
+        }
+    val identityGraphStore =
+        remember {
+            IdentityGraphStore.get(context)
+        }
+    val messageLabStore =
+        remember {
+            MessageLabStore.get(context)
+        }
     val preferences = remember {
         context.getSharedPreferences(
             "pesatrack_preferences",
@@ -212,11 +222,6 @@ fun HomeScreen(
             emptyActivitySnapshot()
         )
     }
-    var monthlyBudgets by remember {
-        mutableStateOf<
-            List<MonthlyBudget>
-        >(emptyList())
-    }
     var debtAccounts by remember {
         mutableStateOf<
             List<DebtAccountSnapshot>
@@ -237,6 +242,9 @@ fun HomeScreen(
             null
         )
     }
+    var needsAttentionCount by remember {
+        mutableStateOf(0)
+    }
 
     suspend fun loadHomeState(
         rebuildCycles: Boolean
@@ -253,8 +261,6 @@ fun HomeScreen(
                 activitySnapshot =
                     transactionStore
                         .activitySnapshot(),
-                monthlyBudgets =
-                    budgetStore.list(),
                 debtAccounts =
                     debtStore.accounts(),
                 trackedAccounts =
@@ -271,7 +277,32 @@ fun HomeScreen(
                         )
                         .firstOrNull {
                             it.startsPayCycle
-                        }
+                        },
+                needsAttentionCount =
+                    transactionStore
+                        .activityReviewOverview()
+                        .let { overview ->
+                            overview.reviewGroups
+                                .sumOf {
+                                    it.transactionCount
+                                } +
+                                overview
+                                    .possibleDuplicates
+                                    .size
+                        } +
+                        relationshipReviewStore
+                            .pendingReviews()
+                            .size +
+                        identityGraphStore
+                            .pendingReviewPrompts(
+                                limit = 100
+                            )
+                            .size +
+                        messageLabStore
+                            .recentUnsupported(
+                                100
+                            )
+                            .size
             )
         }
 
@@ -291,8 +322,6 @@ fun HomeScreen(
                     loaded.ledgerSnapshot
                 activitySnapshot =
                     loaded.activitySnapshot
-                monthlyBudgets =
-                    loaded.monthlyBudgets
                 debtAccounts =
                     loaded.debtAccounts
                 trackedAccounts =
@@ -301,6 +330,8 @@ fun HomeScreen(
                     loaded.confirmedAccountIds
                 salaryRule =
                     loaded.salaryRule
+                needsAttentionCount =
+                    loaded.needsAttentionCount
                 homeLoaded = true
             } finally {
                 homeLoading = false
@@ -498,66 +529,6 @@ fun HomeScreen(
             }
     }
 
-    val budgetItems = remember(monthlyBudgets, activitySnapshot) {
-        val trustedByCategory = activitySnapshot.transactions
-            .filter {
-                it.reviewState != ReviewState.EXCLUDED.name &&
-                    it.reviewState != ReviewState.NEEDS_REVIEW.name
-            }
-            .groupBy {
-                categoryStore.canonicalId(it.category)
-            }
-            .mapValues { (_, items) ->
-                maxOf(
-                    0L,
-                    items.sumOf { item ->
-                        if (
-                            item.relationType ==
-                            TransactionStore.RELATION_REFUND
-                        ) {
-                            if (
-                                refundCountsInTrustedTotals(
-                                    item = item,
-                                    store = transactionStore
-                                )
-                            ) {
-                                -item.amountMinor
-                            } else {
-                                0L
-                            }
-                        } else {
-                            item.amountMinor + item.feeMinor
-                        }
-                    }
-                )
-            }
-
-        monthlyBudgets
-            .mapIndexed { index, budget ->
-                val trackedMinor =
-                    trustedByCategory[budget.categoryId] ?: 0L
-                val difference = budget.limitMinor - trackedMinor
-                BudgetProgressItem(
-                    label = categoryStore.labelFor(budget.categoryId),
-                    spentLabel = formatMoney(trackedMinor),
-                    limitLabel = formatMoney(budget.limitMinor),
-                    remainingLabel = if (difference >= 0L) {
-                        formatMoney(difference) + " remaining"
-                    } else {
-                        formatMoney(-difference) + " over budget"
-                    },
-                    overBudget = difference < 0L,
-                    progress = if (budget.limitMinor <= 0L) {
-                        0f
-                    } else {
-                        trackedMinor.toFloat() / budget.limitMinor.toFloat()
-                    },
-                    color = premiumCategoryColor(index)
-                )
-            }
-            .take(4)
-    }
-
     val spentTodayMinor = remember(
         activitySnapshot,
         ledgerUpdateState.revision
@@ -620,6 +591,62 @@ fun HomeScreen(
                 }
         )
     }
+
+    val homeSpendingItems =
+        spendSlices.take(3)
+            .map {
+                HomeSpendingItem(
+                    label = it.label,
+                    amountMinor =
+                        it.amountMinor,
+                    color = it.color
+                )
+            }
+    val totalTrustedSpendingMinor =
+        maxOf(
+            0L,
+            activitySnapshot
+                .summary
+                .spentMinor +
+                activitySnapshot
+                    .summary
+                    .feesMinor -
+                activitySnapshot
+                    .summary
+                    .refundMinor
+        )
+    val unresolvedDuplicateSecondIds =
+        activitySnapshot
+            .possibleDuplicates
+            .map {
+                it.second.id
+            }
+            .toSet()
+    val recentCanonicalTransactions =
+        activitySnapshot.transactions
+            .asSequence()
+            .filter {
+                it.reviewState !=
+                    ReviewState.EXCLUDED.name
+            }
+            .filter {
+                it.id !in
+                    unresolvedDuplicateSecondIds
+            }
+            .sortedByDescending {
+                it.occurredAtEpochMs
+            }
+            .take(5)
+            .toList()
+    val activeDebtOutstandingMinor =
+        activeDebtAccounts.sumOf {
+            it.outstandingMinor
+        }
+    val remainingCommitmentCount =
+        cycleSnapshot.commitments
+            .count {
+                it.remainingMinor > 0L
+            }
 
     val activeSalaryRule =
         salaryRule
@@ -728,52 +755,13 @@ fun HomeScreen(
             GreetingBlock(onProfileClick = onProfileClick)
         }
 
-        cycleSnapshot.pendingSalary?.let { candidate ->
-            item {
-                PendingSalaryCard(
-                    candidate = candidate,
-                    onStartCycle = {
-                        cycleStore.confirmNewCycle(candidate.transactionId)
-                        refresh()
-                    },
-                    onKeepAsIncome = {
-                        cycleStore.keepAsAdditionalIncome(candidate.transactionId)
-                        refresh()
-                    }
-                )
-            }
-        }
-
-        if (
-            cycleSnapshot.pendingSalary == null &&
-            expectedSalaryPrompt != null
-        ) {
-            item {
-                ExpectedSalaryCard(
-                    prompt = expectedSalaryPrompt,
-                    onAddSalary = {
-                        showManualSalaryDialog = true
-                    },
-                    onNotPaidYet = {
-                        val deferUntil =
-                            System.currentTimeMillis() +
-                                24L * 60L * 60L * 1000L
-                        preferences.edit()
-                            .putLong(
-                                "salary_prompt_deferred_until",
-                                deferUntil
-                            )
-                            .apply()
-                        salaryPromptDeferredUntil = deferUntil
-                    }
-                )
-            }
-        }
-
         item {
             AvailableToLiveHero(
                 amount =
-                    if (cycleSnapshot.cycle == null) {
+                    if (
+                        cycleSnapshot.cycle ==
+                        null
+                    ) {
                         "Waiting for salary"
                     } else {
                         formatMoney(
@@ -782,89 +770,103 @@ fun HomeScreen(
                         )
                     },
                 subtitle =
-                    if (cycleSnapshot.cycle == null) {
-                        "PesaTrack will calculate this from real salary-cycle data."
-                    } else {
-                        "After bills, debt repayments, goals and protected commitments."
-                    },
+                    cycleSnapshot.cycle
+                        ?.let { cycle ->
+                            buildString {
+                                append(
+                                    "Since "
+                                )
+                                append(
+                                    formatShortDate(
+                                        cycle.startEpochMs
+                                    )
+                                )
+                                cycleSnapshot
+                                    .estimatedDaysRemaining
+                                    ?.let { days ->
+                                        append(" • ")
+                                        append(days)
+                                        append(
+                                            if (
+                                                days ==
+                                                1
+                                            ) {
+                                                " day remaining"
+                                            } else {
+                                                " days remaining"
+                                            }
+                                        )
+                                    }
+                            }
+                        }
+                        ?: "PesaTrack will calculate this from real salary-cycle data.",
                 footer = null,
-                title = "Available after commitments",
-                spentToday =
-                    formatMoney(spentTodayMinor),
-                safeToday =
-                    cycleSnapshot.safeTodayMinor
-                        ?.let(::formatMoney)
+                title = "Available this cycle",
+                spentToday = null,
+                safeToday = null
             )
         }
 
-        if (cycleSnapshot.cycle != null) {
+        cycleSnapshot.pendingSalary?.let {
+                candidate ->
             item {
-                PaydayContextCard(
-                    snapshot =
-                        cycleSnapshot,
-                    onProtectMoney = {
-                        showProtectionDialog =
-                            true
+                PendingSalaryCard(
+                    candidate = candidate,
+                    onStartCycle = {
+                        cycleStore
+                            .confirmNewCycle(
+                                candidate
+                                    .transactionId
+                            )
+                        refresh()
+                    },
+                    onKeepAsIncome = {
+                        cycleStore
+                            .keepAsAdditionalIncome(
+                                candidate
+                                    .transactionId
+                            )
+                        refresh()
                     }
                 )
             }
         }
 
-        item {
-            val cycle = cycleSnapshot.cycle
-            val helper = cycle?.let {
-                "Since " + formatShortDate(it.startEpochMs)
-            } ?: "This month"
-            val cycleIncome =
-                if (cycle != null) {
-                    cycle.openingIncomeMinor +
-                        cycleSnapshot.additionalIncomeMinor
-                } else {
-                    activitySnapshot.summary.incomeMinor
-                }
-            val cycleSpent =
-                if (cycle != null) {
-                    maxOf(
-                        0L,
-                        cycleSnapshot.spentMinor +
-                            cycleSnapshot.feesMinor -
-                            cycleSnapshot.refundsMinor
-                    )
-                } else {
-                    activitySnapshot.summary.spentMinor +
-                        activitySnapshot.summary.feesMinor
-                }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MoneySummaryTile(
-                    label = if (cycle != null) {
-                        "Cycle income"
-                    } else {
-                        "Money in"
+        if (
+            cycleSnapshot.pendingSalary ==
+            null &&
+            expectedSalaryPrompt != null
+        ) {
+            item {
+                ExpectedSalaryCard(
+                    prompt =
+                        expectedSalaryPrompt,
+                    onAddSalary = {
+                        showManualSalaryDialog =
+                            true
                     },
-                    amount = formatMoney(cycleIncome),
-                    incoming = true,
-                    helper = helper,
-                    modifier = Modifier.weight(1f)
-                )
-                MoneySummaryTile(
-                    label = if (cycle != null) {
-                        "Cycle spent"
-                    } else {
-                        "Money spent"
-                    },
-                    amount = formatMoney(cycleSpent),
-                    incoming = false,
-                    helper = helper,
-                    modifier = Modifier.weight(1f)
+                    onNotPaidYet = {
+                        val deferUntil =
+                            System
+                                .currentTimeMillis() +
+                                24L *
+                                60L *
+                                60L *
+                                1000L
+                        preferences.edit()
+                            .putLong(
+                                "salary_prompt_deferred_until",
+                                deferUntil
+                            )
+                            .apply()
+                        salaryPromptDeferredUntil =
+                            deferUntil
+                    }
                 )
             }
         }
 
-        if (
-            activitySnapshot.summary
-                .needsReviewCount > 0
-        ) {
+        if (needsAttentionCount > 0) {
             item {
                 PesaCard(
                     modifier =
@@ -872,7 +874,7 @@ fun HomeScreen(
                             .fillMaxWidth()
                             .clickable(
                                 onClick =
-                                    onReviewClick
+                                    onAttentionClick
                             )
                 ) {
                     Row(
@@ -881,7 +883,8 @@ fun HomeScreen(
                                 15.dp
                             ),
                         verticalAlignment =
-                            Alignment.CenterVertically
+                            Alignment
+                                .CenterVertically
                     ) {
                         IconBubble(
                             Icons.AutoMirrored
@@ -913,21 +916,18 @@ fun HomeScreen(
                                         .titleMedium
                             )
                             Text(
-                                activitySnapshot
-                                    .summary
-                                    .needsReviewCount
+                                needsAttentionCount
                                     .toString() +
-                                    " transaction" +
+                                    " item" +
                                     if (
-                                        activitySnapshot
-                                            .summary
-                                            .needsReviewCount ==
+                                        needsAttentionCount ==
                                         1
                                     ) {
-                                        " needs a quick check"
+                                        " needs"
                                     } else {
-                                        "s need a quick check"
-                                    },
+                                        "s need"
+                                    } +
+                                    " your help",
                                 style =
                                     MaterialTheme
                                         .typography
@@ -953,47 +953,49 @@ fun HomeScreen(
             }
         }
 
-        if (activeDebtAccounts.isNotEmpty()) {
+        if (
+            cycleSnapshot
+                .unexplainedFundingGapMinor >
+            0L
+        ) {
             item {
-                DebtOverviewCard(
-                    accounts =
-                        activeDebtAccounts,
-                    onViewAll =
-                        onDebtsClick
+                FundingGapCard(
+                    cycleSnapshot
+                        .unexplainedFundingGapMinor
                 )
             }
         }
 
-        if (cycleSnapshot.unexplainedFundingGapMinor > 0L) {
-            item {
-                FundingGapCard(cycleSnapshot.unexplainedFundingGapMinor)
-            }
-        }
-
         item {
-            SpendingDonutCard(
-                slices = spendSlices,
-                totalLabel = formatMoney(
-                    activitySnapshot.summary.spentMinor +
-                        activitySnapshot.summary.feesMinor
-                )
+            HomeTodayCard(
+                spentTodayMinor =
+                    spentTodayMinor,
+                safeTodayMinor =
+                    cycleSnapshot
+                        .safeTodayMinor,
+                remainingCommitmentsMinor =
+                    cycleSnapshot
+                        .remainingCommitmentsMinor,
+                remainingCommitmentCount =
+                    remainingCommitmentCount,
+                activeCycle =
+                    cycleSnapshot.cycle !=
+                        null,
+                onProtectMoney = {
+                    showProtectionDialog =
+                        true
+                }
             )
         }
 
         item {
-            BudgetProgressCard(
-                items = budgetItems,
-                onManageClick = onBudgetClick
-            )
-        }
-
-        item {
-            SmartInsightCard(
-                title = "Smart insight",
-                body = homeInsight(
-                    cycleSnapshot = cycleSnapshot,
-                    needsReviewCount = activitySnapshot.summary.needsReviewCount
-                )
+            HomeWhereMoneyWentCard(
+                items =
+                    homeSpendingItems,
+                totalMinor =
+                    totalTrustedSpendingMinor,
+                onPlanClick =
+                    onPlanClick
             )
         }
 
@@ -1005,25 +1007,59 @@ fun HomeScreen(
                             AccountStore
                                 .DEFAULT_MPESA_ID
                     }
-            WalletsAndBalancesCard(
-                mpesaLabel =
+            HomeMoneyPictureCard(
+                walletLabel =
                     mpesaAccount
                         ?.let {
                             AccountIdentityPresentation
                                 .title(it)
                         }
                         ?: "M-Pesa",
-                mpesaBalanceMinor =
-                    ledgerSnapshot.latestBalanceMinor,
-                mpesaObservedAtEpochMs =
+                knownBalanceMinor =
+                    ledgerSnapshot
+                        .latestBalanceMinor,
+                balanceObservedAtEpochMs =
                     ledgerSnapshot
                         .latestBalanceObservedAtEpochMs,
-                trackedAccountCount =
+                accountCount =
                     visibleAccountGroups.size,
-                onSeeAll =
+                debtOutstandingMinor =
+                    activeDebtOutstandingMinor,
+                debtAccountCount =
+                    activeDebtAccounts.size,
+                onAccountsClick =
                     onAccountsClick,
-                onTrackedAccountsClick =
-                    onAccountsClick
+                onDebtsClick =
+                    onDebtsClick
+            )
+        }
+
+        item {
+            HomeRecentActivityCard(
+                transactions =
+                    recentCanonicalTransactions,
+                categoryLabel = {
+                    categoryStore
+                        .labelFor(it)
+                },
+                onTransactionClick =
+                    onTransactionClick,
+                onSeeAll =
+                    onActivityClick
+            )
+        }
+
+        item {
+            SmartInsightCard(
+                title =
+                    "One useful insight",
+                body =
+                    homeInsight(
+                        cycleSnapshot =
+                            cycleSnapshot,
+                        needsReviewCount =
+                            needsAttentionCount
+                    )
             )
         }
     }
