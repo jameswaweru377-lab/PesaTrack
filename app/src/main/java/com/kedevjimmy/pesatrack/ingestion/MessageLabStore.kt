@@ -9,6 +9,8 @@ import org.json.JSONObject
 data class UnsupportedMessageShape(
     val shapeId: String,
     val sender: String,
+    val sourcePackage: String?,
+    val sourceKind: String?,
     val redactedBody: String,
     val firstSeenAtEpochMs: Long,
     val lastSeenAtEpochMs: Long,
@@ -29,7 +31,9 @@ class MessageLabStore private constructor(
     fun recordUnsupported(
         safeSenderLabel: String?,
         body: String,
-        observedAtEpochMs: Long
+        observedAtEpochMs: Long,
+        sourcePackage: String? = null,
+        sourceKind: String? = null
     ) {
         val redacted =
             MessageLabRedactor.redact(
@@ -38,11 +42,33 @@ class MessageLabStore private constructor(
                 body = body
             )
 
+        val safeSourcePackage =
+            sourcePackage
+                ?.trim()
+                ?.takeIf(
+                    String::isNotBlank
+                )
+                ?.take(
+                    MAX_PACKAGE_LENGTH
+                )
+        val safeSourceKind =
+            sourceKind
+                ?.trim()
+                ?.takeIf(
+                    String::isNotBlank
+                )
+                ?.take(
+                    MAX_SOURCE_KIND_LENGTH
+                )
+
         val shapeId =
             fingerprint(
-                redacted.sender +
-                    "\n" +
+                listOf(
+                    safeSourceKind.orEmpty(),
+                    safeSourcePackage.orEmpty(),
+                    redacted.sender,
                     redacted.body
+                ).joinToString("\n")
             )
 
         val current =
@@ -98,6 +124,34 @@ class MessageLabStore private constructor(
                         "sender",
                         redacted.sender
                     )
+                    if (
+                        safeSourcePackage !=
+                        null
+                    ) {
+                        put(
+                            "sourcePackage",
+                            safeSourcePackage
+                        )
+                    } else {
+                        put(
+                            "sourcePackage",
+                            JSONObject.NULL
+                        )
+                    }
+                    if (
+                        safeSourceKind !=
+                        null
+                    ) {
+                        put(
+                            "sourceKind",
+                            safeSourceKind
+                        )
+                    } else {
+                        put(
+                            "sourceKind",
+                            JSONObject.NULL
+                        )
+                    }
                     put(
                         "redactedBody",
                         redacted.body
@@ -165,6 +219,38 @@ class MessageLabStore private constructor(
                                 "sender",
                                 "<SENDER>"
                             ),
+                        sourcePackage =
+                            if (
+                                item.isNull(
+                                    "sourcePackage"
+                                )
+                            ) {
+                                null
+                            } else {
+                                item.optString(
+                                    "sourcePackage"
+                                )
+                                    .trim()
+                                    .takeIf(
+                                        String::isNotBlank
+                                    )
+                            },
+                        sourceKind =
+                            if (
+                                item.isNull(
+                                    "sourceKind"
+                                )
+                            ) {
+                                null
+                            } else {
+                                item.optString(
+                                    "sourceKind"
+                                )
+                                    .trim()
+                                    .takeIf(
+                                        String::isNotBlank
+                                    )
+                            },
                         redactedBody =
                             item.optString(
                                 "redactedBody"
@@ -214,6 +300,20 @@ class MessageLabStore private constructor(
                 "body",
                 shape.redactedBody
             )
+            shape.sourcePackage
+                ?.let {
+                    put(
+                        "sourcePackage",
+                        it
+                    )
+                }
+            shape.sourceKind
+                ?.let {
+                    put(
+                        "sourceKind",
+                        it
+                    )
+                }
             put(
                 "expectedRoute",
                 "UNSUPPORTED"
@@ -260,6 +360,8 @@ class MessageLabStore private constructor(
         private const val KEY_SHAPES =
             "unsupported_shapes"
         private const val MAX_SHAPES = 100
+        private const val MAX_PACKAGE_LENGTH = 120
+        private const val MAX_SOURCE_KIND_LENGTH = 80
 
         @Volatile
         private var instance:
