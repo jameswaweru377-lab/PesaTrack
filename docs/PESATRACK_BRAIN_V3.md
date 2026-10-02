@@ -1314,3 +1314,41 @@ No new provider wording is introduced.
 All new examples are sanitized value/reference/date/name/account variants of message structures that were already supported. This raises regression depth without fabricating new bank, SACCO, wallet or payment-provider messages.
 
 Phase 6 can now treat three-fixture coverage as a baseline invariant and use real Coverage-by-source / Message Lab evidence for any future new template.
+
+
+## Phase 6 — Long-tail coverage, increment 21 — Brain v3 acceptance gates
+
+Branch milestone: `feature/phase6-brain-v3-acceptance-gates-v21`.
+
+This increment turns the blueprint's recommended intelligence targets into executable CI gates instead of leaving them as prose.
+
+### Supported-corpus relevance gate
+
+`BrainV3AcceptanceGateTest` evaluates every sanitized Message Pack fixture through the same system boundary used by production:
+
+- a deterministic Message Pack match counts as accepted financial evidence;
+- otherwise the provider-agnostic Financial Message Relevance Gate must accept it.
+
+The supported financial corpus must remain at or above **95% acceptance**, matching the blueprint target.
+
+The test also retains explicit non-financial controls from the canonical financial fixture corpus and requires those controls to remain rejected.
+
+### Structured extraction gate
+
+For every declared `expectedFields` value across fixture corpora v1-v13, the matched template extraction is compared with the expected structured value.
+
+The aggregate declared-field accuracy must remain at or above **90%**, matching the blueprint target.
+
+Existing router tests remain stricter and still fail on individual route/field regressions. The new gate exists to make the product-level target measurable and visible.
+
+### Current corpus baseline
+
+The active Kenya Message Pack remains:
+
+- 62 active templates;
+- at least three sanitized golden fixtures per active template;
+- source-aware app/SMS diagnostics;
+- guarded lender/investment semantic bridges;
+- evidence-driven Message Lab coverage workflow.
+
+Phase 6 should no longer add new provider wording merely to increase template count. Future template additions should be selected from real Coverage-by-source / Message Lab gaps and must preserve these quality gates.

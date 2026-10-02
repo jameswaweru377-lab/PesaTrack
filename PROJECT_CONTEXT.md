@@ -3181,3 +3181,23 @@ Implemented:
 - No new provider wording, semantic bridge or parser branch was introduced.
 
 Future new templates must therefore arrive with enough sanitized fixture depth to keep the full-corpus floor green. New wording still requires concrete public/sanitized device evidence rather than product-page assumptions.
+
+
+## Phase 6 Long-tail Coverage — increment 21 / Brain v3 acceptance gates — 2026-10-02
+
+Phase 6 now has explicit CI acceptance thresholds derived from the redesign blueprint.
+
+Implemented:
+
+- Added `BrainV3AcceptanceGateTest`.
+- Every supported Message Pack fixture is evaluated through the financial relevance decision boundary.
+- Deterministic template recognition or generic financial relevance counts as correct financial acceptance.
+- Supported-corpus financial acceptance must remain >=95%.
+- Canonical NON_FINANCIAL controls must remain rejected.
+- Every fixture-declared structured field is measured against extracted output.
+- Aggregate declared-field extraction accuracy must remain >=90%.
+- Existing strict per-fixture router/extraction tests remain in place, so the percentage gates do not weaken individual regression protection.
+
+The current active Kenya pack remains 62 templates with a universal three-fixture minimum.
+
+Future Phase 6 corpus growth must come from concrete Coverage-by-source / Message Lab evidence rather than speculative provider wording.
