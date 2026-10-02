@@ -34,12 +34,24 @@ object MessagePackCandidateBridge {
             }
 
         val debtEnriched =
-            enrichDebtDrawdown(
-                candidates =
-                    guardedCandidates,
-                match = match,
-                message = message
-            )
+            if (
+                eventKind ==
+                "DEBT_DRAWDOWN_WITH_SAVINGS"
+            ) {
+                enrichSplitDebtDrawdown(
+                    candidates =
+                        guardedCandidates,
+                    match = match,
+                    message = message
+                )
+            } else {
+                enrichDebtDrawdown(
+                    candidates =
+                        guardedCandidates,
+                    match = match,
+                    message = message
+                )
+            }
 
         if (
             debtEnriched.actions
@@ -119,6 +131,157 @@ object MessagePackCandidateBridge {
             actions =
                 debtEnriched.actions +
                     action
+        )
+    }
+
+    private fun enrichSplitDebtDrawdown(
+        candidates: FinancialMessageCandidates,
+        match: MessagePackMatch,
+        message: NormalizedFinancialMessage
+    ): FinancialMessageCandidates {
+        if (
+            match.productIdentity
+                ?.uppercase() !=
+            "HUSTLER_FUND_LOAN"
+        ) {
+            return candidates
+        }
+
+        val principal =
+            templateAmount(
+                match = match,
+                field = "AMOUNT",
+                message = message
+            ) ?: return candidates
+        val proceeds =
+            templateAmount(
+                match = match,
+                field = "DISBURSED_AMOUNT",
+                message = message
+            ) ?: return candidates
+        val savings =
+            templateAmount(
+                match = match,
+                field = "SAVINGS_AMOUNT",
+                message = message
+            ) ?: return candidates
+
+        if (
+            proceeds.amountMinor <= 0L ||
+            savings.amountMinor <= 0L ||
+            proceeds.amountMinor +
+                savings.amountMinor !=
+                principal.amountMinor
+        ) {
+            return candidates
+        }
+
+        val outstanding =
+            templateAmount(
+                match = match,
+                field = "REPAY_AMOUNT",
+                message = message
+            )
+
+        val liabilitySpan =
+            spanForValue(
+                body = message.body,
+                value = "Hustler Fund"
+            ) ?: spanForKeyword(
+                body = message.body,
+                keyword = "loan"
+            ) ?: return candidates
+
+        val proceedsAccountSpan =
+            spanForValue(
+                body = message.body,
+                value = "M-Pesa"
+            ) ?: return candidates
+
+        val savingsAccountSpan =
+            spanForValue(
+                body = message.body,
+                value = "savings account"
+            ) ?: return candidates
+
+        val drawdown =
+            DebtDrawdownCandidate(
+                amountMinor =
+                    principal.amountMinor,
+                amountSpan =
+                    principal.span,
+                liabilityLabel =
+                    "Hustler Fund Loan",
+                liabilitySpan =
+                    liabilitySpan,
+                outstandingAfterMinor =
+                    outstanding?.amountMinor,
+                outstandingSpan =
+                    outstanding?.span,
+                availableCreditAfterMinor =
+                    null,
+                availableCreditSpan =
+                    null,
+                proceedsAccountLabel =
+                    "M-Pesa",
+                proceedsAccountSpan =
+                    proceedsAccountSpan,
+                proceedsAmountMinor =
+                    proceeds.amountMinor,
+                proceedsAmountSpan =
+                    proceeds.span,
+                savingsAllocationMinor =
+                    savings.amountMinor,
+                savingsAllocationSpan =
+                    savings.span,
+                savingsAccountLabel =
+                    "Hustler Fund Savings",
+                savingsAccountSpan =
+                    savingsAccountSpan,
+                amountIsNetProceeds =
+                    false,
+                ruleId =
+                    "message_pack." +
+                        match.templateId +
+                        "@" +
+                        match.revision +
+                        ".split_debt_drawdown"
+            )
+
+        return candidates.copy(
+            debt =
+                candidates.debt.copy(
+                    drawdown = drawdown
+                )
+        )
+    }
+
+    private fun templateAmount(
+        match: MessagePackMatch,
+        field: String,
+        message: NormalizedFinancialMessage
+    ): TemplateAmount? {
+        val value =
+            match.fields.firstOrNull {
+                it.field.equals(
+                    field,
+                    ignoreCase = true
+                )
+            }?.value ?: return null
+
+        val amountMinor =
+            amountToMinor(value)
+                ?: return null
+        val span =
+            spanForValue(
+                body = message.body,
+                value = value
+            ) ?: return null
+
+        return TemplateAmount(
+            amountMinor =
+                amountMinor,
+            span = span
         )
     }
 
@@ -610,6 +773,11 @@ object MessagePackCandidateBridge {
             ).movePointRight(2)
                 .longValueExact()
         }.getOrNull()
+
+    private data class TemplateAmount(
+        val amountMinor: Long,
+        val span: MessageSpan
+    )
 
     private data class DebtProductBridge(
         val liabilityLabel: String,
