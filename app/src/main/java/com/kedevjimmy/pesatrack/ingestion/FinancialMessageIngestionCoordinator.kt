@@ -17,6 +17,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKi
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAppSourceRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpretation
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageNormalizer
@@ -1195,11 +1196,15 @@ class FinancialMessageIngestionCoordinator private constructor(
                     normalizedMessage.body
                 )
         val sourceReference =
-            FinancialProviderRegistry
-                .resolveMessageSourceAccount(
-                    title = title,
-                    bankLike = bankLike
+            FinancialAppSourceRegistry
+                .resolve(
+                    sourcePackage
                 )
+                ?: FinancialProviderRegistry
+                    .resolveMessageSourceAccount(
+                        title = title,
+                        bankLike = bankLike
+                    )
         val sourceType =
             when {
                 interpretation.events.any {
