@@ -144,6 +144,12 @@ object FinancialEventClassifier {
                             relationship.liability,
                         proceedsAccount =
                             relationship.proceedsAccount,
+                        proceedsAmountMinor =
+                            relationship.proceedsAmountMinor,
+                        savingsAllocationMinor =
+                            relationship.savingsAllocationMinor,
+                        savingsAccount =
+                            relationship.savingsAccount,
                         amountIsNetProceeds =
                             relationship
                                 .amountIsNetProceeds,
