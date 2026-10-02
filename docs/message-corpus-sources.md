@@ -118,3 +118,26 @@ Upstream shapes adapted into the PesaTrack Message Pack:
 PesaTrack adapts the published anchors and field boundaries into its own versioned schema. The associated `fixtures-v4.json` messages are synthetic sanitized examples constructed to exercise those published shapes. They must not be described as exact current messages from a customer's device.
 
 Permanent rule: a public template can expand language coverage, but real-device samples should be added later as additional golden fixtures rather than silently replacing the public-source evidence trail.
+
+
+### DTB Till Moja payment notifications
+
+Evidence classes: **OFFICIAL_PRODUCT_RULE + PUBLIC_MESSAGE_SAMPLE**
+
+Official DTB source:
+- https://dtbk.dtbafrica.com/account/till-moja-collection-service-2
+
+Official product behavior used by PesaTrack:
+- Till Moja settles mobile-money collections directly into a DTB account.
+- DTB provides instant payment alerts to both merchants and customers.
+- The product supports payment notifications over SMS.
+
+Published message examples:
+- DTB Till Moja FAQ copy mirrored publicly at:
+  https://www.scribd.com/document/735178762/DTB-Till-Moja-FAQs-V6
+
+The published FAQ contains examples of:
+- a payer confirmation shaped like `you have successfully paid KES ... to ... Ref ...`;
+- a merchant receipt shaped like `KES ... has been paid into ... by ... Ref:...`.
+
+PesaTrack stores only sanitized synthetic fixtures based on those published message shapes. The DTB bank identity itself comes from the existing `KenyanBankDirectory`; no new bank-specific parser branch is introduced.
