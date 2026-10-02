@@ -1258,6 +1258,29 @@ class FinancialMessageIngestionCoordinator private constructor(
                 result.insertedTransactions == 0 &&
                 correlationReferences.isNotEmpty()
 
+        val safeSenderLabel =
+            sourceReference
+                ?.takeIf {
+                    it.providerKey !=
+                        null
+                }
+                ?.displayName
+        val messageShapeIdentity =
+            if (relevance.isRelevant) {
+                MessageLabShapeIdentityFactory
+                    .create(
+                        safeSenderLabel =
+                            safeSenderLabel,
+                        body = body,
+                        sourcePackage =
+                            sourcePackage,
+                        sourceKind =
+                            sourceKind
+                    )
+            } else {
+                null
+            }
+
         diagnosticsStore.record(
             title = title,
             sourceDisplayName =
@@ -1279,16 +1302,11 @@ class FinancialMessageIngestionCoordinator private constructor(
             result = result,
             parseProvenance =
                 interpretation
-                    .parseProvenance
+                    .parseProvenance,
+            messageShapeId =
+                messageShapeIdentity
+                    ?.shapeId
         )
-
-        val safeSenderLabel =
-            sourceReference
-                ?.takeIf {
-                    it.providerKey !=
-                        null
-                }
-                ?.displayName
 
         if (
             relevance.isRelevant &&
@@ -1315,15 +1333,27 @@ class FinancialMessageIngestionCoordinator private constructor(
                         .semanticallyUnderstood
             )
         ) {
-            messageLabStore.markUnderstood(
-                safeSenderLabel =
-                    safeSenderLabel,
-                body = body,
-                sourcePackage =
-                    sourcePackage,
-                sourceKind =
-                    sourceKind
-            )
+            val retired =
+                messageLabStore
+                    .markUnderstood(
+                        safeSenderLabel =
+                            safeSenderLabel,
+                        body = body,
+                        sourcePackage =
+                            sourcePackage,
+                        sourceKind =
+                            sourceKind
+                    )
+            if (retired) {
+                messageShapeIdentity
+                    ?.shapeId
+                    ?.let {
+                        diagnosticsStore
+                            .markShapeCovered(
+                                it
+                            )
+                    }
+            }
         }
     }
 
