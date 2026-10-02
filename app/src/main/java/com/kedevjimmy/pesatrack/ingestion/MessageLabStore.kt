@@ -325,6 +325,92 @@ class MessageLabStore private constructor(
         }.toString(2)
     }
 
+    fun recentUnsupportedForSource(
+        sourceKey: String,
+        limit: Int = MAX_SHAPES
+    ): List<UnsupportedMessageShape> =
+        recentUnsupported(
+            MAX_SHAPES
+        )
+            .filter {
+                FinancialCoverageAnalysis
+                    .sourceKey(
+                        sourceKind =
+                            it.sourceKind,
+                        sourcePackage =
+                            it.sourcePackage,
+                        displayName =
+                            it.sender
+                    ) ==
+                    sourceKey
+            }
+            .take(
+                limit.coerceIn(
+                    1,
+                    MAX_SHAPES
+                )
+            )
+
+    fun exportDeveloperFixturesForSource(
+        sourceKey: String,
+        limit: Int = 25
+    ): String? {
+        val shapes =
+            recentUnsupportedForSource(
+                sourceKey = sourceKey,
+                limit = limit
+            )
+
+        if (shapes.isEmpty()) {
+            return null
+        }
+
+        return JSONArray().apply {
+            shapes.forEach { shape ->
+                put(
+                    JSONObject().apply {
+                        put(
+                            "id",
+                            "unsupported_" +
+                                shape.shapeId
+                                    .take(12)
+                        )
+                        put(
+                            "title",
+                            shape.sender
+                        )
+                        put(
+                            "body",
+                            shape.redactedBody
+                        )
+                        shape.sourcePackage
+                            ?.let {
+                                put(
+                                    "sourcePackage",
+                                    it
+                                )
+                            }
+                        shape.sourceKind
+                            ?.let {
+                                put(
+                                    "sourceKind",
+                                    it
+                                )
+                            }
+                        put(
+                            "expectedRoute",
+                            "UNSUPPORTED"
+                        )
+                        put(
+                            "notes",
+                            "Redacted locally by PesaTrack Message Lab. Review before contributing."
+                        )
+                    }
+                )
+            }
+        }.toString(2)
+    }
+
     private fun readArray(): JSONArray =
         runCatching {
             JSONArray(
