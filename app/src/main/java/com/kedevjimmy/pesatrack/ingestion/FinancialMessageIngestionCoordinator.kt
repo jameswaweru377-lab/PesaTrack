@@ -77,7 +77,11 @@ class FinancialMessageIngestionCoordinator private constructor(
         val interpretation =
             FinancialMessageInterpreter.interpret(
                 title = title,
-                body = body
+                body = body,
+                sourcePackage =
+                    sourcePackage,
+                sourceKind =
+                    sourceKind
             )
 
         val occurredAtEpochMs =
@@ -1289,7 +1293,11 @@ class FinancialMessageIngestionCoordinator private constructor(
                         ?.displayName,
                 body = body,
                 observedAtEpochMs =
-                    receivedAtEpochMs
+                    receivedAtEpochMs,
+                sourcePackage =
+                    sourcePackage,
+                sourceKind =
+                    sourceKind
             )
         }
     }
