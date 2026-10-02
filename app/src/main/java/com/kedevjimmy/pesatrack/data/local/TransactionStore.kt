@@ -3,6 +3,9 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import com.kedevjimmy.pesatrack.domain.health.ReviewBurdenAnalysis
+import com.kedevjimmy.pesatrack.domain.health.ReviewBurdenObservation
+import com.kedevjimmy.pesatrack.domain.health.ReviewBurdenSnapshot
 import com.kedevjimmy.pesatrack.domain.ingestion.LegacyTransactionTypeCompatibility
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityDescriptorPrivacyPolicy
 import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityAutoReviewPolicy
@@ -798,6 +801,116 @@ class TransactionStore private constructor(context: Context) {
                 while (cursor.moveToNext()) add(cursor.toStoredTransaction())
             }
         }
+
+    @Synchronized
+    fun reviewBurdenSnapshot(
+        nowEpochMs: Long =
+            System.currentTimeMillis()
+    ): ReviewBurdenSnapshot {
+        ensureMirrorReconciled()
+        ensureBuiltInRecognitionReconciled()
+        ensureRefundsReconciled()
+        reconcileRecentReviewTriage(
+            nowEpochMs = nowEpochMs
+        )
+
+        val transactions =
+            allTransactions()
+                .filter {
+                    it.reviewState !=
+                        ReviewState
+                            .EXCLUDED.name
+                }
+        val duplicateWindowStart =
+            ReviewBurdenAnalysis
+                .windowStartEpochMs(
+                    nowEpochMs =
+                        nowEpochMs,
+                    windowDays =
+                        ReviewBurdenAnalysis
+                            .WINDOW_DAYS +
+                            2
+                )
+        val duplicateIds =
+            buildPossibleDuplicateGroups(
+                transactions.filter {
+                    it.occurredAtEpochMs >=
+                        duplicateWindowStart
+                }
+            ).flatMap {
+                listOf(
+                    it.first.id,
+                    it.second.id
+                )
+            }.toSet()
+
+        return ReviewBurdenAnalysis
+            .calculate(
+                observations =
+                    transactions.map {
+                            transaction ->
+                        ReviewBurdenObservation(
+                            id =
+                                transaction.id,
+                            occurredAtEpochMs =
+                                transaction
+                                    .occurredAtEpochMs,
+                            direction =
+                                runCatching {
+                                    MoneyDirection
+                                        .valueOf(
+                                            transaction
+                                                .direction
+                                        )
+                                }.getOrDefault(
+                                    MoneyDirection
+                                        .NEUTRAL
+                                ),
+                            category =
+                                runCatching {
+                                    TransactionCategory
+                                        .valueOf(
+                                            transaction
+                                                .category
+                                        )
+                                }.getOrDefault(
+                                    TransactionCategory
+                                        .UNCATEGORIZED
+                                ),
+                            reviewState =
+                                runCatching {
+                                    ReviewState
+                                        .valueOf(
+                                            transaction
+                                                .reviewState
+                                        )
+                                }.getOrDefault(
+                                    ReviewState
+                                        .NEEDS_REVIEW
+                                ),
+                            type =
+                                runCatching {
+                                    MpesaTransactionType
+                                        .valueOf(
+                                            transaction
+                                                .type
+                                        )
+                                }.getOrDefault(
+                                    MpesaTransactionType
+                                        .OTHER
+                                ),
+                            cycleCandidateReason =
+                                transaction
+                                    .cycleCandidateReason,
+                            possibleDuplicate =
+                                transaction.id in
+                                    duplicateIds
+                        )
+                    },
+                nowEpochMs =
+                    nowEpochMs
+            )
+    }
 
     @Synchronized
     fun activityMonths(

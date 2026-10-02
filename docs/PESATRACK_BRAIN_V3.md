@@ -1455,3 +1455,42 @@ With increments 21-23, the blueprint's static engineering targets are enforced o
 The blueprint's remaining “fewer than roughly 5% ordinary daily transactions need category review after a month” target is a real-usage outcome and cannot be honestly certified by repository CI. It should be measured from local Data Health after sufficient real-device history and reviewed examples.
 
 Phase 6 is therefore structurally complete at the current evidence baseline. Future long-tail expansion remains open-ended and must be driven by real Coverage-by-source / Message Lab evidence rather than template-count goals.
+
+## Post-Phase-6 — Real-user outcome measurement
+
+Branch milestone: `feature/post-phase6-review-outcome-v24`.
+
+The six numbered build-order phases are complete at the current static evidence baseline. This is deliberately not named Phase 7.
+
+The remaining blueprint outcome is behavioral:
+
+> fewer than roughly 5% of ordinary daily transactions should need category review after about a month of real use.
+
+Static fixtures cannot prove that target, so Data Health now measures it from the local ledger.
+
+### 30-day manual review burden
+
+The measurement:
+
+- uses a rolling 30-day window;
+- includes ordinary expense transactions;
+- counts both unresolved `NEEDS_REVIEW` and completed `USER_CLASSIFIED` transactions as manual-review burden;
+- excludes transfers, income, debt, savings, investment, reversals, excluded rows, salary-cycle candidates and unresolved duplicate pairs;
+- remains provisional until 30 eligible history days exist;
+- never treats a short or empty sample as target success.
+
+### Authority boundary
+
+This measurement is observational only.
+
+It must not:
+
+- relax Financial Intelligence V2;
+- auto-classify a transaction to improve the KPI;
+- hide Needs Attention work;
+- turn duplicate/account/debt questions into category questions;
+- fabricate Message Pack coverage;
+- change a user's past explicit classification.
+
+When the mature metric is above target, use its real local evidence to decide what needs improvement: message coverage, identity resolution, personal-learning confidence, or a genuinely ambiguous transaction class.
+

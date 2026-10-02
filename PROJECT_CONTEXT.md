@@ -3257,3 +3257,24 @@ Phase 6 static acceptance baseline is now structurally complete:
 The only blueprint target not certifiable from static CI is the real-user outcome target of <~5% ordinary daily transactions needing category review after a month. Measure that from actual local Data Health after sufficient usage; do not fake it with synthetic fixtures.
 
 Future corpus additions remain evidence-driven via Coverage by source / Message Lab.
+
+## Post-Phase-6 outcome validation — 30-day review burden — 2026-10-02
+
+The six-phase Brain v3 build order is structurally complete. The next implementation step is not a speculative Phase 7 or template-count expansion; it measures the one blueprint outcome that static CI cannot certify.
+
+Implemented:
+
+- Added pure `ReviewBurdenAnalysis`.
+- Added a rolling 30-day outcome snapshot over real local ledger history.
+- The denominator is ordinary spending only.
+- The manual-review numerator includes transactions still in `NEEDS_REVIEW` plus transactions that required explicit `USER_CLASSIFIED` handling, so completed reviews do not disappear from the burden measurement.
+- Transfers, income, debt, savings, investments, reversals, excluded rows, salary-cycle candidates and unresolved duplicate pairs are excluded from this category-review KPI.
+- Data Health now shows ordinary-spending count, manual-review count, eligible-history days and the resulting percentage.
+- The blueprint's "<~5% after a month" target stays explicitly provisional until 30 days of eligible history exist.
+- A short sample can never be shown as a completed success target.
+- Added pure regression tests for numerator behavior, structural exclusions, duplicate/reversal exclusions, rolling-window behavior and 30-day maturity.
+
+This is measurement only. It does not change parsing, Identity Graph authority, Smart Rules, personal learning, category semantics, ledger arithmetic or Message Pack routing.
+
+Use the metric with real device history. If the mature rate remains above the blueprint target, inspect the actual Needs Attention / Identity / Message Lab evidence causing user intervention before changing parsing or learning behavior.
+
