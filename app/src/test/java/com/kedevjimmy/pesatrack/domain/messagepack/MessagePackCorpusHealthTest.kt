@@ -141,6 +141,41 @@ class MessagePackCorpusHealthTest {
         )
     }
 
+    @Test
+    fun adjacentFinanceShapesHaveAtLeastThreeGoldenFixtures() {
+        val counts =
+            fixtureTemplateCounts()
+
+        val belowTarget =
+            ADJACENT_FINANCE_TEMPLATES
+                .mapNotNull {
+                    templateId ->
+                    val count =
+                        counts
+                            .getOrDefault(
+                                templateId,
+                                0
+                            )
+                    if (count >= 3) {
+                        null
+                    } else {
+                        templateId to
+                            count
+                    }
+                }
+
+        assertTrue(
+            "Adjacent-finance templates below 3-fixture floor: " +
+                belowTarget
+                    .joinToString {
+                        it.first +
+                            "=" +
+                            it.second
+                    },
+            belowTarget.isEmpty()
+        )
+    }
+
     private fun fixtureTemplateCounts():
         Map<String, Int> =
         loadFixtures()
@@ -198,9 +233,30 @@ class MessagePackCorpusHealthTest {
 
     companion object {
         private val FIXTURE_RESOURCES =
-            (1..11).map {
+            (1..12).map {
                 "message-packs/ke/fixtures-v$it.json"
             }
+
+        private val ADJACENT_FINANCE_TEMPLATES =
+            setOf(
+                "ke.mshwari.lock-savings.deposit",
+                "ke.mshwari.lock-savings.release-to-mshwari",
+                "ke.mshwari.savings.credit-from-mpesa",
+                "ke.mshwari.loan.received-with-fee",
+                "ke.etica.payment.account-payment",
+                "ke.etica.investment.redemption",
+                "ke.etica.investment.withdrawal-to-mpesa",
+                "ke.sanlam.investment.fund-credit",
+                "ke.sanlam.investment.top-up",
+                "ke.branch.loan.disbursed-to-mpesa",
+                "ke.branch.loan.payment-due",
+                "ke.tala.loan.disbursed-to-mpesa",
+                "ke.tala.loan.payment-due",
+                "ke.timiza.loan.disbursed",
+                "ke.zenka.loan.disbursed-to-mpesa",
+                "ke.okash.loan.disbursed",
+                "ke.hustler-fund.loan.disbursed-with-savings"
+            )
 
         private val TIER_A_BANK_TEMPLATES =
             setOf(
