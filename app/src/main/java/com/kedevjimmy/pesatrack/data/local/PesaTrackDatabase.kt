@@ -418,6 +418,33 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             createRecurringPatternTables(db)
         }
 
+        if (oldVersion < 32) {
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "proceeds_amount_minor",
+                "INTEGER"
+            )
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "savings_allocation_minor",
+                "INTEGER"
+            )
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "savings_account_key",
+                "TEXT"
+            )
+            addColumnIfMissing(
+                db,
+                "debt_events",
+                "savings_account_id",
+                "TEXT"
+            )
+        }
+
         createIndexes(db)
         createTriggers(db)
     }
@@ -897,6 +924,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 wallet_balance_after_minor INTEGER,
                 funding_account_key TEXT,
                 funding_account_id TEXT,
+                proceeds_amount_minor INTEGER,
+                savings_allocation_minor INTEGER,
+                savings_account_key TEXT,
+                savings_account_id TEXT,
                 resulting_balance_observation_id INTEGER,
                 balance_link_confidence TEXT,
                 balance_link_reason TEXT,
@@ -1516,6 +1547,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 31
+        private const val DATABASE_VERSION = 32
     }
 }
