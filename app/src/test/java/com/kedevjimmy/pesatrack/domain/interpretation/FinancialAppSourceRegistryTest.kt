@@ -78,6 +78,58 @@ class FinancialAppSourceRegistryTest {
     }
 
     @Test
+    fun resolvesVerifiedDigitalLenderPackagesWithoutInventingLoanMeaning() {
+        val branch =
+            FinancialAppSourceRegistry
+                .resolve(
+                    "com.branch_international.branch.branch_demo_android"
+                )
+        val tala =
+            FinancialAppSourceRegistry
+                .resolve(
+                    " COM.INVENTUREACCESS.SAFARIRAHISI "
+                )
+
+        assertEquals(
+            "Branch",
+            branch?.displayName
+        )
+        assertEquals(
+            "KENYAN_LENDER_BRANCH",
+            branch?.providerKey
+        )
+        assertEquals(
+            AccountType.OTHER,
+            branch?.accountTypeHint
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            branch?.ownershipHint
+        )
+        assertEquals(
+            FinancialAccountNature.UNKNOWN,
+            branch?.nature
+        )
+
+        assertEquals(
+            "Tala",
+            tala?.displayName
+        )
+        assertEquals(
+            "KENYAN_LENDER_TALA",
+            tala?.providerKey
+        )
+        assertEquals(
+            AccountType.OTHER,
+            tala?.accountTypeHint
+        )
+        assertEquals(
+            FinancialAccountNature.UNKNOWN,
+            tala?.nature
+        )
+    }
+
+    @Test
     fun unknownPackageDoesNotInventFinancialIdentity() {
         assertNull(
             FinancialAppSourceRegistry.resolve(
@@ -94,6 +146,18 @@ class FinancialAppSourceRegistryTest {
             FinancialAppSourceRegistry
                 .isKnownPackage(
                     "com.dtb.app"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.branch_international.branch.branch_demo_android"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.inventureaccess.safarirahisi"
                 )
         )
     }

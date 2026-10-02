@@ -821,3 +821,50 @@ Examples of the intended workflow:
 ### Guardrail
 
 Coverage analysis is observational only. It does not change transaction meaning, identity, account ownership, category, Smart Rules, recurring commitments or ledger arithmetic.
+
+## Phase 6 — Long-tail coverage, increment 9 — Digital-lender app source identity
+
+Branch milestone: `feature/phase6-lender-app-source-v9`.
+
+This increment extends verified Android source identity beyond banks to the two existing conservative lender identities, Branch and Tala.
+
+### Verified app sources
+
+Added:
+
+- Branch — `com.branch_international.branch.branch_demo_android`;
+- Tala — `com.inventureaccess.safarirahisi`.
+
+The evidence comes from current Google Play listings and is recorded in `docs/entity-catalog-sources.md`.
+
+### Registry generalization
+
+`FinancialAppSourceRegistry` no longer assumes that every known financial app must map through `KenyanBankDirectory`.
+
+Bank profiles still resolve exactly as before to BANK/ASSET source references.
+
+Non-bank financial apps may now define a direct provider source identity with explicit conservative hints.
+
+Branch and Tala resolve as:
+
+- `AccountType.OTHER`;
+- `AccountOwnershipHint.UNKNOWN`;
+- `FinancialAccountNature.UNKNOWN`.
+
+This is intentional because package identity tells PesaTrack which app emitted the notification, not what financial event occurred.
+
+### Product effect
+
+Relevant unsupported Branch/Tala notifications can now be labeled by institution in:
+
+- ingestion diagnostics;
+- Message Lab;
+- Coverage by source / Data Health.
+
+This makes their real unsupported notification shapes discoverable on-device without inventing message templates.
+
+### Guardrail
+
+No Branch/Tala loan wording is added in this increment. No loan drawdown, repayment, balance, offer or debt account is inferred from the package alone.
+
+The next evidence-backed Branch/Tala template should come from a concrete sanitized/public notification or SMS shape observed in the corpus workflow.
