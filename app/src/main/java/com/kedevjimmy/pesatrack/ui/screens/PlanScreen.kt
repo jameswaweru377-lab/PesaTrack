@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -16,9 +17,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Paid
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -58,7 +61,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun PlanScreen(scaffoldPadding: PaddingValues) {
+fun PlanScreen(
+    scaffoldPadding: PaddingValues,
+    onGoalsClick: (() -> Unit)? = null
+) {
     val context = LocalContext.current
     val store = remember { PayCycleStore.get(context) }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
@@ -98,6 +104,78 @@ fun PlanScreen(scaffoldPadding: PaddingValues) {
 
         item {
             PlanHero(snapshot)
+        }
+
+        if (onGoalsClick != null) {
+            item {
+                PesaCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            onClick = onGoalsClick
+                        )
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.padding(
+                                15.dp
+                            ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            Icons.Rounded
+                                .TrackChanges,
+                            size = 44.dp,
+                            background =
+                                pesaToneContainer(
+                                    "violet"
+                                ),
+                            tint =
+                                pesaToneContent(
+                                    "violet"
+                                )
+                        )
+                        Column(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .padding(
+                                        start = 12.dp
+                                    )
+                        ) {
+                            Text(
+                                "Goals",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium
+                            )
+                            Text(
+                                "Savings goals live with your budget and pay-cycle plan.",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Rounded
+                                .ChevronRight,
+                            contentDescription =
+                                null,
+                            tint =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
 
         if (snapshot.cycle != null) {
