@@ -697,3 +697,40 @@ Data Health surfaces source context for unsupported shapes and developer fixture
 ### Guardrail
 
 Source-aware routing is evidence plumbing, not permission to invent bank-app wording. Provider-specific app templates still require a real sanitized/public notification example before being added.
+
+
+## Phase 6 — Long-tail coverage, increment 5 — Financial institution identities
+
+Branch milestone: `feature/phase6-financial-identity-pack-v5`.
+
+This increment expands stable financial-institution identity after the 53-template bank/SACCO corpus landed on main.
+
+### New canonical identities
+
+Local entity intelligence now knows:
+
+- Co-operative Bank of Kenya;
+- NCBA Bank Kenya;
+- Absa Bank Kenya;
+- Stanbic Bank Kenya;
+- Diamond Trust Bank Kenya;
+- Family Bank;
+- Stima DT Sacco;
+- Mwalimu National Sacco.
+
+A new `EntityKind.SACCO` maps into the Identity Graph as `FINANCIAL_INSTITUTION`.
+
+### Guardrails
+
+All new bank/SACCO identities:
+
+- have no default transaction category;
+- are not eligible for automatic review/category application;
+- keep `allowMessageMatch = false`;
+- require counterparty/descriptor identity evidence instead of matching a brand name anywhere in raw message text.
+
+Identity coverage answers **who is this organization?** Transaction interpretation still requires message and relationship evidence.
+
+Evidence is documented in `docs/entity-catalog-sources.md`.
+
+Next Phase 6 work: make unsupported/app-notification learning source-aware so future app-only templates can be constrained by transport/package evidence without uploading raw inbox content.
