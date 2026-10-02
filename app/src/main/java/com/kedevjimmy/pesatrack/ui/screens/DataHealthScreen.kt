@@ -300,6 +300,13 @@ fun DataHealthScreen(
                     )
                     HealthMetric(
                         label =
+                            "Resolved by current coverage",
+                        value =
+                            coverage
+                                .resolvedByCurrentCoverage
+                    )
+                    HealthMetric(
+                        label =
                             "Unsupported financial shapes",
                         value =
                             coverage
