@@ -2737,6 +2737,7 @@ Implemented:
 - Where money went is reduced to the top three trusted categories; budget management routes into Plan.
 - Money picture combines observed wallet freshness, confirmed account count and active debt summary without inventing missing balances.
 - Recent activity shows up to five canonical transactions, suppresses the second side of unresolved possible-duplicate pairs, and visibly marks Needs Review items as uncertain.
+- Home Needs Attention opens Activity with the unified inbox already expanded; Recent activity → See all opens the normal timeline.
 - Home keeps exactly one insight card.
 - Plan now exposes Budget and Goals as child destinations.
 - Accounts now exposes active debt and debt details as part of the account hierarchy.
@@ -2747,5 +2748,4 @@ Next Phase 5 work:
 
 - remove/relocate remaining dead legacy Home presentation helpers;
 - continue decomposing Activity/Home files;
-- improve Accounts with savings/investment grouping and balance freshness where evidence exists;
-- tighten Needs Attention deep-link behavior so Home opens the unified inbox directly.
+- improve Accounts with savings/investment grouping and balance freshness where evidence exists.
