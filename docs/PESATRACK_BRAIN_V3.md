@@ -919,3 +919,18 @@ Relevant app notifications from these packages can now be attributed to the corr
 This is source identity only.
 
 No account ownership, transaction category, transfer direction, loan, payment or balance is inferred from package identity. App-specific notification templates still require concrete message evidence.
+
+
+## Phase 6 — Long-tail coverage, increment 12 — Timiza source identity
+
+Branch milestone: `feature/phase6-timiza-app-source-v12`.
+
+Verified source identity now also includes Timiza:
+
+- `ke.co.absa.digitalwallet` -> Timiza.
+
+Timiza is deliberately modeled as a generic Kenyan financial platform source with OTHER account type, UNKNOWN ownership and UNKNOWN financial nature.
+
+### Guardrail
+
+Package identity only improves source attribution in diagnostics, Coverage by source and Message Lab. It does not create debt, savings, transfer, payment or balance semantics. Concrete Timiza notification templates still require reviewed sanitized/public wording.
