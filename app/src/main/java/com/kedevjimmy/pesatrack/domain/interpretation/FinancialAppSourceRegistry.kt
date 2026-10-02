@@ -116,6 +116,15 @@ object FinancialAppSourceRegistry {
                 displayName = "Tala",
                 providerKey =
                     "KENYAN_LENDER_TALA"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
+                    "ke.co.absa.digitalwallet",
+                entityKey =
+                    "provider:KENYAN_PLATFORM_TIMIZA",
+                displayName = "Timiza",
+                providerKey =
+                    "KENYAN_PLATFORM_TIMIZA"
             )
         )
 
