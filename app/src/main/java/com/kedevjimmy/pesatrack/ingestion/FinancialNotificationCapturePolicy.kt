@@ -16,11 +16,21 @@ object FinancialNotificationCapturePolicy {
         sourcePackage: String?,
         selfPackage: String
     ): FinancialNotificationScreening {
+        val relevanceBody =
+            listOfNotNull(
+                title
+                    ?.trim()
+                    ?.takeIf(
+                        String::isNotBlank
+                    ),
+                body.trim()
+            ).joinToString(" ")
+
         val normalized =
             FinancialMessageNormalizer
                 .normalize(
                     title = title,
-                    body = body
+                    body = relevanceBody
                 )
         val relevance =
             FinancialMessageRelevanceGate
