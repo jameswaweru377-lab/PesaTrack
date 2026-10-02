@@ -334,8 +334,23 @@ class DebtStore private constructor(context: Context) {
             )
         }
 
-        when (event.completion) {
-            DebtCompletion.FULL ->
+        when {
+            event.outstandingAfterMinor != null ->
+                updateBalance(
+                    accountId = identity.id,
+                    outstandingMinor =
+                        max(
+                            0L,
+                            event.outstandingAfterMinor
+                        ),
+                    quality =
+                        DebtBalanceQuality.OBSERVED,
+                    observedAtEpochMs =
+                        occurredAtEpochMs
+                )
+
+            event.completion ==
+                DebtCompletion.FULL ->
                 updateBalance(
                     accountId = identity.id,
                     outstandingMinor = 0L,
@@ -344,18 +359,15 @@ class DebtStore private constructor(context: Context) {
                     observedAtEpochMs =
                         occurredAtEpochMs
                 )
-            DebtCompletion.PARTIAL,
-            DebtCompletion.UNKNOWN -> {
-                if (insert.inserted) {
-                    applyEstimatedDelta(
-                        accountId = identity.id,
-                        deltaMinor =
-                            -event.amountMinor,
-                        occurredAtEpochMs =
-                            occurredAtEpochMs
-                    )
-                }
-            }
+
+            insert.inserted ->
+                applyEstimatedDelta(
+                    accountId = identity.id,
+                    deltaMinor =
+                        -event.amountMinor,
+                    occurredAtEpochMs =
+                        occurredAtEpochMs
+                )
         }
 
         reconcileRepaymentFromDebtProceeds(
