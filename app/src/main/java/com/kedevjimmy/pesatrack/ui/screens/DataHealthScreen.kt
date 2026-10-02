@@ -32,6 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
+import com.kedevjimmy.pesatrack.domain.identity.IdentityGraphSnapshot
 import com.kedevjimmy.pesatrack.domain.messagepack.KenyaMessagePack
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
@@ -58,6 +60,10 @@ fun DataHealthScreen(
         remember {
             MessageLabStore.get(context)
         }
+    val identityGraphStore =
+        remember {
+            IdentityGraphStore.get(context)
+        }
 
     var coverage by remember {
         mutableStateOf(
@@ -75,19 +81,52 @@ fun DataHealthScreen(
             List<UnsupportedMessageShape>
         >(emptyList())
     }
+    var identitySnapshot by remember {
+        mutableStateOf(
+            IdentityGraphSnapshot(
+                nodeCount = 0,
+                aliasCount = 0,
+                selfAliasCount = 0,
+                pendingPromptCount = 0,
+                unclassifiedIdentityCount = 0
+            )
+        )
+    }
+    var identityBackfillCount by remember {
+        mutableStateOf(0)
+    }
 
     LaunchedEffect(Unit) {
         val loaded =
             withContext(
                 Dispatchers.IO
             ) {
-                diagnosticsStore
-                    .coverageSnapshot() to
-                    messageLabStore
-                        .recentUnsupported(25)
+                val backfilled =
+                    identityGraphStore
+                        .synchronize(
+                            transactionLimit =
+                                5_000
+                        )
+                DataHealthLoadResult(
+                    coverage =
+                        diagnosticsStore
+                            .coverageSnapshot(),
+                    unsupported =
+                        messageLabStore
+                            .recentUnsupported(25),
+                    identitySnapshot =
+                        identityGraphStore
+                            .snapshot(),
+                    identityBackfillCount =
+                        backfilled
+                )
             }
-        coverage = loaded.first
-        unsupported = loaded.second
+        coverage = loaded.coverage
+        unsupported = loaded.unsupported
+        identitySnapshot =
+            loaded.identitySnapshot
+        identityBackfillCount =
+            loaded.identityBackfillCount
     }
 
     LazyColumn(
@@ -276,6 +315,103 @@ fun DataHealthScreen(
 
         item {
             SectionHeader(
+                "Identity intelligence"
+            )
+        }
+
+        item {
+            PesaCard(
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier =
+                        Modifier.padding(
+                            16.dp
+                        ),
+                    verticalArrangement =
+                        Arrangement.spacedBy(
+                            10.dp
+                        )
+                ) {
+                    Text(
+                        "Identity Graph",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleLarge
+                    )
+                    Text(
+                        "PesaTrack is building stable identities for your accounts, counterparties and aliases without guessing whether a repeated name is a person or business.",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                    HealthMetric(
+                        label = "Identity nodes",
+                        value =
+                            identitySnapshot
+                                .nodeCount
+                    )
+                    HealthMetric(
+                        label = "Known aliases",
+                        value =
+                            identitySnapshot
+                                .aliasCount
+                    )
+                    HealthMetric(
+                        label = "Confirmed self aliases",
+                        value =
+                            identitySnapshot
+                                .selfAliasCount
+                    )
+                    HealthMetric(
+                        label = "Questions waiting",
+                        value =
+                            identitySnapshot
+                                .pendingPromptCount
+                    )
+                    HealthMetric(
+                        label = "Still unclassified",
+                        value =
+                            identitySnapshot
+                                .unclassifiedIdentityCount
+                    )
+                    if (
+                        identityBackfillCount > 0
+                    ) {
+                        Text(
+                            "Learned from " +
+                                identityBackfillCount +
+                                " older transaction" +
+                                (
+                                    if (
+                                        identityBackfillCount ==
+                                        1
+                                    ) "" else "s"
+                                ) +
+                                " during this scan.",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .labelMedium,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .primary
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            SectionHeader(
                 "Message Lab"
             )
         }
@@ -350,6 +486,16 @@ fun DataHealthScreen(
         }
     }
 }
+
+private data class DataHealthLoadResult(
+    val coverage:
+        FinancialMessageCoverageSnapshot,
+    val unsupported:
+        List<UnsupportedMessageShape>,
+    val identitySnapshot:
+        IdentityGraphSnapshot,
+    val identityBackfillCount: Int
+)
 
 @Composable
 private fun HealthMetric(
