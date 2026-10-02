@@ -106,6 +106,41 @@ class MessagePackCorpusHealthTest {
         )
     }
 
+    @Test
+    fun supportedTierABankShapesHaveAtLeastThreeGoldenFixtures() {
+        val counts =
+            fixtureTemplateCounts()
+
+        val belowTarget =
+            TIER_A_BANK_TEMPLATES
+                .mapNotNull {
+                    templateId ->
+                    val count =
+                        counts
+                            .getOrDefault(
+                                templateId,
+                                0
+                            )
+                    if (count >= 3) {
+                        null
+                    } else {
+                        templateId to
+                            count
+                    }
+                }
+
+        assertTrue(
+            "Supported Tier-A bank templates below 3-fixture floor: " +
+                belowTarget
+                    .joinToString {
+                        it.first +
+                            "=" +
+                            it.second
+                    },
+            belowTarget.isEmpty()
+        )
+    }
+
     private fun fixtureTemplateCounts():
         Map<String, Int> =
         loadFixtures()
@@ -163,9 +198,30 @@ class MessagePackCorpusHealthTest {
 
     companion object {
         private val FIXTURE_RESOURCES =
-            (1..10).map {
+            (1..11).map {
                 "message-packs/ke/fixtures-v$it.json"
             }
+
+        private val TIER_A_BANK_TEMPLATES =
+            setOf(
+                "ke.cooperative.account.credit",
+                "ke.cooperative.account.debit",
+                "ke.dtb.till-moja.merchant-receipt",
+                "ke.dtb.till-moja.payer-payment",
+                "ke.equity.account.credit",
+                "ke.equity.transfer.credit-to-beneficiary",
+                "ke.i-and-m.payment.paid-to",
+                "ke.kcb.account.credit",
+                "ke.kcb.account.salary-credit",
+                "ke.kcb.app.received",
+                "ke.kcb.card.purchase",
+                "ke.kcb.mpesa.received",
+                "ke.kcb.mpesa.sent",
+                "ke.kcb.payment.paid-to",
+                "ke.kcb.transfer.send-to-mpesa",
+                "ke.kcb.transfer.send-to-pesalink",
+                "ke.standard-chartered.card.purchase"
+            )
 
         private val CORE_AMBIGUITY_TEMPLATES =
             setOf(
