@@ -2840,3 +2840,24 @@ Implemented:
 - No ledger arithmetic, pay-cycle math, debt balances, personal-learning decisions or Phase 5 navigation were changed.
 
 Continue Phase 6 with additional banks, SACCOs, lenders and bank-app notification wording only from concrete sanitized/public message evidence.
+
+
+## Phase 6 Long-tail Coverage — bank + SACCO notification corpus — 2026-10-02
+
+The latest Phase 6 coverage increment is rebased on top of the merged Co-op/Equity account-alert work.
+
+Implemented:
+- Kenya Message Pack grows from 48 to **53 active templates**.
+- Added Fundilima SACCO withdrawal provenance.
+- Added generic SACCO member-deposit provenance.
+- Added generic bank-to-M-Pesa credit provenance.
+- Added a confirmed bank-app bill-payment shape.
+- Added a generic account-credit/balance-notice shape.
+- Added sanitized `fixtures-v8.json`.
+- Added router/interpreter regression tests.
+- Ambiguous SACCO/account-transfer shapes remain provenance-only and do not become ordinary income/expense/transfer ledger entries merely because their wording was recognized.
+- Confirmed bill payment may expose PAYMENT semantics because the message itself clearly states the completed action.
+
+Evidence source and sanitization rules are recorded in `docs/message-corpus-sources.md`.
+
+Phase 6 remains in progress. The source-aware app-notification routing work should be reconciled next so future app-only shapes can constrain matches by Android package/channel evidence.
