@@ -1,0 +1,34 @@
+{
+  "id": "ke.berry.loan.disbursed-to-mpesa",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["BERRY"],
+  "requiredAnchors": ["has been sent to your M-Pesa", "Account number", "Please repay"],
+  "anyAnchors": [],
+  "eventKind": "DEBT_DRAWDOWN",
+  "productIdentity": "BERRY_LOAN",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+has been sent to your M-Pesa",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "ACCOUNT_REFERENCE",
+      "pattern": "Account number[ ]+([+0-9*]+)",
+      "group": 1
+    },
+    {
+      "field": "REPAY_AMOUNT",
+      "pattern": "Please repay[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)",
+      "group": 1
+    },
+    {
+      "field": "DATE",
+      "pattern": "Please repay[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*[0-9,]+(?:[.][0-9]{1,2})?[ ]+by[ ]+(.+?)[.]?$",
+      "group": 1
+    }
+  ]
+}
