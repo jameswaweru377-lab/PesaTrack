@@ -55,6 +55,31 @@ object FinancialAppSourceRegistry {
             ),
             FinancialAppSourceProfile(
                 packageName =
+                    "com.imbank.digital.retail.app",
+                bankId = "i-and-m"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
+                    "com.mode.stima",
+                entityKey =
+                    "provider:KENYAN_SACCO_STIMA_DT",
+                displayName =
+                    "Stima DT Sacco",
+                providerKey =
+                    "KENYAN_SACCO_STIMA_DT"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
+                    "skyworld.mwalimu",
+                entityKey =
+                    "provider:KENYAN_SACCO_MWALIMU_NATIONAL",
+                displayName =
+                    "Mwalimu National Sacco",
+                providerKey =
+                    "KENYAN_SACCO_MWALIMU_NATIONAL"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
                     "com.branch_international.branch.branch_demo_android",
                 entityKey =
                     "provider:KENYAN_LENDER_BRANCH",
