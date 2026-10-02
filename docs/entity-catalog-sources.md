@@ -117,3 +117,27 @@ Current Google Play evidence URLs:
 - https://play.google.com/store/apps/details?id=com.imbank.digital.retail.app
 - https://play.google.com/store/apps/details?id=com.mode.stima
 - https://play.google.com/store/apps/details?id=skyworld.mwalimu
+
+## Phase 6 verified Standard Chartered and Family Bank Android app packages
+
+Evidence class: **OFFICIAL_APP_STORE_PACKAGE_IDENTITY**
+
+Reviewed 2 October 2026 from current Google Play listings.
+
+Package identity added:
+
+- SC Mobile Kenya — `com.scb.breezebanking.ke` — Standard Chartered Bank PLC.
+- PesaPap, Family Bank — `com.mode.familykenya.ui` — Family Bank.
+
+Guardrails:
+
+- Both packages map through the existing `KenyanBankDirectory`.
+- Package identity establishes the institution that emitted a notification; ownership remains UNKNOWN.
+- No account, transfer, card purchase, bill payment, loan, savings movement or category is inferred from the package alone.
+- No app-notification wording is inferred from Play Store product descriptions.
+- Provider-specific app templates still require concrete sanitized/public notification wording.
+
+Current Google Play evidence URLs:
+
+- https://play.google.com/store/apps/details?id=com.scb.breezebanking.ke
+- https://play.google.com/store/apps/details?id=com.mode.familykenya.ui
