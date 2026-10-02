@@ -528,7 +528,7 @@ A new `fixtures-v6.json` corpus provides sanitized golden examples, including th
 
 ### Semantic guardrails
 
-- Ordinary Evopay/Globalpay purchase shapes can bridge to PAYMENT only when Financial Intelligence V2 has no stronger extracted action.
+- Evopay/Globalpay purchase shapes expose PAYMENT provenance and structured fields without bypassing Financial Intelligence V2 or downstream evidence requirements.
 - Investment-specific Etica redemption/withdrawal and Sanlam credit/top-up shapes use event kinds that the generic Message Pack candidate bridge does not convert into ordinary ledger movements.
 - This intentionally prevents a fund top-up from becoming ordinary spending or a fund credit from becoming ordinary income merely because a public parser labels it that way.
 - Foreign-currency extraction can be recorded as provenance, but it is not silently posted as KES.
