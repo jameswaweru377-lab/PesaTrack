@@ -198,7 +198,8 @@ class PersonalLearningStore private constructor(
 
     @Synchronized
     fun applyHighConfidenceTo(
-        transactions: List<StoredTransaction>
+        transactions: List<StoredTransaction>,
+        rebuildPayCycles: Boolean = true
     ): Int {
         val db =
             database.writableDatabase
@@ -275,8 +276,10 @@ class PersonalLearningStore private constructor(
         }
 
         if (changed > 0) {
-            PayCycleStore.get(appContext)
-                .rebuild()
+            if (rebuildPayCycles) {
+                PayCycleStore.get(appContext)
+                    .rebuild()
+            }
             LedgerUpdateBus.notifyChanged()
         }
 
