@@ -100,15 +100,6 @@ fun PesaTrackApp(
                     onReviewClick = {
                         navigateToTab(MainTab.ACTIVITY)
                     },
-                    onImportClick = {
-                        navController.navigate("historical-import")
-                    },
-                    onRulesClick = {
-                        navController.navigate("smart-rules")
-                    },
-                    onGoalsClick = {
-                        navController.navigate("goals")
-                    },
                     onBudgetClick = {
                         navController.navigate("budgets")
                     },
