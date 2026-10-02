@@ -128,7 +128,12 @@ fun PesaTrackApp(
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 AccountsScreen(
-                    scaffoldPadding = padding
+                    scaffoldPadding = padding,
+                    onDebtsClick = {
+                        navController.navigate(
+                            "debts"
+                        )
+                    }
                 )
             }
         }
