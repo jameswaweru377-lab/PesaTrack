@@ -1,0 +1,30 @@
+{
+  "id": "ke.evopay.parking.lpn-payment",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["EVOPAY", "EVO PAY"],
+  "requiredAnchors": ["paid parking fee of", " for LPN"],
+  "anyAnchors": ["Thank you for visiting"],
+  "eventKind": "PAYMENT",
+  "productIdentity": "KENYAN_PAYMENT_EVOPAY",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "paid parking fee of[ ]+(?:(?:KES|Ksh[.]?)[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)[ ]+for LPN",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "ACCOUNT_REFERENCE",
+      "pattern": "for LPN[ ]+([A-Z0-9-]+)",
+      "group": 1
+    },
+    {
+      "field": "COUNTERPARTY",
+      "pattern": "Thank you for visiting[ ]+(.+?)[.]?$",
+      "group": 1,
+      "required": true
+    }
+  ]
+}

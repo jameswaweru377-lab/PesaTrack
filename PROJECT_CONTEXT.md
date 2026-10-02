@@ -2773,3 +2773,27 @@ Current primary product hierarchy:
 The deterministic financial engine, Identity Graph, personal learning, debt accounting and message corpus remain unchanged by this cleanup.
 
 Next build-order phase after this is Phase 6 / long-tail coverage. Do not regress the Phase 5 hierarchy while adding new providers or products.
+
+## Phase 6 Long-tail Coverage — increment 1 — 2026-10-02
+
+Phase 5 product simplification is structurally complete. Phase 6 has started with adjacent-finance Message Pack coverage.
+
+Implemented:
+
+- Kenya Message Pack expands from 37 to 45 active templates.
+- Added Etica payment, redemption and M-Pesa withdrawal shapes.
+- Added Evopay card-parking and LPN-parking shapes.
+- Added Globalpay card-purchase shape with fee extraction.
+- Added Sanlam Money Market Fund credit and top-up shapes.
+- Added sanitized `fixtures-v6.json` golden corpus.
+- Added provenance tests for investment-specific Etica/Sanlam shapes.
+- Added structured PAYMENT provenance/extraction coverage for Evopay.
+- Investment-specific event kinds are deliberately not bridged into ordinary payment/income/transfer candidates.
+- Public Etica USD extraction is provenance-only; no KES conversion or ledger posting is invented.
+
+Evidence trail is documented in `docs/message-corpus-sources.md`.
+
+Next:
+- evidence-backed bank/app-notification shapes for remaining institutions;
+- recurring/subscription intelligence after corpus expansion;
+- preserve Phase 5 Home/Activity hierarchy while adding coverage.

@@ -141,3 +141,31 @@ The published FAQ contains examples of:
 - a merchant receipt shaped like `KES ... has been paid into ... by ... Ref:...`.
 
 PesaTrack stores only sanitized synthetic fixtures based on those published message shapes. The DTB bank identity itself comes from the existing `KenyanBankDirectory`; no new bank-specific parser branch is introduced.
+
+## Phase 6 sources
+
+### Etica, Evopay, Globalpay and Sanlam public template schemas
+
+Evidence class: **PUBLIC_TEMPLATE_SCHEMA**
+
+Source:
+- Repository: `peteretelej/sms-transaction-parser`
+- License: Apache-2.0
+- Public Kenya provider templates and golden fixtures reviewed on 2 October 2026.
+
+Upstream shapes adapted into the PesaTrack Message Pack:
+- `etica_payment.json`
+- `etica_redemption.json`
+- `etica_withdrawal.json`
+- `evopay_card_parking.json`
+- `evopay_lpn_parking.json`
+- `globalpay_card_purchase.json`
+- `sanlam_fund_credit.json`
+- `sanlam_top_up.json`
+
+PesaTrack stores sanitized synthetic fixtures reconstructed from those published templates/fixtures. These are not represented as current screenshots from a user's device.
+
+Important semantic boundary:
+- Evopay parking and Globalpay card-purchase shapes declare PAYMENT provenance and structured fields. The existing bridge may contribute a candidate only when downstream evidence supports it; the template itself does not force a ledger movement.
+- Etica redemption/withdrawal and Sanlam fund-credit/top-up shapes record template provenance using investment-specific event kinds. The Message Pack bridge does not convert those investment shapes into ordinary income/expense/transfer ledger movements. Financial Intelligence V2 and the investment relationship layer remain authoritative.
+- Etica's published USD redemption variant is retained only as extraction/provenance coverage. PesaTrack must not silently treat a foreign-currency amount as a KES ledger amount.

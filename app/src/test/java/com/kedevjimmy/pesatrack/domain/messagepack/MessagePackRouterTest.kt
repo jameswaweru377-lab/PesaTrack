@@ -23,7 +23,7 @@ class MessagePackRouterTest {
             result.errors.isEmpty()
         )
         assertEquals(
-            37,
+            45,
             result.templates.size
         )
         assertEquals(
@@ -137,6 +137,97 @@ class MessagePackRouterTest {
 
 
     @Test
+    fun phase6InvestmentShapesRecordProvenanceWithoutForcingOrdinaryLedgerMeaning() {
+        val sanlam =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "SANLAM_UT",
+                    body =
+                        "Dear SAMPLE PERSON, you have successfully topped up your account with KES. 2000.00, your account will be updated soon, Thank You."
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            sanlam.parseProvenance.route
+        )
+        assertEquals(
+            "ke.sanlam.investment.top-up",
+            sanlam.parseProvenance.templateId
+        )
+        assertEquals(
+            "INVESTMENT_TOP_UP",
+            sanlam.parseProvenance.eventKind
+        )
+        assertEquals(
+            "KENYAN_INVESTMENT_SANLAM",
+            sanlam.parseProvenance.productIdentity
+        )
+
+        val etica =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "ETICALTD",
+                    body =
+                        "You have sent KES 111,111.00 from your account 11111MC in EMMF - KES to Mr. SAMPLE PERSON (11111F)"
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            etica.parseProvenance.route
+        )
+        assertEquals(
+            "ke.etica.investment.redemption",
+            etica.parseProvenance.templateId
+        )
+        assertEquals(
+            "INVESTMENT_WITHDRAWAL",
+            etica.parseProvenance.eventKind
+        )
+    }
+
+    @Test
+    fun phase6PaymentShapesExposeStructuredPaymentProvenance() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "EVOPAY",
+                    body =
+                        "Dear customer, you have paid parking fee of KES 200 for LPN KXX000A. You have 15 min to exit. Thank you for visiting SAMPLE CENTRE."
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            interpretation.parseProvenance.route
+        )
+        assertEquals(
+            "ke.evopay.parking.lpn-payment",
+            interpretation.parseProvenance.templateId
+        )
+        assertEquals(
+            "PAYMENT",
+            interpretation.parseProvenance.eventKind
+        )
+        assertEquals(
+            "200",
+            interpretation.parseProvenance
+                .extractedFields
+                .first {
+                    it.field == "AMOUNT"
+                }
+                .value
+        )
+        assertEquals(
+            "SAMPLE CENTRE",
+            interpretation.parseProvenance
+                .extractedFields
+                .first {
+                    it.field == "COUNTERPARTY"
+                }
+                .value
+        )
+    }
+
+    @Test
     fun equityTemplateAddsProvenanceWhileV2StillOwnsTransferMeaning() {
         val interpretation =
             FinancialMessageInterpreter
@@ -232,7 +323,8 @@ class MessagePackRouterTest {
             "message-packs/ke/fixtures-v2.json",
             "message-packs/ke/fixtures-v3.json",
             "message-packs/ke/fixtures-v4.json",
-            "message-packs/ke/fixtures-v5.json"
+            "message-packs/ke/fixtures-v5.json",
+            "message-packs/ke/fixtures-v6.json"
         ).flatMap { path ->
             val stream =
                 javaClass.classLoader

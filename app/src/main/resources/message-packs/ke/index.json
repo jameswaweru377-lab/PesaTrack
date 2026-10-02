@@ -38,6 +38,14 @@
     "pesalink/transfer/sent/template.json",
     "standard-chartered/card/purchase/template.json",
     "dtb/till-moja/payer-payment/template.json",
-    "dtb/till-moja/merchant-receipt/template.json"
+    "dtb/till-moja/merchant-receipt/template.json",
+    "etica/payment/account-payment/template.json",
+    "etica/investment/redemption/template.json",
+    "etica/investment/withdrawal-to-mpesa/template.json",
+    "evopay/parking/card-charge/template.json",
+    "evopay/parking/lpn-payment/template.json",
+    "globalpay/card/purchase/template.json",
+    "sanlam/investment/fund-credit/template.json",
+    "sanlam/investment/top-up/template.json"
   ]
 }
