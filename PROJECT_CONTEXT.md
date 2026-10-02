@@ -3181,3 +3181,20 @@ Implemented:
 - No new provider wording, semantic bridge or parser branch was introduced.
 
 Future new templates must therefore arrive with enough sanitized fixture depth to keep the full-corpus floor green. New wording still requires concrete public/sanitized device evidence rather than product-page assumptions.
+
+
+## Phase 6 — executable readiness gate / structural completion — 2026-10-02
+
+Added a single CI readiness gate for the Phase 6 blueprint.
+
+`Phase6ReadinessGateTest` now requires:
+
+- >=95% financial relevance accuracy on the sanitized foundation + canonical financial corpora;
+- >=90% expected-field extraction accuracy across all Message Pack golden fixtures;
+- >=3 golden fixtures for every active Kenya template;
+- deterministic TEMPLATE provenance and a non-empty human-readable reason for every supported fixture;
+- zero legacy transaction-parser dependency in the canonical financial corpus.
+
+This sits on top of the current **62-template** Kenya pack and the universal three-fixture floor.
+
+If the readiness gate is green, Phase 6 is structurally complete at the current evidence baseline. Future long-tail expansion remains evidence-driven through Coverage by source / Message Lab and should not invent provider wording merely to increase template count.
