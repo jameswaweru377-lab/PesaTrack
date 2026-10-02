@@ -196,9 +196,9 @@ fun AccountsScreen(
     ) {
         item {
             DetailPageHeader(
-                title = "Wallets & balances",
+                title = "Accounts",
                 subtitle =
-                    "Only accounts PesaTrack has confirmed as yours.",
+                    "Wallets, banks, savings and debt PesaTrack can support with evidence.",
                 onBack = onBack
             )
         }
