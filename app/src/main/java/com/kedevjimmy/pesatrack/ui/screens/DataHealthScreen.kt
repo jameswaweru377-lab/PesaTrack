@@ -123,6 +123,9 @@ fun DataHealthScreen(
     var learningApplicationCount by remember {
         mutableStateOf(0)
     }
+    var retiredMessageLabCount by remember {
+        mutableStateOf(0)
+    }
 
     LaunchedEffect(Unit) {
         val loaded =
@@ -157,7 +160,10 @@ fun DataHealthScreen(
                             .preferenceCount(),
                     learningApplicationCount =
                         personalLearningStore
-                            .applicationCount()
+                            .applicationCount(),
+                    retiredMessageLabCount =
+                        messageLabStore
+                            .retiredOccurrenceCount()
                 )
             }
         coverage = loaded.coverage
@@ -172,6 +178,8 @@ fun DataHealthScreen(
             loaded.learningPreferenceCount
         learningApplicationCount =
             loaded.learningApplicationCount
+        retiredMessageLabCount =
+            loaded.retiredMessageLabCount
     }
 
     LazyColumn(
@@ -292,10 +300,23 @@ fun DataHealthScreen(
                     )
                     HealthMetric(
                         label =
+                            "Resolved by current coverage",
+                        value =
+                            coverage
+                                .resolvedByCurrentCoverage
+                    )
+                    HealthMetric(
+                        label =
                             "Unsupported financial shapes",
                         value =
                             coverage
                                 .unsupportedFinancial
+                    )
+                    HealthMetric(
+                        label =
+                            "Resolved Message Lab occurrences",
+                        value =
+                            retiredMessageLabCount
                     )
                 }
             }
@@ -767,7 +788,8 @@ private data class DataHealthLoadResult(
         IdentityGraphSnapshot,
     val identityBackfillCount: Int,
     val learningPreferenceCount: Int,
-    val learningApplicationCount: Int
+    val learningApplicationCount: Int,
+    val retiredMessageLabCount: Int
 )
 
 @Composable

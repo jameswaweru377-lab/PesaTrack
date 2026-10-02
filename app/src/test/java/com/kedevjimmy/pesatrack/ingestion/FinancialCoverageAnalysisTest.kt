@@ -142,6 +142,45 @@ class FinancialCoverageAnalysisTest {
     }
 
     @Test
+    fun resolvedShapeCountsAsUnderstoodInsteadOfUnsupported() {
+        val resolved =
+            diagnostic(
+                name = "Future Bank",
+                packageName =
+                    "ke.example.futurebank",
+                sourceKind =
+                    "financial_notification",
+                code =
+                    FinancialIngestionDiagnosticCode
+                        .RESOLVED_BY_CURRENT_COVERAGE,
+                route =
+                    MessageParseRoute
+                        .GENERIC_FALLBACK,
+                time = 100L
+            )
+
+        val source =
+            FinancialCoverageAnalysis
+                .bySource(
+                    listOf(resolved)
+                )
+                .single()
+
+        assertEquals(
+            1,
+            source.understoodObservations
+        )
+        assertEquals(
+            0,
+            source.unsupportedFinancial
+        )
+        assertEquals(
+            100,
+            source.understoodPercent
+        )
+    }
+
+    @Test
     fun unsupportedSourcesSortFirstToExposeCoverageGaps() {
         val understood =
             diagnostic(

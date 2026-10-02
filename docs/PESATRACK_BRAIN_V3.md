@@ -952,3 +952,48 @@ The export is a JSON array of up to 25 locally redacted unsupported fixtures for
 ### Guardrail
 
 This feature does not upload, classify or reinterpret messages. It only makes already-local redacted evidence easier to inspect and contribute. The next Message Pack template should still be created only from concrete reviewed evidence.
+
+
+## Phase 6 — Long-tail coverage, increment 12 — Message Lab auto-resolution
+
+Branch milestone: `feature/phase6-message-lab-resolution-v12`.
+
+This increment closes the stale-gap problem in the local corpus workflow.
+
+### Stable redacted shape identity
+
+A new pure `MessageLabShapeIdentityFactory` derives a privacy-safe shape key from:
+
+- normalized source channel;
+- normalized Android package when available;
+- redacted sender;
+- redacted message shape.
+
+Sensitive value changes such as amount, date, time, phone/account numbers and salutation names therefore do not create a different gap when the structural message format is the same.
+
+App notifications and SMS/imported observations remain different shape identities.
+
+### Automatic retirement
+
+When a relevant message remains unsupported, Message Lab stores the shape exactly as before.
+
+When a later message with the same redacted shape becomes recognized or semantically understood, PesaTrack now:
+
+- recomputes the same privacy-safe shape identity;
+- removes the stale unsupported Message Lab entry;
+- marks prior diagnostics carrying that same shape ID as `RESOLVED_BY_CURRENT_COVERAGE`;
+- increments a local retired-occurrence counter.
+
+New financial diagnostics persist only the privacy-safe shape ID, never the raw body. Coverage-by-source therefore stops counting those resolved observations as unsupported and can converge as the corpus improves.
+
+No raw-message archive is created.
+
+### Data Health
+
+Data Health now reports both **Resolved by current coverage** diagnostics and **Resolved Message Lab occurrences** so corpus progress is visible.
+
+This does not rewrite historical diagnostics or ledger history. It only keeps the active unsupported-shape inbox aligned with what the current interpreter can understand when that shape is observed again.
+
+### Guardrail
+
+Auto-resolution requires a new live/imported observation of the same redacted shape. PesaTrack does not replay placeholder-redacted fixtures through amount/counterparty extractors because doing so could produce false coverage claims.

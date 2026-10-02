@@ -1,8 +1,6 @@
 package com.kedevjimmy.pesatrack.ingestion
 
 import android.content.Context
-import com.kedevjimmy.pesatrack.domain.messagepack.MessageLabRedactor
-import java.security.MessageDigest
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -35,41 +33,19 @@ class MessageLabStore private constructor(
         sourcePackage: String? = null,
         sourceKind: String? = null
     ) {
-        val redacted =
-            MessageLabRedactor.redact(
-                safeSenderLabel =
-                    safeSenderLabel,
-                body = body
-            )
-
-        val safeSourcePackage =
-            sourcePackage
-                ?.trim()
-                ?.takeIf(
-                    String::isNotBlank
+        val identity =
+            MessageLabShapeIdentityFactory
+                .create(
+                    safeSenderLabel =
+                        safeSenderLabel,
+                    body = body,
+                    sourcePackage =
+                        sourcePackage,
+                    sourceKind =
+                        sourceKind
                 )
-                ?.take(
-                    MAX_PACKAGE_LENGTH
-                )
-        val safeSourceKind =
-            sourceKind
-                ?.trim()
-                ?.takeIf(
-                    String::isNotBlank
-                )
-                ?.take(
-                    MAX_SOURCE_KIND_LENGTH
-                )
-
         val shapeId =
-            fingerprint(
-                listOf(
-                    safeSourceKind.orEmpty(),
-                    safeSourcePackage.orEmpty(),
-                    redacted.sender,
-                    redacted.body
-                ).joinToString("\n")
-            )
+            identity.shapeId
 
         val current =
             readArray()
@@ -122,15 +98,15 @@ class MessageLabStore private constructor(
                     )
                     put(
                         "sender",
-                        redacted.sender
+                        identity.sender
                     )
                     if (
-                        safeSourcePackage !=
+                        identity.sourcePackage !=
                         null
                     ) {
                         put(
                             "sourcePackage",
-                            safeSourcePackage
+                            identity.sourcePackage
                         )
                     } else {
                         put(
@@ -139,12 +115,12 @@ class MessageLabStore private constructor(
                         )
                     }
                     if (
-                        safeSourceKind !=
+                        identity.sourceKind !=
                         null
                     ) {
                         put(
                             "sourceKind",
-                            safeSourceKind
+                            identity.sourceKind
                         )
                     } else {
                         put(
@@ -154,7 +130,7 @@ class MessageLabStore private constructor(
                     }
                     put(
                         "redactedBody",
-                        redacted.body
+                        identity.redactedBody
                     )
                     put(
                         "firstSeenAtEpochMs",
@@ -179,6 +155,85 @@ class MessageLabStore private constructor(
             )
             .apply()
     }
+
+    @Synchronized
+    fun markUnderstood(
+        safeSenderLabel: String?,
+        body: String,
+        sourcePackage: String? = null,
+        sourceKind: String? = null
+    ): Boolean {
+        val identity =
+            MessageLabShapeIdentityFactory
+                .create(
+                    safeSenderLabel =
+                        safeSenderLabel,
+                    body = body,
+                    sourcePackage =
+                        sourcePackage,
+                    sourceKind =
+                        sourceKind
+                )
+
+        val current =
+            readArray()
+        val next =
+            JSONArray()
+        var removed = 0
+
+        for (
+            index in 0 until
+                current.length()
+        ) {
+            val item =
+                current.getJSONObject(
+                    index
+                )
+            if (
+                item.optString(
+                    "shapeId"
+                ) ==
+                identity.shapeId
+            ) {
+                removed +=
+                    item.optInt(
+                        "occurrenceCount",
+                        1
+                    ).coerceAtLeast(1)
+            } else {
+                next.put(item)
+            }
+        }
+
+        if (removed <= 0) {
+            return false
+        }
+
+        val retiredCount =
+            preferences.getInt(
+                KEY_RETIRED_COUNT,
+                0
+            ) + removed
+
+        preferences.edit()
+            .putString(
+                KEY_SHAPES,
+                next.toString()
+            )
+            .putInt(
+                KEY_RETIRED_COUNT,
+                retiredCount
+            )
+            .apply()
+
+        return true
+    }
+
+    fun retiredOccurrenceCount(): Int =
+        preferences.getInt(
+            KEY_RETIRED_COUNT,
+            0
+        )
 
     @Synchronized
     fun recentUnsupported(
@@ -423,31 +478,14 @@ class MessageLabStore private constructor(
             JSONArray()
         }
 
-    private fun fingerprint(
-        value: String
-    ): String {
-        val digest =
-            MessageDigest
-                .getInstance("SHA-256")
-                .digest(
-                    value.toByteArray(
-                        Charsets.UTF_8
-                    )
-                )
-        return digest.joinToString("") {
-            byte ->
-            "%02x".format(byte)
-        }
-    }
-
     companion object {
         private const val PREFS_NAME =
             "message_lab_v1"
         private const val KEY_SHAPES =
             "unsupported_shapes"
+        private const val KEY_RETIRED_COUNT =
+            "retired_occurrence_count"
         private const val MAX_SHAPES = 100
-        private const val MAX_PACKAGE_LENGTH = 120
-        private const val MAX_SOURCE_KIND_LENGTH = 80
 
         @Volatile
         private var instance:
