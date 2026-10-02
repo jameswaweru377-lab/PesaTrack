@@ -1260,7 +1260,12 @@ class TransactionStore private constructor(context: Context) {
                     BASE_SELECT +
                         " WHERE (" +
                         "review_state = ? OR " +
-                        "(review_state = ? AND rule_id IS NULL AND category = ?)" +
+                        "(review_state = ? AND rule_id IS NULL AND (" +
+                        "category = ? OR EXISTS (" +
+                        "SELECT 1 FROM personal_learning_applications pla " +
+                        "WHERE pla.transaction_id = transactions.id" +
+                        ")" +
+                        "))" +
                         ") AND COALESCE(counterparty, '') LIKE ? COLLATE NOCASE" +
                         " ORDER BY occurred_at_epoch_ms DESC, id DESC",
                     arrayOf(
@@ -1352,7 +1357,7 @@ class TransactionStore private constructor(context: Context) {
                         }
                 }
 
-            changed +=
+            val updated =
                 db.update(
                     "transactions",
                     values,
@@ -1361,6 +1366,14 @@ class TransactionStore private constructor(context: Context) {
                         stored.id.toString()
                     )
                 )
+            if (updated > 0) {
+                PersonalLearningStore
+                    .get(appContext)
+                    .clearApplication(
+                        stored.id
+                    )
+                changed += updated
+            }
         }
 
         if (
@@ -1435,7 +1448,12 @@ class TransactionStore private constructor(context: Context) {
         database.readableDatabase.rawQuery(
             BASE_SELECT +
                 " WHERE review_state = ?" +
-                " OR (review_state = ? AND rule_id IS NULL AND category = ?)" +
+                " OR (review_state = ? AND rule_id IS NULL AND (" +
+                "category = ? OR EXISTS (" +
+                "SELECT 1 FROM personal_learning_applications pla " +
+                "WHERE pla.transaction_id = transactions.id" +
+                ")" +
+                "))" +
                 " ORDER BY occurred_at_epoch_ms DESC, id DESC",
             arrayOf(
                 ReviewState.NEEDS_REVIEW.name,
