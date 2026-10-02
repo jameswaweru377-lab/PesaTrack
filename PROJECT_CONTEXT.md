@@ -3051,3 +3051,12 @@ Implemented:
 - Financial Intelligence V2 remains authoritative for debt drawdown/repayment/account semantics.
 
 Continue Phase 6 from source coverage gaps and reviewed redacted evidence.
+
+
+## Phase 6 Long-tail Coverage — Timiza source identity — 2026-10-02
+
+Verified Android source identity now includes Timiza package `ke.co.absa.digitalwallet`.
+
+The source is conservative: OTHER account type, UNKNOWN ownership and UNKNOWN financial nature. This improves notification attribution only; no Timiza account, debt, payment, savings or transfer is inferred from package identity.
+
+Evidence is recorded in `docs/entity-catalog-sources.md`. Provider-specific Timiza message templates remain evidence-gated.
