@@ -1,0 +1,39 @@
+{
+  "id": "ke.hustler-fund.loan.disbursed-with-savings",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["HUSTLERFUND", "HUSTLER FND"],
+  "requiredAnchors": ["Your loan of", "has been approved", "sent to M-Pesa", "to your savings account", "Repay"],
+  "anyAnchors": [],
+  "eventKind": "DEBT_DRAWDOWN_WITH_SAVINGS",
+  "productIdentity": "HUSTLER_FUND_LOAN",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "Your loan of[ ]+(?:Ksh|KES|Kshs?)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+has been approved",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "DISBURSED_AMOUNT",
+      "pattern": "(?:Ksh|KES|Kshs?)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+sent to M-Pesa",
+      "group": 1
+    },
+    {
+      "field": "SAVINGS_AMOUNT",
+      "pattern": "(?:Ksh|KES|Kshs?)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+to your savings account",
+      "group": 1
+    },
+    {
+      "field": "REPAY_AMOUNT",
+      "pattern": "Repay[ ]+(?:Ksh|KES|Kshs?)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)",
+      "group": 1
+    },
+    {
+      "field": "DATE",
+      "pattern": "Repay[ ]+(?:Ksh|KES|Kshs?)[.]?[ ]*[0-9,]+(?:[.][0-9]{1,2})?[ ]+by[ ]+(.+?)[.]?$",
+      "group": 1
+    }
+  ]
+}

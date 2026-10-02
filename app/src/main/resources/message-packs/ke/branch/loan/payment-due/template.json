@@ -1,0 +1,19 @@
+{
+  "id": "ke.branch.loan.payment-due",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["BRANCH"],
+  "requiredAnchors": ["Reminding you that your loan payment of", "is due", "Use Paybill 999999 to clear"],
+  "anyAnchors": [],
+  "eventKind": "DEBT_DUE_NOTICE",
+  "productIdentity": "BRANCH_LOAN",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "loan payment of[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+is due",
+      "group": 1,
+      "required": true
+    }
+  ]
+}

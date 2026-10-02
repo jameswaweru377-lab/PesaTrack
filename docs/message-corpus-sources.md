@@ -214,3 +214,32 @@ Semantic boundary:
 - Generic bank-to-mobile transfer and generic account-credit notices are also provenance-first.
 - The confirmed bill-payment shape may expose PAYMENT semantics because the message explicitly states that a bill payment was completed.
 - A generic template with no sender restriction is allowed only when its body anchors are sufficiently specific to the public observed shape.
+
+## Phase 6 lender/product reference corpus
+
+Evidence class: **USER_RESEARCH_REFERENCE**
+
+Source supplied to the PesaTrack project:
+- `kenyan_bank_sms_templates.pdf`
+- Title: *Kenyan Financial SMS Parsing Dictionary*
+- Described in the document as an internal app-development reference guide of sender IDs, keywords and parameterized templates.
+
+Shapes adapted in this increment:
+- M-Shwari fee-bearing loan receipt to M-Pesa;
+- Timiza disbursement / fee / total-due notice;
+- Tala loan disbursement and payment-due reminder;
+- Branch loan disbursement and payment-due reminder;
+- Zenka loan disbursement;
+- OKash loan disbursement;
+- Hustler Fund split loan disbursement + mandatory savings.
+
+The source uses placeholders such as `[AMT]`, `[DATE]`, `[PHONE]` and `[BAL]`. It is therefore treated as a structured research/reference corpus, **not** as proof of current bank-certified production wording.
+
+PesaTrack reconstructs these templates into sanitized synthetic golden fixtures in `fixtures-v9.json`.
+
+Semantic boundary:
+- lender drawdown/product templates provide structured provenance and extraction;
+- `DEBT_DUE_NOTICE` is reminder/provenance data and must not become an expense or repayment merely because an amount is present;
+- the generic Message Pack candidate bridge still only promotes PAYMENT / RECEIPT / TRANSFER event kinds;
+- M-Shwari, Hustler Fund and other debt/account semantics remain owned by Financial Intelligence V2 and relationship/account evidence;
+- Hustler Fund's disbursed-to-M-Pesa amount and savings amount remain separate extracted fields; the template itself does not invent an ordinary expense for the savings allocation.

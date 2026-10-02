@@ -3034,3 +3034,20 @@ Important boundary:
 PesaTrack does not attempt to replay already-redacted fixtures through live extractors because placeholders such as `<AMOUNT>` can invalidate regex extraction. Resolution happens only when a new real observation arrives and is understood by the current interpreter.
 
 Continue Phase 6 from Coverage-by-source and Message Lab evidence.
+
+## Phase 6 Long-tail Coverage — increment 13 / lender corpus — 2026-10-02
+
+Phase 6 now includes a larger lender/product Message Pack corpus from the project-supplied Kenyan Financial SMS Parsing Dictionary.
+
+Implemented:
+
+- Kenya Message Pack expands from **53 to 62 active templates**.
+- Added M-Shwari fee-bearing loan receipt, Timiza disbursement, Tala disbursement + due notice, Branch disbursement + due notice, Zenka disbursement, OKash disbursement and Hustler Fund split disbursement/savings shapes.
+- Added `fixtures-v9.json` golden corpus.
+- Added regression tests requiring due notices to remain provenance-only rather than ordinary Payment events.
+- Added structured extraction checks for M-Shwari fee/repay amount and Hustler Fund M-Pesa/savings split.
+- Evidence is documented as **USER_RESEARCH_REFERENCE** because the supplied dictionary is parameterized internal reference material rather than verified current production wording.
+- No provider-specific Kotlin parser branch is added.
+- Financial Intelligence V2 remains authoritative for debt drawdown/repayment/account semantics.
+
+Continue Phase 6 from source coverage gaps and reviewed redacted evidence.

@@ -1,0 +1,101 @@
+[
+  {
+    "id": "mshwari_loan_received_with_fee",
+    "title": "M-Shwari",
+    "body": "M-Shwari: You have received a loan of KES 5,000.00. KES 150.00 facility fee charged. Amount sent to M-Pesa. Repay KES 5,150.00 by 31 Oct 2026.",
+    "templateId": "ke.mshwari.loan.received-with-fee",
+    "expectedFields": {
+      "AMOUNT": "5,000.00",
+      "FEE": "150.00",
+      "REPAY_AMOUNT": "5,150.00",
+      "DATE": "31 Oct 2026"
+    }
+  },
+  {
+    "id": "timiza_loan_disbursed",
+    "title": "TIMIZA",
+    "body": "Timiza: KES 4,000.00 disbursed to your Timiza account. KES 200.00 fee applied. Total due KES 4,200.00 on 31 Oct 2026. Paybill 300067.",
+    "templateId": "ke.timiza.loan.disbursed",
+    "expectedFields": {
+      "AMOUNT": "4,000.00",
+      "FEE": "200.00",
+      "TOTAL_DUE": "4,200.00",
+      "DATE": "31 Oct 2026"
+    }
+  },
+  {
+    "id": "tala_loan_disbursed",
+    "title": "TALA",
+    "body": "Tala: Your loan of KES 3,000.00 has been approved and sent to your M-Pesa. Check your M-Pesa SMS for confirmation.",
+    "templateId": "ke.tala.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "3,000.00"
+    }
+  },
+  {
+    "id": "tala_payment_due",
+    "title": "TALA",
+    "body": "Tala: Your loan payment of KES 3,300.00 is due on 31 Oct 2026. Pay via Paybill 851201, Acc: 0712345678.",
+    "templateId": "ke.tala.loan.payment-due",
+    "expectedFields": {
+      "AMOUNT": "3,300.00",
+      "DATE": "31 Oct 2026",
+      "ACCOUNT_REFERENCE": "0712345678"
+    }
+  },
+  {
+    "id": "branch_loan_disbursed",
+    "title": "Branch",
+    "body": "Branch: KES 2,000.00 has been transferred to your M-Pesa account. Repay KES 2,300.00 by 31 Oct 2026 to grow your limit.",
+    "templateId": "ke.branch.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "2,000.00",
+      "REPAY_AMOUNT": "2,300.00",
+      "DATE": "31 Oct 2026"
+    }
+  },
+  {
+    "id": "branch_payment_due",
+    "title": "Branch",
+    "body": "Branch: Reminding you that your loan payment of KES 2,300.00 is due. Use Paybill 999999 to clear.",
+    "templateId": "ke.branch.loan.payment-due",
+    "expectedFields": {
+      "AMOUNT": "2,300.00"
+    }
+  },
+  {
+    "id": "zenka_loan_disbursed",
+    "title": "ZENKA",
+    "body": "Zenka: Your loan request has been approved. KES 2,500.00 sent to your M-Pesa. Total to repay KES 2,800.00 by 31 Oct 2026.",
+    "templateId": "ke.zenka.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "2,500.00",
+      "REPAY_AMOUNT": "2,800.00",
+      "DATE": "31 Oct 2026"
+    }
+  },
+  {
+    "id": "okash_loan_disbursed",
+    "title": "OKash",
+    "body": "OKash: Your loan of KES 2,500.00 is successfully disbursed. Please pay KES 2,900.00 on or before 31 Oct 2026 to avoid late fees.",
+    "templateId": "ke.okash.loan.disbursed",
+    "expectedFields": {
+      "AMOUNT": "2,500.00",
+      "REPAY_AMOUNT": "2,900.00",
+      "DATE": "31 Oct 2026"
+    }
+  },
+  {
+    "id": "hustler_fund_disbursed_with_savings",
+    "title": "HUSTLERFUND",
+    "body": "Hustler Fund: Your loan of Ksh 5,000.00 has been approved. Ksh 4,750.00 sent to M-Pesa, Ksh 250.00 to your savings account. Repay Ksh 5,000.00 by 31 Oct 2026.",
+    "templateId": "ke.hustler-fund.loan.disbursed-with-savings",
+    "expectedFields": {
+      "AMOUNT": "5,000.00",
+      "DISBURSED_AMOUNT": "4,750.00",
+      "SAVINGS_AMOUNT": "250.00",
+      "REPAY_AMOUNT": "5,000.00",
+      "DATE": "31 Oct 2026"
+    }
+  }
+]
