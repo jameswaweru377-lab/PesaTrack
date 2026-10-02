@@ -1,0 +1,43 @@
+{
+  "id": "ke.generic-bank.mobile.credit-to-phone",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": [],
+  "requiredAnchors": [
+    "Your transaction of",
+    "has been credited to",
+    "MPESA Ref."
+  ],
+  "anyAnchors": ["Ref."],
+  "eventKind": "BANK_TO_MOBILE_TRANSFER",
+  "productIdentity": "KENYAN_BANK_APP_TRANSFER",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "transaction of[ ]+(?:(?:KES|Kshs?[.]?|Ksh[.]?)[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)[ ]+has been credited to",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "DESTINATION",
+      "pattern": "credited to[ ]+([+]?[0-9]{10,15})",
+      "group": 1
+    },
+    {
+      "field": "COUNTERPARTY",
+      "pattern": "credited to[ ]+[+]?[0-9]{10,15}[ ]+(.+?)[.][ ]+Ref[.]",
+      "group": 1
+    },
+    {
+      "field": "REFERENCE",
+      "pattern": "Ref[.][ ]+([A-Z0-9]+)[.][ ]+MPESA Ref[.]",
+      "group": 1
+    },
+    {
+      "field": "EXTERNAL_REFERENCE",
+      "pattern": "MPESA Ref[.][ ]+([A-Z0-9]+)",
+      "group": 1
+    }
+  ]
+}

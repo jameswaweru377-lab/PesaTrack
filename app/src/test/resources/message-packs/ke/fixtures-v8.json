@@ -1,0 +1,59 @@
+[
+  {
+    "id": "fundilima_sacco_withdrawal",
+    "title": "",
+    "body": "Dear Member,You have withdrawn Ksh. 800 from Account 0101-001-00*** .Thank you for using FUNDILIMA SACCO Mobile Banking Service.",
+    "templateId": "ke.fundilima-sacco.account.withdrawal",
+    "expectedFields": {
+      "AMOUNT": "800",
+      "ACCOUNT_REFERENCE": "0101-001-00***"
+    }
+  },
+  {
+    "id": "generic_sacco_deposit",
+    "title": "",
+    "body": "Dear Member, you have deposited 1400.00 to A/C No. xxxxxx6291, of SAMPLE WELFARE GROUP on 2025/09/28 12:01:55. For help 0709000000",
+    "templateId": "ke.generic-sacco.account.deposit",
+    "expectedFields": {
+      "AMOUNT": "1400.00",
+      "ACCOUNT_REFERENCE": "xxxxxx6291",
+      "COUNTERPARTY": "SAMPLE WELFARE GROUP",
+      "DATE": "2025/09/28 12:01:55"
+    }
+  },
+  {
+    "id": "generic_bank_credit_to_phone",
+    "title": "",
+    "body": "Your transaction of Kshs. 6000.0 has been credited to 254710000000 SAMPLE PERSON. Ref. EQA7FA49D0DDCBF. MPESA Ref. UDJP31HD79 on 19/04/2026 at 20:59:50.",
+    "templateId": "ke.generic-bank.mobile.credit-to-phone",
+    "expectedFields": {
+      "AMOUNT": "6000.0",
+      "DESTINATION": "254710000000",
+      "COUNTERPARTY": "SAMPLE PERSON",
+      "REFERENCE": "EQA7FA49D0DDCBF",
+      "EXTERNAL_REFERENCE": "UDJP31HD79"
+    }
+  },
+  {
+    "id": "generic_bank_bill_payment",
+    "title": "",
+    "body": "Confirmed, Bill payment to SAMPLE COLLECTIONS of KES. 320.00 for account 101417 and Ref. UDIP31BYCB on 18-04-2026 at 15:57. Thank you.",
+    "templateId": "ke.generic-bank.payment.bill-payment",
+    "expectedFields": {
+      "COUNTERPARTY": "SAMPLE COLLECTIONS",
+      "AMOUNT": "320.00",
+      "ACCOUNT_REFERENCE": "101417",
+      "REFERENCE": "UDIP31BYCB"
+    }
+  },
+  {
+    "id": "generic_account_credit_balance_notice",
+    "title": "",
+    "body": "Your account has been credited with KSH 1600. To check your balance dial *200# To pay via MPESA use Paybill no. 200200 and your mobile no as the account no.",
+    "templateId": "ke.generic-account.credit.balance-notice",
+    "expectedFields": {
+      "AMOUNT": "1600",
+      "PAYBILL": "200200"
+    }
+  }
+]

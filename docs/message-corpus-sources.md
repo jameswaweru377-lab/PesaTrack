@@ -189,3 +189,28 @@ Evidence notes:
 - PesaTrack therefore uses narrow sender + anchor matching and preserves structured provenance rather than treating these samples as proof of every live wording variant.
 - Account credit/debit templates use `ACCOUNT_CREDIT` / `ACCOUNT_DEBIT` event kinds. The generic Message Pack bridge does not convert those kinds into a counterparty payment or receipt, because the public samples do not identify a reliable counterparty.
 - This increment does not infer missing merchant/person identity from provider name, account tail, balance, or reference.
+
+
+### Fundilima SACCO and generic Kenya bank/SACCO notification corpus
+
+Evidence class: **PUBLIC_SANITIZED_DATASET**
+
+Source:
+- Repository: `jaksoftwares/kapuletu-backend`
+- File: `data/real_world_annotated.json`
+- Public Kenya transaction-message corpus reviewed on 2 October 2026.
+
+Published examples in that corpus include:
+- Fundilima SACCO mobile-banking withdrawal wording;
+- SACCO member deposit wording shaped as `Dear Member, you have deposited ... to A/C No...`;
+- a bank-to-M-Pesa notification shaped as `Your transaction of ... has been credited to ... MPESA Ref...`;
+- a confirmed bill-payment notification;
+- a generic account-credit/balance-notice shape.
+
+PesaTrack does not copy public names, phone numbers, account numbers or references into its golden corpus. `fixtures-v8.json` reconstructs the observed language using synthetic names and redacted account/reference values.
+
+Semantic boundary:
+- Fundilima and generic SACCO deposit/withdrawal shapes are **provenance-first**. Their event kinds are intentionally not bridged into ordinary expense/income/transfer candidates because ownership and destination/source account semantics are not known from the message alone.
+- Generic bank-to-mobile transfer and generic account-credit notices are also provenance-first.
+- The confirmed bill-payment shape may expose PAYMENT semantics because the message explicitly states that a bill payment was completed.
+- A generic template with no sender restriction is allowed only when its body anchors are sufficiently specific to the public observed shape.

@@ -49,6 +49,11 @@
     "sanlam/investment/top-up/template.json",
     "cooperative/account/credit/template.json",
     "cooperative/account/debit/template.json",
-    "equity/account/credit/template.json"
+    "equity/account/credit/template.json",
+    "fundilima-sacco/account/withdrawal/template.json",
+    "generic-sacco/account/deposit/template.json",
+    "generic-bank/mobile/credit-to-phone/template.json",
+    "generic-bank/payment/bill-payment/template.json",
+    "generic-account/credit/balance-notice/template.json"
   ]
 }

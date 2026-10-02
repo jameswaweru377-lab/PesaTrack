@@ -638,3 +638,32 @@ They deliberately do **not** route through the generic PAYMENT / RECEIPT / TRANS
 `fixtures-v7.json` adds sanitized public-sample fixtures for all three templates, and the router test requires every active template to retain at least one golden fixture.
 
 Next Phase 6 work should continue with additional banks, SACCOs, lenders and app-notification wording only when concrete public/sanitized message evidence exists.
+
+
+## Phase 6 — Long-tail coverage, increment 4 — Bank and SACCO notification corpus
+
+Branch milestone: `feature/phase6-bank-sacco-coverage-v3b`.
+
+After the Co-op/Equity account-alert increment, the Kenya Message Pack expands from 48 to **53 active templates** using a separate public observed-message corpus.
+
+Added:
+- Fundilima SACCO account withdrawal;
+- generic SACCO member deposit;
+- generic bank-to-mobile/M-Pesa credit notification;
+- generic confirmed bill payment;
+- generic account-credit/balance notification.
+
+A new `fixtures-v8.json` stores sanitized synthetic examples of the observed language.
+
+### Safety model
+
+Long-tail coverage must not turn every recognized notification into a ledger movement.
+
+Therefore:
+- `SACCO_WITHDRAWAL`, `SACCO_DEPOSIT`, `BANK_TO_MOBILE_TRANSFER` and `ACCOUNT_CREDIT` remain provenance-only event kinds in the generic Message Pack bridge;
+- only the explicit confirmed bill-payment shape uses ordinary `PAYMENT` semantics;
+- senderless generic templates require strong, multi-anchor body matches;
+- no bank/SACCO ownership is inferred from the notification alone;
+- real names, phone numbers, account numbers and references from the public corpus are not copied into PesaTrack fixtures.
+
+Phase 6 now covers adjacent-finance templates, recurring-payment intelligence, Co-op/Equity account alerts, and broader bank/SACCO notification language.
