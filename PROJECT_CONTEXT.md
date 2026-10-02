@@ -2972,3 +2972,17 @@ Behavior:
 - Added regression tests and app-store evidence documentation.
 
 Continue Phase 6 from real unsupported source coverage. Do not create SACCO/bank notification templates from app-store feature descriptions alone.
+
+
+## Phase 6 Long-tail Coverage — increment 11 / Standard Chartered + Family app sources — 2026-10-02
+
+Verified Android source identity now also covers:
+
+- Standard Chartered SC Mobile Kenya — `com.scb.breezebanking.ke`;
+- Family Bank PesaPap — `com.mode.familykenya.ui`.
+
+Both map through the existing bank directory and retain UNKNOWN ownership. Package identity only improves source attribution for notification diagnostics / Message Lab; it does not create or classify transactions.
+
+Evidence is documented in `docs/entity-catalog-sources.md`.
+
+Continue Phase 6 from actual unsupported source evidence. Do not invent provider-specific app wording from Play Store descriptions.
