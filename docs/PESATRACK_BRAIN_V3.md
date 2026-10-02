@@ -297,3 +297,47 @@ It is deliberately not promoted to Home/Activity yet. The blueprint requires dur
 ### Next milestone
 
 After this increment is green, Phase 4 can begin with personal learning from reviewed transactions and confirmed identities. High-confidence learning may auto-apply only when evidence is strong; medium confidence suggests; low confidence asks. User decisions remain authoritative.
+
+
+## Phase 4 — Personal Learning, increment 1
+
+Branch milestone: `feature/brain-v3-personal-learning-v1`.
+
+This increment begins personal learning without weakening deterministic accounting or overriding explicit user choices.
+
+### Schema v30
+
+Two local-first tables are added:
+
+- `identity_category_preferences` stores an explicitly remembered category preference against a stable Identity Graph node;
+- `personal_learning_applications` records when a learned preference was auto-applied, including the identity, category, direction, confidence and confirmation count.
+
+No raw message text is stored in either table.
+
+### Confidence and authority
+
+The learning layer sits below explicit Smart Rules and user classifications.
+
+- The existing **Remember** action remains authoritative and still creates the exact-name / exact-phone Smart Rule.
+- Remember also attaches the chosen ordinary expense category to the resolved Identity Graph node when one can be resolved safely.
+- A user-confirmed or high-confidence identity match can auto-apply the remembered category.
+- A medium-confidence identity match only produces a suggestion on Transaction Details.
+- A low-confidence match does not change the ledger and continues through normal review.
+- **Only this one** does not create an identity preference.
+- USER_CLASSIFIED, EXCLUDED, Smart-Rule-controlled, linked/refund, transfer, income, debt, savings, investment and cash records are never overwritten by this learning layer.
+- A later explicit user classification removes personal-learning application provenance for that transaction.
+
+### Product behavior
+
+Transaction Details can now explain a medium-confidence category suggestion and requires the user to confirm it before the category changes.
+
+Data Health reports:
+
+- number of identities with an explicit remembered category;
+- number of transactions auto-applied through personal learning.
+
+### Boundary
+
+This is not a probabilistic transaction classifier and it does not learn from raw name repetition. It only generalizes an explicit remembered category through the durable Identity Graph.
+
+The next Phase 4 increment should focus on conflict handling, preference correction/revocation, and stronger explanation of why an identity matched before any Home/Activity simplification work begins.
