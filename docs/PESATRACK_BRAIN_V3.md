@@ -297,3 +297,99 @@ It is deliberately not promoted to Home/Activity yet. The blueprint requires dur
 ### Next milestone
 
 After this increment is green, Phase 4 can begin with personal learning from reviewed transactions and confirmed identities. High-confidence learning may auto-apply only when evidence is strong; medium confidence suggests; low confidence asks. User decisions remain authoritative.
+
+
+## Phase 4 — Personal Learning foundation
+
+Branch milestone: `feature/brain-v3-personal-learning-evidence-v2`.
+
+Phase 4 learns **category preference from repeated user reviews tied to a stable Identity Graph identity**. It does not learn amounts, balances, ownership, account routing, debt relationships or transaction direction.
+
+### Schema v30
+
+Two local audit tables are added:
+
+- `personal_category_reviews` — one review-evidence row per ledger transaction;
+- `personal_learning_applications` — one record for each transaction PesaTrack auto-classified from learned history.
+
+The transaction ID is the idempotence/correction key. Re-reviewing the same transaction replaces its prior category evidence instead of incrementing a counter, so repeated taps cannot manufacture confidence.
+
+### Confidence
+
+Identity confidence answers **who the counterparty is**. Personal-learning confidence answers **how consistently this user categorizes that identity**. They are separate.
+
+Category evidence thresholds:
+
+- 1 consistent reviewed transaction → LOW → ask;
+- 2 consistent reviews with at least 67% agreement → MEDIUM → suggest;
+- 3 or more reviews with at least 80% agreement → HIGH;
+- HIGH can auto-apply only when the Identity Graph identity is also trusted/user-confirmed;
+- HIGH evidence on an identity that is not trusted remains a suggestion.
+
+A 3-to-1 split is 75%, so it does not qualify as HIGH.
+
+### Learning boundary
+
+The first increment learns category only for ordinary outgoing:
+
+- SENT_MONEY;
+- PAY_BILL;
+- BUY_GOODS.
+
+It does not learn from or auto-apply to structural/accounting categories such as:
+
+- TRANSFER;
+- INCOME;
+- DEBT_LOAN;
+- SAVINGS;
+- INVESTMENT;
+- CASH;
+- OTHER / UNCATEGORIZED as learned outcomes.
+
+Only resolved external PERSON / BUSINESS / BILLER / FINANCIAL_INSTITUTION identities can supply personal category learning. SELF, FINANCIAL_ACCOUNT and unresolved UNKNOWN identities cannot.
+
+### Precedence
+
+Classification authority is ordered:
+
+1. direct user decision / exclusion;
+2. explicit Smart Rule;
+3. repeated personal learning;
+4. deterministic built-in / entity intelligence;
+5. fallback review triage.
+
+Personal learning never overwrites a Smart Rule, USER_CLASSIFIED transaction, EXCLUDED transaction, debt/investment/refund relation, transfer, SELF/account identity or other protected accounting structure.
+
+Remote entity enrichment is not allowed to overwrite an existing `personal_learning` classification.
+
+### User experience
+
+Transaction Details can show:
+
+- LOW evidence: “PesaTrack is still learning” and asks the user to choose;
+- MEDIUM evidence: a category suggestion with reviewed-example counts;
+- HIGH + trusted identity: automatic category with visible `Learned` provenance.
+
+The existing “Remember this for next time?” Smart Rule flow remains separate and deterministic. Saving a Smart Rule does not artificially increase personal-learning evidence.
+
+Identity Review re-scans historical USER_CLASSIFIED transactions after an identity decision, allowing old reviews to become usable once an UNKNOWN identity is safely confirmed/classified.
+
+Data Health reports:
+
+- reviewed examples;
+- learned identities;
+- auto-applied transactions.
+
+### Correction safety
+
+Changing a learned transaction manually creates/replaces review evidence for that transaction and clears its recorded learning application.
+
+Excluding a transaction removes its review evidence and learning application.
+
+Historical review backfill is local and idempotent.
+
+### Next milestone
+
+Do not start the major Home/Activity simplification until this Phase 4 increment is green and merged.
+
+After validation, decide whether Phase 4 needs one more small learning increment (for example clearer “why learned” review controls) or is safe to close and move to Phase 5.
