@@ -3098,6 +3098,7 @@ Phase 6 now bridges sufficiently explicit investment Message Pack evidence into 
 Implemented:
 
 - Added `MessagePackInvestmentSemanticBridge`.
+- A deterministic matched financial Message Pack now passes the generic relevance gate so known investment/debt shapes cannot be discarded before their guarded semantics run; unknown text still uses the normal relevance gate.
 - Sanlam Money Market Fund credit with PRODUCT + UNITS + AMOUNT becomes a HIGH-confidence executed BUY investment observation.
 - Units are converted to microunits; monetary value remains KES minor units.
 - Existing `InvestmentStore` remains authoritative for persistence, settlement linking and observed position delta.
