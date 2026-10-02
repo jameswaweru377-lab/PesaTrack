@@ -339,6 +339,10 @@ class PersonalLearningStore private constructor(
                     WHERE direction = ?
                       AND rule_id IS NULL
                       AND relation_type IS NULL
+                      AND COALESCE(
+                            evidence_source,
+                            ''
+                          ) != 'personal_learning'
                       AND review_state IN (?, ?)
                     ORDER BY occurred_at_epoch_ms DESC,
                              id DESC
