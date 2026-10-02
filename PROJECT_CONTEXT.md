@@ -2645,3 +2645,52 @@ Schema advances from v28 to **v29** with `identity_review_decisions`.
 The review screen is under Data Health/More, not Home. No transaction category is learned or applied in this increment, and no Smart Rule is generated.
 
 Next: Phase 4 personal learning, built on durable identity + review evidence rather than raw name repetition.
+
+
+## Brain v3 Phase 4 — Personal Learning foundation — 2026-10-02
+
+Blueprint guardrail: personal learning is downstream from the ledger, financial relationships and Identity Graph. It may learn category preference only; it must not infer or overwrite amount, direction, account ownership, debt/investment linkage or transfer semantics.
+
+### Schema v30
+
+- `personal_category_reviews` records one user category review per transaction ID.
+- `personal_learning_applications` records where learned history was automatically applied.
+- Transaction ID is the correction/idempotence key, so changing the same reviewed transaction replaces its evidence rather than inflating confidence.
+
+### Evidence thresholds
+
+- one consistent review → LOW / ask;
+- two consistent reviews with >=67% agreement → MEDIUM / suggest;
+- three or more reviews with >=80% agreement → HIGH;
+- HIGH auto-applies only when the stable Identity Graph identity is also trusted or user-confirmed;
+- otherwise HIGH remains a suggestion.
+
+Identity confidence and category-learning confidence are deliberately separate.
+
+### Safe scope
+
+Initial learning applies only to ordinary outgoing SENT_MONEY, PAY_BILL and BUY_GOODS expense categories.
+
+Never learn/auto-apply structural accounting categories such as TRANSFER, INCOME, DEBT_LOAN, SAVINGS, INVESTMENT or CASH. OTHER and UNCATEGORIZED are not learned outcomes.
+
+Only external PERSON, BUSINESS, BILLER and FINANCIAL_INSTITUTION identities participate. SELF, FINANCIAL_ACCOUNT and UNKNOWN do not.
+
+### Precedence and correction
+
+Direct user decisions and Smart Rules outrank personal learning. Personal learning outranks generic/entity enrichment only after repeated evidence is strong.
+
+A learned category cannot be overwritten later by remote entity enrichment.
+
+Manual correction clears the old auto-application and records the corrected review evidence. Exclusion removes both review evidence and learning application.
+
+Identity Review re-scans historical user-classified transactions after identity decisions so previously unresolved reviews can become usable without asking the user to repeat them.
+
+### Transparency
+
+Transaction Details exposes low/medium evidence as ask/suggest states with explicit support counts, and marks auto-applied categories as Learned.
+
+Data Health reports reviewed examples, learned identities and auto-applied transactions.
+
+The existing explicit “Remember” Smart Rule workflow remains separate and must not be counted as repeated personal-learning evidence.
+
+Next: validate/merge this Phase 4 foundation before considering Phase 5 Home/Activity simplification.
