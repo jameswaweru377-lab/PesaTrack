@@ -121,7 +121,7 @@ fun PermissionSetupScreen(
                     style = MaterialTheme.typography.headlineLarge
                 )
                 Text(
-                    "A few Android permissions let PesaTrack import your history and capture new M-Pesa activity on this phone.",
+                    "A few Android permissions let PesaTrack import your history and capture new financial activity from SMS and supported app notifications on this phone.",
                     modifier = Modifier.padding(top = 6.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
