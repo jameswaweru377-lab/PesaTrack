@@ -3089,3 +3089,12 @@ Implemented:
 - Added registry tests for stable lender identities/funding behavior.
 
 No repayment reminder, lender offer, or split savings allocation is turned into a ledger movement by this increment.
+
+
+## Phase 6 Long-tail Coverage — increment 17 / Kashbean source identity — 2026-10-02
+
+Verified Android source identity now includes Kashbean package `com.kashbean`.
+
+The package resolves to `KENYAN_LENDER_KASHBEAN` but remains OTHER / UNKNOWN ownership / UNKNOWN financial nature. Source identity improves notification attribution only; it does not create debt or transaction semantics.
+
+Evidence is recorded in `docs/entity-catalog-sources.md`. Concrete Kashbean notification templates remain evidence-gated.
