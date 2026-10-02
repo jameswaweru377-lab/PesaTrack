@@ -2989,3 +2989,12 @@ Coverage by source and Message Lab can therefore group unsupported app notificat
 Added regression tests and official Play-store evidence documentation.
 
 Continue Phase 6 from the highest unsupported source groups visible in Data Health; notification templates still require real sanitized/public message evidence.
+
+
+## Phase 6 Long-tail Coverage — increment 12 / Timiza source identity — 2026-10-02
+
+Verified Android source identity now includes Timiza package `ke.co.absa.digitalwallet`.
+
+The source is conservative: OTHER account type, UNKNOWN ownership and UNKNOWN financial nature. This improves notification attribution only; no Timiza account, debt, payment, savings or transfer is inferred from package identity.
+
+Evidence is recorded in `docs/entity-catalog-sources.md`. Provider-specific Timiza message templates remain evidence-gated.
