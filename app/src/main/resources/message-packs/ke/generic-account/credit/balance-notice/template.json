@@ -1,0 +1,28 @@
+{
+  "id": "ke.generic-account.credit.balance-notice",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": [],
+  "requiredAnchors": [
+    "Your account has been credited with",
+    "To check your balance dial",
+    "To pay via MPESA use Paybill no."
+  ],
+  "anyAnchors": [],
+  "eventKind": "ACCOUNT_CREDIT",
+  "productIdentity": "KENYAN_ACCOUNT_NOTIFICATION",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "credited with[ ]+(?:KES|KSH|Kshs?[.]?|Ksh[.]?)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "PAYBILL",
+      "pattern": "Paybill no[.][ ]+([0-9]+)",
+      "group": 1
+    }
+  ]
+}
