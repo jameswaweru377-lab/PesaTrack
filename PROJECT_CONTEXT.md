@@ -2695,3 +2695,30 @@ Implemented:
 Phase 4 is now ready to hand off into Phase 5 Product Simplification.
 
 Start Phase 5 with the unified Needs Attention question model and Activity hierarchy. Do not remove the underlying duplicate/link/identity/unsupported-message capabilities; hide their technical implementation behind one human review surface.
+
+
+## Phase 5 Product Simplification — increment 1 — 2026-10-02
+
+Phase 4 is complete through reversible personal-learning correction/revocation. Phase 5 has started.
+
+Implemented:
+
+- Primary bottom navigation is now Home / Activity / Plan / Accounts / More.
+- Community moved under More.
+- Historical import is exposed under More instead of daily Home.
+- Goals moved into the Plan hierarchy.
+- Accounts is now a real primary tab rather than a Home detail route.
+- Activity replaces the three technical Review / Duplicates / Links controls with one expandable Needs Attention surface.
+- Needs Attention aggregates category review, possible duplicates, relationship questions, account ownership, identity review, and unsupported-message coverage.
+- Activity filter language is simplified to All / Needs review / Spending / Income / Transfers.
+- The primary Activity surface no longer exposes the raw financial-source feed control.
+- Home no longer shows the Review / Import / Rules / Goals quick-action row.
+- Home shows a compact Needs Attention card only when its current transaction snapshot has review work.
+
+Guardrail:
+
+Do not delete the underlying duplicate/link/identity/Message Lab capabilities. Product Simplification hides their implementation details behind human questions; it does not weaken the evidence or accounting model.
+
+Next:
+
+Continue Phase 5 with the Home information hierarchy from the blueprint and then reduce the large Home/Activity composables into smaller feature modules.

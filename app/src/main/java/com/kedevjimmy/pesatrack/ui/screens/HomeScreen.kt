@@ -21,11 +21,8 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.automirrored.rounded.FactCheck
-import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Savings
-import androidx.compose.material.icons.rounded.TrackChanges
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -81,7 +78,6 @@ import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.MoneySummaryTile
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.PesaTrackTopBar
-import com.kedevjimmy.pesatrack.ui.components.QuickAction
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.SmartInsightCard
 import com.kedevjimmy.pesatrack.ui.components.SpendingDonutCard
@@ -143,9 +139,6 @@ fun HomeScreen(
     scaffoldPadding: PaddingValues,
     onProfileClick: () -> Unit = {},
     onReviewClick: () -> Unit = {},
-    onImportClick: () -> Unit = {},
-    onRulesClick: () -> Unit = {},
-    onGoalsClick: () -> Unit = {},
     onBudgetClick: () -> Unit = {},
     onAccountsClick: () -> Unit = {},
     onDebtsClick: () -> Unit = {}
@@ -868,35 +861,95 @@ fun HomeScreen(
             }
         }
 
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                QuickAction(
-                    label = "Review",
-                    icon = Icons.AutoMirrored.Rounded.FactCheck,
-                    tone = "amber",
-                    onClick = onReviewClick
-                )
-                QuickAction(
-                    label = "Import",
-                    icon = Icons.Rounded.FileUpload,
-                    tone = "blue",
-                    onClick = onImportClick
-                )
-                QuickAction(
-                    label = "Rules",
-                    icon = Icons.Rounded.Tune,
-                    tone = "violet",
-                    onClick = onRulesClick
-                )
-                QuickAction(
-                    label = "Goals",
-                    icon = Icons.Rounded.TrackChanges,
-                    tone = "green",
-                    onClick = onGoalsClick
-                )
+        if (
+            activitySnapshot.summary
+                .needsReviewCount > 0
+        ) {
+            item {
+                PesaCard(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                onClick =
+                                    onReviewClick
+                            )
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.padding(
+                                15.dp
+                            ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            Icons.AutoMirrored
+                                .Rounded
+                                .FactCheck,
+                            size = 44.dp,
+                            background =
+                                MaterialTheme
+                                    .colorScheme
+                                    .tertiaryContainer,
+                            tint =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onTertiaryContainer
+                        )
+                        Column(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .padding(
+                                        start = 12.dp
+                                    )
+                        ) {
+                            Text(
+                                "Needs Attention",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium
+                            )
+                            Text(
+                                activitySnapshot
+                                    .summary
+                                    .needsReviewCount
+                                    .toString() +
+                                    " transaction" +
+                                    if (
+                                        activitySnapshot
+                                            .summary
+                                            .needsReviewCount ==
+                                        1
+                                    ) {
+                                        " needs a quick check"
+                                    } else {
+                                        "s need a quick check"
+                                    },
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Rounded
+                                .ChevronRight,
+                            contentDescription =
+                                null,
+                            tint =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
 

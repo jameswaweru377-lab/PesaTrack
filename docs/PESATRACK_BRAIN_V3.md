@@ -380,3 +380,59 @@ Medium-confidence suggestions now explain why the identity matched instead of pr
 With correction, revocation, explanation and explicit user authority now present, Phase 4 has the minimum durable loop required by the blueprint.
 
 Next: **Phase 5 — Product Simplification**, beginning with the unified Needs Attention model and a calmer Activity hierarchy before doing the full Home visual rewrite.
+
+
+## Phase 5 — Product Simplification, increment 1
+
+Branch milestone: `feature/phase5-product-simplification-v1`.
+
+This increment begins the blueprint's product hierarchy cleanup without changing accounting semantics.
+
+### Primary navigation
+
+The bottom navigation now follows the user's money:
+
+- Home
+- Activity
+- Plan
+- Accounts
+- More
+
+Community is no longer a primary money tab and is available under More. Historical import is also surfaced under More. Goals are moved into the Plan hierarchy instead of competing with Plan as a separate primary destination.
+
+### Activity
+
+The separate **Review / Duplicates / Links** controls are replaced by one **Needs Attention** surface.
+
+Needs Attention can now collect:
+
+- account-ownership questions;
+- identity questions;
+- transaction category review;
+- possible duplicate observations;
+- relationship/link questions;
+- unsupported financial message shapes.
+
+The surface phrases each section as a human question instead of exposing parser/reconciliation terminology.
+
+Activity's canonical timeline keeps simple filters:
+
+- All
+- Needs review
+- Spending
+- Income
+- Transfers
+
+The technical financial-source feed is no longer exposed from the primary Activity controls. Source evidence remains available through transaction details/Data Health paths.
+
+### Home
+
+The old daily quick-action row for Review / Import / Rules / Goals is removed.
+
+Home can show a compact Needs Attention card when current transaction review is required. Import belongs under More/Data Health, rules remain an implementation detail, and goals live under Plan.
+
+### Boundary
+
+This is structural Product Simplification, not the full Home visual redesign yet. The existing ledger, V2 semantics, debt model, identity graph and personal learning authority remain unchanged.
+
+Next Phase 5 increments should continue simplifying Home into the blueprint order (available this cycle, attention, today, where money went, money picture, recent activity, one useful insight) and break the large Home/Activity composables into smaller feature modules.
