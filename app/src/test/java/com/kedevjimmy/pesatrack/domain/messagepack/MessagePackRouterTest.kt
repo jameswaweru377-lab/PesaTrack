@@ -23,7 +23,7 @@ class MessagePackRouterTest {
             result.errors.isEmpty()
         )
         assertEquals(
-            53,
+            62,
             result.templates.size
         )
         assertEquals(
@@ -356,6 +356,137 @@ class MessagePackRouterTest {
     }
 
     @Test
+    fun phase6LenderDueNoticesStayProvenanceOnly() {
+        val tala =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "TALA",
+                    body =
+                        "Tala: Your loan payment of KES 3,300.00 is due on 31 Oct 2026. Pay via Paybill 851201, Acc: 0712345678."
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            tala.parseProvenance.route
+        )
+        assertEquals(
+            "ke.tala.loan.payment-due",
+            tala.parseProvenance.templateId
+        )
+        assertEquals(
+            "DEBT_DUE_NOTICE",
+            tala.parseProvenance.eventKind
+        )
+        assertTrue(
+            tala.events.none {
+                it is PaymentEventFact
+            }
+        )
+
+        val branch =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "Branch",
+                    body =
+                        "Branch: Reminding you that your loan payment of KES 2,300.00 is due. Use Paybill 999999 to clear."
+                )
+
+        assertEquals(
+            "ke.branch.loan.payment-due",
+            branch.parseProvenance.templateId
+        )
+        assertEquals(
+            "DEBT_DUE_NOTICE",
+            branch.parseProvenance.eventKind
+        )
+        assertTrue(
+            branch.events.none {
+                it is PaymentEventFact
+            }
+        )
+    }
+
+    @Test
+    fun phase6LenderDrawdownsExposeStructuredProvenance() {
+        val mshwari =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "M-Shwari",
+                    body =
+                        "M-Shwari: You have received a loan of KES 5,000.00. KES 150.00 facility fee charged. Amount sent to M-Pesa. Repay KES 5,150.00 by 31 Oct 2026."
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            mshwari.parseProvenance.route
+        )
+        assertEquals(
+            "ke.mshwari.loan.received-with-fee",
+            mshwari.parseProvenance.templateId
+        )
+        assertEquals(
+            "DEBT_DRAWDOWN",
+            mshwari.parseProvenance.eventKind
+        )
+        assertEquals(
+            "150.00",
+            mshwari.parseProvenance
+                .extractedFields
+                .first {
+                    it.field == "FEE"
+                }
+                .value
+        )
+        assertEquals(
+            "5,150.00",
+            mshwari.parseProvenance
+                .extractedFields
+                .first {
+                    it.field ==
+                        "REPAY_AMOUNT"
+                }
+                .value
+        )
+
+        val hustler =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "HUSTLERFUND",
+                    body =
+                        "Hustler Fund: Your loan of Ksh 5,000.00 has been approved. Ksh 4,750.00 sent to M-Pesa, Ksh 250.00 to your savings account. Repay Ksh 5,000.00 by 31 Oct 2026."
+                )
+
+        assertEquals(
+            "ke.hustler-fund.loan.disbursed-with-savings",
+            hustler.parseProvenance.templateId
+        )
+        assertEquals(
+            "DEBT_DRAWDOWN_WITH_SAVINGS",
+            hustler.parseProvenance.eventKind
+        )
+        assertEquals(
+            "4,750.00",
+            hustler.parseProvenance
+                .extractedFields
+                .first {
+                    it.field ==
+                        "DISBURSED_AMOUNT"
+                }
+                .value
+        )
+        assertEquals(
+            "250.00",
+            hustler.parseProvenance
+                .extractedFields
+                .first {
+                    it.field ==
+                        "SAVINGS_AMOUNT"
+                }
+                .value
+        )
+    }
+
+    @Test
     fun phase6SaccoShapesStayProvenanceFirst() {
         val withdrawal =
             FinancialMessageInterpreter
@@ -640,7 +771,8 @@ class MessagePackRouterTest {
             "message-packs/ke/fixtures-v5.json",
             "message-packs/ke/fixtures-v6.json",
             "message-packs/ke/fixtures-v7.json",
-            "message-packs/ke/fixtures-v8.json"
+            "message-packs/ke/fixtures-v8.json",
+            "message-packs/ke/fixtures-v9.json"
         ).flatMap { path ->
             val stream =
                 javaClass.classLoader
