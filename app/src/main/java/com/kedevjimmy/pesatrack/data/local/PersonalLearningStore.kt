@@ -39,9 +39,10 @@ class PersonalLearningStore private constructor(
         }
 
         runCatching {
-            identityGraphStore.synchronize(
-                transactionLimit = 100
-            )
+            identityGraphStore
+                .synchronizeTransaction(
+                    transaction.id
+                )
         }
 
         val resolution =
