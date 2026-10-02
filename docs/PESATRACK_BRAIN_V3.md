@@ -1114,6 +1114,8 @@ This increment moves the existing Etica/Sanlam Message Pack from simple provenan
 
 ### Explicit executed investment evidence
 
+A matched financial Message Pack is itself sufficient evidence to pass the generic relevance gate; unknown text still fails closed through the normal relevance screen.
+
 A matched `INVESTMENT_CREDIT` may become a `SemanticInvestmentFact` only when the template exposes all of:
 
 - product/instrument label;
