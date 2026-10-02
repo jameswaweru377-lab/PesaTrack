@@ -197,6 +197,14 @@ object BundledKenyaMessagePackLoader {
                 root.stringArray(
                     "senderIds"
                 ),
+            sourcePackages =
+                root.stringArray(
+                    "sourcePackages"
+                ),
+            sourceKinds =
+                root.stringArray(
+                    "sourceKinds"
+                ),
             requiredAnchors =
                 root.stringArray(
                     "requiredAnchors"
