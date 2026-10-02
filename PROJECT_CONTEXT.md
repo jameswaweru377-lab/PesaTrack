@@ -3089,3 +3089,27 @@ Implemented:
 - Added registry tests for stable lender identities/funding behavior.
 
 No repayment reminder, lender offer, or split savings allocation is turned into a ledger movement by this increment.
+
+
+## Phase 6 Long-tail Coverage — increment 16 / investment semantics — 2026-10-02
+
+Phase 6 now bridges sufficiently explicit investment Message Pack evidence into the existing provider-neutral investment ledger.
+
+Implemented:
+
+- Added `MessagePackInvestmentSemanticBridge`.
+- A deterministic matched financial Message Pack now passes the generic relevance gate so known investment/debt shapes cannot be discarded before their guarded semantics run; unknown text still uses the normal relevance gate.
+- Sanlam Money Market Fund credit with PRODUCT + UNITS + AMOUNT becomes a HIGH-confidence executed BUY investment observation.
+- Units are converted to microunits; monetary value remains KES minor units.
+- Existing `InvestmentStore` remains authoritative for persistence, settlement linking and observed position delta.
+- Sanlam amount-only top-up remains provenance-only.
+- Etica redemption/withdrawal remains provenance-only because current evidence does not establish unit quantity safely.
+- Etica USD redemption remains provenance-only; no currency conversion or KES posting is invented.
+- All Message Pack `INVESTMENT_*` shapes suppress ordinary PAYMENT / RECEIPT / TRANSFER classification.
+- Provenance-only investment shapes are marked as understood confirmations instead of ordinary spending/income.
+- Added explicit `blocksLegacyTransactionParsing` support to financial interpretation.
+- Provenance-only investment and debt shapes now stop legacy fallback even when no ordinary event exists.
+- Historical import no longer counts safely handled provenance-only shapes as duplicate transactions.
+- Added regression coverage for Sanlam fund credit/top-up, Etica KES/USD withdrawal and debt due-notice fallback blocking.
+
+Continue Phase 6 from reviewed Coverage-by-source / Message Lab evidence and from investment/debt cases only where the current canonical models can preserve the financial meaning without guessing.

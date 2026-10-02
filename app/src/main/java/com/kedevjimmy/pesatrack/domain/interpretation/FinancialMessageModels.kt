@@ -219,7 +219,9 @@ data class FinancialMessageInterpretation(
     val parseProvenance:
         MessageParseProvenance =
             MessageParseProvenance
-                .genericFallback()
+                .genericFallback(),
+    val blocksLegacyTransactionParsing:
+        Boolean = false
 ) {
     val recognized: Boolean
         get() =
@@ -232,8 +234,13 @@ data class FinancialMessageInterpretation(
 
     val consumesLegacyTransactionParsing: Boolean
         get() =
-            events.isNotEmpty() &&
-                events.all {
-                    it.genericIngestionReady
-                }
+            blocksLegacyTransactionParsing ||
+                semanticAssessment
+                    ?.investment != null ||
+                (
+                    events.isNotEmpty() &&
+                        events.all {
+                            it.genericIngestionReady
+                        }
+                )
 }

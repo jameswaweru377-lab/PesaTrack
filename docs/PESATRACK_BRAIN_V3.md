@@ -1104,3 +1104,46 @@ If the generic debt extractor already found a drawdown, Message Pack evidence on
 - No lender reminder becomes a repayment.
 - No proceeds destination is inferred for OKash.
 - Existing Financial Intelligence V2 / DebtStore authority remains unchanged.
+
+
+## Phase 6 — Long-tail coverage, increment 16 — Investment semantics
+
+Branch milestone: `feature/phase6-investment-semantics-v16`.
+
+This increment moves the existing Etica/Sanlam Message Pack from simple provenance toward the provider-neutral investment engine without turning investment cash messages into ordinary spending or income.
+
+### Explicit executed investment evidence
+
+A matched financial Message Pack is itself sufficient evidence to pass the generic relevance gate; unknown text still fails closed through the normal relevance screen.
+
+A matched `INVESTMENT_CREDIT` may become a `SemanticInvestmentFact` only when the template exposes all of:
+
+- product/instrument label;
+- unit quantity;
+- monetary value;
+- KES-compatible evidence.
+
+The current Sanlam Money Market Fund credit shape satisfies that requirement, so it becomes a HIGH-confidence **EXECUTED BUY** observation. Units are stored as quantity microunits, the fund name becomes the stable instrument identity, and the credited value becomes investment value. The existing `InvestmentStore` remains authoritative for persistence, settlement linking and observed position delta.
+
+This is an observed investment event, not an authoritative fund balance.
+
+### Provenance-only investment movements
+
+Amount-only investment shapes remain understood without changing a position:
+
+- Sanlam top-up;
+- Etica redemption;
+- Etica withdrawal to M-Pesa;
+- foreign-currency Etica redemption.
+
+For these shapes PesaTrack suppresses accidental PAYMENT / RECEIPT / TRANSFER semantics caused by generic wording such as “sent” or “credited”, emits no ordinary money-movement event, blocks legacy transaction fallback, and keeps the Message Pack provenance as an understood investment confirmation.
+
+USD evidence is never converted into KES.
+
+### Legacy-fallback guardrail
+
+`FinancialMessageInterpretation` now carries an explicit legacy-fallback block. Provenance-only investment shapes and provenance-only debt shapes such as due notices / split Hustler Fund drawdowns can therefore stop older transaction parsing even when they intentionally create no ordinary ledger event.
+
+The ingestion coordinator preserves this decision, and historical import distinguishes “handled safely with no ledger movement” from a duplicate transaction.
+
+No raw-message archive, provider-specific investment parser branch or inferred unit quantity is introduced.

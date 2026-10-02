@@ -44,7 +44,9 @@ data class FinancialMessageIngestionResult(
     val changed: Boolean,
     val insertedTransactions: Int,
     val insertedFinancialEvents: Int,
-    val pendingReviewEvents: Int
+    val pendingReviewEvents: Int,
+    val handledWithoutLedgerMovement:
+        Boolean = false
 )
 
 class FinancialMessageIngestionCoordinator private constructor(
@@ -126,7 +128,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                 FinancialMessageIngestionResult(
                     recognized = false,
                     consumesLegacyTransactionParsing =
-                        false,
+                        interpretation
+                            .consumesLegacyTransactionParsing,
                     changed =
                         investmentWrite?.changed ==
                             true,
@@ -140,7 +143,11 @@ class FinancialMessageIngestionCoordinator private constructor(
                         } else {
                             0
                         },
-                    pendingReviewEvents = 0
+                    pendingReviewEvents = 0,
+                    handledWithoutLedgerMovement =
+                        interpretation
+                            .consumesLegacyTransactionParsing &&
+                            investmentWrite == null
                 )
             recordDiagnostic(
                 title = title,
