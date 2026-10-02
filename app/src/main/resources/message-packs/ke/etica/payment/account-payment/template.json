@@ -1,0 +1,30 @@
+{
+  "id": "ke.etica.payment.account-payment",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["ETICALTD", "ETICA LTD", "ETICA"],
+  "requiredAnchors": ["Your payment of", " from account"],
+  "anyAnchors": [" to "],
+  "eventKind": "PAYMENT",
+  "productIdentity": "KENYAN_INVESTMENT_ETICA",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "Your payment of[ ]+(?:(?:KES|Kshs?[.]?|Sh)[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)[ ]+to[ ]+",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "COUNTERPARTY",
+      "pattern": "[ ]to[ ]+(.+?)[ ]+from account[ ]+",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "ACCOUNT_REFERENCE",
+      "pattern": "from account[ ]+([A-Z0-9-]+)",
+      "group": 1
+    }
+  ]
+}
