@@ -602,3 +602,32 @@ Recurring intelligence does not:
 - change ledger arithmetic.
 
 The next Phase 6 increments remain evidence-backed provider/app-notification coverage and additional long-tail institutions.
+
+
+## Phase 6 — Long-tail coverage, increment 3 — Bank and SACCO notifications
+
+Branch milestone: `feature/phase6-bank-sacco-coverage-v3`.
+
+The Kenya Message Pack expands from 45 to **50 active templates** using public observed message evidence.
+
+Added:
+- Fundilima SACCO account withdrawal;
+- generic SACCO member deposit;
+- generic bank-to-mobile/M-Pesa credit notification;
+- generic confirmed bill payment;
+- generic account-credit/balance notification.
+
+A new `fixtures-v7.json` stores sanitized synthetic examples of the observed language.
+
+### Safety model
+
+Long-tail coverage must not turn every new notification into a ledger movement.
+
+Therefore:
+- `SACCO_WITHDRAWAL`, `SACCO_DEPOSIT`, `BANK_TO_MOBILE_TRANSFER` and `ACCOUNT_CREDIT` remain provenance-only event kinds in the generic Message Pack bridge;
+- only the explicit confirmed bill-payment shape uses ordinary `PAYMENT` semantics;
+- senderless generic templates require strong, multi-anchor body matches;
+- no bank/SACCO ownership is inferred from the notification alone;
+- real names, numbers and references from the public corpus are not copied into PesaTrack fixtures.
+
+Phase 6 now has three implemented threads: adjacent-finance templates, recurring-payment intelligence, and bank/SACCO notification coverage.
