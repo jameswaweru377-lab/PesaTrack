@@ -109,6 +109,7 @@ object IdentityGraphPolicy {
                 IdentityNodeKind.BILLER
 
             EntityKind.BANK,
+            EntityKind.SACCO,
             EntityKind.LENDER,
             EntityKind.SAVINGS_PRODUCT ->
                 IdentityNodeKind
