@@ -2936,3 +2936,22 @@ Implemented:
 - Added regression tests for package grouping, app-vs-SMS separation and unsupported-first ordering.
 
 Use this view to choose the next bank/SACCO/lender corpus increment from actual unsupported evidence rather than adding speculative provider wording.
+
+## Phase 6 Long-tail Coverage — increment 9 / digital-lender app source identity — 2026-10-02
+
+Phase 6 now recognizes verified Branch and Tala Android app packages as financial source identity.
+
+Implemented:
+
+- Branch package: `com.branch_international.branch.branch_demo_android`.
+- Tala package: `com.inventureaccess.safarirahisi`.
+- Generalized `FinancialAppSourceProfile` so verified non-bank financial apps do not have to pretend to be entries in `KenyanBankDirectory`.
+- Existing bank-package behavior is preserved.
+- Branch/Tala source references use `AccountType.OTHER`, unknown ownership and unknown asset/liability nature.
+- Ingestion diagnostics and Message Lab can now attribute unsupported Branch/Tala app notifications to the correct institution even if the visible notification title is generic.
+- Added regression tests for names, provider keys, conservative type/nature, normalization and known-package checks.
+- Evidence/URLs are recorded in `docs/entity-catalog-sources.md`.
+
+No Branch/Tala message wording or debt semantics were invented.
+
+Continue Phase 6 from real Coverage-by-source gaps / redacted Message Lab evidence. Add provider-specific lender templates only when an observed sanitized/public message shape is available.
