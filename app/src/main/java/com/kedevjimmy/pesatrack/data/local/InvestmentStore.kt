@@ -19,6 +19,19 @@ data class InvestmentWriteResult(
     val changed: Boolean
 )
 
+enum class InvestmentPositionQuality {
+    OBSERVED_EVENTS_ONLY,
+    INCOMPLETE_HISTORY
+}
+
+data class InvestmentPositionSnapshot(
+    val instrumentKey: String,
+    val instrumentLabel: String,
+    val netObservedQuantityMicrounits: Long,
+    val quality: InvestmentPositionQuality,
+    val updatedAtEpochMs: Long
+)
+
 /**
  * Local, provider-neutral investment event ledger.
  *
@@ -206,6 +219,68 @@ class InvestmentStore private constructor(
             changed = changed
         )
     }
+
+    @Synchronized
+    fun positions():
+        List<InvestmentPositionSnapshot> =
+        database.readableDatabase
+            .rawQuery(
+                """
+                SELECT instrument_key,
+                       instrument_label,
+                       net_observed_quantity_microunits,
+                       quality,
+                       updated_at_epoch_ms
+                FROM investment_positions
+                ORDER BY instrument_label COLLATE NOCASE ASC,
+                         instrument_key ASC
+                """.trimIndent(),
+                emptyArray()
+            )
+            .use { cursor ->
+                buildList {
+                    while (
+                        cursor.moveToNext()
+                    ) {
+                        val quality =
+                            when (
+                                cursor.getString(
+                                    3
+                                )
+                            ) {
+                                POSITION_QUALITY_OBSERVED_EVENTS ->
+                                    InvestmentPositionQuality
+                                        .OBSERVED_EVENTS_ONLY
+                                else ->
+                                    InvestmentPositionQuality
+                                        .INCOMPLETE_HISTORY
+                            }
+
+                        add(
+                            InvestmentPositionSnapshot(
+                                instrumentKey =
+                                    cursor.getString(
+                                        0
+                                    ),
+                                instrumentLabel =
+                                    cursor.getString(
+                                        1
+                                    ),
+                                netObservedQuantityMicrounits =
+                                    cursor.getLong(
+                                        2
+                                    ),
+                                quality =
+                                    quality,
+                                updatedAtEpochMs =
+                                    cursor.getLong(
+                                        4
+                                    )
+                            )
+                        )
+                    }
+                }
+            }
 
     @Synchronized
     fun reconcileTransaction(
