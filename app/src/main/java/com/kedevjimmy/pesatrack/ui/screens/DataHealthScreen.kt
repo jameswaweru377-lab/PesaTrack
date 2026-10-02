@@ -678,19 +678,14 @@ private fun SourceCoverageCard(
                         .understoodPercent
                         .toString() +
                         "% understood",
-                    when {
+                    if (
                         source
                             .unsupportedFinancial ==
-                            0 ->
-                            "green"
-
-                        source
-                            .understoodPercent >=
-                            70 ->
-                            "amber"
-
-                        else ->
-                            "red"
+                        0
+                    ) {
+                        "green"
+                    } else {
+                        "amber"
                     }
                 )
             }
