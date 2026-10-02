@@ -126,6 +126,82 @@ class FinancialProviderRegistryTest {
 
 
     @Test
+    fun lenderProductsResolveToStableLiabilityIdentities() {
+        val tala =
+            FinancialProviderRegistry
+                .resolveLiabilityInContext(
+                    rawLabel = "Tala Loan",
+                    title = "TALA",
+                    body =
+                        "Tala: Your loan of KES 3,000.00 has been approved and sent to your M-Pesa."
+                )
+        val branch =
+            FinancialProviderRegistry
+                .resolveLiabilityInContext(
+                    rawLabel = "Branch Loan",
+                    title = "Branch",
+                    body =
+                        "Branch: KES 2,000.00 has been transferred to your M-Pesa account."
+                )
+        val timiza =
+            FinancialProviderRegistry
+                .resolveLiabilityInContext(
+                    rawLabel = "Timiza Loan",
+                    title = "TIMIZA",
+                    body =
+                        "Timiza: KES 4,000.00 disbursed to your Timiza account."
+                )
+
+        assertEquals(
+            "TALA_LOAN",
+            tala.providerKey
+        )
+        assertEquals(
+            "BRANCH_LOAN",
+            branch.providerKey
+        )
+        assertEquals(
+            "ABSA_TIMIZA_LOAN",
+            timiza.providerKey
+        )
+        assertEquals(
+            FinancialAccountNature.LIABILITY,
+            tala.nature
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            tala.ownershipHint
+        )
+    }
+
+    @Test
+    fun lenderFundingBehaviorUsesOnlyMessageSupportedDestinationFamilies() {
+        val tala =
+            FinancialProviderRegistry
+                .resolveAccount(
+                    "Tala Loan"
+                )
+        val timiza =
+            FinancialProviderRegistry
+                .resolveAccount(
+                    "Timiza Loan"
+                )
+
+        assertEquals(
+            "SAFARICOM_MPESA",
+            FinancialProviderRegistry
+                .debtBehaviorFor(tala)
+                ?.fundingAccountProviderKey
+        )
+        assertEquals(
+            "ABSA_TIMIZA_ACCOUNT",
+            FinancialProviderRegistry
+                .debtBehaviorFor(timiza)
+                ?.fundingAccountProviderKey
+        )
+    }
+
+    @Test
     fun resolvesKcbMpesaAsOwnedSavingsAccount() {
         val account =
             FinancialProviderRegistry.resolveAccount(
