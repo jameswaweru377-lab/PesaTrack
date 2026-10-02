@@ -144,6 +144,16 @@ object FinancialProviderRegistry {
             )
         ),
         FinancialProviderAccountKnowledge(
+            providerKey = "HUSTLER_FUND_SAVINGS",
+            canonicalName = "Hustler Fund Savings",
+            accountType = AccountType.SAVINGS,
+            ownershipHint = AccountOwnershipHint.USER_OWNED,
+            nature = FinancialAccountNature.ASSET,
+            aliases = setOf(
+                "HUSTLER FUND SAVINGS"
+            )
+        ),
+        FinancialProviderAccountKnowledge(
             providerKey = "HUSTLER_FUND_LOAN",
             canonicalName = "Hustler Fund Loan",
             accountType = AccountType.OTHER,
