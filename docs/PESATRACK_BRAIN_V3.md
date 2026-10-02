@@ -734,3 +734,46 @@ Identity coverage answers **who is this organization?** Transaction interpretati
 Evidence is documented in `docs/entity-catalog-sources.md`.
 
 Next Phase 6 work: make unsupported/app-notification learning source-aware so future app-only templates can be constrained by transport/package evidence without uploading raw inbox content.
+
+
+## Phase 6 — Long-tail coverage, increment 7 — Verified app-package identity
+
+Branch milestone: `feature/phase6-app-package-identity-v7`.
+
+This increment connects the source-aware notification infrastructure to stable institution identity without changing transaction semantics.
+
+### Verified package registry
+
+A new `FinancialAppSourceRegistry` maps current verified Android banking-app package IDs to existing Kenyan bank identities for:
+
+- KCB;
+- Equity;
+- Co-operative Bank;
+- NCBA;
+- Absa;
+- Stanbic;
+- Diamond Trust Bank.
+
+The evidence trail is recorded in `docs/entity-catalog-sources.md`.
+
+### How it is used
+
+`FinancialMessageIngestionCoordinator` now checks verified package identity when creating source diagnostics and unsupported Message Lab labels.
+
+This means a relevant notification can be attributed to the correct bank even when the notification title is generic or inconsistent.
+
+### Authority boundary
+
+Package identity does **not**:
+
+- claim the bank account belongs to the user;
+- alter the notification title used by the semantic interpreter;
+- bypass the financial relevance gate;
+- create an income/expense/transfer/debt event;
+- assign a category;
+- create a Smart Rule;
+- teach personal learning.
+
+Unknown package IDs fail closed and remain unknown.
+
+This prepares the next long-tail step: provider-specific app-notification templates can use package constraints only after concrete sanitized/public notification wording is available.
