@@ -504,3 +504,35 @@ The blueprint's Phase 5 product hierarchy is now present:
 - Data Health under More for technical coverage and diagnostics.
 
 Further UI decomposition and investment-specific account presentation can continue as maintenance/Phase 6 work, but they are no longer prerequisites for the Phase 5 product hierarchy itself.
+
+## Phase 6 — Long-tail coverage, increment 1
+
+Branch milestone: `feature/phase6-long-tail-public-pack-v1`.
+
+Phase 6 begins with evidence-backed adjacent-finance coverage rather than provider-specific Kotlin branches.
+
+### Added public-template shapes
+
+The Kenya Message Pack grows from 37 to 45 active templates with:
+
+- Etica investment-account payment;
+- Etica investment redemption;
+- Etica withdrawal to M-Pesa;
+- Evopay card parking;
+- Evopay number-plate parking;
+- Globalpay card purchase;
+- Sanlam Money Market Fund credit;
+- Sanlam investment top-up.
+
+A new `fixtures-v6.json` corpus provides sanitized golden examples, including the published KES and USD Etica redemption variants.
+
+### Semantic guardrails
+
+- Ordinary Evopay/Globalpay purchase shapes can bridge to PAYMENT only when Financial Intelligence V2 has no stronger extracted action.
+- Investment-specific Etica redemption/withdrawal and Sanlam credit/top-up shapes use event kinds that the generic Message Pack candidate bridge does not convert into ordinary ledger movements.
+- This intentionally prevents a fund top-up from becoming ordinary spending or a fund credit from becoming ordinary income merely because a public parser labels it that way.
+- Foreign-currency extraction can be recorded as provenance, but it is not silently posted as KES.
+
+### Next Phase 6 increments
+
+Continue with evidence-backed bank/app-notification coverage and then recurring/subscription intelligence. Prefer public or sanitized message evidence; official product mechanics alone are not enough to invent SMS wording.
