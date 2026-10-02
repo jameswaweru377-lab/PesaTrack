@@ -127,6 +127,32 @@ class FinancialAppSourceRegistryTest {
             FinancialAccountNature.UNKNOWN,
             tala?.nature
         )
+
+        val timiza =
+            FinancialAppSourceRegistry
+                .resolve(
+                    " KE.CO.ABSA.DIGITALWALLET "
+                )
+        assertEquals(
+            "Timiza",
+            timiza?.displayName
+        )
+        assertEquals(
+            "KENYAN_PLATFORM_TIMIZA",
+            timiza?.providerKey
+        )
+        assertEquals(
+            AccountType.OTHER,
+            timiza?.accountTypeHint
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            timiza?.ownershipHint
+        )
+        assertEquals(
+            FinancialAccountNature.UNKNOWN,
+            timiza?.nature
+        )
     }
 
     @Test
@@ -273,6 +299,12 @@ class FinancialAppSourceRegistryTest {
             FinancialAppSourceRegistry
                 .isKnownPackage(
                     "com.inventureaccess.safarirahisi"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "ke.co.absa.digitalwallet"
                 )
         )
         assertTrue(
