@@ -60,6 +60,27 @@ object FinancialAppSourceRegistry {
             ),
             FinancialAppSourceProfile(
                 packageName =
+                    "com.scb.breezebanking.ke",
+                bankId =
+                    "standard-chartered"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
+                    "com.mode.familykenya.ui",
+                bankId = "family"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
+                    "com.ecobank.mobileapp5",
+                bankId = "ecobank"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
+                    "com.mode.chasetest.ui",
+                bankId = "sbm"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
                     "com.mode.stima",
                 entityKey =
                     "provider:KENYAN_SACCO_STIMA_DT",

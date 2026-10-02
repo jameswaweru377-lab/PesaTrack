@@ -204,6 +204,47 @@ class FinancialAppSourceRegistryTest {
     }
 
     @Test
+    fun resolvesMoreVerifiedKenyanBankPackages() {
+        val expected =
+            mapOf(
+                "com.scb.breezebanking.ke" to
+                    "Standard Chartered Bank Kenya",
+                "com.mode.familykenya.ui" to
+                    "Family Bank",
+                "com.ecobank.mobileapp5" to
+                    "Ecobank Kenya",
+                "com.mode.chasetest.ui" to
+                    "SBM Bank Kenya"
+            )
+
+        expected.forEach {
+                (packageName, name) ->
+            val reference =
+                FinancialAppSourceRegistry
+                    .resolve(
+                        packageName
+                    )
+
+            assertEquals(
+                name,
+                reference?.displayName
+            )
+            assertEquals(
+                AccountType.BANK,
+                reference?.accountTypeHint
+            )
+            assertEquals(
+                AccountOwnershipHint.UNKNOWN,
+                reference?.ownershipHint
+            )
+            assertEquals(
+                FinancialAccountNature.ASSET,
+                reference?.nature
+            )
+        }
+    }
+
+    @Test
     fun unknownPackageDoesNotInventFinancialIdentity() {
         assertNull(
             FinancialAppSourceRegistry.resolve(
@@ -250,6 +291,30 @@ class FinancialAppSourceRegistryTest {
             FinancialAppSourceRegistry
                 .isKnownPackage(
                     "skyworld.mwalimu"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.scb.breezebanking.ke"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.mode.familykenya.ui"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.ecobank.mobileapp5"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.mode.chasetest.ui"
                 )
         )
     }
