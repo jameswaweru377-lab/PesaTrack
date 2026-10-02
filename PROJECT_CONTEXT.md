@@ -2955,3 +2955,20 @@ Implemented:
 No Branch/Tala message wording or debt semantics were invented.
 
 Continue Phase 6 from real Coverage-by-source gaps / redacted Message Lab evidence. Add provider-specific lender templates only when an observed sanitized/public message shape is available.
+
+## Phase 6 Long-tail Coverage — increment 10 / I&M + SACCO app sources — 2026-10-02
+
+Verified package-source coverage now also includes:
+
+- I&M OTG Personal KE — `com.imbank.digital.retail.app`;
+- MSTIMA / Stima DT Sacco — `com.mode.stima`;
+- MwalimuHELA / Mwalimu National Sacco — `skyworld.mwalimu`.
+
+Behavior:
+
+- I&M uses the existing bank source-reference path.
+- Stima/Mwalimu use conservative direct source identities with `AccountType.OTHER`, unknown ownership and unknown asset/liability nature.
+- Coverage by source / Message Lab can therefore attribute unsupported notifications correctly without inferring account ownership or transaction meaning.
+- Added regression tests and app-store evidence documentation.
+
+Continue Phase 6 from real unsupported source coverage. Do not create SACCO/bank notification templates from app-store feature descriptions alone.
