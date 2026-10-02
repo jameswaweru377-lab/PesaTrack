@@ -3148,3 +3148,19 @@ Implemented:
 This implements the blueprint's recommended 3-10 fixture depth more broadly without fabricating unsupported bank messages.
 
 Continue Phase 6 from concrete Coverage-by-source / Message Lab evidence for any new institution or notification shape.
+
+
+## Phase 6 Long-tail Coverage — increment 19 / adjacent-finance fixture depth — 2026-10-02
+
+Phase 6 fixture-depth hardening now covers the adjacent-finance shapes with guarded debt/investment/savings semantics.
+
+Implemented:
+
+- Added `fixtures-v12.json` with **33 sanitized variants**.
+- 17 supported M-Shwari extended-product, Etica, Sanlam, Branch, Tala, Timiza, Zenka, OKash and Hustler Fund templates now have at least three golden fixtures.
+- Router/extraction regression tests load fixture corpus v12.
+- Added a CI corpus-health floor for these adjacent-finance templates.
+- Variants change only sanitized amounts, fees, dates, references, balances, account labels, unit amounts and placeholder counterparties while preserving already-supported wording.
+- No new provider wording or parser semantics were introduced.
+
+This continues the blueprint's recommended 3-10 fixture depth without fabricating unsupported long-tail messages.
