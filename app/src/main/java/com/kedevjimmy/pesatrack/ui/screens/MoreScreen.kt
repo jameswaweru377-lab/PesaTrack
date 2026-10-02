@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
@@ -33,7 +34,8 @@ import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 fun MoreScreen(
     scaffoldPadding: PaddingValues,
     onProfileClick: () -> Unit,
-    onPlanClick: () -> Unit,
+    onCommunityClick: () -> Unit,
+    onImportClick: () -> Unit,
     onDataHealthClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
@@ -57,22 +59,31 @@ fun MoreScreen(
                     style = MaterialTheme.typography.headlineLarge
                 )
                 Text(
-                    "Planning and app controls.",
+                    "Data, community and app controls.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
         item {
-            SectionHeader("Money tools")
+            SectionHeader("Data & community")
         }
         item {
             MoreRow(
                 icon = Icons.Rounded.CalendarMonth,
-                title = "Plan",
-                subtitle = "Pay-cycle plan, commitments and safe-to-live view",
+                title = "Import history",
+                subtitle = "Bring in an older SMS window when you choose",
                 tone = "green",
-                onClick = onPlanClick
+                onClick = onImportClick
+            )
+        }
+        item {
+            MoreRow(
+                icon = Icons.Rounded.Groups,
+                title = "Community",
+                subtitle = "Richer Together posts and shared money conversations",
+                tone = "blue",
+                onClick = onCommunityClick
             )
         }
         item {
