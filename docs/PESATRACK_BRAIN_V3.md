@@ -997,3 +997,47 @@ This does not rewrite historical diagnostics or ledger history. It only keeps th
 ### Guardrail
 
 Auto-resolution requires a new live/imported observation of the same redacted shape. PesaTrack does not replay placeholder-redacted fixtures through amount/counterparty extractors because doing so could produce false coverage claims.
+
+## Phase 6 — Long-tail coverage, increment 13 — Lender and loan-product corpus
+
+Branch milestone: `feature/phase6-lender-corpus-v13`.
+
+This increment expands lender/product coverage from a user-supplied structured Kenyan SMS research dictionary.
+
+### Message Pack growth
+
+The Kenya Message Pack grows from **53 to 62 active templates**.
+
+Added:
+- M-Shwari loan received with facility fee / M-Pesa proceeds;
+- Timiza loan disbursement;
+- Tala disbursement to M-Pesa;
+- Tala payment-due notice;
+- Branch disbursement to M-Pesa;
+- Branch payment-due notice;
+- Zenka disbursement to M-Pesa;
+- OKash disbursement;
+- Hustler Fund split disbursement + savings allocation.
+
+`fixtures-v9.json` provides sanitized synthetic golden examples for every new template.
+
+### Debt authority
+
+The new templates deliberately use debt-specific event kinds:
+
+- `DEBT_DRAWDOWN`;
+- `DEBT_DRAWDOWN_WITH_SAVINGS`;
+- `DEBT_DUE_NOTICE`.
+
+The generic Message Pack candidate bridge still only promotes PAYMENT / RECEIPT / TRANSFER into ordinary action candidates.
+
+Therefore:
+- a lender reminder cannot become an expense or repayment merely because it contains “loan payment” and an amount;
+- a drawdown template can expose principal, fee, repay amount and date as provenance while Financial Intelligence V2 remains responsible for canonical debt semantics;
+- Hustler Fund can expose total loan, M-Pesa proceeds and savings allocation separately without collapsing savings into spending.
+
+### Evidence level
+
+The source is a project-supplied internal parsing dictionary with parameterized placeholders. It is useful structured evidence, but it is not represented as current bank-certified live wording. Matching remains narrow and the evidence class is documented as **USER_RESEARCH_REFERENCE**.
+
+Continue Phase 6 from real Coverage-by-source / Message Lab gaps and other concrete sanitized/public message evidence.
