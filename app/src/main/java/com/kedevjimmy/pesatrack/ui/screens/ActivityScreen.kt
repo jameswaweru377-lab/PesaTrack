@@ -521,7 +521,10 @@ fun ActivityScreen(
         }
 
         when (selectedFilter) {
-            "Expenses" ->
+            "Needs review" ->
+                item.reviewState ==
+                    ReviewState.NEEDS_REVIEW.name
+            "Spending" ->
                 item.direction == MoneyDirection.EXPENSE.name
             "Income" ->
                 item.direction == MoneyDirection.INCOME.name
@@ -614,321 +617,378 @@ fun ActivityScreen(
                 )
             }
 
-            if (
-                reviewableFinancialEntities
-                    .isNotEmpty()
-            ) {
-                item {
-                    FinancialAccountDiscoveryCard(
-                        entity =
-                            reviewableFinancialEntities
-                                .first(),
-                        diagnostics =
-                            financialDiagnostics,
-                        accountsById =
-                            accountsById,
-                        remainingCount =
-                            reviewableFinancialEntities
-                                .size - 1,
-                        onReview = {
-                            accountReviewEntity =
-                                reviewableFinancialEntities
-                                    .first()
-                        }
-                    )
-                }
-            }
+            val needsAttentionCount =
+                globalOverview.reviewGroups
+                    .sumOf {
+                        it.transactionCount
+                    } +
+                    globalOverview
+                        .possibleDuplicates
+                        .size +
+                    relationshipReviews.size +
+                    reviewableFinancialEntities
+                        .size
 
             item {
-                GlobalReviewNavigationBar(
-                    overview = globalOverview,
-                    relationshipReviewCount =
-                        relationshipReviews.size,
-                    selectedQueue = selectedGlobalQueue,
-                    onQueueSelected = { queue ->
+                NeedsAttentionCard(
+                    count = needsAttentionCount,
+                    expanded =
+                        selectedGlobalQueue ==
+                            "Attention",
+                    onClick = {
                         selectedGlobalQueue =
                             if (
                                 selectedGlobalQueue ==
-                                queue
+                                "Attention"
                             ) {
                                 null
                             } else {
-                                queue
+                                "Attention"
                             }
                     }
                 )
             }
 
-            when (selectedGlobalQueue) {
-                "Review" -> {
+            if (
+                selectedGlobalQueue ==
+                "Attention"
+            ) {
+                if (needsAttentionCount == 0) {
                     item {
-                        GlobalReviewHeader(globalOverview)
-                    }
-
-                    if (
-                        globalOverview.reviewGroups.isEmpty()
-                    ) {
-                        item {
-                            EmptyGlobalReviewState()
-                        }
-                    } else {
-                        items(
-                            count =
-                                globalOverview
-                                    .reviewGroups
-                                    .size,
-                            key = { index ->
-                                "global-review-" +
-                                    globalOverview
-                                        .reviewGroups[index]
-                                        .key
-                            }
-                        ) { index ->
-                            val group =
-                                globalOverview
-                                    .reviewGroups[index]
-                            ReviewGroupRow(
-                                group = group,
-                                onClick = {
-                                    onTransactionClick(
-                                        group
-                                            .representativeTransactionId
-                                    )
-                                }
-                            )
-                        }
+                        EmptyGlobalReviewState()
                     }
                 }
 
-                "Duplicates" -> {
+                if (
+                    reviewableFinancialEntities
+                        .isNotEmpty()
+                ) {
                     item {
-                        GlobalDuplicateHeader(
-                            globalOverview
+                        AttentionQuestionHeader(
+                            title =
+                                "Is this your account?",
+                            subtitle =
+                                "Confirm ownership only when PesaTrack has enough financial evidence to ask."
                         )
                     }
-
-                    if (
-                        globalOverview
-                            .possibleDuplicates
-                            .isEmpty()
-                    ) {
-                        item {
-                            EmptyGlobalDuplicateState()
-                        }
-                    } else {
-                        items(
-                            count =
-                                globalOverview
-                                    .possibleDuplicates
-                                    .size,
-                            key = { index ->
-                                "global-duplicate-" +
-                                    globalOverview
-                                        .possibleDuplicates[
-                                            index
-                                        ]
-                                        .key
+                    item {
+                        FinancialAccountDiscoveryCard(
+                            entity =
+                                reviewableFinancialEntities
+                                    .first(),
+                            diagnostics =
+                                financialDiagnostics,
+                            accountsById =
+                                accountsById,
+                            remainingCount =
+                                reviewableFinancialEntities
+                                    .size - 1,
+                            onReview = {
+                                accountReviewEntity =
+                                    reviewableFinancialEntities
+                                        .first()
                             }
-                        ) { index ->
-                            val group =
+                        )
+                    }
+                }
+
+                if (
+                    globalOverview
+                        .reviewGroups
+                        .isNotEmpty()
+                ) {
+                    item {
+                        AttentionQuestionHeader(
+                            title =
+                                "What were these transactions?",
+                            subtitle =
+                                "Confirm a category once and PesaTrack can learn the stable identity when the evidence is strong."
+                        )
+                    }
+                    items(
+                        count =
+                            globalOverview
+                                .reviewGroups
+                                .size,
+                        key = { index ->
+                            "attention-review-" +
+                                globalOverview
+                                    .reviewGroups[
+                                        index
+                                    ]
+                                    .key
+                        }
+                    ) { index ->
+                        val group =
+                            globalOverview
+                                .reviewGroups[
+                                    index
+                                ]
+                        ReviewGroupRow(
+                            group = group,
+                            onClick = {
+                                onTransactionClick(
+                                    group
+                                        .representativeTransactionId
+                                )
+                            }
+                        )
+                    }
+                }
+
+                if (
+                    globalOverview
+                        .possibleDuplicates
+                        .isNotEmpty()
+                ) {
+                    item {
+                        AttentionQuestionHeader(
+                            title =
+                                "Are these the same movement?",
+                            subtitle =
+                                "PesaTrack keeps both source observations until you confirm whether they represent one real transaction."
+                        )
+                    }
+                    items(
+                        count =
+                            globalOverview
+                                .possibleDuplicates
+                                .size,
+                        key = { index ->
+                            "attention-duplicate-" +
                                 globalOverview
                                     .possibleDuplicates[
                                         index
                                     ]
-                            PossibleDuplicateRow(
-                                group = group,
-                                onSameTransaction = {
-                                    activityScope.launch {
-                                        withContext(
-                                            Dispatchers.IO
-                                        ) {
-                                            store.resolvePossibleDuplicate(
-                                                pairKey = group.key,
-                                                sameTransaction = true
-                                            )
-                                        }
-                                        refresh()
-                                    }
-                                },
-                                onKeepBoth = {
-                                    activityScope.launch {
-                                        withContext(
-                                            Dispatchers.IO
-                                        ) {
-                                            store.resolvePossibleDuplicate(
-                                                pairKey = group.key,
-                                                sameTransaction = false
-                                            )
-                                        }
-                                        refresh()
-                                    }
-                                }
-                            )
+                                    .key
                         }
+                    ) { index ->
+                        val group =
+                            globalOverview
+                                .possibleDuplicates[
+                                    index
+                                ]
+                        PossibleDuplicateRow(
+                            group = group,
+                            onSameTransaction = {
+                                activityScope.launch {
+                                    withContext(
+                                        Dispatchers.IO
+                                    ) {
+                                        store.resolvePossibleDuplicate(
+                                            pairKey =
+                                                group.key,
+                                            sameTransaction =
+                                                true
+                                        )
+                                    }
+                                    refresh()
+                                }
+                            },
+                            onKeepBoth = {
+                                activityScope.launch {
+                                    withContext(
+                                        Dispatchers.IO
+                                    ) {
+                                        store.resolvePossibleDuplicate(
+                                            pairKey =
+                                                group.key,
+                                            sameTransaction =
+                                                false
+                                        )
+                                    }
+                                    refresh()
+                                }
+                            }
+                        )
                     }
                 }
 
-                "Links" -> {
+                if (
+                    relationshipReviews
+                        .isNotEmpty()
+                ) {
                     item {
-                        RelationshipReviewHeader(
-                            count =
-                                relationshipReviews.size
+                        AttentionQuestionHeader(
+                            title =
+                                "Which events belong together?",
+                            subtitle =
+                                "Link repayments, balances and settlements only when the evidence is clear."
                         )
                     }
-
-                    if (relationshipReviews.isEmpty()) {
-                        item {
-                            EmptyRelationshipReviewState()
-                        }
-                    } else {
-                        items(
-                            count =
-                                relationshipReviews.size,
-                            key = { index ->
+                    items(
+                        count =
+                            relationshipReviews.size,
+                        key = { index ->
+                            "attention-link-" +
                                 relationshipReviews[
                                     index
                                 ].key
-                            }
-                        ) { index ->
-                            val review =
-                                relationshipReviews[
-                                    index
-                                ]
-                            RelationshipReviewRow(
-                                item = review,
-                                onLink = { candidate ->
-                                    activityScope.launch {
-                                        withContext(
-                                            Dispatchers.IO
+                        }
+                    ) { index ->
+                        val review =
+                            relationshipReviews[
+                                index
+                            ]
+                        RelationshipReviewRow(
+                            item = review,
+                            onLink = { candidate ->
+                                activityScope.launch {
+                                    withContext(
+                                        Dispatchers.IO
+                                    ) {
+                                        when (
+                                            review.kind
                                         ) {
-                                            when (review.kind) {
-                                        RelationshipReviewKind
-                                            .REPAYMENT_FUNDING -> {
-                                            val eventId =
-                                                review.debtEventId
-                                            val targetId =
-                                                candidate.targetId
-                                            if (
-                                                eventId != null &&
-                                                targetId != null
-                                            ) {
-                                                relationshipReviewStore
-                                                    .resolveFunding(
-                                                        eventId,
-                                                        targetId
-                                                    )
-                                            }
-                                        }
-                                        RelationshipReviewKind
-                                            .REPAYMENT_BALANCE -> {
-                                            val eventId =
-                                                review.debtEventId
-                                            val targetId =
-                                                candidate.targetId
-                                            if (
-                                                eventId != null &&
-                                                targetId != null
-                                            ) {
-                                                relationshipReviewStore
-                                                    .resolveBalance(
-                                                        eventId,
-                                                        targetId
-                                                    )
-                                            }
-                                        }
-                                        RelationshipReviewKind
-                                            .LIABILITY_PAYMENT -> {
-                                            val transactionId =
-                                                review.transactionId
-                                            val debtAccountId =
-                                                candidate.targetKey
-                                            if (
-                                                transactionId != null &&
-                                                debtAccountId != null
-                                            ) {
-                                                relationshipReviewStore
-                                                    .resolveLiabilityPayment(
-                                                        transactionId,
-                                                        debtAccountId
-                                                    )
-                                            }
-                                        }
-                                        RelationshipReviewKind
-                                            .INVESTMENT_SETTLEMENT -> {
-                                            val eventId =
-                                                review
-                                                    .investmentEventId
-                                            val targetId =
-                                                candidate.targetId
-                                            if (
-                                                eventId != null &&
-                                                targetId != null
-                                            ) {
-                                                relationshipReviewStore
-                                                    .resolveInvestmentSettlement(
-                                                        eventId,
-                                                        targetId
-                                                    )
-                                            }
-                                        }
-                                            }
-                                        }
-                                        refresh()
-                                    }
-                                },
-                                onKeepUnlinked = {
-                                    activityScope.launch {
-                                        withContext(
-                                            Dispatchers.IO
-                                        ) {
-                                            when (review.kind) {
-                                        RelationshipReviewKind
-                                            .REPAYMENT_FUNDING ->
-                                            review.debtEventId
-                                                ?.let {
+                                            RelationshipReviewKind
+                                                .REPAYMENT_FUNDING -> {
+                                                val eventId =
+                                                    review
+                                                        .debtEventId
+                                                val targetId =
+                                                    candidate
+                                                        .targetId
+                                                if (
+                                                    eventId !=
+                                                    null &&
+                                                    targetId !=
+                                                    null
+                                                ) {
                                                     relationshipReviewStore
                                                         .resolveFunding(
-                                                            it,
-                                                            null
+                                                            eventId,
+                                                            targetId
                                                         )
                                                 }
-                                        RelationshipReviewKind
-                                            .REPAYMENT_BALANCE ->
-                                            review.debtEventId
-                                                ?.let {
+                                            }
+
+                                            RelationshipReviewKind
+                                                .REPAYMENT_BALANCE -> {
+                                                val eventId =
+                                                    review
+                                                        .debtEventId
+                                                val targetId =
+                                                    candidate
+                                                        .targetId
+                                                if (
+                                                    eventId !=
+                                                    null &&
+                                                    targetId !=
+                                                    null
+                                                ) {
                                                     relationshipReviewStore
                                                         .resolveBalance(
-                                                            it,
-                                                            null
+                                                            eventId,
+                                                            targetId
                                                         )
                                                 }
-                                        RelationshipReviewKind
-                                            .LIABILITY_PAYMENT ->
-                                            review.transactionId
-                                                ?.let {
+                                            }
+
+                                            RelationshipReviewKind
+                                                .LIABILITY_PAYMENT -> {
+                                                val transactionId =
+                                                    review
+                                                        .transactionId
+                                                val debtAccountId =
+                                                    candidate
+                                                        .targetKey
+                                                if (
+                                                    transactionId !=
+                                                    null &&
+                                                    debtAccountId !=
+                                                    null
+                                                ) {
                                                     relationshipReviewStore
                                                         .resolveLiabilityPayment(
-                                                            it,
-                                                            null
+                                                            transactionId,
+                                                            debtAccountId
                                                         )
                                                 }
-                                        RelationshipReviewKind
-                                            .INVESTMENT_SETTLEMENT ->
-                                            review.investmentEventId
-                                                ?.let {
+                                            }
+
+                                            RelationshipReviewKind
+                                                .INVESTMENT_SETTLEMENT -> {
+                                                val eventId =
+                                                    review
+                                                        .investmentEventId
+                                                val targetId =
+                                                    candidate
+                                                        .targetId
+                                                if (
+                                                    eventId !=
+                                                    null &&
+                                                    targetId !=
+                                                    null
+                                                ) {
                                                     relationshipReviewStore
                                                         .resolveInvestmentSettlement(
-                                                            it,
-                                                            null
+                                                            eventId,
+                                                            targetId
                                                         )
                                                 }
                                             }
                                         }
-                                        refresh()
                                     }
+                                    refresh()
                                 }
-                            )
-                        }
+                            },
+                            onKeepUnlinked = {
+                                activityScope.launch {
+                                    withContext(
+                                        Dispatchers.IO
+                                    ) {
+                                        when (
+                                            review.kind
+                                        ) {
+                                            RelationshipReviewKind
+                                                .REPAYMENT_FUNDING ->
+                                                review.debtEventId
+                                                    ?.let {
+                                                        relationshipReviewStore
+                                                            .resolveFunding(
+                                                                it,
+                                                                null
+                                                            )
+                                                    }
+
+                                            RelationshipReviewKind
+                                                .REPAYMENT_BALANCE ->
+                                                review.debtEventId
+                                                    ?.let {
+                                                        relationshipReviewStore
+                                                            .resolveBalance(
+                                                                it,
+                                                                null
+                                                            )
+                                                    }
+
+                                            RelationshipReviewKind
+                                                .LIABILITY_PAYMENT ->
+                                                review.transactionId
+                                                    ?.let {
+                                                        relationshipReviewStore
+                                                            .resolveLiabilityPayment(
+                                                                it,
+                                                                null
+                                                            )
+                                                    }
+
+                                            RelationshipReviewKind
+                                                .INVESTMENT_SETTLEMENT ->
+                                                review.investmentEventId
+                                                    ?.let {
+                                                        relationshipReviewStore
+                                                            .resolveInvestmentSettlement(
+                                                                it,
+                                                                null
+                                                            )
+                                                    }
+                                        }
+                                    }
+                                    refresh()
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -979,7 +1039,8 @@ fun ActivityScreen(
                         ) {
                             listOf(
                                 "All",
-                                "Expenses",
+                                "Needs review",
+                                "Spending",
                                 "Income",
                                 "Transfers"
                             ).forEach { label ->
@@ -1014,25 +1075,6 @@ fun ActivityScreen(
                                     )
                                 }
                             }
-                        }
-                    }
-
-                    if (sourceSummaries.isNotEmpty()) {
-                        item(
-                            key =
-                                "financial-sources-" +
-                                    bucket.monthStartEpochMs
-                        ) {
-                            FinancialSourceNavigator(
-                                sources = sourceSummaries,
-                                selectedSourceKey =
-                                    selectedFinancialSource,
-                                onSourceSelected = { key ->
-                                    selectedFinancialSource =
-                                        key
-                                    selectedFilter = "All"
-                                }
-                            )
                         }
                     }
 
@@ -1848,48 +1890,153 @@ private fun ActivityMonthPickerDialog(
 }
 
 @Composable
-private fun GlobalReviewNavigationBar(
-    overview: ActivityReviewOverview,
-    relationshipReviewCount: Int,
-    selectedQueue: String?,
-    onQueueSelected: (String) -> Unit
+private fun NeedsAttentionCard(
+    count: Int,
+    expanded: Boolean,
+    onClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    PesaCard(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(
+                    onClick = onClick
+                )
     ) {
-        ActivityQueueButton(
-            label = "Review",
-            count = overview.reviewGroups.size,
-            icon = Icons.AutoMirrored.Rounded.FactCheck,
-            selected = selectedQueue == "Review",
-            tone = "green",
-            modifier = Modifier.weight(1f),
-            onClick = {
-                onQueueSelected("Review")
+        Row(
+            modifier =
+                Modifier.padding(16.dp),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            IconBubble(
+                Icons.AutoMirrored.Rounded
+                    .FactCheck,
+                size = 44.dp,
+                background =
+                    if (count > 0) {
+                        pesaToneContainer(
+                            "amber"
+                        )
+                    } else {
+                        pesaToneContainer(
+                            "green"
+                        )
+                    },
+                tint =
+                    if (count > 0) {
+                        pesaToneContent(
+                            "amber"
+                        )
+                    } else {
+                        pesaToneContent(
+                            "green"
+                        )
+                    }
+            )
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(
+                            horizontal = 12.dp
+                        )
+            ) {
+                Text(
+                    "Needs Attention",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleMedium
+                )
+                Text(
+                    if (count > 0) {
+                        "$count item" +
+                            if (count == 1) {
+                                " needs"
+                            } else {
+                                "s need"
+                            } +
+                            " your help"
+                    } else {
+                        "Your captured money picture has no open questions here."
+                    },
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
             }
+            SmallStatusPill(
+                if (count > 0) {
+                    count.toString()
+                } else {
+                    "Clear"
+                },
+                if (count > 0) {
+                    "amber"
+                } else {
+                    "green"
+                }
+            )
+            Icon(
+                if (expanded) {
+                    Icons.Rounded
+                        .ExpandLess
+                } else {
+                    Icons.Rounded
+                        .ExpandMore
+                },
+                contentDescription =
+                    if (expanded) {
+                        "Hide questions"
+                    } else {
+                        "Show questions"
+                    },
+                modifier =
+                    Modifier.padding(
+                        start = 8.dp
+                    ),
+                tint =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun AttentionQuestionHeader(
+    title: String,
+    subtitle: String
+) {
+    Column {
+        Text(
+            title,
+            style =
+                MaterialTheme
+                    .typography
+                    .titleLarge
         )
-        ActivityQueueButton(
-            label = "Duplicates",
-            count = overview.possibleDuplicates.size,
-            icon = Icons.Rounded.ContentCopy,
-            selected = selectedQueue == "Duplicates",
-            tone = "violet",
-            modifier = Modifier.weight(1f),
-            onClick = {
-                onQueueSelected("Duplicates")
-            }
-        )
-        ActivityQueueButton(
-            label = "Links",
-            count = relationshipReviewCount,
-            icon = Icons.Rounded.SyncAlt,
-            selected = selectedQueue == "Links",
-            tone = "amber",
-            modifier = Modifier.weight(1f),
-            onClick = {
-                onQueueSelected("Links")
-            }
+        Text(
+            subtitle,
+            modifier =
+                Modifier.padding(
+                    top = 3.dp
+                ),
+            style =
+                MaterialTheme
+                    .typography
+                    .bodySmall,
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant
         )
     }
 }
