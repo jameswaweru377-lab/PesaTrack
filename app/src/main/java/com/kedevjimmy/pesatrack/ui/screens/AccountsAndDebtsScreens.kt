@@ -75,7 +75,7 @@ private data class AccountBalancePresentation(
 @Composable
 fun AccountsScreen(
     scaffoldPadding: PaddingValues,
-    onBack: () -> Unit
+    onBack: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val accountStore =
@@ -470,7 +470,7 @@ fun DebtsScreen(
 private fun DetailPageHeader(
     title: String,
     subtitle: String,
-    onBack: () -> Unit
+    onBack: (() -> Unit)?
 ) {
     Row(
         modifier =
@@ -478,18 +478,27 @@ private fun DetailPageHeader(
         verticalAlignment =
             Alignment.CenterVertically
     ) {
-        IconButton(
-            onClick = onBack
-        ) {
-            Icon(
-                Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back"
-            )
+        if (onBack != null) {
+            IconButton(
+                onClick = onBack
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Back"
+                )
+            }
         }
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 4.dp)
+                .padding(
+                    start =
+                        if (onBack != null) {
+                            4.dp
+                        } else {
+                            0.dp
+                        }
+                )
         ) {
             Text(
                 title,
