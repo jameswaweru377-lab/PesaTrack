@@ -10,6 +10,7 @@ enum class EntityKind {
     TRANSPORT,
     ENTERTAINMENT,
     BANK,
+    SACCO,
     LENDER,
     SAVINGS_PRODUCT,
     MERCHANT
@@ -230,6 +231,118 @@ object LocalSeedEntityEnrichmentProvider :
             aliases = setOf(
                 "kcb",
                 "kcb bank"
+            ),
+            autoReviewEligible = false,
+            allowMessageMatch = false
+        ),
+        CanonicalEntity(
+            id = "ke_cooperative_bank",
+            canonicalName =
+                "Co-operative Bank of Kenya",
+            kind = EntityKind.BANK,
+            aliases = setOf(
+                "co-operative bank",
+                "cooperative bank",
+                "co op bank",
+                "coop bank"
+            ),
+            autoReviewEligible = false,
+            allowMessageMatch = false,
+            domain = "co-opbank.co.ke"
+        ),
+        CanonicalEntity(
+            id = "ke_ncba",
+            canonicalName =
+                "NCBA Bank Kenya",
+            kind = EntityKind.BANK,
+            aliases = setOf(
+                "ncba",
+                "ncba bank",
+                "ncba bank kenya"
+            ),
+            autoReviewEligible = false,
+            allowMessageMatch = false,
+            domain = "ke.ncbagroup.com"
+        ),
+        CanonicalEntity(
+            id = "ke_absa",
+            canonicalName =
+                "Absa Bank Kenya",
+            kind = EntityKind.BANK,
+            aliases = setOf(
+                "absa",
+                "absa bank",
+                "absa bank kenya"
+            ),
+            autoReviewEligible = false,
+            allowMessageMatch = false,
+            domain = "absabank.co.ke"
+        ),
+        CanonicalEntity(
+            id = "ke_stanbic",
+            canonicalName =
+                "Stanbic Bank Kenya",
+            kind = EntityKind.BANK,
+            aliases = setOf(
+                "stanbic",
+                "stanbic bank",
+                "stanbic bank kenya"
+            ),
+            autoReviewEligible = false,
+            allowMessageMatch = false,
+            domain = "stanbicbank.co.ke"
+        ),
+        CanonicalEntity(
+            id = "ke_dtb",
+            canonicalName =
+                "Diamond Trust Bank Kenya",
+            kind = EntityKind.BANK,
+            aliases = setOf(
+                "dtb",
+                "dtb kenya",
+                "diamond trust bank",
+                "diamond trust bank kenya"
+            ),
+            autoReviewEligible = false,
+            allowMessageMatch = false,
+            domain = "dtbk.dtbafrica.com"
+        ),
+        CanonicalEntity(
+            id = "ke_family_bank",
+            canonicalName =
+                "Family Bank",
+            kind = EntityKind.BANK,
+            aliases = setOf(
+                "family bank",
+                "family bank kenya"
+            ),
+            autoReviewEligible = false,
+            allowMessageMatch = false,
+            domain = "familybank.co.ke"
+        ),
+        CanonicalEntity(
+            id = "ke_stima_dt_sacco",
+            canonicalName =
+                "Stima DT Sacco",
+            kind = EntityKind.SACCO,
+            aliases = setOf(
+                "stima sacco",
+                "stima dt sacco",
+                "stima dts",
+                "stimasacco"
+            ),
+            autoReviewEligible = false,
+            allowMessageMatch = false,
+            domain = "stima-sacco.com"
+        ),
+        CanonicalEntity(
+            id = "ke_mwalimu_national_sacco",
+            canonicalName =
+                "Mwalimu National Sacco",
+            kind = EntityKind.SACCO,
+            aliases = setOf(
+                "mwalimu national sacco",
+                "mwalimu sacco"
             ),
             autoReviewEligible = false,
             allowMessageMatch = false
