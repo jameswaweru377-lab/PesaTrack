@@ -186,7 +186,7 @@ class MessagePackRouterTest {
     }
 
     @Test
-    fun phase6PaymentShapesCanStillBridgeSafeExpenseMeaning() {
+    fun phase6PaymentShapesExposeStructuredPaymentProvenance() {
         val interpretation =
             FinancialMessageInterpreter
                 .interpret(
@@ -203,11 +203,27 @@ class MessagePackRouterTest {
             "ke.evopay.parking.lpn-payment",
             interpretation.parseProvenance.templateId
         )
-        assertTrue(
-            interpretation.events
-                .any {
-                    it is PaymentEventFact
+        assertEquals(
+            "PAYMENT",
+            interpretation.parseProvenance.eventKind
+        )
+        assertEquals(
+            "200",
+            interpretation.parseProvenance
+                .extractedFields
+                .first {
+                    it.field == "AMOUNT"
                 }
+                .value
+        )
+        assertEquals(
+            "SAMPLE CENTRE",
+            interpretation.parseProvenance
+                .extractedFields
+                .first {
+                    it.field == "COUNTERPARTY"
+                }
+                .value
         )
     }
 
