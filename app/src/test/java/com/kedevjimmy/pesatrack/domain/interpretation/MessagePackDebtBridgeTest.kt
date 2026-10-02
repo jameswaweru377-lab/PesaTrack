@@ -171,7 +171,7 @@ class MessagePackDebtBridgeTest {
     }
 
     @Test
-    fun hustlerSplitDrawdownRemainsProvenanceOnlyUntilSplitModelExists() {
+    fun hustlerSplitDrawdownPreservesCashAndMandatorySavingsSeparately() {
         val interpretation =
             FinancialMessageInterpreter
                 .interpret(
@@ -186,6 +186,77 @@ class MessagePackDebtBridgeTest {
                 .parseProvenance
                 .eventKind
         )
+
+        val event =
+            interpretation.events
+                .single() as
+                DebtDrawdownEventFact
+
+        assertEquals(
+            500_000L,
+            event.amountMinor
+        )
+        assertEquals(
+            475_000L,
+            event.proceedsAmountMinor
+        )
+        assertEquals(
+            25_000L,
+            event.savingsAllocationMinor
+        )
+        assertEquals(
+            500_000L,
+            event.outstandingAfterMinor
+        )
+        assertEquals(
+            "HUSTLER_FUND_LOAN",
+            event.liability.providerKey
+        )
+        assertEquals(
+            "SAFARICOM_MPESA",
+            event.proceedsAccount
+                ?.providerKey
+        )
+        assertEquals(
+            "HUSTLER_FUND_SAVINGS",
+            event.savingsAccount
+                ?.providerKey
+        )
+
+        val canonical =
+            interpretation.toCanonicalDraft()
+        val debt =
+            canonical.records
+                .filterIsInstance<
+                    DebtMovementDraft
+                >()
+                .single()
+
+        assertEquals(
+            475_000L,
+            debt.proceedsAmountMinor
+        )
+        assertEquals(
+            25_000L,
+            debt.savingsAllocationMinor
+        )
+        assertEquals(
+            "HUSTLER_FUND_SAVINGS",
+            debt.savingsAccount
+                ?.providerKey
+        )
+    }
+
+    @Test
+    fun malformedSplitDoesNotCreateDebtMovement() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "HUSTLERFUND",
+                    body =
+                        "Hustler Fund: Your loan of Ksh 5,000.00 has been approved. Ksh 4,000.00 sent to M-Pesa, Ksh 250.00 to your savings account. Repay Ksh 5,000.00 by 31 Oct 2026."
+                )
+
         assertTrue(
             interpretation.events.none {
                 it is DebtDrawdownEventFact
