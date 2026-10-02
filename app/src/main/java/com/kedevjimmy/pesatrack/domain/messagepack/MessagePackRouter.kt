@@ -10,10 +10,20 @@ class MessagePackRouter(
 
     fun route(
         title: String?,
-        body: String
+        body: String,
+        sourcePackage: String? = null,
+        sourceKind: String? = null
     ): MessagePackMatch? {
         val normalizedSender =
             normalizeSender(title)
+        val normalizedSourcePackage =
+            normalizePackage(
+                sourcePackage
+            )
+        val normalizedSourceKind =
+            normalizeSourceKind(
+                sourceKind
+            )
 
         return templates
             .asSequence()
@@ -22,6 +32,10 @@ class MessagePackRouter(
                     template = template,
                     normalizedSender =
                         normalizedSender,
+                    normalizedSourcePackage =
+                        normalizedSourcePackage,
+                    normalizedSourceKind =
+                        normalizedSourceKind,
                     body = body
                 )
             }
@@ -41,6 +55,8 @@ class MessagePackRouter(
     private fun evaluate(
         template: MessageTemplateDefinition,
         normalizedSender: String,
+        normalizedSourcePackage: String,
+        normalizedSourceKind: String,
         body: String
     ): ScoredMatch? {
         val normalizedAllowedSenders =
@@ -57,6 +73,40 @@ class MessagePackRouter(
                 normalizedAllowedSenders
 
         if (!senderMatched) {
+            return null
+        }
+
+        val normalizedAllowedPackages =
+            template.sourcePackages
+                .map(::normalizePackage)
+                .filter(
+                    String::isNotBlank
+                )
+                .toSet()
+        val sourcePackageMatched =
+            normalizedAllowedPackages
+                .isEmpty() ||
+                normalizedSourcePackage in
+                normalizedAllowedPackages
+
+        if (!sourcePackageMatched) {
+            return null
+        }
+
+        val normalizedAllowedKinds =
+            template.sourceKinds
+                .map(::normalizeSourceKind)
+                .filter(
+                    String::isNotBlank
+                )
+                .toSet()
+        val sourceKindMatched =
+            normalizedAllowedKinds
+                .isEmpty() ||
+                normalizedSourceKind in
+                normalizedAllowedKinds
+
+        if (!sourceKindMatched) {
             return null
         }
 
@@ -156,14 +206,34 @@ class MessagePackRouter(
         val score =
             (
                 if (
-                    normalizedAllowedSenders
+                    normalizedAllowedPackages
                         .isNotEmpty()
                 ) {
-                    10_000
+                    20_000
                 } else {
                     0
                 }
             ) +
+                (
+                    if (
+                        normalizedAllowedKinds
+                            .isNotEmpty()
+                    ) {
+                        15_000
+                    } else {
+                        0
+                    }
+                ) +
+                (
+                    if (
+                        normalizedAllowedSenders
+                            .isNotEmpty()
+                    ) {
+                        10_000
+                    } else {
+                        0
+                    }
+                ) +
                 matchedAnchors.sumOf {
                     it.length
                 } * 10 +
@@ -182,6 +252,12 @@ class MessagePackRouter(
                         template.productIdentity,
                     senderMatched =
                         senderMatched,
+                    sourcePackageMatched =
+                        normalizedAllowedPackages
+                            .isNotEmpty(),
+                    sourceKindMatched =
+                        normalizedAllowedKinds
+                            .isNotEmpty(),
                     matchedAnchors =
                         matchedAnchors,
                     fields = fields
@@ -198,6 +274,20 @@ class MessagePackRouter(
             .filter(
                 Char::isLetterOrDigit
             )
+
+    private fun normalizePackage(
+        raw: String?
+    ): String =
+        raw.orEmpty()
+            .trim()
+            .lowercase()
+
+    private fun normalizeSourceKind(
+        raw: String?
+    ): String =
+        raw.orEmpty()
+            .trim()
+            .lowercase()
 
     private data class ScoredMatch(
         val match: MessagePackMatch,
@@ -226,10 +316,16 @@ object KenyaMessagePack {
 
     fun route(
         title: String?,
-        body: String
+        body: String,
+        sourcePackage: String? = null,
+        sourceKind: String? = null
     ): MessagePackMatch? =
         router.route(
             title = title,
-            body = body
+            body = body,
+            sourcePackage =
+                sourcePackage,
+            sourceKind =
+                sourceKind
         )
 }
