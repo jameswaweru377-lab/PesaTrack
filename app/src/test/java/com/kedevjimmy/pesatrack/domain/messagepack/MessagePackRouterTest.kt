@@ -773,7 +773,8 @@ class MessagePackRouterTest {
             "message-packs/ke/fixtures-v7.json",
             "message-packs/ke/fixtures-v8.json",
             "message-packs/ke/fixtures-v9.json",
-            "message-packs/ke/fixtures-v10.json"
+            "message-packs/ke/fixtures-v10.json",
+            "message-packs/ke/fixtures-v11.json"
         ).flatMap { path ->
             val stream =
                 javaClass.classLoader
