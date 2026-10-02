@@ -117,3 +117,32 @@ Current Google Play evidence URLs:
 - https://play.google.com/store/apps/details?id=com.imbank.digital.retail.app
 - https://play.google.com/store/apps/details?id=com.mode.stima
 - https://play.google.com/store/apps/details?id=skyworld.mwalimu
+
+## Phase 6 additional verified Kenyan bank app packages
+
+Evidence class: **OFFICIAL_APP_STORE_PACKAGE_IDENTITY**
+
+Reviewed 2 October 2026 from current Google Play listings.
+
+Package identity added:
+
+- SC Mobile Kenya — `com.scb.breezebanking.ke` — Standard Chartered Bank PLC.
+- PesaPap, Family Bank — `com.mode.familykenya.ui` — Family Bank.
+- Ecobank Mobile — `com.ecobank.mobileapp5` — Ecobank / Ecobank Transnational Incorporated.
+- Mfukoni — `com.mode.chasetest.ui` — SBM Bank (Kenya) Limited.
+
+Guardrails:
+
+- Each package maps through an existing `KenyanBankDirectory` institution.
+- Package identity establishes source institution only.
+- Ownership remains UNKNOWN.
+- The existing bank source-reference convention remains BANK/ASSET, but no transaction event or account is created from package identity alone.
+- No notification wording is inferred from Play-store feature descriptions.
+- Provider-specific app templates still require concrete sanitized/public notification wording.
+
+Current Google Play evidence URLs:
+
+- https://play.google.com/store/apps/details?id=com.scb.breezebanking.ke
+- https://play.google.com/store/apps/details?id=com.mode.familykenya.ui
+- https://play.google.com/store/apps/details?id=com.ecobank.mobileapp5
+- https://play.google.com/store/apps/details?id=com.mode.chasetest.ui
