@@ -8,7 +8,10 @@ import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import java.util.UUID
 
 class AccountStore private constructor(context: Context) {
-    private val database = PesaTrackDatabase(context)
+    private val appContext =
+        context.applicationContext
+    private val database =
+        PesaTrackDatabase(appContext)
 
     @Synchronized
     fun listAccounts(enabledOnly: Boolean = true): List<MoneyAccount> {
@@ -71,7 +74,16 @@ class AccountStore private constructor(context: Context) {
             values,
             android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
         )
-        return MoneyAccount(id = id, name = name.trim(), type = type)
+        val account =
+            MoneyAccount(
+                id = id,
+                name = name.trim(),
+                type = type
+            )
+        IdentityGraphStore
+            .get(appContext)
+            .observeOwnedAccount(account)
+        return account
     }
 
     @Synchronized
@@ -153,6 +165,27 @@ class AccountStore private constructor(context: Context) {
             "id = ?",
             arrayOf(id)
         )
+        IdentityGraphStore
+            .get(appContext)
+            .observeOwnedAccount(
+                account.copy(
+                    identifier =
+                        normalizedIdentifier,
+                    openingBalanceMinor =
+                        openingBalanceMinor,
+                    openingBalanceAsOfEpochMs =
+                        if (
+                            openingBalanceMinor ==
+                                null
+                        ) {
+                            null
+                        } else {
+                            openingBalanceAsOfEpochMs
+                                ?: System
+                                    .currentTimeMillis()
+                        }
+                )
+            )
     }
 
     @Synchronized
