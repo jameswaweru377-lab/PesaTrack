@@ -3051,3 +3051,21 @@ Implemented:
 - Financial Intelligence V2 remains authoritative for debt drawdown/repayment/account semantics.
 
 Continue Phase 6 from source coverage gaps and reviewed redacted evidence.
+
+
+## Phase 6 Long-tail Coverage — increment 15 / Zenka + Timiza app sources — 2026-10-02
+
+Added verified Android source identity for:
+
+- Zenka — `com.zenkafinance.microloans` -> `KENYAN_LENDER_ZENKA`;
+- Timiza — `ke.co.absa.digitalwallet` -> `KENYAN_FINANCIAL_APP_TIMIZA`.
+
+Both are source-only identities with OTHER account type, UNKNOWN ownership and UNKNOWN financial nature.
+
+Reason:
+- Zenka is a verified Kenyan lender app but package identity alone is not a drawdown/repayment signal.
+- Timiza is multi-product, so its package cannot be modeled as a loan account merely because it offers loans.
+
+Added regression tests for names, provider keys, normalization and conservative semantics. Evidence URLs are recorded in `docs/entity-catalog-sources.md`.
+
+This increment changes diagnostics/Message Lab source attribution only; no ledger or debt semantics change.
