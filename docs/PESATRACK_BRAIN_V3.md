@@ -821,3 +821,56 @@ Examples of the intended workflow:
 ### Guardrail
 
 Coverage analysis is observational only. It does not change transaction meaning, identity, account ownership, category, Smart Rules, recurring commitments or ledger arithmetic.
+
+
+## Phase 6 — Long-tail coverage, increment 9 — Digital-finance app-source identity
+
+Branch milestone: `feature/phase6-digital-lender-sources-v9`.
+
+This increment extends verified Android package identity beyond banks to Kenyan digital-finance apps without treating package identity as transaction semantics.
+
+### Verified source identities
+
+`FinancialAppSourceRegistry` now recognizes:
+
+- Branch;
+- Tala Kenya;
+- Timiza.
+
+The existing verified bank-package mappings remain unchanged.
+
+### Institution-kind boundary
+
+App-source profiles now distinguish:
+
+- `BANK`;
+- `LENDER`;
+- `FINANCIAL_PLATFORM`.
+
+Branch and Timiza are classified as `FINANCIAL_PLATFORM` because package identity alone cannot establish which product inside the app produced the notification.
+
+Tala is classified as `LENDER` for source diagnostics, but this still does not create a debt event.
+
+Only verified bank packages can currently return an account-shaped `FinancialAccountReference`, and even those retain `AccountOwnershipHint.UNKNOWN`.
+
+### Diagnostics and Message Lab
+
+The ingestion coordinator uses verified app identity for source display names.
+
+- A Tala notification can be labeled **Tala / Lender** in local diagnostics.
+- Branch and Timiza can be labeled by their canonical app identity while remaining generic **Financial** sources unless the message itself provides stronger debt semantics.
+- Unsupported relevant notifications enter Message Lab with the verified app name plus package/channel metadata.
+
+### Guardrails
+
+Digital-finance package identity does not:
+
+- invent notification wording;
+- infer a user-owned account;
+- create a loan drawdown/repayment;
+- assign an expense/income category;
+- bypass relevance screening;
+- create Smart Rules;
+- affect recurring-payment learning.
+
+Concrete provider-specific templates remain evidence-gated by sanitized/public notification wording.
