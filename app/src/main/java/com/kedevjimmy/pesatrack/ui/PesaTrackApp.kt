@@ -171,10 +171,24 @@ fun PesaTrackApp(
                 ActivityScreen(
                     scaffoldPadding = padding,
                     onTransactionClick = { id ->
-                        navController.navigate("transaction-detail/$id")
+                        navController.navigate(
+                            "transaction-detail/$id"
+                        )
                     },
                     onProfileClick = {
-                        navController.navigate("profile")
+                        navController.navigate(
+                            "profile"
+                        )
+                    },
+                    onIdentityReviewClick = {
+                        navController.navigate(
+                            "identity-review"
+                        )
+                    },
+                    onDataHealthClick = {
+                        navController.navigate(
+                            "data-health"
+                        )
                     }
                 )
             }
