@@ -620,6 +620,33 @@ private fun UnsupportedShapeCard(
                         .typography
                         .titleMedium
             )
+            val sourceContext =
+                listOfNotNull(
+                    shape.sourceKind
+                        ?.takeIf(
+                            String::isNotBlank
+                        ),
+                    shape.sourcePackage
+                        ?.takeIf(
+                            String::isNotBlank
+                        )
+                ).joinToString(" • ")
+
+            if (
+                sourceContext.isNotBlank()
+            ) {
+                Text(
+                    sourceContext,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelSmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .primary
+                )
+            }
             Text(
                 shape.redactedBody,
                 style =

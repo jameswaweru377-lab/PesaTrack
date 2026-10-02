@@ -667,3 +667,33 @@ Therefore:
 - real names, phone numbers, account numbers and references from the public corpus are not copied into PesaTrack fixtures.
 
 Phase 6 now covers adjacent-finance templates, recurring-payment intelligence, Co-op/Equity account alerts, and broader bank/SACCO notification language.
+
+
+## Phase 6 — Long-tail coverage, increment 5 — Source-aware app notifications
+
+Branch milestone: `feature/phase6-source-aware-message-pack-v4`.
+
+This increment rebases the already-green source-aware notification work onto the current Phase 6 corpus.
+
+### Message Pack source constraints
+
+Templates may optionally declare:
+
+- `sourcePackages` — exact Android package IDs allowed to produce the shape;
+- `sourceKinds` — ingestion channels such as `financial_notification` or `historical_financial_message`.
+
+Existing SMS templates omit these fields and remain backward compatible.
+
+A source-constrained template does not match if required package/channel evidence is absent or different. Source-constrained matches receive stronger routing specificity than sender-only templates, and parse provenance explains when source-package/source-channel evidence participated.
+
+### Ingestion and Message Lab
+
+The existing notification listener passes source package/channel through the ingestion coordinator into the Financial Message Interpreter and Message Pack router.
+
+Unsupported relevant shapes retain safe package/channel metadata locally alongside the redacted sender/body. Source metadata contributes to unsupported-shape fingerprints so identical text from different apps does not collapse incorrectly.
+
+Data Health surfaces source context for unsupported shapes and developer fixture export retains the safe source metadata.
+
+### Guardrail
+
+Source-aware routing is evidence plumbing, not permission to invent bank-app wording. Provider-specific app templates still require a real sanitized/public notification example before being added.

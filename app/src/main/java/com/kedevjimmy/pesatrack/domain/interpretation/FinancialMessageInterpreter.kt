@@ -6,12 +6,18 @@ import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseProvenance
 object FinancialMessageInterpreter {
     fun interpret(
         title: String?,
-        body: String
+        body: String,
+        sourcePackage: String? = null,
+        sourceKind: String? = null
     ): FinancialMessageInterpretation {
         val messagePackMatch =
             KenyaMessagePack.route(
                 title = title,
-                body = body
+                body = body,
+                sourcePackage =
+                    sourcePackage,
+                sourceKind =
+                    sourceKind
             )
         val provenance =
             messagePackMatch
