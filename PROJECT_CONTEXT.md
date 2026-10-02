@@ -2787,7 +2787,7 @@ Implemented:
 - Added Sanlam Money Market Fund credit and top-up shapes.
 - Added sanitized `fixtures-v6.json` golden corpus.
 - Added provenance tests for investment-specific Etica/Sanlam shapes.
-- Added a safe-payment test for Evopay.
+- Added structured PAYMENT provenance/extraction coverage for Evopay.
 - Investment-specific event kinds are deliberately not bridged into ordinary payment/income/transfer candidates.
 - Public Etica USD extraction is provenance-only; no KES conversion or ledger posting is invented.
 
