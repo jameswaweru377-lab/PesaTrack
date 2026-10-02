@@ -896,3 +896,36 @@ This reduces future corpus work from “which app is this?” to “what exact r
 Package identity is not message interpretation.
 
 No SACCO savings, loan, transfer, bill payment or withdrawal is created from app identity alone. App-specific templates still require concrete message evidence.
+
+
+## Phase 6 — Long-tail coverage, increment 9 — Source drill-down
+
+Branch milestone: `feature/phase6-source-drilldown-v9`.
+
+This increment closes the local evidence loop introduced by **Coverage by source**.
+
+### Coverage -> Message Lab
+
+A source card with unsupported financial observations is now actionable.
+
+Tapping it filters Message Lab to only the redacted unsupported shapes that belong to the same stable source key. The source key uses:
+
+- source channel;
+- Android package when available;
+- otherwise the stable source display identity.
+
+This keeps app-notification and SMS/imported evidence separate even for the same bank.
+
+### Source fixture export
+
+When a source filter is active, Data Health exposes **Copy redacted source fixtures**.
+
+The export is a JSON array of up to 25 locally redacted unsupported fixtures for that source, retaining safe package/channel metadata when available. Individual fixture copy remains available.
+
+### Stability
+
+`FinancialCoverageAnalysis.sourceKey(...)` is now a public pure normalization function shared by diagnostics and Message Lab filtering. Regression tests cover package/channel normalization and display-name fallback.
+
+### Guardrail
+
+This feature does not upload, classify or reinterpret messages. It only makes already-local redacted evidence easier to inspect and contribute. The next Message Pack template should still be created only from concrete reviewed evidence.
