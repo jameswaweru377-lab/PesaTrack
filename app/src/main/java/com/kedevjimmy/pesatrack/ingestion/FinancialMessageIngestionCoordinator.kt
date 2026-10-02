@@ -17,6 +17,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKi
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAppInstitutionKind
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAppSourceRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpretation
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
@@ -1195,6 +1196,11 @@ class FinancialMessageIngestionCoordinator private constructor(
                 .containsMatchIn(
                     normalizedMessage.body
                 )
+        val appSource =
+            FinancialAppSourceRegistry
+                .identify(
+                    sourcePackage
+                )
         val sourceReference =
             FinancialAppSourceRegistry
                 .resolve(
@@ -1205,6 +1211,10 @@ class FinancialMessageIngestionCoordinator private constructor(
                         title = title,
                         bankLike = bankLike
                     )
+        val sourceDisplayName =
+            appSource?.displayName
+                ?: sourceReference
+                    ?.displayName
         val sourceType =
             when {
                 interpretation.events.any {
@@ -1227,6 +1237,14 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     .LOAN_BALANCE
                             )
                         } == true -> "Lender"
+                appSource?.institutionKind ==
+                    FinancialAppInstitutionKind
+                        .LENDER ->
+                    "Lender"
+                appSource?.institutionKind ==
+                    FinancialAppInstitutionKind
+                        .BANK ->
+                    "Bank"
                 sourceReference?.accountTypeHint ==
                     AccountType.BANK -> "Bank"
                 sourceReference?.accountTypeHint ==
@@ -1240,7 +1258,7 @@ class FinancialMessageIngestionCoordinator private constructor(
                 interpretation = interpretation,
                 sourceType = sourceType,
                 sourceDisplayName =
-                    sourceReference?.displayName
+                    sourceDisplayName
             )
         val correlationReferences =
             interpretation.semanticAssessment
@@ -1261,7 +1279,7 @@ class FinancialMessageIngestionCoordinator private constructor(
         diagnosticsStore.record(
             title = title,
             sourceDisplayName =
-                sourceReference?.displayName,
+                sourceDisplayName,
             sourceType = sourceType,
             eventLabel = eventLabel,
             sourcePackage = sourcePackage,
@@ -1290,12 +1308,13 @@ class FinancialMessageIngestionCoordinator private constructor(
         ) {
             messageLabStore.recordUnsupported(
                 safeSenderLabel =
-                    sourceReference
-                        ?.takeIf {
-                            it.providerKey !=
-                                null
-                        }
-                        ?.displayName,
+                    appSource?.displayName
+                        ?: sourceReference
+                            ?.takeIf {
+                                it.providerKey !=
+                                    null
+                            }
+                            ?.displayName,
                 body = body,
                 observedAtEpochMs =
                     receivedAtEpochMs,
