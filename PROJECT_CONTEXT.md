@@ -2917,3 +2917,22 @@ Implemented:
 - Evidence is recorded in `docs/entity-catalog-sources.md`.
 
 Next Phase 6 work should add provider-specific app-notification wording only from concrete sanitized/public examples, or continue evidence-backed lenders/SACCOs that are still missing.
+
+
+## Phase 6 Long-tail Coverage — increment 8 / coverage by source — 2026-10-02
+
+Phase 6 now has an evidence-driven source coverage view.
+
+Implemented:
+
+- Added pure `FinancialCoverageAnalysis`.
+- Added `FinancialSourceCoverageSnapshot`.
+- Financial diagnostics can now aggregate up to the recent local observation window by source/channel.
+- App notifications group by package + source kind; imported/SMS messages group separately by source identity.
+- Each source reports total observations, understood count/percent, template matches and unsupported count.
+- Coverage gaps sort ahead of already-covered sources.
+- Data Health shows up to eight source coverage cards.
+- The view remains local and uses existing safe diagnostic metadata; no raw message body is added to diagnostics.
+- Added regression tests for package grouping, app-vs-SMS separation and unsupported-first ordering.
+
+Use this view to choose the next bank/SACCO/lender corpus increment from actual unsupported evidence rather than adding speculative provider wording.

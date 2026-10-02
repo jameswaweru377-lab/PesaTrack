@@ -38,10 +38,12 @@ import com.kedevjimmy.pesatrack.domain.identity.IdentityGraphSnapshot
 import com.kedevjimmy.pesatrack.domain.messagepack.KenyaMessagePack
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
+import com.kedevjimmy.pesatrack.ingestion.FinancialSourceCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
 import com.kedevjimmy.pesatrack.ingestion.UnsupportedMessageShape
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
+import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -81,6 +83,11 @@ fun DataHealthScreen(
                 unsupportedFinancial = 0
             )
         )
+    }
+    var sourceCoverage by remember {
+        mutableStateOf<
+            List<FinancialSourceCoverageSnapshot>
+        >(emptyList())
     }
     var unsupported by remember {
         mutableStateOf<
@@ -123,6 +130,11 @@ fun DataHealthScreen(
                     coverage =
                         diagnosticsStore
                             .coverageSnapshot(),
+                    sourceCoverage =
+                        diagnosticsStore
+                            .sourceCoverage(
+                                sourceLimit = 8
+                            ),
                     unsupported =
                         messageLabStore
                             .recentUnsupported(25),
@@ -140,6 +152,8 @@ fun DataHealthScreen(
                 )
             }
         coverage = loaded.coverage
+        sourceCoverage =
+            loaded.sourceCoverage
         unsupported = loaded.unsupported
         identitySnapshot =
             loaded.identitySnapshot
@@ -275,6 +289,51 @@ fun DataHealthScreen(
                                 .unsupportedFinancial
                     )
                 }
+            }
+        }
+
+        item {
+            SectionHeader(
+                "Coverage by source"
+            )
+        }
+
+        if (sourceCoverage.isEmpty()) {
+            item {
+                PesaCard(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "No source-level financial observations yet. Import history or receive a supported financial notification to build this view.",
+                        modifier =
+                            Modifier.padding(
+                                16.dp
+                            ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodyMedium,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            items(
+                count =
+                    sourceCoverage.size,
+                key = {
+                    sourceCoverage[it]
+                        .sourceKey
+                }
+            ) { index ->
+                SourceCoverageCard(
+                    source =
+                        sourceCoverage[index]
+                )
             }
         }
 
@@ -553,6 +612,8 @@ fun DataHealthScreen(
 private data class DataHealthLoadResult(
     val coverage:
         FinancialMessageCoverageSnapshot,
+    val sourceCoverage:
+        List<FinancialSourceCoverageSnapshot>,
     val unsupported:
         List<UnsupportedMessageShape>,
     val identitySnapshot:
@@ -561,6 +622,145 @@ private data class DataHealthLoadResult(
     val learningPreferenceCount: Int,
     val learningApplicationCount: Int
 )
+
+@Composable
+private fun SourceCoverageCard(
+    source:
+        FinancialSourceCoverageSnapshot
+) {
+    PesaCard(
+        modifier =
+            Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier =
+                Modifier.padding(
+                    16.dp
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    8.dp
+                )
+        ) {
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+                    Text(
+                        source.displayName,
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleMedium
+                    )
+                    Text(
+                        sourceChannelLabel(
+                            source
+                        ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelSmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+                SmallStatusPill(
+                    source
+                        .understoodPercent
+                        .toString() +
+                        "% understood",
+                    if (
+                        source
+                            .unsupportedFinancial ==
+                        0
+                    ) {
+                        "green"
+                    } else {
+                        "amber"
+                    }
+                )
+            }
+            Text(
+                source.totalObservations
+                    .toString() +
+                    " observation" +
+                    if (
+                        source
+                            .totalObservations ==
+                        1
+                    ) {
+                        ""
+                    } else {
+                        "s"
+                    } +
+                    " • " +
+                    source.templateParsed +
+                    " template • " +
+                    source.unsupportedFinancial +
+                    " unsupported",
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodySmall,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
+private fun sourceChannelLabel(
+    source:
+        FinancialSourceCoverageSnapshot
+): String {
+    val channel =
+        when (
+            source.sourceKind
+                .trim()
+                .lowercase()
+        ) {
+            "financial_notification" ->
+                "App notification"
+
+            "historical_financial_message" ->
+                "SMS / imported message"
+
+            "mpesa_notification" ->
+                "M-Pesa notification"
+
+            "configured_notification" ->
+                "Configured notification"
+
+            else ->
+                source.sourceKind
+                    .replace(
+                        "_",
+                        " "
+                    )
+                    .ifBlank {
+                        "Financial source"
+                    }
+        }
+
+    return listOfNotNull(
+        channel,
+        source.sourcePackage
+            ?.takeIf(
+                String::isNotBlank
+            )
+    ).joinToString(" • ")
+}
 
 @Composable
 private fun HealthMetric(

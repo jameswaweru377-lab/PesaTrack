@@ -422,6 +422,19 @@ class FinancialIngestionDiagnosticsStore private constructor(
         }
     }
 
+    fun sourceCoverage(
+        observationLimit: Int = MAX_ENTRIES,
+        sourceLimit: Int = 8
+    ): List<FinancialSourceCoverageSnapshot> =
+        FinancialCoverageAnalysis.bySource(
+            entries =
+                recent(
+                    observationLimit
+                ),
+            limit =
+                sourceLimit
+        )
+
     fun coverageSnapshot(
         limit: Int = MAX_ENTRIES
     ): FinancialMessageCoverageSnapshot {
