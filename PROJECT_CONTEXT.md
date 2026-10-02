@@ -2822,3 +2822,24 @@ Implemented:
 - Added pure policy regression tests for strong monthly cadence, medium cadence, frequent-merchant rejection, volatile-amount rejection and stale-pattern rejection.
 
 Phase 6 remains in progress. Continue provider/app-notification/SACCO/lender coverage only from concrete sanitized/public message evidence; do not invent provider wording from product documentation.
+
+
+## Phase 6 Long-tail Coverage — increment 3 / bank + SACCO notifications — 2026-10-02
+
+Phase 6 long-tail message coverage now includes public observed bank/SACCO notification language.
+
+Implemented:
+- Kenya Message Pack grows from 45 to **50 active templates**.
+- Added Fundilima SACCO withdrawal provenance.
+- Added generic SACCO member-deposit provenance.
+- Added generic bank-to-M-Pesa credit provenance.
+- Added a confirmed bank-app bill-payment shape.
+- Added a generic account-credit/balance-notice shape.
+- Added sanitized `fixtures-v7.json`.
+- Added router/interpreter regression tests.
+- Ambiguous SACCO/account-transfer shapes remain provenance-only and do not become income/expense/transfer ledger entries merely because their wording was recognized.
+- Confirmed bill payment may expose PAYMENT semantics because the message itself clearly states the completed action.
+
+Evidence source and sanitization rules are recorded in `docs/message-corpus-sources.md`.
+
+Phase 6 remains in progress. Continue with institution identity enrichment and additional provider/app/loan/SACCO shapes only when concrete message evidence is available.
