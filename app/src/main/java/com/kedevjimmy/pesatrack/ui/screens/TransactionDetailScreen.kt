@@ -47,9 +47,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
+import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningAction
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
@@ -77,6 +79,10 @@ fun TransactionDetailScreen(
     val store = remember { TransactionStore.get(context) }
     val ruleStore = remember { RuleStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
+    val personalLearningStore =
+        remember {
+            PersonalLearningStore.get(context)
+        }
     var transaction by remember(transactionId) {
         mutableStateOf(store.getById(transactionId))
     }
@@ -89,9 +95,24 @@ fun TransactionDetailScreen(
     var learnedMessage by remember(transactionId) {
         mutableStateOf<String?>(null)
     }
+    var learningSuggestion by remember(transactionId) {
+        mutableStateOf(
+            transaction?.let(
+                personalLearningStore::
+                    suggestionFor
+            )
+        )
+    }
 
     fun refresh() {
-        transaction = store.getById(transactionId)
+        val updated =
+            store.getById(transactionId)
+        transaction = updated
+        learningSuggestion =
+            updated?.let(
+                personalLearningStore::
+                    suggestionFor
+            )
     }
 
     fun classifyOnly(
@@ -250,13 +271,56 @@ fun TransactionDetailScreen(
                             displayLabel = current.counterparty,
                             accountId = current.accountId
                         )
-                        val changed = store.reapplyRule(savedRule)
-                        learnedMessage = if (changed > 0) {
-                            "Rule saved • " + changed + " matching pending transaction" +
-                                if (changed == 1) " classified." else "s classified."
-                        } else {
-                            "Rule saved for future matching transactions."
-                        }
+                        val preference =
+                            personalLearningStore
+                                .remember(
+                                    transaction =
+                                        current,
+                                    categoryId =
+                                        category.name,
+                                    direction =
+                                        direction
+                                )
+                        val exactChanged =
+                            store.reapplyRule(
+                                savedRule
+                            )
+                        val identityChanged =
+                            if (
+                                preference != null
+                            ) {
+                                personalLearningStore
+                                    .applyHighConfidenceTo(
+                                        store.recent(
+                                            limit = 500
+                                        )
+                                    )
+                            } else {
+                                0
+                            }
+                        val changed =
+                            exactChanged +
+                                identityChanged
+                        learnedMessage =
+                            when {
+                                changed > 0 ->
+                                    "Remembered • " +
+                                        changed +
+                                        " matching transaction" +
+                                        if (
+                                            changed == 1
+                                        ) {
+                                            " classified."
+                                        } else {
+                                            "s classified."
+                                        }
+
+                                preference != null ->
+                                    "Remembered for this identity and future matching transactions."
+
+                                else ->
+                                    "Rule saved for future exact matches."
+                            }
                         pendingCategoryId = null
                         refresh()
                     }
@@ -357,6 +421,78 @@ fun TransactionDetailScreen(
                 }
             }
         }
+
+        learningSuggestion
+            ?.takeIf {
+                it.action ==
+                    PersonalLearningAction.SUGGEST
+            }
+            ?.let { suggestion ->
+                item {
+                    PesaCard {
+                        Column(
+                            Modifier.padding(
+                                16.dp
+                            )
+                        ) {
+                            Row(
+                                verticalAlignment =
+                                    Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "PesaTrack suggestion",
+                                    modifier =
+                                        Modifier.weight(1f),
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .titleMedium
+                                )
+                                SmallStatusPill(
+                                    "Needs confirmation",
+                                    "amber"
+                                )
+                            }
+                            Text(
+                                "You previously taught this identity as " +
+                                    categoryStore.labelFor(
+                                        suggestion.categoryId
+                                    ) +
+                                    ". The identity match is not strong enough to apply automatically.",
+                                modifier =
+                                    Modifier.padding(
+                                        top = 6.dp
+                                    ),
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                            Button(
+                                onClick = {
+                                    classifyOnly(
+                                        current,
+                                        suggestion.categoryId
+                                    )
+                                    learningSuggestion =
+                                        null
+                                },
+                                modifier =
+                                    Modifier.padding(
+                                        top = 12.dp
+                                    )
+                            ) {
+                                Text(
+                                    "Use " +
+                                        categoryStore.labelFor(
+                                            suggestion.categoryId
+                                        )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
         if (
             current.relationType !=
