@@ -1104,3 +1104,16 @@ If the generic debt extractor already found a drawdown, Message Pack evidence on
 - No lender reminder becomes a repayment.
 - No proceeds destination is inferred for OKash.
 - Existing Financial Intelligence V2 / DebtStore authority remains unchanged.
+
+
+## Phase 6 — Long-tail coverage, increment 17 — Kashbean source identity
+
+Branch milestone: `feature/phase6-kashbean-source-v17`.
+
+Verified Android source identity now includes Kashbean:
+
+- `com.kashbean` -> Kashbean / `KENYAN_LENDER_KASHBEAN`.
+
+The source is intentionally conservative: OTHER account type, UNKNOWN ownership and UNKNOWN financial nature.
+
+This improves app-notification attribution and Coverage-by-source only. It does not create a Kashbean loan, choose a debt event, infer a balance, or classify a payment. Concrete Kashbean notification templates remain evidence-gated.
