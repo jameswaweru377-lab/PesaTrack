@@ -1,0 +1,76 @@
+[
+  {
+    "id": "hf_whizz_transfer_out",
+    "title": "HFWHIZZ",
+    "body": "HF Whizz: KES 1,500.00 transferred to SAMPLE PERSON on 31 Oct 2026. Reference: HFW123ABC. New Balance KES 8,000.00.",
+    "templateId": "ke.hf-whizz.account.transfer-out",
+    "expectedFields": {
+      "AMOUNT": "1,500.00",
+      "COUNTERPARTY": "SAMPLE PERSON",
+      "DATE": "31 Oct 2026",
+      "TRANSACTION_CODE": "HFW123ABC",
+      "BALANCE": "8,000.00"
+    }
+  },
+  {
+    "id": "ncba_loop_credit",
+    "title": "LOOP",
+    "body": "LOOP: KES 2,000.00 credited to your LOOP account XX1234 on 31 Oct 2026. Ref: LOOP123. Available balance KES 9,500.00.",
+    "templateId": "ke.ncba-loop.account.credit",
+    "expectedFields": {
+      "AMOUNT": "2,000.00",
+      "ACCOUNT_REFERENCE": "XX1234",
+      "DATE": "31 Oct 2026",
+      "TRANSACTION_CODE": "LOOP123",
+      "BALANCE": "9,500.00"
+    }
+  },
+  {
+    "id": "ncba_loop_debit",
+    "title": "NCBALOOP",
+    "body": "LOOP: KES 750.00 debited to your LOOP account XX1234 on 31 Oct 2026. Ref: LOOP124. Available balance KES 8,750.00.",
+    "templateId": "ke.ncba-loop.account.debit",
+    "expectedFields": {
+      "AMOUNT": "750.00",
+      "ACCOUNT_REFERENCE": "XX1234",
+      "DATE": "31 Oct 2026",
+      "TRANSACTION_CODE": "LOOP124",
+      "BALANCE": "8,750.00"
+    }
+  },
+  {
+    "id": "berry_loan_disbursed",
+    "title": "BERRY",
+    "body": "Berry: KES 2,500.00 has been sent to your M-Pesa. Account number 0712345678. Please repay KES 2,900.00 by 31 Oct 2026.",
+    "templateId": "ke.berry.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "2,500.00",
+      "ACCOUNT_REFERENCE": "0712345678",
+      "REPAY_AMOUNT": "2,900.00",
+      "DATE": "31 Oct 2026"
+    }
+  },
+  {
+    "id": "zash_loan_disbursed",
+    "title": "ZashLoan",
+    "body": "Zash Loan: Disbursement success! KES 2,000.00 sent to M-Pesa. Due date 31 Oct 2026. Repay via Paybill 733555.",
+    "templateId": "ke.zash.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "2,000.00",
+      "DATE": "31 Oct 2026"
+    }
+  },
+  {
+    "id": "mkopa_payment_received",
+    "title": "M-KOPA",
+    "body": "M-KOPA: Received KES 1,000.00 for account MK12345. Your device is unlocked until 31 Oct 2026 18:00. Outstanding balance is KES 4,500.00.",
+    "templateId": "ke.m-kopa.installment.payment-received",
+    "expectedFields": {
+      "AMOUNT": "1,000.00",
+      "ACCOUNT_REFERENCE": "MK12345.",
+      "DATE": "31 Oct 2026",
+      "TIME": "18:00",
+      "BALANCE": "4,500.00"
+    }
+  }
+]
