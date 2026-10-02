@@ -33,7 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
+import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
 import com.kedevjimmy.pesatrack.domain.identity.IdentityGraphSnapshot
+import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningSnapshot
 import com.kedevjimmy.pesatrack.domain.messagepack.KenyaMessagePack
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
@@ -64,6 +66,12 @@ fun DataHealthScreen(
     val identityGraphStore =
         remember {
             IdentityGraphStore.get(context)
+        }
+    val personalLearningStore =
+        remember {
+            PersonalLearningStore.get(
+                context
+            )
         }
 
     var coverage by remember {
@@ -96,6 +104,15 @@ fun DataHealthScreen(
     var identityBackfillCount by remember {
         mutableStateOf(0)
     }
+    var personalLearningSnapshot by remember {
+        mutableStateOf(
+            PersonalLearningSnapshot(
+                reviewedTransactionCount = 0,
+                learnedIdentityCount = 0,
+                autoAppliedTransactionCount = 0
+            )
+        )
+    }
 
     LaunchedEffect(Unit) {
         val loaded =
@@ -108,6 +125,19 @@ fun DataHealthScreen(
                             transactionLimit =
                                 5_000
                         )
+                personalLearningStore
+                    .ensureHistoricalBackfill(
+                        limit = 1_000
+                    )
+                personalLearningStore
+                    .synchronizeFromUserReviews(
+                        limit = 1_000
+                    )
+                personalLearningStore
+                    .reconcilePending(
+                        limit = 300
+                    )
+
                 DataHealthLoadResult(
                     coverage =
                         diagnosticsStore
@@ -119,7 +149,10 @@ fun DataHealthScreen(
                         identityGraphStore
                             .snapshot(),
                     identityBackfillCount =
-                        backfilled
+                        backfilled,
+                    personalLearningSnapshot =
+                        personalLearningStore
+                            .snapshot()
                 )
             }
         coverage = loaded.coverage
@@ -128,6 +161,8 @@ fun DataHealthScreen(
             loaded.identitySnapshot
         identityBackfillCount =
             loaded.identityBackfillCount
+        personalLearningSnapshot =
+            loaded.personalLearningSnapshot
     }
 
     LazyColumn(
@@ -444,6 +479,81 @@ fun DataHealthScreen(
 
         item {
             SectionHeader(
+                "Personal learning"
+            )
+        }
+
+        item {
+            PesaCard(
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier =
+                        Modifier.padding(
+                            16.dp
+                        ),
+                    verticalArrangement =
+                        Arrangement.spacedBy(
+                            10.dp
+                        )
+                ) {
+                    Text(
+                        "Your review history",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleLarge
+                    )
+                    Text(
+                        "PesaTrack learns categories only from your reviewed transactions tied to stable external identities. One example is not enough to auto-apply.",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                    HealthMetric(
+                        label =
+                            "Reviewed examples",
+                        value =
+                            personalLearningSnapshot
+                                .reviewedTransactionCount
+                    )
+                    HealthMetric(
+                        label =
+                            "Learned identities",
+                        value =
+                            personalLearningSnapshot
+                                .learnedIdentityCount
+                    )
+                    HealthMetric(
+                        label =
+                            "Auto-applied transactions",
+                        value =
+                            personalLearningSnapshot
+                                .autoAppliedTransactionCount
+                    )
+                    Text(
+                        "1 consistent review: ask • 2: suggest • 3+ with strong agreement: eligible for automatic classification. Smart Rules and your direct choices always win.",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelMedium,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .primary
+                    )
+                }
+            }
+        }
+
+        item {
+            SectionHeader(
                 "Message Lab"
             )
         }
@@ -526,7 +636,9 @@ private data class DataHealthLoadResult(
         List<UnsupportedMessageShape>,
     val identitySnapshot:
         IdentityGraphSnapshot,
-    val identityBackfillCount: Int
+    val identityBackfillCount: Int,
+    val personalLearningSnapshot:
+        PersonalLearningSnapshot
 )
 
 @Composable
