@@ -7,6 +7,7 @@ import com.kedevjimmy.pesatrack.data.local.FinancialEventStatus
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.InvestmentStore
 import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
+import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
@@ -61,6 +62,8 @@ class FinancialMessageIngestionCoordinator private constructor(
         MessageLabStore.get(appContext)
     private val identityGraphStore =
         IdentityGraphStore.get(appContext)
+    private val personalLearningStore =
+        PersonalLearningStore.get(appContext)
 
     @Synchronized
     fun ingest(
@@ -1147,6 +1150,12 @@ class FinancialMessageIngestionCoordinator private constructor(
             identityGraphStore
                 .synchronize(
                     transactionLimit = 100
+                )
+            personalLearningStore
+                .applyHighConfidenceTo(
+                    transactionStore.recent(
+                        limit = 100
+                    )
                 )
         }
     }
