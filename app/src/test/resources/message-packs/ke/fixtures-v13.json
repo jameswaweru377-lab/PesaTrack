@@ -168,7 +168,7 @@
   {
     "id": "fullfloor_kcb_mpesa_decline_a",
     "title": "KCB M-PESA",
-    "body": "Dear SAMPLE CUSTOMER, your loan repayment of KES 5025.00 has been declined due to insufficient funds. Your KCB M-PESA Account balance is KES 25.00.",
+    "body": "Dear SAMPLE CUSTOMER, your loan repayment of KES 500.00 has been declined due to insufficient funds. Your KCB M-PESA Account balance is KES 25.00.",
     "templateId": "ke.kcb-mpesa.loan.repayment-declined",
     "expectedFields": {
       "AMOUNT": "500.00",
@@ -178,7 +178,7 @@
   {
     "id": "fullfloor_kcb_mpesa_decline_b",
     "title": "KCB M-PESA",
-    "body": "Dear SAMPLE CUSTOMER, your loan repayment of KES 1,25150.50 has been declined due to insufficient funds. Your KCB M-PESA Account balance is KES 150.50.",
+    "body": "Dear SAMPLE CUSTOMER, your loan repayment of KES 1,250.00 has been declined due to insufficient funds. Your KCB M-PESA Account balance is KES 150.50.",
     "templateId": "ke.kcb-mpesa.loan.repayment-declined",
     "expectedFields": {
       "AMOUNT": "1,250.00",
