@@ -1,0 +1,39 @@
+{
+  "id": "ke.hf-whizz.account.transfer-out",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["HFWHIZZ", "HF WHIZZ"],
+  "requiredAnchors": ["transferred to", "Reference:", "New Balance"],
+  "anyAnchors": [],
+  "eventKind": "ACCOUNT_TRANSFER_OUT",
+  "productIdentity": "HF_WHIZZ",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+transferred to",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "COUNTERPARTY",
+      "pattern": "transferred to[ ]+(.+?)[ ]+on[ ]+",
+      "group": 1
+    },
+    {
+      "field": "DATE",
+      "pattern": "[ ]on[ ]+(.+?)[.]?[ ]+Reference:",
+      "group": 1
+    },
+    {
+      "field": "TRANSACTION_CODE",
+      "pattern": "Reference:[ ]*([A-Z0-9-]+)",
+      "group": 1
+    },
+    {
+      "field": "BALANCE",
+      "pattern": "New Balance[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)",
+      "group": 1
+    }
+  ]
+}
