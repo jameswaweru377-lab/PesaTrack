@@ -2902,16 +2902,32 @@ class TransactionStore private constructor(context: Context) {
                 put("planning_month", planningMonth)
             }
         }
-        database.writableDatabase.update(
-            "transactions",
-            values,
-            "id = ?",
-            arrayOf(id.toString())
-        )
-        PersonalLearningStore.get(appContext)
-            .clearApplication(id)
-        PayCycleStore.get(appContext).rebuild()
-        LedgerUpdateBus.notifyChanged()
+        val changed =
+            database.writableDatabase.update(
+                "transactions",
+                values,
+                "id = ?",
+                arrayOf(id.toString())
+            ) > 0
+
+        if (changed) {
+            val learningStore =
+                PersonalLearningStore.get(
+                    appContext
+                )
+            learningStore.clearApplication(
+                id
+            )
+            getById(id)?.let {
+                learningStore.recordUserReview(
+                    it
+                )
+            }
+            PayCycleStore.get(appContext)
+                .rebuild()
+            LedgerUpdateBus
+                .notifyChanged()
+        }
     }
 
     @Synchronized
@@ -3146,13 +3162,23 @@ class TransactionStore private constructor(context: Context) {
         val values = ContentValues().apply {
             put("review_state", ReviewState.EXCLUDED.name)
         }
-        database.writableDatabase.update(
-            "transactions",
-            values,
-            "id = ?",
-            arrayOf(id.toString())
-        )
-        PayCycleStore.get(appContext).rebuild()
+        val changed =
+            database.writableDatabase.update(
+                "transactions",
+                values,
+                "id = ?",
+                arrayOf(id.toString())
+            ) > 0
+        if (changed) {
+            PersonalLearningStore
+                .get(appContext)
+                .forgetReview(id)
+            PayCycleStore
+                .get(appContext)
+                .rebuild()
+            LedgerUpdateBus
+                .notifyChanged()
+        }
     }
 
     private fun allTransactions(): List<StoredTransaction> =
