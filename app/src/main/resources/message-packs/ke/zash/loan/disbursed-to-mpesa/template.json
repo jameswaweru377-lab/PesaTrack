@@ -1,0 +1,24 @@
+{
+  "id": "ke.zash.loan.disbursed-to-mpesa",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["ZASHLOAN", "ZASH LOAN"],
+  "requiredAnchors": ["Disbursement success", "sent to M-Pesa", "Due date", "Paybill 733555"],
+  "anyAnchors": [],
+  "eventKind": "DEBT_DRAWDOWN",
+  "productIdentity": "ZASH_LOAN",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+sent to M-Pesa",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "DATE",
+      "pattern": "Due date[ ]+(.+?)[.]?[ ]+Repay via Paybill",
+      "group": 1
+    }
+  ]
+}
