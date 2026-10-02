@@ -1,0 +1,34 @@
+{
+  "id": "ke.timiza.loan.disbursed",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["TIMIZA"],
+  "requiredAnchors": ["disbursed to your Timiza account", "fee applied", "Total due", "Paybill 300067"],
+  "anyAnchors": [],
+  "eventKind": "DEBT_DRAWDOWN",
+  "productIdentity": "ABSA_TIMIZA_LOAN",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+disbursed to your Timiza account",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "FEE",
+      "pattern": "(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+fee applied",
+      "group": 1
+    },
+    {
+      "field": "TOTAL_DUE",
+      "pattern": "Total due[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)",
+      "group": 1
+    },
+    {
+      "field": "DATE",
+      "pattern": "Total due[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*[0-9,]+(?:[.][0-9]{1,2})?[ ]+on[ ]+(.+?)[.]?[ ]+Paybill",
+      "group": 1
+    }
+  ]
+}
