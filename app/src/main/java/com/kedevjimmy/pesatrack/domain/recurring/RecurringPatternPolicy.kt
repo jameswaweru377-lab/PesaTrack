@@ -78,8 +78,8 @@ object RecurringPatternPolicy {
                             .occurredAtEpochMs -
                             first
                                 .occurredAtEpochMs
-                    ).coerceAtLeast(0L)
-                ) / DAY_MS
+                    ).coerceAtLeast(0L) /
+                        DAY_MS
                 ).toInt()
             }
 
@@ -148,8 +148,8 @@ object RecurringPatternPolicy {
                     nowEpochMs -
                         last
                             .occurredAtEpochMs
-                ).coerceAtLeast(0L)
-            ) / DAY_MS
+                ).coerceAtLeast(0L) /
+                    DAY_MS
             ).toInt()
         if (ageDays > MAX_STALE_DAYS) {
             return null
