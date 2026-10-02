@@ -3,14 +3,12 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import com.kedevjimmy.pesatrack.domain.identity.IdentityNodeKind
+import com.kedevjimmy.pesatrack.domain.learning.PersonalCategoryEvidence
 import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningAction
 import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningPolicy
-import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningPreference
+import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningSnapshot
 import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningSuggestion
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
-import com.kedevjimmy.pesatrack.domain.model.ReviewState
-import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 
 class PersonalLearningStore private constructor(
     context: Context
@@ -23,196 +21,389 @@ class PersonalLearningStore private constructor(
         IdentityGraphStore.get(appContext)
 
     @Synchronized
-    fun remember(
-        transaction: StoredTransaction,
-        categoryId: String,
-        direction: MoneyDirection
-    ): PersonalLearningPreference? {
+    fun recordUserReview(
+        transaction: StoredTransaction
+    ): PersonalLearningSuggestion? {
+        val candidate =
+            transaction.toLearningCandidate()
+        if (
+            candidate.reviewState !=
+                "USER_CLASSIFIED"
+        ) {
+            return null
+        }
+
+        val direction =
+            candidate.moneyDirection()
+                ?: return null
         if (
             !PersonalLearningPolicy
-                .isLearnableCategory(
-                    categoryId = categoryId,
-                    direction = direction
+                .isEligibleReviewEvidence(
+                    type = candidate.type,
+                    direction = direction,
+                    ruleId = candidate.ruleId,
+                    relationType =
+                        candidate.relationType,
+                    categoryId =
+                        candidate.categoryId
                 )
         ) {
+            deleteReview(
+                transactionId =
+                    candidate.id
+            )
             return null
         }
 
         runCatching {
-            identityGraphStore
-                .synchronizeTransaction(
-                    transaction.id
-                )
+            identityGraphStore.synchronize(
+                transactionLimit = 100
+            )
         }
 
         val resolution =
             identityGraphStore.resolve(
-                name = transaction.counterparty,
-                phone = transaction.counterpartyPhone
+                name = candidate.counterparty,
+                phone =
+                    candidate.counterpartyPhone
             ) ?: return null
 
         if (
-            resolution.node.kind ==
-                IdentityNodeKind.SELF ||
-            resolution.node.kind ==
-                IdentityNodeKind.FINANCIAL_ACCOUNT
+            !PersonalLearningPolicy
+                .isLearnableIdentity(
+                    kind =
+                        resolution.node.kind,
+                    ownership =
+                        resolution.node.ownership
+                )
         ) {
-            return null
-        }
-
-        val existing =
-            preferenceForIdentity(
-                resolution.node.identityId
+            deleteReview(
+                transactionId =
+                    candidate.id
             )
-        val now =
-            System.currentTimeMillis()
-        val sameDecision =
-            existing?.categoryId == categoryId &&
-                existing.direction == direction
-        val confirmationCount =
-            if (sameDecision) {
-                existing!!.confirmationCount + 1
-            } else {
-                1
-            }
-        val createdAt =
-            existing?.createdAtEpochMs ?: now
-
-        val values =
-            ContentValues().apply {
-                put(
-                    "identity_id",
-                    resolution.node.identityId
-                )
-                put("category_id", categoryId)
-                put("direction", direction.name)
-                put(
-                    "confirmation_count",
-                    confirmationCount
-                )
-                put(
-                    "source_transaction_id",
-                    transaction.id
-                )
-                put(
-                    "created_at_epoch_ms",
-                    createdAt
-                )
-                put(
-                    "updated_at_epoch_ms",
-                    now
-                )
-            }
-
-        val saved =
-            database.writableDatabase
-                .insertWithOnConflict(
-                    "identity_category_preferences",
-                    null,
-                    values,
-                    SQLiteDatabase.CONFLICT_REPLACE
-                ) != -1L
-        if (!saved) {
             return null
         }
 
-        return PersonalLearningPreference(
+        upsertReview(
+            transactionId =
+                candidate.id,
             identityId =
                 resolution.node.identityId,
-            categoryId = categoryId,
+            categoryId =
+                candidate.categoryId,
             direction = direction,
-            confirmationCount =
-                confirmationCount,
-            sourceTransactionId =
-                transaction.id,
-            createdAtEpochMs = createdAt,
-            updatedAtEpochMs = now
+            reviewedAtEpochMs =
+                System.currentTimeMillis()
         )
+
+        val suggestion =
+            suggestionForIdentity(
+                identityId =
+                    resolution.node.identityId,
+                direction = direction,
+                trustedForAutoApply =
+                    PersonalLearningPolicy
+                        .isTrustedForAutoApply(
+                            kind =
+                                resolution.node.kind,
+                            ownership =
+                                resolution.node
+                                    .ownership,
+                            confidence =
+                                resolution.confidence,
+                            userConfirmed =
+                                resolution.node
+                                    .userConfirmed
+                        )
+            )
+
+        if (
+            suggestion?.action ==
+            PersonalLearningAction.AUTO_APPLY
+        ) {
+            reconcilePending(
+                limit = 200
+            )
+        }
+
+        return suggestion
     }
 
     @Synchronized
     fun suggestionFor(
         transaction: StoredTransaction
-    ): PersonalLearningSuggestion? {
-        if (!isEligibleForLearning(transaction)) {
-            return null
-        }
-
-        val resolution =
-            identityGraphStore.resolve(
-                name = transaction.counterparty,
-                phone = transaction.counterpartyPhone
-            ) ?: return null
-
-        if (
-            resolution.node.kind ==
-                IdentityNodeKind.SELF ||
-            resolution.node.kind ==
-                IdentityNodeKind.FINANCIAL_ACCOUNT
-        ) {
-            return null
-        }
-
-        val preference =
-            preferenceForIdentity(
-                resolution.node.identityId
-            ) ?: return null
-
-        if (
-            !PersonalLearningPolicy
-                .isLearnableCategory(
-                    categoryId =
-                        preference.categoryId,
-                    direction =
-                        preference.direction
-                )
-        ) {
-            return null
-        }
-
-        val confidence =
-            PersonalLearningPolicy
-                .confidenceFor(
-                    identityConfidence =
-                        resolution.confidence,
-                    identityUserConfirmed =
-                        resolution.node
-                            .userConfirmed
-                )
-        val action =
-            PersonalLearningPolicy
-                .actionFor(confidence)
-
-        return PersonalLearningSuggestion(
-            identityId =
-                resolution.node.identityId,
-            categoryId =
-                preference.categoryId,
-            direction =
-                preference.direction,
-            confidence = confidence,
-            action = action,
-            confirmationCount =
-                preference.confirmationCount
+    ): PersonalLearningSuggestion? =
+        suggestionFor(
+            transaction.toLearningCandidate()
         )
+
+    @Synchronized
+    fun suggestionForTransaction(
+        transactionId: Long
+    ): PersonalLearningSuggestion? =
+        loadCandidate(
+            transactionId
+        )?.let(::suggestionFor)
+
+    @Synchronized
+    fun synchronizeFromUserReviews(
+        limit: Int = 1_000
+    ): Int {
+        runCatching {
+            identityGraphStore.synchronize(
+                transactionLimit =
+                    limit.coerceIn(
+                        1,
+                        5_000
+                    )
+            )
+        }
+
+        val candidates =
+            database.readableDatabase
+                .rawQuery(
+                    """
+                    SELECT id,
+                           type,
+                           counterparty,
+                           counterparty_phone,
+                           direction,
+                           category,
+                           review_state,
+                           rule_id,
+                           relation_type
+                    FROM transactions
+                    WHERE review_state = ?
+                    ORDER BY occurred_at_epoch_ms DESC,
+                             id DESC
+                    LIMIT ?
+                    """.trimIndent(),
+                    arrayOf(
+                        "USER_CLASSIFIED",
+                        limit.coerceIn(
+                            1,
+                            5_000
+                        ).toString()
+                    )
+                ).use { cursor ->
+                    buildList {
+                        while (
+                            cursor.moveToNext()
+                        ) {
+                            add(
+                                LearningCandidate(
+                                    id =
+                                        cursor.getLong(0),
+                                    type =
+                                        cursor.getString(1),
+                                    counterparty =
+                                        cursor.stringOrNull(
+                                            2
+                                        ),
+                                    counterpartyPhone =
+                                        cursor.stringOrNull(
+                                            3
+                                        ),
+                                    direction =
+                                        cursor.getString(4),
+                                    categoryId =
+                                        cursor.getString(5),
+                                    reviewState =
+                                        cursor.getString(6),
+                                    ruleId =
+                                        cursor.stringOrNull(
+                                            7
+                                        ),
+                                    relationType =
+                                        cursor.stringOrNull(
+                                            8
+                                        )
+                                )
+                            )
+                        }
+                    }
+                }
+
+        var changed = 0
+        candidates.forEach { candidate ->
+            val direction =
+                candidate.moneyDirection()
+                    ?: return@forEach
+            if (
+                !PersonalLearningPolicy
+                    .isEligibleReviewEvidence(
+                        type = candidate.type,
+                        direction = direction,
+                        ruleId = candidate.ruleId,
+                        relationType =
+                            candidate.relationType,
+                        categoryId =
+                            candidate.categoryId
+                    )
+            ) {
+                changed +=
+                    deleteReview(
+                        transactionId =
+                            candidate.id
+                    )
+                return@forEach
+            }
+
+            val resolution =
+                identityGraphStore.resolve(
+                    name = candidate.counterparty,
+                    phone =
+                        candidate.counterpartyPhone
+                ) ?: return@forEach
+
+            if (
+                !PersonalLearningPolicy
+                    .isLearnableIdentity(
+                        kind =
+                            resolution.node.kind,
+                        ownership =
+                            resolution.node.ownership
+                    )
+            ) {
+                return@forEach
+            }
+
+            changed +=
+                upsertReview(
+                    transactionId =
+                        candidate.id,
+                    identityId =
+                        resolution.node.identityId,
+                    categoryId =
+                        candidate.categoryId,
+                    direction = direction,
+                    reviewedAtEpochMs =
+                        System.currentTimeMillis()
+                )
+        }
+
+        return changed
     }
 
     @Synchronized
-    fun applyHighConfidenceTo(
-        transactions: List<StoredTransaction>,
-        rebuildPayCycles: Boolean = true
+    fun ensureHistoricalBackfill(
+        limit: Int = 1_000
+    ) {
+        val preferences =
+            appContext.getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+        if (
+            preferences.getBoolean(
+                BACKFILL_KEY,
+                false
+            )
+        ) {
+            return
+        }
+
+        synchronizeFromUserReviews(
+            limit = limit
+        )
+        reconcilePending(
+            limit = 300
+        )
+
+        preferences.edit()
+            .putBoolean(
+                BACKFILL_KEY,
+                true
+            )
+            .apply()
+    }
+
+    @Synchronized
+    fun reconcilePending(
+        limit: Int = 200
     ): Int {
+        val candidates =
+            database.readableDatabase
+                .rawQuery(
+                    """
+                    SELECT id,
+                           type,
+                           counterparty,
+                           counterparty_phone,
+                           direction,
+                           category,
+                           review_state,
+                           rule_id,
+                           relation_type
+                    FROM transactions
+                    WHERE direction = ?
+                      AND rule_id IS NULL
+                      AND relation_type IS NULL
+                      AND COALESCE(
+                            evidence_source,
+                            ''
+                          ) != 'personal_learning'
+                      AND review_state IN (?, ?)
+                    ORDER BY occurred_at_epoch_ms DESC,
+                             id DESC
+                    LIMIT ?
+                    """.trimIndent(),
+                    arrayOf(
+                        MoneyDirection.EXPENSE.name,
+                        "NEEDS_REVIEW",
+                        "AUTO_CLASSIFIED",
+                        limit.coerceIn(
+                            1,
+                            1_000
+                        ).toString()
+                    )
+                ).use { cursor ->
+                    buildList {
+                        while (
+                            cursor.moveToNext()
+                        ) {
+                            add(
+                                LearningCandidate(
+                                    id =
+                                        cursor.getLong(0),
+                                    type =
+                                        cursor.getString(1),
+                                    counterparty =
+                                        cursor.stringOrNull(
+                                            2
+                                        ),
+                                    counterpartyPhone =
+                                        cursor.stringOrNull(
+                                            3
+                                        ),
+                                    direction =
+                                        cursor.getString(4),
+                                    categoryId =
+                                        cursor.getString(5),
+                                    reviewState =
+                                        cursor.getString(6),
+                                    ruleId =
+                                        cursor.stringOrNull(
+                                            7
+                                        ),
+                                    relationType =
+                                        cursor.stringOrNull(
+                                            8
+                                        )
+                                )
+                            )
+                        }
+                    }
+                }
+
         val db =
             database.writableDatabase
-        val now =
-            System.currentTimeMillis()
         var changed = 0
 
-        transactions.forEach { transaction ->
+        candidates.forEach { candidate ->
             val suggestion =
-                suggestionFor(transaction)
+                suggestionFor(candidate)
                     ?: return@forEach
-
             if (
                 suggestion.action !=
                 PersonalLearningAction.AUTO_APPLY
@@ -227,13 +418,24 @@ class PersonalLearningStore private constructor(
                         suggestion.categoryId
                     )
                     put(
-                        "direction",
-                        suggestion.direction.name
+                        "review_state",
+                        "AUTO_CLASSIFIED"
                     )
                     put(
-                        "review_state",
-                        ReviewState
-                            .AUTO_CLASSIFIED
+                        "evidence_label",
+                        "Learned from " +
+                            suggestion.supportCount +
+                            " of " +
+                            suggestion.totalReviewCount +
+                            " reviewed transactions"
+                    )
+                    put(
+                        "evidence_source",
+                        "personal_learning"
+                    )
+                    put(
+                        "evidence_confidence",
+                        suggestion.confidence
                             .name
                     )
                 }
@@ -244,23 +446,16 @@ class PersonalLearningStore private constructor(
                     values,
                     """
                     id = ?
+                    AND direction = ?
                     AND rule_id IS NULL
                     AND relation_type IS NULL
-                    AND direction = ?
-                    AND (
-                        review_state = ?
-                        OR (
-                            review_state = ?
-                            AND category = ?
-                        )
-                    )
+                    AND review_state IN (?, ?)
                     """.trimIndent(),
                     arrayOf(
-                        transaction.id.toString(),
+                        candidate.id.toString(),
                         MoneyDirection.EXPENSE.name,
-                        ReviewState.NEEDS_REVIEW.name,
-                        ReviewState.AUTO_CLASSIFIED.name,
-                        TransactionCategory.OTHER.name
+                        "NEEDS_REVIEW",
+                        "AUTO_CLASSIFIED"
                     )
                 )
 
@@ -268,23 +463,33 @@ class PersonalLearningStore private constructor(
                 recordApplication(
                     db = db,
                     transactionId =
-                        transaction.id,
-                    suggestion = suggestion,
-                    appliedAtEpochMs = now
+                        candidate.id,
+                    suggestion =
+                        suggestion
                 )
                 changed += updated
             }
         }
 
         if (changed > 0) {
-            if (rebuildPayCycles) {
-                PayCycleStore.get(appContext)
-                    .rebuild()
-            }
             LedgerUpdateBus.notifyChanged()
         }
 
         return changed
+    }
+
+    @Synchronized
+    fun forgetReview(
+        transactionId: Long
+    ) {
+        deleteReview(
+            transactionId =
+                transactionId
+        )
+        clearApplication(
+            transactionId =
+                transactionId
+        )
     }
 
     @Synchronized
@@ -302,95 +507,244 @@ class PersonalLearningStore private constructor(
     }
 
     @Synchronized
-    fun preferenceCount(): Int =
-        scalarCount(
-            "SELECT COUNT(*) FROM identity_category_preferences"
+    fun snapshot(): PersonalLearningSnapshot =
+        PersonalLearningSnapshot(
+            reviewedTransactionCount =
+                scalarCount(
+                    "SELECT COUNT(*) FROM personal_category_reviews"
+                ),
+            learnedIdentityCount =
+                scalarCount(
+                    "SELECT COUNT(DISTINCT identity_id) FROM personal_category_reviews"
+                ),
+            autoAppliedTransactionCount =
+                scalarCount(
+                    "SELECT COUNT(*) FROM personal_learning_applications"
+                )
         )
 
-    @Synchronized
-    fun applicationCount(): Int =
-        scalarCount(
-            "SELECT COUNT(*) FROM personal_learning_applications"
+    private fun suggestionFor(
+        candidate: LearningCandidate
+    ): PersonalLearningSuggestion? {
+        if (
+            !PersonalLearningPolicy
+                .isEligiblePredictionTarget(
+                    type = candidate.type,
+                    direction =
+                        candidate.direction,
+                    reviewState =
+                        candidate.reviewState,
+                    ruleId =
+                        candidate.ruleId,
+                    relationType =
+                        candidate.relationType,
+                    currentCategoryId =
+                        candidate.categoryId
+                )
+        ) {
+            return null
+        }
+
+        val resolution =
+            identityGraphStore.resolve(
+                name = candidate.counterparty,
+                phone =
+                    candidate.counterpartyPhone
+            ) ?: return null
+
+        if (
+            !PersonalLearningPolicy
+                .isLearnableIdentity(
+                    kind =
+                        resolution.node.kind,
+                    ownership =
+                        resolution.node.ownership
+                )
+        ) {
+            return null
+        }
+
+        return suggestionForIdentity(
+            identityId =
+                resolution.node.identityId,
+            direction =
+                MoneyDirection.EXPENSE,
+            trustedForAutoApply =
+                PersonalLearningPolicy
+                    .isTrustedForAutoApply(
+                        kind =
+                            resolution.node.kind,
+                        ownership =
+                            resolution.node.ownership,
+                        confidence =
+                            resolution.confidence,
+                        userConfirmed =
+                            resolution.node
+                                .userConfirmed
+                    )
+        )
+    }
+
+    private fun suggestionForIdentity(
+        identityId: String,
+        direction: MoneyDirection,
+        trustedForAutoApply: Boolean
+    ): PersonalLearningSuggestion? =
+        PersonalLearningPolicy.recommend(
+            identityId = identityId,
+            direction = direction,
+            evidence =
+                evidenceFor(
+                    identityId =
+                        identityId,
+                    direction =
+                        direction
+                ),
+            trustedForAutoApply =
+                trustedForAutoApply
         )
 
-    private fun preferenceForIdentity(
-        identityId: String
-    ): PersonalLearningPreference? =
+    private fun evidenceFor(
+        identityId: String,
+        direction: MoneyDirection
+    ): List<PersonalCategoryEvidence> =
         database.readableDatabase
             .rawQuery(
                 """
-                SELECT identity_id,
-                       category_id,
-                       direction,
-                       confirmation_count,
-                       source_transaction_id,
-                       created_at_epoch_ms,
-                       updated_at_epoch_ms
-                FROM identity_category_preferences
+                SELECT category_id,
+                       COUNT(*)
+                FROM personal_category_reviews
                 WHERE identity_id = ?
-                LIMIT 1
+                  AND direction = ?
+                GROUP BY category_id
+                ORDER BY COUNT(*) DESC,
+                         category_id ASC
                 """.trimIndent(),
-                arrayOf(identityId)
+                arrayOf(
+                    identityId,
+                    direction.name
+                )
             ).use { cursor ->
-                if (!cursor.moveToFirst()) {
-                    return@use null
+                buildList {
+                    while (
+                        cursor.moveToNext()
+                    ) {
+                        add(
+                            PersonalCategoryEvidence(
+                                categoryId =
+                                    cursor.getString(0),
+                                supportCount =
+                                    cursor.getInt(1)
+                            )
+                        )
+                    }
                 }
+            }
 
-                val direction =
-                    runCatching {
-                        MoneyDirection.valueOf(
+    private fun upsertReview(
+        transactionId: Long,
+        identityId: String,
+        categoryId: String,
+        direction: MoneyDirection,
+        reviewedAtEpochMs: Long
+    ): Int {
+        val current =
+            database.readableDatabase
+                .rawQuery(
+                    """
+                    SELECT identity_id,
+                           category_id,
+                           direction
+                    FROM personal_category_reviews
+                    WHERE transaction_id = ?
+                    LIMIT 1
+                    """.trimIndent(),
+                    arrayOf(
+                        transactionId.toString()
+                    )
+                ).use { cursor ->
+                    if (
+                        cursor.moveToFirst()
+                    ) {
+                        Triple(
+                            cursor.getString(0),
+                            cursor.getString(1),
                             cursor.getString(2)
                         )
-                    }.getOrNull()
-                        ?: return@use null
+                    } else {
+                        null
+                    }
+                }
 
-                PersonalLearningPreference(
-                    identityId =
-                        cursor.getString(0),
-                    categoryId =
-                        cursor.getString(1),
-                    direction = direction,
-                    confirmationCount =
-                        cursor.getInt(3),
-                    sourceTransactionId =
-                        cursor.getLong(4),
-                    createdAtEpochMs =
-                        cursor.getLong(5),
-                    updatedAtEpochMs =
-                        cursor.getLong(6)
+        if (
+            current ==
+            Triple(
+                identityId,
+                categoryId,
+                direction.name
+            )
+        ) {
+            return 0
+        }
+
+        val values =
+            ContentValues().apply {
+                put(
+                    "transaction_id",
+                    transactionId
+                )
+                put(
+                    "identity_id",
+                    identityId
+                )
+                put(
+                    "category_id",
+                    categoryId
+                )
+                put(
+                    "direction",
+                    direction.name
+                )
+                put(
+                    "reviewed_at_epoch_ms",
+                    reviewedAtEpochMs
                 )
             }
 
-    private fun isEligibleForLearning(
-        transaction: StoredTransaction
-    ): Boolean {
-        if (
-            transaction.ruleId != null ||
-            transaction.relationType != null ||
-            transaction.direction !=
-                MoneyDirection.EXPENSE.name
-        ) {
-            return false
-        }
+        val saved =
+            database.writableDatabase
+                .insertWithOnConflict(
+                    "personal_category_reviews",
+                    null,
+                    values,
+                    SQLiteDatabase
+                        .CONFLICT_REPLACE
+                )
 
-        return transaction.reviewState ==
-            ReviewState.NEEDS_REVIEW.name ||
-            (
-                transaction.reviewState ==
-                    ReviewState
-                        .AUTO_CLASSIFIED
-                        .name &&
-                    transaction.category ==
-                    TransactionCategory.OTHER.name
-            )
+        return if (saved == -1L) {
+            0
+        } else {
+            1
+        }
     }
+
+    private fun deleteReview(
+        transactionId: Long
+    ): Int =
+        database.writableDatabase
+            .delete(
+                "personal_category_reviews",
+                "transaction_id = ?",
+                arrayOf(
+                    transactionId.toString()
+                )
+            )
 
     private fun recordApplication(
         db: SQLiteDatabase,
         transactionId: Long,
         suggestion:
-            PersonalLearningSuggestion,
-        appliedAtEpochMs: Long
+            PersonalLearningSuggestion
     ) {
         val values =
             ContentValues().apply {
@@ -415,12 +769,16 @@ class PersonalLearningStore private constructor(
                     suggestion.confidence.name
                 )
                 put(
-                    "confirmation_count",
-                    suggestion.confirmationCount
+                    "support_count",
+                    suggestion.supportCount
+                )
+                put(
+                    "total_review_count",
+                    suggestion.totalReviewCount
                 )
                 put(
                     "applied_at_epoch_ms",
-                    appliedAtEpochMs
+                    System.currentTimeMillis()
                 )
             }
 
@@ -431,6 +789,55 @@ class PersonalLearningStore private constructor(
             SQLiteDatabase.CONFLICT_REPLACE
         )
     }
+
+    private fun loadCandidate(
+        transactionId: Long
+    ): LearningCandidate? =
+        database.readableDatabase
+            .rawQuery(
+                """
+                SELECT id,
+                       type,
+                       counterparty,
+                       counterparty_phone,
+                       direction,
+                       category,
+                       review_state,
+                       rule_id,
+                       relation_type
+                FROM transactions
+                WHERE id = ?
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf(
+                    transactionId.toString()
+                )
+            ).use { cursor ->
+                if (!cursor.moveToFirst()) {
+                    return@use null
+                }
+
+                LearningCandidate(
+                    id =
+                        cursor.getLong(0),
+                    type =
+                        cursor.getString(1),
+                    counterparty =
+                        cursor.stringOrNull(2),
+                    counterpartyPhone =
+                        cursor.stringOrNull(3),
+                    direction =
+                        cursor.getString(4),
+                    categoryId =
+                        cursor.getString(5),
+                    reviewState =
+                        cursor.getString(6),
+                    ruleId =
+                        cursor.stringOrNull(7),
+                    relationType =
+                        cursor.stringOrNull(8)
+                )
+            }
 
     private fun scalarCount(
         sql: String
@@ -447,7 +854,51 @@ class PersonalLearningStore private constructor(
                 }
             }
 
+    private fun StoredTransaction
+        .toLearningCandidate() =
+        LearningCandidate(
+            id = id,
+            type = type,
+            counterparty =
+                counterparty,
+            counterpartyPhone =
+                counterpartyPhone,
+            direction = direction,
+            categoryId = category,
+            reviewState =
+                reviewState,
+            ruleId = ruleId,
+            relationType =
+                relationType
+        )
+
+    private fun LearningCandidate
+        .moneyDirection():
+        MoneyDirection? =
+        runCatching {
+            MoneyDirection.valueOf(
+                direction
+            )
+        }.getOrNull()
+
+    private data class LearningCandidate(
+        val id: Long,
+        val type: String,
+        val counterparty: String?,
+        val counterpartyPhone: String?,
+        val direction: String,
+        val categoryId: String,
+        val reviewState: String,
+        val ruleId: String?,
+        val relationType: String?
+    )
+
     companion object {
+        private const val PREFS_NAME =
+            "personal_learning_v1"
+        private const val BACKFILL_KEY =
+            "historical_user_reviews_backfilled"
+
         @Volatile
         private var instance:
             PersonalLearningStore? = null
@@ -465,3 +916,13 @@ class PersonalLearningStore private constructor(
             }
     }
 }
+
+private fun android.database.Cursor
+    .stringOrNull(
+        index: Int
+    ): String? =
+    if (isNull(index)) {
+        null
+    } else {
+        getString(index)
+    }
