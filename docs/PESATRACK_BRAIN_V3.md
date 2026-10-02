@@ -436,3 +436,40 @@ Home can show a compact Needs Attention card when current transaction review is 
 This is structural Product Simplification, not the full Home visual redesign yet. The existing ledger, V2 semantics, debt model, identity graph and personal learning authority remain unchanged.
 
 Next Phase 5 increments should continue simplifying Home into the blueprint order (available this cycle, attention, today, where money went, money picture, recent activity, one useful insight) and break the large Home/Activity composables into smaller feature modules.
+
+
+## Phase 5 — Product Simplification, increment 2
+
+Branch milestone: `feature/phase5-home-hierarchy-v2`.
+
+This increment rebuilds Home around the blueprint's seven-block information hierarchy instead of the old feature-card stack.
+
+### Home order
+
+Home now presents:
+
+1. **Available this cycle** — the existing trusted pay-cycle amount, with cycle start and estimated days remaining when known.
+2. **Needs Attention** — shown only when review work exists; its count includes transaction review, possible duplicates, relationship questions, identity questions and unsupported financial message shapes.
+3. **Today** — trusted spending today, safe daily pace when a cycle exists, and the amount/count of still-protected commitments.
+4. **Where money went** — the top three trusted spending categories with amount/share; budget management routes into Plan instead of becoming another Home card.
+5. **Money picture** — latest observed M-Pesa balance/freshness, confirmed account count and active debt summary. Missing balances remain unknown rather than guessed.
+6. **Recent activity** — up to five canonical transactions; unresolved duplicate second-observations are suppressed and Needs Review items carry an Uncertain label.
+7. **One useful insight** — the existing insight engine is retained as one final card instead of stacking multiple generic insight surfaces.
+
+Conditional salary/pay-cycle prompts remain available without becoming permanent Home navigation.
+
+### Plan and Accounts follow-through
+
+- Budget is now directly reachable from Plan alongside Goals and recurring commitments.
+- The Accounts primary tab now also surfaces active debt and routes into debt details.
+- Nested Budget screens remain under the Plan tab; nested Debt screens remain under Accounts.
+
+### Performance / hierarchy cleanup
+
+Home no longer loads monthly budget records merely to render a daily Home budget card. Category spending is derived from the trusted Activity snapshot already loaded for Home.
+
+The new Home cards are implemented in `HomeOverviewComponents.kt` so further Phase 5 work can continue breaking the old monolithic Home file into smaller feature modules.
+
+### Safety boundary
+
+This increment changes presentation and navigation only. It does not alter ledger arithmetic, category authority, refund accounting, debt balances, pay-cycle math or message parsing.
