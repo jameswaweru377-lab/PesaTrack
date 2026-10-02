@@ -473,3 +473,34 @@ The new Home cards are implemented in `HomeOverviewComponents.kt` so further Pha
 ### Safety boundary
 
 This increment changes presentation and navigation only. It does not alter ledger arithmetic, category authority, refund accounting, debt balances, pay-cycle math or message parsing.
+
+
+## Phase 5 — Product Simplification, increment 3
+
+Branch milestone: `feature/phase5-home-cleanup-v3`.
+
+This is the consolidation pass after the new Home hierarchy landed.
+
+Removed from the legacy `HomeScreen.kt` implementation:
+
+- the old standalone Debt Overview card;
+- the old Wallets & Balances card and wallet row implementation;
+- the old Payday Picture card and its local value tiles;
+- obsolete helpers/imports that existed only for those replaced surfaces.
+
+The active Phase 5 Home presentation remains in `HomeOverviewComponents.kt`.
+
+This reduces `HomeScreen.kt` from roughly 2,346 lines after the hierarchy migration to roughly 1,600 lines and prevents future work from accidentally updating an old card path that is no longer rendered.
+
+### Phase 5 structural completion
+
+The blueprint's Phase 5 product hierarchy is now present:
+
+- calmer seven-block Home;
+- canonical Activity timeline;
+- one unified Needs Attention inbox;
+- Plan as the home for budget, commitments and goals;
+- Accounts as the primary wallet/bank/savings/debt hierarchy;
+- Data Health under More for technical coverage and diagnostics.
+
+Further UI decomposition and investment-specific account presentation can continue as maintenance/Phase 6 work, but they are no longer prerequisites for the Phase 5 product hierarchy itself.
