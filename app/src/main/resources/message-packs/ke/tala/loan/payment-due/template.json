@@ -1,0 +1,29 @@
+{
+  "id": "ke.tala.loan.payment-due",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["TALA"],
+  "requiredAnchors": ["Your loan payment of", "is due on", "Pay via Paybill 851201"],
+  "anyAnchors": ["Acc:"],
+  "eventKind": "DEBT_DUE_NOTICE",
+  "productIdentity": "TALA_LOAN",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "loan payment of[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+is due",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "DATE",
+      "pattern": "is due on[ ]+(.+?)[.]?[ ]+Pay via Paybill",
+      "group": 1
+    },
+    {
+      "field": "ACCOUNT_REFERENCE",
+      "pattern": "Acc:[ ]*([+0-9*]+)",
+      "group": 1
+    }
+  ]
+}
