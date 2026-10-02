@@ -33,6 +33,21 @@ object FinancialMessageInterpreter {
                 )
                 ?: MessageParseProvenance
                     .genericFallback()
+        val messagePackEventKind =
+            messagePackMatch
+                ?.eventKind
+                ?.uppercase()
+        val provenanceOnlyDebtShape =
+            messagePackEventKind in
+                PROVENANCE_ONLY_DEBT_EVENT_KINDS
+        val investmentMessagePackShape =
+            messagePackEventKind
+                ?.startsWith(
+                    "INVESTMENT_"
+                ) == true
+        val blocksLegacyTransactionParsing =
+            provenanceOnlyDebtShape ||
+                investmentMessagePackShape
 
         val normalized =
             FinancialMessageNormalizer.normalize(
@@ -52,14 +67,24 @@ object FinancialMessageInterpreter {
                 balances = emptyList(),
                 events = emptyList(),
                 parseProvenance =
-                    provenance
+                    provenance,
+                blocksLegacyTransactionParsing =
+                    blocksLegacyTransactionParsing
             )
         }
 
-        val semanticAssessment =
+        val genericSemanticAssessment =
             FinancialSemanticAnalyzer.analyze(
                 normalized
             )
+        val semanticAssessment =
+            MessagePackInvestmentSemanticBridge
+                .enrich(
+                    assessment =
+                        genericSemanticAssessment,
+                    match =
+                        messagePackMatch
+                )
 
         val extractedCandidates =
             FinancialCandidateExtractor.extract(
@@ -79,12 +104,6 @@ object FinancialMessageInterpreter {
                 message = normalized,
                 candidates = candidates
             )
-        val provenanceOnlyDebtShape =
-            messagePackMatch
-                ?.eventKind
-                ?.uppercase() in
-                PROVENANCE_ONLY_DEBT_EVENT_KINDS
-
         val classified =
             FinancialEventClassifier.classify(
                 resolved = resolved,
@@ -93,14 +112,17 @@ object FinancialMessageInterpreter {
                         .primaryIntent ==
                     FinancialSemanticIntent
                         .FAILED_ACTION ||
-                        provenanceOnlyDebtShape
+                        provenanceOnlyDebtShape ||
+                        investmentMessagePackShape
             )
 
         return classified.copy(
             semanticAssessment =
                 semanticAssessment,
             parseProvenance =
-                provenance
+                provenance,
+            blocksLegacyTransactionParsing =
+                blocksLegacyTransactionParsing
         )
     }
 }
