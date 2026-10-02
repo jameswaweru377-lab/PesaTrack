@@ -1,0 +1,39 @@
+{
+  "id": "ke.generic-bank.payment.bill-payment",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": [],
+  "requiredAnchors": [
+    "Confirmed, Bill payment to",
+    "for account",
+    "Ref."
+  ],
+  "anyAnchors": ["Thank you"],
+  "eventKind": "PAYMENT",
+  "productIdentity": "KENYAN_BANK_APP_BILL_PAYMENT",
+  "active": true,
+  "extractors": [
+    {
+      "field": "COUNTERPARTY",
+      "pattern": "Bill payment to[ ]+(.+?)[ ]+of[ ]+(?:KES|Kshs?[.]?|Ksh[.]?)[ ]*",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "AMOUNT",
+      "pattern": "[ ]of[ ]+(?:KES|Kshs?[.]?|Ksh[.]?)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+for account",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "ACCOUNT_REFERENCE",
+      "pattern": "for account[ ]+([^ ]+)",
+      "group": 1
+    },
+    {
+      "field": "REFERENCE",
+      "pattern": "Ref[.][ ]+([A-Z0-9]+)",
+      "group": 1
+    }
+  ]
+}
