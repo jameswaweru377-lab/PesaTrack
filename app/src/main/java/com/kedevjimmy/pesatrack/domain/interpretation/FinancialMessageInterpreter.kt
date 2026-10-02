@@ -60,7 +60,10 @@ object FinancialMessageInterpreter {
                 normalized
             )
 
-        if (!relevance.isRelevant) {
+        if (
+            !relevance.isRelevant &&
+            messagePackMatch == null
+        ) {
             return FinancialMessageInterpretation(
                 transactionCode = null,
                 occurredAtText = null,
