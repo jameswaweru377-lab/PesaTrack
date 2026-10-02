@@ -638,3 +638,39 @@ They deliberately do **not** route through the generic PAYMENT / RECEIPT / TRANS
 `fixtures-v7.json` adds sanitized public-sample fixtures for all three templates, and the router test requires every active template to retain at least one golden fixture.
 
 Next Phase 6 work should continue with additional banks, SACCOs, lenders and app-notification wording only when concrete public/sanitized message evidence exists.
+
+## Phase 6 — Long-tail coverage, increment 4 — Financial institution identities
+
+Branch milestone: `feature/phase6-financial-identity-pack-v4`.
+
+This increment expands stable financial-institution identity without pretending that an organization name proves transaction meaning.
+
+### New canonical identities
+
+Local entity intelligence now knows:
+
+- Co-operative Bank of Kenya;
+- NCBA Bank Kenya;
+- Absa Bank Kenya;
+- Stanbic Bank Kenya;
+- Diamond Trust Bank Kenya;
+- Family Bank;
+- Stima DT Sacco;
+- Mwalimu National Sacco.
+
+A new `EntityKind.SACCO` maps into the Identity Graph as `FINANCIAL_INSTITUTION`.
+
+### Guardrails
+
+All new bank/Sacco identities:
+
+- have no default transaction category;
+- are not eligible for automatic review/category application;
+- keep `allowMessageMatch = false`;
+- require counterparty/descriptor identity evidence instead of matching a brand name anywhere in raw message text.
+
+This is intentionally different from a Message Pack template. Identity coverage answers **who is this organization?** while transaction interpretation still requires message/relationship evidence.
+
+Evidence is documented in `docs/entity-catalog-sources.md`.
+
+Next Phase 6 work should keep searching for concrete bank-app, SACCO and lender message/notification wording. Do not manufacture templates from product mechanics or organization names alone.
