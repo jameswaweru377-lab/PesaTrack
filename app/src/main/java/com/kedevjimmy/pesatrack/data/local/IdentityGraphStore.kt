@@ -12,6 +12,7 @@ import com.kedevjimmy.pesatrack.domain.identity.IdentityEvidenceSource
 import com.kedevjimmy.pesatrack.domain.identity.IdentityKind
 import com.kedevjimmy.pesatrack.domain.identity.IdentityNode
 import com.kedevjimmy.pesatrack.domain.identity.IdentityObservation
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import java.security.MessageDigest
 
@@ -22,6 +23,167 @@ class IdentityGraphStore private constructor(
         PesaTrackDatabase(
             context.applicationContext
         )
+
+
+    @Synchronized
+    fun backfillExistingData() {
+        val accounts =
+            database.readableDatabase
+                .rawQuery(
+                    """
+                    SELECT id,
+                           name,
+                           type,
+                           enabled,
+                           identifier,
+                           opening_balance_minor,
+                           opening_balance_as_of_epoch_ms
+                    FROM money_accounts
+                    """.trimIndent(),
+                    null
+                ).use { cursor ->
+                    buildList {
+                        while (
+                            cursor.moveToNext()
+                        ) {
+                            add(
+                                MoneyAccount(
+                                    id =
+                                        cursor.getString(
+                                            0
+                                        ),
+                                    name =
+                                        cursor.getString(
+                                            1
+                                        ),
+                                    type =
+                                        AccountType
+                                            .valueOf(
+                                                cursor.getString(
+                                                    2
+                                                )
+                                            ),
+                                    enabled =
+                                        cursor.getInt(
+                                            3
+                                        ) == 1,
+                                    identifier =
+                                        if (
+                                            cursor.isNull(
+                                                4
+                                            )
+                                        ) {
+                                            null
+                                        } else {
+                                            cursor.getString(
+                                                4
+                                            )
+                                        },
+                                    openingBalanceMinor =
+                                        if (
+                                            cursor.isNull(
+                                                5
+                                            )
+                                        ) {
+                                            null
+                                        } else {
+                                            cursor.getLong(
+                                                5
+                                            )
+                                        },
+                                    openingBalanceAsOfEpochMs =
+                                        if (
+                                            cursor.isNull(
+                                                6
+                                            )
+                                        ) {
+                                            null
+                                        } else {
+                                            cursor.getLong(
+                                                6
+                                            )
+                                        }
+                                )
+                            )
+                        }
+                    }
+                }
+
+        val now =
+            System.currentTimeMillis()
+        accounts.forEach {
+            observeOwnedAccount(
+                account = it,
+                observedAtEpochMs =
+                    now
+            )
+        }
+
+        val counterparties =
+            database.readableDatabase
+                .rawQuery(
+                    """
+                    SELECT counterparty,
+                           counterparty_phone,
+                           occurred_at_epoch_ms
+                    FROM transactions
+                    WHERE (
+                        counterparty IS NOT NULL
+                        AND TRIM(counterparty) != ''
+                    )
+                       OR (
+                        counterparty_phone IS NOT NULL
+                        AND TRIM(counterparty_phone) != ''
+                    )
+                    ORDER BY occurred_at_epoch_ms ASC
+                    """.trimIndent(),
+                    null
+                ).use { cursor ->
+                    buildList {
+                        while (
+                            cursor.moveToNext()
+                        ) {
+                            add(
+                                Triple(
+                                    if (
+                                        cursor.isNull(
+                                            0
+                                        )
+                                    ) {
+                                        null
+                                    } else {
+                                        cursor.getString(
+                                            0
+                                        )
+                                    },
+                                    if (
+                                        cursor.isNull(
+                                            1
+                                        )
+                                    ) {
+                                        null
+                                    } else {
+                                        cursor.getString(
+                                            1
+                                        )
+                                    },
+                                    cursor.getLong(2)
+                                )
+                            )
+                        }
+                    }
+                }
+
+        counterparties.forEach {
+            (name, phone, occurredAt) ->
+            observeCounterparty(
+                name = name,
+                phone = phone,
+                observedAtEpochMs =
+                    occurredAt
+            )
+        }
+    }
 
     @Synchronized
     fun observeCounterparty(
@@ -362,11 +524,11 @@ class IdentityGraphStore private constructor(
                     WHERE n.kind = ?
                       AND n.user_confirmed = 0
                     GROUP BY n.identity_id
-                    HAVING SUM(
+                    HAVING MAX(
                         a.observation_count
                     ) >= ?
                     ORDER BY
-                        SUM(
+                        MAX(
                             a.observation_count
                         ) DESC,
                         MAX(
@@ -409,9 +571,9 @@ class IdentityGraphStore private constructor(
                 node = current,
                 aliases = aliases,
                 totalObservations =
-                    aliases.sumOf {
+                    aliases.maxOfOrNull {
                         it.observationCount
-                    }
+                    } ?: 0
             )
         }
     }
