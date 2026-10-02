@@ -61,6 +61,7 @@ import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.rules.SmartRuleDecisionExplanation
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -273,6 +274,11 @@ fun TransactionDetailScreen(
     }
 
     val current = transaction
+    val appliedRule =
+        current?.ruleId
+            ?.let(
+                ruleStore::getById
+            )
     val linkedRefundOriginal =
         current
             ?.takeIf {
@@ -468,7 +474,21 @@ fun TransactionDetailScreen(
         item {
             SectionHeader("Classification")
             Spacer(Modifier.height(8.dp))
-            ClassificationCard(current)
+            ClassificationCard(
+                item = current,
+                appliedRule = appliedRule,
+                onDisableRule = { rule ->
+                    if (
+                        ruleStore.setEnabled(
+                            id = rule.id,
+                            enabled = false
+                        )
+                    ) {
+                        learnedMessage =
+                            "Smart rule disabled for future transactions. This transaction keeps its current classification."
+                    }
+                }
+            )
         }
 
         learnedMessage?.let { message ->
@@ -1158,7 +1178,11 @@ private fun RefundLinkCard(
 }
 
 @Composable
-private fun ClassificationCard(item: StoredTransaction) {
+private fun ClassificationCard(
+    item: StoredTransaction,
+    appliedRule: SmartRule?,
+    onDisableRule: (SmartRule) -> Unit
+) {
     val context = LocalContext.current
     val categoryStore = remember { CategoryStore.get(context) }
     val needsReview = item.reviewState == ReviewState.NEEDS_REVIEW.name
@@ -1178,10 +1202,11 @@ private fun ClassificationCard(item: StoredTransaction) {
         shape = RoundedCornerShape(20.dp),
         color = pesaToneContainer(tone)
     ) {
-        Row(
-            Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Column {
+            Row(
+                Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
             IconBubble(
                 if (needsReview) {
                     Icons.Rounded.Tune
@@ -1210,8 +1235,14 @@ private fun ClassificationCard(item: StoredTransaction) {
                     when {
                         needsReview ->
                             "Choose what this transaction was. PesaTrack will not guess."
+                        item.ruleId != null &&
+                            appliedRule != null ->
+                            SmartRuleDecisionExplanation
+                                .describe(
+                                    appliedRule
+                                )
                         item.ruleId != null ->
-                            "Automatically classified by a saved smart rule."
+                            "Automatically classified by a saved smart rule. The original rule record is no longer available."
                         item.reviewState ==
                             ReviewState.USER_CLASSIFIED.name ->
                             "Classified by you."
@@ -1227,7 +1258,63 @@ private fun ClassificationCard(item: StoredTransaction) {
                 )
             }
             if (item.ruleId != null) {
-                SmallStatusPill("Smart rule")
+                SmallStatusPill(
+                    if (
+                        appliedRule?.enabled ==
+                        false
+                    ) {
+                        "Rule disabled"
+                    } else {
+                        "Smart rule"
+                    }
+                )
+            }
+        }
+
+            if (
+                appliedRule != null &&
+                appliedRule.enabled
+            ) {
+                TextButton(
+                    onClick = {
+                        onDisableRule(
+                            appliedRule
+                        )
+                    },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                horizontal = 8.dp,
+                                vertical = 4.dp
+                            )
+                ) {
+                    Text(
+                        "Disable rule for future"
+                    )
+                }
+            } else if (
+                item.ruleId != null &&
+                appliedRule?.enabled ==
+                false
+            ) {
+                Text(
+                    "This saved rule is disabled. You can still change this transaction manually.",
+                    modifier =
+                        Modifier.padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            bottom = 14.dp
+                        ),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
             }
         }
     }

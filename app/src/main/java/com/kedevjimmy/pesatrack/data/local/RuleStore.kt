@@ -62,6 +62,49 @@ class RuleStore private constructor(context: Context) {
     }
 
     @Synchronized
+    fun getById(
+        id: String
+    ): SmartRule? =
+        listRules(
+            enabledOnly = false
+        ).firstOrNull {
+            it.id == id
+        }
+
+    @Synchronized
+    fun setEnabled(
+        id: String,
+        enabled: Boolean
+    ): Boolean {
+        val values =
+            ContentValues().apply {
+                put(
+                    "enabled",
+                    if (enabled) 1 else 0
+                )
+                put(
+                    "updated_at_epoch_ms",
+                    System.currentTimeMillis()
+                )
+            }
+
+        val changed =
+            database.writableDatabase
+                .update(
+                    "smart_rules",
+                    values,
+                    "id = ?",
+                    arrayOf(id)
+                ) > 0
+
+        if (changed) {
+            LedgerUpdateBus.notifyChanged()
+        }
+
+        return changed
+    }
+
+    @Synchronized
     fun save(
         name: String,
         counterpartyContains: String,
