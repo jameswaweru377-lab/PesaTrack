@@ -12,7 +12,13 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentFetchResult
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentHttpClient
+import com.kedevjimmy.pesatrack.domain.identity.IdentityConfidence
+import com.kedevjimmy.pesatrack.domain.identity.IdentityEvidenceSource
+import com.kedevjimmy.pesatrack.domain.identity.IdentityKind
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityDescriptorPrivacyPolicy
+import com.kedevjimmy.pesatrack.domain.intelligence.EntityMatchConfidence
+import com.kedevjimmy.pesatrack.domain.intelligence.RemoteEntityEnrichment
+import com.kedevjimmy.pesatrack.domain.intelligence.RemoteOrganizationRole
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
@@ -171,6 +177,11 @@ class EntityEnrichmentWorker(
             )
 
         cache.get(key)?.let { cached ->
+            observeResolvedIdentity(
+                rawDescriptor =
+                    verified,
+                result = cached
+            )
             TransactionStore
                 .get(applicationContext)
                 .applyRemoteEntityEnrichmentByDescriptor(
@@ -197,6 +208,12 @@ class EntityEnrichmentWorker(
                     descriptorKey = key,
                     result = response.value
                 )
+                observeResolvedIdentity(
+                    rawDescriptor =
+                        verified,
+                    result =
+                        response.value
+                )
                 TransactionStore
                     .get(applicationContext)
                     .applyRemoteEntityEnrichmentByDescriptor(
@@ -220,6 +237,58 @@ class EntityEnrichmentWorker(
                 .PermanentFailure ->
                 Result.failure()
         }
+    }
+
+    private fun observeResolvedIdentity(
+        rawDescriptor: String,
+        result: RemoteEntityEnrichment
+    ) {
+        if (
+            result.confidence !=
+                EntityMatchConfidence.HIGH
+        ) {
+            return
+        }
+
+        val kind =
+            when (
+                result.organizationRole
+            ) {
+                RemoteOrganizationRole
+                    .FINANCIAL_INSTITUTION ->
+                    IdentityKind
+                        .FINANCIAL_INSTITUTION
+
+                RemoteOrganizationRole
+                    .UNKNOWN ->
+                    if (
+                        result.domain
+                            .isNullOrBlank()
+                    ) {
+                        return
+                    } else {
+                        IdentityKind.BUSINESS
+                    }
+
+                else ->
+                    IdentityKind.BUSINESS
+            }
+
+        IdentityGraphStore
+            .get(applicationContext)
+            .observeResolvedIdentity(
+                rawAlias =
+                    rawDescriptor,
+                canonicalName =
+                    result.canonicalName,
+                kind = kind,
+                domain = result.domain,
+                source =
+                    IdentityEvidenceSource
+                        .REMOTE_ENRICHMENT,
+                confidence =
+                    IdentityConfidence.LIKELY
+            )
     }
 
     companion object {
