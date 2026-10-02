@@ -1282,6 +1282,14 @@ class FinancialMessageIngestionCoordinator private constructor(
                     .parseProvenance
         )
 
+        val safeSenderLabel =
+            sourceReference
+                ?.takeIf {
+                    it.providerKey !=
+                        null
+                }
+                ?.displayName
+
         if (
             relevance.isRelevant &&
             !interpretation.recognized &&
@@ -1290,15 +1298,27 @@ class FinancialMessageIngestionCoordinator private constructor(
         ) {
             messageLabStore.recordUnsupported(
                 safeSenderLabel =
-                    sourceReference
-                        ?.takeIf {
-                            it.providerKey !=
-                                null
-                        }
-                        ?.displayName,
+                    safeSenderLabel,
                 body = body,
                 observedAtEpochMs =
                     receivedAtEpochMs,
+                sourcePackage =
+                    sourcePackage,
+                sourceKind =
+                    sourceKind
+            )
+        } else if (
+            relevance.isRelevant &&
+            (
+                interpretation.recognized ||
+                    interpretation
+                        .semanticallyUnderstood
+            )
+        ) {
+            messageLabStore.markUnderstood(
+                safeSenderLabel =
+                    safeSenderLabel,
+                body = body,
                 sourcePackage =
                     sourcePackage,
                 sourceKind =
