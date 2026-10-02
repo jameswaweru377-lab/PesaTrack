@@ -189,3 +189,68 @@ Both shapes:
 - have sanitized golden fixtures and end-to-end canonical-event tests.
 
 No Co-op, Absa, NCBA or Stanbic generic transaction template is added here because exact message wording has not yet been established strongly enough. Keep those providers on generic V2 fallback until concrete evidence exists.
+
+
+## Phase 3 — Identity Graph foundation
+
+Branch milestone: `feature/brain-v3-identity-graph-foundation-v2`.
+
+Phase 2 remains evidence-driven: Co-op, Absa, NCBA and Stanbic generic transaction messages stay on V2 fallback until exact message bodies are available. That evidence gap does not block the next architectural milestone.
+
+### Purpose
+
+The Identity Graph separates **what happened** from **who/what the parties are**.
+
+It creates durable local identity knowledge for:
+
+- the user (`SELF`);
+- the user's financial accounts;
+- people;
+- businesses;
+- billers;
+- financial institutions;
+- unresolved counterparties.
+
+### Schema v28
+
+New local tables:
+
+- `identity_nodes`;
+- `identity_aliases`;
+- `identity_links`;
+- `identity_observations`.
+
+The graph stores normalized aliases, evidence source, confidence, user-confirmation state, first/last-seen timestamps and observation counts.
+
+### Foundation behavior
+
+- Every enabled `money_accounts` entry becomes a user-owned financial-account node.
+- `SELF -> OWNS -> account` links are created deterministically.
+- Confirmed account phone identifiers can seed a SELF phone alias.
+- Existing confirmed `financial_entities` contribute provider/name aliases to the corresponding account node.
+- Ledger transactions are observed idempotently using transaction ID; rescanning history cannot inflate counts.
+- Known entities from the local entity catalogue retain their known business/biller/institution kind.
+- Unknown counterparties remain `UNKNOWN`; repetition alone never turns them into businesses.
+- Phone evidence has stronger identity value than a name-only cluster.
+- The graph can produce review candidates for possible self phone, possible self transaction name, and repeated unknown counterparties needing classification.
+- User-confirmed aliases/identity kinds outrank inferred evidence.
+
+### Accounting isolation
+
+Identity Graph enrichment is downstream metadata.
+
+A graph failure must never invalidate or roll back an already-correct ledger write. Canonical transactions trigger bounded graph synchronization only after financial ingestion succeeds.
+
+Data Health can perform a larger historical backfill and reports graph counts and pending identity questions.
+
+### Deliberately not included yet
+
+This foundation does not yet:
+
+- apply identity-based personal categories;
+- auto-create Smart Rules;
+- auto-decide Person vs Business for unknown names;
+- expose the final interactive identity-review inbox;
+- change Home/Activity design.
+
+The next Phase 3 increment is the user-facing identity review flow: “Is this your number?”, “Is this your transaction name?”, and safe external identity classification.
