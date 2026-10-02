@@ -2861,3 +2861,24 @@ Implemented:
 Evidence source and sanitization rules are recorded in `docs/message-corpus-sources.md`.
 
 Phase 6 remains in progress. The source-aware app-notification routing work should be reconciled next so future app-only shapes can constrain matches by Android package/channel evidence.
+
+
+## Phase 6 Long-tail Coverage — source-aware notification routing — 2026-10-02
+
+The previously green source-aware app-notification implementation has been replayed on top of the latest Phase 6 main so newer Co-op/Equity and bank/SACCO corpus work is preserved.
+
+Implemented:
+- Message Pack templates support optional `sourcePackages` and `sourceKinds`.
+- FinancialMessageInterpreter and KenyaMessagePack routing accept source package/channel evidence.
+- FinancialMessageIngestionCoordinator forwards notification source metadata.
+- Source-constrained templates fail closed when package/channel evidence is absent or mismatched.
+- Source-constrained matches outrank sender-only matches.
+- Parse provenance records when package/channel evidence participated.
+- Unsupported Message Lab shapes retain safe source package/channel metadata locally.
+- Source metadata contributes to unsupported-shape identity.
+- Developer fixture export and Data Health expose the source context.
+- Notification listener UI label is generalized to PesaTrack financial notification listener.
+- Existing unconstrained SMS templates remain backward compatible.
+- Current 53-template Kenya Message Pack corpus is preserved.
+
+Next Phase 6 work can safely add app-only bank notification templates once concrete package + sanitized notification evidence is available.
