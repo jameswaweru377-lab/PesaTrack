@@ -19,7 +19,7 @@ object IdentityGraphPolicy {
                     " "
                 )
                 .replace(
-                    Regex("""s+"""),
+                    Regex("""\s+"""),
                     " "
                 )
                 .trim()
@@ -58,7 +58,7 @@ object IdentityGraphPolicy {
         return normalized
             .takeIf {
                 it.matches(
-                    Regex("""0[17]d{8}""")
+                    Regex("""0[17]\d{8}""")
                 )
             }
     }
