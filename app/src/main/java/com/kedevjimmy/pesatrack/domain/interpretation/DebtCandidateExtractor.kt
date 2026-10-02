@@ -13,6 +13,12 @@ data class DebtDrawdownCandidate(
     val availableCreditSpan: MessageSpan?,
     val proceedsAccountLabel: String? = null,
     val proceedsAccountSpan: MessageSpan? = null,
+    val proceedsAmountMinor: Long? = null,
+    val proceedsAmountSpan: MessageSpan? = null,
+    val savingsAllocationMinor: Long? = null,
+    val savingsAllocationSpan: MessageSpan? = null,
+    val savingsAccountLabel: String? = null,
+    val savingsAccountSpan: MessageSpan? = null,
     val amountIsNetProceeds: Boolean = false,
     val ruleId: String
 )
