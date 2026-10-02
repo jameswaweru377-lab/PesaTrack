@@ -271,55 +271,26 @@ fun TransactionDetailScreen(
                             displayLabel = current.counterparty,
                             accountId = current.accountId
                         )
-                        val preference =
-                            personalLearningStore
-                                .remember(
-                                    transaction =
-                                        current,
-                                    categoryId =
-                                        category.name,
-                                    direction =
-                                        direction
-                                )
                         val exactChanged =
                             store.reapplyRule(
                                 savedRule
                             )
-                        val identityChanged =
-                            if (
-                                preference != null
-                            ) {
-                                personalLearningStore
-                                    .applyHighConfidenceTo(
-                                        store.recent(
-                                            limit = 500
-                                        )
-                                    )
-                            } else {
-                                0
-                            }
-                        val changed =
-                            exactChanged +
-                                identityChanged
                         learnedMessage =
-                            when {
-                                changed > 0 ->
-                                    "Remembered • " +
-                                        changed +
-                                        " matching transaction" +
-                                        if (
-                                            changed == 1
-                                        ) {
-                                            " classified."
-                                        } else {
-                                            "s classified."
-                                        }
-
-                                preference != null ->
-                                    "Remembered for this identity and future matching transactions."
-
-                                else ->
-                                    "Rule saved for future exact matches."
+                            if (
+                                exactChanged > 0
+                            ) {
+                                "Rule saved • " +
+                                    exactChanged +
+                                    " matching pending transaction" +
+                                    if (
+                                        exactChanged == 1
+                                    ) {
+                                        " classified."
+                                    } else {
+                                        "s classified."
+                                    }
+                            } else {
+                                "Rule saved for future exact matches."
                             }
                         pendingCategoryId = null
                         refresh()
@@ -425,7 +396,9 @@ fun TransactionDetailScreen(
         learningSuggestion
             ?.takeIf {
                 it.action ==
-                    PersonalLearningAction.SUGGEST
+                    PersonalLearningAction.SUGGEST ||
+                    it.action ==
+                    PersonalLearningAction.ASK
             }
             ?.let { suggestion ->
                 item {
@@ -440,7 +413,14 @@ fun TransactionDetailScreen(
                                     Alignment.CenterVertically
                             ) {
                                 Text(
-                                    "PesaTrack suggestion",
+                                    if (
+                                        suggestion.action ==
+                                        PersonalLearningAction.SUGGEST
+                                    ) {
+                                        "PesaTrack suggestion"
+                                    } else {
+                                        "PesaTrack is still learning"
+                                    },
                                     modifier =
                                         Modifier.weight(1f),
                                     style =
@@ -449,16 +429,64 @@ fun TransactionDetailScreen(
                                             .titleMedium
                                 )
                                 SmallStatusPill(
-                                    "Needs confirmation",
+                                    if (
+                                        suggestion.action ==
+                                        PersonalLearningAction.SUGGEST
+                                    ) {
+                                        "Suggest"
+                                    } else {
+                                        "Ask"
+                                    },
                                     "amber"
                                 )
                             }
                             Text(
-                                "You previously taught this identity as " +
-                                    categoryStore.labelFor(
-                                        suggestion.categoryId
-                                    ) +
-                                    ". The identity match is not strong enough to apply automatically.",
+                                buildString {
+                                    append(
+                                        "You chose "
+                                    )
+                                    append(
+                                        categoryStore.labelFor(
+                                            suggestion.categoryId
+                                        )
+                                    )
+                                    append(
+                                        " on "
+                                    )
+                                    append(
+                                        suggestion.supportCount
+                                    )
+                                    append(
+                                        " of "
+                                    )
+                                    append(
+                                        suggestion.totalReviewCount
+                                    )
+                                    append(
+                                        " reviewed transaction"
+                                    )
+                                    if (
+                                        suggestion.totalReviewCount !=
+                                        1
+                                    ) {
+                                        append("s")
+                                    }
+                                    append(
+                                        " for this identity. "
+                                    )
+                                    if (
+                                        suggestion.action ==
+                                        PersonalLearningAction.SUGGEST
+                                    ) {
+                                        append(
+                                            "PesaTrack is suggesting it, not applying it automatically yet."
+                                        )
+                                    } else {
+                                        append(
+                                            "That is not enough evidence to guess, so choose the right category below."
+                                        )
+                                    }
+                                },
                                 modifier =
                                     Modifier.padding(
                                         top = 6.dp
@@ -468,30 +496,37 @@ fun TransactionDetailScreen(
                                         .colorScheme
                                         .onSurfaceVariant
                             )
-                            Button(
-                                onClick = {
-                                    classifyOnly(
-                                        current,
-                                        suggestion.categoryId
-                                    )
-                                    learningSuggestion =
-                                        null
-                                },
-                                modifier =
-                                    Modifier.padding(
-                                        top = 12.dp
-                                    )
+                            if (
+                                suggestion.action ==
+                                PersonalLearningAction.SUGGEST
                             ) {
-                                Text(
-                                    "Use " +
-                                        categoryStore.labelFor(
+                                Button(
+                                    onClick = {
+                                        classifyOnly(
+                                            current,
                                             suggestion.categoryId
                                         )
-                                )
+                                        learningSuggestion =
+                                            null
+                                    },
+                                    modifier =
+                                        Modifier.padding(
+                                            top = 12.dp
+                                        )
+                                ) {
+                                    Text(
+                                        "Use " +
+                                            categoryStore.labelFor(
+                                                suggestion.categoryId
+                                            )
+                                    )
+                                }
                             }
                         }
                     }
                 }
+            }
+
             }
 
         if (
@@ -963,6 +998,9 @@ private fun ClassificationCard(item: StoredTransaction) {
                         item.reviewState ==
                             ReviewState.USER_CLASSIFIED.name ->
                             "Classified by you."
+                        item.evidenceSource ==
+                            "personal_learning" ->
+                            "Automatically classified from your reviewed history for this identity. You can change it at any time."
                         item.evidenceSource
                             ?.startsWith(
                                 "entity_intelligence:"
@@ -974,8 +1012,16 @@ private fun ClassificationCard(item: StoredTransaction) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (item.ruleId != null) {
-                SmallStatusPill("Smart rule")
+            when {
+                item.ruleId != null ->
+                    SmallStatusPill(
+                        "Smart rule"
+                    )
+                item.evidenceSource ==
+                    "personal_learning" ->
+                    SmallStatusPill(
+                        "Learned"
+                    )
             }
         }
     }
