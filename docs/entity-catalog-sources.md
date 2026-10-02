@@ -63,3 +63,30 @@ Current Google Play evidence URLs:
 - https://play.google.com/store/apps/details?id=com.absa.ke.mobile.android.ui
 - https://play.google.com/store/apps/details?id=com.cfcstanbicbank.app
 - https://play.google.com/store/apps/details?id=com.dtb.app
+
+## Phase 6 verified Android digital-lender app packages
+
+Evidence class: **OFFICIAL_APP_STORE_PACKAGE_IDENTITY**
+
+Reviewed 2 October 2026 from current Google Play listings.
+
+Package identity added:
+
+- Branch: Loans & Mobile Banking — `com.branch_international.branch.branch_demo_android` — Branch International Financial Services Limited.
+- Tala: Fast & Safe Pesa Loan — `com.inventureaccess.safarirahisi` — Tala Mobile / Inventure Capital Corporation.
+
+Guardrails:
+
+- These package IDs establish **notification source identity only**.
+- Branch currently exposes loans, wallet/savings, transfers and payments, so package identity alone cannot determine whether a particular notification represents an asset, liability, transfer, payment or loan event.
+- Tala package identity likewise does not prove a notification is a drawdown, repayment, offer, reminder or account-status message.
+- Both therefore resolve with `AccountType.OTHER`, `AccountOwnershipHint.UNKNOWN` and `FinancialAccountNature.UNKNOWN`.
+- No loan transaction is created from package identity.
+- No debt account is created from package identity.
+- No message wording is inferred from the app-store descriptions.
+- Provider-specific Branch/Tala notification templates still require concrete sanitized/public notification wording.
+
+Current Google Play evidence URLs:
+
+- https://play.google.com/store/apps/details?id=com.branch_international.branch.branch_demo_android
+- https://play.google.com/store/apps/details?id=com.inventureaccess.safarirahisi
