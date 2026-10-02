@@ -62,7 +62,7 @@
   {
     "id": "adjacent_mshwari_loan_fee_a",
     "title": "M-Shwari",
-    "body": "M-Shwari: You have received a loan of KES 3,000.00. KES 90.00 facility fee charged. Amount sent to M-Pesa. Repay KES 5,90.00 by 15 Nov 2026.",
+    "body": "M-Shwari: You have received a loan of KES 3,000.00. KES 90.00 facility fee charged. Amount sent to M-Pesa. Repay KES 3,090.00 by 15 Nov 2026.",
     "templateId": "ke.mshwari.loan.received-with-fee",
     "expectedFields": {
       "AMOUNT": "3,000.00",
@@ -74,7 +74,7 @@
   {
     "id": "adjacent_mshwari_loan_fee_b",
     "title": "M-Shwari",
-    "body": "M-Shwari: You have received a loan of KES 8,500.00. KES 255.00 facility fee charged. Amount sent to M-Pesa. Repay KES 5,255.00 by 30 Nov 2026.",
+    "body": "M-Shwari: You have received a loan of KES 8,500.00. KES 255.00 facility fee charged. Amount sent to M-Pesa. Repay KES 8,755.00 by 30 Nov 2026.",
     "templateId": "ke.mshwari.loan.received-with-fee",
     "expectedFields": {
       "AMOUNT": "8,500.00",
@@ -263,7 +263,7 @@
   {
     "id": "adjacent_timiza_drawdown_a",
     "title": "TIMIZA",
-    "body": "Timiza: KES 6,000.00 disbursed to your Timiza account. KES 300.00 fee applied. Total due KES 4,300.00 on 15 Nov 2026. Paybill 300067.",
+    "body": "Timiza: KES 6,000.00 disbursed to your Timiza account. KES 300.00 fee applied. Total due KES 6,300.00 on 15 Nov 2026. Paybill 300067.",
     "templateId": "ke.timiza.loan.disbursed",
     "expectedFields": {
       "AMOUNT": "6,000.00",
@@ -275,7 +275,7 @@
   {
     "id": "adjacent_timiza_drawdown_b",
     "title": "TIMIZA",
-    "body": "Timiza: KES 9,500.00 disbursed to your Timiza account. KES 475.00 fee applied. Total due KES 4,475.00 on 30 Nov 2026. Paybill 300067.",
+    "body": "Timiza: KES 9,500.00 disbursed to your Timiza account. KES 475.00 fee applied. Total due KES 9,975.00 on 30 Nov 2026. Paybill 300067.",
     "templateId": "ke.timiza.loan.disbursed",
     "expectedFields": {
       "AMOUNT": "9,500.00",
