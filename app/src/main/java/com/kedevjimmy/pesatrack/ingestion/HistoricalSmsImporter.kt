@@ -91,7 +91,9 @@ class HistoricalSmsImporter(
                     if (
                         interpreted.insertedTransactions == 0 &&
                         interpreted.insertedFinancialEvents == 0 &&
-                        interpreted.pendingReviewEvents == 0
+                        interpreted.pendingReviewEvents == 0 &&
+                        !interpreted
+                            .handledWithoutLedgerMovement
                     ) {
                         duplicates += 1
                     }
