@@ -23,7 +23,7 @@ class MessagePackRouterTest {
             result.errors.isEmpty()
         )
         assertEquals(
-            45,
+            50,
             result.templates.size
         )
         assertEquals(
@@ -228,6 +228,101 @@ class MessagePackRouterTest {
     }
 
     @Test
+    fun phase6SaccoShapesStayProvenanceFirst() {
+        val withdrawal =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "",
+                    body =
+                        "Dear Member,You have withdrawn Ksh. 800 from Account 0101-001-00*** .Thank you for using FUNDILIMA SACCO Mobile Banking Service."
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            withdrawal.parseProvenance.route
+        )
+        assertEquals(
+            "ke.fundilima-sacco.account.withdrawal",
+            withdrawal.parseProvenance.templateId
+        )
+        assertEquals(
+            "SACCO_WITHDRAWAL",
+            withdrawal.parseProvenance.eventKind
+        )
+
+        val deposit =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "",
+                    body =
+                        "Dear Member, you have deposited 1400.00 to A/C No. xxxxxx6291, of SAMPLE WELFARE GROUP on 2025/09/28 12:01:55. For help 0709000000"
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            deposit.parseProvenance.route
+        )
+        assertEquals(
+            "ke.generic-sacco.account.deposit",
+            deposit.parseProvenance.templateId
+        )
+        assertEquals(
+            "SACCO_DEPOSIT",
+            deposit.parseProvenance.eventKind
+        )
+    }
+
+    @Test
+    fun phase6BankAppShapesExposeStructuredProvenance() {
+        val mobileCredit =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "",
+                    body =
+                        "Your transaction of Kshs. 6000.0 has been credited to 254710000000 SAMPLE PERSON. Ref. EQA7FA49D0DDCBF. MPESA Ref. UDJP31HD79 on 19/04/2026 at 20:59:50."
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            mobileCredit.parseProvenance.route
+        )
+        assertEquals(
+            "BANK_TO_MOBILE_TRANSFER",
+            mobileCredit.parseProvenance.eventKind
+        )
+        assertEquals(
+            "254710000000",
+            mobileCredit.parseProvenance
+                .extractedFields
+                .first {
+                    it.field == "DESTINATION"
+                }
+                .value
+        )
+
+        val billPayment =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "",
+                    body =
+                        "Confirmed, Bill payment to SAMPLE COLLECTIONS of KES. 320.00 for account 101417 and Ref. UDIP31BYCB on 18-04-2026 at 15:57. Thank you."
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            billPayment.parseProvenance.route
+        )
+        assertEquals(
+            "ke.generic-bank.payment.bill-payment",
+            billPayment.parseProvenance.templateId
+        )
+        assertEquals(
+            "PAYMENT",
+            billPayment.parseProvenance.eventKind
+        )
+    }
+
+    @Test
     fun equityTemplateAddsProvenanceWhileV2StillOwnsTransferMeaning() {
         val interpretation =
             FinancialMessageInterpreter
@@ -324,7 +419,8 @@ class MessagePackRouterTest {
             "message-packs/ke/fixtures-v3.json",
             "message-packs/ke/fixtures-v4.json",
             "message-packs/ke/fixtures-v5.json",
-            "message-packs/ke/fixtures-v6.json"
+            "message-packs/ke/fixtures-v6.json",
+            "message-packs/ke/fixtures-v7.json"
         ).flatMap { path ->
             val stream =
                 javaClass.classLoader
