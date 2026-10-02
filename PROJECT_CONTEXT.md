@@ -3164,3 +3164,20 @@ Implemented:
 - No new provider wording or parser semantics were introduced.
 
 This continues the blueprint's recommended 3-10 fixture depth without fabricating unsupported long-tail messages.
+
+
+## Phase 6 Long-tail Coverage — increment 20 / full corpus fixture floor — 2026-10-02
+
+The active Kenya Message Pack now has a universal minimum fixture-depth baseline.
+
+Implemented:
+
+- Added `fixtures-v13.json` with **36 sanitized variants**.
+- Completed three-fixture coverage for the final 18 one-example templates.
+- All **62 active Kenya Message Pack templates** now have at least three golden fixtures.
+- Added a universal CI corpus-health assertion: every active template must remain at or above the three-fixture floor.
+- Router/extraction regression tests now load fixture corpus v13.
+- Existing focused core, Tier-A bank and adjacent-finance fixture-depth checks remain.
+- No new provider wording, semantic bridge or parser branch was introduced.
+
+Future new templates must therefore arrive with enough sanitized fixture depth to keep the full-corpus floor green. New wording still requires concrete public/sanitized device evidence rather than product-page assumptions.
