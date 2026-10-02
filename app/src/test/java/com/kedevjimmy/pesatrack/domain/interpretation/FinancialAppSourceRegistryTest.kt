@@ -130,6 +130,80 @@ class FinancialAppSourceRegistryTest {
     }
 
     @Test
+    fun resolvesVerifiedIMAndSaccoPackagesConservatively() {
+        val im =
+            FinancialAppSourceRegistry
+                .resolve(
+                    "com.imbank.digital.retail.app"
+                )
+        val stima =
+            FinancialAppSourceRegistry
+                .resolve(
+                    "com.mode.stima"
+                )
+        val mwalimu =
+            FinancialAppSourceRegistry
+                .resolve(
+                    " SKYWORLD.MWALIMU "
+                )
+
+        assertEquals(
+            "I&M Bank Kenya",
+            im?.displayName
+        )
+        assertEquals(
+            AccountType.BANK,
+            im?.accountTypeHint
+        )
+        assertEquals(
+            FinancialAccountNature.ASSET,
+            im?.nature
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            im?.ownershipHint
+        )
+
+        assertEquals(
+            "Stima DT Sacco",
+            stima?.displayName
+        )
+        assertEquals(
+            "KENYAN_SACCO_STIMA_DT",
+            stima?.providerKey
+        )
+        assertEquals(
+            AccountType.OTHER,
+            stima?.accountTypeHint
+        )
+        assertEquals(
+            FinancialAccountNature.UNKNOWN,
+            stima?.nature
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            stima?.ownershipHint
+        )
+
+        assertEquals(
+            "Mwalimu National Sacco",
+            mwalimu?.displayName
+        )
+        assertEquals(
+            "KENYAN_SACCO_MWALIMU_NATIONAL",
+            mwalimu?.providerKey
+        )
+        assertEquals(
+            AccountType.OTHER,
+            mwalimu?.accountTypeHint
+        )
+        assertEquals(
+            FinancialAccountNature.UNKNOWN,
+            mwalimu?.nature
+        )
+    }
+
+    @Test
     fun unknownPackageDoesNotInventFinancialIdentity() {
         assertNull(
             FinancialAppSourceRegistry.resolve(
@@ -158,6 +232,24 @@ class FinancialAppSourceRegistryTest {
             FinancialAppSourceRegistry
                 .isKnownPackage(
                     "com.inventureaccess.safarirahisi"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.imbank.digital.retail.app"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.mode.stima"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "skyworld.mwalimu"
                 )
         )
     }
