@@ -26,7 +26,9 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createEntityEnrichmentCacheTable(db)
         createPaydaySnapshotTables(db)
         createCycleProtectionTable(db)
+        createIdentityGraphTables(db)
         seedDefaultAccounts(db)
+        seedIdentityGraph(db)
         createIndexes(db)
         createTriggers(db)
     }
@@ -396,6 +398,11 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             migrateMshwariLockSavingsAliases(
                 db
             )
+        }
+
+        if (oldVersion < 28) {
+            createIdentityGraphTables(db)
+            seedIdentityGraph(db)
         }
 
         createIndexes(db)
@@ -1204,6 +1211,69 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createIdentityGraphTables(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS identity_nodes (
+                identity_id TEXT PRIMARY KEY,
+                kind TEXT NOT NULL,
+                canonical_name TEXT NOT NULL,
+                user_confirmed INTEGER NOT NULL DEFAULT 0,
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS identity_aliases (
+                alias_id TEXT PRIMARY KEY,
+                identity_id TEXT NOT NULL,
+                alias_type TEXT NOT NULL,
+                alias_value TEXT NOT NULL,
+                normalized_value TEXT NOT NULL,
+                source TEXT NOT NULL,
+                confidence TEXT NOT NULL,
+                observation_count INTEGER NOT NULL DEFAULT 1,
+                first_seen_epoch_ms INTEGER NOT NULL,
+                last_seen_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
+    private fun seedIdentityGraph(
+        db: SQLiteDatabase
+    ) {
+        val now =
+            System.currentTimeMillis()
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO identity_nodes(
+                identity_id,
+                kind,
+                canonical_name,
+                user_confirmed,
+                created_at_epoch_ms,
+                updated_at_epoch_ms
+            ) VALUES(
+                'identity:self',
+                'SELF',
+                'You',
+                0,
+                ?,
+                ?
+            )
+            """.trimIndent(),
+            arrayOf<Any>(
+                now,
+                now
+            )
+        )
+    }
+
     private fun seedDefaultAccounts(db: SQLiteDatabase) {
         val now = System.currentTimeMillis()
         db.execSQL(
@@ -1316,6 +1386,15 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS idx_cycle_protections_updated ON cycle_protections(updated_at_epoch_ms DESC)"
         )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_identity_nodes_kind ON identity_nodes(kind, updated_at_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_identity_alias_lookup ON identity_aliases(alias_type, normalized_value)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_identity_alias_identity ON identity_aliases(identity_id)"
+        )
     }
 
     private fun createTriggers(db: SQLiteDatabase) {
@@ -1336,6 +1415,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 27
+        private const val DATABASE_VERSION = 28
     }
 }
