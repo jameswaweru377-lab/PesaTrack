@@ -1231,3 +1231,44 @@ No new provider wording is introduced here.
 Every new fixture is a sanitized amount/date/reference/name/account variant of an already-supported message structure. This improves extraction and routing regression coverage without pretending that a bank currently emits an unverified message shape.
 
 Phase 6 remains evidence-driven: new long-tail templates still require real sanitized/public wording evidence.
+
+
+## Phase 6 — Long-tail coverage, increment 19 — Adjacent-finance fixture depth
+
+Branch milestone: `feature/phase6-adjacent-fixture-depth-v19`.
+
+This increment extends the three-fixture regression floor to the supported adjacent-finance shapes that now participate in guarded savings, debt or investment semantics.
+
+### Added regression depth
+
+`fixtures-v12.json` adds **33 sanitized variants** using wording structures already supported by the current Message Pack.
+
+The following 17 shapes now have at least three golden fixtures each:
+
+- M-Shwari Lock Savings deposit;
+- M-Shwari Lock Savings release to M-Shwari;
+- M-Shwari credit from M-Pesa;
+- M-Shwari fee-bearing loan receipt;
+- Etica account payment;
+- Etica redemption;
+- Etica withdrawal to M-Pesa;
+- Sanlam Money Market Fund credit;
+- Sanlam investment top-up;
+- Branch drawdown;
+- Branch payment-due notice;
+- Tala drawdown;
+- Tala payment-due notice;
+- Timiza drawdown;
+- Zenka drawdown;
+- OKash drawdown;
+- Hustler Fund split drawdown/savings.
+
+### Why this matters
+
+These shapes include cases where confusing one field can corrupt debt, savings or investment interpretation. The extra fixtures therefore exercise amount, fee, repay amount, savings allocation, unit amount, date, account and counterparty extraction across more value combinations.
+
+### Corpus-health rule
+
+CI now fails if any of these adjacent-finance templates drops below three golden fixtures.
+
+No new provider wording is introduced. The new fixtures only vary sanitized values inside already-supported message structures.
