@@ -2899,3 +2899,21 @@ Implemented:
 - No SMS wording was invented and no ledger/category authority changed.
 
 Next Phase 6 increment should reconcile source-aware app-notification routing and Message Lab provenance so app-only shapes can be learned safely.
+
+
+## Phase 6 Long-tail Coverage — increment 7 / verified app-package identity — 2026-10-02
+
+Phase 6 now recognizes the source institution of selected Android banking-app notifications from verified package IDs.
+
+Implemented:
+
+- Added `FinancialAppSourceRegistry`.
+- Verified package identities cover KCB Mobile, Equity Mobile, Co-op Bank, NCBA NOW, Absa Kenya, Stanbic Bank Kenya and DTB 24/7.
+- The ingestion coordinator prefers verified package identity for source diagnostics/Message Lab labeling, then falls back to existing title/language resolution.
+- Bank-package resolution returns `AccountOwnershipHint.UNKNOWN`; package evidence never claims the user owns an account.
+- Package identity does not alter semantic parsing, category logic, ledger arithmetic or recurring-learning behavior.
+- Unknown packages remain unresolved.
+- Added pure tests for all verified package mappings, normalization and unknown-package fail-closed behavior.
+- Evidence is recorded in `docs/entity-catalog-sources.md`.
+
+Next Phase 6 work should add provider-specific app-notification wording only from concrete sanitized/public examples, or continue evidence-backed lenders/SACCOs that are still missing.
