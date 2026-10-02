@@ -1,0 +1,103 @@
+[
+  {
+    "id": "etica_account_payment",
+    "title": "ETICALTD",
+    "body": "Dear esteemed client 254749000000 Your payment of KES 22,222.00 to 254749000011 - SAMPLE PERSON from account 11111MC (EMMF - KES) has been processed.",
+    "templateId": "ke.etica.payment.account-payment",
+    "expectedFields": {
+      "AMOUNT": "22,222.00",
+      "COUNTERPARTY": "254749000011 - SAMPLE PERSON",
+      "ACCOUNT_REFERENCE": "11111MC"
+    }
+  },
+  {
+    "id": "etica_redemption_kes",
+    "title": "ETICALTD",
+    "body": "You have sent KES 111,111.00 from your account 11111MC in EMMF - KES to Mr. SAMPLE PERSON (11111F)",
+    "templateId": "ke.etica.investment.redemption",
+    "expectedFields": {
+      "CURRENCY": "KES",
+      "AMOUNT": "111,111.00",
+      "ACCOUNT_REFERENCE": "11111MC",
+      "PRODUCT": "EMMF - KES",
+      "COUNTERPARTY": "SAMPLE PERSON"
+    }
+  },
+  {
+    "id": "etica_redemption_usd",
+    "title": "ETICALTD",
+    "body": "You have sent USD 1,234.00 from your account 11111MU in EMMF - USD to Mr. SAMPLE PERSON (11111FU)",
+    "templateId": "ke.etica.investment.redemption",
+    "expectedFields": {
+      "CURRENCY": "USD",
+      "AMOUNT": "1,234.00",
+      "ACCOUNT_REFERENCE": "11111MU",
+      "PRODUCT": "EMMF - USD",
+      "COUNTERPARTY": "SAMPLE PERSON"
+    }
+  },
+  {
+    "id": "etica_withdrawal_to_mpesa",
+    "title": "ETICALTD",
+    "body": "Dear esteemed client 254749000000 Kindly note that we have processed a withdrawal of KES 8,888.00 to Mpesa - 254749000012. Please note it may take a few minutes.",
+    "templateId": "ke.etica.investment.withdrawal-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "8,888.00",
+      "COUNTERPARTY": "254749000012"
+    }
+  },
+  {
+    "id": "evopay_card_parking",
+    "title": "EVOPAY",
+    "body": "Dear Customer, Ksh. 100 parking fee has been charged to your card PK0000001111. Your new card balance is Ksh. 1200. Thank you for visiting SAMPLE CENTRE.",
+    "templateId": "ke.evopay.parking.card-charge",
+    "expectedFields": {
+      "AMOUNT": "100",
+      "BALANCE": "1200",
+      "COUNTERPARTY": "SAMPLE CENTRE"
+    }
+  },
+  {
+    "id": "evopay_lpn_parking",
+    "title": "EVOPAY",
+    "body": "Dear customer, you have paid parking fee of KES 200 for LPN KXX000A. You have 15 min to exit. Thank you for visiting SAMPLE CENTRE.",
+    "templateId": "ke.evopay.parking.lpn-payment",
+    "expectedFields": {
+      "AMOUNT": "200",
+      "ACCOUNT_REFERENCE": "KXX000A",
+      "COUNTERPARTY": "SAMPLE CENTRE"
+    }
+  },
+  {
+    "id": "globalpay_card_purchase",
+    "title": "Globalpay",
+    "body": "Dear SAMPLE, a transaction of Ksh. 333.33 (inclusive of Ksh. 3.33 forex charge) done at SAMPLE CLOUD LTD has been approved on your card ****8642.",
+    "templateId": "ke.globalpay.card.purchase",
+    "expectedFields": {
+      "AMOUNT": "333.33",
+      "FEE": "3.33",
+      "COUNTERPARTY": "SAMPLE CLOUD LTD"
+    }
+  },
+  {
+    "id": "sanlam_fund_credit",
+    "title": "SANLAM_UT",
+    "body": "Dear SAMPLE PERSON, Your account for Sanlam Money Market Fund has been credited with Kes 2,000.00 and 2,000.00 units, as of 06 Jun, 2024.",
+    "templateId": "ke.sanlam.investment.fund-credit",
+    "expectedFields": {
+      "AMOUNT": "2,000.00",
+      "PRODUCT": "Sanlam Money Market Fund",
+      "UNITS": "2,000.00",
+      "DATE": "06 Jun, 2024"
+    }
+  },
+  {
+    "id": "sanlam_top_up",
+    "title": "SANLAM_UT",
+    "body": "Dear SAMPLE PERSON, you have successfully topped up your account with KES. 2000.00, your account will be updated soon, Thank You.",
+    "templateId": "ke.sanlam.investment.top-up",
+    "expectedFields": {
+      "AMOUNT": "2000.00"
+    }
+  }
+]
