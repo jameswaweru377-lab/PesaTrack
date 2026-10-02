@@ -2840,3 +2840,27 @@ Implemented:
 - No ledger arithmetic, pay-cycle math, debt balances, personal-learning decisions or Phase 5 navigation were changed.
 
 Continue Phase 6 with additional banks, SACCOs, lenders and bank-app notification wording only from concrete sanitized/public message evidence.
+
+
+## Phase 6 Long-tail Coverage — increment 3 / source-aware app notifications — 2026-10-02
+
+Phase 6 now has source-aware Message Pack routing for bank/app notifications.
+
+Implemented:
+
+- `MessageTemplateDefinition` supports optional `sourcePackages` and `sourceKinds`.
+- Message Pack routing receives `sourcePackage` and `sourceKind` from the ingestion coordinator.
+- A constrained template only matches the declared Android package/source channel.
+- Existing unconstrained SMS templates remain backward compatible.
+- Source-constrained templates receive stronger routing specificity than sender-only templates.
+- Parse provenance states when package/channel evidence participated.
+- Unsupported Message Lab shapes now retain package/channel metadata locally.
+- Source metadata contributes to unsupported-shape fingerprints so identical text from different app sources does not collapse incorrectly.
+- Developer fixture export includes source package/kind when present.
+- Data Health displays source context for unsupported shapes.
+- Notification-listener UI label is generalized to “PesaTrack financial notification listener”.
+- Added router tests proving package/channel enforcement and backward compatibility.
+
+This was rebased on top of the concurrently merged Co-op/Equity account-alert increment, preserving the 48-template Kenya corpus.
+
+No provider-specific notification wording is invented in this increment. The next provider/app notification template should be added only from concrete sanitized/public evidence.
