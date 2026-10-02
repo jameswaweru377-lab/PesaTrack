@@ -144,7 +144,7 @@ fun HomeScreen(
     onProfileClick: () -> Unit = {},
     onReviewClick: () -> Unit = {},
     onTransactionClick: (Long) -> Unit = {},
-    onBudgetClick: () -> Unit = {},
+    onPlanClick: () -> Unit = {},
     onAccountsClick: () -> Unit = {},
     onDebtsClick: () -> Unit = {}
 ) {
@@ -1070,8 +1070,8 @@ fun HomeScreen(
                     homeSpendingItems,
                 totalMinor =
                     totalTrustedSpendingMinor,
-                onBudgetClick =
-                    onBudgetClick
+                onPlanClick =
+                    onPlanClick
             )
         }
 
