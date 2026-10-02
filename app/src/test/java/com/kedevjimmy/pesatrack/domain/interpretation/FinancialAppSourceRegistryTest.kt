@@ -130,6 +130,36 @@ class FinancialAppSourceRegistryTest {
     }
 
     @Test
+    fun resolvesKashbeanPackageWithoutInventingLoanMeaning() {
+        val kashbean =
+            FinancialAppSourceRegistry
+                .resolve(
+                    " COM.KASHBEAN "
+                )
+
+        assertEquals(
+            "Kashbean",
+            kashbean?.displayName
+        )
+        assertEquals(
+            "KENYAN_LENDER_KASHBEAN",
+            kashbean?.providerKey
+        )
+        assertEquals(
+            AccountType.OTHER,
+            kashbean?.accountTypeHint
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            kashbean?.ownershipHint
+        )
+        assertEquals(
+            FinancialAccountNature.UNKNOWN,
+            kashbean?.nature
+        )
+    }
+
+    @Test
     fun resolvesZenkaAndTimizaPackagesWithoutInventingProductMeaning() {
         val zenka =
             FinancialAppSourceRegistry
@@ -329,6 +359,12 @@ class FinancialAppSourceRegistryTest {
             FinancialAppSourceRegistry
                 .isKnownPackage(
                     "com.inventureaccess.safarirahisi"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.kashbean"
                 )
         )
         assertTrue(
