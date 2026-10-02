@@ -4075,6 +4075,9 @@ private fun CapturedFinancialMessageRow(
                 .UNDERSTOOD_NO_LEDGER_EFFECT ->
                 "blue"
             FinancialIngestionDiagnosticCode
+                .RESOLVED_BY_CURRENT_COVERAGE ->
+                "green"
+            FinancialIngestionDiagnosticCode
                 .LINKED_OBSERVATION -> "green"
             FinancialIngestionDiagnosticCode
                 .OBSERVATION_ONLY -> "blue"
@@ -4092,6 +4095,9 @@ private fun CapturedFinancialMessageRow(
             FinancialIngestionDiagnosticCode
                 .UNDERSTOOD_NO_LEDGER_EFFECT ->
                 "Understood"
+            FinancialIngestionDiagnosticCode
+                .RESOLVED_BY_CURRENT_COVERAGE ->
+                "Now understood"
             FinancialIngestionDiagnosticCode
                 .LINKED_OBSERVATION -> "Linked"
             FinancialIngestionDiagnosticCode
