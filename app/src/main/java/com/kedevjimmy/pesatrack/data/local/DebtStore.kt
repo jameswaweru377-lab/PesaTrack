@@ -63,6 +63,10 @@ data class DebtEventRecord(
     val walletBalanceAfterMinor: Long?,
     val fundingAccountKey: String?,
     val fundingAccountId: String?,
+    val proceedsAmountMinor: Long?,
+    val savingsAllocationMinor: Long?,
+    val savingsAccountKey: String?,
+    val savingsAccountId: String?,
     val resultingBalanceObservationId: Long?,
     val balanceLinkConfidence: RepaymentChainConfidence?,
     val balanceLinkReason: String?,
@@ -140,6 +144,12 @@ class DebtStore private constructor(context: Context) {
                     .get(appContext)
                     .accountIdFor(it)
             }
+        val savingsAccountId =
+            event.savingsAccount?.let {
+                FinancialUnderstandingStore
+                    .get(appContext)
+                    .accountIdFor(it)
+            }
         val linkedTransactionId =
             linkedTransactionIdOverride
                 ?: when (
@@ -184,6 +194,14 @@ class DebtStore private constructor(context: Context) {
                 event.proceedsAccount?.entityKey,
             fundingAccountId =
                 fundingAccountId,
+            proceedsAmountMinor =
+                event.proceedsAmountMinor,
+            savingsAllocationMinor =
+                event.savingsAllocationMinor,
+            savingsAccountKey =
+                event.savingsAccount?.entityKey,
+            savingsAccountId =
+                savingsAccountId,
             availableCreditAfterMinor =
                 event.availableCreditAfterMinor,
             repaymentCompletion = null,
@@ -1677,6 +1695,10 @@ class DebtStore private constructor(context: Context) {
                    wallet_balance_after_minor,
                    funding_account_key,
                    funding_account_id,
+                   proceeds_amount_minor,
+                   savings_allocation_minor,
+                   savings_account_key,
+                   savings_account_id,
                    resulting_balance_observation_id,
                    balance_link_confidence,
                    balance_link_reason,
@@ -1742,47 +1764,37 @@ class DebtStore private constructor(context: Context) {
                                 } else {
                                     cursor.getString(10)
                                 },
-                            resultingBalanceObservationId =
+                            proceedsAmountMinor =
                                 if (cursor.isNull(11)) {
                                     null
                                 } else {
                                     cursor.getLong(11)
                                 },
-                            balanceLinkConfidence =
+                            savingsAllocationMinor =
                                 if (cursor.isNull(12)) {
                                     null
                                 } else {
-                                    runCatching {
-                                        RepaymentChainConfidence
-                                            .valueOf(
-                                                cursor.getString(12)
-                                            )
-                                    }.getOrNull()
+                                    cursor.getLong(12)
                                 },
-                            balanceLinkReason =
+                            savingsAccountKey =
                                 if (cursor.isNull(13)) {
                                     null
                                 } else {
                                     cursor.getString(13)
                                 },
-                            availableCreditAfterMinor =
+                            savingsAccountId =
                                 if (cursor.isNull(14)) {
                                     null
                                 } else {
-                                    cursor.getLong(14)
+                                    cursor.getString(14)
                                 },
-                            repaymentCompletion =
+                            resultingBalanceObservationId =
                                 if (cursor.isNull(15)) {
                                     null
                                 } else {
-                                    runCatching {
-                                        DebtCompletion
-                                            .valueOf(
-                                                cursor.getString(15)
-                                            )
-                                    }.getOrNull()
+                                    cursor.getLong(15)
                                 },
-                            fundingLinkConfidence =
+                            balanceLinkConfidence =
                                 if (cursor.isNull(16)) {
                                     null
                                 } else {
@@ -1793,14 +1805,48 @@ class DebtStore private constructor(context: Context) {
                                             )
                                     }.getOrNull()
                                 },
-                            fundingLinkReason =
+                            balanceLinkReason =
                                 if (cursor.isNull(17)) {
                                     null
                                 } else {
                                     cursor.getString(17)
                                 },
+                            availableCreditAfterMinor =
+                                if (cursor.isNull(18)) {
+                                    null
+                                } else {
+                                    cursor.getLong(18)
+                                },
+                            repaymentCompletion =
+                                if (cursor.isNull(19)) {
+                                    null
+                                } else {
+                                    runCatching {
+                                        DebtCompletion
+                                            .valueOf(
+                                                cursor.getString(19)
+                                            )
+                                    }.getOrNull()
+                                },
+                            fundingLinkConfidence =
+                                if (cursor.isNull(20)) {
+                                    null
+                                } else {
+                                    runCatching {
+                                        RepaymentChainConfidence
+                                            .valueOf(
+                                                cursor.getString(20)
+                                            )
+                                    }.getOrNull()
+                                },
+                            fundingLinkReason =
+                                if (cursor.isNull(21)) {
+                                    null
+                                } else {
+                                    cursor.getString(21)
+                                },
                             occurredAtEpochMs =
-                                cursor.getLong(18)
+                                cursor.getLong(22)
                         )
                     )
                 }
@@ -2269,6 +2315,10 @@ class DebtStore private constructor(context: Context) {
         walletBalanceAfterMinor: Long?,
         fundingAccountKey: String?,
         fundingAccountId: String?,
+        proceedsAmountMinor: Long? = null,
+        savingsAllocationMinor: Long? = null,
+        savingsAccountKey: String? = null,
+        savingsAccountId: String? = null,
         availableCreditAfterMinor: Long?,
         repaymentCompletion:
             DebtCompletion?,
@@ -2314,6 +2364,30 @@ class DebtStore private constructor(context: Context) {
                     put(
                         "funding_account_id",
                         fundingAccountId
+                    )
+                }
+                if (proceedsAmountMinor != null) {
+                    put(
+                        "proceeds_amount_minor",
+                        proceedsAmountMinor
+                    )
+                }
+                if (savingsAllocationMinor != null) {
+                    put(
+                        "savings_allocation_minor",
+                        savingsAllocationMinor
+                    )
+                }
+                if (savingsAccountKey != null) {
+                    put(
+                        "savings_account_key",
+                        savingsAccountKey
+                    )
+                }
+                if (savingsAccountId != null) {
+                    put(
+                        "savings_account_id",
+                        savingsAccountId
                     )
                 }
                 if (availableCreditAfterMinor != null) {
@@ -2402,6 +2476,38 @@ class DebtStore private constructor(context: Context) {
                 )
             } else {
                 putNull("funding_account_id")
+            }
+            if (proceedsAmountMinor != null) {
+                put(
+                    "proceeds_amount_minor",
+                    proceedsAmountMinor
+                )
+            } else {
+                putNull("proceeds_amount_minor")
+            }
+            if (savingsAllocationMinor != null) {
+                put(
+                    "savings_allocation_minor",
+                    savingsAllocationMinor
+                )
+            } else {
+                putNull("savings_allocation_minor")
+            }
+            if (savingsAccountKey != null) {
+                put(
+                    "savings_account_key",
+                    savingsAccountKey
+                )
+            } else {
+                putNull("savings_account_key")
+            }
+            if (savingsAccountId != null) {
+                put(
+                    "savings_account_id",
+                    savingsAccountId
+                )
+            } else {
+                putNull("savings_account_id")
             }
             putNull(
                 "resulting_balance_observation_id"
