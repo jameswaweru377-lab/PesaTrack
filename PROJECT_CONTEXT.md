@@ -3022,9 +3022,11 @@ Implemented:
 - Shape identity uses redacted body + sender + normalized package/channel.
 - Sensitive amount/date/time/name/account changes collapse into the same structural shape.
 - App and SMS/imported channels remain separate.
+- New financial diagnostics persist the privacy-safe message-shape ID.
 - `MessageLabStore.markUnderstood(...)` removes a previously stored unsupported shape when a new observation of that same shape is now recognized/semantically understood.
+- Prior diagnostics carrying that same shape ID are changed from unsupported to `RESOLVED_BY_CURRENT_COVERAGE`, so Coverage-by-source improves instead of waiting for old records to age out.
 - Retired occurrence count is persisted locally.
-- Data Health shows **Resolved Message Lab occurrences**.
+- Data Health shows both **Resolved by current coverage** and **Resolved Message Lab occurrences**.
 - Added regression tests for sensitive-value stability, package separation and channel separation.
 
 Important boundary:
