@@ -777,3 +777,47 @@ Package identity does **not**:
 Unknown package IDs fail closed and remain unknown.
 
 This prepares the next long-tail step: provider-specific app-notification templates can use package constraints only after concrete sanitized/public notification wording is available.
+
+
+## Phase 6 — Long-tail coverage, increment 8 — Coverage by source
+
+Branch milestone: `feature/phase6-source-coverage-v8`.
+
+This increment turns local ingestion diagnostics into an actionable coverage map so long-tail work can be driven by real device evidence instead of guessing which institution to implement next.
+
+### Source coverage analysis
+
+A new pure `FinancialCoverageAnalysis` groups recent financial observations by:
+
+- source channel;
+- Android package when available;
+- otherwise stable source display identity/title.
+
+For each source it reports:
+
+- observation count;
+- understood count/percentage;
+- Message Pack template count;
+- unsupported financial count;
+- latest observation time.
+
+SMS/imported observations and app notifications remain separate coverage groups even when they belong to the same institution because their message shapes can differ.
+
+### Data Health
+
+Data Health now contains **Coverage by source** below the overall coverage summary.
+
+Sources with unsupported financial observations sort first, followed by observation volume and recency. This makes the next Message Pack gap visible without exposing raw message content.
+
+Examples of the intended workflow:
+
+1. receive/import real messages;
+2. open Data Health;
+3. find a bank/SACCO/lender with unsupported observations;
+4. inspect its locally redacted Message Lab fixture;
+5. add a narrow evidence-backed template;
+6. verify that source coverage improves.
+
+### Guardrail
+
+Coverage analysis is observational only. It does not change transaction meaning, identity, account ownership, category, Smart Rules, recurring commitments or ledger arithmetic.
