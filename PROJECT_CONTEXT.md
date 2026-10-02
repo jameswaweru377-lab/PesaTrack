@@ -3201,3 +3201,19 @@ Implemented:
 The current active Kenya pack remains 62 templates with a universal three-fixture minimum.
 
 Future Phase 6 corpus growth must come from concrete Coverage-by-source / Message Lab evidence rather than speculative provider wording.
+
+
+## Phase 6 Long-tail Coverage — increment 22 / duplicate-accounting safety gate — 2026-10-02
+
+Phase 6 now has an explicit duplicate/mirror accounting acceptance gate.
+
+Implemented:
+
+- Added `DuplicateAccountingAcceptanceGateTest`.
+- Known high-evidence mirror fixtures must all auto-link.
+- Covered strong evidence includes shared external reference, same transaction code, complementary account path, shared identity, complementary direction, and coded/codeless very-close copies.
+- Known distinct fixtures must never auto-link.
+- False-link guardrails cover amount conflicts, different transaction codes, stale/far-apart observations, reversals, same-source codeless timing, and weak codeless cross-source similarity.
+- Ambiguous codeless cross-source observations are required to remain review candidates through `PossibleDuplicatePolicy` while staying non-auto-linked.
+
+This makes the blueprint's near-zero known duplicate-accounting regression goal executable in CI without changing the production matcher.
