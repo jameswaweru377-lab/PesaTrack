@@ -981,13 +981,16 @@ When a later message with the same redacted shape becomes recognized or semantic
 
 - recomputes the same privacy-safe shape identity;
 - removes the stale unsupported Message Lab entry;
+- marks prior diagnostics carrying that same shape ID as `RESOLVED_BY_CURRENT_COVERAGE`;
 - increments a local retired-occurrence counter.
+
+New financial diagnostics persist only the privacy-safe shape ID, never the raw body. Coverage-by-source therefore stops counting those resolved observations as unsupported and can converge as the corpus improves.
 
 No raw-message archive is created.
 
 ### Data Health
 
-Data Health now reports **Resolved Message Lab occurrences** so corpus progress is visible.
+Data Health now reports both **Resolved by current coverage** diagnostics and **Resolved Message Lab occurrences** so corpus progress is visible.
 
 This does not rewrite historical diagnostics or ledger history. It only keeps the active unsupported-shape inbox aligned with what the current interpreter can understand when that shape is observed again.
 
