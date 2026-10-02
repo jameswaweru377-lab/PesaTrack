@@ -1405,3 +1405,53 @@ The same integration pass also consolidates the useful readiness checks from the
 - the canonical financial fixture corpus must have zero legacy transaction-parser dependency.
 
 This avoids maintaining two competing Phase 6 readiness frameworks.
+
+
+## Phase 6 — Long-tail coverage, increment 23 — Smart Rule explainability
+
+Branch milestone: `feature/phase6-smart-rule-explainability-v23`.
+
+This increment closes the remaining static explainability/reversibility gap for Smart Rule auto-classification.
+
+### Human-readable why
+
+Transaction Details no longer stops at “Automatically classified by a saved smart rule.”
+
+When the original rule record still exists, the classification card now:
+
+- names the saved rule;
+- explains the kind of saved condition that matched;
+- does not echo stored phone numbers or saved message phrases;
+- preserves the Smart Rule provenance badge.
+
+The explanation layer is a pure `SmartRuleDecisionExplanation` with privacy regression tests.
+
+### Reversible future behavior
+
+An enabled applied rule now exposes **Disable rule for future** directly from Transaction Details.
+
+Disabling:
+
+- sets the rule inactive;
+- leaves the current transaction classification unchanged;
+- preserves the transaction's existing rule provenance;
+- allows the user to change the current transaction manually if desired.
+
+A transaction whose originating rule is already disabled shows that state explicitly.
+
+### Phase 6 static acceptance baseline
+
+With increments 21-23, the blueprint's static engineering targets are enforced or surfaced:
+
+- >=95% relevance accuracy on labeled supported corpora;
+- >=90% declared-field extraction accuracy;
+- >=3 golden fixtures for every active Kenya template;
+- deterministic human-readable template provenance;
+- no canonical legacy-parser dependency;
+- known duplicate/mirror accounting safety fixtures;
+- explainable and reversible Smart Rule auto-classification;
+- explainable/reversible personal learning from Phase 4.
+
+The blueprint's remaining “fewer than roughly 5% ordinary daily transactions need category review after a month” target is a real-usage outcome and cannot be honestly certified by repository CI. It should be measured from local Data Health after sufficient real-device history and reviewed examples.
+
+Phase 6 is therefore structurally complete at the current evidence baseline. Future long-tail expansion remains open-ended and must be driven by real Coverage-by-source / Message Lab evidence rather than template-count goals.
