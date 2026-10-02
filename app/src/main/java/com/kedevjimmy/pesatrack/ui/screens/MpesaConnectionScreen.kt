@@ -84,9 +84,9 @@ fun MpesaConnectionScreen(
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
             }
             Column {
-            Text("M-Pesa connection", style = MaterialTheme.typography.headlineMedium)
+            Text("Financial notifications", style = MaterialTheme.typography.headlineMedium)
             Text(
-            "Real-time, on-device transaction capture",
+            "Real-time, on-device financial alert capture",
             color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             }
@@ -167,7 +167,7 @@ fun MpesaConnectionScreen(
             color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
-            "PesaTrack filters notifications on this phone. Unrelated notifications are ignored, and raw M-Pesa message bodies are not saved. Only structured transaction fields are kept locally.",
+            "PesaTrack screens notification text locally before financial interpretation. Unrelated, promotional and security-code notifications are ignored. Supported financial alerts become structured local records; unsupported financial shapes stay inside the local redacted learning flow.",
             modifier = Modifier.padding(top = 4.dp),
             color = MaterialTheme.colorScheme.onPrimaryContainer
             )
@@ -195,14 +195,14 @@ private fun ConnectionStatusCard(granted: Boolean) {
                     .padding(start = 12.dp)
             ) {
                 Text(
-                    if (granted) "M-Pesa listening is enabled" else "Notification access is required",
+                    if (granted) "Financial notification capture is enabled" else "Notification access is required",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
                     if (granted) {
-                        "New M-Pesa confirmation notifications can now be parsed locally."
+                        "New M-Pesa and supported bank/app financial notifications can now be screened and parsed locally."
                     } else {
-                        "Grant PesaTrack notification access so it can see new M-Pesa confirmation messages."
+                        "Grant PesaTrack notification access so it can screen new financial alerts on this phone."
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
