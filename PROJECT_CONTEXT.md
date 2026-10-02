@@ -2861,3 +2861,28 @@ Implemented:
 Evidence source and sanitization rules are recorded in `docs/message-corpus-sources.md`.
 
 Phase 6 remains in progress. The source-aware app-notification routing work should be reconciled next so future app-only shapes can constrain matches by Android package/channel evidence.
+
+
+## Phase 6 Long-tail Coverage — increment 3 / bank-app notifications — 2026-10-02
+
+Phase 6 now has a generic bank/app notification ingestion boundary in addition to SMS.
+
+Implemented:
+
+- Added `FinancialNotificationCapturePolicy` using the existing local Financial Message Relevance Gate.
+- Notification title and body both contribute to local relevance screening.
+- PesaTrack's own notifications and Android group summaries are ignored before ingestion.
+- OTP/security-code, promotional and solicitation notifications remain rejected by the relevance policy.
+- Explicit configured notification rules remain an escape hatch when the generic gate is conservative.
+- Generic titles such as Transaction Alert can fall back to the installed app label for source interpretation; meaningful titles remain unchanged.
+- Added `financial_app_notification` source provenance while retaining package name.
+- Added a two-minute in-memory SHA-256 notification-update deduper keyed by package + notification key + title + body.
+- Repeated identical notification updates are suppressed; changed bodies/different keys remain distinct.
+- Permission/setup/settings wording now covers M-Pesa plus supported bank/app financial notifications.
+- Added pure tests for screening and deduplication.
+
+Guardrail:
+
+This is capture infrastructure, not permission to guess provider templates. New institution-specific bank/app message shapes still require real sanitized or public examples before entering the Message Pack.
+
+Next Phase 6 work should focus on collecting and adding evidence-backed Tier-A bank/SACCO/lender fixtures and measuring supported-corpus coverage against the blueprint targets.
