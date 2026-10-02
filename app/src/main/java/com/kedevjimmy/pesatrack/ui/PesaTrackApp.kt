@@ -97,8 +97,15 @@ fun PesaTrackApp(
                     onProfileClick = {
                         navController.navigate("profile")
                     },
-                    onReviewClick = {
-                        navigateToTab(MainTab.ACTIVITY)
+                    onAttentionClick = {
+                        navController.navigate(
+                            "activity-attention"
+                        )
+                    },
+                    onActivityClick = {
+                        navigateToTab(
+                            MainTab.ACTIVITY
+                        )
                     },
                     onTransactionClick = { id ->
                         navController.navigate(
@@ -191,6 +198,38 @@ fun PesaTrackApp(
                             "data-health"
                         )
                     }
+                )
+            }
+        }
+
+        composable("activity-attention") {
+            AppScaffold(
+                currentTab = MainTab.ACTIVITY,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                ActivityScreen(
+                    scaffoldPadding = padding,
+                    onTransactionClick = { id ->
+                        navController.navigate(
+                            "transaction-detail/$id"
+                        )
+                    },
+                    onProfileClick = {
+                        navController.navigate(
+                            "profile"
+                        )
+                    },
+                    onIdentityReviewClick = {
+                        navController.navigate(
+                            "identity-review"
+                        )
+                    },
+                    onDataHealthClick = {
+                        navController.navigate(
+                            "data-health"
+                        )
+                    },
+                    openNeedsAttention = true
                 )
             }
         }
