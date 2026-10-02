@@ -202,6 +202,46 @@ class FinancialProviderRegistryTest {
     }
 
     @Test
+    fun hustlerSavingsAllocationHasSeparateOwnedAssetIdentity() {
+        val savings =
+            FinancialProviderRegistry
+                .resolveAccount(
+                    "Hustler Fund Savings"
+                )
+        val loan =
+            FinancialProviderRegistry
+                .resolveAccount(
+                    "Hustler Fund Loan"
+                )
+
+        assertEquals(
+            "HUSTLER_FUND_SAVINGS",
+            savings.providerKey
+        )
+        assertEquals(
+            AccountType.SAVINGS,
+            savings.accountTypeHint
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            savings.ownershipHint
+        )
+        assertEquals(
+            FinancialAccountNature.ASSET,
+            savings.nature
+        )
+
+        assertEquals(
+            "HUSTLER_FUND_LOAN",
+            loan.providerKey
+        )
+        assertEquals(
+            FinancialAccountNature.LIABILITY,
+            loan.nature
+        )
+    }
+
+    @Test
     fun resolvesKcbMpesaAsOwnedSavingsAccount() {
         val account =
             FinancialProviderRegistry.resolveAccount(
