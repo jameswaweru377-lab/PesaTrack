@@ -54,6 +54,15 @@
     "generic-sacco/account/deposit/template.json",
     "generic-bank/mobile/credit-to-phone/template.json",
     "generic-bank/payment/bill-payment/template.json",
-    "generic-account/credit/balance-notice/template.json"
+    "generic-account/credit/balance-notice/template.json",
+    "mshwari/loan/received-with-fee/template.json",
+    "timiza/loan/disbursed/template.json",
+    "tala/loan/disbursed-to-mpesa/template.json",
+    "tala/loan/payment-due/template.json",
+    "branch/loan/disbursed-to-mpesa/template.json",
+    "branch/loan/payment-due/template.json",
+    "zenka/loan/disbursed-to-mpesa/template.json",
+    "okash/loan/disbursed/template.json",
+    "hustler-fund/loan/disbursed-with-savings/template.json"
   ]
 }
