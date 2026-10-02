@@ -3217,3 +3217,10 @@ Implemented:
 - Ambiguous codeless cross-source observations are required to remain review candidates through `PossibleDuplicatePolicy` while staying non-auto-linked.
 
 This makes the blueprint's near-zero known duplicate-accounting regression goal executable in CI without changing the production matcher.
+
+Readiness consolidation in the same increment:
+
+- Brain v3 relevance accuracy now uses labeled Foundation + canonical financial corpora.
+- Every supported Message Pack fixture must have deterministic expected-template provenance and a human-readable reason.
+- Canonical financial fixtures must have zero legacy-parser dependency.
+- The overlapping standalone readiness PR was intentionally superseded by this consolidated gate.
