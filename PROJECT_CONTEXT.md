@@ -3224,3 +3224,36 @@ Readiness consolidation in the same increment:
 - Every supported Message Pack fixture must have deterministic expected-template provenance and a human-readable reason.
 - Canonical financial fixtures must have zero legacy-parser dependency.
 - The overlapping standalone readiness PR was intentionally superseded by this consolidated gate.
+
+
+## Phase 6 Long-tail Coverage — increment 23 / structural completion — 2026-10-02
+
+Phase 6 now closes the remaining static Smart Rule explainability/reversibility gap.
+
+Implemented:
+
+- Added pure `SmartRuleDecisionExplanation`.
+- Transaction Details names the applied Smart Rule and explains the class of condition that matched.
+- Explanations deliberately do not echo stored phone numbers or saved message phrases.
+- Added RuleStore lookup by ID.
+- Added durable `setEnabled(...)` support.
+- Applied enabled rules expose **Disable rule for future** from Transaction Details.
+- Disabling a rule leaves the current transaction classification/provenance intact and prevents future application.
+- Disabled applied rules are visibly labeled.
+- Added pure privacy/explanation regression tests.
+
+Phase 6 static acceptance baseline is now structurally complete:
+- 62 active Kenya templates;
+- >=3 sanitized fixtures per template;
+- source-aware SMS/app-notification coverage loop;
+- bank/SACCO/lender/investment long-tail coverage;
+- recurring-payment suggestion intelligence;
+- >=95% relevance and >=90% structured extraction gates;
+- zero canonical legacy-parser dependency;
+- explainable template provenance;
+- duplicate-accounting safety gate;
+- reversible personal learning and Smart Rule automation.
+
+The only blueprint target not certifiable from static CI is the real-user outcome target of <~5% ordinary daily transactions needing category review after a month. Measure that from actual local Data Health after sufficient usage; do not fake it with synthetic fixtures.
+
+Future corpus additions remain evidence-driven via Coverage by source / Message Lab.
