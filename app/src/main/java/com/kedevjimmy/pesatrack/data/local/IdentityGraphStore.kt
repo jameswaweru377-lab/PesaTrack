@@ -65,11 +65,6 @@ class IdentityGraphStore private constructor(
                                 5_000
                             )
                 )
-            db.delete(
-                "identity_review_decisions",
-                "identity_id = ?",
-                arrayOf(identityId)
-            )
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -439,6 +434,11 @@ class IdentityGraphStore private constructor(
                     now,
                     identityId
                 )
+            )
+            db.delete(
+                "identity_review_decisions",
+                "identity_id = ?",
+                arrayOf(identityId)
             )
             db.setTransactionSuccessful()
         } finally {
