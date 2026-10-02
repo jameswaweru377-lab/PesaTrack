@@ -46,6 +46,11 @@
     "evopay/parking/lpn-payment/template.json",
     "globalpay/card/purchase/template.json",
     "sanlam/investment/fund-credit/template.json",
-    "sanlam/investment/top-up/template.json"
+    "sanlam/investment/top-up/template.json",
+    "fundilima-sacco/account/withdrawal/template.json",
+    "generic-sacco/account/deposit/template.json",
+    "generic-bank/mobile/credit-to-phone/template.json",
+    "generic-bank/payment/bill-payment/template.json",
+    "generic-account/credit/balance-notice/template.json"
   ]
 }
