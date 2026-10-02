@@ -1,0 +1,24 @@
+{
+  "id": "ke.etica.investment.withdrawal-to-mpesa",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["ETICALTD", "ETICA LTD", "ETICA"],
+  "requiredAnchors": ["processed a withdrawal of", " to Mpesa"],
+  "anyAnchors": [],
+  "eventKind": "INVESTMENT_WITHDRAWAL",
+  "productIdentity": "KENYAN_INVESTMENT_ETICA",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "processed a withdrawal of[ ]+(?:(?:KES|Kshs?[.]?|Sh)[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)[ ]+to Mpesa",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "COUNTERPARTY",
+      "pattern": "to Mpesa[ ]*-[ ]*([+]?[0-9]{10,15})",
+      "group": 1
+    }
+  ]
+}
