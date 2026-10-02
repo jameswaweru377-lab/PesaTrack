@@ -413,7 +413,7 @@ class IdentityGraphStore private constructor(
                     updated_at_epoch_ms = ?
                 WHERE identity_id = ?
                 """.trimIndent(),
-                arrayOf(
+                arrayOf<Any>(
                     IdentityOwnership.SELF.name,
                     IdentityConfidence
                         .USER_CONFIRMED
