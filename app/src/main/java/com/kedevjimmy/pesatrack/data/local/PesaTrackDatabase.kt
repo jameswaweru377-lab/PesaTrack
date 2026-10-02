@@ -1104,14 +1104,12 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
     ) {
         db.execSQL(
             """
-            CREATE TABLE IF NOT EXISTS identity_category_preferences (
-                identity_id TEXT PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS personal_category_reviews (
+                transaction_id INTEGER PRIMARY KEY,
+                identity_id TEXT NOT NULL,
                 category_id TEXT NOT NULL,
                 direction TEXT NOT NULL,
-                confirmation_count INTEGER NOT NULL DEFAULT 1,
-                source_transaction_id INTEGER NOT NULL,
-                created_at_epoch_ms INTEGER NOT NULL,
-                updated_at_epoch_ms INTEGER NOT NULL
+                reviewed_at_epoch_ms INTEGER NOT NULL
             )
             """.trimIndent()
         )
@@ -1124,10 +1122,18 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 category_id TEXT NOT NULL,
                 direction TEXT NOT NULL,
                 confidence TEXT NOT NULL,
-                confirmation_count INTEGER NOT NULL DEFAULT 1,
+                support_count INTEGER NOT NULL DEFAULT 1,
+                total_review_count INTEGER NOT NULL DEFAULT 1,
                 applied_at_epoch_ms INTEGER NOT NULL
             )
             """.trimIndent()
+        )
+
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_personal_reviews_identity_direction ON personal_category_reviews(identity_id, direction)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_personal_applications_identity ON personal_learning_applications(identity_id)"
         )
     }
 
