@@ -3,11 +3,11 @@ package com.kedevjimmy.pesatrack.ui.components
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
-import androidx.compose.material.icons.rounded.TrackChanges
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -28,8 +28,8 @@ enum class MainTab(
 ) {
     HOME("home", "Home", Icons.Rounded.Home),
     ACTIVITY("activity", "Activity", Icons.AutoMirrored.Rounded.ReceiptLong),
-    COMMUNITY("community", "Community", Icons.Rounded.Groups),
-    GOALS("goals", "Goals", Icons.Rounded.TrackChanges),
+    PLAN("plan", "Plan", Icons.Rounded.CalendarMonth),
+    ACCOUNTS("accounts", "Accounts", Icons.Rounded.AccountBalanceWallet),
     MORE("more", "More", Icons.Rounded.MoreHoriz)
 }
 
