@@ -148,9 +148,7 @@ class FinancialMessageIngestionCoordinator private constructor(
                 result = result
             )
             updateIdentityGraph(
-                result = result,
-                rebuildPayCycles =
-                    rebuildPayCycles
+                result = result
             )
             return result
         }
@@ -1139,8 +1137,7 @@ class FinancialMessageIngestionCoordinator private constructor(
     }
 
     private fun updateIdentityGraph(
-        result: FinancialMessageIngestionResult,
-        rebuildPayCycles: Boolean
+        result: FinancialMessageIngestionResult
     ) {
         if (
             result.insertedTransactions <= 0
@@ -1157,12 +1154,12 @@ class FinancialMessageIngestionCoordinator private constructor(
                     transactionLimit = 100
                 )
             personalLearningStore
-                .applyHighConfidenceTo(
-                    transactionStore.recent(
-                        limit = 100
-                    ),
-                    rebuildPayCycles =
-                        rebuildPayCycles
+                .ensureHistoricalBackfill(
+                    limit = 1_000
+                )
+            personalLearningStore
+                .reconcilePending(
+                    limit = 200
                 )
         }
     }
