@@ -7,6 +7,7 @@ import com.kedevjimmy.pesatrack.data.local.FinancialEventStatus
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.InvestmentStore
 import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
+import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
@@ -61,6 +62,8 @@ class FinancialMessageIngestionCoordinator private constructor(
         MessageLabStore.get(appContext)
     private val identityGraphStore =
         IdentityGraphStore.get(appContext)
+    private val personalLearningStore =
+        PersonalLearningStore.get(appContext)
 
     @Synchronized
     fun ingest(
@@ -145,7 +148,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                 result = result
             )
             updateIdentityGraph(
-                result
+                result = result,
+                rebuildPayCycles =
+                    rebuildPayCycles
             )
             return result
         }
@@ -1126,13 +1131,16 @@ class FinancialMessageIngestionCoordinator private constructor(
             result = result
         )
         updateIdentityGraph(
-            result
+            result = result,
+            rebuildPayCycles =
+                rebuildPayCycles
         )
         return result
     }
 
     private fun updateIdentityGraph(
-        result: FinancialMessageIngestionResult
+        result: FinancialMessageIngestionResult,
+        rebuildPayCycles: Boolean
     ) {
         if (
             result.insertedTransactions <= 0
@@ -1147,6 +1155,14 @@ class FinancialMessageIngestionCoordinator private constructor(
             identityGraphStore
                 .synchronize(
                     transactionLimit = 100
+                )
+            personalLearningStore
+                .applyHighConfidenceTo(
+                    transactionStore.recent(
+                        limit = 100
+                    ),
+                    rebuildPayCycles =
+                        rebuildPayCycles
                 )
         }
     }

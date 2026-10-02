@@ -22,6 +22,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createFinancialUnderstandingTables(db)
         createIdentityGraphTables(db)
         createIdentityReviewDecisionsTable(db)
+        createPersonalLearningTables(db)
         createTransactionExternalReferencesTable(db)
         createLiabilityPaymentDecisionsTable(db)
         createInvestmentTables(db)
@@ -406,6 +407,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 29) {
             createIdentityReviewDecisionsTable(db)
+        }
+
+        if (oldVersion < 30) {
+            createPersonalLearningTables(db)
         }
 
         createIndexes(db)
@@ -1094,6 +1099,38 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createPersonalLearningTables(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS identity_category_preferences (
+                identity_id TEXT PRIMARY KEY,
+                category_id TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                confirmation_count INTEGER NOT NULL DEFAULT 1,
+                source_transaction_id INTEGER NOT NULL,
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS personal_learning_applications (
+                transaction_id INTEGER PRIMARY KEY,
+                identity_id TEXT NOT NULL,
+                category_id TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                confidence TEXT NOT NULL,
+                confirmation_count INTEGER NOT NULL DEFAULT 1,
+                applied_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun createFinancialUnderstandingTables(
         db: SQLiteDatabase
     ) {
@@ -1459,6 +1496,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 29
+        private const val DATABASE_VERSION = 30
     }
 }

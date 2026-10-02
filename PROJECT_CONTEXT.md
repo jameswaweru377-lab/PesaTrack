@@ -2645,3 +2645,32 @@ Schema advances from v28 to **v29** with `identity_review_decisions`.
 The review screen is under Data Health/More, not Home. No transaction category is learned or applied in this increment, and no Smart Rule is generated.
 
 Next: Phase 4 personal learning, built on durable identity + review evidence rather than raw name repetition.
+
+
+## Brain v3 Phase 4 — Personal Learning increment 1 — 2026-10-02
+
+Phase 3 is complete through durable Identity Review. The implementation has now moved into Phase 4 without starting the Home redesign.
+
+### Implemented
+
+- Database schema advances from v29 to **v30**.
+- Added `identity_category_preferences` for explicit remembered category preferences tied to Identity Graph nodes.
+- Added `personal_learning_applications` for explainable auto-application provenance.
+- Existing exact-name / exact-phone Smart Rules remain unchanged and have priority.
+- Choosing **Remember** now also teaches the resolved Identity Graph identity when the chosen category is an ordinary expense category.
+- High-confidence or user-confirmed identity matches may auto-apply that remembered category.
+- Medium-confidence identity matches surface a Transaction Details suggestion and require confirmation.
+- Low-confidence identity matches remain in normal review.
+- **Only this one** deliberately does not create a reusable personal-learning preference.
+- Structural categories and accounting states are outside this first learning increment: transfer, income, debt/loan, savings, investment, cash, uncategorized and Other are not identity-learned.
+- USER_CLASSIFIED, EXCLUDED, Smart-Rule-controlled and linked financial records are not overwritten.
+- Data Health shows learned category identity count and auto-applied learning count.
+- Pure policy tests cover high / medium / low confidence and structural-category guardrails.
+
+### Guardrail
+
+Personal learning is downstream of deterministic transaction understanding and Identity Graph resolution. It must never become a second parser, infer categories from raw name frequency, override an explicit user decision, or change debt/transfer/accounting semantics.
+
+### Next
+
+Continue Phase 4 with correction/revocation semantics and conflict handling for remembered identity preferences. Do not begin Product Simplification/Home redesign until the personal-learning authority and correction paths are durable.
