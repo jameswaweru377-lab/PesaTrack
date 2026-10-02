@@ -410,7 +410,15 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         if (oldVersion < 30) {
-            createPersonalLearningTables(db)
+            createLegacyPersonalLearningV30Tables(
+                db
+            )
+        }
+
+        if (oldVersion < 31) {
+            migratePersonalLearningToV31(
+                db
+            )
         }
 
         createIndexes(db)
@@ -1099,7 +1107,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
-    private fun createPersonalLearningTables(
+    private fun createLegacyPersonalLearningV30Tables(
         db: SQLiteDatabase
     ) {
         db.execSQL(
@@ -1128,6 +1136,134 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 applied_at_epoch_ms INTEGER NOT NULL
             )
             """.trimIndent()
+        )
+    }
+
+    private fun createPersonalLearningTables(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS personal_category_reviews (
+                transaction_id INTEGER PRIMARY KEY,
+                identity_id TEXT NOT NULL,
+                category_id TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                reviewed_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS personal_learning_applications (
+                transaction_id INTEGER PRIMARY KEY,
+                identity_id TEXT NOT NULL,
+                category_id TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                confidence TEXT NOT NULL,
+                support_count INTEGER NOT NULL DEFAULT 1,
+                total_review_count INTEGER NOT NULL DEFAULT 1,
+                applied_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_personal_reviews_identity_direction ON personal_category_reviews(identity_id, direction)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_personal_applications_identity ON personal_learning_applications(identity_id)"
+        )
+    }
+
+    private fun migratePersonalLearningToV31(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS personal_category_reviews (
+                transaction_id INTEGER PRIMARY KEY,
+                identity_id TEXT NOT NULL,
+                category_id TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                reviewed_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        // v30 counted repeated saves on one mutable preference.
+        // Preserve only the actual source transaction as one
+        // review example, and only when the ledger still confirms
+        // that the user explicitly classified it that way.
+        db.execSQL(
+            """
+            INSERT OR REPLACE INTO personal_category_reviews(
+                transaction_id,
+                identity_id,
+                category_id,
+                direction,
+                reviewed_at_epoch_ms
+            )
+            SELECT
+                p.source_transaction_id,
+                p.identity_id,
+                p.category_id,
+                p.direction,
+                p.updated_at_epoch_ms
+            FROM identity_category_preferences p
+            JOIN transactions t
+              ON t.id = p.source_transaction_id
+            WHERE t.review_state = 'USER_CLASSIFIED'
+              AND t.category = p.category_id
+              AND t.direction = p.direction
+              AND p.direction = 'EXPENSE'
+              AND p.category_id NOT IN (
+                    'UNCATEGORIZED',
+                    'OTHER',
+                    'TRANSFER',
+                    'INCOME',
+                    'DEBT_LOAN',
+                    'SAVINGS',
+                    'INVESTMENT',
+                    'CASH'
+              )
+            """.trimIndent()
+        )
+
+        // v30 could auto-apply after a single preference because
+        // identity confidence and category confidence were coupled.
+        // Only revert transactions that are still exactly in the
+        // auto-applied state recorded by v30; later user/rule/
+        // relationship decisions are protected by the predicates.
+        db.execSQL(
+            """
+            UPDATE transactions
+            SET category = 'UNCATEGORIZED',
+                review_state = 'NEEDS_REVIEW'
+            WHERE review_state = 'AUTO_CLASSIFIED'
+              AND rule_id IS NULL
+              AND relation_type IS NULL
+              AND EXISTS (
+                    SELECT 1
+                    FROM personal_learning_applications a
+                    WHERE a.transaction_id =
+                              transactions.id
+                      AND a.category_id =
+                              transactions.category
+              )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            "DROP TABLE IF EXISTS identity_category_preferences"
+        )
+        db.execSQL(
+            "DROP TABLE IF EXISTS personal_learning_applications"
+        )
+
+        createPersonalLearningTables(
+            db
         )
     }
 
@@ -1496,6 +1632,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 30
+        private const val DATABASE_VERSION = 31
     }
 }
