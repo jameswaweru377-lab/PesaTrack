@@ -2936,3 +2936,22 @@ Implemented:
 - Added regression tests for package grouping, app-vs-SMS separation and unsupported-first ordering.
 
 Use this view to choose the next bank/SACCO/lender corpus increment from actual unsupported evidence rather than adding speculative provider wording.
+
+
+## Phase 6 Long-tail Coverage — increment 9 / digital-finance app-source identity — 2026-10-02
+
+Phase 6 source identity now includes selected Kenyan digital-finance apps.
+
+Implemented:
+
+- Extended `FinancialAppSourceRegistry` with institution kinds: BANK, LENDER and FINANCIAL_PLATFORM.
+- Added verified package-source identity for Branch, Tala Kenya and Timiza.
+- Branch and Timiza remain FINANCIAL_PLATFORM sources; package identity does not imply debt semantics.
+- Tala is a LENDER source for diagnostics only; a debt event still requires message-level semantic evidence.
+- Only verified bank packages return account-shaped source references. Branch/Tala/Timiza deliberately return no account reference from package identity alone.
+- Financial diagnostics and Message Lab use the verified app display name when available.
+- Existing bank-package behavior and UNKNOWN ownership guardrails remain intact.
+- Added tests proving the digital-finance packages are known sources while refusing to manufacture accounts from them.
+- Evidence is documented in `docs/entity-catalog-sources.md`.
+
+Next Phase 6 provider-specific message templates should come from Data Health / Message Lab redacted fixtures or another concrete public sanitized corpus. Do not invent lender notification wording from product pages.
