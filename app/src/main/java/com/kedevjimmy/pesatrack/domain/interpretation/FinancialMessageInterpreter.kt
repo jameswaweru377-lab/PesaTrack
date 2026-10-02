@@ -7,8 +7,7 @@ object FinancialMessageInterpreter {
     private val
         PROVENANCE_ONLY_DEBT_EVENT_KINDS =
         setOf(
-            "DEBT_DUE_NOTICE",
-            "DEBT_DRAWDOWN_WITH_SAVINGS"
+            "DEBT_DUE_NOTICE"
         )
 
     fun interpret(
