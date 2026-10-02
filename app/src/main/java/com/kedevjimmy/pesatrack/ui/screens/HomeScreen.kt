@@ -135,7 +135,8 @@ private fun emptyActivitySnapshot() =
 fun HomeScreen(
     scaffoldPadding: PaddingValues,
     onProfileClick: () -> Unit = {},
-    onReviewClick: () -> Unit = {},
+    onAttentionClick: () -> Unit = {},
+    onActivityClick: () -> Unit = {},
     onTransactionClick: (Long) -> Unit = {},
     onPlanClick: () -> Unit = {},
     onAccountsClick: () -> Unit = {},
@@ -873,7 +874,7 @@ fun HomeScreen(
                             .fillMaxWidth()
                             .clickable(
                                 onClick =
-                                    onReviewClick
+                                    onAttentionClick
                             )
                 ) {
                     Row(
@@ -1044,7 +1045,7 @@ fun HomeScreen(
                 onTransactionClick =
                     onTransactionClick,
                 onSeeAll =
-                    onReviewClick
+                    onActivityClick
             )
         }
 
