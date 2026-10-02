@@ -184,8 +184,8 @@ fun SettingsScreen(
                     SettingsRow(Icons.Rounded.Security, "Security", "PIN and biometric lock")
                     SettingsRow(
                         Icons.Rounded.Upload,
-                        "M-Pesa connection",
-                        "Notification access and capture status",
+                        "Financial notifications",
+                        "M-Pesa and supported bank/app capture status",
                         onClick = onMpesaConnectionClick
                     )
                     SettingsRow(
