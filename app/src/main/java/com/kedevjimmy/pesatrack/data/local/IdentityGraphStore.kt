@@ -305,6 +305,134 @@ class IdentityGraphStore private constructor(
     }
 
     @Synchronized
+    fun observeResolvedIdentity(
+        rawAlias: String?,
+        canonicalName: String,
+        kind: IdentityKind,
+        domain: String? = null,
+        source:
+            IdentityEvidenceSource,
+        confidence:
+            IdentityConfidence,
+        observedAtEpochMs: Long =
+            System.currentTimeMillis()
+    ): String? {
+        require(
+            kind !in
+                setOf(
+                    IdentityKind.SELF,
+                    IdentityKind.ACCOUNT,
+                    IdentityKind.UNKNOWN
+                )
+        ) {
+            "Resolved external identities need an explicit external kind."
+        }
+
+        val canonical =
+            canonicalName.trim()
+                .takeIf(
+                    String::isNotBlank
+                )
+                ?: return null
+        val raw =
+            rawAlias?.trim()
+                ?.takeIf(
+                    String::isNotBlank
+                )
+
+        val canonicalExisting =
+            findSingleByAlias(
+                IdentityAliasType.NAME,
+                canonical
+            )
+        val rawExisting =
+            raw?.let {
+                findSingleByAlias(
+                    IdentityAliasType.NAME,
+                    it
+                )
+            }
+
+        val identityId =
+            canonicalExisting
+                ?.identityId
+                ?: rawExisting
+                    ?.identityId
+                ?: "identity:canonical:" +
+                    hash(
+                        kind.name +
+                            "|" +
+                            (
+                                domain
+                                    ?.trim()
+                                    ?.lowercase()
+                                    ?.takeIf(
+                                        String::isNotBlank
+                                    )
+                                    ?: canonical
+                            )
+                    ).take(24)
+
+        upsertNode(
+            identityId = identityId,
+            kind = kind,
+            canonicalName = canonical,
+            userConfirmed =
+                node(identityId)
+                    ?.userConfirmed
+                    ?: false,
+            observedAtEpochMs =
+                observedAtEpochMs
+        )
+
+        observeAlias(
+            identityId = identityId,
+            type = IdentityAliasType.NAME,
+            value = canonical,
+            source = source,
+            confidence = confidence,
+            observedAtEpochMs =
+                observedAtEpochMs
+        )
+
+        raw?.takeIf {
+            !it.equals(
+                canonical,
+                ignoreCase = true
+            )
+        }?.let {
+            observeAlias(
+                identityId = identityId,
+                type = IdentityAliasType.NAME,
+                value = it,
+                source = source,
+                confidence = confidence,
+                observedAtEpochMs =
+                    observedAtEpochMs
+            )
+        }
+
+        domain?.trim()
+            ?.takeIf(
+                String::isNotBlank
+            )
+            ?.let {
+                observeAlias(
+                    identityId = identityId,
+                    type =
+                        IdentityAliasType.DOMAIN,
+                    value = it,
+                    source = source,
+                    confidence = confidence,
+                    observedAtEpochMs =
+                        observedAtEpochMs
+                )
+            }
+
+        return identityId
+    }
+
+    @Synchronized
     fun observeOwnedAccount(
         account: MoneyAccount,
         providerKey: String? = null,
