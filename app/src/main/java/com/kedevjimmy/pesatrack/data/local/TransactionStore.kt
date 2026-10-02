@@ -1232,6 +1232,8 @@ class TransactionStore private constructor(context: Context) {
                     )
                 ) > 0
         if (changed) {
+            PersonalLearningStore.get(appContext)
+                .clearApplication(transactionId)
             LedgerUpdateBus
                 .notifyChanged()
         }
@@ -1397,12 +1399,17 @@ class TransactionStore private constructor(context: Context) {
                     put("counterparty", it)
                 }
             }
-            changed += db.update(
+            val updated = db.update(
                 "transactions",
                 values,
                 "id = ?",
                 arrayOf(stored.id.toString())
             )
+            if (updated > 0) {
+                PersonalLearningStore.get(appContext)
+                    .clearApplication(stored.id)
+                changed += updated
+            }
         }
 
         if (
@@ -2901,6 +2908,8 @@ class TransactionStore private constructor(context: Context) {
             "id = ?",
             arrayOf(id.toString())
         )
+        PersonalLearningStore.get(appContext)
+            .clearApplication(id)
         PayCycleStore.get(appContext).rebuild()
         LedgerUpdateBus.notifyChanged()
     }
