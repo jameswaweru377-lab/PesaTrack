@@ -1186,3 +1186,48 @@ The full router/extraction regression suite also loads `fixtures-v10.json`, so e
 ### Boundary
 
 The blueprint recommends 3-10 fixtures per shape. This increment deliberately applies that floor first to the flows most likely to create duplicate-accounting, transfer or debt mistakes. Long-tail templates remain evidence-gated and should gain additional fixtures only from supported/sanitized wording evidence rather than fabricated provider text.
+
+
+## Phase 6 — Long-tail coverage, increment 18 — Tier-A bank fixture depth
+
+Branch milestone: `feature/phase6-tier-a-fixture-depth-v18`.
+
+This increment extends the blueprint's **3-10 sanitized fixtures per supported shape** target from the core M-Pesa/M-Shwari/Fuliza ambiguity flows to the currently supported Tier-A bank shapes.
+
+### Added regression depth
+
+`fixtures-v11.json` adds **33 sanitized value/date/reference variants** using wording structures that were already supported by the existing templates.
+
+The following 17 supported bank shapes now have at least three golden fixtures each:
+
+- Co-operative Bank account credit;
+- Co-operative Bank account debit;
+- DTB Till Moja payer payment;
+- DTB Till Moja merchant receipt;
+- Equity account credit;
+- Equity transfer credit-to-beneficiary;
+- I&M paid-to;
+- KCB account credit;
+- KCB salary credit;
+- KCB app received;
+- KCB card purchase;
+- KCB M-Pesa received;
+- KCB M-Pesa sent;
+- KCB paid-to;
+- KCB send-to-M-Pesa;
+- KCB send-to-PesaLink;
+- Standard Chartered card purchase.
+
+### Corpus-health rule
+
+`MessagePackCorpusHealthTest` now fails CI if any of those supported Tier-A bank templates drops below the three-fixture floor.
+
+The existing core ambiguity floor remains unchanged.
+
+### Evidence boundary
+
+No new provider wording is introduced here.
+
+Every new fixture is a sanitized amount/date/reference/name/account variant of an already-supported message structure. This improves extraction and routing regression coverage without pretending that a bank currently emits an unverified message shape.
+
+Phase 6 remains evidence-driven: new long-tail templates still require real sanitized/public wording evidence.

@@ -1,0 +1,387 @@
+[
+  {
+    "id": "tier_a_coop_credit_variant_a",
+    "title": "CO-OP BANK",
+    "body": "Co-operative Bank A/C XXX246 CR KES 8,250.00 on 03/03/26. Bal KES 41,750.00. Ref: COOP246810",
+    "templateId": "ke.cooperative.account.credit",
+    "expectedFields": {
+      "ACCOUNT_REFERENCE": "XXX246",
+      "AMOUNT": "8,250.00",
+      "DATE": "03/03/26",
+      "BALANCE": "41,750.00",
+      "REFERENCE": "COOP246810"
+    }
+  },
+  {
+    "id": "tier_a_coop_credit_variant_b",
+    "title": "CO-OP BANK",
+    "body": "Co-operative Bank A/C XXX135 CR KES 32,400.00 on 28/03/26. Bal KES 96,125.50. Ref: COOP135791",
+    "templateId": "ke.cooperative.account.credit",
+    "expectedFields": {
+      "ACCOUNT_REFERENCE": "XXX135",
+      "AMOUNT": "32,400.00",
+      "DATE": "28/03/26",
+      "BALANCE": "96,125.50",
+      "REFERENCE": "COOP135791"
+    }
+  },
+  {
+    "id": "tier_a_coop_debit_variant_a",
+    "title": "COOP BANK",
+    "body": "Co-operative Bank A/C XXX246 DR KES 1,250.00 on 03/03/26. Bal KES 40,500.00. Ref: COOP864210",
+    "templateId": "ke.cooperative.account.debit",
+    "expectedFields": {
+      "ACCOUNT_REFERENCE": "XXX246",
+      "AMOUNT": "1,250.00",
+      "DATE": "03/03/26",
+      "BALANCE": "40,500.00",
+      "REFERENCE": "COOP864210"
+    }
+  },
+  {
+    "id": "tier_a_coop_debit_variant_b",
+    "title": "COOP BANK",
+    "body": "Co-operative Bank A/C XXX135 DR KES 12,075.50 on 28/03/26. Bal KES 84,050.00. Ref: COOP975310",
+    "templateId": "ke.cooperative.account.debit",
+    "expectedFields": {
+      "ACCOUNT_REFERENCE": "XXX135",
+      "AMOUNT": "12,075.50",
+      "DATE": "28/03/26",
+      "BALANCE": "84,050.00",
+      "REFERENCE": "COOP975310"
+    }
+  },
+  {
+    "id": "tier_a_dtb_payer_variant_a",
+    "title": "DTB",
+    "body": "Dear SAMPLE PAYER, you have successfully paid KES 1,275.00 to SAMPLE CAFE-222222. Ref. QJQ8TEST01",
+    "templateId": "ke.dtb.till-moja.payer-payment",
+    "expectedFields": {
+      "AMOUNT": "1,275.00",
+      "COUNTERPARTY": "SAMPLE CAFE-222222",
+      "REFERENCE": "QJQ8TEST01"
+    }
+  },
+  {
+    "id": "tier_a_dtb_payer_variant_b",
+    "title": "DTB",
+    "body": "Dear SAMPLE PAYER, you have successfully paid KES 3,940.50 to SAMPLE MART-777777. Ref. QJQ8TEST02",
+    "templateId": "ke.dtb.till-moja.payer-payment",
+    "expectedFields": {
+      "AMOUNT": "3,940.50",
+      "COUNTERPARTY": "SAMPLE MART-777777",
+      "REFERENCE": "QJQ8TEST02"
+    }
+  },
+  {
+    "id": "tier_a_dtb_merchant_variant_a",
+    "title": "DTB",
+    "body": "Dear Customer, KES 1,275.00 has been paid into SAMPLE CAFE-222222 by SAMPLE PAYER TWO. Ref:000FTCB333445566",
+    "templateId": "ke.dtb.till-moja.merchant-receipt",
+    "expectedFields": {
+      "AMOUNT": "1,275.00",
+      "ACCOUNT_REFERENCE": "SAMPLE CAFE-222222",
+      "COUNTERPARTY": "SAMPLE PAYER TWO",
+      "REFERENCE": "000FTCB333445566"
+    }
+  },
+  {
+    "id": "tier_a_dtb_merchant_variant_b",
+    "title": "DTB",
+    "body": "Dear Customer, KES 3,940.50 has been paid into SAMPLE MART-777777 by SAMPLE PAYER THREE. Ref:000FTCB777889900",
+    "templateId": "ke.dtb.till-moja.merchant-receipt",
+    "expectedFields": {
+      "AMOUNT": "3,940.50",
+      "ACCOUNT_REFERENCE": "SAMPLE MART-777777",
+      "COUNTERPARTY": "SAMPLE PAYER THREE",
+      "REFERENCE": "000FTCB777889900"
+    }
+  },
+  {
+    "id": "tier_a_equity_credit_variant_a",
+    "title": "EQUITY BANK",
+    "body": "Your Equity a/c XXX5678 has been credited with KES 4,500.00 on 03/03/26. Bal: KES 54,500.00. Ref: FT26062ABC",
+    "templateId": "ke.equity.account.credit",
+    "expectedFields": {
+      "ACCOUNT_REFERENCE": "XXX5678",
+      "AMOUNT": "4,500.00",
+      "DATE": "03/03/26",
+      "BALANCE": "54,500.00",
+      "REFERENCE": "FT26062ABC"
+    }
+  },
+  {
+    "id": "tier_a_equity_credit_variant_b",
+    "title": "EQUITY BANK",
+    "body": "Your Equity a/c XXX2468 has been credited with KES 18,750.25 on 28/03/26. Bal: KES 73,250.25. Ref: FT26087XYZ",
+    "templateId": "ke.equity.account.credit",
+    "expectedFields": {
+      "ACCOUNT_REFERENCE": "XXX2468",
+      "AMOUNT": "18,750.25",
+      "DATE": "28/03/26",
+      "BALANCE": "73,250.25",
+      "REFERENCE": "FT26087XYZ"
+    }
+  },
+  {
+    "id": "tier_a_equity_transfer_variant_c",
+    "title": "EQUITY",
+    "body": "Your transaction of Kshs. 8,450.50 has been credited to 254700000001 SAMPLE BENEFICIARY TWO. Ref. EQA98765. MPESA Ref. UFT98765 on 29/09/2026 at 20:54:36.",
+    "templateId": "ke.equity.transfer.credit-to-beneficiary",
+    "expectedFields": {
+      "AMOUNT": "8,450.50",
+      "COUNTERPARTY": "SAMPLE BENEFICIARY TWO",
+      "BANK_REFERENCE": "EQA98765",
+      "EXTERNAL_REFERENCE": "UFT98765",
+      "DATE_TIME": "29/09/2026 at 20:54:36"
+    }
+  },
+  {
+    "id": "tier_a_iandm_paid_variant_a",
+    "title": "IANDMBANK",
+    "body": "KES 2,750.00 paid to SAMPLE PHARMACY (Acc 123456) Ref: IM67890. on 3/3/26 at 12:30 PM.",
+    "templateId": "ke.i-and-m.payment.paid-to",
+    "expectedFields": {
+      "AMOUNT": "2,750.00",
+      "COUNTERPARTY": "SAMPLE PHARMACY",
+      "REFERENCE": "IM67890",
+      "DATE": "3/3/26"
+    }
+  },
+  {
+    "id": "tier_a_iandm_paid_variant_b",
+    "title": "IANDMBANK",
+    "body": "KES 6,420.75 paid to SAMPLE SUPERMARKET (Acc 123456) Ref: IM24680. on 28/3/26 at 12:30 PM.",
+    "templateId": "ke.i-and-m.payment.paid-to",
+    "expectedFields": {
+      "AMOUNT": "6,420.75",
+      "COUNTERPARTY": "SAMPLE SUPERMARKET",
+      "REFERENCE": "IM24680",
+      "DATE": "28/3/26"
+    }
+  },
+  {
+    "id": "tier_a_kcb_credit_variant_a",
+    "title": "KCB",
+    "body": "Dear customer, your acc 1234 has been credited KES 7,250.00 at SAMPLE CLIENT at 10:20 AM on 3/3/26.",
+    "templateId": "ke.kcb.account.credit",
+    "expectedFields": {
+      "AMOUNT": "7,250.00",
+      "COUNTERPARTY": "SAMPLE CLIENT",
+      "DATE": "3/3/26"
+    }
+  },
+  {
+    "id": "tier_a_kcb_credit_variant_b",
+    "title": "KCB",
+    "body": "Dear customer, your acc 1234 has been credited KES 18,300.50 at SAMPLE COMPANY at 10:20 AM on 28/3/26.",
+    "templateId": "ke.kcb.account.credit",
+    "expectedFields": {
+      "AMOUNT": "18,300.50",
+      "COUNTERPARTY": "SAMPLE COMPANY",
+      "DATE": "28/3/26"
+    }
+  },
+  {
+    "id": "tier_a_kcb_salary_variant_a",
+    "title": "KCB",
+    "body": "Your account has been credited with KES 45,500.00-Salary Payment 00-SAMPLE EMPLOYER TWO. KCB Channel: CH101. Date: 3/3/26.",
+    "templateId": "ke.kcb.account.salary-credit",
+    "expectedFields": {
+      "AMOUNT": "45,500.00",
+      "REFERENCE": "CH101",
+      "DATE": "3/3/26",
+      "COUNTERPARTY": "SAMPLE EMPLOYER TWO"
+    }
+  },
+  {
+    "id": "tier_a_kcb_salary_variant_b",
+    "title": "KCB",
+    "body": "Your account has been credited with KES 82,750.25-Salary Payment 00-SAMPLE EMPLOYER THREE. KCB Channel: CH202. Date: 28/3/26.",
+    "templateId": "ke.kcb.account.salary-credit",
+    "expectedFields": {
+      "AMOUNT": "82,750.25",
+      "REFERENCE": "CH202",
+      "DATE": "28/3/26",
+      "COUNTERPARTY": "SAMPLE EMPLOYER THREE"
+    }
+  },
+  {
+    "id": "tier_a_kcb_app_received_variant_a",
+    "title": "KCB",
+    "body": "KCBAPP456 Confirmed! You have received KES 1,450.00 from SAMPLE PERSON TWO - KCB App.",
+    "templateId": "ke.kcb.app.received",
+    "expectedFields": {
+      "REFERENCE": "KCBAPP456",
+      "AMOUNT": "1,450.00",
+      "COUNTERPARTY": "SAMPLE PERSON TWO"
+    }
+  },
+  {
+    "id": "tier_a_kcb_app_received_variant_b",
+    "title": "KCB",
+    "body": "KCBAPP789 Confirmed! You have received KES 9,900.50 from SAMPLE PERSON THREE - KCB App.",
+    "templateId": "ke.kcb.app.received",
+    "expectedFields": {
+      "REFERENCE": "KCBAPP789",
+      "AMOUNT": "9,900.50",
+      "COUNTERPARTY": "SAMPLE PERSON THREE"
+    }
+  },
+  {
+    "id": "tier_a_kcb_card_variant_a",
+    "title": "KCB",
+    "body": "KES 850.00 transaction made on KCB card 1234 at SAMPLE CAFE on 1/10/26.",
+    "templateId": "ke.kcb.card.purchase",
+    "expectedFields": {
+      "AMOUNT": "850.00",
+      "COUNTERPARTY": "SAMPLE CAFE"
+    }
+  },
+  {
+    "id": "tier_a_kcb_card_variant_b",
+    "title": "KCB",
+    "body": "KES 12,450.75 transaction made on KCB card 1234 at SAMPLE ELECTRONICS on 1/10/26.",
+    "templateId": "ke.kcb.card.purchase",
+    "expectedFields": {
+      "AMOUNT": "12,450.75",
+      "COUNTERPARTY": "SAMPLE ELECTRONICS"
+    }
+  },
+  {
+    "id": "tier_a_kcb_mpesa_received_variant_a",
+    "title": "KCB",
+    "body": "You have received KES 3,250.00 from SAMPLE SENDER TWO. M-PESA Ref MP12345. Transaction Ref No KCB67890",
+    "templateId": "ke.kcb.mpesa.received",
+    "expectedFields": {
+      "AMOUNT": "3,250.00",
+      "COUNTERPARTY": "SAMPLE SENDER TWO",
+      "REFERENCE": "KCB67890"
+    }
+  },
+  {
+    "id": "tier_a_kcb_mpesa_received_variant_b",
+    "title": "KCB",
+    "body": "You have received KES 14,600.25 from SAMPLE SENDER THREE. M-PESA Ref MP12345. Transaction Ref No KCB24680",
+    "templateId": "ke.kcb.mpesa.received",
+    "expectedFields": {
+      "AMOUNT": "14,600.25",
+      "COUNTERPARTY": "SAMPLE SENDER THREE",
+      "REFERENCE": "KCB24680"
+    }
+  },
+  {
+    "id": "tier_a_kcb_mpesa_sent_variant_a",
+    "title": "KCB",
+    "body": "KCB456 completed.KES 2,750.00 sent to M-PESA SAMPLE RECEIVER TWO on 3/3/26 at 12:00 PM. Transaction cost KES 15.00 Incl tax.",
+    "templateId": "ke.kcb.mpesa.sent",
+    "expectedFields": {
+      "REFERENCE": "KCB456",
+      "AMOUNT": "2,750.00",
+      "COUNTERPARTY": "SAMPLE RECEIVER TWO",
+      "FEE": "15.00",
+      "DATE": "3/3/26"
+    }
+  },
+  {
+    "id": "tier_a_kcb_mpesa_sent_variant_b",
+    "title": "KCB",
+    "body": "KCB789 completed.KES 8,400.50 sent to M-PESA SAMPLE RECEIVER THREE on 28/3/26 at 12:00 PM. Transaction cost KES 25.00 Incl tax.",
+    "templateId": "ke.kcb.mpesa.sent",
+    "expectedFields": {
+      "REFERENCE": "KCB789",
+      "AMOUNT": "8,400.50",
+      "COUNTERPARTY": "SAMPLE RECEIVER THREE",
+      "FEE": "25.00",
+      "DATE": "28/3/26"
+    }
+  },
+  {
+    "id": "tier_a_kcb_paid_variant_a",
+    "title": "KCB",
+    "body": "KES 1,800.00 paid to SAMPLE FUEL (Acc 555000) Ref: KCBPAY02. on 3/3/26 at 1:15 PM.",
+    "templateId": "ke.kcb.payment.paid-to",
+    "expectedFields": {
+      "AMOUNT": "1,800.00",
+      "COUNTERPARTY": "SAMPLE FUEL",
+      "REFERENCE": "KCBPAY02",
+      "DATE": "3/3/26"
+    }
+  },
+  {
+    "id": "tier_a_kcb_paid_variant_b",
+    "title": "KCB",
+    "body": "KES 5,625.50 paid to SAMPLE MARKET (Acc 555000) Ref: KCBPAY03. on 28/3/26 at 1:15 PM.",
+    "templateId": "ke.kcb.payment.paid-to",
+    "expectedFields": {
+      "AMOUNT": "5,625.50",
+      "COUNTERPARTY": "SAMPLE MARKET",
+      "REFERENCE": "KCBPAY03",
+      "DATE": "28/3/26"
+    }
+  },
+  {
+    "id": "tier_a_kcb_send_mpesa_variant_a",
+    "title": "KCB",
+    "body": "SEND TO M-PESA request of KES 3,500.00 from 123456 has been processed. M-PESA REF: MPREF456. Transaction cost KES 22.00 Incl tax.",
+    "templateId": "ke.kcb.transfer.send-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "3,500.00",
+      "DESTINATION": "M-PESA",
+      "REFERENCE": "MPREF456",
+      "FEE": "22.00"
+    }
+  },
+  {
+    "id": "tier_a_kcb_send_mpesa_variant_b",
+    "title": "KCB",
+    "body": "SEND TO M-PESA request of KES 9,750.50 from 123456 has been processed. M-PESA REF: MPREF789. Transaction cost KES 35.00 Incl tax.",
+    "templateId": "ke.kcb.transfer.send-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "9,750.50",
+      "DESTINATION": "M-PESA",
+      "REFERENCE": "MPREF789",
+      "FEE": "35.00"
+    }
+  },
+  {
+    "id": "tier_a_kcb_send_pesalink_variant_a",
+    "title": "KCB",
+    "body": "SEND TO PESALINK request of KES 4,200.00 from 123456 has been processed. Transaction cost KES 35.00 Incl tax.",
+    "templateId": "ke.kcb.transfer.send-to-pesalink",
+    "expectedFields": {
+      "AMOUNT": "4,200.00",
+      "FEE": "35.00"
+    }
+  },
+  {
+    "id": "tier_a_kcb_send_pesalink_variant_b",
+    "title": "KCB",
+    "body": "SEND TO PESALINK request of KES 16,800.50 from 123456 has been processed. Transaction cost KES 55.00 Incl tax.",
+    "templateId": "ke.kcb.transfer.send-to-pesalink",
+    "expectedFields": {
+      "AMOUNT": "16,800.50",
+      "FEE": "55.00"
+    }
+  },
+  {
+    "id": "tier_a_stanchart_card_variant_a",
+    "title": "StanChart",
+    "body": "A transaction of KES 1,950.00 was made on card 1234 at SAMPLE RESTAURANT on 1/10/26.",
+    "templateId": "ke.standard-chartered.card.purchase",
+    "expectedFields": {
+      "AMOUNT": "1,950.00",
+      "COUNTERPARTY": "SAMPLE RESTAURANT"
+    }
+  },
+  {
+    "id": "tier_a_stanchart_card_variant_b",
+    "title": "StanChart",
+    "body": "A transaction of KES 21,300.75 was made on card 1234 at SAMPLE AIRLINE on 1/10/26.",
+    "templateId": "ke.standard-chartered.card.purchase",
+    "expectedFields": {
+      "AMOUNT": "21,300.75",
+      "COUNTERPARTY": "SAMPLE AIRLINE"
+    }
+  }
+]

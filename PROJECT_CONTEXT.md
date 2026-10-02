@@ -3130,3 +3130,21 @@ Implemented:
 - The normal router/extraction fixture test now includes fixture corpus v10.
 
 This hardens the most accounting-sensitive flows first. Do not meet fixture-count targets by inventing bank/SACCO wording; additional long-tail fixture depth must come from real sanitized/public evidence or value variants of already-supported wording structures.
+
+
+## Phase 6 Long-tail Coverage — increment 18 / Tier-A bank fixture depth — 2026-10-02
+
+Phase 6 corpus quality now extends the 3-fixture regression floor beyond the core wallet/debt ambiguity set.
+
+Implemented:
+
+- Added `fixtures-v11.json` with **33 sanitized variants**.
+- The 17 currently supported Co-op / DTB / Equity / I&M / KCB / Standard Chartered bank shapes now each have at least three golden fixtures.
+- Added a new CI corpus-health assertion for those Tier-A bank templates.
+- Router/extraction fixture tests now load fixture corpus v11.
+- New examples vary only sanitized values such as amount, date, reference, masked account and placeholder counterparties while preserving already-supported wording structure.
+- No new bank message wording, transaction semantics or provider-specific Kotlin parser branch is introduced.
+
+This implements the blueprint's recommended 3-10 fixture depth more broadly without fabricating unsupported bank messages.
+
+Continue Phase 6 from concrete Coverage-by-source / Message Lab evidence for any new institution or notification shape.
