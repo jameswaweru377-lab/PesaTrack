@@ -480,6 +480,18 @@ class TransactionStore private constructor(context: Context) {
 
         val inserted = rowId != -1L
         if (inserted) {
+            IdentityGraphStore
+                .get(appContext)
+                .observeCounterparty(
+                    name =
+                        parsed.counterparty
+                            ?: displayCounterparty,
+                    phone =
+                        parsed.counterpartyPhone,
+                    observedAtEpochMs =
+                        occurredAtEpochMs
+                )
+
             attachExternalReferences(
                 transactionId = rowId,
                 references = correlationReferences,
