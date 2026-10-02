@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,6 +38,7 @@ import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
 import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
 import com.kedevjimmy.pesatrack.domain.identity.IdentityGraphSnapshot
 import com.kedevjimmy.pesatrack.domain.messagepack.KenyaMessagePack
+import com.kedevjimmy.pesatrack.ingestion.FinancialCoverageAnalysis
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.FinancialSourceCoverageSnapshot
@@ -94,6 +97,12 @@ fun DataHealthScreen(
             List<UnsupportedMessageShape>
         >(emptyList())
     }
+    var selectedCoverageSource by
+        remember {
+            mutableStateOf<
+                FinancialSourceCoverageSnapshot?
+            >(null)
+        }
     var identitySnapshot by remember {
         mutableStateOf(
             IdentityGraphSnapshot(
@@ -137,7 +146,7 @@ fun DataHealthScreen(
                             ),
                     unsupported =
                         messageLabStore
-                            .recentUnsupported(25),
+                            .recentUnsupported(100),
                     identitySnapshot =
                         identityGraphStore
                             .snapshot(),
@@ -330,9 +339,24 @@ fun DataHealthScreen(
                         .sourceKey
                 }
             ) { index ->
+                val source =
+                    sourceCoverage[index]
                 SourceCoverageCard(
-                    source =
-                        sourceCoverage[index]
+                    source = source,
+                    selected =
+                        selectedCoverageSource
+                            ?.sourceKey ==
+                        source.sourceKey,
+                    onInspect = {
+                        if (
+                            source
+                                .unsupportedFinancial >
+                            0
+                        ) {
+                            selectedCoverageSource =
+                                source
+                        }
+                    }
                 )
             }
         }
@@ -533,12 +557,135 @@ fun DataHealthScreen(
         }
 
         item {
-            SectionHeader(
-                "Message Lab"
-            )
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+                    SectionHeader(
+                        if (
+                            selectedCoverageSource ==
+                            null
+                        ) {
+                            "Message Lab"
+                        } else {
+                            "Message Lab • " +
+                                selectedCoverageSource
+                                    ?.displayName
+                                    .orEmpty()
+                        }
+                    )
+                    if (
+                        selectedCoverageSource !=
+                        null
+                    ) {
+                        Text(
+                            "Showing only unsupported shapes from this source.",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                }
+                if (
+                    selectedCoverageSource !=
+                    null
+                ) {
+                    TextButton(
+                        onClick = {
+                            selectedCoverageSource =
+                                null
+                        }
+                    ) {
+                        Text("Show all")
+                    }
+                }
+            }
         }
 
-        if (unsupported.isEmpty()) {
+        val visibleUnsupported =
+            selectedCoverageSource
+                ?.let { selected ->
+                    unsupported.filter {
+                        FinancialCoverageAnalysis
+                            .sourceKey(
+                                sourceKind =
+                                    it.sourceKind,
+                                sourcePackage =
+                                    it.sourcePackage,
+                                displayName =
+                                    it.sender
+                            ) ==
+                            selected.sourceKey
+                    }
+                }
+                ?: unsupported.take(25)
+
+        if (
+            selectedCoverageSource !=
+                null &&
+            visibleUnsupported
+                .isNotEmpty()
+        ) {
+            item {
+                Button(
+                    onClick = {
+                        val source =
+                            selectedCoverageSource
+                                ?: return@Button
+                        val fixtures =
+                            messageLabStore
+                                .exportDeveloperFixturesForSource(
+                                    sourceKey =
+                                        source.sourceKey,
+                                    limit = 25
+                                )
+                        if (
+                            fixtures != null
+                        ) {
+                            val clipboard =
+                                context
+                                    .getSystemService(
+                                        Context
+                                            .CLIPBOARD_SERVICE
+                                    ) as
+                                    ClipboardManager
+                            clipboard
+                                .setPrimaryClip(
+                                    ClipData
+                                        .newPlainText(
+                                            "PesaTrack source fixtures",
+                                            fixtures
+                                        )
+                                )
+                            Toast.makeText(
+                                context,
+                                "Source fixtures copied",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    },
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "Copy redacted source fixtures"
+                    )
+                }
+            }
+        }
+
+        if (visibleUnsupported.isEmpty()) {
             item {
                 PesaCard(
                     modifier =
@@ -564,14 +711,14 @@ fun DataHealthScreen(
         } else {
             items(
                 count =
-                    unsupported.size,
+                    visibleUnsupported.size,
                 key = {
-                    unsupported[it]
+                    visibleUnsupported[it]
                         .shapeId
                 }
             ) { index ->
                 val shape =
-                    unsupported[index]
+                    visibleUnsupported[index]
                 UnsupportedShapeCard(
                     shape = shape,
                     onCopyFixture = {
@@ -626,11 +773,22 @@ private data class DataHealthLoadResult(
 @Composable
 private fun SourceCoverageCard(
     source:
-        FinancialSourceCoverageSnapshot
+        FinancialSourceCoverageSnapshot,
+    selected: Boolean,
+    onInspect: () -> Unit
 ) {
     PesaCard(
         modifier =
-            Modifier.fillMaxWidth()
+            Modifier
+                .fillMaxWidth()
+                .clickable(
+                    enabled =
+                        source
+                            .unsupportedFinancial >
+                        0,
+                    onClick =
+                        onInspect
+                )
     ) {
         Column(
             modifier =
@@ -716,6 +874,26 @@ private fun SourceCoverageCard(
                         .colorScheme
                         .onSurfaceVariant
             )
+            if (
+                source.unsupportedFinancial >
+                0
+            ) {
+                Text(
+                    if (selected) {
+                        "Filtering Message Lab below"
+                    } else {
+                        "Tap to inspect unsupported shapes"
+                    },
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelMedium,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .primary
+                )
+            }
         }
     }
 }
