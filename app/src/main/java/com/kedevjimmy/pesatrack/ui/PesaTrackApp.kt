@@ -100,8 +100,13 @@ fun PesaTrackApp(
                     onReviewClick = {
                         navigateToTab(MainTab.ACTIVITY)
                     },
-                    onBudgetClick = {
-                        navController.navigate("budgets")
+                    onTransactionClick = { id ->
+                        navController.navigate(
+                            "transaction-detail/$id"
+                        )
+                    },
+                    onPlanClick = {
+                        navigateToTab(MainTab.PLAN)
                     },
                     onAccountsClick = {
                         navigateToTab(
@@ -130,7 +135,7 @@ fun PesaTrackApp(
 
         composable("debts") {
             AppScaffold(
-                currentTab = MainTab.HOME,
+                currentTab = MainTab.ACCOUNTS,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 DebtsScreen(
@@ -144,7 +149,7 @@ fun PesaTrackApp(
 
         composable("budgets") {
             AppScaffold(
-                currentTab = MainTab.HOME,
+                currentTab = MainTab.PLAN,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 BudgetScreen(
@@ -206,6 +211,11 @@ fun PesaTrackApp(
             ) { padding ->
                 PlanScreen(
                     scaffoldPadding = padding,
+                    onBudgetClick = {
+                        navController.navigate(
+                            "budgets"
+                        )
+                    },
                     onGoalsClick = {
                         navController.navigate(
                             "goals"
