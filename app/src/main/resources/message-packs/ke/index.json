@@ -36,6 +36,8 @@
     "kcb/transfer/send-to-pesalink/template.json",
     "pesalink/transfer/received/template.json",
     "pesalink/transfer/sent/template.json",
-    "standard-chartered/card/purchase/template.json"
+    "standard-chartered/card/purchase/template.json",
+    "dtb/till-moja/payer-payment/template.json",
+    "dtb/till-moja/merchant-receipt/template.json"
   ]
 }
