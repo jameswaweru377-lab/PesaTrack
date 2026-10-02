@@ -23,7 +23,7 @@ class MessagePackRouterTest {
             result.errors.isEmpty()
         )
         assertEquals(
-            45,
+            48,
             result.templates.size
         )
         assertEquals(
@@ -135,6 +135,78 @@ class MessagePackRouterTest {
         )
     }
 
+
+    @Test
+    fun phase6BankAccountAlertsRecordStructuredProvenanceWithoutInventingCounterparties() {
+        val cooperative =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "CO-OP BANK",
+                    body =
+                        "Co-operative Bank A/C XXX789 CR KES 15,000.00 on 17/02/26. Bal KES 60,000.00. Ref: COOP123456"
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            cooperative.parseProvenance.route
+        )
+        assertEquals(
+            "ke.cooperative.account.credit",
+            cooperative.parseProvenance.templateId
+        )
+        assertEquals(
+            "ACCOUNT_CREDIT",
+            cooperative.parseProvenance.eventKind
+        )
+        assertEquals(
+            "15,000.00",
+            cooperative.parseProvenance
+                .extractedFields
+                .first {
+                    it.field == "AMOUNT"
+                }
+                .value
+        )
+        assertEquals(
+            "60,000.00",
+            cooperative.parseProvenance
+                .extractedFields
+                .first {
+                    it.field == "BALANCE"
+                }
+                .value
+        )
+
+        val equity =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "EQUITY BANK",
+                    body =
+                        "Your Equity a/c XXX1234 has been credited with KES 10,000.00 on 17/02/26. Bal: KES 50,000.00. Ref: FT26048RKH"
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            equity.parseProvenance.route
+        )
+        assertEquals(
+            "ke.equity.account.credit",
+            equity.parseProvenance.templateId
+        )
+        assertEquals(
+            "ACCOUNT_CREDIT",
+            equity.parseProvenance.eventKind
+        )
+        assertEquals(
+            "XXX1234",
+            equity.parseProvenance
+                .extractedFields
+                .first {
+                    it.field == "ACCOUNT_REFERENCE"
+                }
+                .value
+        )
+    }
 
     @Test
     fun phase6InvestmentShapesRecordProvenanceWithoutForcingOrdinaryLedgerMeaning() {
@@ -324,7 +396,8 @@ class MessagePackRouterTest {
             "message-packs/ke/fixtures-v3.json",
             "message-packs/ke/fixtures-v4.json",
             "message-packs/ke/fixtures-v5.json",
-            "message-packs/ke/fixtures-v6.json"
+            "message-packs/ke/fixtures-v6.json",
+            "message-packs/ke/fixtures-v7.json"
         ).flatMap { path ->
             val stream =
                 javaClass.classLoader
