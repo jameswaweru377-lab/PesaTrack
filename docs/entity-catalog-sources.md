@@ -146,3 +146,25 @@ Current Google Play evidence URLs:
 - https://play.google.com/store/apps/details?id=com.mode.familykenya.ui
 - https://play.google.com/store/apps/details?id=com.ecobank.mobileapp5
 - https://play.google.com/store/apps/details?id=com.mode.chasetest.ui
+
+
+## Phase 6 verified Timiza Android app package
+
+Evidence class: **OFFICIAL_APP_STORE_PACKAGE_IDENTITY**
+
+Reviewed 2 October 2026 from the current Google Play listing.
+
+Package identity added:
+
+- Timiza — `ke.co.absa.digitalwallet` — Absa Group Limited.
+
+Guardrails:
+
+- Timiza is a multi-product financial platform, so package identity alone does not establish whether a notification is savings, transfer, payment, loan, repayment, balance or another product event.
+- It therefore resolves conservatively as `AccountType.OTHER`, `AccountOwnershipHint.UNKNOWN` and `FinancialAccountNature.UNKNOWN`.
+- No transaction, account or debt is created from the package identity.
+- No notification wording is inferred from the Play Store description.
+
+Current Google Play evidence URL:
+
+- https://play.google.com/store/apps/details?id=ke.co.absa.digitalwallet
