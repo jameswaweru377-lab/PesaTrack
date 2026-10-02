@@ -35,6 +35,42 @@ class MessagePackCorpusHealthTest {
     }
 
     @Test
+    fun everyActiveTemplateHasAtLeastThreeGoldenFixtures() {
+        val templates =
+            BundledKenyaMessagePackLoader
+                .load()
+                .templates
+        val fixtureCounts =
+            fixtureTemplateCounts()
+
+        val belowTarget =
+            templates
+                .map { it.id }
+                .mapNotNull {
+                    templateId ->
+                    val count =
+                        fixtureCounts
+                            .getOrDefault(
+                                templateId,
+                                0
+                            )
+                    if (count >= 3) {
+                        null
+                    } else {
+                        templateId to count
+                    }
+                }
+
+        assertTrue(
+            "Active templates below 3-fixture floor: " +
+                belowTarget.joinToString {
+                    it.first + "=" + it.second
+                },
+            belowTarget.isEmpty()
+        )
+    }
+
+    @Test
     fun fixtureIdsAreUniqueAndReferenceActiveTemplates() {
         val templates =
             BundledKenyaMessagePackLoader
@@ -233,7 +269,7 @@ class MessagePackCorpusHealthTest {
 
     companion object {
         private val FIXTURE_RESOURCES =
-            (1..12).map {
+            (1..13).map {
                 "message-packs/ke/fixtures-v$it.json"
             }
 

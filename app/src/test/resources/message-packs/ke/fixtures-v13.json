@@ -1,0 +1,408 @@
+[
+  {
+    "id": "fullfloor_mpesa_merchant_a",
+    "title": "MPESA",
+    "body": "TSTV20M001 Confirmed. Ksh 1,250.00 paid to SAMPLE CAFE on 28/9/26 at 7:25 PM. New M-PESA balance is Ksh 7,550.00. Transaction cost, Ksh 0.00.",
+    "templateId": "ke.mpesa.wallet.merchant-payment",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20M001",
+      "AMOUNT": "1,250.00",
+      "COUNTERPARTY": "SAMPLE CAFE",
+      "BALANCE": "7,550.00",
+      "FEE": "0.00"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_merchant_b",
+    "title": "MPESA",
+    "body": "TSTV20M002 Confirmed. Ksh 4,875.50 paid to SAMPLE MARKET on 28/9/26 at 7:25 PM. New M-PESA balance is Ksh 2,674.50. Transaction cost, Ksh 12.00.",
+    "templateId": "ke.mpesa.wallet.merchant-payment",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20M002",
+      "AMOUNT": "4,875.50",
+      "COUNTERPARTY": "SAMPLE MARKET",
+      "BALANCE": "2,674.50",
+      "FEE": "12.00"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_reversal_completed_a",
+    "title": "MPESA",
+    "body": "TSTV20R001 Confirmed. The reversal of transaction TSTV20P001 of Ksh 1,250.00 has been completed on 28/9/26 at 7:40 PM. New M-PESA balance is Ksh 9,350.00.",
+    "templateId": "ke.mpesa.wallet.reversal-completed",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20R001",
+      "REFERENCED_TRANSACTION_CODE": "TSTV20P001",
+      "AMOUNT": "1,250.00",
+      "BALANCE": "9,350.00"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_reversal_completed_b",
+    "title": "MPESA",
+    "body": "TSTV20R002 Confirmed. The reversal of transaction TSTV20P002 of Ksh 3,875.50 has been completed on 28/9/26 at 7:40 PM. New M-PESA balance is Ksh 13,225.50.",
+    "templateId": "ke.mpesa.wallet.reversal-completed",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20R002",
+      "REFERENCED_TRANSACTION_CODE": "TSTV20P002",
+      "AMOUNT": "3,875.50",
+      "BALANCE": "13,225.50"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_reversal_credited_a",
+    "title": "MPESA",
+    "body": "TSTV20R003 Confirmed. Reversal of transaction TSTV20P003 has been successfully reversed on 25/8/26 at 4:19 PM and Ksh640.00 is credited to your M-PESA account. New M-PESA account balance is Ksh1,579.09.",
+    "templateId": "ke.mpesa.wallet.reversal-credited",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20R003",
+      "REFERENCED_TRANSACTION_CODE": "TSTV20P003",
+      "AMOUNT": "640.00",
+      "BALANCE": "1,579.09"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_reversal_credited_b",
+    "title": "MPESA",
+    "body": "TSTV20R004 Confirmed. Reversal of transaction TSTV20P004 has been successfully reversed on 25/8/26 at 4:19 PM and Ksh1,925.50 is credited to your M-PESA account. New M-PESA account balance is Ksh3,504.59.",
+    "templateId": "ke.mpesa.wallet.reversal-credited",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20R004",
+      "REFERENCED_TRANSACTION_CODE": "TSTV20P004",
+      "AMOUNT": "1,925.50",
+      "BALANCE": "3,504.59"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_external_a",
+    "title": "MPESA",
+    "body": "TSTV20E001 Confirmed. Ksh 3,500.00 transferred to EQUITY ACCOUNT on 28/9/26 at 9:54 PM. New M-PESA balance is Ksh 9,000.00.",
+    "templateId": "ke.mpesa.wallet.external-account-transfer",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20E001",
+      "AMOUNT": "3,500.00",
+      "DESTINATION": "EQUITY ACCOUNT",
+      "BALANCE": "9,000.00"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_external_b",
+    "title": "MPESA",
+    "body": "TSTV20E002 Confirmed. Ksh 6,750.50 transferred to COOP ACCOUNT on 28/9/26 at 9:54 PM. New M-PESA balance is Ksh 2,249.50.",
+    "templateId": "ke.mpesa.wallet.external-account-transfer",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20E002",
+      "AMOUNT": "6,750.50",
+      "DESTINATION": "COOP ACCOUNT",
+      "BALANCE": "2,249.50"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_withdraw_a",
+    "title": "MPESA",
+    "body": "TSTV20W001 Confirmed. Ksh 2,500.00 withdrawn from M-PESA at SAMPLE AGENT TWO on 28/9/26 at 8:20 AM. New M-PESA balance is Ksh 8,450.00.",
+    "templateId": "ke.mpesa.wallet.cash-withdrawal",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20W001",
+      "AMOUNT": "2,500.00",
+      "AGENT": "SAMPLE AGENT TWO",
+      "BALANCE": "8,450.00"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_withdraw_b",
+    "title": "MPESA",
+    "body": "TSTV20W002 Confirmed. Ksh 4,250.50 withdrawn from M-PESA at SAMPLE AGENT THREE on 28/9/26 at 8:20 AM. New M-PESA balance is Ksh 4,199.50.",
+    "templateId": "ke.mpesa.wallet.cash-withdrawal",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20W002",
+      "AMOUNT": "4,250.50",
+      "AGENT": "SAMPLE AGENT THREE",
+      "BALANCE": "4,199.50"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_deposit_a",
+    "title": "MPESA",
+    "body": "TSTV20D001 Confirmed. Ksh 3,500.00 deposited into your M-PESA on 28/9/26 at 8:30 AM. New M-PESA balance is Ksh 16,450.00.",
+    "templateId": "ke.mpesa.wallet.cash-deposit",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20D001",
+      "AMOUNT": "3,500.00",
+      "BALANCE": "16,450.00"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_deposit_b",
+    "title": "MPESA",
+    "body": "TSTV20D002 Confirmed. Ksh 7,250.50 deposited into your M-PESA on 28/9/26 at 8:30 AM. New M-PESA balance is Ksh 23,700.50.",
+    "templateId": "ke.mpesa.wallet.cash-deposit",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20D002",
+      "AMOUNT": "7,250.50",
+      "BALANCE": "23,700.50"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_airtime_a",
+    "title": "MPESA",
+    "body": "TSTV20A001 Confirmed. Ksh 50.00 airtime purchased on 28/9/26 at 8:40 AM. New M-PESA balance is Ksh 12,900.00.",
+    "templateId": "ke.mpesa.wallet.airtime-purchase",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20A001",
+      "AMOUNT": "50.00",
+      "BALANCE": "12,900.00"
+    }
+  },
+  {
+    "id": "fullfloor_mpesa_airtime_b",
+    "title": "MPESA",
+    "body": "TSTV20A002 Confirmed. Ksh 250.00 airtime purchased on 28/9/26 at 8:40 AM. New M-PESA balance is Ksh 12,650.00.",
+    "templateId": "ke.mpesa.wallet.airtime-purchase",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV20A002",
+      "AMOUNT": "250.00",
+      "BALANCE": "12,650.00"
+    }
+  },
+  {
+    "id": "fullfloor_kcb_mpesa_decline_a",
+    "title": "KCB M-PESA",
+    "body": "Dear SAMPLE CUSTOMER, your loan repayment of KES 500.00 has been declined due to insufficient funds. Your KCB M-PESA Account balance is KES 25.00.",
+    "templateId": "ke.kcb-mpesa.loan.repayment-declined",
+    "expectedFields": {
+      "AMOUNT": "500.00",
+      "BALANCE": "25.00"
+    }
+  },
+  {
+    "id": "fullfloor_kcb_mpesa_decline_b",
+    "title": "KCB M-PESA",
+    "body": "Dear SAMPLE CUSTOMER, your loan repayment of KES 1,250.00 has been declined due to insufficient funds. Your KCB M-PESA Account balance is KES 150.50.",
+    "templateId": "ke.kcb-mpesa.loan.repayment-declined",
+    "expectedFields": {
+      "AMOUNT": "1,250.00",
+      "BALANCE": "150.50"
+    }
+  },
+  {
+    "id": "fullfloor_pesalink_received_a",
+    "title": "PESALINK",
+    "body": "KES 7,500.00 received from SAMPLE SENDER TWO into A/C 123456.",
+    "templateId": "ke.pesalink.transfer.received",
+    "expectedFields": {
+      "AMOUNT": "7,500.00",
+      "COUNTERPARTY": "SAMPLE SENDER TWO"
+    }
+  },
+  {
+    "id": "fullfloor_pesalink_received_b",
+    "title": "PESALINK",
+    "body": "KES 15,250.50 received from SAMPLE SENDER THREE into A/C 123456.",
+    "templateId": "ke.pesalink.transfer.received",
+    "expectedFields": {
+      "AMOUNT": "15,250.50",
+      "COUNTERPARTY": "SAMPLE SENDER THREE"
+    }
+  },
+  {
+    "id": "fullfloor_pesalink_sent_a",
+    "title": "PESALINK",
+    "body": "KES 6,400.00 sent to SAMPLE RECEIVER TWO A/C 654321.",
+    "templateId": "ke.pesalink.transfer.sent",
+    "expectedFields": {
+      "AMOUNT": "6,400.00",
+      "COUNTERPARTY": "SAMPLE RECEIVER TWO"
+    }
+  },
+  {
+    "id": "fullfloor_pesalink_sent_b",
+    "title": "PESALINK",
+    "body": "KES 18,900.50 sent to SAMPLE RECEIVER THREE A/C 654321.",
+    "templateId": "ke.pesalink.transfer.sent",
+    "expectedFields": {
+      "AMOUNT": "18,900.50",
+      "COUNTERPARTY": "SAMPLE RECEIVER THREE"
+    }
+  },
+  {
+    "id": "fullfloor_evopay_card_a",
+    "title": "EVOPAY",
+    "body": "Dear Customer, Ksh. 150 parking fee has been charged to your card PK0000001111. Your new card balance is Ksh. 1050. Thank you for visiting SAMPLE MALL.",
+    "templateId": "ke.evopay.parking.card-charge",
+    "expectedFields": {
+      "AMOUNT": "150",
+      "BALANCE": "1050",
+      "COUNTERPARTY": "SAMPLE MALL"
+    }
+  },
+  {
+    "id": "fullfloor_evopay_card_b",
+    "title": "EVOPAY",
+    "body": "Dear Customer, Ksh. 300 parking fee has been charged to your card PK0000001111. Your new card balance is Ksh. 750. Thank you for visiting SAMPLE PLAZA.",
+    "templateId": "ke.evopay.parking.card-charge",
+    "expectedFields": {
+      "AMOUNT": "300",
+      "BALANCE": "750",
+      "COUNTERPARTY": "SAMPLE PLAZA"
+    }
+  },
+  {
+    "id": "fullfloor_evopay_lpn_a",
+    "title": "EVOPAY",
+    "body": "Dear customer, you have paid parking fee of KES 250 for LPN KYY111B. You have 15 min to exit. Thank you for visiting SAMPLE MALL.",
+    "templateId": "ke.evopay.parking.lpn-payment",
+    "expectedFields": {
+      "AMOUNT": "250",
+      "ACCOUNT_REFERENCE": "KYY111B",
+      "COUNTERPARTY": "SAMPLE MALL"
+    }
+  },
+  {
+    "id": "fullfloor_evopay_lpn_b",
+    "title": "EVOPAY",
+    "body": "Dear customer, you have paid parking fee of KES 400 for LPN KZZ222C. You have 15 min to exit. Thank you for visiting SAMPLE PLAZA.",
+    "templateId": "ke.evopay.parking.lpn-payment",
+    "expectedFields": {
+      "AMOUNT": "400",
+      "ACCOUNT_REFERENCE": "KZZ222C",
+      "COUNTERPARTY": "SAMPLE PLAZA"
+    }
+  },
+  {
+    "id": "fullfloor_globalpay_a",
+    "title": "Globalpay",
+    "body": "Dear SAMPLE, a transaction of Ksh. 750.00 (inclusive of Ksh. 7.50 forex charge) done at SAMPLE SOFTWARE LTD has been approved on your card ****8642.",
+    "templateId": "ke.globalpay.card.purchase",
+    "expectedFields": {
+      "AMOUNT": "750.00",
+      "FEE": "7.50",
+      "COUNTERPARTY": "SAMPLE SOFTWARE LTD"
+    }
+  },
+  {
+    "id": "fullfloor_globalpay_b",
+    "title": "Globalpay",
+    "body": "Dear SAMPLE, a transaction of Ksh. 1,250.50 (inclusive of Ksh. 12.50 forex charge) done at SAMPLE DIGITAL LTD has been approved on your card ****8642.",
+    "templateId": "ke.globalpay.card.purchase",
+    "expectedFields": {
+      "AMOUNT": "1,250.50",
+      "FEE": "12.50",
+      "COUNTERPARTY": "SAMPLE DIGITAL LTD"
+    }
+  },
+  {
+    "id": "fullfloor_fundilima_a",
+    "title": "",
+    "body": "Dear Member,You have withdrawn Ksh. 1,500 from Account 0202-002-00*** .Thank you for using FUNDILIMA SACCO Mobile Banking Service.",
+    "templateId": "ke.fundilima-sacco.account.withdrawal",
+    "expectedFields": {
+      "AMOUNT": "1,500",
+      "ACCOUNT_REFERENCE": "0202-002-00***"
+    }
+  },
+  {
+    "id": "fullfloor_fundilima_b",
+    "title": "",
+    "body": "Dear Member,You have withdrawn Ksh. 3,250 from Account 0303-003-00*** .Thank you for using FUNDILIMA SACCO Mobile Banking Service.",
+    "templateId": "ke.fundilima-sacco.account.withdrawal",
+    "expectedFields": {
+      "AMOUNT": "3,250",
+      "ACCOUNT_REFERENCE": "0303-003-00***"
+    }
+  },
+  {
+    "id": "fullfloor_generic_sacco_a",
+    "title": "",
+    "body": "Dear Member, you have deposited 2500.00 to A/C No. xxxxxx7312, of SAMPLE CHAMA GROUP on 2026/03/03 09:15:25. For help 0709000000",
+    "templateId": "ke.generic-sacco.account.deposit",
+    "expectedFields": {
+      "AMOUNT": "2500.00",
+      "ACCOUNT_REFERENCE": "xxxxxx7312",
+      "COUNTERPARTY": "SAMPLE CHAMA GROUP",
+      "DATE": "2026/03/03 09:15:25"
+    }
+  },
+  {
+    "id": "fullfloor_generic_sacco_b",
+    "title": "",
+    "body": "Dear Member, you have deposited 6750.50 to A/C No. xxxxxx8423, of SAMPLE SAVINGS GROUP on 2026/03/28 16:45:10. For help 0709000000",
+    "templateId": "ke.generic-sacco.account.deposit",
+    "expectedFields": {
+      "AMOUNT": "6750.50",
+      "ACCOUNT_REFERENCE": "xxxxxx8423",
+      "COUNTERPARTY": "SAMPLE SAVINGS GROUP",
+      "DATE": "2026/03/28 16:45:10"
+    }
+  },
+  {
+    "id": "fullfloor_generic_mobile_a",
+    "title": "",
+    "body": "Your transaction of Kshs. 8500.0 has been credited to 254720000000 SAMPLE PERSON TWO. Ref. EQA8AB12CD34EF5. MPESA Ref. UEXA12BC34 on 19/04/2026 at 20:59:50.",
+    "templateId": "ke.generic-bank.mobile.credit-to-phone",
+    "expectedFields": {
+      "AMOUNT": "8500.0",
+      "DESTINATION": "254720000000",
+      "COUNTERPARTY": "SAMPLE PERSON TWO",
+      "REFERENCE": "EQA8AB12CD34EF5",
+      "EXTERNAL_REFERENCE": "UEXA12BC34"
+    }
+  },
+  {
+    "id": "fullfloor_generic_mobile_b",
+    "title": "",
+    "body": "Your transaction of Kshs. 14250.50 has been credited to 254730000000 SAMPLE PERSON THREE. Ref. EQA9BC23DE45FA6. MPESA Ref. UEXB23CD45 on 19/04/2026 at 20:59:50.",
+    "templateId": "ke.generic-bank.mobile.credit-to-phone",
+    "expectedFields": {
+      "AMOUNT": "14250.50",
+      "DESTINATION": "254730000000",
+      "COUNTERPARTY": "SAMPLE PERSON THREE",
+      "REFERENCE": "EQA9BC23DE45FA6",
+      "EXTERNAL_REFERENCE": "UEXB23CD45"
+    }
+  },
+  {
+    "id": "fullfloor_generic_bill_a",
+    "title": "",
+    "body": "Confirmed, Bill payment to SAMPLE UTILITIES of KES. 1,250.00 for account 202528 and Ref. UEXC34DE56 on 18-04-2026 at 15:57. Thank you.",
+    "templateId": "ke.generic-bank.payment.bill-payment",
+    "expectedFields": {
+      "COUNTERPARTY": "SAMPLE UTILITIES",
+      "AMOUNT": "1,250.00",
+      "ACCOUNT_REFERENCE": "202528",
+      "REFERENCE": "UEXC34DE56"
+    }
+  },
+  {
+    "id": "fullfloor_generic_bill_b",
+    "title": "",
+    "body": "Confirmed, Bill payment to SAMPLE SERVICES of KES. 4,875.50 for account 303639 and Ref. UEXD45EF67 on 18-04-2026 at 15:57. Thank you.",
+    "templateId": "ke.generic-bank.payment.bill-payment",
+    "expectedFields": {
+      "COUNTERPARTY": "SAMPLE SERVICES",
+      "AMOUNT": "4,875.50",
+      "ACCOUNT_REFERENCE": "303639",
+      "REFERENCE": "UEXD45EF67"
+    }
+  },
+  {
+    "id": "fullfloor_generic_credit_a",
+    "title": "",
+    "body": "Your account has been credited with KSH 2750. To check your balance dial *200# To pay via MPESA use Paybill no. 300300 and your mobile no as the account no.",
+    "templateId": "ke.generic-account.credit.balance-notice",
+    "expectedFields": {
+      "AMOUNT": "2750",
+      "PAYBILL": "300300"
+    }
+  },
+  {
+    "id": "fullfloor_generic_credit_b",
+    "title": "",
+    "body": "Your account has been credited with KSH 6250.50. To check your balance dial *200# To pay via MPESA use Paybill no. 400400 and your mobile no as the account no.",
+    "templateId": "ke.generic-account.credit.balance-notice",
+    "expectedFields": {
+      "AMOUNT": "6250.50",
+      "PAYBILL": "400400"
+    }
+  }
+]

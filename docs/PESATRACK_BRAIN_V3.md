@@ -1272,3 +1272,45 @@ These shapes include cases where confusing one field can corrupt debt, savings o
 CI now fails if any of these adjacent-finance templates drops below three golden fixtures.
 
 No new provider wording is introduced. The new fixtures only vary sanitized values inside already-supported message structures.
+
+
+## Phase 6 — Long-tail coverage, increment 20 — Full corpus fixture floor
+
+Branch milestone: `feature/phase6-full-corpus-fixture-floor-v20`.
+
+This increment completes the blueprint's recommended minimum regression depth across the entire active Kenya Message Pack.
+
+### Full-corpus floor
+
+`fixtures-v13.json` adds **36 sanitized variants** for the final 18 supported shapes that previously had only one golden example.
+
+Those remaining shapes cover:
+
+- M-Pesa merchant payment, cash deposit, cash withdrawal, airtime, external-account transfer and two reversal forms;
+- KCB M-Pesa repayment-declined;
+- PesaLink sent/received;
+- Evopay parking card/LPN payments;
+- Globalpay card purchase;
+- Fundilima SACCO withdrawal;
+- generic SACCO deposit;
+- generic bank mobile credit;
+- generic bank bill payment;
+- generic account credit/balance notice.
+
+After v13, **all 62 active Kenya templates have at least three golden fixtures**.
+
+### Corpus-health invariant
+
+CI now includes a universal rule:
+
+> every active Kenya Message Pack template must have at least three golden fixtures.
+
+The earlier focused core-ambiguity, Tier-A bank and adjacent-finance fixture floors remain in place as explicit regression intent.
+
+### Evidence boundary
+
+No new provider wording is introduced.
+
+All new examples are sanitized value/reference/date/name/account variants of message structures that were already supported. This raises regression depth without fabricating new bank, SACCO, wallet or payment-provider messages.
+
+Phase 6 can now treat three-fixture coverage as a baseline invariant and use real Coverage-by-source / Message Lab evidence for any future new template.
