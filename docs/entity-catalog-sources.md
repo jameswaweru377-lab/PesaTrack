@@ -176,3 +176,29 @@ Current Google Play evidence URLs:
 
 - https://play.google.com/store/apps/details?id=com.zenkafinance.microloans
 - https://play.google.com/store/apps/details?id=ke.co.absa.digitalwallet
+
+
+## Phase 6 verified Kashbean Android app package
+
+Evidence class: **OFFICIAL_APP_STORE_PACKAGE_IDENTITY**
+
+Reviewed 2 October 2026 from the current Google Play Kenya listing.
+
+Package identity added:
+
+- Kashbean – Mobile Loans — `com.kashbean` — Creditarea Capital Limited.
+
+The listing describes Kashbean as a Kenya digital-lending platform and states approved funds are disbursed to the registered M-PESA account.
+
+Guardrails:
+
+- Package identity establishes notification source only.
+- It does not prove the user owns a Kashbean loan.
+- It does not determine whether a notification is a drawdown, repayment, reminder, offer, balance, fee or account-status message.
+- It resolves conservatively as `AccountType.OTHER`, `AccountOwnershipHint.UNKNOWN` and `FinancialAccountNature.UNKNOWN`.
+- No debt account or transaction is created from package identity.
+- No notification wording is inferred from the Play Store listing.
+
+Current Google Play evidence URL:
+
+- https://play.google.com/store/apps/details?id=com.kashbean
