@@ -166,6 +166,6 @@ Upstream shapes adapted into the PesaTrack Message Pack:
 PesaTrack stores sanitized synthetic fixtures reconstructed from those published templates/fixtures. These are not represented as current screenshots from a user's device.
 
 Important semantic boundary:
-- Evopay parking and Globalpay card-purchase shapes may contribute ordinary PAYMENT candidates when generic extraction is otherwise empty.
+- Evopay parking and Globalpay card-purchase shapes declare PAYMENT provenance and structured fields. The existing bridge may contribute a candidate only when downstream evidence supports it; the template itself does not force a ledger movement.
 - Etica redemption/withdrawal and Sanlam fund-credit/top-up shapes record template provenance using investment-specific event kinds. The Message Pack bridge does not convert those investment shapes into ordinary income/expense/transfer ledger movements. Financial Intelligence V2 and the investment relationship layer remain authoritative.
 - Etica's published USD redemption variant is retained only as extraction/provenance coverage. PesaTrack must not silently treat a foreign-currency amount as a KES ledger amount.
