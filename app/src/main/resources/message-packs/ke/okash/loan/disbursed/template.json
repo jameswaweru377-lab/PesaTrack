@@ -1,0 +1,29 @@
+{
+  "id": "ke.okash.loan.disbursed",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["OKASH"],
+  "requiredAnchors": ["Your loan of", "is successfully disbursed", "on or before", "avoid late fees"],
+  "anyAnchors": [],
+  "eventKind": "DEBT_DRAWDOWN",
+  "productIdentity": "OKASH_LOAN",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "Your loan of[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+is successfully disbursed",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "REPAY_AMOUNT",
+      "pattern": "Please pay[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)",
+      "group": 1
+    },
+    {
+      "field": "DATE",
+      "pattern": "on or before[ ]+(.+?)[ ]+to avoid late fees",
+      "group": 1
+    }
+  ]
+}
