@@ -12,7 +12,7 @@ import com.kedevjimmy.pesatrack.domain.ingestion.MpesaMessageDetector
 import com.kedevjimmy.pesatrack.domain.rules.FinancialMessageEvidence
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.RuleBackedFinancialResolver
-import com.kedevjimmy.pesatrack.domain.rules.SmartRule
+import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import com.kedevjimmy.pesatrack.domain.rules.TransactionEvidenceResolver
 import java.util.ArrayDeque
