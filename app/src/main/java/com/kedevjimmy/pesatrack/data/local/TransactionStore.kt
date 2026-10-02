@@ -2657,6 +2657,8 @@ class TransactionStore private constructor(context: Context) {
         allTransactions().forEach { current ->
             if (
                 current.ruleId != null ||
+                current.evidenceSource ==
+                    "personal_learning" ||
                 current.reviewState ==
                     ReviewState.USER_CLASSIFIED.name ||
                 current.reviewState ==
@@ -2760,6 +2762,8 @@ class TransactionStore private constructor(context: Context) {
 
         if (
             current.ruleId != null ||
+            current.evidenceSource ==
+                "personal_learning" ||
             current.reviewState ==
                 ReviewState.USER_CLASSIFIED.name ||
             current.reviewState ==
@@ -2840,6 +2844,8 @@ class TransactionStore private constructor(context: Context) {
         transactions.asSequence()
             .filter { item ->
                 item.ruleId == null &&
+                    item.evidenceSource !=
+                        "personal_learning" &&
                     item.reviewState !=
                         ReviewState.USER_CLASSIFIED.name &&
                     item.reviewState !=
@@ -2920,16 +2926,32 @@ class TransactionStore private constructor(context: Context) {
                 put("planning_month", planningMonth)
             }
         }
-        database.writableDatabase.update(
-            "transactions",
-            values,
-            "id = ?",
-            arrayOf(id.toString())
-        )
-        PersonalLearningStore.get(appContext)
-            .clearApplication(id)
-        PayCycleStore.get(appContext).rebuild()
-        LedgerUpdateBus.notifyChanged()
+        val changed =
+            database.writableDatabase.update(
+                "transactions",
+                values,
+                "id = ?",
+                arrayOf(id.toString())
+            ) > 0
+
+        if (changed) {
+            val learningStore =
+                PersonalLearningStore.get(
+                    appContext
+                )
+            learningStore.clearApplication(
+                id
+            )
+            getById(id)?.let {
+                learningStore.recordUserReview(
+                    it
+                )
+            }
+            PayCycleStore.get(appContext)
+                .rebuild()
+            LedgerUpdateBus
+                .notifyChanged()
+        }
     }
 
     @Synchronized
@@ -3164,13 +3186,23 @@ class TransactionStore private constructor(context: Context) {
         val values = ContentValues().apply {
             put("review_state", ReviewState.EXCLUDED.name)
         }
-        database.writableDatabase.update(
-            "transactions",
-            values,
-            "id = ?",
-            arrayOf(id.toString())
-        )
-        PayCycleStore.get(appContext).rebuild()
+        val changed =
+            database.writableDatabase.update(
+                "transactions",
+                values,
+                "id = ?",
+                arrayOf(id.toString())
+            ) > 0
+        if (changed) {
+            PersonalLearningStore
+                .get(appContext)
+                .forgetReview(id)
+            PayCycleStore
+                .get(appContext)
+                .rebuild()
+            LedgerUpdateBus
+                .notifyChanged()
+        }
     }
 
     private fun allTransactions(): List<StoredTransaction> =
