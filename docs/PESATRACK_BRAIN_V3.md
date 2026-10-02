@@ -1041,3 +1041,18 @@ Therefore:
 The source is a project-supplied internal parsing dictionary with parameterized placeholders. It is useful structured evidence, but it is not represented as current bank-certified live wording. Matching remains narrow and the evidence class is documented as **USER_RESEARCH_REFERENCE**.
 
 Continue Phase 6 from real Coverage-by-source / Message Lab gaps and other concrete sanitized/public message evidence.
+
+
+## Phase 6 — Long-tail coverage, Timiza source identity
+
+Branch milestone: `feature/phase6-timiza-app-source-v12-rebased2`.
+
+Verified source identity now also includes Timiza:
+
+- `ke.co.absa.digitalwallet` -> Timiza.
+
+Timiza is deliberately modeled as a generic Kenyan financial platform source with OTHER account type, UNKNOWN ownership and UNKNOWN financial nature.
+
+### Guardrail
+
+Package identity only improves source attribution in diagnostics, Coverage by source and Message Lab. It does not create debt, savings, transfer, payment or balance semantics. Concrete Timiza notification templates still require reviewed sanitized/public wording.
