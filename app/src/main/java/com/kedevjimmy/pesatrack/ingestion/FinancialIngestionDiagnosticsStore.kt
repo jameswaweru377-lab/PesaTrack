@@ -43,8 +43,8 @@ data class FinancialMessageCoverageSnapshot(
     val templateParsed: Int,
     val genericFallbackParsed: Int,
     val understoodNoLedgerEffect: Int,
-    val resolvedByCurrentCoverage: Int,
-    val unsupportedFinancial: Int
+    val unsupportedFinancial: Int,
+    val resolvedByCurrentCoverage: Int = 0
 ) {
     val templateCoveragePercent: Int
         get() =
