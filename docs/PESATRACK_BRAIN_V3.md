@@ -868,3 +868,31 @@ This makes their real unsupported notification shapes discoverable on-device wit
 No Branch/Tala loan wording is added in this increment. No loan drawdown, repayment, balance, offer or debt account is inferred from the package alone.
 
 The next evidence-backed Branch/Tala template should come from a concrete sanitized/public notification or SMS shape observed in the corpus workflow.
+
+## Phase 6 — Long-tail coverage, increment 10 — Bank and SACCO app source identity
+
+Branch milestone: `feature/phase6-bank-sacco-app-source-v10`.
+
+This increment continues evidence-driven source coverage using current Google Play package identity.
+
+Added verified Android sources:
+
+- I&M OTG Personal KE — `com.imbank.digital.retail.app`;
+- MSTIMA — `com.mode.stima`;
+- MwalimuHELA — `skyworld.mwalimu`.
+
+I&M maps through the existing Kenyan bank directory.
+
+Stima DT Sacco and Mwalimu National Sacco use direct provider source identities with conservative `AccountType.OTHER`, unknown ownership and unknown financial nature because their apps can expose multiple product types.
+
+### Product effect
+
+Relevant unsupported notifications from these apps now group under the correct institution in local diagnostics / Coverage by source even when their visible notification title is generic.
+
+This reduces future corpus work from “which app is this?” to “what exact redacted financial shape is still unsupported?”
+
+### Guardrail
+
+Package identity is not message interpretation.
+
+No SACCO savings, loan, transfer, bill payment or withdrawal is created from app identity alone. App-specific templates still require concrete message evidence.
