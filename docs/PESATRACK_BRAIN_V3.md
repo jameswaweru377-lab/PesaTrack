@@ -868,3 +868,36 @@ This makes their real unsupported notification shapes discoverable on-device wit
 No Branch/Tala loan wording is added in this increment. No loan drawdown, repayment, balance, offer or debt account is inferred from the package alone.
 
 The next evidence-backed Branch/Tala template should come from a concrete sanitized/public notification or SMS shape observed in the corpus workflow.
+
+
+## Phase 6 — Long-tail coverage, increment 9 — Source drill-down
+
+Branch milestone: `feature/phase6-source-drilldown-v9`.
+
+This increment closes the local evidence loop introduced by **Coverage by source**.
+
+### Coverage -> Message Lab
+
+A source card with unsupported financial observations is now actionable.
+
+Tapping it filters Message Lab to only the redacted unsupported shapes that belong to the same stable source key. The source key uses:
+
+- source channel;
+- Android package when available;
+- otherwise the stable source display identity.
+
+This keeps app-notification and SMS/imported evidence separate even for the same bank.
+
+### Source fixture export
+
+When a source filter is active, Data Health exposes **Copy redacted source fixtures**.
+
+The export is a JSON array of up to 25 locally redacted unsupported fixtures for that source, retaining safe package/channel metadata when available. Individual fixture copy remains available.
+
+### Stability
+
+`FinancialCoverageAnalysis.sourceKey(...)` is now a public pure normalization function shared by diagnostics and Message Lab filtering. Regression tests cover package/channel normalization and display-name fallback.
+
+### Guardrail
+
+This feature does not upload, classify or reinterpret messages. It only makes already-local redacted evidence easier to inspect and contribute. The next Message Pack template should still be created only from concrete reviewed evidence.
