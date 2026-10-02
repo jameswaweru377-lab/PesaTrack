@@ -64,6 +64,8 @@ class FinancialMessageIngestionCoordinator private constructor(
         IdentityGraphStore.get(appContext)
     private val personalLearningStore =
         PersonalLearningStore.get(appContext)
+    private val personalLearningStore =
+        PersonalLearningStore.get(appContext)
 
     @Synchronized
     fun ingest(
