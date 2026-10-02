@@ -22,7 +22,9 @@ data class MessageTemplateDefinition(
     val eventKind: String,
     val productIdentity: String?,
     val active: Boolean,
-    val extractors: List<MessagePackFieldExtractor>
+    val extractors: List<MessagePackFieldExtractor>,
+    val sourcePackages: List<String> = emptyList(),
+    val sourceKinds: List<String> = emptyList()
 )
 
 data class MessagePackFieldValue(
@@ -39,7 +41,9 @@ data class MessagePackMatch(
     val productIdentity: String?,
     val senderMatched: Boolean,
     val matchedAnchors: List<String>,
-    val fields: List<MessagePackFieldValue>
+    val fields: List<MessagePackFieldValue>,
+    val sourcePackageMatched: Boolean = false,
+    val sourceKindMatched: Boolean = false
 ) {
     fun fieldValue(name: String): String? =
         fields.firstOrNull {
@@ -73,10 +77,34 @@ data class MessageParseProvenance(
                     match.productIdentity,
                 extractedFields = match.fields,
                 reason =
-                    "Matched Message Pack template " +
-                        match.templateId +
-                        " revision " +
-                        match.revision
+                    buildString {
+                        append(
+                            "Matched Message Pack template "
+                        )
+                        append(
+                            match.templateId
+                        )
+                        append(" revision ")
+                        append(
+                            match.revision
+                        )
+                        if (
+                            match
+                                .sourcePackageMatched
+                        ) {
+                            append(
+                                " using source-package evidence"
+                            )
+                        }
+                        if (
+                            match
+                                .sourceKindMatched
+                        ) {
+                            append(
+                                " using source-channel evidence"
+                            )
+                        }
+                    }
             )
 
         fun genericFallback(): MessageParseProvenance =
