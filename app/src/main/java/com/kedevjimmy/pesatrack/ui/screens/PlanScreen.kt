@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -63,6 +64,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun PlanScreen(
     scaffoldPadding: PaddingValues,
+    onBudgetClick: (() -> Unit)? = null,
     onGoalsClick: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -104,6 +106,77 @@ fun PlanScreen(
 
         item {
             PlanHero(snapshot)
+        }
+
+        if (onBudgetClick != null) {
+            item {
+                PesaCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            onClick = onBudgetClick
+                        )
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.padding(
+                                15.dp
+                            ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            Icons.Rounded.BarChart,
+                            size = 44.dp,
+                            background =
+                                pesaToneContainer(
+                                    "green"
+                                ),
+                            tint =
+                                pesaToneContent(
+                                    "green"
+                                )
+                        )
+                        Column(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .padding(
+                                        start = 12.dp
+                                    )
+                        ) {
+                            Text(
+                                "Budget",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium
+                            )
+                            Text(
+                                "Set category limits and see how spending fits this plan.",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Rounded
+                                .ChevronRight,
+                            contentDescription =
+                                null,
+                            tint =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
 
         if (onGoalsClick != null) {
