@@ -90,3 +90,30 @@ Current Google Play evidence URLs:
 
 - https://play.google.com/store/apps/details?id=com.branch_international.branch.branch_demo_android
 - https://play.google.com/store/apps/details?id=com.inventureaccess.safarirahisi
+
+## Phase 6 verified I&M and SACCO Android app packages
+
+Evidence class: **OFFICIAL_APP_STORE_PACKAGE_IDENTITY**
+
+Reviewed 2 October 2026 from current Google Play listings.
+
+Package identity added:
+
+- I&M OTG Personal KE — `com.imbank.digital.retail.app` — I&M Bank Limited.
+- MSTIMA — `com.mode.stima` — Stima Sacco DT.
+- MwalimuHELA — `skyworld.mwalimu` — published as Mwalimu National Mobile Banking Application with Mwalimu National support contact.
+
+Guardrails:
+
+- I&M maps through the existing `KenyanBankDirectory` bank identity and therefore retains the existing BANK/ASSET source-reference convention, with ownership still UNKNOWN.
+- MSTIMA exposes savings, transfers, payments and loan functions, so package identity alone cannot establish asset/liability semantics. It resolves as OTHER/UNKNOWN.
+- MwalimuHELA likewise exposes transaction/account services and resolves as OTHER/UNKNOWN.
+- Neither SACCO package creates an account, debt or transfer merely because a notification came from that app.
+- No notification wording is inferred from the app-store listings.
+- Provider-specific app templates still require concrete sanitized/public notification wording.
+
+Current Google Play evidence URLs:
+
+- https://play.google.com/store/apps/details?id=com.imbank.digital.retail.app
+- https://play.google.com/store/apps/details?id=com.mode.stima
+- https://play.google.com/store/apps/details?id=skyworld.mwalimu
