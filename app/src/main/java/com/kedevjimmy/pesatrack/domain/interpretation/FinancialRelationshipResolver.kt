@@ -81,6 +81,9 @@ data class ResolvedDebtDrawdownRelationship(
     override val amountMinor: Long,
     val liability: FinancialAccountReference,
     val proceedsAccount: FinancialAccountReference?,
+    val proceedsAmountMinor: Long?,
+    val savingsAllocationMinor: Long?,
+    val savingsAccount: FinancialAccountReference?,
     val amountIsNetProceeds: Boolean,
     override val feeMinor: Long,
     val outstandingAfterMinor: Long?,
@@ -736,10 +739,24 @@ object FinancialRelationshipResolver {
                 )
             val proceedsAccount =
                 drawdown.proceedsAccountLabel
-                    ?.let(
-                        FinancialProviderRegistry::
-                            resolveAccount
-                    )
+                    ?.let {
+                        FinancialProviderRegistry
+                            .resolveAccountInContext(
+                                rawLabel = it,
+                                title = message.title,
+                                body = message.body
+                            )
+                    }
+            val savingsAccount =
+                drawdown.savingsAccountLabel
+                    ?.let {
+                        FinancialProviderRegistry
+                            .resolveAccountInContext(
+                                rawLabel = it,
+                                title = message.title,
+                                body = message.body
+                            )
+                    }
             val fee =
                 candidates.fee?.amountMinor
                     ?: 0L
@@ -785,6 +802,60 @@ object FinancialRelationshipResolver {
                                     ".proceeds_account",
                             span =
                                 drawdown.proceedsAccountSpan,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
+                drawdown.proceedsAmountSpan
+                    ?.let {
+                        add(
+                            evidence(
+                                field =
+                                    FinancialField.PROCEEDS_AMOUNT,
+                                origin =
+                                    EvidenceOrigin.MESSAGE_TEXT,
+                                ruleId =
+                                    drawdown.ruleId +
+                                        ".proceeds_amount",
+                                span = it,
+                                confidence =
+                                    InterpretationConfidence.HIGH
+                            )
+                        )
+                    }
+                drawdown.savingsAllocationSpan
+                    ?.let {
+                        add(
+                            evidence(
+                                field =
+                                    FinancialField.SAVINGS_ALLOCATION,
+                                origin =
+                                    EvidenceOrigin.MESSAGE_TEXT,
+                                ruleId =
+                                    drawdown.ruleId +
+                                        ".savings_allocation",
+                                span = it,
+                                confidence =
+                                    InterpretationConfidence.HIGH
+                            )
+                        )
+                    }
+                if (
+                    savingsAccount != null &&
+                    drawdown.savingsAccountSpan != null
+                ) {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField.SAVINGS_ACCOUNT,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId =
+                                drawdown.ruleId +
+                                    ".savings_account",
+                            span =
+                                drawdown.savingsAccountSpan,
                             confidence =
                                 InterpretationConfidence.HIGH
                         )
@@ -845,6 +916,12 @@ object FinancialRelationshipResolver {
                 liability = liability,
                 proceedsAccount =
                     proceedsAccount,
+                proceedsAmountMinor =
+                    drawdown.proceedsAmountMinor,
+                savingsAllocationMinor =
+                    drawdown.savingsAllocationMinor,
+                savingsAccount =
+                    savingsAccount,
                 amountIsNetProceeds =
                     drawdown.amountIsNetProceeds,
                 feeMinor = fee,
