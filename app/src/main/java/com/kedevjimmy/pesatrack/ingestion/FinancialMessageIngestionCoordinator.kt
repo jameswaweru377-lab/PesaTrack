@@ -22,6 +22,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreta
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageNormalizer
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageRelevanceGate
+import com.kedevjimmy.pesatrack.domain.interpretation.UnsupportedFinancialCandidatePolicy
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialSemanticIntent
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialSemanticRole
@@ -182,6 +183,21 @@ class FinancialMessageIngestionCoordinator private constructor(
                     sourcePackage = sourcePackage,
                     sourceKind = sourceKind
                 ) || changed
+
+            if (
+                fact.account.nature ==
+                FinancialAccountNature.LIABILITY
+            ) {
+                DebtStore.get(appContext)
+                    .recordObservedOutstanding(
+                        reference = fact.account,
+                        outstandingMinor =
+                            fact.balanceMinor,
+                        observedAtEpochMs =
+                            occurredAtEpochMs
+                    )
+                changed = true
+            }
         }
 
         var insertedTransactions = 0
@@ -1197,6 +1213,14 @@ class FinancialMessageIngestionCoordinator private constructor(
             FinancialMessageRelevanceGate.assess(
                 normalizedMessage
             )
+        val unsupportedCandidate =
+            UnsupportedFinancialCandidatePolicy
+                .shouldTrack(relevance)
+        val diagnosticCandidate =
+            interpretation.recognized ||
+                interpretation
+                    .semanticallyUnderstood ||
+                unsupportedCandidate
         val bankLike =
             BANK_SOURCE_LANGUAGE_REGEX
                 .containsMatchIn(
@@ -1299,7 +1323,7 @@ class FinancialMessageIngestionCoordinator private constructor(
             receivedAtEpochMs =
                 receivedAtEpochMs,
             financialCandidate =
-                relevance.isRelevant,
+                diagnosticCandidate,
             semanticUnderstood =
                 interpretation.semanticallyUnderstood,
             linkedTransactionId =
@@ -1316,7 +1340,7 @@ class FinancialMessageIngestionCoordinator private constructor(
         )
 
         if (
-            relevance.isRelevant &&
+            unsupportedCandidate &&
             !interpretation.recognized &&
             !interpretation
                 .semanticallyUnderstood
