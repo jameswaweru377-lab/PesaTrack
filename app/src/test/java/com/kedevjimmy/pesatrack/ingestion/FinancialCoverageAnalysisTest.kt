@@ -111,6 +111,37 @@ class FinancialCoverageAnalysisTest {
     }
 
     @Test
+    fun sourceKeyNormalizesPackageAndChannelForMessageLabDrillDown() {
+        assertEquals(
+            "financial_notification|ke.co.equitygroup.equitymobile",
+            FinancialCoverageAnalysis
+                .sourceKey(
+                    sourceKind =
+                        " Financial_Notification ",
+                    sourcePackage =
+                        "KE.CO.EQUITYGROUP.EQUITYMOBILE",
+                    displayName =
+                        "Equity Mobile"
+                )
+        )
+    }
+
+    @Test
+    fun sourceKeyFallsBackToStableDisplayIdentityWithoutPackage() {
+        assertEquals(
+            "historical_financial_message|mwalimu-national-sacco",
+            FinancialCoverageAnalysis
+                .sourceKey(
+                    sourceKind =
+                        "historical_financial_message",
+                    sourcePackage = null,
+                    displayName =
+                        "Mwalimu National Sacco"
+                )
+        )
+    }
+
+    @Test
     fun unsupportedSourcesSortFirstToExposeCoverageGaps() {
         val understood =
             diagnostic(
