@@ -15,6 +15,8 @@ import com.kedevjimmy.pesatrack.domain.identity.IdentityNodeKind
 import com.kedevjimmy.pesatrack.domain.identity.IdentityOwnership
 import com.kedevjimmy.pesatrack.domain.identity.IdentityRelationType
 import com.kedevjimmy.pesatrack.domain.identity.IdentityResolution
+import com.kedevjimmy.pesatrack.domain.identity.IdentityReviewDecision
+import com.kedevjimmy.pesatrack.domain.identity.IdentityReviewDecisionType
 import com.kedevjimmy.pesatrack.domain.identity.IdentityReviewPrompt
 import com.kedevjimmy.pesatrack.domain.identity.IdentityReviewPromptType
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityLookupCandidate
@@ -63,6 +65,11 @@ class IdentityGraphStore private constructor(
                                 5_000
                             )
                 )
+            db.delete(
+                "identity_review_decisions",
+                "identity_id = ?",
+                arrayOf(identityId)
+            )
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -303,10 +310,21 @@ class IdentityGraphStore private constructor(
             }
         }
 
+        val reviewDecisions =
+            reviewDecisions(db)
+
         return candidates
             .distinctBy {
                 it.promptType to
                     it.identityId
+            }
+            .filter {
+                IdentityGraphPolicy
+                    .shouldPresentReviewPrompt(
+                        prompt = it,
+                        decisions =
+                            reviewDecisions
+                    )
             }
             .sortedWith(
                 compareBy<
@@ -474,14 +492,60 @@ class IdentityGraphStore private constructor(
                 )
             }
 
-        return database.writableDatabase
-            .update(
+        val db =
+            database.writableDatabase
+        val changed =
+            db.update(
                 "identity_nodes",
                 values,
                 "identity_id = ?",
                 arrayOf(identityId)
             ) > 0
+
+        if (changed) {
+            db.delete(
+                "identity_review_decisions",
+                "identity_id = ?",
+                arrayOf(identityId)
+            )
+        }
+
+        return changed
     }
+
+    @Synchronized
+    fun rejectIdentityAsSelf(
+        prompt: IdentityReviewPrompt
+    ): Boolean {
+        require(
+            prompt.promptType ==
+                IdentityReviewPromptType
+                    .CONFIRM_SELF_PHONE ||
+                prompt.promptType ==
+                IdentityReviewPromptType
+                    .CONFIRM_SELF_NAME
+        ) {
+            "Only self-identity prompts can be rejected as not mine."
+        }
+
+        return recordReviewDecision(
+            prompt = prompt,
+            decision =
+                IdentityReviewDecisionType
+                    .REJECTED_SELF
+        )
+    }
+
+    @Synchronized
+    fun deferReviewPrompt(
+        prompt: IdentityReviewPrompt
+    ): Boolean =
+        recordReviewDecision(
+            prompt = prompt,
+            decision =
+                IdentityReviewDecisionType
+                    .DEFERRED
+        )
 
     @Synchronized
     fun resolve(
@@ -1543,6 +1607,98 @@ class IdentityGraphStore private constructor(
             )
         )
     }
+
+    private fun recordReviewDecision(
+        prompt: IdentityReviewPrompt,
+        decision:
+            IdentityReviewDecisionType
+    ): Boolean {
+        val values =
+            ContentValues().apply {
+                put(
+                    "prompt_type",
+                    prompt.promptType.name
+                )
+                put(
+                    "identity_id",
+                    prompt.identityId
+                )
+                put(
+                    "decision",
+                    decision.name
+                )
+                put(
+                    "evidence_count",
+                    prompt.observationCount
+                )
+                put(
+                    "updated_at_epoch_ms",
+                    System.currentTimeMillis()
+                )
+            }
+
+        return database.writableDatabase
+            .insertWithOnConflict(
+                "identity_review_decisions",
+                null,
+                values,
+                SQLiteDatabase
+                    .CONFLICT_REPLACE
+            ) != -1L
+    }
+
+    private fun reviewDecisions(
+        db: SQLiteDatabase
+    ): List<IdentityReviewDecision> =
+        db.rawQuery(
+            """
+            SELECT prompt_type,
+                   identity_id,
+                   decision,
+                   evidence_count,
+                   updated_at_epoch_ms
+            FROM identity_review_decisions
+            """.trimIndent(),
+            null
+        ).use { cursor ->
+            buildList {
+                while (
+                    cursor.moveToNext()
+                ) {
+                    val promptType =
+                        runCatching {
+                            IdentityReviewPromptType
+                                .valueOf(
+                                    cursor.getString(0)
+                                )
+                        }.getOrNull()
+                            ?: continue
+                    val decision =
+                        runCatching {
+                            IdentityReviewDecisionType
+                                .valueOf(
+                                    cursor.getString(2)
+                                )
+                        }.getOrNull()
+                            ?: continue
+
+                    add(
+                        IdentityReviewDecision(
+                            promptType =
+                                promptType,
+                            identityId =
+                                cursor.getString(1),
+                            decision =
+                                decision,
+                            evidenceCount =
+                                cursor.getInt(3),
+                            updatedAtEpochMs =
+                                cursor.getLong(4)
+                        )
+                    )
+                }
+            }
+        }
 
     private fun aliasesFor(
         db: SQLiteDatabase,
