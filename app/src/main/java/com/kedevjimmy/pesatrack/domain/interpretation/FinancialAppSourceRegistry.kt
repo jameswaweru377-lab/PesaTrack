@@ -5,7 +5,14 @@ import com.kedevjimmy.pesatrack.domain.model.KenyanBankDirectory
 
 data class FinancialAppSourceProfile(
     val packageName: String,
-    val bankId: String
+    val bankId: String? = null,
+    val entityKey: String? = null,
+    val displayName: String? = null,
+    val providerKey: String? = null,
+    val accountTypeHint: AccountType =
+        AccountType.OTHER,
+    val nature: FinancialAccountNature =
+        FinancialAccountNature.UNKNOWN
 )
 
 object FinancialAppSourceRegistry {
@@ -45,6 +52,24 @@ object FinancialAppSourceRegistry {
                 packageName =
                     "com.dtb.app",
                 bankId = "dtb"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
+                    "com.branch_international.branch.branch_demo_android",
+                entityKey =
+                    "provider:KENYAN_LENDER_BRANCH",
+                displayName = "Branch",
+                providerKey =
+                    "KENYAN_LENDER_BRANCH"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
+                    "com.inventureaccess.safarirahisi",
+                entityKey =
+                    "provider:KENYAN_LENDER_TALA",
+                displayName = "Tala",
+                providerKey =
+                    "KENYAN_LENDER_TALA"
             )
         )
 
@@ -66,31 +91,56 @@ object FinancialAppSourceRegistry {
                     normalizedPackage
             } ?: return null
 
-        val bank =
-            KenyanBankDirectory.banks
-                .firstOrNull {
-                    it.id ==
-                        profile.bankId
-                } ?: return null
+        profile.bankId
+            ?.let { bankId ->
+                val bank =
+                    KenyanBankDirectory.banks
+                        .firstOrNull {
+                            it.id ==
+                                bankId
+                        }
+                        ?: return null
+
+                return FinancialAccountReference(
+                    entityKey =
+                        "provider:KENYAN_BANK_" +
+                            bank.id
+                                .uppercase()
+                                .replace("-", "_"),
+                    displayName =
+                        bank.name,
+                    providerKey =
+                        "KENYAN_BANK_" +
+                            bank.id
+                                .uppercase()
+                                .replace("-", "_"),
+                    accountTypeHint =
+                        AccountType.BANK,
+                    ownershipHint =
+                        AccountOwnershipHint.UNKNOWN,
+                    nature =
+                        FinancialAccountNature.ASSET
+                )
+            }
+
+        val entityKey =
+            profile.entityKey
+                ?: return null
+        val displayName =
+            profile.displayName
+                ?: return null
 
         return FinancialAccountReference(
-            entityKey =
-                "provider:KENYAN_BANK_" +
-                    bank.id
-                        .uppercase()
-                        .replace("-", "_"),
-            displayName = bank.name,
+            entityKey = entityKey,
+            displayName = displayName,
             providerKey =
-                "KENYAN_BANK_" +
-                    bank.id
-                        .uppercase()
-                        .replace("-", "_"),
+                profile.providerKey,
             accountTypeHint =
-                AccountType.BANK,
+                profile.accountTypeHint,
             ownershipHint =
                 AccountOwnershipHint.UNKNOWN,
             nature =
-                FinancialAccountNature.ASSET
+                profile.nature
         )
     }
 
