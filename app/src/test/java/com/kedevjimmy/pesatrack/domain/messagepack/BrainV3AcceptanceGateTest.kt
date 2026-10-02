@@ -2,89 +2,91 @@ package com.kedevjimmy.pesatrack.domain.messagepack
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialIntelligenceV2FoundationCorpus
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageFixtureCorpus
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageNormalizer
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageRelevanceGate
+import com.kedevjimmy.pesatrack.domain.interpretation.FixtureCoverage
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.InputStreamReader
 
 class BrainV3AcceptanceGateTest {
     @Test
-    fun supportedFinancialFixtureRelevanceMeetsBlueprintTarget() {
-        val router =
-            MessagePackRouter(
-                BundledKenyaMessagePackLoader
-                    .load()
-                    .templates
-            )
-        val fixtures =
-            loadMessagePackFixtures()
+    fun relevanceAccuracyMeetsBlueprintTargetAcrossLabeledCorpora() {
+        var total = 0
+        var correct = 0
 
-        val correctlyAccepted =
-            fixtures.count { fixture ->
-                val title =
-                    fixture
-                        .stringOrNull(
-                            "title"
-                        )
-                val body =
-                    fixture
-                        .get("body")
-                        .asString
-                val sourcePackage =
-                    fixture.stringOrNull(
-                        "sourcePackage"
-                    )
-                val sourceKind =
-                    fixture.stringOrNull(
-                        "sourceKind"
-                    )
-
-                val templateMatch =
-                    router.route(
-                        title = title,
-                        body = body,
-                        sourcePackage =
-                            sourcePackage,
-                        sourceKind =
-                            sourceKind
-                    ) != null
-
-                val genericRelevance =
+        FinancialIntelligenceV2FoundationCorpus
+            .all
+            .forEach { fixture ->
+                val actual =
                     FinancialMessageRelevanceGate
                         .assess(
                             FinancialMessageNormalizer
                                 .normalize(
-                                    title = title,
-                                    body = body
+                                    title =
+                                        fixture.title,
+                                    body =
+                                        fixture.body
                                 )
                         )
                         .isRelevant
 
-                templateMatch ||
-                    genericRelevance
+                total += 1
+                if (
+                    actual ==
+                    fixture.expectedRelevant
+                ) {
+                    correct += 1
+                }
+            }
+
+        FinancialMessageFixtureCorpus
+            .all
+            .forEach { fixture ->
+                val actual =
+                    FinancialMessageRelevanceGate
+                        .assess(
+                            FinancialMessageNormalizer
+                                .normalize(
+                                    title =
+                                        fixture.title,
+                                    body =
+                                        fixture.body
+                                )
+                        )
+                        .isRelevant
+                val expected =
+                    fixture.coverage !=
+                        FixtureCoverage
+                            .NON_FINANCIAL
+
+                total += 1
+                if (actual == expected) {
+                    correct += 1
+                }
             }
 
         val accuracy =
             ratio(
-                numerator =
-                    correctlyAccepted,
-                denominator =
-                    fixtures.size
+                numerator = correct,
+                denominator = total
             )
 
         assertTrue(
-            "Brain v3 relevance acceptance " +
+            "Brain v3 relevance accuracy " +
                 percentage(accuracy) +
                 " is below blueprint target " +
                 percentage(
                     MIN_RELEVANCE_ACCEPTANCE
                 ) +
                 " (" +
-                correctlyAccepted +
+                correct +
                 "/" +
-                fixtures.size +
-                " supported financial fixtures accepted)",
+                total +
+                " labeled fixtures correct)",
             accuracy >=
                 MIN_RELEVANCE_ACCEPTANCE
         )
@@ -168,6 +170,83 @@ class BrainV3AcceptanceGateTest {
                 " declared fields correct)",
             accuracy >=
                 MIN_EXTRACTION_ACCURACY
+        )
+    }
+
+    @Test
+    fun everySupportedFixtureHasDeterministicExplainableProvenance() {
+        loadMessagePackFixtures()
+            .forEach { fixture ->
+                val interpretation =
+                    FinancialMessageInterpreter
+                        .interpret(
+                            title =
+                                fixture
+                                    .stringOrNull(
+                                        "title"
+                                    ),
+                            body =
+                                fixture
+                                    .get("body")
+                                    .asString,
+                            sourcePackage =
+                                fixture
+                                    .stringOrNull(
+                                        "sourcePackage"
+                                    ),
+                            sourceKind =
+                                fixture
+                                    .stringOrNull(
+                                        "sourceKind"
+                                    )
+                        )
+
+                assertTrue(
+                    fixture.get("id")
+                        .asString +
+                        ": expected TEMPLATE provenance",
+                    interpretation
+                        .parseProvenance
+                        .route ==
+                        MessageParseRoute.TEMPLATE
+                )
+                assertTrue(
+                    fixture.get("id")
+                        .asString +
+                        ": wrong template provenance",
+                    interpretation
+                        .parseProvenance
+                        .templateId ==
+                        fixture
+                            .get("templateId")
+                            .asString
+                )
+                assertTrue(
+                    fixture.get("id")
+                        .asString +
+                        ": missing human-readable why",
+                    interpretation
+                        .parseProvenance
+                        .reason
+                        .isNotBlank()
+                )
+            }
+    }
+
+    @Test
+    fun canonicalFinancialCorpusHasNoLegacyParserDependency() {
+        assertTrue(
+            "Canonical financial corpus still depends on legacy transaction parsing",
+            FinancialMessageFixtureCorpus
+                .all
+                .none {
+                    it.coverage ==
+                        FixtureCoverage
+                            .LEGACY_REQUIRED ||
+                        it.coverage ==
+                        FixtureCoverage
+                            .GENERIC_SEMANTICS_LEGACY_PERSISTENCE
+                }
         )
     }
 
