@@ -638,3 +638,43 @@ They deliberately do **not** route through the generic PAYMENT / RECEIPT / TRANS
 `fixtures-v7.json` adds sanitized public-sample fixtures for all three templates, and the router test requires every active template to retain at least one golden fixture.
 
 Next Phase 6 work should continue with additional banks, SACCOs, lenders and app-notification wording only when concrete public/sanitized message evidence exists.
+
+
+## Phase 6 — Long-tail coverage, increment 3 — Source-aware app notifications
+
+Branch milestone: `feature/phase6-source-aware-message-pack-v3-rebased`.
+
+This increment makes bank/app-notification coverage a first-class Message Pack capability without adding a second notification listener or provider-specific parser branches.
+
+### Message Pack source constraints
+
+Templates may now optionally declare:
+
+- `sourcePackages` — exact Android package IDs allowed to produce the shape;
+- `sourceKinds` — ingestion channels such as `financial_notification` or `historical_financial_message`.
+
+Existing templates omit these fields and continue to route exactly as before.
+
+A source-constrained template does not match if its package/channel evidence is absent or different. Source-constrained matches receive higher routing specificity than sender-only templates, and parse provenance explains when source-package/source-channel evidence participated.
+
+### Notification ingestion
+
+The existing Android `NotificationListenerService` already forwards general financial notifications into `FinancialMessageIngestionCoordinator`. The service UI label is generalized from “M-Pesa listener” to **PesaTrack financial notification listener**; no second listener is introduced.
+
+The coordinator now passes the notification package and source channel through `FinancialMessageInterpreter` into the Message Pack router.
+
+### Message Lab / Data Health
+
+Unsupported relevant messages now retain:
+
+- redacted sender/body;
+- source package when available;
+- source kind/channel when available.
+
+Those source fields are included in local Message Lab shape identity and developer fixture export. Data Health shows the source context next to unsupported shapes.
+
+This remains privacy-safe: source metadata is local, raw message upload remains opt-in, and the existing redactor still removes message-body identifiers.
+
+### Guardrail
+
+This increment adds routing evidence, not new bank wording. Provider-specific app templates should only be added after a real sanitized/public notification example is available. Product documentation alone is not sufficient evidence to invent a notification string.
