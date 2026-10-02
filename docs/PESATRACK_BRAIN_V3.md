@@ -896,3 +896,26 @@ This reduces future corpus work from “which app is this?” to “what exact r
 Package identity is not message interpretation.
 
 No SACCO savings, loan, transfer, bill payment or withdrawal is created from app identity alone. App-specific templates still require concrete message evidence.
+
+## Phase 6 — Long-tail coverage, increment 11 — More verified bank app sources
+
+Branch milestone: `feature/phase6-more-bank-app-sources-v11`.
+
+Verified package-source coverage now also includes:
+
+- Standard Chartered Kenya / SC Mobile — `com.scb.breezebanking.ke`;
+- Family Bank / PesaPap — `com.mode.familykenya.ui`;
+- Ecobank Mobile — `com.ecobank.mobileapp5`;
+- SBM Bank Kenya / Mfukoni — `com.mode.chasetest.ui`.
+
+All four map through the existing `KenyanBankDirectory` identity path.
+
+### Effect
+
+Relevant app notifications from these packages can now be attributed to the correct institution in local ingestion diagnostics, Message Lab and Coverage by source even when the visible notification title is generic.
+
+### Guardrail
+
+This is source identity only.
+
+No account ownership, transaction category, transfer direction, loan, payment or balance is inferred from package identity. App-specific notification templates still require concrete message evidence.
