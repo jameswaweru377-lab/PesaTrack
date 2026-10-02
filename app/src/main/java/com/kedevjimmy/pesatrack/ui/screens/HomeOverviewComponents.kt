@@ -314,7 +314,7 @@ private fun HomeMetricTile(
 fun HomeWhereMoneyWentCard(
     items: List<HomeSpendingItem>,
     totalMinor: Long,
-    onBudgetClick: () -> Unit
+    onPlanClick: () -> Unit
 ) {
     PesaCard {
         Column(
@@ -353,11 +353,11 @@ fun HomeWhereMoneyWentCard(
                     )
                 }
                 Text(
-                    "Budget",
+                    "Plan",
                     modifier =
                         Modifier.clickable(
                             onClick =
-                                onBudgetClick
+                                onPlanClick
                         ),
                     style =
                         MaterialTheme
