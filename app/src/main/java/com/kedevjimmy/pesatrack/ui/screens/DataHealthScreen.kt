@@ -36,6 +36,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
 import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
+import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.health.ReviewBurdenAnalysis
+import com.kedevjimmy.pesatrack.domain.health.ReviewBurdenSnapshot
 import com.kedevjimmy.pesatrack.domain.identity.IdentityGraphSnapshot
 import com.kedevjimmy.pesatrack.domain.messagepack.KenyaMessagePack
 import com.kedevjimmy.pesatrack.ingestion.FinancialCoverageAnalysis
@@ -49,6 +52,7 @@ import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 @Composable
 fun DataHealthScreen(
@@ -74,6 +78,11 @@ fun DataHealthScreen(
     val personalLearningStore =
         remember {
             PersonalLearningStore.get(context)
+        }
+
+    val transactionStore =
+        remember {
+            TransactionStore.get(context)
         }
 
     var coverage by remember {
@@ -127,6 +136,13 @@ fun DataHealthScreen(
         mutableStateOf(0)
     }
 
+    var reviewBurden by remember {
+        mutableStateOf(
+            ReviewBurdenSnapshot
+                .empty()
+        )
+    }
+
     LaunchedEffect(Unit) {
         val loaded =
             withContext(
@@ -164,6 +180,10 @@ fun DataHealthScreen(
                     retiredMessageLabCount =
                         messageLabStore
                             .retiredOccurrenceCount()
+,
+                    reviewBurden =
+                        transactionStore
+                            .reviewBurdenSnapshot()
                 )
             }
         coverage = loaded.coverage
@@ -180,6 +200,8 @@ fun DataHealthScreen(
             loaded.learningApplicationCount
         retiredMessageLabCount =
             loaded.retiredMessageLabCount
+        reviewBurden =
+            loaded.reviewBurden
     }
 
     LazyColumn(
@@ -320,6 +342,19 @@ fun DataHealthScreen(
                     )
                 }
             }
+        }
+
+        item {
+            SectionHeader(
+                "Learning outcome"
+            )
+        }
+
+        item {
+            ReviewBurdenCard(
+                snapshot =
+                    reviewBurden
+            )
         }
 
         item {
@@ -789,8 +824,154 @@ private data class DataHealthLoadResult(
     val identityBackfillCount: Int,
     val learningPreferenceCount: Int,
     val learningApplicationCount: Int,
-    val retiredMessageLabCount: Int
+    val retiredMessageLabCount: Int,
+    val reviewBurden:
+        ReviewBurdenSnapshot
 )
+
+@Composable
+private fun ReviewBurdenCard(
+    snapshot:
+        ReviewBurdenSnapshot
+) {
+    val rate =
+        snapshot.reviewRatePercent
+    val targetMet =
+        snapshot.mature &&
+            rate != null &&
+            rate <
+            ReviewBurdenAnalysis
+                .TARGET_PERCENT
+    val status =
+        when {
+            !snapshot.mature ->
+                "Learning " +
+                    snapshot
+                        .observedHistoryDays +
+                    "/" +
+                    snapshot.windowDays +
+                    " days"
+
+            rate == null ->
+                "No ordinary spending"
+
+            targetMet ->
+                "Target met"
+
+            else ->
+                "Keep learning"
+        }
+
+    PesaCard(
+        modifier =
+            Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier =
+                Modifier.padding(
+                    16.dp
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    10.dp
+                )
+        ) {
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Text(
+                    "30-day manual review burden",
+                    modifier =
+                        Modifier.weight(1f),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleLarge
+                )
+                SmallStatusPill(
+                    text = status,
+                    tone =
+                        if (targetMet) {
+                            "green"
+                        } else {
+                            "amber"
+                        }
+                )
+            }
+
+            Text(
+                if (rate == null) {
+                    "No ordinary spending is available in the current outcome window yet."
+                } else {
+                    String.format(
+                        Locale.US,
+                        "%.1f%% required manual category review",
+                        rate
+                    )
+                },
+                style =
+                    MaterialTheme
+                        .typography
+                        .headlineSmall
+            )
+
+            HealthMetric(
+                label =
+                    "Ordinary spending transactions",
+                value =
+                    snapshot
+                        .eligibleTransactionCount
+            )
+            HealthMetric(
+                label =
+                    "Needed manual category review",
+                value =
+                    snapshot
+                        .manualReviewTransactionCount
+            )
+            HealthMetric(
+                label =
+                    "Eligible history days",
+                value =
+                    snapshot
+                        .observedHistoryDays
+            )
+
+            Text(
+                "This outcome counts ordinary spending that is still in Needs Review or was manually classified. Transfers, income, debt, savings, investments, reversals, excluded items and unresolved duplicate pairs are excluded.",
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodySmall,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+
+            Text(
+                if (snapshot.mature) {
+                    "Blueprint target: fewer than roughly 5% after a month of eligible history."
+                } else {
+                    "The blueprint target is not graded yet. PesaTrack will wait for " +
+                        snapshot.windowDays +
+                        " days of eligible history instead of treating a short sample as success."
+                },
+                style =
+                    MaterialTheme
+                        .typography
+                        .labelMedium,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
 
 @Composable
 private fun SourceCoverageCard(
