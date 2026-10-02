@@ -17,7 +17,7 @@
     },
     {
       "field": "ACCOUNT_REFERENCE",
-      "pattern": "for account[ ]+([A-Z0-9*.-]+)",
+      "pattern": "for account[ ]+([A-Z0-9*-]+)[.]?",
       "group": 1
     },
     {
