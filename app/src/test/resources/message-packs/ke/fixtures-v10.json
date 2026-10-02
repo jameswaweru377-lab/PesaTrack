@@ -67,7 +67,7 @@
     "templateId": "ke.m-kopa.installment.payment-received",
     "expectedFields": {
       "AMOUNT": "1,000.00",
-      "ACCOUNT_REFERENCE": "MK12345.",
+      "ACCOUNT_REFERENCE": "MK12345",
       "DATE": "31 Oct 2026",
       "TIME": "18:00",
       "BALANCE": "4,500.00"
