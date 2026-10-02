@@ -63,3 +63,31 @@ Current Google Play evidence URLs:
 - https://play.google.com/store/apps/details?id=com.absa.ke.mobile.android.ui
 - https://play.google.com/store/apps/details?id=com.cfcstanbicbank.app
 - https://play.google.com/store/apps/details?id=com.dtb.app
+
+
+## Phase 6 verified digital-finance app packages
+
+Evidence class: **OFFICIAL_APP_STORE_PACKAGE_IDENTITY**
+
+Reviewed 2 October 2026 from current Google Play listings.
+
+Package identity added:
+
+- Branch — `com.branch_international.branch.branch_demo_android` — Branch International Financial Services Limited.
+- Tala Kenya — `com.inventureaccess.safarirahisi` — Tala Mobile.
+- Timiza — `ke.co.absa.digitalwallet` — Absa Group Limited.
+
+Guardrails:
+
+- Package identity establishes only **which app emitted an Android notification**.
+- Branch and Timiza are treated as financial platforms rather than automatically as loan/debt sources because the apps expose multiple financial functions.
+- Tala is labeled as a lender source, but the package alone still does not prove that a specific notification is a loan drawdown, repayment or balance.
+- No account ownership, category, debt balance, transaction direction or ledger movement is inferred from package identity.
+- Provider-specific notification wording still requires a concrete sanitized/public message example.
+- Unknown package IDs fail closed.
+
+Current Google Play evidence URLs:
+
+- https://play.google.com/store/apps/details?gl=KE&hl=en&id=com.branch_international.branch.branch_demo_android
+- https://play.google.com/store/apps/details?hl=en&id=com.inventureaccess.safarirahisi
+- https://play.google.com/store/apps/details?id=ke.co.absa.digitalwallet
