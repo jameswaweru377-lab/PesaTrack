@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
+import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
 import com.kedevjimmy.pesatrack.domain.identity.IdentityGraphSnapshot
 import com.kedevjimmy.pesatrack.domain.messagepack.KenyaMessagePack
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
@@ -65,6 +66,10 @@ fun DataHealthScreen(
         remember {
             IdentityGraphStore.get(context)
         }
+    val personalLearningStore =
+        remember {
+            PersonalLearningStore.get(context)
+        }
 
     var coverage by remember {
         mutableStateOf(
@@ -96,6 +101,12 @@ fun DataHealthScreen(
     var identityBackfillCount by remember {
         mutableStateOf(0)
     }
+    var learningPreferenceCount by remember {
+        mutableStateOf(0)
+    }
+    var learningApplicationCount by remember {
+        mutableStateOf(0)
+    }
 
     LaunchedEffect(Unit) {
         val loaded =
@@ -119,7 +130,13 @@ fun DataHealthScreen(
                         identityGraphStore
                             .snapshot(),
                     identityBackfillCount =
-                        backfilled
+                        backfilled,
+                    learningPreferenceCount =
+                        personalLearningStore
+                            .preferenceCount(),
+                    learningApplicationCount =
+                        personalLearningStore
+                            .applicationCount()
                 )
             }
         coverage = loaded.coverage
@@ -128,6 +145,10 @@ fun DataHealthScreen(
             loaded.identitySnapshot
         identityBackfillCount =
             loaded.identityBackfillCount
+        learningPreferenceCount =
+            loaded.learningPreferenceCount
+        learningApplicationCount =
+            loaded.learningApplicationCount
     }
 
     LazyColumn(
@@ -383,6 +404,16 @@ fun DataHealthScreen(
                             identitySnapshot
                                 .unclassifiedIdentityCount
                     )
+                    HealthMetric(
+                        label = "Learned category identities",
+                        value =
+                            learningPreferenceCount
+                    )
+                    HealthMetric(
+                        label = "Auto-applied by learning",
+                        value =
+                            learningApplicationCount
+                    )
                     Button(
                         onClick =
                             onIdentityReviewClick,
@@ -526,7 +557,9 @@ private data class DataHealthLoadResult(
         List<UnsupportedMessageShape>,
     val identitySnapshot:
         IdentityGraphSnapshot,
-    val identityBackfillCount: Int
+    val identityBackfillCount: Int,
+    val learningPreferenceCount: Int,
+    val learningApplicationCount: Int
 )
 
 @Composable
