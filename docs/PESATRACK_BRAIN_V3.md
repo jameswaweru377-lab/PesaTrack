@@ -1397,3 +1397,11 @@ This keeps weak evidence in Needs Attention instead of silently collapsing or si
 This is a regression gate around the existing correlation engine, not a change to matching thresholds or ledger arithmetic.
 
 The target is practical near-zero known duplicate-accounting regressions: known strong mirrors must correlate, known distinct movements must not, and ambiguous pairs must remain review-only.
+
+The same integration pass also consolidates the useful readiness checks from the overlapping readiness branch into the existing `BrainV3AcceptanceGateTest`:
+
+- relevance accuracy is now measured against labeled Foundation + canonical financial corpora rather than only positive Message Pack fixtures;
+- every supported Message Pack fixture must produce deterministic TEMPLATE provenance with the expected template ID and a non-empty human-readable reason;
+- the canonical financial fixture corpus must have zero legacy transaction-parser dependency.
+
+This avoids maintaining two competing Phase 6 readiness frameworks.
