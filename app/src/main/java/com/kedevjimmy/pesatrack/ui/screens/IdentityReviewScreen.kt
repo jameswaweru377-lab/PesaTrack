@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
+import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
 import com.kedevjimmy.pesatrack.domain.identity.IdentityNodeKind
 import com.kedevjimmy.pesatrack.domain.identity.IdentityReviewPrompt
 import com.kedevjimmy.pesatrack.domain.identity.IdentityReviewPromptType
@@ -50,6 +51,12 @@ fun IdentityReviewScreen(
     val store =
         remember {
             IdentityGraphStore.get(context)
+        }
+    val personalLearningStore =
+        remember {
+            PersonalLearningStore.get(
+                context
+            )
         }
     val scope =
         rememberCoroutineScope()
@@ -102,7 +109,21 @@ fun IdentityReviewScreen(
                 withContext(
                     Dispatchers.IO
                 ) {
-                    runCatching(action)
+                    runCatching {
+                        val saved =
+                            action()
+                        if (saved) {
+                            personalLearningStore
+                                .synchronizeFromUserReviews(
+                                    limit = 1_000
+                                )
+                            personalLearningStore
+                                .reconcilePending(
+                                    limit = 300
+                                )
+                        }
+                        saved
+                    }
                 }
 
             result.onSuccess {
