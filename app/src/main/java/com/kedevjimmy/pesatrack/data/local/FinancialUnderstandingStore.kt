@@ -638,6 +638,17 @@ class FinancialUnderstandingStore private constructor(
                 )
         }
 
+        IdentityGraphStore
+            .get(appContext)
+            .observeOwnedAccount(
+                account = account,
+                providerKey =
+                    canonical?.providerKey
+                        ?: entity.providerKey,
+                observedAtEpochMs =
+                    System.currentTimeMillis()
+            )
+
         DebtStore.get(appContext)
             .reconcilePendingChainsForFundingAccount(
                 accountId = account.id,
