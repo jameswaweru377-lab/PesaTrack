@@ -134,6 +134,15 @@ object FinancialAppSourceRegistry {
                 displayName = "Tala",
                 providerKey =
                     "KENYAN_LENDER_TALA"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
+                    "com.kashbean",
+                entityKey =
+                    "provider:KENYAN_LENDER_KASHBEAN",
+                displayName = "Kashbean",
+                providerKey =
+                    "KENYAN_LENDER_KASHBEAN"
             )
         )
 
