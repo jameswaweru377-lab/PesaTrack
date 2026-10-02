@@ -2797,3 +2797,28 @@ Next:
 - evidence-backed bank/app-notification shapes for remaining institutions;
 - recurring/subscription intelligence after corpus expansion;
 - preserve Phase 5 Home/Activity hierarchy while adding coverage.
+
+
+## Phase 6 Long-tail Coverage — increment 2 / recurring intelligence — 2026-10-02
+
+Phase 6 now includes a deterministic recurring-payment suggestion layer.
+
+Implemented:
+
+- Database schema advances from v30 to **v31** with `recurring_pattern_decisions`.
+- Added pure `RecurringPatternPolicy` and models.
+- Added `RecurringPatternStore` over the existing canonical transaction history, Identity Graph and Smart Rules.
+- Monthly candidates require at least three trusted observations and every interval must fall within 24-38 days.
+- Candidates older than 60 days or with more than 35% amount variation are rejected.
+- HIGH confidence requires at least four observations, 27-33 day median cadence, <=10% amount variation and <=6 days interval spread.
+- Structural/accounting categories are excluded: income, transfer, debt, cash, savings and investment. Other/Uncategorized are also excluded.
+- Existing Smart Rules, linked events, reversals, Needs Review and excluded transactions do not produce suggestions.
+- SELF and owned financial-account identities do not produce recurring suggestions.
+- Plan now shows up to three **Possible recurring payments**.
+- Suggestions show cadence, typical median amount, expected next date and confidence.
+- Nothing is added automatically.
+- **Add to plan** creates an exact identity-backed `OTHER_RECURRING` Smart Rule with the median amount as its planned amount and rebuilds the existing pay-cycle commitment model.
+- **Not recurring** is durable. The same pattern remains suppressed until at least two additional observations arrive.
+- Added pure policy regression tests for strong monthly cadence, medium cadence, frequent-merchant rejection, volatile-amount rejection and stale-pattern rejection.
+
+Phase 6 remains in progress. Continue provider/app-notification/SACCO/lender coverage only from concrete sanitized/public message evidence; do not invent provider wording from product documentation.

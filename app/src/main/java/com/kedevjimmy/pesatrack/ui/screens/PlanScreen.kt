@@ -20,15 +20,18 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Paid
+import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
@@ -46,11 +50,15 @@ import com.kedevjimmy.pesatrack.data.local.CommitmentProgress
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
+import com.kedevjimmy.pesatrack.data.local.RecurringPatternStore
+import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternCandidate
+import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternConfidence
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
+import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import java.text.NumberFormat
@@ -59,6 +67,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.max
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -68,18 +77,46 @@ fun PlanScreen(
     onGoalsClick: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val store = remember { PayCycleStore.get(context) }
-    val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
+    val store = remember {
+        PayCycleStore.get(context)
+    }
+    val recurringStore = remember {
+        RecurringPatternStore.get(context)
+    }
+    val planScope =
+        rememberCoroutineScope()
+    val ledgerUpdateState by
+        LedgerUpdateBus.state.collectAsState()
     var snapshot by remember {
-        mutableStateOf(emptyPlanSnapshot())
+        mutableStateOf(
+            emptyPlanSnapshot()
+        )
+    }
+    var recurringSuggestions by remember {
+        mutableStateOf<
+            List<RecurringPatternCandidate>
+        >(emptyList())
+    }
+    var localRefresh by remember {
+        mutableStateOf(0)
     }
 
-    LaunchedEffect(ledgerUpdateState.revision) {
-        snapshot =
+    LaunchedEffect(
+        ledgerUpdateState.revision,
+        localRefresh
+    ) {
+        val loaded =
             withContext(Dispatchers.IO) {
                 store.rebuild()
-                store.snapshot()
+                store.snapshot() to
+                    recurringStore
+                        .suggestions(
+                            limit = 3
+                        )
             }
+        snapshot = loaded.first
+        recurringSuggestions =
+            loaded.second
     }
 
     LazyColumn(
@@ -248,6 +285,71 @@ fun PlanScreen(
                         )
                     }
                 }
+            }
+        }
+
+        if (
+            recurringSuggestions
+                .isNotEmpty()
+        ) {
+            item {
+                SectionHeader(
+                    "Possible recurring payments"
+                )
+                Text(
+                    "PesaTrack noticed a monthly pattern. Nothing is added to your plan until you confirm it.",
+                    modifier =
+                        Modifier.padding(
+                            top = 4.dp
+                        ),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+            }
+
+            items(
+                recurringSuggestions.size
+            ) { index ->
+                val candidate =
+                    recurringSuggestions[
+                        index
+                    ]
+                RecurringSuggestionCard(
+                    candidate =
+                        candidate,
+                    onAdd = {
+                        planScope.launch {
+                            withContext(
+                                Dispatchers.IO
+                            ) {
+                                recurringStore
+                                    .accept(
+                                        candidate
+                                    )
+                            }
+                            localRefresh += 1
+                        }
+                    },
+                    onDismiss = {
+                        planScope.launch {
+                            withContext(
+                                Dispatchers.IO
+                            ) {
+                                recurringStore
+                                    .dismiss(
+                                        candidate
+                                    )
+                            }
+                            localRefresh += 1
+                        }
+                    }
+                )
             }
         }
 
@@ -499,6 +601,178 @@ private fun PlanMetric(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun RecurringSuggestionCard(
+    candidate:
+        RecurringPatternCandidate,
+    onAdd: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    PesaCard {
+        Column(
+            modifier =
+                Modifier.padding(15.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    10.dp
+                )
+        ) {
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                IconBubble(
+                    Icons.Rounded.Repeat,
+                    size = 42.dp,
+                    background =
+                        pesaToneContainer(
+                            "blue"
+                        ),
+                    tint =
+                        pesaToneContent(
+                            "blue"
+                        )
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(
+                                start = 11.dp
+                            )
+                ) {
+                    Text(
+                        candidate.label,
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleMedium
+                    )
+                    Text(
+                        candidate
+                            .occurrenceCount
+                            .toString() +
+                            " payments • about every " +
+                            candidate
+                                .medianIntervalDays +
+                            " days",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+                SmallStatusPill(
+                    if (
+                        candidate.confidence ==
+                        RecurringPatternConfidence
+                            .HIGH
+                    ) {
+                        "Strong pattern"
+                    } else {
+                        "Possible"
+                    },
+                    if (
+                        candidate.confidence ==
+                        RecurringPatternConfidence
+                            .HIGH
+                    ) {
+                        "green"
+                    } else {
+                        "amber"
+                    }
+                )
+            }
+
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+                    Text(
+                        "Typical amount",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelSmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                    Text(
+                        formatPlanMoney(
+                            candidate
+                                .typicalAmountMinor
+                        ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleMedium,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                }
+                Column(
+                    horizontalAlignment =
+                        Alignment.End
+                ) {
+                    Text(
+                        "Next around",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelSmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                    Text(
+                        formatPlanDate(
+                            candidate
+                                .nextExpectedAtEpochMs
+                        ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelLarge
+                    )
+                }
+            }
+
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.End,
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = onDismiss
+                ) {
+                    Text("Not recurring")
+                }
+                Button(
+                    onClick = onAdd
+                ) {
+                    Text("Add to plan")
+                }
+            }
         }
     }
 }
