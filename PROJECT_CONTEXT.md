@@ -2823,6 +2823,24 @@ Implemented:
 
 Phase 6 remains in progress. Continue provider/app-notification/SACCO/lender coverage only from concrete sanitized/public message evidence; do not invent provider wording from product documentation.
 
+## Phase 6 Long-tail Coverage — increment 3 / bank account alerts — 2026-10-02
+
+Phase 6 bank coverage has another evidence-backed increment.
+
+Implemented:
+
+- Kenya Message Pack expands from 45 to **48 active templates**.
+- Added Co-operative Bank compact account credit and debit alert shapes.
+- Added Equity account-credit alert shape.
+- Added account reference, amount, date, balance and reference extraction.
+- Added `fixtures-v7.json` sanitized golden corpus.
+- Added provenance regression coverage for Co-operative Bank and Equity account alerts.
+- Evidence comes from an ISC-licensed public Kenyan SMS-finance sample/parser repository and is documented as **PUBLIC_SAMPLE_IMPLEMENTATION**, not bank-verified live wording.
+- New shapes use `ACCOUNT_CREDIT` / `ACCOUNT_DEBIT` event kinds so Message Pack provenance cannot invent a counterparty or silently turn a generic account alert into an ordinary payment/receipt.
+- No ledger arithmetic, pay-cycle math, debt balances, personal-learning decisions or Phase 5 navigation were changed.
+
+Continue Phase 6 with additional banks, SACCOs, lenders and bank-app notification wording only from concrete sanitized/public message evidence.
+
 
 ## Phase 6 Long-tail Coverage — increment 3 / bank-app notifications — 2026-10-02
 
