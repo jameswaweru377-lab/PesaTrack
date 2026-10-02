@@ -130,6 +130,18 @@ class IdentityGraphPolicyTest {
     }
 
     @Test
+    fun saccoCatalogEntityMapsToFinancialInstitutionNode() {
+        assertEquals(
+            IdentityNodeKind
+                .FINANCIAL_INSTITUTION,
+            IdentityGraphPolicy
+                .nodeKindFor(
+                    EntityKind.SACCO
+                )
+        )
+    }
+
+    @Test
     fun plausiblePersonNameIsOnlyPromptEvidence() {
         assertTrue(
             IdentityGraphPolicy
