@@ -1,0 +1,25 @@
+[
+  {
+    "id": "dtb_till_moja_payer_payment",
+    "title": "DTB",
+    "body": "Dear SAMPLE PAYER, you have successfully paid KES 500.00 to SAMPLE SHOP-444444. Ref. QJQ4MSQ8E6",
+    "templateId": "ke.dtb.till-moja.payer-payment",
+    "expectedFields": {
+      "AMOUNT": "500.00",
+      "COUNTERPARTY": "SAMPLE SHOP-444444",
+      "REFERENCE": "QJQ4MSQ8E6"
+    }
+  },
+  {
+    "id": "dtb_till_moja_merchant_receipt",
+    "title": "DTB",
+    "body": "Dear Customer, KES 500.00 has been paid into SAMPLE SHOP-444444 by SAMPLE PAYER. Ref:000FTCB222998933",
+    "templateId": "ke.dtb.till-moja.merchant-receipt",
+    "expectedFields": {
+      "AMOUNT": "500.00",
+      "ACCOUNT_REFERENCE": "SAMPLE SHOP-444444",
+      "COUNTERPARTY": "SAMPLE PAYER",
+      "REFERENCE": "000FTCB222998933"
+    }
+  }
+]

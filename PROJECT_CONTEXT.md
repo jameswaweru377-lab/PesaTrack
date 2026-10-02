@@ -2550,3 +2550,13 @@ A Message Pack match is not considered sufficient intelligence by itself.
 The bridge does not classify or persist transactions. FinancialRelationshipResolver and FinancialEventClassifier remain the accounting authority.
 
 PesaLink remains a transfer-network observation and must not be promoted into a fake owned account when no source/destination bank account is explicit.
+
+
+## Brain v3 Phase 2 — DTB Till Moja corpus increment — 2026-10-02
+
+- Added two DTB Till Moja Message Pack shapes: payer confirmation and merchant receipt.
+- Message Pack count advances from 35 to 37 active templates.
+- DTB identity continues to come from the generic Kenyan bank directory as `KENYAN_BANK_DTB`.
+- Both shapes are backed by sanitized fixtures and canonical Payment/Receipt integration tests.
+- Evidence provenance is documented in `docs/message-corpus-sources.md`.
+- Keep general Co-op, Absa, NCBA and Stanbic transaction messages on V2 fallback until exact message bodies are available.

@@ -169,3 +169,23 @@ The purpose of the bridge is to prevent a dangerous false milestone where Data H
 `fixtures-v4.json` contains sanitized synthetic examples reconstructed from published upstream template anchors. They are test vectors for the public schema, not claims about exact current customer SMS wording.
 
 Real-device samples should later be added as additional fixtures without deleting this evidence trail.
+
+
+## Phase 2 — DTB Till Moja corpus, increment 4
+
+Branch milestone: `feature/brain-v3-bank-corpus-dtb-v1`.
+
+This increment expands the Message Pack from 35 to 37 active templates.
+
+Added evidence-backed DTB Till Moja shapes:
+
+- payer-side merchant payment confirmation;
+- merchant-side payment receipt.
+
+Both shapes:
+- use the existing DTB entry in `KenyanBankDirectory`;
+- feed explicit amount/counterparty facts through the existing fallback-only Message Pack candidate bridge;
+- still rely on Financial Intelligence V2 for relationship resolution and canonical event classification;
+- have sanitized golden fixtures and end-to-end canonical-event tests.
+
+No Co-op, Absa, NCBA or Stanbic generic transaction template is added here because exact message wording has not yet been established strongly enough. Keep those providers on generic V2 fallback until concrete evidence exists.
