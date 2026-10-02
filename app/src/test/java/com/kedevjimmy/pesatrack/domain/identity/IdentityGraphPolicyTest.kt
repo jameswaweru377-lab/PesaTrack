@@ -173,4 +173,116 @@ class IdentityGraphPolicyTest {
             id
         )
     }
+
+    @Test
+    fun rejectedSelfIdentitySuppressesPhoneAndNamePrompts() {
+        val phonePrompt =
+            IdentityReviewPrompt(
+                promptType =
+                    IdentityReviewPromptType
+                        .CONFIRM_SELF_PHONE,
+                identityId =
+                    "counterparty:phone:test",
+                displayLabel =
+                    "0712345678",
+                aliasType =
+                    IdentityAliasType.PHONE,
+                normalizedValue =
+                    "0712345678",
+                observationCount = 3,
+                reason = "test"
+            )
+        val namePrompt =
+            phonePrompt.copy(
+                promptType =
+                    IdentityReviewPromptType
+                        .CONFIRM_SELF_NAME,
+                displayLabel =
+                    "Sample Person",
+                aliasType =
+                    IdentityAliasType.NAME,
+                normalizedValue =
+                    "SAMPLE PERSON"
+            )
+        val decisions =
+            listOf(
+                IdentityReviewDecision(
+                    promptType =
+                        IdentityReviewPromptType
+                            .CONFIRM_SELF_PHONE,
+                    identityId =
+                        phonePrompt.identityId,
+                    decision =
+                        IdentityReviewDecisionType
+                            .REJECTED_SELF,
+                    evidenceCount = 3,
+                    updatedAtEpochMs = 1L
+                )
+            )
+
+        assertFalse(
+            IdentityGraphPolicy
+                .shouldPresentReviewPrompt(
+                    phonePrompt,
+                    decisions
+                )
+        )
+        assertFalse(
+            IdentityGraphPolicy
+                .shouldPresentReviewPrompt(
+                    namePrompt,
+                    decisions
+                )
+        )
+    }
+
+    @Test
+    fun deferredPromptReturnsOnlyAfterNewEvidence() {
+        val prompt =
+            IdentityReviewPrompt(
+                promptType =
+                    IdentityReviewPromptType
+                        .CLASSIFY_COUNTERPARTY,
+                identityId =
+                    "counterparty:name:test",
+                displayLabel =
+                    "Sample Counterparty",
+                aliasType =
+                    IdentityAliasType.NAME,
+                normalizedValue =
+                    "SAMPLE COUNTERPARTY",
+                observationCount = 4,
+                reason = "test"
+            )
+        val decision =
+            IdentityReviewDecision(
+                promptType =
+                    prompt.promptType,
+                identityId =
+                    prompt.identityId,
+                decision =
+                    IdentityReviewDecisionType
+                        .DEFERRED,
+                evidenceCount = 4,
+                updatedAtEpochMs = 1L
+            )
+
+        assertFalse(
+            IdentityGraphPolicy
+                .shouldPresentReviewPrompt(
+                    prompt,
+                    listOf(decision)
+                )
+        )
+        assertTrue(
+            IdentityGraphPolicy
+                .shouldPresentReviewPrompt(
+                    prompt.copy(
+                        observationCount = 5
+                    ),
+                    listOf(decision)
+                )
+        )
+    }
+
 }

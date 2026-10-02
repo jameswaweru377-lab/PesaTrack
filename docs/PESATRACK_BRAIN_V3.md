@@ -254,3 +254,46 @@ This foundation does not yet:
 - change Home/Activity design.
 
 The next Phase 3 increment is the user-facing identity review flow: “Is this your number?”, “Is this your transaction name?”, and safe external identity classification.
+
+
+## Phase 3 — Identity Review, increment 2
+
+Branch milestone: `feature/brain-v3-identity-review-v1`.
+
+This increment turns Identity Graph questions into explicit user decisions without introducing personal category learning yet.
+
+### Schema v29
+
+New local table:
+
+- `identity_review_decisions`
+
+It stores prompt type, identity ID, decision, evidence count and update time.
+
+### Durable review behavior
+
+Self-identity questions support:
+
+- **Yes, mine** — promotes the observed aliases to SELF using the existing user-confirmed Identity Graph path.
+- **Not mine** — permanently suppresses SELF prompts for that identity, but does not guess Person/Business/Biller type.
+- **Not sure yet** — defers that exact question at the current evidence count. It can return only after new evidence increases.
+
+Repeated unknown counterparties support explicit:
+
+- Person
+- Business
+- Biller
+- Financial institution
+- Not sure yet
+
+Classification answers are user-confirmed and durable. Frequency alone still never determines identity kind.
+
+### UI placement
+
+Identity Review lives under **More → Data Health → Identity Review**.
+
+It is deliberately not promoted to Home/Activity yet. The blueprint requires durable identity decisions before product simplification or personal-learning behavior.
+
+### Next milestone
+
+After this increment is green, Phase 4 can begin with personal learning from reviewed transactions and confirmed identities. High-confidence learning may auto-apply only when evidence is strong; medium confidence suggests; low confidence asks. User decisions remain authoritative.

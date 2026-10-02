@@ -18,6 +18,7 @@ import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
 import com.kedevjimmy.pesatrack.ui.screens.DataHealthScreen
 import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
+import com.kedevjimmy.pesatrack.ui.screens.IdentityReviewScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoreScreen
@@ -292,6 +293,25 @@ fun PesaTrackApp(
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 DataHealthScreen(
+                    scaffoldPadding = padding,
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onIdentityReviewClick = {
+                        navController.navigate(
+                            "identity-review"
+                        )
+                    }
+                )
+            }
+        }
+
+        composable("identity-review") {
+            AppScaffold(
+                currentTab = MainTab.MORE,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                IdentityReviewScreen(
                     scaffoldPadding = padding,
                     onBack = {
                         navController.popBackStack()

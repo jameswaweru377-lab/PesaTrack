@@ -21,6 +21,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createDebtTables(db)
         createFinancialUnderstandingTables(db)
         createIdentityGraphTables(db)
+        createIdentityReviewDecisionsTable(db)
         createTransactionExternalReferencesTable(db)
         createLiabilityPaymentDecisionsTable(db)
         createInvestmentTables(db)
@@ -401,6 +402,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 28) {
             createIdentityGraphTables(db)
+        }
+
+        if (oldVersion < 29) {
+            createIdentityReviewDecisionsTable(db)
         }
 
         createIndexes(db)
@@ -1072,6 +1077,23 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createIdentityReviewDecisionsTable(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS identity_review_decisions (
+                prompt_type TEXT NOT NULL,
+                identity_id TEXT NOT NULL,
+                decision TEXT NOT NULL,
+                evidence_count INTEGER NOT NULL DEFAULT 0,
+                updated_at_epoch_ms INTEGER NOT NULL,
+                PRIMARY KEY(prompt_type, identity_id)
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun createFinancialUnderstandingTables(
         db: SQLiteDatabase
     ) {
@@ -1437,6 +1459,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 28
+        private const val DATABASE_VERSION = 29
     }
 }

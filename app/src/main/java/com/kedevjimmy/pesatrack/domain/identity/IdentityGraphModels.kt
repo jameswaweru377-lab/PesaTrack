@@ -95,6 +95,21 @@ data class IdentityReviewPrompt(
     val reason: String
 )
 
+
+
+enum class IdentityReviewDecisionType {
+    REJECTED_SELF,
+    DEFERRED
+}
+
+data class IdentityReviewDecision(
+    val promptType: IdentityReviewPromptType,
+    val identityId: String,
+    val decision: IdentityReviewDecisionType,
+    val evidenceCount: Int,
+    val updatedAtEpochMs: Long
+)
+
 data class IdentityGraphSnapshot(
     val nodeCount: Int,
     val aliasCount: Int,

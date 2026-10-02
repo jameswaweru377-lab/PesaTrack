@@ -2621,3 +2621,27 @@ Build the actual Identity Review experience and persist explicit answers:
 - Person / Business / Biller / Financial institution / Not sure.
 
 Do not start personal category learning or the Home redesign before those identity decisions are safely reviewable and durable.
+
+
+## Brain v3 Phase 3 — Identity Review — 2026-10-02
+
+Identity Graph questions are now reviewable through a dedicated Data Health flow.
+
+### Database
+
+Schema advances from v28 to **v29** with `identity_review_decisions`.
+
+### Review semantics
+
+- `CONFIRM_SELF_PHONE` and `CONFIRM_SELF_NAME` can be confirmed as SELF through the existing graph confirmation path.
+- **Not mine** records a durable SELF rejection for that identity. It suppresses future SELF phone/name prompts without forcing an external type.
+- **Not sure yet** records a deferred decision with the current observation count. The same question stays hidden until new evidence increases.
+- `CLASSIFY_COUNTERPARTY` supports user-confirmed Person, Business, Biller and Financial institution.
+- A classification decision clears obsolete review decisions for that identity.
+- A SELF confirmation clears obsolete review decisions for that identity.
+
+### Product boundary
+
+The review screen is under Data Health/More, not Home. No transaction category is learned or applied in this increment, and no Smart Rule is generated.
+
+Next: Phase 4 personal learning, built on durable identity + review evidence rather than raw name repetition.

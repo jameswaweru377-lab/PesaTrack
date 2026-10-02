@@ -125,6 +125,56 @@ object IdentityGraphPolicy {
                 IdentityNodeKind.UNKNOWN
         }
 
+    fun shouldPresentReviewPrompt(
+        prompt: IdentityReviewPrompt,
+        decisions: List<IdentityReviewDecision>
+    ): Boolean {
+        val isSelfPrompt =
+            prompt.promptType ==
+                IdentityReviewPromptType
+                    .CONFIRM_SELF_PHONE ||
+                prompt.promptType ==
+                IdentityReviewPromptType
+                    .CONFIRM_SELF_NAME
+
+        if (
+            isSelfPrompt &&
+            decisions.any {
+                it.identityId ==
+                    prompt.identityId &&
+                    it.decision ==
+                    IdentityReviewDecisionType
+                        .REJECTED_SELF
+            }
+        ) {
+            return false
+        }
+
+        val matchingDecision =
+            decisions.firstOrNull {
+                it.identityId ==
+                    prompt.identityId &&
+                    it.promptType ==
+                    prompt.promptType
+            }
+
+        return when (
+            matchingDecision?.decision
+        ) {
+            IdentityReviewDecisionType
+                .DEFERRED ->
+                prompt.observationCount >
+                    matchingDecision
+                        .evidenceCount
+
+            IdentityReviewDecisionType
+                .REJECTED_SELF ->
+                !isSelfPrompt
+
+            null -> true
+        }
+    }
+
     fun isPlausiblePersonName(
         raw: String?
     ): Boolean {

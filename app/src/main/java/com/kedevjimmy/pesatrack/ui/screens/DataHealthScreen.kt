@@ -47,7 +47,8 @@ import kotlinx.coroutines.withContext
 @Composable
 fun DataHealthScreen(
     scaffoldPadding: PaddingValues,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onIdentityReviewClick: () -> Unit
 ) {
     val context =
         LocalContext.current
@@ -382,6 +383,37 @@ fun DataHealthScreen(
                             identitySnapshot
                                 .unclassifiedIdentityCount
                     )
+                    Button(
+                        onClick =
+                            onIdentityReviewClick,
+                        modifier =
+                            Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (
+                                identitySnapshot
+                                    .pendingPromptCount >
+                                0
+                            ) {
+                                "Review " +
+                                    identitySnapshot
+                                        .pendingPromptCount +
+                                    " identity question" +
+                                    if (
+                                        identitySnapshot
+                                            .pendingPromptCount ==
+                                        1
+                                    ) {
+                                        ""
+                                    } else {
+                                        "s"
+                                    }
+                            } else {
+                                "Open Identity Review"
+                            }
+                        )
+                    }
+
                     if (
                         identityBackfillCount > 0
                     ) {
