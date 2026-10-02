@@ -33,7 +33,17 @@ object FinancialCoverageAnalysis {
         limit: Int = 8
     ): List<FinancialSourceCoverageSnapshot> =
         entries
-            .groupBy(::sourceKey)
+            .groupBy {
+                sourceKey(
+                    sourceKind =
+                        it.sourceKind,
+                    sourcePackage =
+                        it.sourcePackage,
+                    displayName =
+                        it.sourceDisplayName
+                            ?: it.title
+                )
+            }
             .map {
                     (key, grouped) ->
                 val latest =
@@ -102,12 +112,13 @@ object FinancialCoverageAnalysis {
                 )
             )
 
-    private fun sourceKey(
-        entry:
-            FinancialIngestionDiagnostic
+    fun sourceKey(
+        sourceKind: String?,
+        sourcePackage: String?,
+        displayName: String?
     ): String {
         val packagePart =
-            entry.sourcePackage
+            sourcePackage
                 ?.trim()
                 ?.lowercase()
                 ?.takeIf(
@@ -115,8 +126,7 @@ object FinancialCoverageAnalysis {
                 )
         val displayPart =
             (
-                entry.sourceDisplayName
-                    ?: entry.title
+                displayName
                     ?: "unknown"
             ).trim()
                 .lowercase()
@@ -131,7 +141,8 @@ object FinancialCoverageAnalysis {
                     "unknown"
                 }
         val kind =
-            entry.sourceKind
+            sourceKind
+                .orEmpty()
                 .trim()
                 .lowercase()
                 .ifBlank {
