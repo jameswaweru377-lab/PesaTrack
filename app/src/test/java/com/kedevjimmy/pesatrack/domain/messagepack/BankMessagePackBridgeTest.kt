@@ -175,6 +175,80 @@ class BankMessagePackBridgeTest {
         )
     }
 
+
+    @Test
+    fun dtbTillMojaPayerNotificationBecomesCanonicalPayment() {
+        val body =
+            "Dear SAMPLE PAYER, you have successfully paid KES 500.00 to SAMPLE SHOP-444444. Ref. QJQ4MSQ8E6"
+
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "DTB",
+                    body = body
+                )
+        val event =
+            interpretation.events
+                .single() as
+                PaymentEventFact
+
+        assertEquals(
+            50_000L,
+            event.amountMinor
+        )
+        assertEquals(
+            "SAMPLE SHOP-444444",
+            event.counterparty
+        )
+        assertEquals(
+            "KENYAN_BANK_DTB",
+            event.source.providerKey
+        )
+        assertEquals(
+            "ke.dtb.till-moja.payer-payment",
+            interpretation
+                .parseProvenance
+                .templateId
+        )
+    }
+
+    @Test
+    fun dtbTillMojaMerchantNotificationBecomesCanonicalReceipt() {
+        val body =
+            "Dear Customer, KES 500.00 has been paid into SAMPLE SHOP-444444 by SAMPLE PAYER. Ref:000FTCB222998933"
+
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "DTB",
+                    body = body
+                )
+        val event =
+            interpretation.events
+                .single() as
+                ReceiptEventFact
+
+        assertEquals(
+            50_000L,
+            event.amountMinor
+        )
+        assertEquals(
+            "SAMPLE PAYER",
+            event.counterparty
+        )
+        assertEquals(
+            "KENYAN_BANK_DTB",
+            event.destination
+                .providerKey
+        )
+        assertEquals(
+            "ke.dtb.till-moja.merchant-receipt",
+            interpretation
+                .parseProvenance
+                .templateId
+        )
+    }
+
     @Test
     fun pesalinkNetworkMessageDoesNotInventOwnedPesalinkAccount() {
         val interpretation =
