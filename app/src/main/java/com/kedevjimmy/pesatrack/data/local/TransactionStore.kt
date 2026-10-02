@@ -2639,6 +2639,8 @@ class TransactionStore private constructor(context: Context) {
         allTransactions().forEach { current ->
             if (
                 current.ruleId != null ||
+                current.evidenceSource ==
+                    "personal_learning" ||
                 current.reviewState ==
                     ReviewState.USER_CLASSIFIED.name ||
                 current.reviewState ==
@@ -2742,6 +2744,8 @@ class TransactionStore private constructor(context: Context) {
 
         if (
             current.ruleId != null ||
+            current.evidenceSource ==
+                "personal_learning" ||
             current.reviewState ==
                 ReviewState.USER_CLASSIFIED.name ||
             current.reviewState ==
@@ -2822,6 +2826,8 @@ class TransactionStore private constructor(context: Context) {
         transactions.asSequence()
             .filter { item ->
                 item.ruleId == null &&
+                    item.evidenceSource !=
+                        "personal_learning" &&
                     item.reviewState !=
                         ReviewState.USER_CLASSIFIED.name &&
                     item.reviewState !=
