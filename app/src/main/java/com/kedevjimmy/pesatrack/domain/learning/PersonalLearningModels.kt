@@ -3,25 +3,20 @@ package com.kedevjimmy.pesatrack.domain.learning
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 
 enum class PersonalLearningConfidence {
-    HIGH,
+    LOW,
     MEDIUM,
-    LOW
+    HIGH
 }
 
 enum class PersonalLearningAction {
-    AUTO_APPLY,
+    ASK,
     SUGGEST,
-    ASK
+    AUTO_APPLY
 }
 
-data class PersonalLearningPreference(
-    val identityId: String,
+data class PersonalCategoryEvidence(
     val categoryId: String,
-    val direction: MoneyDirection,
-    val confirmationCount: Int,
-    val sourceTransactionId: Long,
-    val createdAtEpochMs: Long,
-    val updatedAtEpochMs: Long
+    val supportCount: Int
 )
 
 data class PersonalLearningSuggestion(
@@ -30,5 +25,13 @@ data class PersonalLearningSuggestion(
     val direction: MoneyDirection,
     val confidence: PersonalLearningConfidence,
     val action: PersonalLearningAction,
-    val confirmationCount: Int
+    val supportCount: Int,
+    val totalReviewCount: Int,
+    val reason: String
+)
+
+data class PersonalLearningSnapshot(
+    val reviewedTransactionCount: Int,
+    val learnedIdentityCount: Int,
+    val autoAppliedTransactionCount: Int
 )
