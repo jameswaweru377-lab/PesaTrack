@@ -46,6 +46,9 @@
     "evopay/parking/lpn-payment/template.json",
     "globalpay/card/purchase/template.json",
     "sanlam/investment/fund-credit/template.json",
-    "sanlam/investment/top-up/template.json"
+    "sanlam/investment/top-up/template.json",
+    "cooperative/account/credit/template.json",
+    "cooperative/account/debit/template.json",
+    "equity/account/credit/template.json"
   ]
 }

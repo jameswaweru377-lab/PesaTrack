@@ -602,3 +602,39 @@ Recurring intelligence does not:
 - change ledger arithmetic.
 
 The next Phase 6 increments remain evidence-backed provider/app-notification coverage and additional long-tail institutions.
+
+## Phase 6 — Long-tail coverage, increment 3 — Bank account alerts
+
+Branch milestone: `feature/phase6-bank-alert-pack-v3`.
+
+This increment extends the Message Pack using concrete public sample implementations from an ISC-licensed Kenyan SMS-finance project.
+
+### Added shapes
+
+The Kenya Message Pack grows from 45 to 48 active templates with:
+
+- Co-operative Bank compact account credit;
+- Co-operative Bank compact account debit;
+- Equity account credit.
+
+Each template extracts the available structured evidence:
+
+- account reference/tail;
+- amount;
+- date;
+- observed balance;
+- transaction/reference ID.
+
+### Authority boundary
+
+These public examples are sample/test formats, not bank-certified wording. PesaTrack keeps matching narrow and labels the evidence in the corpus documentation accordingly.
+
+The new event kinds are `ACCOUNT_CREDIT` and `ACCOUNT_DEBIT`.
+
+They deliberately do **not** route through the generic PAYMENT / RECEIPT / TRANSFER Message Pack bridge because the source examples do not establish a counterparty. Financial Intelligence V2 can still interpret stronger evidence in the message, but the template itself cannot invent who money came from or went to.
+
+### Regression coverage
+
+`fixtures-v7.json` adds sanitized public-sample fixtures for all three templates, and the router test requires every active template to retain at least one golden fixture.
+
+Next Phase 6 work should continue with additional banks, SACCOs, lenders and app-notification wording only when concrete public/sanitized message evidence exists.

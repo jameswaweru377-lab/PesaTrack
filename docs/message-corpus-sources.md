@@ -169,3 +169,23 @@ Important semantic boundary:
 - Evopay parking and Globalpay card-purchase shapes declare PAYMENT provenance and structured fields. The existing bridge may contribute a candidate only when downstream evidence supports it; the template itself does not force a ledger movement.
 - Etica redemption/withdrawal and Sanlam fund-credit/top-up shapes record template provenance using investment-specific event kinds. The Message Pack bridge does not convert those investment shapes into ordinary income/expense/transfer ledger movements. Financial Intelligence V2 and the investment relationship layer remain authoritative.
 - Etica's published USD redemption variant is retained only as extraction/provenance coverage. PesaTrack must not silently treat a foreign-currency amount as a KES ledger amount.
+
+### Co-operative Bank and Equity public sample alerts
+
+Evidence class: **PUBLIC_SAMPLE_IMPLEMENTATION**
+
+Source:
+- Repository: `paulmwangi/SMS_Fintrack_Kenya`
+- License: ISC
+- Public sample SMS templates and parser code reviewed on 2 October 2026.
+
+Observed public sample shapes used by this increment:
+- Co-operative Bank compact account credit: `A/C ... CR KES ... Bal KES ... Ref`
+- Co-operative Bank compact account debit: `A/C ... DR KES ... Bal KES ... Ref`
+- Equity account credit: `Your Equity a/c ... has been credited with KES ... Bal ... Ref`
+
+Evidence notes:
+- The repository explicitly presents these as sample/test SMS formats for its SMS ingestion/parser UI. They are useful concrete public parser fixtures but are **not represented as bank-verified production wording**.
+- PesaTrack therefore uses narrow sender + anchor matching and preserves structured provenance rather than treating these samples as proof of every live wording variant.
+- Account credit/debit templates use `ACCOUNT_CREDIT` / `ACCOUNT_DEBIT` event kinds. The generic Message Pack bridge does not convert those kinds into a counterparty payment or receipt, because the public samples do not identify a reliable counterparty.
+- This increment does not infer missing merchant/person identity from provider name, account tail, balance, or reference.
