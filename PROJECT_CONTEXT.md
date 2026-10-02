@@ -3113,3 +3113,20 @@ Implemented:
 - Added regression coverage for Sanlam fund credit/top-up, Etica KES/USD withdrawal and debt due-notice fallback blocking.
 
 Continue Phase 6 from reviewed Coverage-by-source / Message Lab evidence and from investment/debt cases only where the current canonical models can preserve the financial meaning without guessing.
+
+
+## Phase 6 Long-tail Coverage — increment 17 / core fixture depth — 2026-10-02
+
+Phase 6 corpus quality now has an explicit regression floor.
+
+Implemented:
+
+- Added `fixtures-v10.json` with 15 additional sanitized core-flow examples.
+- M-Pesa send/receive/PayBill, M-Shwari transfer/loan and Fuliza drawdown/repayment shapes now each have at least three golden fixtures.
+- Added `MessagePackCorpusHealthTest`.
+- Every active template must have at least one golden fixture.
+- Fixture IDs must remain unique and fixtures may only reference active templates.
+- The ten core ambiguity templates cannot drop below three fixtures.
+- The normal router/extraction fixture test now includes fixture corpus v10.
+
+This hardens the most accounting-sensitive flows first. Do not meet fixture-count targets by inventing bank/SACCO wording; additional long-tail fixture depth must come from real sanitized/public evidence or value variants of already-supported wording structures.

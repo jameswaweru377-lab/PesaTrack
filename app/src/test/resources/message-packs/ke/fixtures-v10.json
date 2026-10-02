@@ -1,0 +1,187 @@
+[
+  {
+    "id": "mpesa_send_money_core_third",
+    "title": "MPESA",
+    "body": "TSTCORE001 Confirmed. Ksh 1,250.00 sent to SAMPLE PERSON 0712000100 on 1/10/26 at 8:15 AM. New M-PESA balance is Ksh 6,400.00. Transaction cost, Ksh 15.00.",
+    "templateId": "ke.mpesa.wallet.send-money",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE001",
+      "AMOUNT": "1,250.00",
+      "COUNTERPARTY": "SAMPLE PERSON 0712000100",
+      "BALANCE": "6,400.00",
+      "FEE": "15.00"
+    }
+  },
+  {
+    "id": "mpesa_receive_money_core_third",
+    "title": "MPESA",
+    "body": "TSTCORE002 Confirmed. You have received Ksh 3,750.00 from SAMPLE PERSON 0712000101 on 1/10/26 at 8:30 AM. New M-PESA balance is Ksh 10,150.00.",
+    "templateId": "ke.mpesa.wallet.receive-money",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE002",
+      "AMOUNT": "3,750.00",
+      "COUNTERPARTY": "SAMPLE PERSON 0712000101",
+      "BALANCE": "10,150.00"
+    }
+  },
+  {
+    "id": "mpesa_paybill_core_second",
+    "title": "MPESA",
+    "body": "TSTCORE003 Confirmed. Ksh 2,450.00 paid to SAMPLE SCHOOL for account SCH-001 on 1/10/26 at 9:00 AM. New M-PESA balance is Ksh 7,700.00. Transaction fee, Ksh 25.00.",
+    "templateId": "ke.mpesa.wallet.paybill",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE003",
+      "AMOUNT": "2,450.00",
+      "COUNTERPARTY": "SAMPLE SCHOOL",
+      "ACCOUNT_REFERENCE": "SCH-001",
+      "BALANCE": "7,700.00",
+      "FEE": "25.00"
+    }
+  },
+  {
+    "id": "mpesa_paybill_core_third",
+    "title": "MPESA",
+    "body": "TSTCORE004 Confirmed. KES 500.00 paid to SAMPLE BILLER for account A10002 on 2/10/26 at 10:05 AM. M-PESA balance is KES 7,200.00. Transaction cost: KES 5.00.",
+    "templateId": "ke.mpesa.wallet.paybill",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE004",
+      "AMOUNT": "500.00",
+      "COUNTERPARTY": "SAMPLE BILLER",
+      "ACCOUNT_REFERENCE": "A10002",
+      "BALANCE": "7,200.00",
+      "FEE": "5.00"
+    }
+  },
+  {
+    "id": "mshwari_to_mpesa_core_second",
+    "title": "MPESA",
+    "body": "TSTCORE005 Confirmed. Ksh 1,500.00 transferred from M-Shwari account on 2/10/26 at 11:00 AM. M-Shwari balance is Ksh 4,500.00. M-PESA balance is Ksh 8,700.00.",
+    "templateId": "ke.mshwari.savings.to-mpesa",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE005",
+      "AMOUNT": "1,500.00",
+      "SOURCE_BALANCE": "4,500.00",
+      "DESTINATION_BALANCE": "8,700.00"
+    }
+  },
+  {
+    "id": "mshwari_to_mpesa_core_third",
+    "title": "M-Shwari",
+    "body": "TSTCORE006 Confirmed. KES 750.00 transferred from M-Shwari account on 2/10/26 at 11:15 AM. M-Shwari balance is KES 3,750.00. M-PESA balance is KES 9,450.00.",
+    "templateId": "ke.mshwari.savings.to-mpesa",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE006",
+      "AMOUNT": "750.00",
+      "SOURCE_BALANCE": "3,750.00",
+      "DESTINATION_BALANCE": "9,450.00"
+    }
+  },
+  {
+    "id": "mpesa_to_mshwari_core_second",
+    "title": "MPESA",
+    "body": "TSTCORE007 Confirmed. Ksh 1,000.00 transferred to M-Shwari account on 2/10/26 at 11:30 AM. M-Shwari balance is Ksh 4,750.00. New M-PESA balance is Ksh 8,450.00.",
+    "templateId": "ke.mshwari.savings.from-mpesa",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE007",
+      "AMOUNT": "1,000.00",
+      "DESTINATION_BALANCE": "4,750.00",
+      "SOURCE_BALANCE": "8,450.00"
+    }
+  },
+  {
+    "id": "mpesa_to_mshwari_core_third",
+    "title": "M-Shwari",
+    "body": "TSTCORE008 Confirmed. KES 250.00 transferred to M-Shwari account on 2/10/26 at 11:45 AM. M-Shwari balance is KES 5,000.00. M-PESA balance is KES 8,200.00.",
+    "templateId": "ke.mshwari.savings.from-mpesa",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE008",
+      "AMOUNT": "250.00",
+      "DESTINATION_BALANCE": "5,000.00",
+      "SOURCE_BALANCE": "8,200.00"
+    }
+  },
+  {
+    "id": "mshwari_loan_approval_core_third",
+    "title": "M-Shwari",
+    "body": "TSTCORE009 Confirmed. Your M-Shwari loan has been approved on 2/10/26 12:00 PM and Ksh2,500.00 less excise duty has been deposited to your M-PESA account. New M-PESA balance is Ksh10,700.00.",
+    "templateId": "ke.mshwari.loan.approved-to-mpesa",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE009",
+      "AMOUNT": "2,500.00",
+      "DATE": "2/10/26 12:00 PM",
+      "BALANCE": "10,700.00"
+    }
+  },
+  {
+    "id": "mshwari_loan_balance_core_third",
+    "title": "M-Shwari",
+    "body": "Dear customer. Kindly note you have an outstanding loan balance of KES 4,275.50 due 30/10/2026.",
+    "templateId": "ke.mshwari.loan.balance",
+    "expectedFields": {
+      "OUTSTANDING": "4,275.50",
+      "DUE_DATE": "30/10/2026"
+    }
+  },
+  {
+    "id": "fuliza_drawdown_core_second",
+    "title": "MPESA",
+    "body": "TSTCORE010 Confirmed. Fuliza M-PESA amount is Ksh 300.00. Access Fee charged Ksh 3.00. Total Fuliza M-PESA outstanding amount is Ksh 1,389.51 due on 20/10/26.",
+    "templateId": "ke.fuliza.loan.drawdown",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE010",
+      "AMOUNT": "300.00",
+      "FEE": "3.00",
+      "OUTSTANDING": "1,389.51",
+      "DUE_DATE": "20/10/26"
+    }
+  },
+  {
+    "id": "fuliza_drawdown_core_third",
+    "title": "MPESA",
+    "body": "TSTCORE011 Confirmed. Fuliza M-PESA amount is KES 75.00. Access Fee KES 0.75. Total Fuliza M-PESA outstanding amount is KES 1,465.26 due on 21/10/26.",
+    "templateId": "ke.fuliza.loan.drawdown",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE011",
+      "AMOUNT": "75.00",
+      "FEE": "0.75",
+      "OUTSTANDING": "1,465.26",
+      "DUE_DATE": "21/10/26"
+    }
+  },
+  {
+    "id": "fuliza_partial_repayment_core_third",
+    "title": "MPESA",
+    "body": "TSTCORE012 Confirmed. KES 500.00 from your M-PESA has been used to partially pay your outstanding Fuliza M-PESA. Your available Fuliza M-PESA limit is KES 1,200.00. Your M-PESA balance is KES 250.00.",
+    "templateId": "ke.fuliza.loan.partial-repayment",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE012",
+      "AMOUNT": "500.00",
+      "AVAILABLE_CREDIT": "1,200.00",
+      "BALANCE": "250.00"
+    }
+  },
+  {
+    "id": "fuliza_full_repayment_core_second",
+    "title": "MPESA",
+    "body": "TSTCORE013 Confirmed. Ksh 640.00 from your M-PESA has been used to fully pay your outstanding Fuliza M-PESA. Available Fuliza M-PESA limit is Ksh 2,000.00. Your M-PESA balance is Ksh 5,000.00.",
+    "templateId": "ke.fuliza.loan.full-repayment",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE013",
+      "AMOUNT": "640.00",
+      "AVAILABLE_CREDIT": "2,000.00",
+      "BALANCE": "5,000.00"
+    }
+  },
+  {
+    "id": "fuliza_full_repayment_core_third",
+    "title": "MPESA",
+    "body": "TSTCORE014 Confirmed. KES 250.00 from your M-PESA has been used to fully pay your outstanding Fuliza M-PESA. Available Fuliza balance limit is KES 2,250.00. Your M-PESA balance is 1,250.00.",
+    "templateId": "ke.fuliza.loan.full-repayment",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTCORE014",
+      "AMOUNT": "250.00",
+      "AVAILABLE_CREDIT": "2,250.00",
+      "BALANCE": "1,250.00"
+    }
+  }
+]

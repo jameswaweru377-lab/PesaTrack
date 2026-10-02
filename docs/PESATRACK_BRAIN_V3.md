@@ -1147,3 +1147,42 @@ USD evidence is never converted into KES.
 The ingestion coordinator preserves this decision, and historical import distinguishes “handled safely with no ledger movement” from a duplicate transaction.
 
 No raw-message archive, provider-specific investment parser branch or inferred unit quantity is introduced.
+
+
+## Phase 6 — Long-tail coverage, increment 17 — Core corpus depth
+
+Branch milestone: `feature/phase6-core-fixture-depth-v17`.
+
+This increment turns fixture depth into a measurable corpus-quality constraint instead of relying only on template count.
+
+### Core ambiguity floor
+
+The ten highest-risk Kenya shapes now have at least **three golden fixtures each**:
+
+- M-Pesa send money;
+- M-Pesa receive money;
+- M-Pesa PayBill;
+- M-Shwari -> M-Pesa;
+- M-Pesa -> M-Shwari;
+- M-Shwari loan approval/disbursement;
+- M-Shwari loan balance;
+- Fuliza drawdown;
+- Fuliza partial repayment;
+- Fuliza full repayment.
+
+`fixtures-v10.json` adds 15 sanitized value/date/spacing variants using wording structures already represented by the supported templates. It does not invent a new provider message shape.
+
+### Corpus health tests
+
+`MessagePackCorpusHealthTest` now enforces:
+
+- every active Kenya template has at least one golden fixture;
+- fixture IDs are unique;
+- every fixture references an active template;
+- the ten core ambiguity shapes above cannot fall below three fixtures.
+
+The full router/extraction regression suite also loads `fixtures-v10.json`, so every added fixture must route to the expected template and extract its declared fields.
+
+### Boundary
+
+The blueprint recommends 3-10 fixtures per shape. This increment deliberately applies that floor first to the flows most likely to create duplicate-accounting, transfer or debt mistakes. Long-tail templates remain evidence-gated and should gain additional fixtures only from supported/sanitized wording evidence rather than fabricated provider text.
