@@ -3010,3 +3010,25 @@ Implemented:
 No transaction meaning, ownership, category, ledger arithmetic, Identity Graph decision, recurring commitment or raw-message upload behavior changes.
 
 Use this workflow to choose the next bank/SACCO/lender template from actual unsupported device evidence instead of speculative provider wording.
+
+
+## Phase 6 Long-tail Coverage — increment 12 / Message Lab auto-resolution — 2026-10-02
+
+Phase 6 now automatically retires stale unsupported Message Lab shapes after the same structure becomes understood.
+
+Implemented:
+
+- Added pure `MessageLabShapeIdentityFactory`.
+- Shape identity uses redacted body + sender + normalized package/channel.
+- Sensitive amount/date/time/name/account changes collapse into the same structural shape.
+- App and SMS/imported channels remain separate.
+- `MessageLabStore.markUnderstood(...)` removes a previously stored unsupported shape when a new observation of that same shape is now recognized/semantically understood.
+- Retired occurrence count is persisted locally.
+- Data Health shows **Resolved Message Lab occurrences**.
+- Added regression tests for sensitive-value stability, package separation and channel separation.
+
+Important boundary:
+
+PesaTrack does not attempt to replay already-redacted fixtures through live extractors because placeholders such as `<AMOUNT>` can invalidate regex extraction. Resolution happens only when a new real observation arrives and is understood by the current interpreter.
+
+Continue Phase 6 from Coverage-by-source and Message Lab evidence.
