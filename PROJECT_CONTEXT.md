@@ -2840,3 +2840,19 @@ Implemented:
 - No ledger arithmetic, pay-cycle math, debt balances, personal-learning decisions or Phase 5 navigation were changed.
 
 Continue Phase 6 with additional banks, SACCOs, lenders and bank-app notification wording only from concrete sanitized/public message evidence.
+
+## Phase 6 Long-tail Coverage — increment 4 / financial institution identities — 2026-10-02
+
+Long-tail identity coverage now extends beyond the original KCB/Equity/Branch/Tala seeds.
+
+Implemented:
+
+- Added `EntityKind.SACCO`.
+- SACCO catalog entities map to `IdentityNodeKind.FINANCIAL_INSTITUTION`.
+- Added canonical local identities and conservative aliases for Co-operative Bank of Kenya, NCBA Bank Kenya, Absa Bank Kenya, Stanbic Bank Kenya, Diamond Trust Bank Kenya, Family Bank, Stima DT Sacco and Mwalimu National Sacco.
+- Added official/regulatory source documentation in `docs/entity-catalog-sources.md`.
+- Added tests for Stima Sacco resolution, DTB alias resolution, no raw-message-only bank identity match, and SACCO Identity Graph mapping.
+- New financial-institution seeds have no default expense category, are not auto-review eligible and do not match from arbitrary raw message text.
+- No new SMS wording was invented and no ledger/category authority changed.
+
+Continue Phase 6 by adding new Message Pack/app-notification shapes only where concrete sanitized/public wording is available.
