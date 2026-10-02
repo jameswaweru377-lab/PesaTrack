@@ -130,6 +130,62 @@ class FinancialAppSourceRegistryTest {
     }
 
     @Test
+    fun resolvesZenkaAndTimizaPackagesWithoutInventingProductMeaning() {
+        val zenka =
+            FinancialAppSourceRegistry
+                .resolve(
+                    "com.zenkafinance.microloans"
+                )
+        val timiza =
+            FinancialAppSourceRegistry
+                .resolve(
+                    " KE.CO.ABSA.DIGITALWALLET "
+                )
+
+        assertEquals(
+            "Zenka",
+            zenka?.displayName
+        )
+        assertEquals(
+            "KENYAN_LENDER_ZENKA",
+            zenka?.providerKey
+        )
+        assertEquals(
+            AccountType.OTHER,
+            zenka?.accountTypeHint
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            zenka?.ownershipHint
+        )
+        assertEquals(
+            FinancialAccountNature.UNKNOWN,
+            zenka?.nature
+        )
+
+        assertEquals(
+            "Timiza",
+            timiza?.displayName
+        )
+        assertEquals(
+            "KENYAN_FINANCIAL_APP_TIMIZA",
+            timiza?.providerKey
+        )
+        assertEquals(
+            AccountType.OTHER,
+            timiza?.accountTypeHint
+        )
+        assertEquals(
+            AccountOwnershipHint.UNKNOWN,
+            timiza?.ownershipHint
+        )
+        assertEquals(
+            FinancialAccountNature.UNKNOWN,
+            timiza?.nature
+        )
+    }
+
+    @Test
     fun resolvesVerifiedIMAndSaccoPackagesConservatively() {
         val im =
             FinancialAppSourceRegistry
@@ -315,6 +371,18 @@ class FinancialAppSourceRegistryTest {
             FinancialAppSourceRegistry
                 .isKnownPackage(
                     "com.mode.chasetest.ui"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "com.zenkafinance.microloans"
+                )
+        )
+        assertTrue(
+            FinancialAppSourceRegistry
+                .isKnownPackage(
+                    "ke.co.absa.digitalwallet"
                 )
         )
     }

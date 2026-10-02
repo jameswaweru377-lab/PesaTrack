@@ -101,6 +101,24 @@ object FinancialAppSourceRegistry {
             ),
             FinancialAppSourceProfile(
                 packageName =
+                    "com.zenkafinance.microloans",
+                entityKey =
+                    "provider:KENYAN_LENDER_ZENKA",
+                displayName = "Zenka",
+                providerKey =
+                    "KENYAN_LENDER_ZENKA"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
+                    "ke.co.absa.digitalwallet",
+                entityKey =
+                    "provider:KENYAN_FINANCIAL_APP_TIMIZA",
+                displayName = "Timiza",
+                providerKey =
+                    "KENYAN_FINANCIAL_APP_TIMIZA"
+            ),
+            FinancialAppSourceProfile(
+                packageName =
                     "com.branch_international.branch.branch_demo_android",
                 entityKey =
                     "provider:KENYAN_LENDER_BRANCH",
