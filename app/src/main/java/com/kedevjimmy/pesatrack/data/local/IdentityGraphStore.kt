@@ -74,6 +74,105 @@ class IdentityGraphStore private constructor(
     }
 
     @Synchronized
+    fun synchronizeTransaction(
+        transactionId: Long
+    ): Boolean {
+        val db =
+            database.writableDatabase
+        val now =
+            System.currentTimeMillis()
+        var available = false
+
+        db.beginTransaction()
+        try {
+            ensureSelfNode(
+                db = db,
+                now = now
+            )
+            synchronizeAccounts(
+                db = db,
+                now = now
+            )
+            synchronizeConfirmedFinancialEntities(
+                db = db,
+                now = now
+            )
+
+            val alreadyObserved =
+                db.rawQuery(
+                    """
+                    SELECT 1
+                    FROM identity_observations
+                    WHERE transaction_id = ?
+                    LIMIT 1
+                    """.trimIndent(),
+                    arrayOf(
+                        transactionId.toString()
+                    )
+                ).use {
+                    it.moveToFirst()
+                }
+
+            available =
+                if (alreadyObserved) {
+                    true
+                } else {
+                    db.rawQuery(
+                        """
+                        SELECT counterparty,
+                               counterparty_phone,
+                               occurred_at_epoch_ms,
+                               direction,
+                               account_id,
+                               linked_account_id
+                        FROM transactions
+                        WHERE id = ?
+                          AND (
+                              (counterparty IS NOT NULL
+                               AND TRIM(counterparty) != '')
+                              OR
+                              (counterparty_phone IS NOT NULL
+                               AND TRIM(counterparty_phone) != '')
+                          )
+                        LIMIT 1
+                        """.trimIndent(),
+                        arrayOf(
+                            transactionId.toString()
+                        )
+                    ).use { cursor ->
+                        if (!cursor.moveToFirst()) {
+                            false
+                        } else {
+                            observeTransaction(
+                                db = db,
+                                transactionId =
+                                    transactionId,
+                                counterparty =
+                                    cursor.stringOrNull(0),
+                                counterpartyPhone =
+                                    cursor.stringOrNull(1),
+                                occurredAtEpochMs =
+                                    cursor.getLong(2),
+                                direction =
+                                    cursor.getString(3),
+                                accountId =
+                                    cursor.stringOrNull(4),
+                                linkedAccountId =
+                                    cursor.stringOrNull(5)
+                            )
+                        }
+                    }
+                }
+
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+
+        return available
+    }
+
+    @Synchronized
     fun snapshot(): IdentityGraphSnapshot {
         val db =
             database.readableDatabase
