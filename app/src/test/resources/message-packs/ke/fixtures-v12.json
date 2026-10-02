@@ -1,0 +1,357 @@
+[
+  {
+    "id": "adjacent_mshwari_lock_deposit_a",
+    "title": "MPESA",
+    "body": "TST12SAVE1 Confirmed. Ksh3,500.00 transferred to M-Shwari Lock Savings on 2/8/26 at 10:41 AM. M-PESA balance is Ksh8,125.50. Your Lock Savings balance is Ksh19,500.00. Transaction cost Ksh0.00",
+    "templateId": "ke.mshwari.lock-savings.deposit",
+    "expectedFields": {
+      "AMOUNT": "3,500.00",
+      "SOURCE_BALANCE": "8,125.50",
+      "DESTINATION_BALANCE": "19,500.00"
+    }
+  },
+  {
+    "id": "adjacent_mshwari_lock_deposit_b",
+    "title": "MPESA",
+    "body": "TST12SAVE1 Confirmed. Ksh7,250.00 transferred to M-Shwari Lock Savings on 2/8/26 at 10:41 AM. M-PESA balance is Ksh2,675.00. Your Lock Savings balance is Ksh26,750.00. Transaction cost Ksh0.00",
+    "templateId": "ke.mshwari.lock-savings.deposit",
+    "expectedFields": {
+      "AMOUNT": "7,250.00",
+      "SOURCE_BALANCE": "2,675.00",
+      "DESTINATION_BALANCE": "26,750.00"
+    }
+  },
+  {
+    "id": "adjacent_mshwari_lock_release_a",
+    "title": "M-Shwari",
+    "body": "Dear customer, 2,500 has been moved from your locked savings account to your M-Shwari account.",
+    "templateId": "ke.mshwari.lock-savings.release-to-mshwari",
+    "expectedFields": {
+      "AMOUNT": "2,500"
+    }
+  },
+  {
+    "id": "adjacent_mshwari_lock_release_b",
+    "title": "M-Shwari",
+    "body": "Dear customer, 6,750 has been moved from your locked savings account to your M-Shwari account.",
+    "templateId": "ke.mshwari.lock-savings.release-to-mshwari",
+    "expectedFields": {
+      "AMOUNT": "6,750"
+    }
+  },
+  {
+    "id": "adjacent_mshwari_credit_from_mpesa_a",
+    "title": "M-Shwari",
+    "body": "Kshs 3,250.00 transferred from M-Pesa to your M-Shwari account. M-Shwari balance is Kshs 19,250.00.",
+    "templateId": "ke.mshwari.savings.credit-from-mpesa",
+    "expectedFields": {
+      "AMOUNT": "3,250.00",
+      "DESTINATION_BALANCE": "19,250.00"
+    }
+  },
+  {
+    "id": "adjacent_mshwari_credit_from_mpesa_b",
+    "title": "M-Shwari",
+    "body": "Kshs 8,600.50 transferred from M-Pesa to your M-Shwari account. M-Shwari balance is Kshs 27,850.50.",
+    "templateId": "ke.mshwari.savings.credit-from-mpesa",
+    "expectedFields": {
+      "AMOUNT": "8,600.50",
+      "DESTINATION_BALANCE": "27,850.50"
+    }
+  },
+  {
+    "id": "adjacent_mshwari_loan_fee_a",
+    "title": "M-Shwari",
+    "body": "M-Shwari: You have received a loan of KES 3,000.00. KES 90.00 facility fee charged. Amount sent to M-Pesa. Repay KES 5,90.00 by 15 Nov 2026.",
+    "templateId": "ke.mshwari.loan.received-with-fee",
+    "expectedFields": {
+      "AMOUNT": "3,000.00",
+      "FEE": "90.00",
+      "REPAY_AMOUNT": "3,090.00",
+      "DATE": "15 Nov 2026"
+    }
+  },
+  {
+    "id": "adjacent_mshwari_loan_fee_b",
+    "title": "M-Shwari",
+    "body": "M-Shwari: You have received a loan of KES 8,500.00. KES 255.00 facility fee charged. Amount sent to M-Pesa. Repay KES 5,255.00 by 30 Nov 2026.",
+    "templateId": "ke.mshwari.loan.received-with-fee",
+    "expectedFields": {
+      "AMOUNT": "8,500.00",
+      "FEE": "255.00",
+      "REPAY_AMOUNT": "8,755.00",
+      "DATE": "30 Nov 2026"
+    }
+  },
+  {
+    "id": "adjacent_etica_payment_a",
+    "title": "ETICALTD",
+    "body": "Dear esteemed client 254749000000 Your payment of KES 9,750.00 to 254749000022 - SAMPLE PERSON TWO from account 22222MC (EMMF - KES) has been processed.",
+    "templateId": "ke.etica.payment.account-payment",
+    "expectedFields": {
+      "AMOUNT": "9,750.00",
+      "COUNTERPARTY": "254749000022 - SAMPLE PERSON TWO",
+      "ACCOUNT_REFERENCE": "22222MC"
+    }
+  },
+  {
+    "id": "adjacent_etica_payment_b",
+    "title": "ETICALTD",
+    "body": "Dear esteemed client 254749000000 Your payment of KES 31,500.50 to 254749000033 - SAMPLE PERSON THREE from account 33333MC (EMMF - KES) has been processed.",
+    "templateId": "ke.etica.payment.account-payment",
+    "expectedFields": {
+      "AMOUNT": "31,500.50",
+      "COUNTERPARTY": "254749000033 - SAMPLE PERSON THREE",
+      "ACCOUNT_REFERENCE": "33333MC"
+    }
+  },
+  {
+    "id": "adjacent_etica_redemption_kes_variant",
+    "title": "ETICALTD",
+    "body": "You have sent KES 45,750.00 from your account 22222MC in EMMF - KES to Mr. SAMPLE INVESTOR TWO (11111F)",
+    "templateId": "ke.etica.investment.redemption",
+    "expectedFields": {
+      "CURRENCY": "KES",
+      "AMOUNT": "45,750.00",
+      "ACCOUNT_REFERENCE": "22222MC",
+      "PRODUCT": "EMMF - KES",
+      "COUNTERPARTY": "SAMPLE INVESTOR TWO"
+    }
+  },
+  {
+    "id": "adjacent_etica_withdrawal_a",
+    "title": "ETICALTD",
+    "body": "Dear esteemed client 254749000000 Kindly note that we have processed a withdrawal of KES 4,250.00 to Mpesa - 254749000044. Please note it may take a few minutes.",
+    "templateId": "ke.etica.investment.withdrawal-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "4,250.00",
+      "COUNTERPARTY": "254749000044"
+    }
+  },
+  {
+    "id": "adjacent_etica_withdrawal_b",
+    "title": "ETICALTD",
+    "body": "Dear esteemed client 254749000000 Kindly note that we have processed a withdrawal of KES 17,900.50 to Mpesa - 254749000055. Please note it may take a few minutes.",
+    "templateId": "ke.etica.investment.withdrawal-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "17,900.50",
+      "COUNTERPARTY": "254749000055"
+    }
+  },
+  {
+    "id": "adjacent_sanlam_credit_a",
+    "title": "SANLAM_UT",
+    "body": "Dear SAMPLE PERSON, Your account for Sanlam Money Market Fund has been credited with Kes 5,500.00 and 5,500.00 units, as of 12 Jul, 2026.",
+    "templateId": "ke.sanlam.investment.fund-credit",
+    "expectedFields": {
+      "AMOUNT": "5,500.00",
+      "PRODUCT": "Sanlam Money Market Fund",
+      "UNITS": "5,500.00",
+      "DATE": "12 Jul, 2026"
+    }
+  },
+  {
+    "id": "adjacent_sanlam_credit_b",
+    "title": "SANLAM_UT",
+    "body": "Dear SAMPLE PERSON, Your account for Sanlam Money Market Fund has been credited with Kes 12,750.25 and 12,750.25 units, as of 28 Sep, 2026.",
+    "templateId": "ke.sanlam.investment.fund-credit",
+    "expectedFields": {
+      "AMOUNT": "12,750.25",
+      "PRODUCT": "Sanlam Money Market Fund",
+      "UNITS": "12,750.25",
+      "DATE": "28 Sep, 2026"
+    }
+  },
+  {
+    "id": "adjacent_sanlam_topup_a",
+    "title": "SANLAM_UT",
+    "body": "Dear SAMPLE PERSON, you have successfully topped up your account with KES. 3500.00, your account will be updated soon, Thank You.",
+    "templateId": "ke.sanlam.investment.top-up",
+    "expectedFields": {
+      "AMOUNT": "3500.00"
+    }
+  },
+  {
+    "id": "adjacent_sanlam_topup_b",
+    "title": "SANLAM_UT",
+    "body": "Dear SAMPLE PERSON, you have successfully topped up your account with KES. 8750.50, your account will be updated soon, Thank You.",
+    "templateId": "ke.sanlam.investment.top-up",
+    "expectedFields": {
+      "AMOUNT": "8750.50"
+    }
+  },
+  {
+    "id": "adjacent_branch_drawdown_a",
+    "title": "Branch",
+    "body": "Branch: KES 4,500.00 has been transferred to your M-Pesa account. Repay KES 5,100.00 by 15 Nov 2026 to grow your limit.",
+    "templateId": "ke.branch.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "4,500.00",
+      "REPAY_AMOUNT": "5,100.00",
+      "DATE": "15 Nov 2026"
+    }
+  },
+  {
+    "id": "adjacent_branch_drawdown_b",
+    "title": "Branch",
+    "body": "Branch: KES 7,250.00 has been transferred to your M-Pesa account. Repay KES 8,150.00 by 30 Nov 2026 to grow your limit.",
+    "templateId": "ke.branch.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "7,250.00",
+      "REPAY_AMOUNT": "8,150.00",
+      "DATE": "30 Nov 2026"
+    }
+  },
+  {
+    "id": "adjacent_branch_due_a",
+    "title": "Branch",
+    "body": "Branch: Reminding you that your loan payment of KES 5,100.00 is due. Use Paybill 999999 to clear.",
+    "templateId": "ke.branch.loan.payment-due",
+    "expectedFields": {
+      "AMOUNT": "5,100.00"
+    }
+  },
+  {
+    "id": "adjacent_branch_due_b",
+    "title": "Branch",
+    "body": "Branch: Reminding you that your loan payment of KES 8,150.00 is due. Use Paybill 999999 to clear.",
+    "templateId": "ke.branch.loan.payment-due",
+    "expectedFields": {
+      "AMOUNT": "8,150.00"
+    }
+  },
+  {
+    "id": "adjacent_tala_drawdown_a",
+    "title": "TALA",
+    "body": "Tala: Your loan of KES 4,250.00 has been approved and sent to your M-Pesa. Check your M-Pesa SMS for confirmation.",
+    "templateId": "ke.tala.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "4,250.00"
+    }
+  },
+  {
+    "id": "adjacent_tala_drawdown_b",
+    "title": "TALA",
+    "body": "Tala: Your loan of KES 6,800.50 has been approved and sent to your M-Pesa. Check your M-Pesa SMS for confirmation.",
+    "templateId": "ke.tala.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "6,800.50"
+    }
+  },
+  {
+    "id": "adjacent_tala_due_a",
+    "title": "TALA",
+    "body": "Tala: Your loan payment of KES 4,700.00 is due on 15 Nov 2026. Pay via Paybill 851201, Acc: 0799000111.",
+    "templateId": "ke.tala.loan.payment-due",
+    "expectedFields": {
+      "AMOUNT": "4,700.00",
+      "DATE": "15 Nov 2026",
+      "ACCOUNT_REFERENCE": "0799000111"
+    }
+  },
+  {
+    "id": "adjacent_tala_due_b",
+    "title": "TALA",
+    "body": "Tala: Your loan payment of KES 7,450.50 is due on 30 Nov 2026. Pay via Paybill 851201, Acc: 0799000222.",
+    "templateId": "ke.tala.loan.payment-due",
+    "expectedFields": {
+      "AMOUNT": "7,450.50",
+      "DATE": "30 Nov 2026",
+      "ACCOUNT_REFERENCE": "0799000222"
+    }
+  },
+  {
+    "id": "adjacent_timiza_drawdown_a",
+    "title": "TIMIZA",
+    "body": "Timiza: KES 6,000.00 disbursed to your Timiza account. KES 300.00 fee applied. Total due KES 4,300.00 on 15 Nov 2026. Paybill 300067.",
+    "templateId": "ke.timiza.loan.disbursed",
+    "expectedFields": {
+      "AMOUNT": "6,000.00",
+      "FEE": "300.00",
+      "TOTAL_DUE": "6,300.00",
+      "DATE": "15 Nov 2026"
+    }
+  },
+  {
+    "id": "adjacent_timiza_drawdown_b",
+    "title": "TIMIZA",
+    "body": "Timiza: KES 9,500.00 disbursed to your Timiza account. KES 475.00 fee applied. Total due KES 4,475.00 on 30 Nov 2026. Paybill 300067.",
+    "templateId": "ke.timiza.loan.disbursed",
+    "expectedFields": {
+      "AMOUNT": "9,500.00",
+      "FEE": "475.00",
+      "TOTAL_DUE": "9,975.00",
+      "DATE": "30 Nov 2026"
+    }
+  },
+  {
+    "id": "adjacent_zenka_drawdown_a",
+    "title": "ZENKA",
+    "body": "Zenka: Your loan request has been approved. KES 3,750.00 sent to your M-Pesa. Total to repay KES 4,150.00 by 15 Nov 2026.",
+    "templateId": "ke.zenka.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "3,750.00",
+      "REPAY_AMOUNT": "4,150.00",
+      "DATE": "15 Nov 2026"
+    }
+  },
+  {
+    "id": "adjacent_zenka_drawdown_b",
+    "title": "ZENKA",
+    "body": "Zenka: Your loan request has been approved. KES 8,250.00 sent to your M-Pesa. Total to repay KES 9,050.00 by 30 Nov 2026.",
+    "templateId": "ke.zenka.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "8,250.00",
+      "REPAY_AMOUNT": "9,050.00",
+      "DATE": "30 Nov 2026"
+    }
+  },
+  {
+    "id": "adjacent_okash_drawdown_a",
+    "title": "OKash",
+    "body": "OKash: Your loan of KES 3,600.00 is successfully disbursed. Please pay KES 4,100.00 on or before 15 Nov 2026 to avoid late fees.",
+    "templateId": "ke.okash.loan.disbursed",
+    "expectedFields": {
+      "AMOUNT": "3,600.00",
+      "REPAY_AMOUNT": "4,100.00",
+      "DATE": "15 Nov 2026"
+    }
+  },
+  {
+    "id": "adjacent_okash_drawdown_b",
+    "title": "OKash",
+    "body": "OKash: Your loan of KES 7,800.00 is successfully disbursed. Please pay KES 8,650.00 on or before 30 Nov 2026 to avoid late fees.",
+    "templateId": "ke.okash.loan.disbursed",
+    "expectedFields": {
+      "AMOUNT": "7,800.00",
+      "REPAY_AMOUNT": "8,650.00",
+      "DATE": "30 Nov 2026"
+    }
+  },
+  {
+    "id": "adjacent_hustler_split_a",
+    "title": "HUSTLERFUND",
+    "body": "Hustler Fund: Your loan of Ksh 6,000.00 has been approved. Ksh 5,700.00 sent to M-Pesa, Ksh 300.00 to your savings account. Repay Ksh 6,000.00 by 15 Nov 2026.",
+    "templateId": "ke.hustler-fund.loan.disbursed-with-savings",
+    "expectedFields": {
+      "AMOUNT": "6,000.00",
+      "DISBURSED_AMOUNT": "5,700.00",
+      "SAVINGS_AMOUNT": "300.00",
+      "REPAY_AMOUNT": "6,000.00",
+      "DATE": "15 Nov 2026"
+    }
+  },
+  {
+    "id": "adjacent_hustler_split_b",
+    "title": "HUSTLERFUND",
+    "body": "Hustler Fund: Your loan of Ksh 8,000.00 has been approved. Ksh 7,600.00 sent to M-Pesa, Ksh 400.00 to your savings account. Repay Ksh 8,000.00 by 30 Nov 2026.",
+    "templateId": "ke.hustler-fund.loan.disbursed-with-savings",
+    "expectedFields": {
+      "AMOUNT": "8,000.00",
+      "DISBURSED_AMOUNT": "7,600.00",
+      "SAVINGS_AMOUNT": "400.00",
+      "REPAY_AMOUNT": "8,000.00",
+      "DATE": "30 Nov 2026"
+    }
+  }
+]
