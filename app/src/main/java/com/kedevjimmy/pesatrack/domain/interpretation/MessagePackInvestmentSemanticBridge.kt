@@ -17,19 +17,39 @@ object MessagePackInvestmentSemanticBridge {
         assessment: FinancialSemanticAssessment,
         match: MessagePackMatch?
     ): FinancialSemanticAssessment {
+        if (match == null) {
+            return assessment
+        }
+
+        val eventKind =
+            match.eventKind.uppercase()
         if (
-            match == null ||
-            assessment.investment != null
+            !eventKind.startsWith(
+                "INVESTMENT_"
+            )
         ) {
             return assessment
         }
 
+        if (assessment.investment != null) {
+            return assessment.copy(
+                ruleIds =
+                    assessment.ruleIds +
+                        packRuleId(
+                            match,
+                            "investment"
+                        )
+            )
+        }
+
         if (
-            match.eventKind
-                .uppercase() !=
+            eventKind !=
             "INVESTMENT_CREDIT"
         ) {
-            return assessment
+            return provenanceOnly(
+                assessment = assessment,
+                match = match
+            )
         }
 
         val currency =
@@ -40,21 +60,33 @@ object MessagePackInvestmentSemanticBridge {
             currency != null &&
             currency != "KES"
         ) {
-            return assessment
+            return provenanceOnly(
+                assessment = assessment,
+                match = match
+            )
         }
 
         val product =
             match.requiredField(
                 "PRODUCT"
-            ) ?: return assessment
+            ) ?: return provenanceOnly(
+                assessment = assessment,
+                match = match
+            )
         val units =
             match.requiredField(
                 "UNITS"
-            ) ?: return assessment
+            ) ?: return provenanceOnly(
+                assessment = assessment,
+                match = match
+            )
         val amount =
             match.requiredField(
                 "AMOUNT"
-            ) ?: return assessment
+            ) ?: return provenanceOnly(
+                assessment = assessment,
+                match = match
+            )
 
         val instrumentLabel =
             product.value
@@ -65,21 +97,36 @@ object MessagePackInvestmentSemanticBridge {
                 )
                 .takeIf(
                     String::isNotBlank
-                ) ?: return assessment
+                ) ?: return provenanceOnly(
+                    assessment = assessment,
+                    match = match
+                )
         val quantityMicrounits =
             quantityToMicrounits(
                 units.value
-            ) ?: return assessment
+            ) ?: return provenanceOnly(
+                assessment = assessment,
+                match = match
+            )
         if (quantityMicrounits <= 0L) {
-            return assessment
+            return provenanceOnly(
+                assessment = assessment,
+                match = match
+            )
         }
 
         val valueMinor =
             amountToMinor(
                 amount.value
-            ) ?: return assessment
+            ) ?: return provenanceOnly(
+                assessment = assessment,
+                match = match
+            )
         if (valueMinor <= 0L) {
-            return assessment
+            return provenanceOnly(
+                assessment = assessment,
+                match = match
+            )
         }
 
         val fact =
@@ -116,15 +163,61 @@ object MessagePackInvestmentSemanticBridge {
                 InterpretationConfidence.HIGH,
             ruleIds =
                 assessment.ruleIds +
-                    (
-                        "message_pack." +
-                            match.templateId +
-                            "@" +
-                            match.revision +
-                            ".investment_credit"
+                    packRuleId(
+                        match,
+                        "investment_credit"
                     )
         )
     }
+
+    private fun provenanceOnly(
+        assessment:
+            FinancialSemanticAssessment,
+        match: MessagePackMatch
+    ): FinancialSemanticAssessment {
+        val ordinaryMovementIntents =
+            setOf(
+                FinancialSemanticIntent.PAYMENT,
+                FinancialSemanticIntent.RECEIPT,
+                FinancialSemanticIntent.TRANSFER
+            )
+
+        return assessment.copy(
+            primaryIntent =
+                FinancialSemanticIntent
+                    .CONFIRMATION_ONLY,
+            intents =
+                (
+                    assessment.intents -
+                        ordinaryMovementIntents
+                ) +
+                    FinancialSemanticIntent
+                        .CONFIRMATION_ONLY,
+            role =
+                FinancialSemanticRole
+                    .INFORMATION,
+            investment = null,
+            confidence =
+                InterpretationConfidence.HIGH,
+            ruleIds =
+                assessment.ruleIds +
+                    packRuleId(
+                        match,
+                        "investment_provenance"
+                    )
+        )
+    }
+
+    private fun packRuleId(
+        match: MessagePackMatch,
+        suffix: String
+    ): String =
+        "message_pack." +
+            match.templateId +
+            "@" +
+            match.revision +
+            "." +
+            suffix
 
     private fun MessagePackMatch.requiredField(
         name: String
