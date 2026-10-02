@@ -2972,3 +2972,20 @@ Behavior:
 - Added regression tests and app-store evidence documentation.
 
 Continue Phase 6 from real unsupported source coverage. Do not create SACCO/bank notification templates from app-store feature descriptions alone.
+
+## Phase 6 Long-tail Coverage — increment 11 / more bank app sources — 2026-10-02
+
+Verified Android source identity now additionally covers:
+
+- SC Mobile Kenya — `com.scb.breezebanking.ke`;
+- Family Bank PesaPap — `com.mode.familykenya.ui`;
+- Ecobank Mobile — `com.ecobank.mobileapp5`;
+- SBM Mfukoni — `com.mode.chasetest.ui`.
+
+These use the existing bank-directory source-reference path with BANK/ASSET source convention and UNKNOWN ownership.
+
+Coverage by source and Message Lab can therefore group unsupported app notifications under the correct institution without relying on notification-title wording.
+
+Added regression tests and official Play-store evidence documentation.
+
+Continue Phase 6 from the highest unsupported source groups visible in Data Health; notification templates still require real sanitized/public message evidence.
