@@ -896,3 +896,23 @@ This reduces future corpus work from “which app is this?” to “what exact r
 Package identity is not message interpretation.
 
 No SACCO savings, loan, transfer, bill payment or withdrawal is created from app identity alone. App-specific templates still require concrete message evidence.
+
+
+## Phase 6 — Long-tail coverage, increment 11 — Standard Chartered + Family app sources
+
+Branch milestone: `feature/phase6-standard-family-app-source-v11`.
+
+This increment completes app-source identity for two remaining Tier-A banks from the blueprint using current official Google Play package identity.
+
+Added:
+
+- SC Mobile Kenya — `com.scb.breezebanking.ke` -> Standard Chartered Bank Kenya;
+- PesaPap, Family Bank — `com.mode.familykenya.ui` -> Family Bank.
+
+Both resolve through the existing `KenyanBankDirectory` with BANK/ASSET source-reference convention and UNKNOWN ownership.
+
+### Guardrail
+
+Package identity answers **which institution emitted the notification** only. It does not establish account ownership or transaction meaning, and no message wording is inferred from app-store feature descriptions.
+
+This improves Coverage-by-source and Message Lab attribution so future real unsupported notifications from these apps can be turned into narrow source-constrained templates.
