@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivitySummary
-import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.CycleProtectionStore
 import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
@@ -58,7 +57,6 @@ import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
 import com.kedevjimmy.pesatrack.data.local.LedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
-import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RelationshipReviewStore
@@ -74,16 +72,12 @@ import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
 import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
-import com.kedevjimmy.pesatrack.ui.components.BudgetProgressCard
-import com.kedevjimmy.pesatrack.ui.components.BudgetProgressItem
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
-import com.kedevjimmy.pesatrack.ui.components.MoneySummaryTile
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.PesaTrackTopBar
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.SmartInsightCard
-import com.kedevjimmy.pesatrack.ui.components.SpendingDonutCard
 import com.kedevjimmy.pesatrack.ui.components.SpendingSlice
 import com.kedevjimmy.pesatrack.ui.components.premiumCategoryColor
 import java.text.NumberFormat
@@ -100,7 +94,6 @@ private data class HomeLoadedState(
     val cycleSnapshot: PayCycleSnapshot,
     val ledgerSnapshot: LedgerSnapshot,
     val activitySnapshot: ActivityLedgerSnapshot,
-    val monthlyBudgets: List<MonthlyBudget>,
     val debtAccounts: List<DebtAccountSnapshot>,
     val trackedAccounts: List<MoneyAccount>,
     val confirmedAccountIds: Set<String>,
@@ -152,7 +145,6 @@ fun HomeScreen(
     val cycleStore = remember { PayCycleStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
     val accountStore = remember { AccountStore.get(context) }
-    val budgetStore = remember { BudgetStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
     val debtStore = remember { DebtStore.get(context) }
     val cycleProtectionStore =
@@ -229,11 +221,6 @@ fun HomeScreen(
             emptyActivitySnapshot()
         )
     }
-    var monthlyBudgets by remember {
-        mutableStateOf<
-            List<MonthlyBudget>
-        >(emptyList())
-    }
     var debtAccounts by remember {
         mutableStateOf<
             List<DebtAccountSnapshot>
@@ -273,8 +260,6 @@ fun HomeScreen(
                 activitySnapshot =
                     transactionStore
                         .activitySnapshot(),
-                monthlyBudgets =
-                    budgetStore.list(),
                 debtAccounts =
                     debtStore.accounts(),
                 trackedAccounts =
@@ -336,8 +321,6 @@ fun HomeScreen(
                     loaded.ledgerSnapshot
                 activitySnapshot =
                     loaded.activitySnapshot
-                monthlyBudgets =
-                    loaded.monthlyBudgets
                 debtAccounts =
                     loaded.debtAccounts
                 trackedAccounts =
@@ -543,66 +526,6 @@ fun HomeScreen(
                     color = premiumCategoryColor(index)
                 )
             }
-    }
-
-    val budgetItems = remember(monthlyBudgets, activitySnapshot) {
-        val trustedByCategory = activitySnapshot.transactions
-            .filter {
-                it.reviewState != ReviewState.EXCLUDED.name &&
-                    it.reviewState != ReviewState.NEEDS_REVIEW.name
-            }
-            .groupBy {
-                categoryStore.canonicalId(it.category)
-            }
-            .mapValues { (_, items) ->
-                maxOf(
-                    0L,
-                    items.sumOf { item ->
-                        if (
-                            item.relationType ==
-                            TransactionStore.RELATION_REFUND
-                        ) {
-                            if (
-                                refundCountsInTrustedTotals(
-                                    item = item,
-                                    store = transactionStore
-                                )
-                            ) {
-                                -item.amountMinor
-                            } else {
-                                0L
-                            }
-                        } else {
-                            item.amountMinor + item.feeMinor
-                        }
-                    }
-                )
-            }
-
-        monthlyBudgets
-            .mapIndexed { index, budget ->
-                val trackedMinor =
-                    trustedByCategory[budget.categoryId] ?: 0L
-                val difference = budget.limitMinor - trackedMinor
-                BudgetProgressItem(
-                    label = categoryStore.labelFor(budget.categoryId),
-                    spentLabel = formatMoney(trackedMinor),
-                    limitLabel = formatMoney(budget.limitMinor),
-                    remainingLabel = if (difference >= 0L) {
-                        formatMoney(difference) + " remaining"
-                    } else {
-                        formatMoney(-difference) + " over budget"
-                    },
-                    overBudget = difference < 0L,
-                    progress = if (budget.limitMinor <= 0L) {
-                        0f
-                    } else {
-                        trackedMinor.toFloat() / budget.limitMinor.toFloat()
-                    },
-                    color = premiumCategoryColor(index)
-                )
-            }
-            .take(4)
     }
 
     val spentTodayMinor = remember(
