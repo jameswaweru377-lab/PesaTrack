@@ -98,7 +98,7 @@ class SmartRuleDecisionExplanationTest {
                 counterpartyContains,
             category =
                 TransactionCategory
-                    .FOOD_DINING,
+                    .EATING_OUT,
             name = name,
             notificationTitleContains = "",
             messageContains =
