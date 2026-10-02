@@ -36,6 +36,153 @@ class MessagePackRouterTest {
     }
 
     @Test
+    fun sourceAwareTemplateRequiresMatchingPackageAndChannel() {
+        val template =
+            MessageTemplateDefinition(
+                id =
+                    "ke.test.bank-app.debit",
+                revision = 1,
+                country = "KE",
+                senderIds =
+                    listOf(
+                        "Sample Bank"
+                    ),
+                requiredAnchors =
+                    listOf(
+                        "debited with KES"
+                    ),
+                anyAnchors =
+                    emptyList(),
+                eventKind = "PAYMENT",
+                productIdentity =
+                    "TEST_BANK",
+                active = true,
+                extractors =
+                    listOf(
+                        MessagePackFieldExtractor(
+                            field = "AMOUNT",
+                            pattern =
+                                "debited with KES[ ]+([0-9,]+(?:[.][0-9]{1,2})?)",
+                            required = true
+                        )
+                    ),
+                sourcePackages =
+                    listOf(
+                        "ke.example.bank"
+                    ),
+                sourceKinds =
+                    listOf(
+                        "financial_notification"
+                    )
+            )
+        val router =
+            MessagePackRouter(
+                listOf(template)
+            )
+        val body =
+            "Your account was debited with KES 1,250.00."
+
+        assertEquals(
+            null,
+            router.route(
+                title = "Sample Bank",
+                body = body
+            )
+        )
+        assertEquals(
+            null,
+            router.route(
+                title = "Sample Bank",
+                body = body,
+                sourcePackage =
+                    "ke.other.bank",
+                sourceKind =
+                    "financial_notification"
+            )
+        )
+
+        val match =
+            router.route(
+                title = "Sample Bank",
+                body = body,
+                sourcePackage =
+                    "KE.EXAMPLE.BANK",
+                sourceKind =
+                    " financial_notification "
+            )
+
+        assertNotNull(match)
+        assertEquals(
+            "ke.test.bank-app.debit",
+            match?.templateId
+        )
+        assertEquals(
+            "1,250.00",
+            match?.fieldValue(
+                "AMOUNT"
+            )
+        )
+        assertTrue(
+            match?.sourcePackageMatched ==
+                true
+        )
+        assertTrue(
+            match?.sourceKindMatched ==
+                true
+        )
+    }
+
+    @Test
+    fun unconstrainedTemplatesRemainBackwardCompatible() {
+        val template =
+            MessageTemplateDefinition(
+                id =
+                    "ke.test.sms.credit",
+                revision = 1,
+                country = "KE",
+                senderIds =
+                    listOf("TESTBANK"),
+                requiredAnchors =
+                    listOf(
+                        "credited with KES"
+                    ),
+                anyAnchors =
+                    emptyList(),
+                eventKind = "RECEIPT",
+                productIdentity =
+                    "TEST_BANK",
+                active = true,
+                extractors =
+                    emptyList()
+            )
+        val router =
+            MessagePackRouter(
+                listOf(template)
+            )
+
+        val match =
+            router.route(
+                title = "TESTBANK",
+                body =
+                    "Your account was credited with KES 500.",
+                sourcePackage =
+                    "com.android.messaging",
+                sourceKind =
+                    "historical_financial_message"
+            )
+
+        assertNotNull(match)
+        assertEquals(
+            false,
+            match?.sourcePackageMatched
+        )
+        assertEquals(
+            false,
+            match?.sourceKindMatched
+        )
+    }
+
+    @Test
     fun sanitizedGoldenFixturesRouteAndExtract() {
         val router =
             MessagePackRouter(
