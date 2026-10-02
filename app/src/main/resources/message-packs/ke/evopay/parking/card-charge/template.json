@@ -1,0 +1,30 @@
+{
+  "id": "ke.evopay.parking.card-charge",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["EVOPAY", "EVO PAY"],
+  "requiredAnchors": ["parking fee has been charged to your card", "Your new card balance"],
+  "anyAnchors": ["Thank you for visiting"],
+  "eventKind": "PAYMENT",
+  "productIdentity": "KENYAN_PAYMENT_EVOPAY",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "(?:Ksh[.]?|KES)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+parking fee",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "BALANCE",
+      "pattern": "new card balance is[ ]+(?:(?:Ksh[.]?|KES)[ ]*)?([0-9,]+(?:[.][0-9]{1,2})?)",
+      "group": 1
+    },
+    {
+      "field": "COUNTERPARTY",
+      "pattern": "Thank you for visiting[ ]+(.+?)[.]?$",
+      "group": 1,
+      "required": true
+    }
+  ]
+}
