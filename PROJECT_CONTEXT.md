@@ -2749,3 +2749,27 @@ Next Phase 5 work:
 - remove/relocate remaining dead legacy Home presentation helpers;
 - continue decomposing Activity/Home files;
 - improve Accounts with savings/investment grouping and balance freshness where evidence exists.
+
+
+## Phase 5 Product Simplification — increment 3 / structural completion — 2026-10-02
+
+Phase 5 has completed its structural product-hierarchy goal.
+
+Cleanup performed:
+
+- Removed legacy Home Debt Overview, Wallets & Balances, wallet-row and Payday Picture presentation paths that were replaced by the new seven-block Home.
+- Removed obsolete Home-only helpers/imports tied to those cards.
+- `HomeScreen.kt` was reduced from roughly 2,346 lines after the hierarchy migration to roughly 1,600 lines.
+- Active Phase 5 Home cards remain in `HomeOverviewComponents.kt`.
+
+Current primary product hierarchy:
+
+- Home: Available this cycle, conditional Needs Attention, Today, Where money went, Money picture, Recent activity, one insight.
+- Activity: canonical timeline + unified Needs Attention.
+- Plan: budget + recurring commitments/pay cycle + goals.
+- Accounts: confirmed wallets/banks/savings plus active debt entry.
+- More: Data Health, Import, Community, Profile, Settings.
+
+The deterministic financial engine, Identity Graph, personal learning, debt accounting and message corpus remain unchanged by this cleanup.
+
+Next build-order phase after this is Phase 6 / long-tail coverage. Do not regress the Phase 5 hierarchy while adding new providers or products.
