@@ -4,6 +4,13 @@ import com.kedevjimmy.pesatrack.domain.messagepack.KenyaMessagePack
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseProvenance
 
 object FinancialMessageInterpreter {
+    private val
+        PROVENANCE_ONLY_DEBT_EVENT_KINDS =
+        setOf(
+            "DEBT_DUE_NOTICE",
+            "DEBT_DRAWDOWN_WITH_SAVINGS"
+        )
+
     fun interpret(
         title: String?,
         body: String,
@@ -72,6 +79,12 @@ object FinancialMessageInterpreter {
                 message = normalized,
                 candidates = candidates
             )
+        val provenanceOnlyDebtShape =
+            messagePackMatch
+                ?.eventKind
+                ?.uppercase() in
+                PROVENANCE_ONLY_DEBT_EVENT_KINDS
+
         val classified =
             FinancialEventClassifier.classify(
                 resolved = resolved,
@@ -79,7 +92,8 @@ object FinancialMessageInterpreter {
                     semanticAssessment
                         .primaryIntent ==
                     FinancialSemanticIntent
-                        .FAILED_ACTION
+                        .FAILED_ACTION ||
+                        provenanceOnlyDebtShape
             )
 
         return classified.copy(

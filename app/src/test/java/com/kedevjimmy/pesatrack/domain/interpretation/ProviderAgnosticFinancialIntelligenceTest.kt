@@ -171,9 +171,9 @@ class ProviderAgnosticFinancialIntelligenceTest {
     fun unknownLenderRepaymentUsesGenericLoanLanguage() {
         val interpretation =
             FinancialMessageInterpreter.interpret(
-                title = "TALA",
+                title = "FUTURE FINANCE",
                 body =
-                    "Loan repayment of KES 1,000.00 received. Tala loan balance is KES 4,000.00."
+                    "Loan repayment of KES 1,000.00 received. Future Finance loan balance is KES 4,000.00."
             )
 
         val repayment =
@@ -182,7 +182,7 @@ class ProviderAgnosticFinancialIntelligenceTest {
 
         assertEquals(100_000L, repayment.amountMinor)
         assertEquals(
-            "Tala loan",
+            "Future Finance loan",
             repayment.liability.displayName
         )
         assertEquals(

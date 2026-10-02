@@ -3069,3 +3069,23 @@ Reason:
 Added regression tests for names, provider keys, normalization and conservative semantics. Evidence URLs are recorded in `docs/entity-catalog-sources.md`.
 
 This increment changes diagnostics/Message Lab source attribution only; no ledger or debt semantics change.
+
+
+## Phase 6 Long-tail Coverage — increment 14 / lender debt bridge — 2026-10-02
+
+The evidence-backed lender Message Pack can now feed unambiguous drawdowns into the existing canonical debt engine.
+
+Implemented:
+
+- Added stable liability provider identities for Timiza, Tala, Branch, Zenka, OKash and Hustler Fund.
+- Added stable Timiza account identity for explicit "your Timiza account" proceeds.
+- Added Message Pack debt enrichment for `DEBT_DRAWDOWN`.
+- Template fee evidence fills missing generic fee candidates.
+- Template `REPAY_AMOUNT` / `TOTAL_DUE` can fill missing observed outstanding-after values.
+- Explicit M-Pesa/Timiza proceeds can fill missing proceeds-account evidence.
+- Existing generic debt candidates are merged with Message Pack evidence rather than replaced.
+- Added canonical debt-event tests for Branch, Timiza, M-Shwari and OKash.
+- Added guardrail tests proving Tala due notices remain non-movement and Hustler Fund split drawdowns remain provenance-only.
+- Added registry tests for stable lender identities/funding behavior.
+
+No repayment reminder, lender offer, or split savings allocation is turned into a ledger movement by this increment.

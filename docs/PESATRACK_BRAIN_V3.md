@@ -1057,3 +1057,50 @@ Zenka resolves to a conservative direct lender source identity. Timiza resolves 
 Both keep `AccountType.OTHER`, UNKNOWN ownership and UNKNOWN financial nature at package-identity level.
 
 This improves Coverage by source and Message Lab attribution only. It does not create a loan event, debt account, category, Smart Rule or ownership claim from package identity.
+
+
+## Phase 6 — Long-tail coverage, increment 14 — Lender debt bridge
+
+Branch milestone: `feature/phase6-lender-debt-bridge-v14`.
+
+This increment makes the 62-template lender corpus useful to the existing debt engine without turning reminders or ambiguous split products into ledger movements.
+
+### Stable lender liabilities
+
+The Financial Provider Registry now has explicit liability identities for:
+
+- Timiza Loan;
+- Tala Loan;
+- Branch Loan;
+- Zenka Loan;
+- OKash Loan;
+- Hustler Fund Loan.
+
+Timiza also has a stable owned Timiza account identity for messages that explicitly say loan proceeds were disbursed to **your Timiza account**.
+
+Cash-disbursement behavior is configured conservatively:
+
+- Tala / Branch / Zenka -> M-Pesa only because their current template wording explicitly says the proceeds went to M-Pesa;
+- Timiza -> Timiza account because the template explicitly says so;
+- OKash remains destination-unknown because the current template does not state where proceeds landed;
+- Hustler Fund has a provider identity but its split drawdown is not yet bridged into the single-proceeds debt model.
+
+### Message Pack -> debt candidates
+
+For event kind `DEBT_DRAWDOWN`, Message Pack evidence may now fill missing generic debt fields:
+
+- principal amount;
+- lender liability identity;
+- explicit fee;
+- observed repay / total-due amount as outstanding-after evidence;
+- proceeds account only when the message explicitly states it.
+
+If the generic debt extractor already found a drawdown, Message Pack evidence only fills missing fields. It does not replace stronger generic evidence.
+
+### Guardrails
+
+- `DEBT_DUE_NOTICE` remains provenance-only and creates no debt movement.
+- `DEBT_DRAWDOWN_WITH_SAVINGS` remains provenance-only until the canonical debt model can preserve both proceeds and mandatory savings allocation.
+- No lender reminder becomes a repayment.
+- No proceeds destination is inferred for OKash.
+- Existing Financial Intelligence V2 / DebtStore authority remains unchanged.

@@ -10,11 +10,42 @@ object MessagePackCandidateBridge {
         match: MessagePackMatch?,
         message: NormalizedFinancialMessage
     ): FinancialMessageCandidates {
-        if (
-            match == null ||
-            candidates.actions.isNotEmpty()
-        ) {
+        if (match == null) {
             return candidates
+        }
+
+        val eventKind =
+            match.eventKind
+                .uppercase()
+
+        val guardedCandidates =
+            if (
+                eventKind ==
+                "DEBT_DRAWDOWN_WITH_SAVINGS"
+            ) {
+                candidates.copy(
+                    debt =
+                        candidates.debt.copy(
+                            drawdown = null
+                        )
+                )
+            } else {
+                candidates
+            }
+
+        val debtEnriched =
+            enrichDebtDrawdown(
+                candidates =
+                    guardedCandidates,
+                match = match,
+                message = message
+            )
+
+        if (
+            debtEnriched.actions
+                .isNotEmpty()
+        ) {
+            return debtEnriched
         }
 
         val amountField =
@@ -23,18 +54,18 @@ object MessagePackCandidateBridge {
                     "AMOUNT",
                     ignoreCase = true
                 )
-            } ?: return candidates
+            } ?: return debtEnriched
 
         val amountMinor =
             amountToMinor(
                 amountField.value
-            ) ?: return candidates
+            ) ?: return debtEnriched
 
         val amountSpan =
             spanForValue(
                 body = message.body,
                 value = amountField.value
-            ) ?: return candidates
+            ) ?: return debtEnriched
 
         val action =
             when (
@@ -82,14 +113,308 @@ object MessagePackCandidateBridge {
                     )
 
                 else -> null
-            } ?: return candidates
+            } ?: return debtEnriched
 
-        return candidates.copy(
+        return debtEnriched.copy(
             actions =
-                candidates.actions +
+                debtEnriched.actions +
                     action
         )
     }
+
+    private fun enrichDebtDrawdown(
+        candidates: FinancialMessageCandidates,
+        match: MessagePackMatch,
+        message: NormalizedFinancialMessage
+    ): FinancialMessageCandidates {
+        val eventKind =
+            match.eventKind
+                .uppercase()
+
+        if (
+            eventKind !=
+            "DEBT_DRAWDOWN"
+        ) {
+            return candidates
+        }
+
+        val withFee =
+            if (candidates.fee == null) {
+                templateFee(
+                    match = match,
+                    message = message
+                )?.let {
+                    candidates.copy(
+                        fee = it
+                    )
+                } ?: candidates
+            } else {
+                candidates
+            }
+
+        val product =
+            debtProduct(
+                match.productIdentity
+            ) ?: return withFee
+
+        val outstandingField =
+            match.fields.firstOrNull {
+                it.field.equals(
+                    "REPAY_AMOUNT",
+                    ignoreCase = true
+                )
+            } ?: match.fields
+                .firstOrNull {
+                    it.field.equals(
+                        "TOTAL_DUE",
+                        ignoreCase = true
+                    )
+                }
+        val outstandingMinor =
+            outstandingField
+                ?.value
+                ?.let(::amountToMinor)
+        val outstandingSpan =
+            outstandingField
+                ?.value
+                ?.let {
+                    spanForValue(
+                        body = message.body,
+                        value = it
+                    )
+                }
+
+        val proceedsSpan =
+            product.proceedsAccountLabel
+                ?.let {
+                    spanForValue(
+                        body = message.body,
+                        value = it
+                    )
+                }
+
+        withFee.debt.drawdown
+            ?.let { existing ->
+                return withFee.copy(
+                    debt =
+                        withFee.debt.copy(
+                            drawdown =
+                                existing.copy(
+                                    outstandingAfterMinor =
+                                        existing
+                                            .outstandingAfterMinor
+                                            ?: outstandingMinor,
+                                    outstandingSpan =
+                                        existing
+                                            .outstandingSpan
+                                            ?: outstandingSpan,
+                                    proceedsAccountLabel =
+                                        existing
+                                            .proceedsAccountLabel
+                                            ?: if (
+                                                proceedsSpan !=
+                                                null
+                                            ) {
+                                                product
+                                                    .proceedsAccountLabel
+                                            } else {
+                                                null
+                                            },
+                                    proceedsAccountSpan =
+                                        existing
+                                            .proceedsAccountSpan
+                                            ?: proceedsSpan
+                                )
+                        )
+                )
+            }
+
+        val amountField =
+            match.fields.firstOrNull {
+                it.field.equals(
+                    "AMOUNT",
+                    ignoreCase = true
+                )
+            } ?: return withFee
+        val amountMinor =
+            amountToMinor(
+                amountField.value
+            ) ?: return withFee
+        val amountSpan =
+            spanForValue(
+                body = message.body,
+                value = amountField.value
+            ) ?: return withFee
+
+        val liabilitySpan =
+            product.bodyMarkers
+                .asSequence()
+                .mapNotNull {
+                    spanForValue(
+                        body = message.body,
+                        value = it
+                    )
+                }
+                .firstOrNull()
+                ?: spanForKeyword(
+                    body = message.body,
+                    keyword = "loan"
+                )
+                ?: return withFee
+
+        val drawdown =
+            DebtDrawdownCandidate(
+                amountMinor = amountMinor,
+                amountSpan = amountSpan,
+                liabilityLabel =
+                    product.liabilityLabel,
+                liabilitySpan =
+                    liabilitySpan,
+                outstandingAfterMinor =
+                    outstandingMinor,
+                outstandingSpan =
+                    outstandingSpan,
+                availableCreditAfterMinor =
+                    null,
+                availableCreditSpan =
+                    null,
+                proceedsAccountLabel =
+                    if (
+                        proceedsSpan != null
+                    ) {
+                        product
+                            .proceedsAccountLabel
+                    } else {
+                        null
+                    },
+                proceedsAccountSpan =
+                    proceedsSpan,
+                amountIsNetProceeds =
+                    false,
+                ruleId =
+                    "message_pack." +
+                        match.templateId +
+                        "@" +
+                        match.revision +
+                        ".debt_drawdown"
+            )
+
+        return withFee.copy(
+            debt =
+                withFee.debt.copy(
+                    drawdown = drawdown
+                )
+        )
+    }
+
+    private fun templateFee(
+        match: MessagePackMatch,
+        message: NormalizedFinancialMessage
+    ): FeeCandidate? {
+        val field =
+            match.fields.firstOrNull {
+                it.field.equals(
+                    "FEE",
+                    ignoreCase = true
+                )
+            } ?: return null
+        val amountMinor =
+            amountToMinor(
+                field.value
+            ) ?: return null
+        val span =
+            spanForValue(
+                body = message.body,
+                value = field.value
+            ) ?: return null
+
+        return FeeCandidate(
+            amountMinor = amountMinor,
+            amountSpan = span,
+            ruleId =
+                "message_pack." +
+                    match.templateId +
+                    "@" +
+                    match.revision +
+                    ".fee"
+        )
+    }
+
+    private fun debtProduct(
+        productIdentity: String?
+    ): DebtProductBridge? =
+        when (
+            productIdentity
+                ?.uppercase()
+        ) {
+            "NCBA_MSHWARI_LOAN" ->
+                DebtProductBridge(
+                    liabilityLabel =
+                        "M-Shwari Loan",
+                    bodyMarkers =
+                        listOf(
+                            "M-Shwari",
+                            "M Shwari"
+                        ),
+                    proceedsAccountLabel =
+                        "M-Pesa"
+                )
+
+            "ABSA_TIMIZA_LOAN" ->
+                DebtProductBridge(
+                    liabilityLabel =
+                        "Timiza Loan",
+                    bodyMarkers =
+                        listOf("Timiza"),
+                    proceedsAccountLabel =
+                        "Timiza"
+                )
+
+            "TALA_LOAN" ->
+                DebtProductBridge(
+                    liabilityLabel =
+                        "Tala Loan",
+                    bodyMarkers =
+                        listOf("Tala"),
+                    proceedsAccountLabel =
+                        "M-Pesa"
+                )
+
+            "BRANCH_LOAN" ->
+                DebtProductBridge(
+                    liabilityLabel =
+                        "Branch Loan",
+                    bodyMarkers =
+                        listOf("Branch"),
+                    proceedsAccountLabel =
+                        "M-Pesa"
+                )
+
+            "ZENKA_LOAN" ->
+                DebtProductBridge(
+                    liabilityLabel =
+                        "Zenka Loan",
+                    bodyMarkers =
+                        listOf("Zenka"),
+                    proceedsAccountLabel =
+                        "M-Pesa"
+                )
+
+            "OKASH_LOAN" ->
+                DebtProductBridge(
+                    liabilityLabel =
+                        "OKash Loan",
+                    bodyMarkers =
+                        listOf(
+                            "OKash",
+                            "O-Kash"
+                        ),
+                    proceedsAccountLabel =
+                        null
+                )
+
+            else -> null
+        }
 
     private fun transferAction(
         amountMinor: Long,
@@ -250,6 +575,26 @@ object MessagePackCandidateBridge {
         )
     }
 
+    private fun spanForKeyword(
+        body: String,
+        keyword: String
+    ): MessageSpan? {
+        val start =
+            body.indexOf(
+                string = keyword,
+                ignoreCase = true
+            )
+        if (start < 0) {
+            return null
+        }
+
+        return MessageSpan(
+            startOffset = start,
+            endOffsetExclusive =
+                start + keyword.length
+        )
+    }
+
     private fun amountToMinor(
         raw: String
     ): Long? =
@@ -265,4 +610,10 @@ object MessagePackCandidateBridge {
             ).movePointRight(2)
                 .longValueExact()
         }.getOrNull()
+
+    private data class DebtProductBridge(
+        val liabilityLabel: String,
+        val bodyMarkers: List<String>,
+        val proceedsAccountLabel: String?
+    )
 }

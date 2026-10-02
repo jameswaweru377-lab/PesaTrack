@@ -65,6 +65,110 @@ object FinancialProviderRegistry {
             )
         ),
         FinancialProviderAccountKnowledge(
+            providerKey = "ABSA_TIMIZA_LOAN",
+            canonicalName = "Timiza Loan",
+            accountType = AccountType.OTHER,
+            ownershipHint = AccountOwnershipHint.UNKNOWN,
+            nature = FinancialAccountNature.LIABILITY,
+            aliases = setOf(
+                "TIMIZA LOAN"
+            ),
+            debtBehavior = DebtProductBehavior(
+                fundingBehavior =
+                    DebtFundingBehavior.CASH_DISBURSEMENT,
+                fundingAccountProviderKey =
+                    "ABSA_TIMIZA_ACCOUNT"
+            )
+        ),
+        FinancialProviderAccountKnowledge(
+            providerKey = "TALA_LOAN",
+            canonicalName = "Tala Loan",
+            accountType = AccountType.OTHER,
+            ownershipHint = AccountOwnershipHint.UNKNOWN,
+            nature = FinancialAccountNature.LIABILITY,
+            aliases = setOf(
+                "TALA LOAN"
+            ),
+            debtBehavior = DebtProductBehavior(
+                fundingBehavior =
+                    DebtFundingBehavior.CASH_DISBURSEMENT,
+                fundingAccountProviderKey =
+                    "SAFARICOM_MPESA"
+            )
+        ),
+        FinancialProviderAccountKnowledge(
+            providerKey = "BRANCH_LOAN",
+            canonicalName = "Branch Loan",
+            accountType = AccountType.OTHER,
+            ownershipHint = AccountOwnershipHint.UNKNOWN,
+            nature = FinancialAccountNature.LIABILITY,
+            aliases = setOf(
+                "BRANCH LOAN"
+            ),
+            debtBehavior = DebtProductBehavior(
+                fundingBehavior =
+                    DebtFundingBehavior.CASH_DISBURSEMENT,
+                fundingAccountProviderKey =
+                    "SAFARICOM_MPESA"
+            )
+        ),
+        FinancialProviderAccountKnowledge(
+            providerKey = "ZENKA_LOAN",
+            canonicalName = "Zenka Loan",
+            accountType = AccountType.OTHER,
+            ownershipHint = AccountOwnershipHint.UNKNOWN,
+            nature = FinancialAccountNature.LIABILITY,
+            aliases = setOf(
+                "ZENKA LOAN"
+            ),
+            debtBehavior = DebtProductBehavior(
+                fundingBehavior =
+                    DebtFundingBehavior.CASH_DISBURSEMENT,
+                fundingAccountProviderKey =
+                    "SAFARICOM_MPESA"
+            )
+        ),
+        FinancialProviderAccountKnowledge(
+            providerKey = "OKASH_LOAN",
+            canonicalName = "OKash Loan",
+            accountType = AccountType.OTHER,
+            ownershipHint = AccountOwnershipHint.UNKNOWN,
+            nature = FinancialAccountNature.LIABILITY,
+            aliases = setOf(
+                "OKASH LOAN",
+                "O KASH LOAN"
+            ),
+            debtBehavior = DebtProductBehavior(
+                fundingBehavior =
+                    DebtFundingBehavior.CASH_DISBURSEMENT
+            )
+        ),
+        FinancialProviderAccountKnowledge(
+            providerKey = "HUSTLER_FUND_LOAN",
+            canonicalName = "Hustler Fund Loan",
+            accountType = AccountType.OTHER,
+            ownershipHint = AccountOwnershipHint.UNKNOWN,
+            nature = FinancialAccountNature.LIABILITY,
+            aliases = setOf(
+                "HUSTLER FUND LOAN"
+            ),
+            debtBehavior = DebtProductBehavior(
+                fundingBehavior =
+                    DebtFundingBehavior.CASH_DISBURSEMENT
+            )
+        ),
+        FinancialProviderAccountKnowledge(
+            providerKey = "ABSA_TIMIZA_ACCOUNT",
+            canonicalName = "Timiza",
+            accountType = AccountType.MOBILE_WALLET,
+            ownershipHint = AccountOwnershipHint.USER_OWNED,
+            nature = FinancialAccountNature.ASSET,
+            aliases = setOf(
+                "TIMIZA",
+                "TIMIZA ACCOUNT"
+            )
+        ),
+        FinancialProviderAccountKnowledge(
             providerKey = "KCB_MPESA_LOAN",
             canonicalName = "KCB M-PESA Loan",
             accountType = AccountType.OTHER,
