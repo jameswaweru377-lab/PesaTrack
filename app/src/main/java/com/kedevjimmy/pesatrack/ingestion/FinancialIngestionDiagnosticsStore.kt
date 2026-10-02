@@ -8,6 +8,7 @@ import org.json.JSONObject
 
 enum class FinancialIngestionDiagnosticCode {
     UNRECOGNIZED_FINANCIAL_LANGUAGE,
+    RESOLVED_BY_CURRENT_COVERAGE,
     UNDERSTOOD_NO_LEDGER_EFFECT,
     LINKED_OBSERVATION,
     OBSERVATION_ONLY,
@@ -33,7 +34,8 @@ data class FinancialIngestionDiagnostic(
     val templateId: String? = null,
     val templateRevision: Int? = null,
     val extractedFieldNames: List<String> =
-        emptyList()
+        emptyList(),
+    val messageShapeId: String? = null
 )
 
 data class FinancialMessageCoverageSnapshot(
@@ -41,6 +43,7 @@ data class FinancialMessageCoverageSnapshot(
     val templateParsed: Int,
     val genericFallbackParsed: Int,
     val understoodNoLedgerEffect: Int,
+    val resolvedByCurrentCoverage: Int,
     val unsupportedFinancial: Int
 ) {
     val templateCoveragePercent: Int
@@ -78,7 +81,8 @@ class FinancialIngestionDiagnosticsStore private constructor(
         linkedTransactionId: Long?,
         linkedByCorrelation: Boolean,
         result: FinancialMessageIngestionResult,
-        parseProvenance: MessageParseProvenance
+        parseProvenance: MessageParseProvenance,
+        messageShapeId: String? = null
     ) {
         if (!financialCandidate && !result.recognized) {
             return
@@ -204,6 +208,19 @@ class FinancialIngestionDiagnosticsStore private constructor(
                             }
                     }
                 )
+                if (
+                    messageShapeId != null
+                ) {
+                    put(
+                        "messageShapeId",
+                        messageShapeId
+                    )
+                } else {
+                    put(
+                        "messageShapeId",
+                        JSONObject.NULL
+                    )
+                }
                 put(
                     "insertedTransactions",
                     result.insertedTransactions
@@ -415,11 +432,93 @@ class FinancialIngestionDiagnosticsStore private constructor(
                                             ?.let(::add)
                                     }
                                 }
-                            }.orEmpty()
+                            }.orEmpty(),
+                        messageShapeId =
+                            if (
+                                item.isNull(
+                                    "messageShapeId"
+                                )
+                            ) {
+                                null
+                            } else {
+                                item.optString(
+                                    "messageShapeId"
+                                ).trim()
+                                    .takeIf(
+                                        String::isNotBlank
+                                    )
+                            }
                     )
                 )
             }
         }
+    }
+
+    @Synchronized
+    fun markShapeCovered(
+        shapeId: String
+    ): Int {
+        if (shapeId.isBlank()) {
+            return 0
+        }
+
+        val current =
+            runCatching {
+                JSONArray(
+                    preferences.getString(
+                        KEY_ENTRIES,
+                        "[]"
+                    ) ?: "[]"
+                )
+            }.getOrElse {
+                JSONArray()
+            }
+        var changed = 0
+
+        for (
+            index in 0 until
+                current.length()
+        ) {
+            val item =
+                current.getJSONObject(
+                    index
+                )
+            val sameShape =
+                item.optString(
+                    "messageShapeId"
+                ) == shapeId
+            val unsupported =
+                item.optString(
+                    "code"
+                ) ==
+                    FinancialIngestionDiagnosticCode
+                        .UNRECOGNIZED_FINANCIAL_LANGUAGE
+                        .name
+
+            if (
+                sameShape &&
+                unsupported
+            ) {
+                item.put(
+                    "code",
+                    FinancialIngestionDiagnosticCode
+                        .RESOLVED_BY_CURRENT_COVERAGE
+                        .name
+                )
+                changed += 1
+            }
+        }
+
+        if (changed > 0) {
+            preferences.edit()
+                .putString(
+                    KEY_ENTRIES,
+                    current.toString()
+                )
+                .apply()
+        }
+
+        return changed
     }
 
     fun sourceCoverage(
@@ -460,6 +559,12 @@ class FinancialIngestionDiagnosticsStore private constructor(
                     it.code ==
                         FinancialIngestionDiagnosticCode
                             .UNDERSTOOD_NO_LEDGER_EFFECT
+                },
+            resolvedByCurrentCoverage =
+                entries.count {
+                    it.code ==
+                        FinancialIngestionDiagnosticCode
+                            .RESOLVED_BY_CURRENT_COVERAGE
                 },
             unsupportedFinancial =
                 entries.count {
