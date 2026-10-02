@@ -2955,3 +2955,24 @@ Implemented:
 No Branch/Tala message wording or debt semantics were invented.
 
 Continue Phase 6 from real Coverage-by-source gaps / redacted Message Lab evidence. Add provider-specific lender templates only when an observed sanitized/public message shape is available.
+
+
+## Phase 6 Long-tail Coverage — increment 9 / source drill-down — 2026-10-02
+
+Phase 6 Data Health can now move directly from a coverage gap to the relevant local evidence.
+
+Implemented:
+
+- Coverage-by-source cards with unsupported observations are tappable.
+- Selecting a source filters Message Lab to that source's unsupported redacted shapes.
+- App/SMS evidence remains separated by the same stable source-key logic used by coverage analysis.
+- Selected source state is visible in the Message Lab heading and can be cleared with **Show all**.
+- Added **Copy redacted source fixtures** to export up to 25 safe fixtures as one JSON array.
+- Individual redacted fixture copy remains available.
+- `MessageLabStore` supports source-filtered retrieval and batch fixture export.
+- `FinancialCoverageAnalysis.sourceKey` is now a reusable pure normalizer.
+- Added regression tests for package/channel normalization and display-name fallback.
+
+No transaction meaning, ownership, category, ledger arithmetic, Identity Graph decision, recurring commitment or raw-message upload behavior changes.
+
+Use this workflow to choose the next bank/SACCO/lender template from actual unsupported device evidence instead of speculative provider wording.
