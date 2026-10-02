@@ -536,3 +536,69 @@ A new `fixtures-v6.json` corpus provides sanitized golden examples, including th
 ### Next Phase 6 increments
 
 Continue with evidence-backed bank/app-notification coverage and then recurring/subscription intelligence. Prefer public or sanitized message evidence; official product mechanics alone are not enough to invent SMS wording.
+
+
+## Phase 6 — Long-tail coverage, increment 2 — Recurring intelligence
+
+Branch milestone: `feature/phase6-recurring-intelligence-v2`.
+
+This increment adds deterministic recurring-payment intelligence without allowing observed repetition to silently create planning commitments.
+
+### Detection policy
+
+PesaTrack examines trusted ordinary expense history and groups observations by stable identity plus category.
+
+A candidate is considered only when:
+
+- at least three observations exist;
+- every observed interval is between 24 and 38 days;
+- the latest observation is not more than 60 days old;
+- observed amounts remain within 35% of the median amount;
+- the transaction is not a transfer, debt, savings, investment, cash, income, Other or Uncategorized event;
+- the transaction is not excluded, Needs Review, a reversal, linked relationship event, or already controlled by a Smart Rule;
+- SELF and owned financial-account identities are excluded.
+
+Confidence is **HIGH** only for stronger evidence: at least four observations, a 27-33 day median interval, no more than 10% amount deviation and no more than six days of interval spread. Other qualifying monthly patterns remain **MEDIUM**.
+
+### User authority
+
+Detection creates a suggestion only.
+
+Plan shows **Possible recurring payments** with:
+
+- identity/merchant label;
+- number of observed payments;
+- approximate cadence;
+- typical median amount;
+- next expected date;
+- Strong pattern / Possible confidence.
+
+The user must choose **Add to plan** before PesaTrack creates anything reusable.
+
+Accepting a suggestion creates an exact-name/phone `OTHER_RECURRING` Smart Rule with the median amount as `plannedAmountMinor`. That rule then participates in the existing pay-cycle commitment model.
+
+Choosing **Not recurring** writes a durable local decision. PesaTrack will not ask again on the same evidence and requires at least two additional observations before that pattern can reappear.
+
+### Schema v31
+
+`recurring_pattern_decisions` stores only:
+
+- pattern key;
+- decision;
+- evidence count at the time of the decision;
+- update timestamp.
+
+No new raw-message storage is introduced.
+
+### Guardrails
+
+Recurring intelligence does not:
+
+- auto-create Smart Rules;
+- auto-change transaction categories;
+- infer transfers/debt/savings/investments as subscriptions;
+- overwrite explicit user decisions;
+- guess a commitment from highly variable payments;
+- change ledger arithmetic.
+
+The next Phase 6 increments remain evidence-backed provider/app-notification coverage and additional long-tail institutions.
