@@ -2722,3 +2722,30 @@ Do not delete the underlying duplicate/link/identity/Message Lab capabilities. P
 Next:
 
 Continue Phase 5 with the Home information hierarchy from the blueprint and then reduce the large Home/Activity composables into smaller feature modules.
+
+
+## Phase 5 Product Simplification — increment 2 — 2026-10-02
+
+The Home information hierarchy now follows the product blueprint.
+
+Implemented:
+
+- Home order is Available this cycle -> Needs Attention -> Today -> Where money went -> Money picture -> Recent activity -> One useful insight.
+- Available this cycle keeps deterministic pay-cycle math and shows cycle timing context instead of duplicating daily metrics inside the hero.
+- Needs Attention is conditional and now counts multiple open review sources, not only category review.
+- Today has trusted spend, safe daily pace and remaining protected commitments.
+- Where money went is reduced to the top three trusted categories; budget management routes into Plan.
+- Money picture combines observed wallet freshness, confirmed account count and active debt summary without inventing missing balances.
+- Recent activity shows up to five canonical transactions, suppresses the second side of unresolved possible-duplicate pairs, and visibly marks Needs Review items as uncertain.
+- Home keeps exactly one insight card.
+- Plan now exposes Budget and Goals as child destinations.
+- Accounts now exposes active debt and debt details as part of the account hierarchy.
+- Home no longer loads monthly budget records for a separate daily budget card.
+- New modular Home components live in `HomeOverviewComponents.kt`.
+
+Next Phase 5 work:
+
+- remove/relocate remaining dead legacy Home presentation helpers;
+- continue decomposing Activity/Home files;
+- improve Accounts with savings/investment grouping and balance freshness where evidence exists;
+- tighten Needs Attention deep-link behavior so Home opens the unified inbox directly.
