@@ -1,0 +1,39 @@
+{
+  "id": "ke.ncba-loop.account.credit",
+  "revision": 1,
+  "country": "KE",
+  "senderIds": ["NCBALOOP", "LOOP"],
+  "requiredAnchors": ["credited to your LOOP account", "Available balance"],
+  "anyAnchors": ["Ref:"],
+  "eventKind": "ACCOUNT_CREDIT",
+  "productIdentity": "NCBA_LOOP",
+  "active": true,
+  "extractors": [
+    {
+      "field": "AMOUNT",
+      "pattern": "(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+credited to your LOOP account",
+      "group": 1,
+      "required": true
+    },
+    {
+      "field": "ACCOUNT_REFERENCE",
+      "pattern": "LOOP account[ ]+([A-Z0-9*.-]+)[ ]+on[ ]+",
+      "group": 1
+    },
+    {
+      "field": "DATE",
+      "pattern": "[ ]on[ ]+(.+?)[.]?[ ]+Ref:",
+      "group": 1
+    },
+    {
+      "field": "TRANSACTION_CODE",
+      "pattern": "Ref:[ ]*([A-Z0-9-]+)",
+      "group": 1
+    },
+    {
+      "field": "BALANCE",
+      "pattern": "Available balance[ ]+(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)",
+      "group": 1
+    }
+  ]
+}
