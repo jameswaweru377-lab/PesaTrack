@@ -475,6 +475,20 @@ class PersonalLearningStore private constructor(
     }
 
     @Synchronized
+    fun forgetReview(
+        transactionId: Long
+    ) {
+        deleteReview(
+            transactionId =
+                transactionId
+        )
+        clearApplication(
+            transactionId =
+                transactionId
+        )
+    }
+
+    @Synchronized
     fun clearApplication(
         transactionId: Long
     ) {
