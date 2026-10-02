@@ -1352,3 +1352,56 @@ The active Kenya Message Pack remains:
 - evidence-driven Message Lab coverage workflow.
 
 Phase 6 should no longer add new provider wording merely to increase template count. Future template additions should be selected from real Coverage-by-source / Message Lab gaps and must preserve these quality gates.
+
+
+## Phase 6 — Long-tail coverage, increment 22 — Duplicate-accounting safety gate
+
+Branch milestone: `feature/phase6-duplicate-accounting-gate-v22`.
+
+This increment turns the blueprint's duplicate-accounting target into an explicit regression acceptance gate.
+
+### Strong known mirrors must auto-link
+
+The gate covers representative high-evidence mirror cases:
+
+- exact shared external reference;
+- same transaction code;
+- complementary owned-account path;
+- shared stable counterparty identity across distinct sources;
+- complementary transfer/income direction;
+- coded + codeless copies inside the very-close safety window.
+
+Every known mirror fixture must auto-link.
+
+### Known distinct movements must stay separate
+
+The gate also protects against false merging:
+
+- conflicting amounts even with a shared reference;
+- two real transactions with different strong codes;
+- same amount outside the correlation window;
+- reversals;
+- codeless time-only similarity from the same source;
+- ultra-close codeless observations from distinct sources.
+
+Every known distinct fixture must remain unlinked.
+
+### Ambiguity stays reviewable
+
+A codeless same-amount pair from distinct sources inside the review window is required to surface through `PossibleDuplicatePolicy` while remaining **not auto-linked** by `MirrorTransactionMatcher`.
+
+This keeps weak evidence in Needs Attention instead of silently collapsing or silently accepting two observations as one.
+
+### Boundary
+
+This is a regression gate around the existing correlation engine, not a change to matching thresholds or ledger arithmetic.
+
+The target is practical near-zero known duplicate-accounting regressions: known strong mirrors must correlate, known distinct movements must not, and ambiguous pairs must remain review-only.
+
+The same integration pass also consolidates the useful readiness checks from the overlapping readiness branch into the existing `BrainV3AcceptanceGateTest`:
+
+- relevance accuracy is now measured against labeled Foundation + canonical financial corpora rather than only positive Message Pack fixtures;
+- every supported Message Pack fixture must produce deterministic TEMPLATE provenance with the expected template ID and a non-empty human-readable reason;
+- the canonical financial fixture corpus must have zero legacy transaction-parser dependency.
+
+This avoids maintaining two competing Phase 6 readiness frameworks.
