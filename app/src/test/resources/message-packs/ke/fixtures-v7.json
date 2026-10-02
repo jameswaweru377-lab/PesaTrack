@@ -1,0 +1,41 @@
+[
+  {
+    "id": "cooperative_account_credit_public_sample",
+    "title": "CO-OP BANK",
+    "body": "Co-operative Bank A/C XXX789 CR KES 15,000.00 on 17/02/26. Bal KES 60,000.00. Ref: COOP123456",
+    "templateId": "ke.cooperative.account.credit",
+    "expectedFields": {
+      "ACCOUNT_REFERENCE": "XXX789",
+      "AMOUNT": "15,000.00",
+      "DATE": "17/02/26",
+      "BALANCE": "60,000.00",
+      "REFERENCE": "COOP123456"
+    }
+  },
+  {
+    "id": "cooperative_account_debit_parser_variant",
+    "title": "COOP BANK",
+    "body": "Co-operative Bank A/C XXX789 DR KES 7,500.00 on 17/02/26. Bal KES 52,500.00. Ref: COOP654321",
+    "templateId": "ke.cooperative.account.debit",
+    "expectedFields": {
+      "ACCOUNT_REFERENCE": "XXX789",
+      "AMOUNT": "7,500.00",
+      "DATE": "17/02/26",
+      "BALANCE": "52,500.00",
+      "REFERENCE": "COOP654321"
+    }
+  },
+  {
+    "id": "equity_account_credit_public_sample",
+    "title": "EQUITY BANK",
+    "body": "Your Equity a/c XXX1234 has been credited with KES 10,000.00 on 17/02/26. Bal: KES 50,000.00. Ref: FT26048RKH",
+    "templateId": "ke.equity.account.credit",
+    "expectedFields": {
+      "ACCOUNT_REFERENCE": "XXX1234",
+      "AMOUNT": "10,000.00",
+      "DATE": "17/02/26",
+      "BALANCE": "50,000.00",
+      "REFERENCE": "FT26048RKH"
+    }
+  }
+]
