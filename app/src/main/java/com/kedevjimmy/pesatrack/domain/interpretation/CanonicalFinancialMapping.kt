@@ -218,6 +218,12 @@ fun FinancialMessageInterpretation.toCanonicalDraft():
                             fundingAccount = null,
                             proceedsAccount =
                                 event.proceedsAccount,
+                            proceedsAmountMinor =
+                                event.proceedsAmountMinor,
+                            savingsAllocationMinor =
+                                event.savingsAllocationMinor,
+                            savingsAccount =
+                                event.savingsAccount,
                             amountIsNetProceeds =
                                 event.amountIsNetProceeds,
                             completion =
