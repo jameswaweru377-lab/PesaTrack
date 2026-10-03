@@ -28,6 +28,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,6 +54,8 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessReport
 import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessor
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
+import com.kedevjimmy.pesatrack.ingestion.FinancialMessageInspection
+import com.kedevjimmy.pesatrack.ingestion.FinancialMessageInspector
 import com.kedevjimmy.pesatrack.ingestion.FinancialSourceCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
 import com.kedevjimmy.pesatrack.ingestion.MessageLabRelevanceExplainer
@@ -196,6 +199,18 @@ fun DataHealthScreen(
     }
     var smsPermissionDenied by remember {
         mutableStateOf(false)
+    }
+
+    var inspectorTitle by remember {
+        mutableStateOf("")
+    }
+    var inspectorBody by remember {
+        mutableStateOf("")
+    }
+    var messageInspection by remember {
+        mutableStateOf<
+            FinancialMessageInspection?
+        >(null)
     }
 
     val smsPermissionLauncher =
@@ -517,6 +532,98 @@ fun DataHealthScreen(
                 },
                 onReprocess =
                     ::runHistoryReprocess
+            )
+        }
+
+        item {
+            SectionHeader(
+                "Inspect one message"
+            )
+        }
+
+        item {
+            MessageInspectorCard(
+                title = inspectorTitle,
+                body = inspectorBody,
+                inspection =
+                    messageInspection,
+                onTitleChange = {
+                    inspectorTitle = it
+                    messageInspection = null
+                },
+                onBodyChange = {
+                    inspectorBody = it
+                    messageInspection = null
+                },
+                onAnalyze = {
+                    if (
+                        inspectorBody
+                            .isNotBlank()
+                    ) {
+                        val stored =
+                            messageLabStore
+                                .matchingShape(
+                                    safeSenderLabel =
+                                        inspectorTitle
+                                            .trim()
+                                            .takeIf(
+                                                String::isNotBlank
+                                            ),
+                                    body =
+                                        inspectorBody
+                                )
+                        messageInspection =
+                            FinancialMessageInspector
+                                .inspect(
+                                    title =
+                                        inspectorTitle
+                                            .trim()
+                                            .takeIf(
+                                                String::isNotBlank
+                                            ),
+                                    body =
+                                        inspectorBody,
+                                    savedUserDecision =
+                                        stored
+                                            ?.userDecision,
+                                    savedSemanticLabel =
+                                        stored
+                                            ?.semanticLabel
+                                )
+                    }
+                },
+                onClear = {
+                    inspectorTitle = ""
+                    inspectorBody = ""
+                    messageInspection = null
+                },
+                onCopySanitized = {
+                    messageInspection
+                        ?.let {
+                            inspection ->
+                            val clipboard =
+                                context
+                                    .getSystemService(
+                                        Context
+                                            .CLIPBOARD_SERVICE
+                                    ) as
+                                    ClipboardManager
+                            clipboard
+                                .setPrimaryClip(
+                                    ClipData
+                                        .newPlainText(
+                                            "PesaTrack sanitized message inspection",
+                                            inspection
+                                                .sanitizedExport()
+                                        )
+                                )
+                            Toast.makeText(
+                                context,
+                                "Sanitized diagnostic copied",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                }
             )
         }
 
@@ -1308,6 +1415,456 @@ private data class DataHealthLoadResult(
     val reviewBurden:
         ReviewBurdenSnapshot
 )
+
+@Composable
+private fun MessageInspectorCard(
+    title: String,
+    body: String,
+    inspection:
+        FinancialMessageInspection?,
+    onTitleChange: (String) -> Unit,
+    onBodyChange: (String) -> Unit,
+    onAnalyze: () -> Unit,
+    onClear: () -> Unit,
+    onCopySanitized: () -> Unit
+) {
+    PesaCard(
+        modifier =
+            Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier =
+                Modifier.padding(
+                    16.dp
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    10.dp
+                )
+        ) {
+            Text(
+                "Local Message Inspector",
+                style =
+                    MaterialTheme
+                        .typography
+                        .titleLarge
+            )
+            Text(
+                "Paste one SMS to see exactly how the current PesaTrack brain reads it. The pasted text is analyzed in memory and is not saved by this tool.",
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodySmall,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+
+            OutlinedTextField(
+                value = title,
+                onValueChange =
+                    onTitleChange,
+                label = {
+                    Text(
+                        "Sender / title (optional)"
+                    )
+                },
+                singleLine = true,
+                modifier =
+                    Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = body,
+                onValueChange =
+                    onBodyChange,
+                label = {
+                    Text("Message body")
+                },
+                minLines = 4,
+                modifier =
+                    Modifier.fillMaxWidth()
+            )
+
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        8.dp
+                    )
+            ) {
+                Button(
+                    onClick =
+                        onAnalyze,
+                    enabled =
+                        body.isNotBlank(),
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+                    Text("Inspect")
+                }
+                TextButton(
+                    onClick =
+                        onClear,
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+                    Text("Clear")
+                }
+            }
+
+            inspection?.let {
+                result ->
+                val status =
+                    when {
+                        result.recognized ->
+                            "Recognized"
+                        result
+                            .semanticallyUnderstood ->
+                            "Understood"
+                        result
+                            .wouldEnterMessageLab ->
+                            "Not understood"
+                        else ->
+                            "Not financial"
+                    }
+                val tone =
+                    when (status) {
+                        "Recognized",
+                        "Understood" ->
+                            "green"
+                        "Not understood" ->
+                            "amber"
+                        else ->
+                            "blue"
+                    }
+
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Current result",
+                        modifier =
+                            Modifier.weight(1f),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleMedium
+                    )
+                    SmallStatusPill(
+                        text = status,
+                        tone = tone
+                    )
+                }
+
+                InspectionDetail(
+                    label =
+                        "Parse route",
+                    value =
+                        result.parseRoute.name
+                )
+                InspectionDetail(
+                    label =
+                        "Template",
+                    value =
+                        result.templateId
+                            ?.let {
+                                id ->
+                                id +
+                                    (
+                                        result
+                                            .templateRevision
+                                            ?.let {
+                                                " @r$it"
+                                            }
+                                            ?: ""
+                                        )
+                            }
+                            ?: "No Message Pack template"
+                )
+                InspectionDetail(
+                    label =
+                        "Relevance score",
+                    value =
+                        result.relevanceScore
+                            .toString()
+                )
+
+                if (
+                    result
+                        .relevanceSignals
+                        .isNotEmpty()
+                ) {
+                    InspectionDetail(
+                        label =
+                            "Relevance signals",
+                        value =
+                            result
+                                .relevanceSignals
+                                .map {
+                                    it.name
+                                        .lowercase()
+                                        .replace(
+                                            "_",
+                                            " "
+                                        )
+                                }
+                                .sorted()
+                                .joinToString()
+                    )
+                }
+
+                if (
+                    result
+                        .extractedFieldNames
+                        .isNotEmpty()
+                ) {
+                    InspectionDetail(
+                        label =
+                            "Extracted fields",
+                        value =
+                            result
+                                .extractedFieldNames
+                                .joinToString()
+                    )
+                }
+
+                result.transactionCode
+                    ?.let {
+                        InspectionDetail(
+                            label =
+                                "Transaction code",
+                            value = it
+                        )
+                    }
+                result.occurredAtText
+                    ?.let {
+                        InspectionDetail(
+                            label =
+                                "Message date/time",
+                            value = it
+                        )
+                    }
+
+                if (
+                    result
+                        .eventSummaries
+                        .isNotEmpty()
+                ) {
+                    Text(
+                        "Events",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelLarge,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .primary
+                    )
+                    result.eventSummaries
+                        .forEach {
+                            event ->
+                            Text(
+                                "• $event",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                }
+
+                if (
+                    result
+                        .balanceSummaries
+                        .isNotEmpty()
+                ) {
+                    Text(
+                        "Balances",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelLarge,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .primary
+                    )
+                    result.balanceSummaries
+                        .forEach {
+                            balance ->
+                            Text(
+                                "• $balance",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                }
+
+                if (
+                    result
+                        .semanticIntents
+                        .isNotEmpty()
+                ) {
+                    InspectionDetail(
+                        label =
+                            "Semantic hints",
+                        value =
+                            result
+                                .semanticIntents
+                                .map {
+                                    it.lowercase()
+                                        .replace(
+                                            "_",
+                                            " "
+                                        )
+                                }
+                                .joinToString()
+                    )
+                }
+
+                result.savedUserDecision
+                    ?.let {
+                        decision ->
+                        InspectionDetail(
+                            label =
+                                "Saved Message Lab choice",
+                            value =
+                                when (decision) {
+                                    MessageLabUserDecision
+                                        .CONFIRMED_FINANCIAL ->
+                                        "Financial"
+                                    MessageLabUserDecision
+                                        .NOT_FINANCIAL ->
+                                        "Not financial"
+                                }
+                        )
+                    }
+                result.savedSemanticLabel
+                    ?.let {
+                        label ->
+                        InspectionDetail(
+                            label =
+                                "Saved meaning",
+                            value =
+                                label.displayLabel
+                        )
+                    }
+
+                Text(
+                    result.provenanceReason,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+
+                Text(
+                    when {
+                        result
+                            .wouldEnterMessageLab ->
+                            "With the current parser and your saved Message Lab decision, this message would still appear as unsupported financial evidence."
+
+                        result.recognized ||
+                            result
+                                .semanticallyUnderstood ->
+                            "This message is understood by the current build and should not remain in Message Lab after reconciliation."
+
+                        result.savedUserDecision ==
+                            MessageLabUserDecision
+                                .NOT_FINANCIAL ->
+                            "Your saved Not financial decision suppresses this shape from Message Lab."
+
+                        else ->
+                            "This message does not currently qualify as unsupported financial evidence."
+                    },
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelMedium,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+
+                Text(
+                    "The copied diagnostic always replaces the sender and all Message Pack extracted values with placeholders.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+
+                TextButton(
+                    onClick =
+                        onCopySanitized,
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "Copy sanitized diagnostic"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InspectionDetail(
+    label: String,
+    value: String
+) {
+    Column(
+        verticalArrangement =
+            Arrangement.spacedBy(
+                2.dp
+            )
+    ) {
+        Text(
+            label,
+            style =
+                MaterialTheme
+                    .typography
+                    .labelSmall,
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant
+        )
+        Text(
+            value,
+            style =
+                MaterialTheme
+                    .typography
+                    .bodyMedium
+        )
+    }
+}
 
 @Composable
 private fun HistoryReprocessCard(
