@@ -181,6 +181,14 @@ object FinancialRelationshipResolver {
                     message = message,
                     fee = candidates.fee
                 )
+                ?: resolveExplicitAccountCredit(
+                    candidate =
+                        candidates.accountCredit,
+                    observedAccount =
+                        observedAccount,
+                    message = message,
+                    fee = candidates.fee
+                )
                 ?: resolveUnresolvedMovement(
                     candidates = candidates,
                     observedAccount = observedAccount
@@ -250,6 +258,116 @@ object FinancialRelationshipResolver {
                     evidence(
                         field =
                             FinancialField.SOURCE_ACCOUNT,
+                        origin =
+                            EvidenceOrigin.PROVIDER_PROFILE,
+                        ruleId =
+                            candidate.ruleId +
+                                ".observed_account",
+                        span = null,
+                        confidence =
+                            InterpretationConfidence.MEDIUM
+                    )
+                )
+                if (
+                    !candidate
+                        .accountReference
+                        .isNullOrBlank()
+                ) {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField
+                                    .ACCOUNT_REFERENCE,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId =
+                                candidate.ruleId +
+                                    ".account_reference",
+                            span =
+                                candidate
+                                    .accountReferenceSpan,
+                            confidence =
+                                InterpretationConfidence.MEDIUM
+                        )
+                    )
+                }
+                fee?.let {
+                    add(
+                        evidence(
+                            field =
+                                FinancialField.FEE,
+                            origin =
+                                EvidenceOrigin.MESSAGE_TEXT,
+                            ruleId = it.ruleId,
+                            span =
+                                it.amountSpan,
+                            confidence =
+                                InterpretationConfidence.HIGH
+                        )
+                    )
+                }
+            }
+        )
+    }
+
+    private fun resolveExplicitAccountCredit(
+        candidate: AccountCreditCandidate?,
+        observedAccount:
+            FinancialAccountReference?,
+        message: NormalizedFinancialMessage,
+        fee: FeeCandidate?
+    ): ResolvedFinancialRelationship? {
+        candidate ?: return null
+
+        val destination =
+            observedAccount ?:
+                FinancialProviderRegistry
+                    .resolveOwnedMessageSourceAccount(
+                        title = message.title,
+                        bankLike = true
+                    )
+                ?: return null
+
+        if (
+            destination.ownershipHint !=
+            AccountOwnershipHint.USER_OWNED
+        ) {
+            return null
+        }
+
+        return ResolvedUnresolvedMovementRelationship(
+            amountMinor =
+                candidate.amountMinor,
+            observedAccount =
+                destination,
+            feeMinor =
+                fee?.amountMinor ?: 0L,
+            directionHint =
+                FinancialMovementDirectionHint
+                    .INCOMING,
+            confidence =
+                InterpretationConfidence.MEDIUM,
+            evidence = buildList {
+                add(
+                    evidence(
+                        field =
+                            FinancialField.AMOUNT,
+                        origin =
+                            EvidenceOrigin.MESSAGE_TEXT,
+                        ruleId =
+                            candidate.ruleId +
+                                ".amount",
+                        span =
+                            candidate.amountSpan,
+                        confidence =
+                            InterpretationConfidence.MEDIUM
+                    )
+                )
+                add(
+                    evidence(
+                        field =
+                            FinancialField
+                                .DESTINATION_ACCOUNT,
                         origin =
                             EvidenceOrigin.PROVIDER_PROFILE,
                         ruleId =
