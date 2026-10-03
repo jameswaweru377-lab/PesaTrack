@@ -1138,6 +1138,45 @@ fun DataHealthScreen(
                                     "Copy parser-ready bundle"
                                 )
                             }
+                            Button(
+                                onClick = {
+                                    val drafts =
+                                        messageLabStore
+                                            .exportEvidenceReadyParserDrafts(
+                                                limit = 50
+                                            )
+                                    if (
+                                        drafts != null
+                                    ) {
+                                        val clipboard =
+                                            context
+                                                .getSystemService(
+                                                    Context
+                                                        .CLIPBOARD_SERVICE
+                                                ) as
+                                                ClipboardManager
+                                        clipboard
+                                            .setPrimaryClip(
+                                                ClipData
+                                                    .newPlainText(
+                                                        "PesaTrack review-only parser drafts",
+                                                        drafts
+                                                    )
+                                            )
+                                        Toast.makeText(
+                                            context,
+                                            "Review-only parser drafts copied",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                },
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "Copy parser draft bundle"
+                                )
+                            }
                         }
                     }
                 }
@@ -1363,6 +1402,35 @@ fun DataHealthScreen(
                                 .sourceCoverage(
                                     sourceLimit = 8
                                 )
+                    },
+                    onCopyParserDraft = {
+                        val draft =
+                            messageLabStore
+                                .exportParserDraft(
+                                    shape.shapeId
+                                )
+                        if (
+                            draft != null
+                        ) {
+                            val clipboard =
+                                context.getSystemService(
+                                    Context
+                                        .CLIPBOARD_SERVICE
+                                ) as
+                                    ClipboardManager
+                            clipboard.setPrimaryClip(
+                                ClipData
+                                    .newPlainText(
+                                        "PesaTrack review-only parser draft",
+                                        draft
+                                    )
+                            )
+                            Toast.makeText(
+                                context,
+                                "Review-only parser draft copied",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     },
                     onCopyFixture = {
                         val fixture =
@@ -2578,6 +2646,7 @@ private fun UnsupportedShapeCard(
     onSemanticLabelCleared: () -> Unit,
     onIgnoreNonFinancial: () -> Unit,
     onClearDecision: () -> Unit,
+    onCopyParserDraft: () -> Unit,
     onCopyFixture: () -> Unit
 ) {
     PesaCard(
@@ -2833,6 +2902,34 @@ private fun UnsupportedShapeCard(
                         Text("Not financial")
                     }
                 }
+            }
+            if (
+                MessageLabParserReadiness
+                    .stateFor(shape) ==
+                MessageLabParserReadinessState
+                    .EVIDENCE_READY
+            ) {
+                Button(
+                    onClick =
+                        onCopyParserDraft,
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "Copy review-only parser draft"
+                    )
+                }
+                Text(
+                    "The draft proposes anchors and field roles only. It stays inactive until a developer reviews real mechanics and writes tested extraction regexes.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelSmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
             }
             TextButton(
                 onClick =
