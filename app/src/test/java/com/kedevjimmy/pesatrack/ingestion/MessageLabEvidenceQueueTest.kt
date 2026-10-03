@@ -36,6 +36,45 @@ class MessageLabEvidenceQueueTest {
     }
 
     @Test
+    fun confirmedShapeNeedingTypeLabelRanksFirst() {
+        val ranked =
+            MessageLabEvidenceQueue
+                .prioritize(
+                    listOf(
+                        shape(
+                            id = "labeled",
+                            occurrences = 10,
+                            lastSeen = 900L,
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL,
+                            financialKind =
+                                MessageLabFinancialKind
+                                    .TRANSFER
+                        ),
+                        shape(
+                            id = "needs-label",
+                            occurrences = 1,
+                            lastSeen = 100L,
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL
+                        )
+                    )
+                )
+
+        assertEquals(
+            listOf(
+                "needs-label",
+                "labeled"
+            ),
+            ranked.map {
+                it.shapeId
+            }
+        )
+    }
+
+    @Test
     fun occurrenceCountBreaksPriorityWithinSameDecisionClass() {
         val ranked =
             MessageLabEvidenceQueue
@@ -141,7 +180,9 @@ class MessageLabEvidenceQueueTest {
         occurrences: Int,
         lastSeen: Long,
         decision:
-            MessageLabUserDecision?
+            MessageLabUserDecision?,
+        financialKind:
+            MessageLabFinancialKind? = null
     ) =
         UnsupportedMessageShape(
             shapeId = id,
@@ -155,6 +196,8 @@ class MessageLabEvidenceQueueTest {
             occurrenceCount =
                 occurrences,
             userDecision =
-                decision
+                decision,
+            financialKind =
+                financialKind
         )
 }
