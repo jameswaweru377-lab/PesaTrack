@@ -13,6 +13,8 @@ object MessageLabEvidenceQueue {
                     MessageLabUserDecision
                         .CONFIRMED_FINANCIAL
             }.thenByDescending {
+                it.semanticLabel != null
+            }.thenByDescending {
                 it.occurrenceCount
             }.thenByDescending {
                 it.lastSeenAtEpochMs
