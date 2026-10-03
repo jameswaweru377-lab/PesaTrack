@@ -133,6 +133,17 @@ class LegacyTransactionTypeCompatibilityTest {
     }
 
     @Test
+    fun canonicalFeeUsesGenericLegacyTypeOnlyAtStorageBoundary() {
+        assertEquals(
+            MpesaTransactionType.OTHER,
+            LegacyTransactionTypeCompatibility.resolve(
+                kind =
+                    CanonicalFinancialRecordKind.FEE
+            )
+        )
+    }
+
+    @Test
     fun reversalKeepsLegacyReversalTypeOnlyAtStorageBoundary() {
         assertEquals(
             MpesaTransactionType.REVERSAL,
