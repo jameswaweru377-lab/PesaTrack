@@ -579,29 +579,31 @@ fun DataHealthScreen(
                     messageInspection = null
                 },
                 onCopySanitized = {
-                    val inspection =
-                        messageInspection
-                            ?: return@MessageInspectorCard
-                    val clipboard =
-                        context
-                            .getSystemService(
-                                Context
-                                    .CLIPBOARD_SERVICE
-                            ) as
-                            ClipboardManager
-                    clipboard
-                        .setPrimaryClip(
-                            ClipData.newPlainText(
-                                "PesaTrack sanitized message inspection",
-                                inspection
-                                    .sanitizedExport()
-                            )
-                        )
-                    Toast.makeText(
-                        context,
-                        "Sanitized diagnostic copied",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    messageInspection
+                        ?.let {
+                            inspection ->
+                            val clipboard =
+                                context
+                                    .getSystemService(
+                                        Context
+                                            .CLIPBOARD_SERVICE
+                                    ) as
+                                    ClipboardManager
+                            clipboard
+                                .setPrimaryClip(
+                                    ClipData
+                                        .newPlainText(
+                                            "PesaTrack sanitized message inspection",
+                                            inspection
+                                                .sanitizedExport()
+                                        )
+                                )
+                            Toast.makeText(
+                                context,
+                                "Sanitized diagnostic copied",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                 }
             )
         }
