@@ -70,6 +70,14 @@ data class ResolvedUnresolvedMovementRelationship(
     override val evidence: List<FieldEvidence>
 ) : ResolvedFinancialRelationship
 
+data class ResolvedFeeRelationship(
+    override val amountMinor: Long,
+    val chargedTo: FinancialAccountReference,
+    override val feeMinor: Long = 0L,
+    override val confidence: InterpretationConfidence,
+    override val evidence: List<FieldEvidence>
+) : ResolvedFinancialRelationship
+
 data class ResolvedReversalRelationship(
     override val amountMinor: Long,
     val referencedTransactionCode: String,
@@ -190,6 +198,16 @@ object FinancialRelationshipResolver {
                         observedAccount,
                     message = message,
                     fee = candidates.fee
+                )
+                ?: resolveStandaloneFee(
+                    candidate =
+                        candidates.standaloneFee,
+                    candidates =
+                        candidates,
+                    observedAccount =
+                        observedAccount,
+                    message =
+                        message
                 )
                 ?: resolveUnresolvedMovement(
                     candidates = candidates,
@@ -419,6 +437,82 @@ object FinancialRelationshipResolver {
                     )
                 }
             }
+        )
+    }
+
+    private fun resolveStandaloneFee(
+        candidate: FeeCandidate?,
+        candidates:
+            FinancialMessageCandidates,
+        observedAccount:
+            FinancialAccountReference?,
+        message:
+            NormalizedFinancialMessage
+    ): ResolvedFinancialRelationship? {
+        candidate ?: return null
+
+        // A fee-only posting must not steal an amount from another
+        // movement that the parser has not yet explained.
+        if (
+            FinancialAmountRoleResolver
+                .unexplainedMoney(
+                    candidates
+                )
+                .isNotEmpty()
+        ) {
+            return null
+        }
+
+        val chargedTo =
+            observedAccount
+                ?: FinancialProviderRegistry
+                    .resolveOwnedMessageSourceAccount(
+                        title =
+                            message.title,
+                        bankLike = true
+                    )
+                ?: return null
+
+        if (
+            chargedTo.ownershipHint !=
+            AccountOwnershipHint.USER_OWNED
+        ) {
+            return null
+        }
+
+        return ResolvedFeeRelationship(
+            amountMinor =
+                candidate.amountMinor,
+            chargedTo =
+                chargedTo,
+            confidence =
+                InterpretationConfidence.HIGH,
+            evidence = listOf(
+                evidence(
+                    field =
+                        FinancialField.FEE,
+                    origin =
+                        EvidenceOrigin.MESSAGE_TEXT,
+                    ruleId =
+                        candidate.ruleId,
+                    span =
+                        candidate.amountSpan,
+                    confidence =
+                        InterpretationConfidence.HIGH
+                ),
+                evidence(
+                    field =
+                        FinancialField.SOURCE_ACCOUNT,
+                    origin =
+                        EvidenceOrigin.PROVIDER_PROFILE,
+                    ruleId =
+                        candidate.ruleId +
+                            ".charged_to",
+                    span = null,
+                    confidence =
+                        InterpretationConfidence.MEDIUM
+                )
+            )
         )
     }
 
