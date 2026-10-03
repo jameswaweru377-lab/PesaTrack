@@ -1219,7 +1219,7 @@ object FinancialCandidateExtractor {
         body: String
     ): AccountDebitCandidate? {
         if (
-            nonPostedMovementRegex
+            nonPostedMovementAttemptRegex
                 .containsMatchIn(body)
         ) {
             return null
@@ -1262,7 +1262,7 @@ object FinancialCandidateExtractor {
         body: String
     ): AccountCreditCandidate? {
         if (
-            nonPostedMovementRegex
+            nonPostedMovementAttemptRegex
                 .containsMatchIn(body)
         ) {
             return null
