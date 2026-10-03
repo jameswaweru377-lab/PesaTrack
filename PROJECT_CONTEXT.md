@@ -3964,3 +3964,21 @@ Guardrail:
 
 Manual Inspector evidence is development evidence only. It never creates a transaction, balance, debt update, parser template, Smart Rule, account ownership decision, or repeated-observation credit. Production parsing still requires the normal semantic-label, evidence-readiness, implementation-review and tested parser gates.
 
+## Message Inspector inline meaning labels — 2026-10-03
+
+The manual Message Inspector evidence workflow now keeps the next evidence step in the same place.
+
+Implemented:
+
+- After an unsupported message is already saved as **Financial** evidence, Inspector immediately shows the existing Message Lab semantic meaning choices.
+- The user can label the saved evidence as Payment / spending, Money received, Transfer, Cash withdrawal, Cash deposit, Loan received, Loan repayment, Balance update, Savings / investment, or Other financial without scrolling down to find the Message Lab card.
+- Re-analyzing a message that already maps unambiguously to confirmed financial evidence restores its saved semantic label in Inspector.
+- New manual evidence records the created/reused shape ID locally in screen state so the label is applied to the exact stored shape.
+- Changing the sender/body or clearing Inspector resets that temporary linkage.
+- The existing Message Lab card remains authoritative and immediately reflects the same semantic label after selection.
+- Selecting the currently active meaning clears it, matching the existing Message Lab behavior.
+
+Guardrail:
+
+This inline label is the same evidence-only semantic label already used by Message Lab. It does not create or edit a transaction, infer an amount/direction/account owner, increase occurrence count, change debt balances, or bypass evidence-readiness / implementation-review / parser gates.
+
