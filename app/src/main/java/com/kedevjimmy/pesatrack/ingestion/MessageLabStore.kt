@@ -529,6 +529,43 @@ class MessageLabStore private constructor(
         }.getOrNull()
     }
 
+    @Synchronized
+    fun inspectionMatch(
+        safeSenderLabel: String?,
+        body: String
+    ): MessageLabInspectionMatch {
+        if (body.isBlank()) {
+            return MessageLabInspectionMatchResolver
+                .resolve(
+                    emptyList()
+                )
+        }
+
+        val identity =
+            MessageLabShapeIdentityFactory
+                .create(
+                    safeSenderLabel =
+                        safeSenderLabel,
+                    body = body,
+                    sourcePackage = null,
+                    sourceKind = null
+                )
+
+        val candidates =
+            allStoredShapes()
+                .filter {
+                    it.sender.equals(
+                        identity.sender,
+                        ignoreCase = true
+                    ) &&
+                        it.redactedBody ==
+                        identity.redactedBody
+                }
+
+        return MessageLabInspectionMatchResolver
+            .resolve(candidates)
+    }
+
     fun ignoredShapeCount(): Int =
         allStoredShapes()
             .count {
