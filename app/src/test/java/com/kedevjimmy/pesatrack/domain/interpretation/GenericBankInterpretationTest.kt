@@ -199,6 +199,122 @@ class GenericBankInterpretationTest {
     }
 
     @Test
+    fun understandsExplicitBankCreditWithoutInventingCounterparty() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "EQUITY BANK",
+                body =
+                    "Your Equity a/c XXX1234 has been credited with KES 5,000.00 on 03/10/26. Available balance KES 13,750.00. Ref FT26276XYZ."
+            )
+
+        assertTrue(
+            interpretation.recognized
+        )
+        assertTrue(
+            interpretation
+                .consumesLegacyTransactionParsing
+        )
+
+        val credit =
+            interpretation.events.single() as
+                UnresolvedFinancialEventFact
+
+        assertEquals(
+            500_000L,
+            credit.amountMinor
+        )
+        assertEquals(
+            FinancialMovementDirectionHint
+                .INCOMING,
+            credit.directionHint
+        )
+        assertEquals(
+            "KENYAN_BANK_EQUITY",
+            credit.observedAccount
+                ?.providerKey
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            credit.observedAccount
+                ?.ownershipHint
+        )
+        assertEquals(
+            InterpretationConfidence.MEDIUM,
+            credit.confidence
+        )
+        assertTrue(
+            credit.evidence.any {
+                it.field ==
+                    FinancialField
+                        .ACCOUNT_REFERENCE
+            }
+        )
+        assertEquals(
+            1_375_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun amountFirstBankCreditWithoutCounterpartyIsIncoming() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "KES 825.50 has been credited to your account XX9087 on 03/10/26. Available balance KES 4,925.50."
+            )
+
+        val credit =
+            interpretation.events.single() as
+                UnresolvedFinancialEventFact
+
+        assertEquals(
+            82_550L,
+            credit.amountMinor
+        )
+        assertEquals(
+            FinancialMovementDirectionHint
+                .INCOMING,
+            credit.directionHint
+        )
+        assertEquals(
+            "My Bank",
+            credit.observedAccount
+                ?.displayName
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            credit.observedAccount
+                ?.ownershipHint
+        )
+    }
+
+    @Test
+    fun creditedFromCounterpartyStillUsesReceiptPath() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your account has been credited with KES 4,500.00 from SAMPLE EMPLOYER on 03/10/26. Available balance KES 9,600.00."
+            )
+
+        val receipt =
+            interpretation.events.single() as
+                ReceiptEventFact
+
+        assertEquals(
+            450_000L,
+            receipt.amountMinor
+        )
+        assertEquals(
+            "SAMPLE EMPLOYER",
+            receipt.counterparty
+        )
+    }
+
+    @Test
     fun understandsAmountFirstReceivedFromBankWording() {
         val interpretation =
             FinancialMessageInterpreter.interpret(
