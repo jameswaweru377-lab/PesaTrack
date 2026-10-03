@@ -21,7 +21,10 @@ data class UnsupportedMessageShape(
     val relevanceScore: Int? = null,
     val relevanceSignals:
         Set<FinancialRelevanceSignal> =
-        emptySet()
+        emptySet(),
+    val implementationReview:
+        MessageLabImplementationReviewState? =
+        null
 )
 
 class MessageLabStore private constructor(
@@ -430,6 +433,12 @@ class MessageLabStore private constructor(
                 shapeId
             ) ?: return false
 
+        existing.remove(
+            "implementationReview"
+        )
+        existing.remove(
+            "implementationReviewAtEpochMs"
+        )
         existing.put(
             "semanticLabel",
             label.name
@@ -474,6 +483,12 @@ class MessageLabStore private constructor(
         existing.remove(
             "semanticLabelAtEpochMs"
         )
+        existing.remove(
+            "implementationReview"
+        )
+        existing.remove(
+            "implementationReviewAtEpochMs"
+        )
 
         preferences.edit()
             .putString(
@@ -483,6 +498,107 @@ class MessageLabStore private constructor(
             .apply()
 
         return true
+    }
+
+    @Synchronized
+    fun setImplementationReview(
+        shapeId: String,
+        review:
+            MessageLabImplementationReviewState
+    ): Boolean {
+        val shape =
+            shapeById(shapeId)
+                ?: return false
+
+        if (
+            !MessageLabImplementationReview
+                .isReviewable(shape)
+        ) {
+            return false
+        }
+
+        val decisions =
+            readDecisions()
+        val existing =
+            decisions.optJSONObject(
+                shapeId
+            ) ?: return false
+
+        existing.put(
+            "implementationReview",
+            review.name
+        )
+        existing.put(
+            "implementationReviewAtEpochMs",
+            System.currentTimeMillis()
+        )
+
+        preferences.edit()
+            .putString(
+                KEY_DECISIONS,
+                decisions.toString()
+            )
+            .apply()
+
+        return true
+    }
+
+    @Synchronized
+    fun clearImplementationReview(
+        shapeId: String
+    ): Boolean {
+        val decisions =
+            readDecisions()
+        val existing =
+            decisions.optJSONObject(
+                shapeId
+            ) ?: return false
+
+        if (
+            !existing.has(
+                "implementationReview"
+            )
+        ) {
+            return false
+        }
+
+        existing.remove(
+            "implementationReview"
+        )
+        existing.remove(
+            "implementationReviewAtEpochMs"
+        )
+
+        preferences.edit()
+            .putString(
+                KEY_DECISIONS,
+                decisions.toString()
+            )
+            .apply()
+
+        return true
+    }
+
+    fun implementationReview(
+        shapeId: String
+    ): MessageLabImplementationReviewState? {
+        if (shapeId.isBlank()) {
+            return null
+        }
+        val item =
+            readDecisions()
+                .optJSONObject(
+                    shapeId
+                )
+                ?: return null
+        return runCatching {
+            MessageLabImplementationReviewState
+                .valueOf(
+                    item.optString(
+                        "implementationReview"
+                    )
+                )
+        }.getOrNull()
     }
 
     fun semanticLabel(
@@ -631,6 +747,52 @@ class MessageLabStore private constructor(
                     MAX_SHAPES
                 )
             )
+
+    @Synchronized
+    fun implementationReviewSnapshot():
+        MessageLabImplementationReviewSnapshot =
+        MessageLabImplementationReview
+            .snapshot(
+                allStoredShapes()
+            )
+
+    @Synchronized
+    fun implementationReadyParserCandidates(
+        limit: Int = MAX_SHAPES
+    ): List<UnsupportedMessageShape> =
+        MessageLabImplementationReview
+            .readyForParserWork(
+                allStoredShapes()
+            )
+            .take(
+                limit.coerceIn(
+                    1,
+                    MAX_SHAPES
+                )
+            )
+
+    fun exportImplementationReadyParserCandidates(
+        limit: Int = 50
+    ): String? {
+        val shapes =
+            implementationReadyParserCandidates(
+                limit
+            )
+        if (shapes.isEmpty()) {
+            return null
+        }
+
+        return JSONArray().apply {
+            shapes.forEach {
+                shape ->
+                put(
+                    developerFixtureJson(
+                        shape
+                    )
+                )
+            }
+        }.toString(2)
+    }
 
     fun exportEvidenceReadyParserCandidates(
         limit: Int = 50
@@ -829,6 +991,21 @@ class MessageLabStore private constructor(
                 MessageLabParserReadiness
                     .stateFor(shape)
                     .name
+            )
+            shape.implementationReview
+                ?.let {
+                    put(
+                        "implementationReview",
+                        it.name
+                    )
+                }
+            put(
+                "readyForParserWork",
+                MessageLabImplementationReview
+                    .isReviewable(shape) &&
+                    shape.implementationReview ==
+                    MessageLabImplementationReviewState
+                        .READY_FOR_PARSER_WORK
             )
             put(
                 "userConfirmedFinancial",
@@ -1041,7 +1218,26 @@ class MessageLabStore private constructor(
                                             ?.let(::add)
                                     }
                                 }
-                            }.orEmpty()
+                            }.orEmpty(),
+                        implementationReview =
+                            decisions
+                                .optJSONObject(
+                                    shapeId
+                                )
+                                ?.optString(
+                                    "implementationReview"
+                                )
+                                ?.takeIf(
+                                    String::isNotBlank
+                                )
+                                ?.let {
+                                    runCatching {
+                                        MessageLabImplementationReviewState
+                                            .valueOf(
+                                                it
+                                            )
+                                    }.getOrNull()
+                                }
                     )
                 )
             }
