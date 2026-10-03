@@ -168,6 +168,44 @@ class MessageLabEvidenceQueueTest {
     }
 
     @Test
+    fun familyRecurrenceBreaksPriorityWithinSameDecisionClass() {
+        val ranked =
+            MessageLabEvidenceQueue
+                .prioritize(
+                    listOf(
+                        shape(
+                            id = "exact-high",
+                            occurrences = 4,
+                            familyOccurrences = 4,
+                            lastSeen = 900L,
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL
+                        ),
+                        shape(
+                            id = "family-high",
+                            occurrences = 1,
+                            familyOccurrences = 8,
+                            lastSeen = 100L,
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL
+                        )
+                    )
+                )
+
+        assertEquals(
+            listOf(
+                "family-high",
+                "exact-high"
+            ),
+            ranked.map {
+                it.shapeId
+            }
+        )
+    }
+
+    @Test
     fun recencyBreaksEqualOccurrenceTies() {
         val ranked =
             MessageLabEvidenceQueue
@@ -245,7 +283,8 @@ class MessageLabEvidenceQueueTest {
             MessageLabSemanticLabel? = null,
         implementationReview:
             MessageLabImplementationReviewState? =
-            null
+            null,
+        familyOccurrences: Int = 0
     ) =
         UnsupportedMessageShape(
             shapeId = id,
@@ -262,6 +301,8 @@ class MessageLabEvidenceQueueTest {
                 decision,
             semanticLabel =
                 semanticLabel,
+            familyOccurrenceCount =
+                familyOccurrences,
             implementationReview =
                 implementationReview
         )
