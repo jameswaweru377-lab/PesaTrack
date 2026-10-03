@@ -13,6 +13,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.ReceiptEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.ReversalEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.UnresolvedFinancialEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.UnsupportedFinancialCandidatePolicy
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageLabRedactor
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseRoute
 import org.json.JSONArray
