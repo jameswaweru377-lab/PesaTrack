@@ -36,6 +36,45 @@ class MessageLabEvidenceQueueTest {
     }
 
     @Test
+    fun semanticLabelBreaksPriorityWithinConfirmedFinancialEvidence() {
+        val ranked =
+            MessageLabEvidenceQueue
+                .prioritize(
+                    listOf(
+                        shape(
+                            id = "unlabeled",
+                            occurrences = 9,
+                            lastSeen = 900L,
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL
+                        ),
+                        shape(
+                            id = "labeled",
+                            occurrences = 1,
+                            lastSeen = 100L,
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL,
+                            semanticLabel =
+                                MessageLabSemanticLabel
+                                    .LOAN_REPAYMENT
+                        )
+                    )
+                )
+
+        assertEquals(
+            listOf(
+                "labeled",
+                "unlabeled"
+            ),
+            ranked.map {
+                it.shapeId
+            }
+        )
+    }
+
+    @Test
     fun occurrenceCountBreaksPriorityWithinSameDecisionClass() {
         val ranked =
             MessageLabEvidenceQueue
@@ -141,7 +180,9 @@ class MessageLabEvidenceQueueTest {
         occurrences: Int,
         lastSeen: Long,
         decision:
-            MessageLabUserDecision?
+            MessageLabUserDecision?,
+        semanticLabel:
+            MessageLabSemanticLabel? = null
     ) =
         UnsupportedMessageShape(
             shapeId = id,
@@ -155,6 +196,8 @@ class MessageLabEvidenceQueueTest {
             occurrenceCount =
                 occurrences,
             userDecision =
-                decision
+                decision,
+            semanticLabel =
+                semanticLabel
         )
 }
