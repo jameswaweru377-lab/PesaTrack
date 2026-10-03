@@ -3549,3 +3549,41 @@ Guardrail:
 
 Neither an evidence-ready shape nor an inactive parser draft is equivalent to production support. Even **Ready for parser work** is a development decision only. A production parser still requires reviewed mechanics, product/account identity decisions, extraction regexes or generic grammar, at least three sanitized golden fixtures where applicable, and the normal relevance/extraction/duplicate-accounting/reconciliation gates.
 
+## Message Lab conservative shape families — implementation-review baseline — 2026-10-03
+
+Real-device evidence can now group small presentation variants of the same unsupported format without changing the existing exact Message Lab identity or the newer implementation-review gate.
+
+Implemented:
+
+- Added a second conservative `familyId` alongside the exact `shapeId`.
+- Exact `shapeId` behavior is unchanged. Financial/Not financial decisions, meaning labels and implementation-review decisions remain attached to the exact shape that the user/developer reviewed.
+- Family identity normalizes only low-risk presentation variation:
+  - case;
+  - punctuation;
+  - whitespace;
+  - common currency spellings such as KES / Ksh / Kshs / Sh;
+  - M-PESA / M PESA, M-Shwari / M Shwari and PesaLink spacing/hyphen variants.
+- Source kind, source package and normalized sender remain part of the family fingerprint.
+- Older stored rows without a family ID receive a deterministic family ID at read time; no destructive storage migration is required.
+- Message Lab now computes exact occurrence count, family occurrence count and family wording-variant count.
+- Shapes explicitly marked **Not financial** do not contribute financial family recurrence.
+- Parser readiness can satisfy the repeated-evidence floor from conservative family recurrence while still requiring the exact reviewed shape to be confirmed financial and meaning-labeled.
+- Evidence-ready parser work is deduplicated by **family + semantic meaning**.
+- Implementation-review snapshots and Ready-for-parser-work exports operate on the deduplicated family representative rather than producing duplicate implementation tasks.
+- Existing implementation-review priority is preserved: Ready-for-parser-work > unreviewed > Needs-more-examples, then family recurrence and recency.
+- Parser drafts carry family ID, exact occurrence count, family occurrence count and family variant count.
+- Developer fixture exports include family evidence.
+- Data Health shows family recurrence when multiple exact wording variants belong to the same family.
+- Added regression coverage for:
+  - currency/case/punctuation family equivalence;
+  - materially different wording separation;
+  - family-supported parser readiness;
+  - family recurrence ranking;
+  - parser-ready family + meaning deduplication;
+  - implementation-review family deduplication;
+  - parser draft family evidence.
+
+Guardrail:
+
+Shape families are an evidence-grouping mechanism only. They never copy a user decision, meaning label or implementation-review decision to a sibling shape, never create ledger state, and never activate a parser. Material wording changes remain separate families.
+
