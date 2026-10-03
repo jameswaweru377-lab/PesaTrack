@@ -741,6 +741,112 @@ class MessagePackRouterTest {
     }
 
     @Test
+    fun sanitizedBranchLoanDisbursementUsesStableMessagePackIdentity() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "Branch",
+                    body =
+                        "Your loan of Kenya Shillings 4,607 has been disbursed to your M-Pesa account."
+                )
+
+        assertTrue(
+            interpretation.recognized
+        )
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            interpretation
+                .parseProvenance
+                .route
+        )
+        assertEquals(
+            "ke.branch.loan.disbursed-to-mpesa",
+            interpretation
+                .parseProvenance
+                .templateId
+        )
+        assertEquals(
+            2,
+            interpretation
+                .parseProvenance
+                .templateRevision
+        )
+        assertEquals(
+            "DEBT_DRAWDOWN",
+            interpretation
+                .parseProvenance
+                .eventKind
+        )
+        assertEquals(
+            "BRANCH_LOAN",
+            interpretation
+                .parseProvenance
+                .productIdentity
+        )
+        assertEquals(
+            "4,607",
+            interpretation
+                .parseProvenance
+                .extractedFields
+                .first {
+                    it.field == "AMOUNT"
+                }
+                .value
+        )
+    }
+
+    @Test
+    fun branchReferenceDisbursementVariantRemainsSupportedAtRevisionTwo() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "Branch",
+                    body =
+                        "Branch: KES 2,000.00 has been transferred to your M-Pesa account. Repay KES 2,300.00 by 31 Oct 2026 to grow your limit."
+                )
+
+        assertEquals(
+            MessageParseRoute.TEMPLATE,
+            interpretation
+                .parseProvenance
+                .route
+        )
+        assertEquals(
+            "ke.branch.loan.disbursed-to-mpesa",
+            interpretation
+                .parseProvenance
+                .templateId
+        )
+        assertEquals(
+            2,
+            interpretation
+                .parseProvenance
+                .templateRevision
+        )
+        assertEquals(
+            "2,000.00",
+            interpretation
+                .parseProvenance
+                .extractedFields
+                .first {
+                    it.field == "AMOUNT"
+                }
+                .value
+        )
+        assertEquals(
+            "2,300.00",
+            interpretation
+                .parseProvenance
+                .extractedFields
+                .first {
+                    it.field ==
+                        "REPAY_AMOUNT"
+                }
+                .value
+        )
+    }
+
+    @Test
     fun unknownShapeKeepsFinancialIntelligenceV2AsFallback() {
         val interpretation =
             FinancialMessageInterpreter
