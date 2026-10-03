@@ -13,6 +13,11 @@ object MessageLabEvidenceQueue {
                     MessageLabUserDecision
                         .CONFIRMED_FINANCIAL
             }.thenByDescending {
+                it.userDecision ==
+                    MessageLabUserDecision
+                        .CONFIRMED_FINANCIAL &&
+                    it.financialKind == null
+            }.thenByDescending {
                 it.occurrenceCount
             }.thenByDescending {
                 it.lastSeenAtEpochMs
