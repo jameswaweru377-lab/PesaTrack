@@ -1314,27 +1314,22 @@ class FinancialMessageIngestionCoordinator private constructor(
                 }
                 ?.displayName
         val messageShapeIdentity =
-            if (relevance.isRelevant) {
-                MessageLabShapeIdentityFactory
-                    .create(
-                        safeSenderLabel =
-                            safeSenderLabel,
-                        body = body,
-                        sourcePackage =
-                            sourcePackage,
-                        sourceKind =
-                            sourceKind
-                    )
-            } else {
-                null
-            }
+            MessageLabShapeIdentityFactory
+                .create(
+                    safeSenderLabel =
+                        safeSenderLabel,
+                    body = body,
+                    sourcePackage =
+                        sourcePackage,
+                    sourceKind =
+                        sourceKind
+                )
 
         val userDecision =
-            messageShapeIdentity
-                ?.shapeId
-                ?.let(
-                    messageLabStore::
-                        userDecision
+            messageLabStore
+                .userDecision(
+                    messageShapeIdentity
+                        .shapeId
                 )
         val unsupportedCandidate =
             MessageLabDecisionPolicy
@@ -1378,7 +1373,7 @@ class FinancialMessageIngestionCoordinator private constructor(
                     .parseProvenance,
             messageShapeId =
                 messageShapeIdentity
-                    ?.shapeId
+                    .shapeId
             )
         }
 
@@ -1401,8 +1396,27 @@ class FinancialMessageIngestionCoordinator private constructor(
                     sourcePackage =
                         sourcePackage,
                     sourceKind =
-                        sourceKind
+                        sourceKind,
+                    relevanceScore =
+                        relevance.score,
+                    relevanceSignals =
+                        relevance.signals
                 )
+            } else {
+                messageLabStore
+                    .refreshUnsupportedEvidence(
+                        safeSenderLabel =
+                            safeSenderLabel,
+                        body = body,
+                        sourcePackage =
+                            sourcePackage,
+                        sourceKind =
+                            sourceKind,
+                        relevanceScore =
+                            relevance.score,
+                        relevanceSignals =
+                            relevance.signals
+                    )
             }
         } else if (
             MessageLabDecisionPolicy
@@ -1444,8 +1458,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                 )
             ) {
                 messageShapeIdentity
-                    ?.shapeId
-                    ?.let {
+                    .shapeId
+                    .let {
                         diagnosticsStore
                             .markShapeCovered(
                                 it
