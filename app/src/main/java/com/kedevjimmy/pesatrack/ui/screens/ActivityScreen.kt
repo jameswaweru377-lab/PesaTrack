@@ -352,7 +352,12 @@ fun ActivityScreen(
                         .pendingEntities(),
                 financialDiagnostics =
                     diagnosticsStore
-                        .recent(500),
+                        .recent(500)
+                        .filter {
+                            it.code !=
+                                FinancialIngestionDiagnosticCode
+                                    .IGNORED_NON_FINANCIAL
+                        },
                 accountsById =
                     accountStore
                         .listAccounts(
@@ -4078,6 +4083,9 @@ private fun CapturedFinancialMessageRow(
                 .RESOLVED_BY_CURRENT_COVERAGE ->
                 "green"
             FinancialIngestionDiagnosticCode
+                .IGNORED_NON_FINANCIAL ->
+                "blue"
+            FinancialIngestionDiagnosticCode
                 .LINKED_OBSERVATION -> "green"
             FinancialIngestionDiagnosticCode
                 .OBSERVATION_ONLY -> "blue"
@@ -4098,6 +4106,9 @@ private fun CapturedFinancialMessageRow(
             FinancialIngestionDiagnosticCode
                 .RESOLVED_BY_CURRENT_COVERAGE ->
                 "Now understood"
+            FinancialIngestionDiagnosticCode
+                .IGNORED_NON_FINANCIAL ->
+                "Ignored"
             FinancialIngestionDiagnosticCode
                 .LINKED_OBSERVATION -> "Linked"
             FinancialIngestionDiagnosticCode

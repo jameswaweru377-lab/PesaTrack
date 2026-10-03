@@ -12,7 +12,9 @@ data class UnsupportedMessageShape(
     val redactedBody: String,
     val firstSeenAtEpochMs: Long,
     val lastSeenAtEpochMs: Long,
-    val occurrenceCount: Int
+    val occurrenceCount: Int,
+    val userDecision:
+        MessageLabUserDecision? = null
 )
 
 class MessageLabStore private constructor(
@@ -46,6 +48,14 @@ class MessageLabStore private constructor(
                 )
         val shapeId =
             identity.shapeId
+
+        if (
+            userDecision(shapeId) ==
+            MessageLabUserDecision
+                .NOT_FINANCIAL
+        ) {
+            return
+        }
 
         val current =
             readArray()
@@ -215,10 +225,20 @@ class MessageLabStore private constructor(
                 0
             ) + removed
 
+        val decisions =
+            readDecisions()
+        decisions.remove(
+            identity.shapeId
+        )
+
         preferences.edit()
             .putString(
                 KEY_SHAPES,
                 next.toString()
+            )
+            .putString(
+                KEY_DECISIONS,
+                decisions.toString()
             )
             .putInt(
                 KEY_RETIRED_COUNT,
@@ -229,6 +249,92 @@ class MessageLabStore private constructor(
         return true
     }
 
+    @Synchronized
+    fun setUserDecision(
+        shapeId: String,
+        decision:
+            MessageLabUserDecision
+    ): Boolean {
+        if (
+            shapeId.isBlank() ||
+            shapeById(shapeId) == null
+        ) {
+            return false
+        }
+
+        val decisions =
+            readDecisions()
+        decisions.put(
+            shapeId,
+            JSONObject().apply {
+                put(
+                    "decision",
+                    decision.name
+                )
+                put(
+                    "decidedAtEpochMs",
+                    System.currentTimeMillis()
+                )
+            }
+        )
+        preferences.edit()
+            .putString(
+                KEY_DECISIONS,
+                decisions.toString()
+            )
+            .apply()
+        return true
+    }
+
+    @Synchronized
+    fun clearUserDecision(
+        shapeId: String
+    ): Boolean {
+        val decisions =
+            readDecisions()
+        if (!decisions.has(shapeId)) {
+            return false
+        }
+        decisions.remove(shapeId)
+        preferences.edit()
+            .putString(
+                KEY_DECISIONS,
+                decisions.toString()
+            )
+            .apply()
+        return true
+    }
+
+    fun userDecision(
+        shapeId: String
+    ): MessageLabUserDecision? {
+        if (shapeId.isBlank()) {
+            return null
+        }
+        val item =
+            readDecisions()
+                .optJSONObject(
+                    shapeId
+                )
+                ?: return null
+        return runCatching {
+            MessageLabUserDecision
+                .valueOf(
+                    item.optString(
+                        "decision"
+                    )
+                )
+        }.getOrNull()
+    }
+
+    fun ignoredShapeCount(): Int =
+        allStoredShapes()
+            .count {
+                it.userDecision ==
+                    MessageLabUserDecision
+                        .NOT_FINANCIAL
+            }
+
     fun retiredOccurrenceCount(): Int =
         preferences.getInt(
             KEY_RETIRED_COUNT,
@@ -238,96 +344,38 @@ class MessageLabStore private constructor(
     @Synchronized
     fun recentUnsupported(
         limit: Int = MAX_SHAPES
-    ): List<UnsupportedMessageShape> {
-        val array =
-            readArray()
-        val bounded =
-            limit.coerceIn(
-                1,
-                MAX_SHAPES
-            )
-        val start =
-            maxOf(
-                0,
-                array.length() -
-                    bounded
+    ): List<UnsupportedMessageShape> =
+        allStoredShapes()
+            .asReversed()
+            .filter {
+                it.userDecision !=
+                    MessageLabUserDecision
+                        .NOT_FINANCIAL
+            }
+            .take(
+                limit.coerceIn(
+                    1,
+                    MAX_SHAPES
+                )
             )
 
-        return buildList {
-            for (
-                index in
-                    array.length() - 1
-                        downTo start
-            ) {
-                val item =
-                    array.getJSONObject(
-                        index
-                    )
-                add(
-                    UnsupportedMessageShape(
-                        shapeId =
-                            item.optString(
-                                "shapeId"
-                            ),
-                        sender =
-                            item.optString(
-                                "sender",
-                                "<SENDER>"
-                            ),
-                        sourcePackage =
-                            if (
-                                item.isNull(
-                                    "sourcePackage"
-                                )
-                            ) {
-                                null
-                            } else {
-                                item.optString(
-                                    "sourcePackage"
-                                )
-                                    .trim()
-                                    .takeIf(
-                                        String::isNotBlank
-                                    )
-                            },
-                        sourceKind =
-                            if (
-                                item.isNull(
-                                    "sourceKind"
-                                )
-                            ) {
-                                null
-                            } else {
-                                item.optString(
-                                    "sourceKind"
-                                )
-                                    .trim()
-                                    .takeIf(
-                                        String::isNotBlank
-                                    )
-                            },
-                        redactedBody =
-                            item.optString(
-                                "redactedBody"
-                            ),
-                        firstSeenAtEpochMs =
-                            item.optLong(
-                                "firstSeenAtEpochMs"
-                            ),
-                        lastSeenAtEpochMs =
-                            item.optLong(
-                                "lastSeenAtEpochMs"
-                            ),
-                        occurrenceCount =
-                            item.optInt(
-                                "occurrenceCount",
-                                1
-                            )
-                    )
-                )
+    @Synchronized
+    fun recentIgnored(
+        limit: Int = MAX_SHAPES
+    ): List<UnsupportedMessageShape> =
+        allStoredShapes()
+            .asReversed()
+            .filter {
+                it.userDecision ==
+                    MessageLabUserDecision
+                        .NOT_FINANCIAL
             }
-        }
-    }
+            .take(
+                limit.coerceIn(
+                    1,
+                    MAX_SHAPES
+                )
+            )
 
     fun exportDeveloperFixture(
         shapeId: String
@@ -372,6 +420,12 @@ class MessageLabStore private constructor(
             put(
                 "expectedRoute",
                 "UNSUPPORTED"
+            )
+            put(
+                "userConfirmedFinancial",
+                shape.userDecision ==
+                    MessageLabUserDecision
+                        .CONFIRMED_FINANCIAL
             )
             put(
                 "notes",
@@ -457,6 +511,12 @@ class MessageLabStore private constructor(
                             "UNSUPPORTED"
                         )
                         put(
+                            "userConfirmedFinancial",
+                            shape.userDecision ==
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL
+                        )
+                        put(
                             "notes",
                             "Redacted locally by PesaTrack Message Lab. Review before contributing."
                         )
@@ -464,6 +524,118 @@ class MessageLabStore private constructor(
                 )
             }
         }.toString(2)
+    }
+
+    private fun shapeById(
+        shapeId: String
+    ): UnsupportedMessageShape? =
+        allStoredShapes()
+            .firstOrNull {
+                it.shapeId ==
+                    shapeId
+            }
+
+    private fun allStoredShapes():
+        List<UnsupportedMessageShape> {
+        val array =
+            readArray()
+        val decisions =
+            readDecisions()
+
+        return buildList {
+            for (
+                index in 0 until
+                    array.length()
+            ) {
+                val item =
+                    array.getJSONObject(
+                        index
+                    )
+                val shapeId =
+                    item.optString(
+                        "shapeId"
+                    )
+                add(
+                    UnsupportedMessageShape(
+                        shapeId =
+                            shapeId,
+                        sender =
+                            item.optString(
+                                "sender",
+                                "<SENDER>"
+                            ),
+                        sourcePackage =
+                            if (
+                                item.isNull(
+                                    "sourcePackage"
+                                )
+                            ) {
+                                null
+                            } else {
+                                item.optString(
+                                    "sourcePackage"
+                                )
+                                    .trim()
+                                    .takeIf(
+                                        String::isNotBlank
+                                    )
+                            },
+                        sourceKind =
+                            if (
+                                item.isNull(
+                                    "sourceKind"
+                                )
+                            ) {
+                                null
+                            } else {
+                                item.optString(
+                                    "sourceKind"
+                                )
+                                    .trim()
+                                    .takeIf(
+                                        String::isNotBlank
+                                    )
+                            },
+                        redactedBody =
+                            item.optString(
+                                "redactedBody"
+                            ),
+                        firstSeenAtEpochMs =
+                            item.optLong(
+                                "firstSeenAtEpochMs"
+                            ),
+                        lastSeenAtEpochMs =
+                            item.optLong(
+                                "lastSeenAtEpochMs"
+                            ),
+                        occurrenceCount =
+                            item.optInt(
+                                "occurrenceCount",
+                                1
+                            ),
+                        userDecision =
+                            decisions
+                                .optJSONObject(
+                                    shapeId
+                                )
+                                ?.optString(
+                                    "decision"
+                                )
+                                ?.takeIf(
+                                    String::isNotBlank
+                                )
+                                ?.let {
+                                    runCatching {
+                                        MessageLabUserDecision
+                                            .valueOf(
+                                                it
+                                            )
+                                    }.getOrNull()
+                                }
+                    )
+                )
+            }
+        }
     }
 
     private fun readArray(): JSONArray =
@@ -478,6 +650,18 @@ class MessageLabStore private constructor(
             JSONArray()
         }
 
+    private fun readDecisions(): JSONObject =
+        runCatching {
+            JSONObject(
+                preferences.getString(
+                    KEY_DECISIONS,
+                    "{}"
+                ) ?: "{}"
+            )
+        }.getOrElse {
+            JSONObject()
+        }
+
     companion object {
         private const val PREFS_NAME =
             "message_lab_v1"
@@ -485,6 +669,8 @@ class MessageLabStore private constructor(
             "unsupported_shapes"
         private const val KEY_RETIRED_COUNT =
             "retired_occurrence_count"
+        private const val KEY_DECISIONS =
+            "user_shape_decisions"
         private const val MAX_SHAPES = 100
 
         @Volatile

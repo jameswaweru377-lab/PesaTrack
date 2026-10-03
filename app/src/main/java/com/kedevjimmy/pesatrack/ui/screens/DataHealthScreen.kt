@@ -55,6 +55,7 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.FinancialSourceCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
+import com.kedevjimmy.pesatrack.ingestion.MessageLabUserDecision
 import com.kedevjimmy.pesatrack.ingestion.UnsupportedMessageShape
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
@@ -121,6 +122,11 @@ fun DataHealthScreen(
         >(emptyList())
     }
     var unsupported by remember {
+        mutableStateOf<
+            List<UnsupportedMessageShape>
+        >(emptyList())
+    }
+    var ignoredUnsupported by remember {
         mutableStateOf<
             List<UnsupportedMessageShape>
         >(emptyList())
@@ -224,6 +230,9 @@ fun DataHealthScreen(
                 unsupported =
                     messageLabStore
                         .recentUnsupported(100),
+                ignoredUnsupported =
+                    messageLabStore
+                        .recentIgnored(100),
                 identitySnapshot =
                     identityGraphStore
                         .snapshot(),
@@ -251,6 +260,8 @@ fun DataHealthScreen(
         sourceCoverage =
             loaded.sourceCoverage
         unsupported = loaded.unsupported
+        ignoredUnsupported =
+            loaded.ignoredUnsupported
         identitySnapshot =
             loaded.identitySnapshot
         identityBackfillCount =
@@ -457,6 +468,13 @@ fun DataHealthScreen(
                             "Resolved Message Lab occurrences",
                         value =
                             retiredMessageLabCount
+                    )
+                    HealthMetric(
+                        label =
+                            "Ignored as non-financial",
+                        value =
+                            coverage
+                                .ignoredNonFinancial
                     )
                 }
             }
@@ -933,6 +951,92 @@ fun DataHealthScreen(
                     visibleUnsupported[index]
                 UnsupportedShapeCard(
                     shape = shape,
+                    onConfirmFinancial = {
+                        messageLabStore
+                            .setUserDecision(
+                                shape.shapeId,
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL
+                            )
+                        diagnosticsStore
+                            .restoreShapeUnsupported(
+                                shape.shapeId
+                            )
+                        unsupported =
+                            messageLabStore
+                                .recentUnsupported(100)
+                        ignoredUnsupported =
+                            messageLabStore
+                                .recentIgnored(100)
+                        coverage =
+                            diagnosticsStore
+                                .coverageSnapshot()
+                        sourceCoverage =
+                            diagnosticsStore
+                                .sourceCoverage(
+                                    sourceLimit = 8
+                                )
+                        Toast.makeText(
+                            context,
+                            "Kept as financial evidence",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    onIgnoreNonFinancial = {
+                        messageLabStore
+                            .setUserDecision(
+                                shape.shapeId,
+                                MessageLabUserDecision
+                                    .NOT_FINANCIAL
+                            )
+                        diagnosticsStore
+                            .markShapeIgnored(
+                                shape.shapeId
+                            )
+                        unsupported =
+                            messageLabStore
+                                .recentUnsupported(100)
+                        ignoredUnsupported =
+                            messageLabStore
+                                .recentIgnored(100)
+                        coverage =
+                            diagnosticsStore
+                                .coverageSnapshot()
+                        sourceCoverage =
+                            diagnosticsStore
+                                .sourceCoverage(
+                                    sourceLimit = 8
+                                )
+                        Toast.makeText(
+                            context,
+                            "This shape will be ignored as non-financial",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    onClearDecision = {
+                        messageLabStore
+                            .clearUserDecision(
+                                shape.shapeId
+                            )
+                        diagnosticsStore
+                            .restoreShapeUnsupported(
+                                shape.shapeId
+                            )
+                        unsupported =
+                            messageLabStore
+                                .recentUnsupported(100)
+                        ignoredUnsupported =
+                            messageLabStore
+                                .recentIgnored(100)
+                        coverage =
+                            diagnosticsStore
+                                .coverageSnapshot()
+                        sourceCoverage =
+                            diagnosticsStore
+                                .sourceCoverage(
+                                    sourceLimit = 8
+                                )
+                    },
                     onCopyFixture = {
                         val fixture =
                             messageLabStore
@@ -965,6 +1069,70 @@ fun DataHealthScreen(
                 )
             }
         }
+
+        if (ignoredUnsupported.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    "Ignored non-financial shapes"
+                )
+            }
+
+            item {
+                Text(
+                    "These redacted message shapes were explicitly marked as non-financial. They no longer count as financial coverage failures. You can undo any decision.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+            }
+
+            items(
+                count =
+                    ignoredUnsupported
+                        .take(10)
+                        .size,
+                key = {
+                    "ignored-" +
+                        ignoredUnsupported[it]
+                            .shapeId
+                }
+            ) { index ->
+                val shape =
+                    ignoredUnsupported[index]
+                IgnoredShapeCard(
+                    shape = shape,
+                    onUndo = {
+                        messageLabStore
+                            .clearUserDecision(
+                                shape.shapeId
+                            )
+                        diagnosticsStore
+                            .restoreShapeUnsupported(
+                                shape.shapeId
+                            )
+                        unsupported =
+                            messageLabStore
+                                .recentUnsupported(100)
+                        ignoredUnsupported =
+                            messageLabStore
+                                .recentIgnored(100)
+                        coverage =
+                            diagnosticsStore
+                                .coverageSnapshot()
+                        sourceCoverage =
+                            diagnosticsStore
+                                .sourceCoverage(
+                                    sourceLimit = 8
+                                )
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -974,6 +1142,8 @@ private data class DataHealthLoadResult(
     val sourceCoverage:
         List<FinancialSourceCoverageSnapshot>,
     val unsupported:
+        List<UnsupportedMessageShape>,
+    val ignoredUnsupported:
         List<UnsupportedMessageShape>,
     val identitySnapshot:
         IdentityGraphSnapshot,
@@ -1657,6 +1827,9 @@ private fun HealthMetric(
 @Composable
 private fun UnsupportedShapeCard(
     shape: UnsupportedMessageShape,
+    onConfirmFinancial: () -> Unit,
+    onIgnoreNonFinancial: () -> Unit,
+    onClearDecision: () -> Unit,
     onCopyFixture: () -> Unit
 ) {
     PesaCard(
@@ -1673,13 +1846,33 @@ private fun UnsupportedShapeCard(
                     8.dp
                 )
         ) {
-            Text(
-                shape.sender,
-                style =
-                    MaterialTheme
-                        .typography
-                        .titleMedium
-            )
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Text(
+                    shape.sender,
+                    modifier =
+                        Modifier.weight(1f),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleMedium
+                )
+                if (
+                    shape.userDecision ==
+                    MessageLabUserDecision
+                        .CONFIRMED_FINANCIAL
+                ) {
+                    SmallStatusPill(
+                        text =
+                            "Financial",
+                        tone = "green"
+                    )
+                }
+            }
             val sourceContext =
                 listOfNotNull(
                     shape.sourceKind
@@ -1734,12 +1927,118 @@ private fun UnsupportedShapeCard(
                         .typography
                         .labelMedium
             )
-            Button(
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        8.dp
+                    )
+            ) {
+                if (
+                    shape.userDecision ==
+                    MessageLabUserDecision
+                        .CONFIRMED_FINANCIAL
+                ) {
+                    Button(
+                        onClick =
+                            onClearDecision,
+                        modifier =
+                            Modifier.weight(1f)
+                    ) {
+                        Text("Clear choice")
+                    }
+                } else {
+                    Button(
+                        onClick =
+                            onConfirmFinancial,
+                        modifier =
+                            Modifier.weight(1f)
+                    ) {
+                        Text("Financial")
+                    }
+                    Button(
+                        onClick =
+                            onIgnoreNonFinancial,
+                        modifier =
+                            Modifier.weight(1f)
+                    ) {
+                        Text("Not financial")
+                    }
+                }
+            }
+            TextButton(
                 onClick =
-                    onCopyFixture
+                    onCopyFixture,
+                modifier =
+                    Modifier.fillMaxWidth()
             ) {
                 Text(
                     "Copy redacted fixture"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun IgnoredShapeCard(
+    shape: UnsupportedMessageShape,
+    onUndo: () -> Unit
+) {
+    PesaCard(
+        modifier =
+            Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier =
+                Modifier.padding(
+                    16.dp
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    8.dp
+                )
+        ) {
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Text(
+                    shape.sender,
+                    modifier =
+                        Modifier.weight(1f),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleMedium
+                )
+                SmallStatusPill(
+                    text =
+                        "Not financial",
+                    tone = "amber"
+                )
+            }
+            Text(
+                shape.redactedBody,
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodySmall,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+            TextButton(
+                onClick = onUndo,
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "Undo decision"
                 )
             }
         }
