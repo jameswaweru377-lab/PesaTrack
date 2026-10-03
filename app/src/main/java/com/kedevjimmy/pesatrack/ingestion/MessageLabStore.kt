@@ -269,7 +269,7 @@ class MessageLabStore private constructor(
             preferences.edit()
                 .putString(
                     KEY_SHAPES,
-                    shapesToStore.toString()
+                    current.toString()
                 )
                 .apply()
         }
@@ -491,7 +491,7 @@ class MessageLabStore private constructor(
         preferences.edit()
             .putString(
                 KEY_SHAPES,
-                current.toString()
+                shapesToStore.toString()
             )
             .putString(
                 KEY_DECISIONS,
