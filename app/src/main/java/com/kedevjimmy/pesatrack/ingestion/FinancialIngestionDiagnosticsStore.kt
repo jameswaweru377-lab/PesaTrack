@@ -9,6 +9,7 @@ import org.json.JSONObject
 enum class FinancialIngestionDiagnosticCode {
     UNRECOGNIZED_FINANCIAL_LANGUAGE,
     RESOLVED_BY_CURRENT_COVERAGE,
+    IGNORED_NON_FINANCIAL,
     UNDERSTOOD_NO_LEDGER_EFFECT,
     LINKED_OBSERVATION,
     OBSERVATION_ONLY,
@@ -44,7 +45,8 @@ data class FinancialMessageCoverageSnapshot(
     val genericFallbackParsed: Int,
     val understoodNoLedgerEffect: Int,
     val unsupportedFinancial: Int,
-    val resolvedByCurrentCoverage: Int = 0
+    val resolvedByCurrentCoverage: Int = 0,
+    val ignoredNonFinancial: Int = 0
 ) {
     val templateCoveragePercent: Int
         get() =
@@ -521,6 +523,94 @@ class FinancialIngestionDiagnosticsStore private constructor(
         return changed
     }
 
+    @Synchronized
+    fun markShapeIgnored(
+        shapeId: String
+    ): Int =
+        rewriteShapeCode(
+            shapeId = shapeId,
+            from =
+                FinancialIngestionDiagnosticCode
+                    .UNRECOGNIZED_FINANCIAL_LANGUAGE,
+            to =
+                FinancialIngestionDiagnosticCode
+                    .IGNORED_NON_FINANCIAL
+        )
+
+    @Synchronized
+    fun restoreShapeUnsupported(
+        shapeId: String
+    ): Int =
+        rewriteShapeCode(
+            shapeId = shapeId,
+            from =
+                FinancialIngestionDiagnosticCode
+                    .IGNORED_NON_FINANCIAL,
+            to =
+                FinancialIngestionDiagnosticCode
+                    .UNRECOGNIZED_FINANCIAL_LANGUAGE
+        )
+
+    private fun rewriteShapeCode(
+        shapeId: String,
+        from:
+            FinancialIngestionDiagnosticCode,
+        to:
+            FinancialIngestionDiagnosticCode
+    ): Int {
+        if (shapeId.isBlank()) {
+            return 0
+        }
+
+        val current =
+            runCatching {
+                JSONArray(
+                    preferences.getString(
+                        KEY_ENTRIES,
+                        "[]"
+                    ) ?: "[]"
+                )
+            }.getOrElse {
+                JSONArray()
+            }
+        var changed = 0
+
+        for (
+            index in 0 until
+                current.length()
+        ) {
+            val item =
+                current.getJSONObject(
+                    index
+                )
+            if (
+                item.optString(
+                    "messageShapeId"
+                ) == shapeId &&
+                item.optString(
+                    "code"
+                ) == from.name
+            ) {
+                item.put(
+                    "code",
+                    to.name
+                )
+                changed += 1
+            }
+        }
+
+        if (changed > 0) {
+            preferences.edit()
+                .putString(
+                    KEY_ENTRIES,
+                    current.toString()
+                )
+                .apply()
+        }
+
+        return changed
+    }
+
     fun sourceCoverage(
         observationLimit: Int = MAX_ENTRIES,
         sourceLimit: Int = 8
@@ -529,7 +619,11 @@ class FinancialIngestionDiagnosticsStore private constructor(
             entries =
                 recent(
                     observationLimit
-                ),
+                ).filter {
+                    it.code !=
+                        FinancialIngestionDiagnosticCode
+                            .IGNORED_NON_FINANCIAL
+                },
             limit =
                 sourceLimit
         )
@@ -539,38 +633,50 @@ class FinancialIngestionDiagnosticsStore private constructor(
     ): FinancialMessageCoverageSnapshot {
         val entries =
             recent(limit)
+        val financialEntries =
+            entries.filter {
+                it.code !=
+                    FinancialIngestionDiagnosticCode
+                        .IGNORED_NON_FINANCIAL
+            }
         return FinancialMessageCoverageSnapshot(
             totalFinancialObservations =
-                entries.size,
+                financialEntries.size,
             templateParsed =
-                entries.count {
+                financialEntries.count {
                     it.parseRoute ==
                         MessageParseRoute
                             .TEMPLATE
                 },
             genericFallbackParsed =
-                entries.count {
+                financialEntries.count {
                     it.parseRoute ==
                         MessageParseRoute
                             .GENERIC_FALLBACK
                 },
             understoodNoLedgerEffect =
-                entries.count {
+                financialEntries.count {
                     it.code ==
                         FinancialIngestionDiagnosticCode
                             .UNDERSTOOD_NO_LEDGER_EFFECT
                 },
             resolvedByCurrentCoverage =
-                entries.count {
+                financialEntries.count {
                     it.code ==
                         FinancialIngestionDiagnosticCode
                             .RESOLVED_BY_CURRENT_COVERAGE
                 },
             unsupportedFinancial =
-                entries.count {
+                financialEntries.count {
                     it.code ==
                         FinancialIngestionDiagnosticCode
                             .UNRECOGNIZED_FINANCIAL_LANGUAGE
+                },
+            ignoredNonFinancial =
+                entries.count {
+                    it.code ==
+                        FinancialIngestionDiagnosticCode
+                            .IGNORED_NON_FINANCIAL
                 }
         )
     }
