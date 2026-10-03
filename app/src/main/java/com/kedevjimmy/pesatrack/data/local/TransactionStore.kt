@@ -82,6 +82,10 @@ class TransactionStore private constructor(context: Context) {
         accountTransferOverride:
             com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null,
         directionOverride: MoneyDirection? = null,
+        categoryOverride:
+            TransactionCategory? = null,
+        reviewStateOverride:
+            ReviewState? = null,
         externalReferences: Set<String> = emptySet()
     ): Boolean {
         val legacyType =
@@ -133,6 +137,10 @@ class TransactionStore private constructor(context: Context) {
             allowLegacyAccountFallback = false,
             directionOverride =
                 directionOverride,
+            categoryOverride =
+                categoryOverride,
+            reviewStateOverride =
+                reviewStateOverride,
             externalReferences =
                 externalReferences
         )
@@ -155,6 +163,10 @@ class TransactionStore private constructor(context: Context) {
         accountIdOverride: String? = null,
         allowLegacyAccountFallback: Boolean = true,
         directionOverride: MoneyDirection? = null,
+        categoryOverride:
+            TransactionCategory? = null,
+        reviewStateOverride:
+            ReviewState? = null,
         externalReferences: Set<String> = emptySet()
     ): Boolean {
         val fingerprint = TransactionFingerprint.of(parsed, occurredAtEpochMs)
@@ -216,11 +228,22 @@ class TransactionStore private constructor(context: Context) {
                 base ->
                 if (
                     matchedRule == null &&
-                    directionOverride != null
+                    (
+                        directionOverride != null ||
+                        categoryOverride != null ||
+                        reviewStateOverride != null
+                    )
                 ) {
                     base.copy(
                         direction =
                             directionOverride
+                                ?: base.direction,
+                        category =
+                            categoryOverride
+                                ?: base.category,
+                        reviewState =
+                            reviewStateOverride
+                                ?: base.reviewState
                     )
                 } else {
                     base
@@ -292,8 +315,23 @@ class TransactionStore private constructor(context: Context) {
                             linkedAccountId
                         )
                     }
+                    val safeSemanticOverride =
+                        matchedRule == null &&
+                            (
+                                directionOverride != null ||
+                                categoryOverride != null ||
+                                reviewStateOverride != null
+                            ) &&
+                            existingFingerprint.ruleId ==
+                                null &&
+                            existingFingerprint.reviewState !=
+                                ReviewState.USER_CLASSIFIED.name &&
+                            existingFingerprint.reviewState !=
+                                ReviewState.EXCLUDED.name
+
                     if (
-                        matchedRule != null
+                        matchedRule != null ||
+                        safeSemanticOverride
                     ) {
                         put(
                             "direction",
@@ -307,10 +345,12 @@ class TransactionStore private constructor(context: Context) {
                             "review_state",
                             classification.reviewState.name
                         )
-                        put(
-                            "rule_id",
-                            matchedRule.id
-                        )
+                        if (matchedRule != null) {
+                            put(
+                                "rule_id",
+                                matchedRule.id
+                            )
+                        }
                         put(
                             "planning_month",
                             classification.planningMonth
