@@ -157,7 +157,11 @@ object FinancialCandidateExtractor {
     // Keep this grammar narrow so standalone bank charges are
     // never attached to another movement by accident.
     private val feeRegex = Regex(
-        """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val genericChargeRegex = Regex(
+        """\bcharge\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
     private val standaloneDescriptorFirstFeeRegex = Regex(
@@ -584,12 +588,33 @@ object FinancialCandidateExtractor {
     private fun feeCandidate(
         body: String
     ): FeeCandidate? {
-        val amount =
+        val explicit =
             feeRegex.find(body)
                 ?.moneyCandidate(
                     groupIndex = 1,
                     ruleId = "fee.amount"
                 )
+
+        val amount =
+            explicit
+                ?: if (
+                    standalonePostedFeeRegexes
+                        .any {
+                            it.containsMatchIn(
+                                body
+                            )
+                        }
+                ) {
+                    null
+                } else {
+                    genericChargeRegex
+                        .find(body)
+                        ?.moneyCandidate(
+                            groupIndex = 1,
+                            ruleId =
+                                "fee.generic_charge"
+                        )
+                }
                 ?: return null
 
         return FeeCandidate(
