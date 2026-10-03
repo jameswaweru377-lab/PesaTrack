@@ -609,6 +609,52 @@ class MessageLabStore private constructor(
             it.semanticLabel != null
         }
 
+    @Synchronized
+    fun parserReadinessSnapshot():
+        MessageLabParserReadinessSnapshot =
+        MessageLabParserReadiness
+            .snapshot(
+                allStoredShapes()
+            )
+
+    @Synchronized
+    fun evidenceReadyParserCandidates(
+        limit: Int = MAX_SHAPES
+    ): List<UnsupportedMessageShape> =
+        MessageLabParserReadiness
+            .evidenceReady(
+                allStoredShapes()
+            )
+            .take(
+                limit.coerceIn(
+                    1,
+                    MAX_SHAPES
+                )
+            )
+
+    fun exportEvidenceReadyParserCandidates(
+        limit: Int = 50
+    ): String? {
+        val shapes =
+            evidenceReadyParserCandidates(
+                limit
+            )
+        if (shapes.isEmpty()) {
+            return null
+        }
+
+        return JSONArray().apply {
+            shapes.forEach {
+                shape ->
+                put(
+                    developerFixtureJson(
+                        shape
+                    )
+                )
+            }
+        }.toString(2)
+    }
+
     fun exportConfirmedFinancialFixtures(
         limit: Int = 50
     ): String? {
@@ -751,6 +797,12 @@ class MessageLabStore private constructor(
             put(
                 "expectedRoute",
                 "UNSUPPORTED"
+            )
+            put(
+                "parserEvidenceReadiness",
+                MessageLabParserReadiness
+                    .stateFor(shape)
+                    .name
             )
             put(
                 "userConfirmedFinancial",
