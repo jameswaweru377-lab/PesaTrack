@@ -3919,3 +3919,26 @@ Guardrail:
 
 The safety boundary deliberately favors missing/Needs Review over inventing a posted transaction. Reprocessing a newer build can recover a movement later if stronger posted evidence is added, while a false posted ledger entry is harder to unwind safely.
 
+## Pending-action semantic alignment — 2026-10-03
+
+The semantic layer now describes explicitly pending financial movements consistently with the non-posted candidate safety boundary.
+
+Implemented:
+
+- Added a conservative pending-action phrase detector for:
+  - `pending`;
+  - `awaiting processing/completion/confirmation`;
+  - `being processed`;
+  - `in progress`.
+- When those phrases accompany a movement intent such as payment, receipt, transfer, loan drawdown/repayment, reversal/refund or fee, the semantic role is now `PENDING_ACTION` rather than `NEW_EVENT`.
+- The interpreter suppresses movement events whenever the semantic role is `PENDING_ACTION`, in addition to the existing failed-action veto.
+- The underlying semantic intent is preserved. For example, a pending transfer remains semantically a transfer; only its accounting role is pending.
+- Independent balance observations remain available for reconciliation even when the associated movement is pending.
+- Balance/information messages are not turned into pending movement actions merely because they contain wording such as `no pending transactions`.
+- Existing submitted investment orders remain `PENDING_ACTION` as before.
+- Added regression coverage for pending transfers, pending account credits with observed balances, and the balance-only exception.
+
+Guardrail:
+
+Pending status is not evidence that money moved. PesaTrack therefore keeps the semantic meaning for explanation/diagnostics but never persists the movement until posted/settled wording is observed.
+

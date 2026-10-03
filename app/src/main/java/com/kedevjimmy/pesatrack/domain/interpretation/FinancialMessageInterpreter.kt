@@ -115,6 +115,9 @@ object FinancialMessageInterpreter {
                         .primaryIntent ==
                     FinancialSemanticIntent
                         .FAILED_ACTION ||
+                        semanticAssessment.role ==
+                            FinancialSemanticRole
+                                .PENDING_ACTION ||
                         provenanceOnlyDebtShape ||
                         investmentMessagePackShape
             )
