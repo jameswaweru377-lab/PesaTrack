@@ -3407,3 +3407,34 @@ Implemented:
 
 Recommended real-device workflow remains: reprocess one month, inspect the remaining Message Lab items, use the explanation to mark obvious noise as Not financial, confirm genuine misses as Financial, then use the confirmed bundle as the next parser corpus.
 
+## Message Lab financial-kind labeling — 2026-10-03
+
+Confirmed-financial Message Lab evidence can now be labeled with a broad financial meaning before parser implementation.
+
+Implemented:
+
+- Added local financial-kind labels:
+  - Payment / expense
+  - Money received
+  - Transfer
+  - Loan / repayment
+  - Balance / account update
+  - Investment
+  - Reversal / refund
+  - Fee / charge
+  - Other financial
+- Confirming an unsupported shape as financial now immediately offers the type-label dialog.
+- Already-confirmed shapes expose **Label type / Change type** from Data Health.
+- Labels are stored locally with the existing shape-level user decision.
+- Choosing a financial type also confirms the shape as financial.
+- Type labels are included in redacted single-shape, source, and confirmed-financial evidence exports as `userFinancialKind`.
+- Added a conservative suggestion helper based on generic language/relevance signals only; suggestions do not write data until the user chooses a label.
+- Confirmed shapes that still lack a type label are prioritized ahead of already-labeled confirmed shapes, so the evidence queue naturally surfaces unfinished triage.
+- Added unit coverage for generic type suggestions and queue ordering.
+
+Guardrail:
+
+A user financial-kind label is **evidence only**. It must not create a ledger transaction, alter a debt balance, infer an account owner, or bypass normal parser confidence. Production money movement still requires deterministic Message Pack / generic grammar semantics with the normal reconciliation safeguards.
+
+This gives the next parser pass structured real-device evidence without turning user triage into unsafe accounting automation.
+
