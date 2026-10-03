@@ -66,6 +66,10 @@ object FinancialAmountRoleResolver {
             candidates.fee?.let {
                 add(it.amountSpan)
             }
+            candidates.standaloneFee
+                ?.let {
+                    add(it.amountSpan)
+                }
             candidates.reversal?.let {
                 add(it.amountSpan)
             }
