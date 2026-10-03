@@ -3488,3 +3488,23 @@ Recommended use:
 
 This tool is diagnostic only. It does not write transactions, balances, Message Lab decisions, semantic labels or parser-readiness state.
 
+## Message Inspector privacy + source-decision correction — 2026-10-03
+
+Follow-up review of the merged local Message Inspector found two important edge cases. This corrective pass keeps the diagnostic tool useful without weakening privacy or borrowing a Message Lab decision from the wrong ingestion channel.
+
+Implemented:
+
+- Sanitized export now redacts **generic Financial Intelligence evidence spans**, not only values caught by the generic redactor.
+- Generic fallback amounts such as an unqualified `575.00` balance are replaced using the interpreter's own `FieldEvidence` span before export.
+- Balance, event and metadata evidence are all included in the redaction pass.
+- Overlapping evidence spans are merged before replacement so repeated/overlapping evidence cannot corrupt offsets or expose part of a value.
+- Message Pack extracted values receive a second redaction layer after normalized generic-evidence redaction.
+- Sanitized export always emits `<SENDER>`; a pasted phone number or arbitrary sender string is never copied.
+- The inspector can now use an existing Message Lab Financial / Not financial decision only when the stored sender/body match resolves to exactly one source-specific shape.
+- If identical redacted wording exists in more than one source channel (for example historical SMS and an app notification), the saved decision is treated as ambiguous and is **not** borrowed across channels.
+- The UI explains when a saved decision is ambiguous and shows an unambiguous saved Financial/Not financial choice and semantic meaning when available.
+- `wouldEnterMessageLab` now uses the same `MessageLabDecisionPolicy` as real ingestion whenever an unambiguous saved decision exists.
+- Added regression tests for generic-fallback balance privacy, raw sender privacy, confirmed-financial retention, ambiguous-source decision isolation and the pure source-match resolver.
+
+This remains diagnostic only. It does not create or edit transactions, debt balances, Message Lab decisions, semantic labels or parser-readiness state.
+
