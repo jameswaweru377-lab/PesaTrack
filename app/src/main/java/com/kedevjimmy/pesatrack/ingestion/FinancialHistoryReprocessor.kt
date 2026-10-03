@@ -29,6 +29,10 @@ class FinancialHistoryReprocessor(
 ) {
     private val appContext =
         context.applicationContext
+    private val stateStore =
+        FinancialHistoryReprocessStateStore(
+            appContext
+        )
 
     fun reprocess(
         months: Int,
@@ -80,32 +84,40 @@ class FinancialHistoryReprocessor(
             messageLabStore
                 .retiredOccurrenceCount()
 
-        return FinancialHistoryReprocessReport(
-            months = safeMonths,
-            sinceEpochMs =
-                sinceEpochMs,
-            importResult =
-                importResult,
-            retiredUnsupportedOccurrences =
-                (
-                    retiredAfter -
-                        retiredBefore
-                    ).coerceAtLeast(0),
-            debtBalanceChanges =
-                FinancialHistoryReprocessAnalysis
-                    .debtBalanceChanges(
-                        before = beforeDebt,
-                        after = afterDebt
-                    ),
-            totalOutstandingBeforeMinor =
-                beforeDebt.sumOf {
-                    it.outstandingMinor
-                },
-            totalOutstandingAfterMinor =
-                afterDebt.sumOf {
-                    it.outstandingMinor
-                }
+        val report =
+            FinancialHistoryReprocessReport(
+                months = safeMonths,
+                sinceEpochMs =
+                    sinceEpochMs,
+                importResult =
+                    importResult,
+                retiredUnsupportedOccurrences =
+                    (
+                        retiredAfter -
+                            retiredBefore
+                        ).coerceAtLeast(0),
+                debtBalanceChanges =
+                    FinancialHistoryReprocessAnalysis
+                        .debtBalanceChanges(
+                            before = beforeDebt,
+                            after = afterDebt
+                        ),
+                totalOutstandingBeforeMinor =
+                    beforeDebt.sumOf {
+                        it.outstandingMinor
+                    },
+                totalOutstandingAfterMinor =
+                    afterDebt.sumOf {
+                        it.outstandingMinor
+                    }
+            )
+
+        stateStore.recordSuccess(
+            atEpochMs = nowEpochMs,
+            months = safeMonths
         )
+
+        return report
     }
 
     companion object {

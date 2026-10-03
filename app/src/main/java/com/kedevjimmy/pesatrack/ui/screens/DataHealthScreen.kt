@@ -50,7 +50,9 @@ import com.kedevjimmy.pesatrack.domain.health.ReviewBurdenSnapshot
 import com.kedevjimmy.pesatrack.domain.identity.IdentityGraphSnapshot
 import com.kedevjimmy.pesatrack.domain.messagepack.KenyaMessagePack
 import com.kedevjimmy.pesatrack.ingestion.FinancialCoverageAnalysis
+import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessFreshness
 import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessReport
+import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessStateStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessor
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
@@ -108,6 +110,12 @@ fun DataHealthScreen(
     val historyReprocessor =
         remember {
             FinancialHistoryReprocessor(
+                context
+            )
+        }
+    val reprocessStateStore =
+        remember {
+            FinancialHistoryReprocessStateStore(
                 context
             )
         }
@@ -188,6 +196,12 @@ fun DataHealthScreen(
         mutableStateOf<
             FinancialHistoryReprocessReport?
         >(null)
+    }
+    var reprocessFreshness by remember {
+        mutableStateOf(
+            reprocessStateStore
+                .snapshot()
+        )
     }
     var reprocessError by remember {
         mutableStateOf<String?>(null)
@@ -270,7 +284,10 @@ fun DataHealthScreen(
                         .retiredOccurrenceCount(),
                 reviewBurden =
                     transactionStore
-                        .reviewBurdenSnapshot()
+                        .reviewBurdenSnapshot(),
+                reprocessFreshness =
+                    reprocessStateStore
+                        .snapshot()
             )
         }
 
@@ -295,6 +312,8 @@ fun DataHealthScreen(
             loaded.retiredMessageLabCount
         reviewBurden =
             loaded.reviewBurden
+        reprocessFreshness =
+            loaded.reprocessFreshness
     }
 
     fun runHistoryReprocess() {
@@ -515,6 +534,8 @@ fun DataHealthScreen(
                     smsPermissionDenied,
                 selectedMonths =
                     selectedReprocessMonths,
+                freshness =
+                    reprocessFreshness,
                 reprocessing =
                     reprocessingHistory,
                 report =
@@ -1704,7 +1725,9 @@ private data class DataHealthLoadResult(
     val learningApplicationCount: Int,
     val retiredMessageLabCount: Int,
     val reviewBurden:
-        ReviewBurdenSnapshot
+        ReviewBurdenSnapshot,
+    val reprocessFreshness:
+        FinancialHistoryReprocessFreshness
 )
 
 @Composable
@@ -2197,6 +2220,8 @@ private fun HistoryReprocessCard(
     permissionGranted: Boolean,
     permissionDenied: Boolean,
     selectedMonths: Int,
+    freshness:
+        FinancialHistoryReprocessFreshness,
     reprocessing: Boolean,
     report:
         FinancialHistoryReprocessReport?,
@@ -2219,12 +2244,90 @@ private fun HistoryReprocessCard(
                     10.dp
                 )
         ) {
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Text(
+                    "Reprocess financial history",
+                    modifier =
+                        Modifier.weight(1f),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleLarge
+                )
+                SmallStatusPill(
+                    text =
+                        if (
+                            freshness
+                                .reprocessRecommended
+                        ) {
+                            "Recommended"
+                        } else {
+                            "Up to date"
+                        },
+                    tone =
+                        if (
+                            freshness
+                                .reprocessRecommended
+                        ) {
+                            "amber"
+                        } else {
+                            "green"
+                        }
+                )
+            }
             Text(
-                "Reprocess financial history",
+                when {
+                    freshness
+                        .lastSuccessfulAtEpochMs ==
+                        null ->
+                        "No successful history reconciliation has been recorded on this installation yet."
+
+                    freshness
+                        .reprocessRecommended ->
+                        "PesaTrack was updated after the last successful history reconciliation. Run it again so older SMS can benefit from the newer intelligence."
+
+                    else ->
+                        "History has been reconciled after the current app update" +
+                            (
+                                freshness
+                                    .lastMonths
+                                    ?.let {
+                                        months ->
+                                        " using the last " +
+                                            months +
+                                            if (
+                                                months == 1
+                                            ) {
+                                                " month."
+                                            } else {
+                                                " months."
+                                            }
+                                    }
+                                    ?: "."
+                                )
+                },
                 style =
                     MaterialTheme
                         .typography
-                        .titleLarge
+                        .labelMedium,
+                color =
+                    if (
+                        freshness
+                            .reprocessRecommended
+                    ) {
+                        MaterialTheme
+                            .colorScheme
+                            .tertiary
+                    } else {
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                    }
             )
             Text(
                 "Run the latest PesaTrack intelligence over SMS already on this phone. Existing ledger movements are deduplicated, while newer debt and account understanding can refresh old state.",
