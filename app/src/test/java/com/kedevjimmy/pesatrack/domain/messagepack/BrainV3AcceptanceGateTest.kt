@@ -377,7 +377,7 @@ class BrainV3AcceptanceGateTest {
             0.90
 
         private val FIXTURE_RESOURCES =
-            (1..13).map {
+            (1..14).map {
                 "message-packs/ke/fixtures-v$it.json"
             }
     }
