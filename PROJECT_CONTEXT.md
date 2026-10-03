@@ -3942,3 +3942,25 @@ Guardrail:
 
 Pending status is not evidence that money moved. PesaTrack therefore keeps the semantic meaning for explanation/diagnostics but never persists the movement until posted/settled wording is observed.
 
+## Message Inspector -> sanitized financial evidence — rebased on pending-action safety — 2026-10-03
+
+The local Message Inspector can now turn a manually pasted unsupported financial SMS into one explicit sanitized Message Lab evidence sample without creating accounting state.
+
+Implemented:
+
+- When Inspector says a pasted message would still enter Message Lab, Data Health shows **Add as financial evidence**.
+- The workflow stores only the normal locally redacted shape plus relevance score/signals; raw pasted SMS is not persisted by this workflow.
+- Saved evidence is explicitly marked **Financial**.
+- If the pasted wording already matches exactly one stored Message Lab shape, that existing shape is reused and confirmed instead of creating a duplicate.
+- If the same redacted wording exists in multiple source channels, the Inspector does not copy a source-specific decision across them; it creates a separate `manual_message_inspector` shape.
+- A new manual-inspector shape starts with occurrence count 1.
+- Repeated taps on the same manual evidence do not increment occurrence count. Manual pasting therefore cannot manufacture the repeated-evidence threshold used by parser readiness.
+- Confirming an existing ignored shape restores its unsupported diagnostic state where applicable.
+- Existing semantic-label / implementation-review metadata on a reused shape is preserved.
+- Manual evidence respects the same bounded Message Lab storage cap.
+- Added pure policy regression tests for unique reuse, ambiguous-source separation, new manual targeting and stable occurrence counts.
+
+Guardrail:
+
+Manual Inspector evidence is development evidence only. It never creates a transaction, balance, debt update, parser template, Smart Rule, account ownership decision, or repeated-observation credit. Production parsing still requires the normal semantic-label, evidence-readiness, implementation-review and tested parser gates.
+
