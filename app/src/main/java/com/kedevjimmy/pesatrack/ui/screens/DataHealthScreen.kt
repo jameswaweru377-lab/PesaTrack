@@ -231,6 +231,11 @@ fun DataHealthScreen(
         >(null)
     }
 
+    var inspectorFinancialEvidenceSaved by
+        remember {
+            mutableStateOf(false)
+        }
+
     val smsPermissionLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts
@@ -575,10 +580,14 @@ fun DataHealthScreen(
                 onTitleChange = {
                     inspectorTitle = it
                     messageInspection = null
+                    inspectorFinancialEvidenceSaved =
+                        false
                 },
                 onBodyChange = {
                     inspectorBody = it
                     messageInspection = null
+                    inspectorFinancialEvidenceSaved =
+                        false
                 },
                 onAnalyze = {
                     if (
@@ -618,12 +627,78 @@ fun DataHealthScreen(
                                         storedMatch
                                             .ambiguousSourceMatch
                                 )
+                        inspectorFinancialEvidenceSaved =
+                            !storedMatch
+                                .ambiguousSourceMatch &&
+                                storedMatch
+                                    .shape
+                                    ?.userDecision ==
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL
                     }
                 },
                 onClear = {
                     inspectorTitle = ""
                     inspectorBody = ""
                     messageInspection = null
+                    inspectorFinancialEvidenceSaved =
+                        false
+                },
+                financialEvidenceSaved =
+                    inspectorFinancialEvidenceSaved,
+                onAddFinancialEvidence = {
+                    val inspection =
+                        messageInspection
+                    if (
+                        inspection != null &&
+                        inspection
+                            .wouldEnterMessageLab &&
+                        inspectorBody
+                            .isNotBlank()
+                    ) {
+                        val result =
+                            messageLabStore
+                                .addManualConfirmedFinancialEvidence(
+                                    safeSenderLabel =
+                                        inspectorTitle
+                                            .trim()
+                                            .takeIf(
+                                                String::isNotBlank
+                                            ),
+                                    body =
+                                        inspectorBody,
+                                    relevanceScore =
+                                        inspection
+                                            .relevanceScore,
+                                    relevanceSignals =
+                                        inspection
+                                            .relevanceSignals
+                                )
+                        if (result != null) {
+                            inspectorFinancialEvidenceSaved =
+                                true
+                            unsupported =
+                                messageLabStore
+                                    .prioritizedUnsupported(
+                                        100
+                                    )
+                            ignoredUnsupported =
+                                messageLabStore
+                                    .recentIgnored(100)
+                            Toast.makeText(
+                                context,
+                                if (
+                                    result
+                                        .reusedExistingShape
+                                ) {
+                                    "Existing Message Lab shape confirmed as financial"
+                                } else {
+                                    "Sanitized financial evidence saved"
+                                },
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
                 },
                 onCopySanitized = {
                     messageInspection
@@ -1736,10 +1811,12 @@ private fun MessageInspectorCard(
     body: String,
     inspection:
         FinancialMessageInspection?,
+    financialEvidenceSaved: Boolean,
     onTitleChange: (String) -> Unit,
     onBodyChange: (String) -> Unit,
     onAnalyze: () -> Unit,
     onClear: () -> Unit,
+    onAddFinancialEvidence: () -> Unit,
     onCopySanitized: () -> Unit
 ) {
     PesaCard(
@@ -2155,6 +2232,51 @@ private fun MessageInspectorCard(
                             .colorScheme
                             .onSurfaceVariant
                 )
+
+                if (
+                    result.wouldEnterMessageLab
+                ) {
+                    if (
+                        financialEvidenceSaved ||
+                        result.savedUserDecision ==
+                            MessageLabUserDecision
+                                .CONFIRMED_FINANCIAL
+                    ) {
+                        Text(
+                            "This unsupported wording is already saved as financial evidence. Manual inspector evidence stays at one observation; repeated taps cannot make it parser-ready.",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .labelMedium,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .primary
+                        )
+                    } else {
+                        Button(
+                            onClick =
+                                onAddFinancialEvidence,
+                            modifier =
+                                Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "Add as financial evidence"
+                            )
+                        }
+                        Text(
+                            "Only the locally redacted shape is stored. This manual sample counts as one observation and does not create a transaction, balance, parser, or repeated-evidence credit.",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .labelSmall,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                }
 
                 Text(
                     "The copied diagnostic replaces the sender and interpreter-extracted values with placeholders. It does not copy event amounts, counterparties or account references.",
