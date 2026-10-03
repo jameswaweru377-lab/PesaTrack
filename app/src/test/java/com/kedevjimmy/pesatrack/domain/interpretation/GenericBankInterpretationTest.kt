@@ -587,6 +587,101 @@ class GenericBankInterpretationTest {
     }
 
     @Test
+    fun understandsAccountAnchoredDrAsOutgoingMovement() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your acct XX9087 DR KES 750.00 on 03/10/26. New Bal KES 4,250.00."
+            )
+
+        val debit =
+            interpretation.events.single() as
+                UnresolvedFinancialEventFact
+
+        assertEquals(
+            75_000L,
+            debit.amountMinor
+        )
+        assertEquals(
+            FinancialMovementDirectionHint
+                .OUTGOING,
+            debit.directionHint
+        )
+        assertEquals(
+            425_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+        assertTrue(
+            debit.evidence.any {
+                it.field ==
+                    FinancialField
+                        .ACCOUNT_REFERENCE
+            }
+        )
+    }
+
+    @Test
+    fun understandsAccountAnchoredCrAsIncomingMovement() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "A/C XX9087 CR: Ksh 1,200.00 on 03/10/26. Bal KES 5,450.00."
+            )
+
+        val credit =
+            interpretation.events.single() as
+                UnresolvedFinancialEventFact
+
+        assertEquals(
+            120_000L,
+            credit.amountMinor
+        )
+        assertEquals(
+            FinancialMovementDirectionHint
+                .INCOMING,
+            credit.directionHint
+        )
+        assertEquals(
+            545_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun bareDrWithoutAccountDoesNotInventMovement() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "DR KES 750.00 on 03/10/26."
+            )
+
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+    }
+
+    @Test
+    fun pendingAccountDrDoesNotCreatePostedMovement() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your acct XX9087 DR KES 750.00 pending."
+            )
+
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+    }
+
+    @Test
     fun understandsPlainBalShorthandOnBankDebit() {
         val interpretation =
             FinancialMessageInterpreter.interpret(

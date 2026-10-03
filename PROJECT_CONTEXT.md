@@ -3784,3 +3784,27 @@ Safety boundary:
 - The change only adds `new` as a qualifier directly before `Bal` / `Balance`.
 - It does not reinterpret `Ledger Bal`, `Book Bal`, loan balances, or arbitrary uses of the word `new`.
 
+## Account-anchored DR / CR bank abbreviations — 2026-10-03
+
+The generic bank parser now closes a relevance/interpretation mismatch for common statement-style debit and credit abbreviations.
+
+Implemented:
+
+- Recognizes posted debit wording such as:
+  - `A/C XX1234 DR KES <amount>`;
+  - `Acct XX1234 DR: KES <amount>`;
+  - branded account prefixes such as `Your <bank> a/c ... DR ...`.
+- Recognizes the corresponding `CR` forms as incoming account credits.
+- `DR` produces the same safe unresolved outgoing movement as an explicit account debit when no counterparty is stated.
+- `CR` produces the same safe unresolved incoming movement as an explicit account credit when no counterparty is stated.
+- Masked account references are preserved as evidence.
+- Existing balance extraction remains independent, so `Bal`, `New Bal`, Available/Current/etc. can reconcile the account in the same message.
+- The shared non-posted guard blocks pending, declined, failed, rejected or unsuccessful DR/CR attempts.
+- Added regression coverage for outgoing DR, incoming CR, balance reconciliation, bare-DR rejection, and pending-DR rejection.
+
+Safety boundary:
+
+- A bare `DR KES <amount>` or `CR KES <amount>` without explicit account context does not create a ledger movement.
+- DR/CR does not invent a counterparty, merchant, transfer destination, category or salary/refund meaning.
+- These movements remain unresolved / Needs Review unless stronger relationship evidence exists.
+
