@@ -3436,3 +3436,28 @@ Implemented:
 
 This is intentionally an evidence boundary, not a parser shortcut. Future parser/Message Pack work should use the redacted wording + relevance evidence + user-confirmed financial status + semantic label together before adding production extraction semantics.
 
+## Data Health local Message Inspector — rebased on semantic evidence — 2026-10-03
+
+The real-device evidence loop now includes a one-message diagnostic tool, rebased on the current Message Lab semantic-label implementation.
+
+Implemented:
+
+- Added **Data Health -> Inspect one message**.
+- A user can paste an SMS body and optional sender/title and run it through the exact current Financial Intelligence + Message Pack stack.
+- Inspection is local and ephemeral; this tool does not persist the raw pasted text.
+- The result shows whether the message is recognized, semantically understood, unsupported financial evidence, or outside the unsupported-financial boundary.
+- The UI exposes parse route, matching template/revision, relevance score/signals, extracted field names, transaction code/date when present, interpreted event summaries, observed balances and semantic intent hints.
+- The inspector explicitly reports whether the current build would still place the message in Message Lab.
+- Added **Copy sanitized diagnostic**. The export uses Message Lab redaction and intentionally omits raw transaction values.
+- Added regression coverage using the current M-Shwari repayment shape, weak loan-marketing language and sanitized-export privacy assertions.
+
+Recommended use:
+
+1. Reprocess one month first so stored state is current.
+2. For any remaining suspicious or Not understood SMS, paste one copy into Message Inspector.
+3. If it says **Recognized** but app state is still wrong, investigate reconciliation/account identity rather than adding another parser template.
+4. If it says **Not understood** and would enter Message Lab, use the sanitized diagnostic plus the existing Financial/Not financial and semantic-label workflow as concrete parser evidence.
+5. If it says **Not financial / ignored**, do not add provider-specific parsing without stronger evidence.
+
+This tool diagnoses parser behavior only; it does not write transactions, balances, Message Lab decisions or semantic labels.
+
