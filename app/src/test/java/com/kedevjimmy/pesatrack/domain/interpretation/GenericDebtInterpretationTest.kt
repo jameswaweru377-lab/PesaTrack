@@ -152,6 +152,88 @@ class GenericDebtInterpretationTest {
     }
 
     @Test
+    fun understandsSenderScopedLoanPaymentReceivedWithRemainingBalance() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "BRANCH",
+                    body =
+                        "We have received your payment of KES 575.00. Your loan balance is KES 200.00."
+                )
+
+        val event =
+            interpretation.events.single() as
+                DebtRepaymentEventFact
+
+        assertEquals(
+            57_500L,
+            event.amountMinor
+        )
+        assertEquals(
+            "BRANCH_LOAN",
+            event.liability.providerKey
+        )
+        assertEquals(
+            DebtCompletion.PARTIAL,
+            event.completion
+        )
+        assertEquals(
+            20_000L,
+            event.outstandingAfterMinor
+        )
+    }
+
+    @Test
+    fun zeroSenderScopedLoanBalanceMarksPaymentAsFullRepayment() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "BRANCH",
+                    body =
+                        "Payment of Ksh 575.00 has been received. Your loan balance is Ksh 0.00."
+                )
+
+        val event =
+            interpretation.events.single() as
+                DebtRepaymentEventFact
+
+        assertEquals(
+            DebtCompletion.FULL,
+            event.completion
+        )
+        assertEquals(
+            0L,
+            event.outstandingAfterMinor
+        )
+        assertEquals(
+            "BRANCH_LOAN",
+            event.liability.providerKey
+        )
+    }
+
+    @Test
+    fun ordinaryPaymentReceivedWithoutLoanContextDoesNotBecomeDebt() {
+        val normalized =
+            FinancialMessageNormalizer
+                .normalize(
+                    title = "Service",
+                    body =
+                        "We have received your payment of KES 500.00. Thank you."
+                )
+
+        val candidates =
+            DebtCandidateExtractor
+                .extract(normalized)
+
+        assertNull(
+            candidates.repayment
+        )
+        assertNull(
+            candidates.drawdown
+        )
+    }
+
+    @Test
     fun debtGrammarDoesNotTurnOrdinaryAccountTransferIntoDebt() {
         val message =
             "TST12DEBT3 Confirmed. Ksh 5,000.00 transferred from Nova Credit account on 28/9/26 at 7:00 PM. Nova Credit balance is Ksh 12,400.00. M-PESA balance is Ksh 8,100.00."

@@ -70,6 +70,18 @@ object DebtCandidateExtractor {
         )
     )
 
+    private val genericLoanPaymentReceivedRegexes =
+        listOf(
+            Regex(
+                """(?:we\s+have\s+)?received\s+(?:your\s+)?(?:loan\s+)?(?:payment|repayment)(?:\s+of)?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\b""",
+                RegexOption.IGNORE_CASE
+            ),
+            Regex(
+                """(?:loan\s+)?(?:payment|repayment)(?:\s+of)?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?received\b""",
+                RegexOption.IGNORE_CASE
+            )
+        )
+
     private val genericLoanRepaymentRegexes = listOf(
         Regex(
             """(?:loan\s+)?repayment(?:\s+of)?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:received|successful|processed|paid)\b""",
@@ -88,6 +100,15 @@ object DebtCandidateExtractor {
             RegexOption.MULTILINE
         )
     )
+
+    private val senderScopedLoanBalanceRegex =
+        Regex(
+            """(?:^|[.!?]\s+)(?:Your\s+)?loan\s+(?:outstanding\s+)?balance\s*(?:is|:)?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+            setOf(
+                RegexOption.IGNORE_CASE,
+                RegexOption.MULTILINE
+            )
+        )
 
     private val senderScopedLoanDisbursementRegex = Regex(
         """\b(?:Your\s+)?(loan)(?:\s+of)?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:approved|disbursed)\b(?:.{0,120}?\b(?:to|into)\s+(?:your\s+)?([A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z0-9&'’.-]+){0,4}?)(?:\s+account)?(?=[.!?]|$))?""",
@@ -218,73 +239,125 @@ object DebtCandidateExtractor {
             )
         }
 
+        val namedLoanBalanceMatch =
+            genericLoanBalanceRegex.find(body)
+        val senderScopedBalanceMatch =
+            senderScopedLoanBalanceRegex.find(body)
         val genericRepaymentMatch =
             genericLoanRepaymentRegexes
                 .asSequence()
                 .mapNotNull { it.find(body) }
                 .firstOrNull()
+                ?: genericLoanPaymentReceivedRegexes
+                    .asSequence()
+                    .mapNotNull { it.find(body) }
+                    .firstOrNull()
+                    ?.takeIf {
+                        namedLoanBalanceMatch != null ||
+                            senderScopedBalanceMatch != null ||
+                            body.contains(
+                                "loan",
+                                ignoreCase = true
+                            )
+                    }
+
         if (genericRepaymentMatch != null) {
             val amount =
                 genericRepaymentMatch.groups[1]
-            val balanceMatch =
-                genericLoanBalanceRegex.find(body)
+            val outstandingGroup =
+                namedLoanBalanceMatch
+                    ?.groups
+                    ?.get(2)
+                    ?: senderScopedBalanceMatch
+                        ?.groups
+                        ?.get(1)
+            val outstandingMinor =
+                outstandingGroup
+                    ?.value
+                    ?.let(::amountToMinor)
             val liability =
-                balanceMatch?.groups?.get(1)
+                namedLoanBalanceMatch
+                    ?.groups
+                    ?.get(1)
                     ?.value
                     ?.trim()
                     ?: message.title
                         ?.trim()
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { "$it Loan" }
+                        ?.takeIf {
+                            it.isNotBlank()
+                        }
+                        ?.let {
+                            if (
+                                it.endsWith(
+                                    "loan",
+                                    ignoreCase = true
+                                )
+                            ) {
+                                it
+                            } else {
+                                "$it Loan"
+                            }
+                        }
 
-            if (amount != null && liability != null) {
+            if (
+                amount != null &&
+                liability != null
+            ) {
                 return DebtMessageCandidates(
                     drawdown = null,
                     repayment =
                         DebtRepaymentCandidate(
                             amountMinor =
-                                amountToMinor(amount.value),
+                                amountToMinor(
+                                    amount.value
+                                ),
                             amountSpan =
                                 amount.range.toSpan(),
-                            fundingAccountLabel = null,
-                            fundingAccountSpan = null,
-                            liabilityLabel = liability,
+                            fundingAccountLabel =
+                                null,
+                            fundingAccountSpan =
+                                null,
+                            liabilityLabel =
+                                liability,
                             liabilitySpan =
-                                balanceMatch
+                                namedLoanBalanceMatch
                                     ?.groups
                                     ?.get(1)
                                     ?.range
                                     ?.toSpan(),
                             completion =
-                                if (
+                                when {
+                                    outstandingMinor ==
+                                        0L ->
+                                        DebtCompletion.FULL
+
+                                    outstandingMinor !=
+                                        null ->
+                                        DebtCompletion.PARTIAL
+
                                     body.contains(
                                         "fully paid",
                                         ignoreCase = true
                                     ) ||
-                                    body.contains(
-                                        "loan cleared",
-                                        ignoreCase = true
-                                    )
-                                ) {
-                                    DebtCompletion.FULL
-                                } else {
-                                    DebtCompletion.UNKNOWN
+                                        body.contains(
+                                            "loan cleared",
+                                            ignoreCase = true
+                                        ) ->
+                                        DebtCompletion.FULL
+
+                                    else ->
+                                        DebtCompletion.UNKNOWN
                                 },
                             outstandingAfterMinor =
-                                balanceMatch
-                                    ?.groups
-                                    ?.get(2)
-                                    ?.value
-                                    ?.let(::amountToMinor),
+                                outstandingMinor,
                             outstandingSpan =
-                                balanceMatch
-                                    ?.groups
-                                    ?.get(2)
+                                outstandingGroup
                                     ?.range
                                     ?.toSpan(),
                             availableCreditAfterMinor =
                                 null,
-                            availableCreditSpan = null,
+                            availableCreditSpan =
+                                null,
                             ruleId =
                                 "debt.repayment.generic"
                         )
