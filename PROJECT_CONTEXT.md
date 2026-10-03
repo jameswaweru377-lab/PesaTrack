@@ -3488,3 +3488,32 @@ Recommended use:
 
 This tool is diagnostic only. It does not write transactions, balances, Message Lab decisions, semantic labels or parser-readiness state.
 
+## Message Lab review-only parser drafts — 2026-10-03
+
+The real-device evidence loop now turns an evidence-ready unsupported shape into a structured parser draft without activating production parsing.
+
+Implemented:
+
+- Added `MessageLabParserDraftGenerator`.
+- Draft generation is available only for `EVIDENCE_READY` shapes: user-confirmed financial, meaning-labeled, and observed at least twice.
+- Drafts propose:
+  - a stable draft ID;
+  - sender/source context;
+  - the user-confirmed semantic label;
+  - a suggested Message Pack event kind using the existing repository vocabulary where possible;
+  - literal candidate anchors extracted from the redacted shape;
+  - placeholder field candidates such as `TRANSACTION_CODE`, `AMOUNT`, `BALANCE`, `OUTSTANDING`, `FEE`, `COUNTERPARTY`, `SOURCE`, `DESTINATION`, `DATE`, and `TIME`;
+  - the redacted example and occurrence count;
+  - explicit manual-review warnings.
+- Field-role inference uses the nearest redacted placeholder context rather than provider-specific rules.
+- Drafts are always `active: false` and `requiresManualReview: true`.
+- Drafts intentionally do **not** generate production extraction regexes or product identities.
+- Data Health now exposes:
+  - **Copy parser draft bundle** for all evidence-ready shapes;
+  - **Copy review-only parser draft** on each evidence-ready Message Lab item.
+- Added pure regression coverage using the M-Shwari repayment redacted shape, transfer destination context, readiness gating, and inactive/review-only output.
+
+Guardrail:
+
+A parser draft is a development artifact only. It must never be loaded as an active Message Pack template. A developer still needs to review the financial mechanics, choose product identity/account semantics, write extraction regexes, add at least three sanitized golden fixtures, and pass the existing relevance/extraction/duplicate-accounting gates before production activation.
+
