@@ -152,12 +152,20 @@ object FinancialCandidateExtractor {
         """\b(?:(?:total|outstanding)\s+)?loan\s+(?:outstanding\s+)?balance\s*(?:is|of|:)?\s*(?:(?:Ksh|KES)\s*)?([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
+    // Embedded fees belong to another financial movement
+    // (for example a transaction cost or a loan access fee).
+    // Keep this grammar narrow so standalone bank charges are
+    // never attached to another movement by accident.
     private val feeRegex = Regex(
-        """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?|(?:service|maintenance|account|monthly|ledger|sms|mobile\s+banking|card|atm)\s+(?:fee|charge)|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
-    private val amountBeforeFeeRegex = Regex(
-        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:(?:has\s+been\s+)?(?:charged|deducted)\s+)?(?:as|for)?\s*(?:a\s+)?(?:monthly\s+)?(?:service|maintenance|account|ledger|sms|mobile\s+banking|card|atm)?\s*(?:fee|charge)\b""",
+    private val standaloneDescriptorFirstFeeRegex = Regex(
+        """(?:(?:monthly|annual)\s+)?(?:service|maintenance|account|ledger|sms|mobile\s+banking|card|atm)\s+(?:fee|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val standaloneAmountBeforeFeeRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:(?:has\s+been\s+)?(?:charged|deducted)\s+)?(?:as|for)?\s*(?:a\s+)?(?:(?:monthly|annual)\s+)?(?:service|maintenance|account|ledger|sms|mobile\s+banking|card|atm)?\s*(?:fee|charge)\b""",
         RegexOption.IGNORE_CASE
     )
     private val standalonePostedFeeRegexes =
@@ -576,23 +584,42 @@ object FinancialCandidateExtractor {
     private fun feeCandidate(
         body: String
     ): FeeCandidate? {
-        val descriptorFirst =
+        val amount =
             feeRegex.find(body)
                 ?.moneyCandidate(
                     groupIndex = 1,
                     ruleId = "fee.amount"
                 )
-        val amountFirst =
-            amountBeforeFeeRegex
+                ?: return null
+
+        return FeeCandidate(
+            amountMinor =
+                amount.amountMinor,
+            amountSpan =
+                amount.span,
+            ruleId =
+                amount.ruleId
+        )
+    }
+
+    private fun standaloneFeeAmountCandidate(
+        body: String
+    ): FeeCandidate? {
+        val amount =
+            standaloneDescriptorFirstFeeRegex
                 .find(body)
                 ?.moneyCandidate(
                     groupIndex = 1,
                     ruleId =
-                        "fee.amount_before_descriptor"
+                        "fee.standalone_descriptor_first"
                 )
-        val amount =
-            descriptorFirst
-                ?: amountFirst
+                ?: standaloneAmountBeforeFeeRegex
+                    .find(body)
+                    ?.moneyCandidate(
+                        groupIndex = 1,
+                        ruleId =
+                            "fee.standalone_amount_first"
+                    )
                 ?: return null
 
         return FeeCandidate(
@@ -626,7 +653,9 @@ object FinancialCandidateExtractor {
             return null
         }
 
-        return feeCandidate(body)
+        return standaloneFeeAmountCandidate(
+            body
+        )
             ?.takeIf {
                 it.amountMinor > 0L
             }
