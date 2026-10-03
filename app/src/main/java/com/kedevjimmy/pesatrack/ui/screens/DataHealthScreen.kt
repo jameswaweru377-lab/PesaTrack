@@ -577,11 +577,24 @@ fun DataHealthScreen(
         }
 
         item {
+            val inspectorEvidenceShape =
+                inspectorSavedShapeId
+                    ?.let {
+                        shapeId ->
+                        unsupported
+                            .firstOrNull {
+                                it.shapeId ==
+                                    shapeId
+                            }
+                    }
+
             MessageInspectorCard(
                 title = inspectorTitle,
                 body = inspectorBody,
                 inspection =
                     messageInspection,
+                evidenceShape =
+                    inspectorEvidenceShape,
                 onTitleChange = {
                     inspectorTitle = it
                     messageInspection = null
@@ -806,6 +819,49 @@ fun DataHealthScreen(
                                         ?.copy(
                                             savedSemanticLabel =
                                                 null
+                                        )
+                            }
+                        }
+                },
+                onImplementationReviewSelected = {
+                        review ->
+                    inspectorSavedShapeId
+                        ?.let {
+                            shapeId ->
+                            if (
+                                messageLabStore
+                                    .setImplementationReview(
+                                        shapeId,
+                                        review
+                                    )
+                            ) {
+                                unsupported =
+                                    messageLabStore
+                                        .prioritizedUnsupported(
+                                            100
+                                        )
+                                Toast.makeText(
+                                    context,
+                                    review.displayLabel,
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                },
+                onImplementationReviewCleared = {
+                    inspectorSavedShapeId
+                        ?.let {
+                            shapeId ->
+                            if (
+                                messageLabStore
+                                    .clearImplementationReview(
+                                        shapeId
+                                    )
+                            ) {
+                                unsupported =
+                                    messageLabStore
+                                        .prioritizedUnsupported(
+                                            100
                                         )
                             }
                         }
@@ -1921,6 +1977,8 @@ private fun MessageInspectorCard(
     body: String,
     inspection:
         FinancialMessageInspection?,
+    evidenceShape:
+        UnsupportedMessageShape?,
     financialEvidenceSaved: Boolean,
     onTitleChange: (String) -> Unit,
     onBodyChange: (String) -> Unit,
@@ -1930,6 +1988,11 @@ private fun MessageInspectorCard(
     onSemanticLabelSelected:
         (MessageLabSemanticLabel) -> Unit,
     onSemanticLabelCleared: () -> Unit,
+    onImplementationReviewSelected:
+        (MessageLabImplementationReviewState) ->
+        Unit,
+    onImplementationReviewCleared:
+        () -> Unit,
     onCopySanitized: () -> Unit
 ) {
     PesaCard(
@@ -2441,6 +2504,176 @@ private fun MessageInspectorCard(
                                                     .weight(1f)
                                         )
                                     }
+                                }
+                            }
+                        evidenceShape
+                            ?.takeIf {
+                                result
+                                    .savedSemanticLabel !=
+                                    null
+                            }
+                            ?.let {
+                                shape ->
+                                val readiness =
+                                    MessageLabParserReadiness
+                                        .stateFor(shape)
+                                val readinessText =
+                                    when (readiness) {
+                                        MessageLabParserReadinessState
+                                            .NEEDS_FINANCIAL_CONFIRMATION ->
+                                            "Confirm financial"
+
+                                        MessageLabParserReadinessState
+                                            .NEEDS_MEANING_LABEL ->
+                                            "Needs meaning"
+
+                                        MessageLabParserReadinessState
+                                            .LABELED_SINGLE_OBSERVATION ->
+                                            "Need another real example"
+
+                                        MessageLabParserReadinessState
+                                            .EVIDENCE_READY ->
+                                            "Evidence ready"
+                                    }
+
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth(),
+                                    verticalAlignment =
+                                        Alignment
+                                            .CenterVertically
+                                ) {
+                                    Text(
+                                        "Parser evidence",
+                                        modifier =
+                                            Modifier
+                                                .weight(1f),
+                                        style =
+                                            MaterialTheme
+                                                .typography
+                                                .titleSmall
+                                    )
+                                    SmallStatusPill(
+                                        text =
+                                            readinessText,
+                                        tone =
+                                            if (
+                                                readiness ==
+                                                MessageLabParserReadinessState
+                                                    .EVIDENCE_READY
+                                            ) {
+                                                "green"
+                                            } else {
+                                                "amber"
+                                            }
+                                    )
+                                }
+
+                                Text(
+                                    "Observed " +
+                                        shape.occurrenceCount +
+                                        " time" +
+                                        if (
+                                            shape.occurrenceCount ==
+                                            1
+                                        ) {
+                                            ""
+                                        } else {
+                                            "s"
+                                        } +
+                                        if (
+                                            shape.familyOccurrenceCount >
+                                            shape.occurrenceCount
+                                        ) {
+                                            " · " +
+                                                shape.familyOccurrenceCount +
+                                                " across this format family"
+                                        } else {
+                                            ""
+                                        },
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .labelSmall,
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                )
+
+                                when (readiness) {
+                                    MessageLabParserReadinessState
+                                        .LABELED_SINGLE_OBSERVATION ->
+                                        Text(
+                                            "One real observation is not enough for parser work. A manually pasted sample stays at one observation; wait for another actual occurrence or existing family evidence.",
+                                            style =
+                                                MaterialTheme
+                                                    .typography
+                                                    .bodySmall,
+                                            color =
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .onSurfaceVariant
+                                        )
+
+                                    MessageLabParserReadinessState
+                                        .EVIDENCE_READY -> {
+                                        Text(
+                                            "Implementation review",
+                                            style =
+                                                MaterialTheme
+                                                    .typography
+                                                    .titleSmall
+                                        )
+                                        Text(
+                                            "Reviewing evidence still does not activate a parser. It only decides whether development should proceed or wait for more examples.",
+                                            style =
+                                                MaterialTheme
+                                                    .typography
+                                                    .bodySmall,
+                                            color =
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .onSurfaceVariant
+                                        )
+                                        MessageLabImplementationReviewState
+                                            .values()
+                                            .forEach {
+                                                review ->
+                                                FilterChip(
+                                                    selected =
+                                                        shape
+                                                            .implementationReview ==
+                                                        review,
+                                                    onClick = {
+                                                        if (
+                                                            shape
+                                                                .implementationReview ==
+                                                            review
+                                                        ) {
+                                                            onImplementationReviewCleared()
+                                                        } else {
+                                                            onImplementationReviewSelected(
+                                                                review
+                                                            )
+                                                        }
+                                                    },
+                                                    label = {
+                                                        Text(
+                                                            review
+                                                                .displayLabel
+                                                        )
+                                                    },
+                                                    modifier =
+                                                        Modifier
+                                                            .fillMaxWidth()
+                                                )
+                                            }
+                                    }
+
+                                    else ->
+                                        Unit
                                 }
                             }
                     } else {

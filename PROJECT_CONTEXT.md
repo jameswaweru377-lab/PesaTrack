@@ -3992,3 +3992,29 @@ Guardrail:
 
 Inline meaning remains evidence only. It does not create, edit, categorize, or reconcile ledger transactions. Changing meaning also keeps the existing Message Lab rule that clears stale implementation-review approval until the updated evidence is reviewed again.
 
+## Message Inspector inline parser readiness + implementation review — 2026-10-03
+
+The Inspector now shows the rest of the existing evidence pipeline after Financial confirmation and semantic meaning, without making the user find the same Message Lab card again.
+
+Implemented:
+
+- Inspector binds to the exact stored evidence shape already used for inline semantic labeling.
+- After a meaning label exists, Inspector shows the existing parser-readiness state:
+  - needs financial confirmation;
+  - needs meaning;
+  - need another real example;
+  - evidence ready.
+- The readiness calculation reuses `MessageLabParserReadiness.stateFor` exactly; no Inspector-specific threshold was added.
+- Inspector shows exact occurrence count and family-supported recurrence when applicable.
+- A single manually pasted sample remains a single observation and explicitly tells the user that another real occurrence is needed.
+- When evidence is ready, Inspector exposes the existing implementation-review choices:
+  - **Needs more examples**
+  - **Ready for parser work**
+- Review selection/clearing goes through the existing `MessageLabStore.setImplementationReview` / `clearImplementationReview` path.
+- Semantic meaning changes continue to clear stale implementation review through the existing store rule.
+- The prioritized Message Lab queue refreshes immediately after review changes, so Inspector and Message Lab remain consistent.
+
+Guardrail:
+
+Readiness and implementation review remain development-state signals only. They do not activate a parser, create extraction regexes, write ledger rows, change balances/debt, infer ownership, or bypass Message Pack/generic-grammar tests.
+
