@@ -3488,3 +3488,28 @@ Recommended use:
 
 This tool is diagnostic only. It does not write transactions, balances, Message Lab decisions, semantic labels or parser-readiness state.
 
+## Message Lab implementation review gate — 2026-10-03
+
+The parser-evidence workflow now separates **evidence ready** from **approved for parser implementation**.
+
+Implemented:
+
+- Added an explicit implementation-review state for evidence-ready Message Lab shapes:
+  - **Needs more examples**
+  - **Ready for parser work**
+- Only shapes that are already user-confirmed financial, meaning-labeled, and repeatedly observed can receive an implementation-review decision.
+- Changing or clearing the semantic meaning automatically invalidates the implementation review so stale parser approval cannot survive changed evidence.
+- Clearing the overall Message Lab decision also clears the implementation review because the shape decision record is removed.
+- Data Health now shows evidence-ready count, unreviewed implementation candidates, and candidates explicitly ready for parser work.
+- Evidence-ready exports remain available, but are now named separately from implementation-ready exports.
+- Added a dedicated **Copy implementation-ready bundle** containing only explicitly reviewed parser candidates.
+- Exported fixtures include the implementation-review state and a stable `readyForParserWork` boolean.
+- The evidence queue now ranks implementation-approved candidates ahead of unreviewed candidates and intentionally deferred candidates.
+- Added pure regression coverage for review eligibility, aggregate review counts, stale-readiness rejection, and queue ordering.
+
+Guardrail:
+
+**Ready for parser work** is still a development decision, not permission to mutate the ledger automatically. Production support must still be implemented through reviewed Message Pack / generic grammar code with normal extraction, identity, dedupe, reconciliation and regression tests.
+
+This closes the loop from real-device evidence to a clean developer implementation queue without auto-generating production parsers.
+
