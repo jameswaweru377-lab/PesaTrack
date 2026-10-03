@@ -226,6 +226,11 @@ object FinancialSemanticAnalyzer {
         RegexOption.IGNORE_CASE
     )
 
+    private val pendingActionRegex = Regex(
+        """\b(?:pending|awaiting\s+(?:processing|completion|confirmation)|being\s+processed|in\s+progress)\b""",
+        RegexOption.IGNORE_CASE
+    )
+
     private val reminderRegex = Regex(
         """\b(?:due\s+(?:on|by)|repay\s+by|payment\s+due|loan\s+due|repayment\s+due|reminder)\b""",
         RegexOption.IGNORE_CASE
@@ -506,6 +511,11 @@ object FinancialSemanticAnalyzer {
             primaryIntent ==
                 FinancialSemanticIntent.FAILED_ACTION ->
                 FinancialSemanticRole.CONFIRMATION
+            pendingActionRegex
+                .containsMatchIn(body) &&
+                primaryIntent in
+                PENDING_MOVEMENT_INTENTS ->
+                FinancialSemanticRole.PENDING_ACTION
             FinancialSemanticIntent
                 .CONFIRMATION_ONLY in intents ->
                 FinancialSemanticRole.CONFIRMATION
@@ -945,6 +955,18 @@ object FinancialSemanticAnalyzer {
                 RoundingMode.HALF_UP
             )
             .longValueExact()
+
+    private val PENDING_MOVEMENT_INTENTS =
+        setOf(
+            FinancialSemanticIntent.PAYMENT,
+            FinancialSemanticIntent.RECEIPT,
+            FinancialSemanticIntent.TRANSFER,
+            FinancialSemanticIntent.LOAN_DISBURSEMENT,
+            FinancialSemanticIntent.LOAN_REPAYMENT,
+            FinancialSemanticIntent.REVERSAL,
+            FinancialSemanticIntent.REFUND,
+            FinancialSemanticIntent.FEE
+        )
 
     private val PRIMARY_INTENT_PRIORITY = listOf(
         FinancialSemanticIntent.FAILED_ACTION,
