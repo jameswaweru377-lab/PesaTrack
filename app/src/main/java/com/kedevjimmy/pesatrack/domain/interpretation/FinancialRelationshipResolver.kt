@@ -183,6 +183,16 @@ object FinancialRelationshipResolver {
 
         val relationship =
             knownRelationship
+                ?: resolveStandaloneFee(
+                    candidate =
+                        candidates.standaloneFee,
+                    candidates =
+                        candidates,
+                    observedAccount =
+                        observedAccount,
+                    message =
+                        message
+                )
                 ?: resolveExplicitAccountDebit(
                     candidate =
                         candidates.accountDebit,
@@ -198,16 +208,6 @@ object FinancialRelationshipResolver {
                         observedAccount,
                     message = message,
                     fee = candidates.fee
-                )
-                ?: resolveStandaloneFee(
-                    candidate =
-                        candidates.standaloneFee,
-                    candidates =
-                        candidates,
-                    observedAccount =
-                        observedAccount,
-                    message =
-                        message
                 )
                 ?: resolveUnresolvedMovement(
                     candidates = candidates,
