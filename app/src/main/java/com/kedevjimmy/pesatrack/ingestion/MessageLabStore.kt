@@ -269,7 +269,7 @@ class MessageLabStore private constructor(
             preferences.edit()
                 .putString(
                     KEY_SHAPES,
-                    current.toString()
+                    shapesToStore.toString()
                 )
                 .apply()
         }
@@ -374,8 +374,29 @@ class MessageLabStore private constructor(
             }
         }
 
+        var shapesToStore =
+            current
+
         if (!found) {
-            current.put(
+            val bounded =
+                JSONArray()
+            val start =
+                maxOf(
+                    0,
+                    current.length() -
+                        (MAX_SHAPES - 1)
+                )
+            for (
+                index in start until
+                    current.length()
+            ) {
+                bounded.put(
+                    current.getJSONObject(
+                        index
+                    )
+                )
+            }
+            bounded.put(
                 JSONObject().apply {
                     put(
                         "shapeId",
@@ -442,6 +463,8 @@ class MessageLabStore private constructor(
                     )
                 }
             )
+            shapesToStore =
+                bounded
         }
 
         val decisions =
