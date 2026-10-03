@@ -3436,3 +3436,29 @@ Implemented:
 
 This is intentionally an evidence boundary, not a parser shortcut. Future parser/Message Pack work should use the redacted wording + relevance evidence + user-confirmed financial status + semantic label together before adding production extraction semantics.
 
+## Message Lab parser readiness — 2026-10-03
+
+The evidence loop now distinguishes a merely unsupported shape from a parser-work candidate with enough user-confirmed context to review next.
+
+Implemented:
+
+- Added explicit parser-readiness states:
+  - needs financial confirmation;
+  - needs meaning label;
+  - labeled single observation;
+  - evidence ready.
+- A shape is called **evidence ready** only when it is:
+  - explicitly confirmed financial by the user;
+  - given a semantic meaning label;
+  - observed at least twice as the same stable redacted shape.
+- The repeated-observation floor is intentionally small and is not treated as permission to auto-create a production parser.
+- Data Health now shows how many confirmed shapes still need a meaning label and how many are evidence ready.
+- Each confirmed shape shows its current readiness state.
+- Evidence-ready shapes can be exported as a dedicated sanitized parser-candidate bundle.
+- Exported fixtures include the existing relevance evidence, user-confirmed-financial status, semantic label and parser-readiness state.
+- Added pure regression coverage for each readiness state, aggregate readiness counts and filtering of evidence-ready candidates.
+
+Guardrail:
+
+Parser readiness is a development prioritization signal only. It does not create templates, alter ledger rows, infer amounts/directions, or bypass Message Pack/generic grammar review. Production support still requires implementing and testing the actual financial mechanics represented by the redacted wording.
+
