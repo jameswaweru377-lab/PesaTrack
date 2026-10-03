@@ -4,6 +4,9 @@ import com.kedevjimmy.pesatrack.domain.interpretation.CashDepositEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.CashWithdrawalEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.FieldEvidence
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialField
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpretation
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageNormalizer
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageRelevanceGate
@@ -15,6 +18,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.UnresolvedFinancialEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.UnsupportedFinancialCandidatePolicy
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageLabRedactor
+import com.kedevjimmy.pesatrack.domain.messagepack.MessagePackFieldValue
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseRoute
 import java.util.Locale
 
@@ -34,7 +38,14 @@ data class FinancialMessageInspection(
     val balanceSummaries: List<String>,
     val semanticIntents: List<String>,
     val extractedFieldNames: List<String>,
+    val heuristicUnsupported: Boolean,
     val wouldEnterMessageLab: Boolean,
+    val savedUserDecision:
+        MessageLabUserDecision? = null,
+    val savedSemanticLabel:
+        MessageLabSemanticLabel? = null,
+    val savedDecisionAmbiguous:
+        Boolean = false,
     val redactedSender: String,
     val redactedBody: String
 ) {
@@ -43,7 +54,7 @@ data class FinancialMessageInspection(
             append("{\n")
             appendJsonField(
                 name = "sender",
-                value = redactedSender,
+                value = "<SENDER>",
                 comma = true
             )
             appendJsonField(
@@ -120,9 +131,39 @@ data class FinancialMessageInspection(
             )
             appendJsonField(
                 name =
+                    "heuristicUnsupported",
+                value =
+                    heuristicUnsupported,
+                comma = true
+            )
+            appendJsonField(
+                name =
                     "wouldEnterMessageLab",
                 value =
                     wouldEnterMessageLab,
+                comma = true
+            )
+            savedUserDecision?.let {
+                appendJsonField(
+                    name =
+                        "savedUserDecision",
+                    value = it.name,
+                    comma = true
+                )
+            }
+            savedSemanticLabel?.let {
+                appendJsonField(
+                    name =
+                        "savedSemanticLabel",
+                    value = it.name,
+                    comma = true
+                )
+            }
+            appendJsonField(
+                name =
+                    "savedDecisionAmbiguous",
+                value =
+                    savedDecisionAmbiguous,
                 comma = true
             )
             appendJsonField(
@@ -236,7 +277,13 @@ private fun StringBuilder
 object FinancialMessageInspector {
     fun inspect(
         title: String?,
-        body: String
+        body: String,
+        savedUserDecision:
+            MessageLabUserDecision? = null,
+        savedSemanticLabel:
+            MessageLabSemanticLabel? = null,
+        savedDecisionAmbiguous:
+            Boolean = false
     ): FinancialMessageInspection {
         val normalized =
             FinancialMessageNormalizer
@@ -260,11 +307,28 @@ object FinancialMessageInspector {
                 .shouldTrack(
                     relevance
                 )
-        val redacted =
-            MessageLabRedactor.redact(
-                safeSenderLabel =
-                    title,
-                body = body
+        val effectiveDecision =
+            if (
+                savedDecisionAmbiguous
+            ) {
+                null
+            } else {
+                savedUserDecision
+            }
+        val retainedUnsupported =
+            MessageLabDecisionPolicy
+                .retainUnsupported(
+                    heuristicUnsupported =
+                        heuristicUnsupported,
+                    userDecision =
+                        effectiveDecision
+                )
+        val redactedBody =
+            sanitizeBody(
+                normalizedBody =
+                    normalized.body,
+                interpretation =
+                    interpretation
             )
 
         return FinancialMessageInspection(
@@ -331,18 +395,424 @@ object FinancialMessageInspector {
                     .map { it.field }
                     .distinct()
                     .sorted(),
+            heuristicUnsupported =
+                heuristicUnsupported,
             wouldEnterMessageLab =
-                heuristicUnsupported &&
+                retainedUnsupported &&
                     !interpretation
                         .recognized &&
                     !interpretation
                         .semanticallyUnderstood,
+            savedUserDecision =
+                if (
+                    savedDecisionAmbiguous
+                ) {
+                    null
+                } else {
+                    savedUserDecision
+                },
+            savedSemanticLabel =
+                if (
+                    savedDecisionAmbiguous
+                ) {
+                    null
+                } else {
+                    savedSemanticLabel
+                },
+            savedDecisionAmbiguous =
+                savedDecisionAmbiguous,
             redactedSender =
-                redacted.sender,
+                "<SENDER>",
             redactedBody =
-                redacted.body
+                redactedBody
         )
     }
+
+    private data class RedactionSpan(
+        val startOffset: Int,
+        val endOffsetExclusive: Int,
+        val placeholder: String
+    )
+
+    private fun sanitizeBody(
+        normalizedBody: String,
+        interpretation:
+            FinancialMessageInterpretation
+    ): String {
+        val evidence =
+            buildList {
+                addAll(
+                    interpretation
+                        .metadataEvidence
+                )
+                interpretation
+                    .balances
+                    .forEach {
+                        addAll(it.evidence)
+                    }
+                interpretation
+                    .events
+                    .forEach {
+                        addAll(
+                            eventEvidence(it)
+                        )
+                    }
+            }
+
+        var scrubbed =
+            redactEvidenceSpans(
+                body = normalizedBody,
+                evidence = evidence
+            )
+
+        interpretation
+            .parseProvenance
+            .extractedFields
+            .forEach {
+                field ->
+                scrubbed =
+                    redactExtractedValue(
+                        body = scrubbed,
+                        field = field
+                    )
+            }
+
+        return MessageLabRedactor
+            .redact(
+                safeSenderLabel = null,
+                body = scrubbed
+            )
+            .body
+    }
+
+    private fun redactEvidenceSpans(
+        body: String,
+        evidence:
+            List<FieldEvidence>
+    ): String {
+        val spans =
+            evidence.mapNotNull {
+                item ->
+                item.span?.let {
+                    span ->
+                    if (
+                        span.startOffset >= 0 &&
+                        span.endOffsetExclusive <=
+                        body.length &&
+                        span.startOffset <
+                        span.endOffsetExclusive
+                    ) {
+                        RedactionSpan(
+                            startOffset =
+                                span.startOffset,
+                            endOffsetExclusive =
+                                span.endOffsetExclusive,
+                            placeholder =
+                                placeholderFor(
+                                    item.field.name
+                                )
+                        )
+                    } else {
+                        null
+                    }
+                }
+            }
+
+        if (spans.isEmpty()) {
+            return body
+        }
+
+        val merged =
+            mergeSpans(spans)
+        var result =
+            body
+
+        merged
+            .asReversed()
+            .forEach {
+                span ->
+                result =
+                    result.replaceRange(
+                        span.startOffset,
+                        span.endOffsetExclusive,
+                        span.placeholder
+                    )
+            }
+
+        return result
+    }
+
+    private fun mergeSpans(
+        spans: List<RedactionSpan>
+    ): List<RedactionSpan> {
+        val sorted =
+            spans.sortedWith(
+                compareBy<
+                    RedactionSpan
+                > {
+                    it.startOffset
+                }.thenBy {
+                    it.endOffsetExclusive
+                }
+            )
+        val merged =
+            mutableListOf<
+                RedactionSpan
+            >()
+
+        sorted.forEach {
+            next ->
+            val current =
+                merged.lastOrNull()
+            if (
+                current == null ||
+                next.startOffset >=
+                    current
+                        .endOffsetExclusive
+            ) {
+                merged += next
+            } else {
+                merged[
+                    merged.lastIndex
+                ] =
+                    RedactionSpan(
+                        startOffset =
+                            current.startOffset,
+                        endOffsetExclusive =
+                            maxOf(
+                                current
+                                    .endOffsetExclusive,
+                                next
+                                    .endOffsetExclusive
+                            ),
+                        placeholder =
+                            if (
+                                current
+                                    .startOffset ==
+                                next.startOffset &&
+                                current
+                                    .endOffsetExclusive ==
+                                next
+                                    .endOffsetExclusive &&
+                                current
+                                    .placeholder ==
+                                next.placeholder
+                            ) {
+                                current.placeholder
+                            } else {
+                                "<VALUE>"
+                            }
+                    )
+            }
+        }
+
+        return merged
+    }
+
+    private fun redactExtractedValue(
+        body: String,
+        field:
+            MessagePackFieldValue
+    ): String {
+        val raw =
+            field.value.trim()
+        if (raw.isEmpty()) {
+            return body
+        }
+
+        val variants =
+            listOf(
+                raw,
+                FinancialMessageNormalizer
+                    .normalize(
+                        title = null,
+                        body = raw
+                    )
+                    .body
+            )
+                .filter(
+                    String::isNotBlank
+                )
+                .distinct()
+
+        var result =
+            body
+        variants.forEach {
+            value ->
+            val pattern =
+                Regex(
+                    "(?<![A-Za-z0-9])" +
+                        Regex.escape(
+                            value
+                        ) +
+                        "(?![A-Za-z0-9])",
+                    RegexOption
+                        .IGNORE_CASE
+                )
+            result =
+                result.replace(
+                    pattern,
+                    placeholderFor(
+                        field.field
+                    )
+                )
+        }
+
+        return result
+    }
+
+    private fun placeholderFor(
+        fieldName: String
+    ): String =
+        when (
+            runCatching {
+                FinancialField.valueOf(
+                    fieldName.uppercase()
+                )
+            }.getOrNull()
+        ) {
+            FinancialField.AMOUNT,
+            FinancialField.FEE,
+            FinancialField.BALANCE,
+            FinancialField.OUTSTANDING_BALANCE,
+            FinancialField.AVAILABLE_CREDIT ->
+                "<AMOUNT>"
+
+            FinancialField.TRANSACTION_CODE ->
+                "<TX_CODE>"
+
+            FinancialField.RELATED_TRANSACTION_CODE,
+            FinancialField.ACCOUNT_REFERENCE ->
+                "<REFERENCE>"
+
+            FinancialField.OCCURRED_AT ->
+                "<DATE_TIME>"
+
+            FinancialField.COUNTERPARTY ->
+                "<ENTITY>"
+
+            FinancialField.ACCOUNT,
+            FinancialField.SOURCE_ACCOUNT,
+            FinancialField.DESTINATION_ACCOUNT ->
+                "<ACCOUNT>"
+
+            FinancialField.LIABILITY ->
+                "<LIABILITY>"
+
+            FinancialField.COMPLETION,
+            FinancialField.RELATIONSHIP,
+            null ->
+                when {
+                    fieldName.contains(
+                        "AMOUNT",
+                        ignoreCase = true
+                    ) ||
+                        fieldName.contains(
+                            "BALANCE",
+                            ignoreCase = true
+                        ) ||
+                        fieldName.contains(
+                            "FEE",
+                            ignoreCase = true
+                        ) ||
+                        fieldName.contains(
+                            "OUTSTANDING",
+                            ignoreCase = true
+                        ) ||
+                        fieldName.contains(
+                            "LIMIT",
+                            ignoreCase = true
+                        ) ->
+                        "<AMOUNT>"
+
+                    fieldName.contains(
+                        "TRANSACTION_CODE",
+                        ignoreCase = true
+                    ) ->
+                        "<TX_CODE>"
+
+                    fieldName.contains(
+                        "COUNTERPARTY",
+                        ignoreCase = true
+                    ) ||
+                        fieldName.contains(
+                            "MERCHANT",
+                            ignoreCase = true
+                        ) ||
+                        fieldName.contains(
+                            "BENEFICIARY",
+                            ignoreCase = true
+                        ) ||
+                        fieldName.contains(
+                            "PAYER",
+                            ignoreCase = true
+                        ) ->
+                        "<ENTITY>"
+
+                    fieldName.contains(
+                        "DATE",
+                        ignoreCase = true
+                    ) ||
+                        fieldName.contains(
+                            "TIME",
+                            ignoreCase = true
+                        ) ->
+                        "<DATE_TIME>"
+
+                    fieldName.contains(
+                        "ACCOUNT",
+                        ignoreCase = true
+                    ) ||
+                        fieldName.contains(
+                            "REFERENCE",
+                            ignoreCase = true
+                        ) ||
+                        fieldName.contains(
+                            "REF",
+                            ignoreCase = true
+                        ) ||
+                        fieldName.contains(
+                            "DESTINATION",
+                            ignoreCase = true
+                        ) ||
+                        fieldName.contains(
+                            "SOURCE",
+                            ignoreCase = true
+                        ) ->
+                        "<REFERENCE>"
+
+                    else ->
+                        "<VALUE>"
+                }
+        }
+
+    private fun eventEvidence(
+        event:
+            com.kedevjimmy.pesatrack.domain.interpretation
+                .FinancialEventFact
+    ): List<FieldEvidence> =
+        when (event) {
+            is PaymentEventFact ->
+                event.evidence
+            is ReceiptEventFact ->
+                event.evidence
+            is TransferEventFact ->
+                event.evidence
+            is CashWithdrawalEventFact ->
+                event.evidence
+            is CashDepositEventFact ->
+                event.evidence
+            is DebtDrawdownEventFact ->
+                event.evidence
+            is DebtRepaymentEventFact ->
+                event.evidence
+            is ReversalEventFact ->
+                event.evidence
+            is UnresolvedFinancialEventFact ->
+                event.evidence
+            else ->
+                emptyList()
+        }
 
     private fun eventSummary(
         event:
