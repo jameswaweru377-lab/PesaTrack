@@ -291,70 +291,88 @@ object MessageLabParserDraftGenerator {
                 Int
             >()
 
-        return placeholderRegex
-            .findAll(body)
-            .map {
+        val matches =
+            placeholderRegex
+                .findAll(body)
+                .toList()
+
+        return matches.mapIndexed {
+                index,
                 match ->
-                val placeholder =
-                    match.value
-                val occurrence =
-                    (
-                        counters[
-                            placeholder
-                        ] ?: 0
-                        ) + 1
-                counters[
-                    placeholder
-                ] = occurrence
+            val placeholder =
+                match.value
+            val occurrence =
+                (
+                    counters[
+                        placeholder
+                    ] ?: 0
+                    ) + 1
+            counters[
+                placeholder
+            ] = occurrence
 
-                val left =
-                    body.substring(
-                        maxOf(
-                            0,
-                            match.range.first -
-                                CONTEXT_CHARS
-                        ),
-                        match.range.first
-                    )
-                        .trim()
-                val right =
-                    body.substring(
-                        match.range.last +
-                            1,
-                        minOf(
-                            body.length,
-                            match.range.last +
-                                1 +
-                                CONTEXT_CHARS
-                        )
-                    )
-                        .trim()
+            val leftStart =
+                if (index == 0) {
+                    0
+                } else {
+                    matches[index - 1]
+                        .range.last +
+                        1
+                }
+            val rightEnd =
+                if (
+                    index ==
+                    matches.lastIndex
+                ) {
+                    body.length
+                } else {
+                    matches[index + 1]
+                        .range.first
+                }
 
-                MessageLabParserDraftField(
-                    placeholder =
-                        placeholder,
-                    occurrence =
-                        occurrence,
-                    suggestedField =
-                        fieldNameFor(
-                            placeholder =
-                                placeholder,
-                            occurrence =
-                                occurrence,
-                            leftContext =
-                                left,
-                            rightContext =
-                                right,
-                            semanticLabel =
-                                semanticLabel
-                        ),
-                    leftContext =
-                        left,
-                    rightContext =
-                        right
+            val left =
+                body.substring(
+                    leftStart,
+                    match.range.first
                 )
-            }
-            .toList()
+                    .trim()
+                    .takeLast(
+                        CONTEXT_CHARS
+                    )
+            val right =
+                body.substring(
+                    match.range.last + 1,
+                    rightEnd
+                )
+                    .trim()
+                    .take(
+                        CONTEXT_CHARS
+                    )
+
+            MessageLabParserDraftField(
+                placeholder =
+                    placeholder,
+                occurrence =
+                    occurrence,
+                suggestedField =
+                    fieldNameFor(
+                        placeholder =
+                            placeholder,
+                        occurrence =
+                            occurrence,
+                        leftContext =
+                            left,
+                        rightContext =
+                            right,
+                        semanticLabel =
+                            semanticLabel
+                    ),
+                leftContext =
+                    left,
+                rightContext =
+                    right
+            )
+        }
     }
 
     private fun fieldNameFor(
@@ -422,14 +440,6 @@ object MessageLabParserDraftGenerator {
 
             "<AMOUNT>" ->
                 when {
-                    "transaction cost" in
-                        context ||
-                        "fee" in
-                        context ||
-                        "charge" in
-                        context ->
-                        "FEE"
-
                     (
                         "balance" in
                             context ||
@@ -449,6 +459,14 @@ object MessageLabParserDraftGenerator {
                     "balance" in
                         context ->
                         "BALANCE"
+
+                    "transaction cost" in
+                        context ||
+                        "fee" in
+                        context ||
+                        "charge" in
+                        context ->
+                        "FEE"
 
                     occurrence == 1 ->
                         "AMOUNT"
