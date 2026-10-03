@@ -105,6 +105,8 @@ data class UnresolvedMovementDraft(
     val amountMinor: Long,
     val observedAccount: FinancialAccountReference?,
     val feeMinor: Long = 0L,
+    val directionHint:
+        FinancialMovementDirectionHint? = null,
     override val confidence: InterpretationConfidence,
     override val evidence: List<FieldEvidence> = emptyList()
 ) : CanonicalFinancialRecord {

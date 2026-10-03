@@ -81,6 +81,7 @@ class TransactionStore private constructor(context: Context) {
         accountIdOverride: String? = null,
         accountTransferOverride:
             com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null,
+        directionOverride: MoneyDirection? = null,
         externalReferences: Set<String> = emptySet()
     ): Boolean {
         val legacyType =
@@ -130,6 +131,8 @@ class TransactionStore private constructor(context: Context) {
             accountIdOverride =
                 accountIdOverride,
             allowLegacyAccountFallback = false,
+            directionOverride =
+                directionOverride,
             externalReferences =
                 externalReferences
         )
@@ -151,6 +154,7 @@ class TransactionStore private constructor(context: Context) {
             com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch? = null,
         accountIdOverride: String? = null,
         allowLegacyAccountFallback: Boolean = true,
+        directionOverride: MoneyDirection? = null,
         externalReferences: Set<String> = emptySet()
     ): Boolean {
         val fingerprint = TransactionFingerprint.of(parsed, occurredAtEpochMs)
@@ -204,7 +208,24 @@ class TransactionStore private constructor(context: Context) {
                 planningMonth = PlanningPeriodResolver.resolve(occurredAtEpochMs, 0)
             )
         } else {
-            classify(parsed, matchedRule, occurredAtEpochMs)
+            classify(
+                parsed,
+                matchedRule,
+                occurredAtEpochMs
+            ).let {
+                base ->
+                if (
+                    matchedRule == null &&
+                    directionOverride != null
+                ) {
+                    base.copy(
+                        direction =
+                            directionOverride
+                    )
+                } else {
+                    base
+                }
+            }
         }
         val displayCounterparty =
             classification.displayLabel

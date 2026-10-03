@@ -172,6 +172,8 @@ fun FinancialMessageInterpretation.toCanonicalDraft():
                             observedAccount =
                                 event.observedAccount,
                             feeMinor = event.feeMinor,
+                            directionHint =
+                                event.directionHint,
                             confidence =
                                 event.confidence,
                             evidence = event.evidence

@@ -29,6 +29,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.FinancialSemanticRole
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtCompletion
 import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
 import com.kedevjimmy.pesatrack.domain.interpretation.ReceiptEventFact
@@ -995,6 +996,20 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     rebuildPayCycles,
                                 accountIdOverride =
                                     accountId,
+                                directionOverride =
+                                    when (
+                                        event.directionHint
+                                    ) {
+                                        com.kedevjimmy.pesatrack.domain.interpretation
+                                            .FinancialMovementDirectionHint
+                                            .OUTGOING ->
+                                            MoneyDirection.EXPENSE
+                                        com.kedevjimmy.pesatrack.domain.interpretation
+                                            .FinancialMovementDirectionHint
+                                            .INCOMING ->
+                                            MoneyDirection.INCOME
+                                        null -> null
+                                    },
                                 externalReferences =
                                     correlationReferences
                             )

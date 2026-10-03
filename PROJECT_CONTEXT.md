@@ -3625,3 +3625,26 @@ Guardrail:
 
 This is generic financial grammar, not an Equity-specific template. Exact Message Pack templates should still be added only from real sanitized wording evidence. The fallback is intended to move explicit bank debits from **Not understood** into a safe reviewable financial movement without fabricating transaction meaning.
 
+## Unresolved debit direction preservation — 2026-10-03
+
+Follow-up review of the provider-neutral bank debit fallback found a legacy-storage mismatch: explicit account-debit wording was semantically outgoing, but unresolved canonical movements were still persisted through the legacy `OTHER` type, whose default direction is neutral.
+
+Implemented:
+
+- Added a semantic direction hint to unresolved financial movements.
+- Explicit account-debit fallback now carries `OUTGOING`.
+- Generic unresolved movements keep no direction hint.
+- The canonical unresolved draft preserves the hint.
+- The ingestion coordinator maps:
+  - `OUTGOING` -> expense direction;
+  - `INCOMING` -> income direction;
+  - no hint -> existing neutral behavior.
+- The legacy transaction-storage bridge accepts an optional direction override.
+- Smart Rules still outrank the semantic hint.
+- Own-account-transfer handling still outranks the override.
+- Added regression coverage proving explicit bank debits are outgoing while generic unresolved messages do not invent a direction.
+
+Guardrail:
+
+A direction hint says only which way money moved. It does not invent a counterparty, category, transfer destination, or merchant identity. Explicit debit-without-beneficiary rows remain Needs Review until further evidence or a user rule resolves their meaning.
+

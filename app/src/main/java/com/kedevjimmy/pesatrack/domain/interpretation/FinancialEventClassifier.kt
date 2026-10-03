@@ -113,6 +113,8 @@ object FinancialEventClassifier {
                             relationship.observedAccount,
                         feeMinor =
                             relationship.feeMinor,
+                        directionHint =
+                            relationship.directionHint,
                         confidence =
                             relationship.confidence,
                         evidence =

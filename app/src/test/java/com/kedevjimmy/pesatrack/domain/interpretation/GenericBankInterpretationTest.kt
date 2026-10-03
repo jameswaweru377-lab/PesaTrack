@@ -92,6 +92,11 @@ class GenericBankInterpretationTest {
             InterpretationConfidence.MEDIUM,
             debit.confidence
         )
+        assertEquals(
+            FinancialMovementDirectionHint
+                .OUTGOING,
+            debit.directionHint
+        )
         assertTrue(
             debit.evidence.any {
                 it.field ==
@@ -160,6 +165,36 @@ class GenericBankInterpretationTest {
             AccountOwnershipHint.USER_OWNED,
             debit.observedAccount
                 ?.ownershipHint
+        )
+    }
+
+    @Test
+    fun genericUnresolvedRelationshipDoesNotInventDirection() {
+        val interpretation =
+            FinancialEventClassifier.classify(
+                ResolvedFinancialMessage(
+                    transactionCode = null,
+                    occurredAt = null,
+                    balances = emptyList(),
+                    relationship =
+                        ResolvedUnresolvedMovementRelationship(
+                            amountMinor = 92_500L,
+                            observedAccount = null,
+                            feeMinor = 0L,
+                            confidence =
+                                InterpretationConfidence.LOW,
+                            evidence = emptyList()
+                        )
+                )
+            )
+
+        val unresolved =
+            interpretation.events.single() as
+                UnresolvedFinancialEventFact
+
+        assertEquals(
+            null,
+            unresolved.directionHint
         )
     }
 

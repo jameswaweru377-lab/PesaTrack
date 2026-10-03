@@ -147,10 +147,17 @@ data class CashDepositEventFact(
         FinancialEventKind.CASH_DEPOSIT
 }
 
+enum class FinancialMovementDirectionHint {
+    OUTGOING,
+    INCOMING
+}
+
 data class UnresolvedFinancialEventFact(
     val amountMinor: Long,
     val observedAccount: FinancialAccountReference?,
     val feeMinor: Long,
+    val directionHint:
+        FinancialMovementDirectionHint? = null,
     override val confidence: InterpretationConfidence =
         InterpretationConfidence.LOW,
     val evidence: List<FieldEvidence> = emptyList()
