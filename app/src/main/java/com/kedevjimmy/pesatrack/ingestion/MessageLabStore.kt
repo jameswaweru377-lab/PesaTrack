@@ -652,7 +652,10 @@ class MessageLabStore private constructor(
                             it.name
                         }
                         .sorted()
-                        .forEach(::put)
+                        .forEach {
+                            signalName ->
+                            put(signalName)
+                        }
                 }
             )
             put(
@@ -833,7 +836,10 @@ class MessageLabStore private constructor(
                             it.name
                         }
                         .sorted()
-                        .forEach(::put)
+                        .forEach {
+                            signalName ->
+                            put(signalName)
+                        }
                 }
             )
         }
