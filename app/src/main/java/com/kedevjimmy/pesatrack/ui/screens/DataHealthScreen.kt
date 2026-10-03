@@ -56,6 +56,7 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.FinancialSourceCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
 import com.kedevjimmy.pesatrack.ingestion.MessageLabRelevanceExplainer
+import com.kedevjimmy.pesatrack.ingestion.MessageLabSemanticLabel
 import com.kedevjimmy.pesatrack.ingestion.MessageLabUserDecision
 import com.kedevjimmy.pesatrack.ingestion.UnsupportedMessageShape
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -850,6 +851,13 @@ fun DataHealthScreen(
                     MessageLabUserDecision
                         .CONFIRMED_FINANCIAL
             }
+        val semanticallyLabeledCount =
+            unsupported.count {
+                it.userDecision ==
+                    MessageLabUserDecision
+                        .CONFIRMED_FINANCIAL &&
+                    it.semanticLabel != null
+            }
 
         if (
             confirmedFinancialCount > 0
@@ -898,7 +906,9 @@ fun DataHealthScreen(
                                         } else {
                                             "s"
                                         } +
-                                        " prioritized for parser work",
+                                        " prioritized • " +
+                                        semanticallyLabeledCount +
+                                        " meaning-labeled",
                                     style =
                                         MaterialTheme
                                             .typography
@@ -1099,6 +1109,32 @@ fun DataHealthScreen(
                             "Kept as financial evidence",
                             Toast.LENGTH_SHORT
                         ).show()
+                    },
+                    onSemanticLabelSelected = {
+                            label ->
+                        messageLabStore
+                            .setSemanticLabel(
+                                shape.shapeId,
+                                label
+                            )
+                        unsupported =
+                            messageLabStore
+                                .prioritizedUnsupported(100)
+                        Toast.makeText(
+                            context,
+                            "Meaning saved: " +
+                                label.displayLabel,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    onSemanticLabelCleared = {
+                        messageLabStore
+                            .clearSemanticLabel(
+                                shape.shapeId
+                            )
+                        unsupported =
+                            messageLabStore
+                                .prioritizedUnsupported(100)
                     },
                     onIgnoreNonFinancial = {
                         messageLabStore
@@ -1946,6 +1982,9 @@ private fun HealthMetric(
 private fun UnsupportedShapeCard(
     shape: UnsupportedMessageShape,
     onConfirmFinancial: () -> Unit,
+    onSemanticLabelSelected:
+        (MessageLabSemanticLabel) -> Unit,
+    onSemanticLabelCleared: () -> Unit,
     onIgnoreNonFinancial: () -> Unit,
     onClearDecision: () -> Unit,
     onCopyFixture: () -> Unit
@@ -2048,6 +2087,81 @@ private fun UnsupportedShapeCard(
                         .typography
                         .labelMedium
             )
+            if (
+                shape.userDecision ==
+                MessageLabUserDecision
+                    .CONFIRMED_FINANCIAL
+            ) {
+                Text(
+                    "What does this message mean?",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleSmall
+                )
+                Text(
+                    "This label is evidence for future parser work only. It does not create or change a transaction.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+                MessageLabSemanticLabel
+                    .entries
+                    .toList()
+                    .chunked(2)
+                    .forEach {
+                        rowLabels ->
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(
+                                    8.dp
+                                )
+                        ) {
+                            rowLabels.forEach {
+                                label ->
+                                FilterChip(
+                                    selected =
+                                        shape.semanticLabel ==
+                                            label,
+                                    onClick = {
+                                        if (
+                                            shape.semanticLabel ==
+                                            label
+                                        ) {
+                                            onSemanticLabelCleared()
+                                        } else {
+                                            onSemanticLabelSelected(
+                                                label
+                                            )
+                                        }
+                                    },
+                                    label = {
+                                        Text(
+                                            label.displayLabel
+                                        )
+                                    },
+                                    modifier =
+                                        Modifier.weight(1f)
+                                )
+                            }
+                            if (
+                                rowLabels.size == 1
+                            ) {
+                                Spacer(
+                                    modifier =
+                                        Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+            }
             Row(
                 modifier =
                     Modifier.fillMaxWidth(),
