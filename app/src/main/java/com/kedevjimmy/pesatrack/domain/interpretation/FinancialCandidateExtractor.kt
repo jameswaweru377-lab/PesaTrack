@@ -248,7 +248,7 @@ object FinancialCandidateExtractor {
             )
         )
 
-    private val nonPostedCardAttemptRegex =
+    private val nonPostedMovementAttemptRegex =
         Regex(
             """\b(?:declined|failed|unsuccessful|rejected|pending|not\s+successful|could\s+not\s+be\s+completed)\b""",
             RegexOption.IGNORE_CASE
@@ -518,6 +518,12 @@ object FinancialCandidateExtractor {
     ): CashMovementCandidate? {
         val body =
             message.body
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
         val existing =
             cashWithdrawalRegex
                 .find(body)
@@ -1025,7 +1031,7 @@ object FinancialCandidateExtractor {
         body: String
     ): FinancialActionCandidate? {
         if (
-            nonPostedCardAttemptRegex
+            nonPostedMovementAttemptRegex
                 .containsMatchIn(body)
         ) {
             return null
