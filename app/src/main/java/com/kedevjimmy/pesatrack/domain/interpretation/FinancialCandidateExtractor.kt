@@ -48,6 +48,14 @@ data class AccountDebitCandidate(
     val ruleId: String
 )
 
+data class AccountCreditCandidate(
+    val amountMinor: Long,
+    val amountSpan: MessageSpan,
+    val accountReference: String?,
+    val accountReferenceSpan: MessageSpan?,
+    val ruleId: String
+)
+
 data class FinancialActionCandidate(
     val kind: FinancialActionCandidateKind,
     val amountMinor: Long,
@@ -91,6 +99,7 @@ data class FinancialMessageCandidates(
     val balances: List<BalanceCandidate>,
     val fee: FeeCandidate?,
     val accountDebit: AccountDebitCandidate? = null,
+    val accountCredit: AccountCreditCandidate? = null,
     val reversal: ReversalCandidate?,
     val cashMovements: List<CashMovementCandidate>,
     val actions: List<FinancialActionCandidate>,
@@ -238,6 +247,18 @@ object FinancialCandidateExtractor {
             ),
             Regex(
                 """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?debited\s+from\s+(?:your\s+)?(?:[A-Za-z][A-Za-z0-9&'’.-]{1,30}\s+){0,2}(?:a/?c|acct|account)(?:\s+([A-Za-z0-9*Xx-]+))?""",
+                RegexOption.IGNORE_CASE
+            )
+        )
+
+    private val accountCreditWithoutCounterpartyRegexes =
+        listOf(
+            Regex(
+                """(?:your\s+)?(?:[A-Za-z][A-Za-z0-9&'’.-]{1,30}\s+){0,2}(?:a/?c|acct|account)(?:\s+([A-Za-z0-9*Xx-]+))?\s+(?:has\s+been\s+)?credited(?:\s+(?:with|by))?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+                RegexOption.IGNORE_CASE
+            ),
+            Regex(
+                """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?credited\s+to\s+(?:your\s+)?(?:[A-Za-z][A-Za-z0-9&'’.-]{1,30}\s+){0,2}(?:a/?c|acct|account)(?:\s+([A-Za-z0-9*Xx-]+))?""",
                 RegexOption.IGNORE_CASE
             )
         )
@@ -420,6 +441,10 @@ object FinancialCandidateExtractor {
                 },
             accountDebit =
                 accountDebitWithoutCounterpartyCandidate(
+                    body
+                ),
+            accountCredit =
+                accountCreditWithoutCounterpartyCandidate(
                     body
                 ),
             reversal = reversalCandidate(body),
@@ -921,6 +946,68 @@ object FinancialCandidateExtractor {
                     ?.toSpan(),
             ruleId =
                 "payment.account_debit"
+        )
+    }
+
+    private fun accountCreditWithoutCounterpartyCandidate(
+        body: String
+    ): AccountCreditCandidate? {
+        val indexedMatch =
+            accountCreditWithoutCounterpartyRegexes
+                .withIndex()
+                .asSequence()
+                .mapNotNull {
+                    (index, regex) ->
+                    regex.find(body)
+                        ?.let {
+                            index to it
+                        }
+                }
+                .firstOrNull()
+                ?: return null
+        val (index, match) =
+            indexedMatch
+        val amountGroupIndex =
+            if (index == 0) {
+                2
+            } else {
+                1
+            }
+        val accountGroupIndex =
+            if (index == 0) {
+                1
+            } else {
+                2
+            }
+        val amount =
+            match.groups[
+                amountGroupIndex
+            ] ?: return null
+        val accountReference =
+            match.groups[
+                accountGroupIndex
+            ]
+
+        return AccountCreditCandidate(
+            amountMinor =
+                amountToMinor(
+                    amount.value
+                ),
+            amountSpan =
+                amount.range.toSpan(),
+            accountReference =
+                accountReference
+                    ?.value
+                    ?.trim()
+                    ?.takeIf(
+                        String::isNotBlank
+                    ),
+            accountReferenceSpan =
+                accountReference
+                    ?.range
+                    ?.toSpan(),
+            ruleId =
+                "receipt.account_credit"
         )
     }
 
