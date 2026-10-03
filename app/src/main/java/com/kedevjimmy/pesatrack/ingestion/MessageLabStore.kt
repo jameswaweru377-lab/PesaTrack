@@ -529,6 +529,56 @@ class MessageLabStore private constructor(
         }.getOrNull()
     }
 
+    @Synchronized
+    fun matchingShape(
+        safeSenderLabel: String?,
+        body: String
+    ): UnsupportedMessageShape? {
+        if (body.isBlank()) {
+            return null
+        }
+
+        val identity =
+            MessageLabShapeIdentityFactory
+                .create(
+                    safeSenderLabel =
+                        safeSenderLabel,
+                    body = body,
+                    sourcePackage = null,
+                    sourceKind = null
+                )
+        val candidates =
+            allStoredShapes()
+                .filter {
+                    it.redactedBody ==
+                        identity.redactedBody
+                }
+
+        return candidates
+            .filter {
+                it.sender.equals(
+                    identity.sender,
+                    ignoreCase = true
+                )
+            }
+            .maxByOrNull {
+                if (
+                    it.userDecision !=
+                    null
+                ) {
+                    2
+                } else {
+                    1
+                } * 1_000_000_000_000L +
+                    it.lastSeenAtEpochMs
+                        .coerceAtMost(
+                            999_999_999_999L
+                        )
+            }
+            ?: candidates
+                .singleOrNull()
+    }
+
     fun ignoredShapeCount(): Int =
         allStoredShapes()
             .count {
