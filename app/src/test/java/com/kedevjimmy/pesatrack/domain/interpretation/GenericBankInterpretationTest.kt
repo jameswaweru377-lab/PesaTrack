@@ -777,4 +777,106 @@ class GenericBankInterpretationTest {
         )
     }
 
+    @Test
+    fun understandsPostedStandaloneBankServiceCharge() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Monthly service charge KES 50.00 has been debited from your account XX9087. New Bal KES 4,950.00."
+            )
+
+        val fee =
+            interpretation.events.single() as
+                FeeEventFact
+
+        assertEquals(
+            5_000L,
+            fee.amountMinor
+        )
+        assertEquals(
+            "My Bank",
+            fee.chargedTo.displayName
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            fee.chargedTo.ownershipHint
+        )
+        assertEquals(
+            495_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+
+        val canonical =
+            interpretation
+                .toCanonicalDraft()
+                .records
+                .single() as
+                FeeDraft
+        assertEquals(
+            5_000L,
+            canonical.amountMinor
+        )
+        assertEquals(
+            fee.chargedTo.entityKey,
+            canonical.chargedTo
+                ?.entityKey
+        )
+    }
+
+    @Test
+    fun understandsAccountFirstMaintenanceFeePosting() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your account XX9087 was charged KES 100.00 as monthly maintenance fee. Avail Bal KES 4,900.00."
+            )
+
+        val fee =
+            interpretation.events.single() as
+                FeeEventFact
+
+        assertEquals(
+            10_000L,
+            fee.amountMinor
+        )
+        assertEquals(
+            490_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun futureBankFeeNoticeDoesNotCreatePostedMovement() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your account XX9087 will be charged KES 50.00 as monthly maintenance fee from next month."
+            )
+
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+    }
+
+    @Test
+    fun informationalFeeAmountDoesNotCreateStandaloneCharge() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Monthly maintenance fee KES 50.00 applies to this account."
+            )
+
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+    }
+
 }
