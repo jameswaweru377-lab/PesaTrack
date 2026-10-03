@@ -169,12 +169,23 @@ class GenericBankInterpretationTest {
     }
 
     @Test
-    fun genericUnresolvedMovementDoesNotInventDirection() {
+    fun genericUnresolvedRelationshipDoesNotInventDirection() {
         val interpretation =
-            FinancialMessageInterpreter.interpret(
-                title = "MPESA",
-                body =
-                    "ABCDEF1234 Confirmed. KES 925.00 processed on 03/10/26 at 7:05 PM."
+            FinancialEventClassifier.classify(
+                ResolvedFinancialMessage(
+                    transactionCode = null,
+                    occurredAt = null,
+                    balances = emptyList(),
+                    relationship =
+                        ResolvedUnresolvedMovementRelationship(
+                            amountMinor = 92_500L,
+                            observedAccount = null,
+                            feeMinor = 0L,
+                            confidence =
+                                InterpretationConfidence.LOW,
+                            evidence = emptyList()
+                        )
+                )
             )
 
         val unresolved =
