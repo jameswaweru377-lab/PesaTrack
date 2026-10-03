@@ -40,5 +40,32 @@
       "OUTSTANDING": "74.50",
       "FEE": "0.00"
     }
+  },
+  {
+    "id": "branch_sanitized_disbursement_a",
+    "title": "Branch",
+    "body": "Your loan of Kenya Shillings 4,607 has been disbursed to your M-Pesa account.",
+    "templateId": "ke.branch.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "4,607"
+    }
+  },
+  {
+    "id": "branch_sanitized_disbursement_b",
+    "title": "BRANCH",
+    "body": "Your loan of Kenya Shilling 3,250.50 has been disbursed to your M-Pesa account.",
+    "templateId": "ke.branch.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "3,250.50"
+    }
+  },
+  {
+    "id": "branch_sanitized_disbursement_c",
+    "title": "Branch",
+    "body": "Your loan of KES 1,800.00 has been disbursed to your M-Pesa account.",
+    "templateId": "ke.branch.loan.disbursed-to-mpesa",
+    "expectedFields": {
+      "AMOUNT": "1,800.00"
+    }
   }
 ]
