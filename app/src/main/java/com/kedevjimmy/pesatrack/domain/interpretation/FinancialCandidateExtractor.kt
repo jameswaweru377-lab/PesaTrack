@@ -379,6 +379,24 @@ object FinancialCandidateExtractor {
             RegexOption.DOT_MATCHES_ALL
         )
     )
+    private val bankCashDepositRegexes =
+        listOf(
+            Regex(
+                """\b(?:cash\s+)?deposit(?:\s+of)?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:into|to)\s+(?:your\s+)?((?:[A-Za-z][A-Za-z0-9&'’.-]*\s+){0,2}(?:a/?c|acct|account)(?:\s+[A-Za-z0-9*Xx-]+)?)(?:\s+at\s+(.+?))?(?=\s+on\s+\d|\s+(?:ref|reference|available|current|closing|balance)\b|[.;]|$)""",
+                setOf(
+                    RegexOption.IGNORE_CASE,
+                    RegexOption.DOT_MATCHES_ALL
+                )
+            ),
+            Regex(
+                """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:cash\s+)?deposited\s+(?:into|to)\s+(?:your\s+)?((?:[A-Za-z][A-Za-z0-9&'’.-]*\s+){0,2}(?:a/?c|acct|account)(?:\s+[A-Za-z0-9*Xx-]+)?)(?:\s+at\s+(.+?))?(?=\s+on\s+\d|\s+(?:ref|reference|available|current|closing|balance)\b|[.;]|$)""",
+                setOf(
+                    RegexOption.IGNORE_CASE,
+                    RegexOption.DOT_MATCHES_ALL
+                )
+            )
+        )
+
     private val depositCounterpartyRegex = Regex(
         """deposited\s+(?:into|to)\s+(?:your\s+)?[A-Za-z0-9&'’.-]+(?:\s+[A-Za-z0-9&'’.-]+){0,4}\s+at\s+(.+?)(?=\s+on\s+\d|\.\s*(?:New\s+)?[A-Za-z]|$)""",
         setOf(
@@ -503,7 +521,9 @@ object FinancialCandidateExtractor {
                 cashWithdrawalCandidate(
                     message
                 ),
-                cashDepositCandidate(body)
+                cashDepositCandidate(
+                    message
+                )
             ),
             actions = actions,
             debt = DebtCandidateExtractor.extract(
@@ -626,28 +646,116 @@ object FinancialCandidateExtractor {
     }
 
     private fun cashDepositCandidate(
-        body: String
+        message:
+            NormalizedFinancialMessage
     ): CashMovementCandidate? {
-        val match = cashDepositRegex.find(body)
-            ?: return null
-        val amount = match.groups[1] ?: return null
-        val account = match.groups[2] ?: return null
-        val counterparty =
-            depositCounterpartyRegex.find(body)
-                ?.groups
-                ?.get(1)
+        val body =
+            message.body
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
+        val existing =
+            cashDepositRegex
+                .find(body)
+        if (existing != null) {
+            val amount =
+                existing.groups[1]
+                    ?: return null
+            val account =
+                existing.groups[2]
+                    ?: return null
+            val counterparty =
+                depositCounterpartyRegex
+                    .find(body)
+                    ?.groups
+                    ?.get(1)
+
+            return CashMovementCandidate(
+                kind =
+                    CashMovementCandidateKind
+                        .DEPOSIT,
+                amountMinor =
+                    amountToMinor(
+                        amount.value
+                    ),
+                amountSpan =
+                    amount.range.toSpan(),
+                accountLabel =
+                    account.value.trim(),
+                accountSpan =
+                    account.range.toSpan(),
+                counterpartyLabel =
+                    counterparty
+                        ?.value
+                        ?.trim(),
+                counterpartySpan =
+                    counterparty
+                        ?.range
+                        ?.toSpan(),
+                ruleId =
+                    "cash.deposit"
+            )
+        }
+
+        val bankMatch =
+            bankCashDepositRegexes
+                .asSequence()
+                .mapNotNull {
+                    it.find(body)
+                }
+                .firstOrNull()
+                ?: return null
+        val amount =
+            bankMatch.groups[1]
+                ?: return null
+        val accountPhrase =
+            bankMatch.groups[2]
+                ?: return null
+        val location =
+            bankMatch.groups[3]
+        val accountLabel =
+            message.title
+                ?.trim()
+                ?.takeIf(
+                    String::isNotBlank
+                )
+                ?: accountPhrase
+                    .value
+                    .trim()
 
         return CashMovementCandidate(
-            kind = CashMovementCandidateKind.DEPOSIT,
-            amountMinor = amountToMinor(amount.value),
-            amountSpan = amount.range.toSpan(),
-            accountLabel = account.value.trim(),
-            accountSpan = account.range.toSpan(),
+            kind =
+                CashMovementCandidateKind
+                    .DEPOSIT,
+            amountMinor =
+                amountToMinor(
+                    amount.value
+                ),
+            amountSpan =
+                amount.range.toSpan(),
+            accountLabel =
+                accountLabel,
+            accountSpan =
+                accountPhrase
+                    .range
+                    .toSpan(),
             counterpartyLabel =
-                counterparty?.value?.trim(),
+                location
+                    ?.value
+                    ?.trim()
+                    ?.takeIf(
+                        String::isNotBlank
+                    ),
             counterpartySpan =
-                counterparty?.range?.toSpan(),
-            ruleId = "cash.deposit"
+                location
+                    ?.range
+                    ?.toSpan(),
+            ruleId =
+                "cash.bank_deposit"
         )
     }
 
