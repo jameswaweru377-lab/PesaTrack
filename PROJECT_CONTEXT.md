@@ -3462,3 +3462,29 @@ Guardrail:
 
 Parser readiness is a development prioritization signal only. It does not create templates, alter ledger rows, infer amounts/directions, or bypass Message Pack/generic grammar review. Production support still requires implementing and testing the actual financial mechanics represented by the redacted wording.
 
+## Data Health local Message Inspector — current parser-readiness baseline — 2026-10-03
+
+The real-device evidence loop now includes a one-message diagnostic tool on top of the current semantic-label and parser-readiness implementation.
+
+Implemented:
+
+- Added **Data Health -> Inspect one message**.
+- A user can paste an SMS body and optional sender/title and run it through the exact current Financial Intelligence + Message Pack stack.
+- Inspection is local and ephemeral; this tool does not persist the raw pasted text.
+- The result shows whether the message is recognized, semantically understood, unsupported financial evidence, or outside the unsupported-financial boundary.
+- The UI exposes parse route, matching template/revision, relevance score/signals, extracted field names, transaction code/date when present, interpreted event summaries, observed balances and semantic intent hints.
+- The inspector explicitly reports whether the current build would still place the message in Message Lab.
+- Added **Copy sanitized diagnostic**. The export uses the same local redaction boundary and intentionally omits raw transaction values.
+- The sanitized exporter is pure Kotlin so privacy assertions run in local JVM tests rather than depending on Android JSON stubs.
+- Added regression coverage using the real-device M-Shwari repayment shape, weak loan-marketing language and sanitized-export privacy assertions.
+
+Recommended use:
+
+1. Reprocess one month first so stored state is current.
+2. For any remaining suspicious or Not understood SMS, paste one copy into Message Inspector.
+3. If it says **Recognized** but app state is still wrong, investigate reconciliation/account identity rather than adding another parser template.
+4. If it says **Not understood** and would enter Message Lab, use the sanitized diagnostic plus the Financial/Not financial, semantic-label and parser-readiness workflow as concrete evidence.
+5. If it says **Not financial / ignored**, do not add provider-specific parsing without stronger evidence.
+
+This tool is diagnostic only. It does not write transactions, balances, Message Lab decisions, semantic labels or parser-readiness state.
+
