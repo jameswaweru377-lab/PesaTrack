@@ -107,6 +107,50 @@ class MessageLabImplementationReviewTest {
     }
 
     @Test
+    fun familyVariantsProduceOneImplementationCandidatePerMeaning() {
+        val snapshot =
+            MessageLabImplementationReview
+                .snapshot(
+                    listOf(
+                        shape(
+                            id = "variant-a",
+                            familyId = "family-one",
+                            occurrences = 1,
+                            familyOccurrences = 3,
+                            semanticLabel =
+                                MessageLabSemanticLabel
+                                    .PAYMENT
+                        ),
+                        shape(
+                            id = "variant-b",
+                            familyId = "family-one",
+                            occurrences = 2,
+                            familyOccurrences = 3,
+                            semanticLabel =
+                                MessageLabSemanticLabel
+                                    .PAYMENT,
+                            implementationReview =
+                                MessageLabImplementationReviewState
+                                    .READY_FOR_PARSER_WORK
+                        )
+                    )
+                )
+
+        assertEquals(
+            1,
+            snapshot.evidenceReadyCount
+        )
+        assertEquals(
+            0,
+            snapshot.unreviewedCount
+        )
+        assertEquals(
+            1,
+            snapshot.readyForParserWorkCount
+        )
+    }
+
+    @Test
     fun readyForParserWorkRequiresFreshEvidenceReadinessToo() {
         val ready =
             MessageLabImplementationReview
@@ -155,7 +199,9 @@ class MessageLabImplementationReviewTest {
 
     private fun shape(
         id: String = "shape",
+        familyId: String = id,
         occurrences: Int,
+        familyOccurrences: Int = 0,
         semanticLabel:
             MessageLabSemanticLabel?,
         implementationReview:
@@ -164,6 +210,7 @@ class MessageLabImplementationReviewTest {
     ) =
         UnsupportedMessageShape(
             shapeId = id,
+            familyId = familyId,
             sender = "Source",
             sourcePackage = null,
             sourceKind =
@@ -180,6 +227,8 @@ class MessageLabImplementationReviewTest {
             semanticLabel =
                 semanticLabel,
             implementationReview =
-                implementationReview
+                implementationReview,
+            familyOccurrenceCount =
+                familyOccurrences
         )
 }
