@@ -58,6 +58,8 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialMessageInspection
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageInspector
 import com.kedevjimmy.pesatrack.ingestion.FinancialSourceCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
+import com.kedevjimmy.pesatrack.ingestion.MessageLabImplementationReview
+import com.kedevjimmy.pesatrack.ingestion.MessageLabImplementationReviewState
 import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadiness
 import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadinessState
 import com.kedevjimmy.pesatrack.ingestion.MessageLabRelevanceExplainer
@@ -954,6 +956,11 @@ fun DataHealthScreen(
                 .snapshot(
                     unsupported
                 )
+        val implementationReview =
+            MessageLabImplementationReview
+                .snapshot(
+                    unsupported
+                )
 
         if (
             confirmedFinancialCount > 0
@@ -1120,13 +1127,13 @@ fun DataHealthScreen(
                                             .setPrimaryClip(
                                                 ClipData
                                                     .newPlainText(
-                                                        "PesaTrack parser-ready evidence",
+                                                        "PesaTrack evidence-ready parser candidates",
                                                         fixtures
                                                     )
                                             )
                                         Toast.makeText(
                                             context,
-                                            "Parser-ready evidence copied",
+                                            "Evidence-ready bundle copied",
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
@@ -1135,7 +1142,7 @@ fun DataHealthScreen(
                                     Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    "Copy parser-ready bundle"
+                                    "Copy evidence-ready bundle"
                                 )
                             }
                             Button(
@@ -1175,6 +1182,110 @@ fun DataHealthScreen(
                             ) {
                                 Text(
                                     "Copy parser draft bundle"
+                                )
+                            }
+                            Text(
+                                "Drafts are review artifacts. Mark a candidate below as Ready for parser work only after checking the proposed mechanics.",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelSmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(
+                                    8.dp
+                                )
+                        ) {
+                            HealthMetric(
+                                label =
+                                    "Awaiting implementation review",
+                                value =
+                                    implementationReview
+                                        .unreviewedCount
+                            )
+                        }
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(
+                                    8.dp
+                                )
+                        ) {
+                            HealthMetric(
+                                label =
+                                    "Needs more examples",
+                                value =
+                                    implementationReview
+                                        .needsMoreEvidenceCount
+                            )
+                        }
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(
+                                    8.dp
+                                )
+                        ) {
+                            HealthMetric(
+                                label =
+                                    "Ready for parser work",
+                                value =
+                                    implementationReview
+                                        .readyForParserWorkCount
+                            )
+                        }
+                        if (
+                            implementationReview
+                                .readyForParserWorkCount >
+                            0
+                        ) {
+                            Button(
+                                onClick = {
+                                    val fixtures =
+                                        messageLabStore
+                                            .exportImplementationReadyParserCandidates(
+                                                limit = 50
+                                            )
+                                    if (
+                                        fixtures != null
+                                    ) {
+                                        val clipboard =
+                                            context
+                                                .getSystemService(
+                                                    Context
+                                                        .CLIPBOARD_SERVICE
+                                                ) as
+                                                ClipboardManager
+                                        clipboard
+                                            .setPrimaryClip(
+                                                ClipData
+                                                    .newPlainText(
+                                                        "PesaTrack implementation-ready parser candidates",
+                                                        fixtures
+                                                    )
+                                            )
+                                        Toast.makeText(
+                                            context,
+                                            "Implementation-ready bundle copied",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                },
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "Copy implementation-ready bundle"
                                 )
                             }
                         }
@@ -1342,6 +1453,31 @@ fun DataHealthScreen(
                     onSemanticLabelCleared = {
                         messageLabStore
                             .clearSemanticLabel(
+                                shape.shapeId
+                            )
+                        unsupported =
+                            messageLabStore
+                                .prioritizedUnsupported(100)
+                    },
+                    onImplementationReviewSelected = {
+                            review ->
+                        messageLabStore
+                            .setImplementationReview(
+                                shape.shapeId,
+                                review
+                            )
+                        unsupported =
+                            messageLabStore
+                                .prioritizedUnsupported(100)
+                        Toast.makeText(
+                            context,
+                            review.displayLabel,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    onImplementationReviewCleared = {
+                        messageLabStore
+                            .clearImplementationReview(
                                 shape.shapeId
                             )
                         unsupported =
@@ -2644,6 +2780,10 @@ private fun UnsupportedShapeCard(
     onSemanticLabelSelected:
         (MessageLabSemanticLabel) -> Unit,
     onSemanticLabelCleared: () -> Unit,
+    onImplementationReviewSelected:
+        (MessageLabImplementationReviewState) -> Unit,
+    onImplementationReviewCleared:
+        () -> Unit,
     onIgnoreNonFinancial: () -> Unit,
     onClearDecision: () -> Unit,
     onCopyParserDraft: () -> Unit,
@@ -2861,6 +3001,90 @@ private fun UnsupportedShapeCard(
                                 )
                             }
                         }
+                    }
+            }
+            if (
+                shape.userDecision ==
+                    MessageLabUserDecision
+                        .CONFIRMED_FINANCIAL &&
+                MessageLabImplementationReview
+                    .isReviewable(shape)
+            ) {
+                Text(
+                    "Implementation review",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleSmall
+                )
+                Text(
+                    "Review the inactive parser draft and the redacted mechanics before deciding whether this shape has enough evidence for implementation.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            8.dp
+                        )
+                ) {
+                    MessageLabImplementationReviewState
+                        .values()
+                        .forEach {
+                            review ->
+                            FilterChip(
+                                selected =
+                                    shape
+                                        .implementationReview ==
+                                    review,
+                                onClick = {
+                                    if (
+                                        shape
+                                            .implementationReview ==
+                                        review
+                                    ) {
+                                        onImplementationReviewCleared()
+                                    } else {
+                                        onImplementationReviewSelected(
+                                            review
+                                        )
+                                    }
+                                },
+                                label = {
+                                    Text(
+                                        review.displayLabel
+                                    )
+                                },
+                                modifier =
+                                    Modifier.weight(1f)
+                            )
+                        }
+                }
+                shape.implementationReview
+                    ?.let {
+                        review ->
+                        SmallStatusPill(
+                            text =
+                                review.displayLabel,
+                            tone =
+                                if (
+                                    review ==
+                                    MessageLabImplementationReviewState
+                                        .READY_FOR_PARSER_WORK
+                                ) {
+                                    "green"
+                                } else {
+                                    "amber"
+                                }
+                        )
                     }
             }
             Row(
