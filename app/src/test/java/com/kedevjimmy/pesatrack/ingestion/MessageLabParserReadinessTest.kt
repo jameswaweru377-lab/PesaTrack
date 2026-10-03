@@ -59,6 +59,27 @@ class MessageLabParserReadinessTest {
     }
 
     @Test
+    fun conservativeFamilyRecurrenceCanSatisfyRepeatedEvidenceFloor() {
+        assertEquals(
+            MessageLabParserReadinessState
+                .EVIDENCE_READY,
+            MessageLabParserReadiness
+                .stateFor(
+                    shape(
+                        decision =
+                            MessageLabUserDecision
+                                .CONFIRMED_FINANCIAL,
+                        semanticLabel =
+                            MessageLabSemanticLabel
+                                .PAYMENT,
+                        occurrences = 1,
+                        familyOccurrences = 3
+                    )
+                )
+        )
+    }
+
+    @Test
     fun repeatedLabeledConfirmedShapeIsEvidenceReady() {
         assertEquals(
             MessageLabParserReadinessState
@@ -200,7 +221,8 @@ class MessageLabParserReadinessTest {
             MessageLabUserDecision?,
         semanticLabel:
             MessageLabSemanticLabel?,
-        occurrences: Int
+        occurrences: Int,
+        familyOccurrences: Int = 0
     ) =
         UnsupportedMessageShape(
             shapeId = id,
@@ -216,6 +238,8 @@ class MessageLabParserReadinessTest {
             userDecision =
                 decision,
             semanticLabel =
-                semanticLabel
+                semanticLabel,
+            familyOccurrenceCount =
+                familyOccurrences
         )
 }
