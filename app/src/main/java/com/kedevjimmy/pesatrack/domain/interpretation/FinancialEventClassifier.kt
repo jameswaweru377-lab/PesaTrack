@@ -20,8 +20,6 @@ object FinancialEventClassifier {
                             relationship.destination,
                         feeMinor =
                             relationship.feeMinor,
-                        directionHint =
-                            relationship.directionHint,
                         confidence =
                             relationship.confidence,
                         evidence =
@@ -115,6 +113,8 @@ object FinancialEventClassifier {
                             relationship.observedAccount,
                         feeMinor =
                             relationship.feeMinor,
+                        directionHint =
+                            relationship.directionHint,
                         confidence =
                             relationship.confidence,
                         evidence =
