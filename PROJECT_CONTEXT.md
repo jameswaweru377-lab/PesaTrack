@@ -3764,3 +3764,23 @@ Safety boundary:
 - `Ledger Bal` and `Book Bal` remain intentionally unsupported as usable/current balance.
 - The extractor still requires the balance shorthand to appear as its own balance phrase, rather than matching arbitrary words ending in `bal`.
 
+## Post-transaction New Bal / New Balance wording — 2026-10-03
+
+Generic bank balance reconciliation now recognizes the common post-transaction wording `New Bal` and `New Balance`.
+
+Implemented:
+
+- Recognizes:
+  - `New Bal KES <amount>`;
+  - `New Bal: KES <amount>`;
+  - `New Balance Ksh <amount>`;
+  - `New Balance: Ksh <amount>`;
+  - case variants.
+- Uses the same owned message-source account resolution as plain `Balance`, `Bal`, Available/Avail/Avl, Current and Closing balance wording.
+- Added debit and credit regression coverage.
+
+Safety boundary:
+
+- The change only adds `new` as a qualifier directly before `Bal` / `Balance`.
+- It does not reinterpret `Ledger Bal`, `Book Bal`, loan balances, or arbitrary uses of the word `new`.
+

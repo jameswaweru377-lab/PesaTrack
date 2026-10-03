@@ -621,6 +621,40 @@ class GenericBankInterpretationTest {
     }
 
     @Test
+    fun understandsNewBalAfterBankDebit() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your account XX9087 has been debited by KES 500.00. New Bal KES 3,100.00."
+            )
+
+        assertEquals(
+            310_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun understandsNewBalanceAfterBankCredit() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "KES 825.50 has been credited to your account XX9087. New Balance: Ksh 4,925.50."
+            )
+
+        assertEquals(
+            492_550L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
     fun bookBalIsNotSilentlyTreatedAsAvailableBalance() {
         val interpretation =
             FinancialMessageInterpreter.interpret(
