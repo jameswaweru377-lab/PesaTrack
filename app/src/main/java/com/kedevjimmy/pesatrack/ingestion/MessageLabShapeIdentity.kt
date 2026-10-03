@@ -113,25 +113,25 @@ object MessageLabShapeIdentityFactory {
             .lowercase()
             .replace(
                 Regex(
-                    """\\bm[\\s-]*pesa\\b"""
+                    """\bm[\s-]*pesa\b"""
                 ),
                 "mpesa"
             )
             .replace(
                 Regex(
-                    """\\bm[\\s-]*shwari\\b"""
+                    """\bm[\s-]*shwari\b"""
                 ),
                 "mshwari"
             )
             .replace(
                 Regex(
-                    """\\bpesa[\\s-]*link\\b"""
+                    """\bpesa[\s-]*link\b"""
                 ),
                 "pesalink"
             )
             .replace(
                 Regex(
-                    """\\b(?:kshs?|kes|shs?)[.]?\\b"""
+                    """\b(?:kshs?|kes|shs?)[.]?\b"""
                 ),
                 "<currency>"
             )
@@ -143,7 +143,7 @@ object MessageLabShapeIdentityFactory {
             )
             .replace(
                 Regex(
-                    """\\s+"""
+                    """\s+"""
                 ),
                 " "
             )
