@@ -126,6 +126,8 @@ object DebtCandidateExtractor {
         val body = message.body
         val available =
             availableCreditRegex.find(body)
+        val outstandingForRepayment =
+            outstandingRegex.find(body)
         val repayment =
             repaymentRegex.find(body)
                 ?.let { match ->
@@ -142,6 +144,13 @@ object DebtCandidateExtractor {
                             ?: return@let null
                     val availableMatch =
                         available?.takeIf {
+                            sameFinancialLabel(
+                                liability.value,
+                                it.groups[1]?.value
+                            )
+                        }
+                    val outstandingMatch =
+                        outstandingForRepayment?.takeIf {
                             sameFinancialLabel(
                                 liability.value,
                                 it.groups[1]?.value
@@ -173,6 +182,18 @@ object DebtCandidateExtractor {
                             else ->
                                 DebtCompletion.UNKNOWN
                         },
+                        outstandingAfterMinor =
+                            outstandingMatch
+                                ?.groups
+                                ?.get(2)
+                                ?.value
+                                ?.let(::amountToMinor),
+                        outstandingSpan =
+                            outstandingMatch
+                                ?.groups
+                                ?.get(2)
+                                ?.range
+                                ?.toSpan(),
                         availableCreditAfterMinor =
                             availableMatch
                                 ?.groups

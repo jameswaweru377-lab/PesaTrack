@@ -269,7 +269,7 @@ class MessagePackCorpusHealthTest {
 
     companion object {
         private val FIXTURE_RESOURCES =
-            (1..13).map {
+            (1..14).map {
                 "message-packs/ke/fixtures-v$it.json"
             }
 
@@ -324,6 +324,7 @@ class MessagePackCorpusHealthTest {
                 "ke.mshwari.savings.from-mpesa",
                 "ke.mshwari.loan.approved-to-mpesa",
                 "ke.mshwari.loan.balance",
+                "ke.mshwari.loan.repaid-from-mpesa",
                 "ke.fuliza.loan.drawdown",
                 "ke.fuliza.loan.partial-repayment",
                 "ke.fuliza.loan.full-repayment"

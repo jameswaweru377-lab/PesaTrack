@@ -33,10 +33,18 @@ object MessagePackCandidateBridge {
                 candidates
             }
 
+        val repaymentEnriched =
+            enrichDebtRepayment(
+                candidates =
+                    guardedCandidates,
+                match = match,
+                message = message
+            )
+
         val debtEnriched =
             enrichDebtDrawdown(
                 candidates =
-                    guardedCandidates,
+                    repaymentEnriched,
                 match = match,
                 message = message
             )
@@ -119,6 +127,147 @@ object MessagePackCandidateBridge {
             actions =
                 debtEnriched.actions +
                     action
+        )
+    }
+
+    private fun enrichDebtRepayment(
+        candidates: FinancialMessageCandidates,
+        match: MessagePackMatch,
+        message: NormalizedFinancialMessage
+    ): FinancialMessageCandidates {
+        if (
+            match.eventKind.uppercase() !=
+            "DEBT_REPAYMENT"
+        ) {
+            return candidates
+        }
+
+        val product =
+            debtProduct(
+                match.productIdentity
+            ) ?: return candidates
+
+        val amountField =
+            match.fields.firstOrNull {
+                it.field.equals(
+                    "AMOUNT",
+                    ignoreCase = true
+                )
+            } ?: return candidates
+        val amountMinor =
+            amountToMinor(
+                amountField.value
+            ) ?: return candidates
+        val amountSpan =
+            spanForValue(
+                body = message.body,
+                value = amountField.value
+            ) ?: return candidates
+
+        val outstandingField =
+            match.fields.firstOrNull {
+                it.field.equals(
+                    "OUTSTANDING",
+                    ignoreCase = true
+                )
+            }
+        val outstandingMinor =
+            outstandingField
+                ?.value
+                ?.let(::amountToMinor)
+        val outstandingSpan =
+            outstandingField
+                ?.value
+                ?.let {
+                    spanForValue(
+                        body = message.body,
+                        value = it
+                    )
+                }
+
+        val sourceField =
+            match.fields.firstOrNull {
+                it.field.equals(
+                    "SOURCE",
+                    ignoreCase = true
+                )
+            }
+        val fundingLabel =
+            sourceField?.value
+        val fundingSpan =
+            fundingLabel?.let {
+                spanForValue(
+                    body = message.body,
+                    value = it
+                )
+            }
+
+        val liabilitySpan =
+            spanForKeyword(
+                body = message.body,
+                keyword = "Loan"
+            ) ?: return candidates
+
+        val repayment =
+            DebtRepaymentCandidate(
+                amountMinor = amountMinor,
+                amountSpan = amountSpan,
+                fundingAccountLabel =
+                    fundingLabel,
+                fundingAccountSpan =
+                    fundingSpan,
+                liabilityLabel =
+                    product.liabilityLabel,
+                liabilitySpan =
+                    liabilitySpan,
+                completion =
+                    if (outstandingMinor == 0L) {
+                        DebtCompletion.FULL
+                    } else {
+                        DebtCompletion.UNKNOWN
+                    },
+                outstandingAfterMinor =
+                    outstandingMinor,
+                outstandingSpan =
+                    outstandingSpan,
+                availableCreditAfterMinor =
+                    null,
+                availableCreditSpan =
+                    null,
+                ruleId =
+                    "message_pack." +
+                        match.templateId +
+                        "@" +
+                        match.revision +
+                        ".debt_repayment"
+            )
+
+        val correctedBalances =
+            candidates.balances.map {
+                balance ->
+                if (
+                    balance.rawAccountLabel.equals(
+                        "Loan",
+                        ignoreCase = true
+                    ) ||
+                    balance.ruleId ==
+                    "balance.generic_loan"
+                ) {
+                    balance.copy(
+                        rawAccountLabel =
+                            product.liabilityLabel
+                    )
+                } else {
+                    balance
+                }
+            }
+
+        return candidates.copy(
+            balances = correctedBalances,
+            debt =
+                candidates.debt.copy(
+                    repayment = repayment
+                )
         )
     }
 

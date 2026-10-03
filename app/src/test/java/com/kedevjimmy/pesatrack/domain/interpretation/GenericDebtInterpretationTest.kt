@@ -127,6 +127,31 @@ class GenericDebtInterpretationTest {
     }
 
     @Test
+    fun partialRepaymentCarriesExplicitOutstandingBalance() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "Finance",
+                body =
+                    "KES 300.00 from your M-PESA has been used to partially pay your outstanding Nova Credit. " +
+                        "Total Nova Credit outstanding balance is KES 200.00."
+            )
+
+        val event =
+            interpretation.events.single() as
+                DebtRepaymentEventFact
+
+        assertEquals(30_000L, event.amountMinor)
+        assertEquals(
+            DebtCompletion.PARTIAL,
+            event.completion
+        )
+        assertEquals(
+            20_000L,
+            event.outstandingAfterMinor
+        )
+    }
+
+    @Test
     fun debtGrammarDoesNotTurnOrdinaryAccountTransferIntoDebt() {
         val message =
             "TST12DEBT3 Confirmed. Ksh 5,000.00 transferred from Nova Credit account on 28/9/26 at 7:00 PM. Nova Credit balance is Ksh 12,400.00. M-PESA balance is Ksh 8,100.00."

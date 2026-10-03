@@ -10,6 +10,7 @@
     "mshwari/lock-savings/deposit/template.json",
     "mshwari/loan/approved-to-mpesa/template.json",
     "mshwari/loan/balance/template.json",
+    "mshwari/loan/repaid-from-mpesa/template.json",
     "fuliza/loan/drawdown/template.json",
     "fuliza/loan/partial-repayment/template.json",
     "fuliza/loan/full-repayment/template.json",

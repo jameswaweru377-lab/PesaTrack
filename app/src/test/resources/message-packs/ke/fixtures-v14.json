@@ -1,0 +1,44 @@
+[
+  {
+    "id": "mshwari_repayment_real_device_a",
+    "title": "MPESA",
+    "body": "TSTV14M001 Confirmed. Loan of Ksh575.00 repaid from M-PESA on 2/10/26 at 7:33 AM. Loan balance is Ksh0.00. Transaction cost Kshs 0.00",
+    "templateId": "ke.mshwari.loan.repaid-from-mpesa",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV14M001",
+      "AMOUNT": "575.00",
+      "SOURCE": "M-PESA",
+      "DATE": "2/10/26 at 7:33 AM",
+      "OUTSTANDING": "0.00",
+      "FEE": "0.00"
+    }
+  },
+  {
+    "id": "mshwari_repayment_real_device_b",
+    "title": "MPESA",
+    "body": "TSTV14M002 Confirmed. Loan of Ksh300.00 repaid from M-PESA on 3/10/26 at 9:05 PM. Loan balance is Ksh200.00. Transaction cost Kshs 0.00",
+    "templateId": "ke.mshwari.loan.repaid-from-mpesa",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV14M002",
+      "AMOUNT": "300.00",
+      "SOURCE": "M-PESA",
+      "DATE": "3/10/26 at 9:05 PM",
+      "OUTSTANDING": "200.00",
+      "FEE": "0.00"
+    }
+  },
+  {
+    "id": "mshwari_repayment_real_device_c",
+    "title": "MPESA",
+    "body": "TSTV14M003 Confirmed. Loan of Ksh125.50 repaid from M-PESA on 14/11/26 at 10:42 AM. Loan balance is Ksh74.50. Transaction cost Kshs 0.00",
+    "templateId": "ke.mshwari.loan.repaid-from-mpesa",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV14M003",
+      "AMOUNT": "125.50",
+      "SOURCE": "M-PESA",
+      "DATE": "14/11/26 at 10:42 AM",
+      "OUTSTANDING": "74.50",
+      "FEE": "0.00"
+    }
+  }
+]

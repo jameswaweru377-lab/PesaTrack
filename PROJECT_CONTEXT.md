@@ -3278,3 +3278,40 @@ This is measurement only. It does not change parsing, Identity Graph authority, 
 
 Use the metric with real device history. If the mature rate remains above the blueprint target, inspect the actual Needs Attention / Identity / Message Lab evidence causing user intervention before changing parsing or learning behavior.
 
+## Real-device accuracy pass — unsupported noise + debt balance reconciliation — 2026-10-02
+
+Real-device feedback after the six-phase Brain v3 build exposed two product-quality gaps that static corpus gates did not catch.
+
+Implemented:
+
+- Added a stricter unsupported-message retention boundary for Message Lab / "Not understood".
+- The broad financial relevance gate remains intentionally recall-friendly for interpretation, but weak one-signal matches such as isolated `credit`, `loan`, `balance` or investment language no longer become persistent unsupported-financial diagnostics without corroborating evidence.
+- Known/recognized and semantically understood messages remain diagnosable.
+- Historical import still locally inspects SMS in the selected window; that is necessary to decide relevance without a brittle sender whitelist. Irrelevant messages are not promoted into the financial ledger or unsupported-learning pool.
+- Liability balance observations now propagate from the generic financial interpretation path into `DebtStore`, so a later observed loan balance can update the debt UI.
+- Debt repayments now honor an explicit `outstandingAfterMinor` as an observed balance instead of always estimating by subtraction.
+- Generic partial-repayment grammar now carries a matching explicit outstanding balance when the same message states it.
+- Added regression tests for unsupported-message false-positive suppression and partial repayments with a stated remaining balance.
+
+This pass is provider-neutral. Do not fix future real-device gaps by adding provider-specific branches unless the financial mechanics genuinely require provider metadata. Prefer message-shape evidence, generic semantics and durable account identity.
+
+## Real-device M-Shwari repayment shape — 2026-10-03
+
+Added a real-device M-Shwari repayment message shape based on sanitized user-provided wording:
+
+`<CODE> Confirmed. Loan of Ksh<AMOUNT> repaid from M-PESA on <DATE> at <TIME>. Loan balance is Ksh<OUTSTANDING>. Transaction cost Kshs <FEE>`
+
+Implemented:
+
+- new Message Pack template `ke.mshwari.loan.repaid-from-mpesa`;
+- stable product identity `NCBA_MSHWARI_LOAN`;
+- variable date/time extraction rather than hard-coding the observed date;
+- structured extraction for transaction code, repayment amount, M-Pesa funding source, date/time, outstanding loan balance and transaction cost;
+- Message Pack -> debt-repayment bridge so the generic phrase `Loan balance` resolves to M-Shwari Loan instead of an anonymous liability;
+- outstanding `0.00` marks the debt fully repaid; a non-zero observed balance remains authoritative;
+- three sanitized value/date variants in `fixtures-v14.json`;
+- Message Pack active-template baseline is now 63, all with >=3 golden fixtures;
+- regression coverage confirms the repayment amount, M-Shwari liability identity, M-Pesa funding account, zero balance, transaction code and variable occurred-at date.
+
+The user's real transaction code was not stored in repository fixtures; regression data uses sanitized synthetic codes.
+
