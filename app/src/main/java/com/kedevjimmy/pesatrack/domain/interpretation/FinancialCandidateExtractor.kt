@@ -153,7 +153,7 @@ object FinancialCandidateExtractor {
         RegexOption.IGNORE_CASE
     )
     private val feeRegex = Regex(
-        """(?:transaction\s+(?:cost|fee)|(?:access|service|maintenance|account|monthly|ledger|sms|mobile\s+banking|card|atm)\s+(?:fee|charge)|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?|(?:service|maintenance|account|monthly|ledger|sms|mobile\s+banking|card|atm)\s+(?:fee|charge)|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
     private val amountBeforeFeeRegex = Regex(
