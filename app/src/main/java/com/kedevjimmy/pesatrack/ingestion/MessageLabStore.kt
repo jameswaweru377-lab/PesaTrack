@@ -16,6 +16,8 @@ data class UnsupportedMessageShape(
     val occurrenceCount: Int,
     val userDecision:
         MessageLabUserDecision? = null,
+    val semanticLabel:
+        MessageLabSemanticLabel? = null,
     val relevanceScore: Int? = null,
     val relevanceSignals:
         Set<FinancialRelevanceSignal> =
@@ -349,6 +351,10 @@ class MessageLabStore private constructor(
 
         val decisions =
             readDecisions()
+        val existing =
+            decisions.optJSONObject(
+                shapeId
+            )
         decisions.put(
             shapeId,
             JSONObject().apply {
@@ -360,6 +366,19 @@ class MessageLabStore private constructor(
                     "decidedAtEpochMs",
                     System.currentTimeMillis()
                 )
+                existing
+                    ?.optString(
+                        "semanticLabel"
+                    )
+                    ?.takeIf(
+                        String::isNotBlank
+                    )
+                    ?.let {
+                        put(
+                            "semanticLabel",
+                            it
+                        )
+                    }
             }
         )
         preferences.edit()
@@ -388,6 +407,104 @@ class MessageLabStore private constructor(
             )
             .apply()
         return true
+    }
+
+    @Synchronized
+    fun setSemanticLabel(
+        shapeId: String,
+        label:
+            MessageLabSemanticLabel
+    ): Boolean {
+        if (
+            userDecision(shapeId) !=
+            MessageLabUserDecision
+                .CONFIRMED_FINANCIAL
+        ) {
+            return false
+        }
+
+        val decisions =
+            readDecisions()
+        val existing =
+            decisions.optJSONObject(
+                shapeId
+            ) ?: return false
+
+        existing.put(
+            "semanticLabel",
+            label.name
+        )
+        existing.put(
+            "semanticLabelAtEpochMs",
+            System.currentTimeMillis()
+        )
+
+        preferences.edit()
+            .putString(
+                KEY_DECISIONS,
+                decisions.toString()
+            )
+            .apply()
+
+        return true
+    }
+
+    @Synchronized
+    fun clearSemanticLabel(
+        shapeId: String
+    ): Boolean {
+        val decisions =
+            readDecisions()
+        val existing =
+            decisions.optJSONObject(
+                shapeId
+            ) ?: return false
+
+        if (
+            !existing.has(
+                "semanticLabel"
+            )
+        ) {
+            return false
+        }
+
+        existing.remove(
+            "semanticLabel"
+        )
+        existing.remove(
+            "semanticLabelAtEpochMs"
+        )
+
+        preferences.edit()
+            .putString(
+                KEY_DECISIONS,
+                decisions.toString()
+            )
+            .apply()
+
+        return true
+    }
+
+    fun semanticLabel(
+        shapeId: String
+    ): MessageLabSemanticLabel? {
+        if (shapeId.isBlank()) {
+            return null
+        }
+        val item =
+            readDecisions()
+                .optJSONObject(
+                    shapeId
+                )
+                ?: return null
+        return runCatching {
+            MessageLabSemanticLabel
+                .valueOf(
+                    item.optString(
+                        "semanticLabel"
+                    )
+                )
+        }.getOrNull()
     }
 
     fun userDecision(
@@ -483,6 +600,14 @@ class MessageLabStore private constructor(
         confirmedFinancial(
             MAX_SHAPES
         ).size
+
+    fun semanticallyLabeledConfirmedCount():
+        Int =
+        confirmedFinancial(
+            MAX_SHAPES
+        ).count {
+            it.semanticLabel != null
+        }
 
     fun exportConfirmedFinancialFixtures(
         limit: Int = 50
@@ -633,6 +758,17 @@ class MessageLabStore private constructor(
                     MessageLabUserDecision
                         .CONFIRMED_FINANCIAL
             )
+            shape.semanticLabel
+                ?.let {
+                    put(
+                        "userSemanticLabel",
+                        it.name
+                    )
+                    put(
+                        "userSemanticLabelDisplay",
+                        it.displayLabel
+                    )
+                }
             put(
                 "occurrenceCount",
                 shape.occurrenceCount
@@ -771,6 +907,25 @@ class MessageLabStore private constructor(
                                     }.getOrNull()
                                 }
 ,
+                        semanticLabel =
+                            decisions
+                                .optJSONObject(
+                                    shapeId
+                                )
+                                ?.optString(
+                                    "semanticLabel"
+                                )
+                                ?.takeIf(
+                                    String::isNotBlank
+                                )
+                                ?.let {
+                                    runCatching {
+                                        MessageLabSemanticLabel
+                                            .valueOf(
+                                                it
+                                            )
+                                    }.getOrNull()
+                                },
                         relevanceScore =
                             if (
                                 item.has(
