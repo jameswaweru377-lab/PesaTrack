@@ -562,17 +562,38 @@ fun DataHealthScreen(
                         inspectorBody
                             .isNotBlank()
                     ) {
+                        val sender =
+                            inspectorTitle
+                                .trim()
+                                .takeIf(
+                                    String::isNotBlank
+                                )
+                        val storedMatch =
+                            messageLabStore
+                                .inspectionMatch(
+                                    safeSenderLabel =
+                                        sender,
+                                    body =
+                                        inspectorBody
+                                )
                         messageInspection =
                             FinancialMessageInspector
                                 .inspect(
                                     title =
-                                        inspectorTitle
-                                            .trim()
-                                            .takeIf(
-                                                String::isNotBlank
-                                            ),
+                                        sender,
                                     body =
-                                        inspectorBody
+                                        inspectorBody,
+                                    savedUserDecision =
+                                        storedMatch
+                                            .shape
+                                            ?.userDecision,
+                                    savedSemanticLabel =
+                                        storedMatch
+                                            .shape
+                                            ?.semanticLabel,
+                                    savedDecisionAmbiguous =
+                                        storedMatch
+                                            .ambiguousSourceMatch
                                 )
                     }
                 },
@@ -1816,6 +1837,52 @@ private fun MessageInspectorCard(
                     )
                 }
 
+                result.savedUserDecision
+                    ?.let {
+                        decision ->
+                        InspectionDetail(
+                            label =
+                                "Saved Message Lab choice",
+                            value =
+                                when (decision) {
+                                    MessageLabUserDecision
+                                        .CONFIRMED_FINANCIAL ->
+                                        "Financial"
+                                    MessageLabUserDecision
+                                        .NOT_FINANCIAL ->
+                                        "Not financial"
+                                }
+                        )
+                    }
+
+                result.savedSemanticLabel
+                    ?.let {
+                        label ->
+                        InspectionDetail(
+                            label =
+                                "Saved meaning",
+                            value =
+                                label.displayLabel
+                        )
+                    }
+
+                if (
+                    result
+                        .savedDecisionAmbiguous
+                ) {
+                    Text(
+                        "This wording exists in more than one Message Lab source channel, so no saved Financial / Not financial choice was applied to this pasted message.",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
                 Text(
                     result.provenanceReason,
                     style =
@@ -1829,24 +1896,44 @@ private fun MessageInspectorCard(
                 )
 
                 Text(
-                    if (
+                    when {
                         result
-                            .wouldEnterMessageLab
-                    ) {
-                        "With the current build, this message would still enter Message Lab as unsupported financial evidence."
-                    } else if (
+                            .wouldEnterMessageLab ->
+                            "With the current parser and any unambiguous saved Message Lab choice, this message would still enter Message Lab as unsupported financial evidence."
+
                         result.recognized ||
+                            result
+                                .semanticallyUnderstood ->
+                            "This message should not remain in Message Lab after reconciliation."
+
+                        result.savedUserDecision ==
+                            MessageLabUserDecision
+                                .NOT_FINANCIAL ->
+                            "Your saved Not financial choice suppresses this shape from Message Lab."
+
                         result
-                            .semanticallyUnderstood
-                    ) {
-                        "This message should not remain in Message Lab after reconciliation."
-                    } else {
-                        "This message does not currently qualify as unsupported financial evidence."
+                            .savedDecisionAmbiguous ->
+                            "No source-specific saved choice was applied because the same wording exists in multiple source channels."
+
+                        else ->
+                            "This message does not currently qualify as unsupported financial evidence."
                     },
                     style =
                         MaterialTheme
                             .typography
                             .labelMedium,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+
+                Text(
+                    "The copied diagnostic replaces the sender and interpreter-extracted values with placeholders. It does not copy event amounts, counterparties or account references.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
                     color =
                         MaterialTheme
                             .colorScheme
