@@ -462,4 +462,52 @@ class GenericBankInterpretationTest {
         )
     }
 
+
+    @Test
+    fun understandsCashDepositIntoOwnedBankAccount() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "EQUITY BANK",
+                body =
+                    "Cash deposit of KES 3,500.00 into your account XXX1234 at SAMPLE BRANCH on 03/10/26. Available balance KES 13,500.00."
+            )
+
+        val deposit =
+            interpretation.events.single() as
+                CashDepositEventFact
+
+        assertEquals(
+            350_000L,
+            deposit.amountMinor
+        )
+        assertEquals(
+            "KENYAN_BANK_EQUITY",
+            deposit.destination.providerKey
+        )
+        assertEquals(
+            "SAMPLE BRANCH",
+            deposit.counterparty
+        )
+        assertEquals(
+            1_350_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun failedCashDepositDoesNotCreateFinancialEvent() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "EQUITY BANK",
+                body =
+                    "Cash deposit of KES 3,500.00 into your account XXX1234 at SAMPLE BRANCH was unsuccessful."
+            )
+
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+    }
+
 }

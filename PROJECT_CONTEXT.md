@@ -3697,3 +3697,25 @@ Guardrail:
 
 The fallback requires explicit posted-movement wording and an amount. It does not turn promotional card messages, authorization offers, declined attempts, or generic ATM references into transactions. Provider-specific Message Pack templates should still be added only from repeated real-device evidence where exact wording/mechanics justify them.
 
+## Provider-neutral bank cash deposit fallback — 2026-10-03
+
+The generic bank cash-movement grammar now handles explicit deposit wording that does not follow the older amount-first format.
+
+Implemented:
+
+- Added provider-neutral recognition for wording such as:
+  - `Cash deposit of KES <amount> into your account <ref> at <branch>`;
+  - `KES <amount> cash deposited into your account <ref> at <branch>`.
+- The message sender/title is used as the owned bank destination when the wording proves a bank cash deposit.
+- Existing cash semantics remain authoritative:
+  - cash is the source asset;
+  - the owned bank account is the destination;
+  - branch/location is optional counterparty context;
+  - an observed bank balance in the same message still reconciles independently.
+- The shared non-posted movement guard applies here too, so failed, unsuccessful, rejected or pending deposit attempts do not create ledger events.
+- Added regression coverage for a successful bank cash deposit with observed balance and an unsuccessful deposit attempt.
+
+Guardrail:
+
+This fallback requires explicit cash-deposit wording tied to the user's bank account. It does not reinterpret generic account credits as cash deposits and does not invent a depositor when none is stated.
+
