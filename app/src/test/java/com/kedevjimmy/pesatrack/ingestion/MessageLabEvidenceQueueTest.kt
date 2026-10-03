@@ -75,6 +75,66 @@ class MessageLabEvidenceQueueTest {
     }
 
     @Test
+    fun implementationApprovedShapeRanksAheadOfUnreviewedAndDeferred() {
+        val ranked =
+            MessageLabEvidenceQueue
+                .prioritize(
+                    listOf(
+                        shape(
+                            id = "deferred",
+                            occurrences = 20,
+                            lastSeen = 900L,
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL,
+                            semanticLabel =
+                                MessageLabSemanticLabel
+                                    .TRANSFER,
+                            implementationReview =
+                                MessageLabImplementationReviewState
+                                    .NEEDS_MORE_EVIDENCE
+                        ),
+                        shape(
+                            id = "unreviewed",
+                            occurrences = 10,
+                            lastSeen = 800L,
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL,
+                            semanticLabel =
+                                MessageLabSemanticLabel
+                                    .TRANSFER
+                        ),
+                        shape(
+                            id = "approved",
+                            occurrences = 2,
+                            lastSeen = 100L,
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL,
+                            semanticLabel =
+                                MessageLabSemanticLabel
+                                    .TRANSFER,
+                            implementationReview =
+                                MessageLabImplementationReviewState
+                                    .READY_FOR_PARSER_WORK
+                        )
+                    )
+                )
+
+        assertEquals(
+            listOf(
+                "approved",
+                "unreviewed",
+                "deferred"
+            ),
+            ranked.map {
+                it.shapeId
+            }
+        )
+    }
+
+    @Test
     fun occurrenceCountBreaksPriorityWithinSameDecisionClass() {
         val ranked =
             MessageLabEvidenceQueue
@@ -182,7 +242,10 @@ class MessageLabEvidenceQueueTest {
         decision:
             MessageLabUserDecision?,
         semanticLabel:
-            MessageLabSemanticLabel? = null
+            MessageLabSemanticLabel? = null,
+        implementationReview:
+            MessageLabImplementationReviewState? =
+            null
     ) =
         UnsupportedMessageShape(
             shapeId = id,
@@ -198,6 +261,8 @@ class MessageLabEvidenceQueueTest {
             userDecision =
                 decision,
             semanticLabel =
-                semanticLabel
+                semanticLabel,
+            implementationReview =
+                implementationReview
         )
 }
