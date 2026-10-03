@@ -18,8 +18,6 @@ import com.kedevjimmy.pesatrack.domain.interpretation.UnsupportedFinancialCandid
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageLabRedactor
 import com.kedevjimmy.pesatrack.domain.messagepack.MessagePackFieldValue
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseRoute
-import org.json.JSONArray
-import org.json.JSONObject
 import java.util.Locale
 
 data class FinancialMessageInspection(
@@ -46,104 +44,170 @@ data class FinancialMessageInspection(
         MessageLabSemanticLabel?,
     val redactedBody: String
 ) {
-    fun sanitizedExport(): String =
-        JSONObject().apply {
-            put(
-                "sender",
-                "<SENDER>"
-            )
-            put(
-                "body",
-                redactedBody
-            )
-            put(
-                "recognized",
-                recognized
-            )
-            put(
-                "semanticallyUnderstood",
+    fun sanitizedExport(): String {
+        val entries =
+            mutableListOf<
+                Pair<String, String>
+            >()
+
+        entries +=
+            "sender" to
+                jsonString("<SENDER>")
+        entries +=
+            "body" to
+                jsonString(
+                    redactedBody
+                )
+        entries +=
+            "recognized" to
+                recognized.toString()
+        entries +=
+            "semanticallyUnderstood" to
                 semanticallyUnderstood
-            )
-            put(
-                "relevanceScore",
+                    .toString()
+        entries +=
+            "relevanceScore" to
                 relevanceScore
-            )
-            put(
-                "relevanceSignals",
-                JSONArray(
+                    .toString()
+        entries +=
+            "relevanceSignals" to
+                jsonArray(
                     relevanceSignals
                         .map { it.name }
                         .sorted()
                 )
-            )
-            put(
-                "parseRoute",
-                parseRoute.name
-            )
-            templateId?.let {
-                put(
-                    "templateId",
-                    it
+        entries +=
+            "parseRoute" to
+                jsonString(
+                    parseRoute.name
                 )
-            }
-            templateRevision?.let {
-                put(
-                    "templateRevision",
-                    it
-                )
-            }
-            put(
-                "eventKinds",
-                JSONArray(
+        templateId?.let {
+            entries +=
+                "templateId" to
+                    jsonString(it)
+        }
+        templateRevision?.let {
+            entries +=
+                "templateRevision" to
+                    it.toString()
+        }
+        entries +=
+            "eventKinds" to
+                jsonArray(
                     eventSummaries.map {
                         it.substringBefore(
                             " • "
                         )
                     }
                 )
-            )
-            put(
-                "semanticIntents",
-                JSONArray(
+        entries +=
+            "semanticIntents" to
+                jsonArray(
                     semanticIntents
                 )
-            )
-            put(
-                "extractedFieldNames",
-                JSONArray(
+        entries +=
+            "extractedFieldNames" to
+                jsonArray(
                     extractedFieldNames
                 )
-            )
-            put(
-                "heuristicUnsupported",
+        entries +=
+            "heuristicUnsupported" to
                 heuristicUnsupported
-            )
-            put(
-                "wouldEnterMessageLab",
+                    .toString()
+        entries +=
+            "wouldEnterMessageLab" to
                 wouldEnterMessageLab
-            )
-            savedUserDecision?.let {
-                put(
-                    "savedUserDecision",
-                    it.name
+                    .toString()
+        savedUserDecision?.let {
+            entries +=
+                "savedUserDecision" to
+                    jsonString(
+                        it.name
+                    )
+        }
+        savedSemanticLabel?.let {
+            entries +=
+                "savedSemanticLabel" to
+                    jsonString(
+                        it.name
+                    )
+            entries +=
+                "savedSemanticLabelDisplay" to
+                    jsonString(
+                        it.displayLabel
+                    )
+        }
+        entries +=
+            "notes" to
+                jsonString(
+                    "Sanitized local PesaTrack inspection. Sender, transaction values and extracted raw fields are intentionally omitted."
                 )
-            }
-            savedSemanticLabel?.let {
-                put(
-                    "savedSemanticLabel",
-                    it.name
-                )
-                put(
-                    "savedSemanticLabelDisplay",
-                    it.displayLabel
-                )
-            }
-            put(
-                "notes",
-                "Sanitized local PesaTrack inspection. Sender, transaction values and extracted raw fields are intentionally omitted."
-            )
-        }.toString(2)
+
+        return entries.joinToString(
+            separator = ",\n",
+            prefix = "{\n",
+            postfix = "\n}"
+        ) {
+            (key, value) ->
+            "  " +
+                jsonString(key) +
+                ": " +
+                value
+        }
+    }
 }
+
+private fun jsonArray(
+    values: List<String>
+): String =
+    values.joinToString(
+        separator = ", ",
+        prefix = "[",
+        postfix = "]"
+    ) {
+        jsonString(it)
+    }
+
+private fun jsonString(
+    value: String
+): String =
+    "\"" +
+        buildString {
+            value.forEach {
+                char ->
+                when (char) {
+                    '\\' ->
+                        append("\\\\")
+                    '"' ->
+                        append("\\\"")
+                    '\n' ->
+                        append("\\n")
+                    '\r' ->
+                        append("\\r")
+                    '\t' ->
+                        append("\\t")
+                    else ->
+                        if (
+                            char.code <
+                            0x20
+                        ) {
+                            append(
+                                "\\u" +
+                                    char.code
+                                        .toString(16)
+                                        .padStart(
+                                            4,
+                                            '0'
+                                        )
+                            )
+                        } else {
+                            append(char)
+                        }
+                }
+            }
+        } +
+        "\""
+
 
 object FinancialMessageInspector {
     fun inspect(
