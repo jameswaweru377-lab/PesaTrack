@@ -47,6 +47,72 @@ class MessageLabShapeIdentityFactoryTest {
     }
 
     @Test
+    fun punctuationCaseAndCurrencyVariantsShareFamilyButKeepExactShapeIds() {
+        val first =
+            MessageLabShapeIdentityFactory
+                .create(
+                    safeSenderLabel =
+                        "MPESA",
+                    body =
+                        "ABCDEF1234 Confirmed. KES 575.00 paid to TEST SHOP.",
+                    sourcePackage = null,
+                    sourceKind =
+                        "historical_financial_message"
+                )
+        val second =
+            MessageLabShapeIdentityFactory
+                .create(
+                    safeSenderLabel =
+                        "mpesa",
+                    body =
+                        "ZYXWVU9876 confirmed Ksh 900.00 paid to OTHER SHOP!",
+                    sourcePackage = null,
+                    sourceKind =
+                        "historical_financial_message"
+                )
+
+        assertNotEquals(
+            first.shapeId,
+            second.shapeId
+        )
+        assertEquals(
+            first.familyId,
+            second.familyId
+        )
+    }
+
+    @Test
+    fun materiallyDifferentWordingDoesNotCollapseIntoSameFamily() {
+        val payment =
+            MessageLabShapeIdentityFactory
+                .create(
+                    safeSenderLabel =
+                        "MPESA",
+                    body =
+                        "ABCDEF1234 Confirmed. KES 575.00 paid to TEST SHOP.",
+                    sourcePackage = null,
+                    sourceKind =
+                        "historical_financial_message"
+                )
+        val received =
+            MessageLabShapeIdentityFactory
+                .create(
+                    safeSenderLabel =
+                        "MPESA",
+                    body =
+                        "ABCDEF1234 Confirmed. You have received KES 575.00 from TEST USER.",
+                    sourcePackage = null,
+                    sourceKind =
+                        "historical_financial_message"
+                )
+
+        assertNotEquals(
+            payment.familyId,
+            received.familyId
+        )
+    }
+
+    @Test
     fun differentSourcePackagesDoNotCollapseTheSameText() {
         val first =
             MessageLabShapeIdentityFactory
