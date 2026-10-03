@@ -32,9 +32,10 @@ object MessageLabImplementationReview {
             List<UnsupportedMessageShape>
     ): MessageLabImplementationReviewSnapshot {
         val reviewable =
-            shapes.filter(
-                ::isReviewable
-            )
+            MessageLabParserReadiness
+                .evidenceReady(
+                    shapes
+                )
 
         return MessageLabImplementationReviewSnapshot(
             evidenceReadyCount =
@@ -63,13 +64,13 @@ object MessageLabImplementationReview {
         shapes:
             List<UnsupportedMessageShape>
     ): List<UnsupportedMessageShape> =
-        MessageLabEvidenceQueue
-            .prioritize(
-                shapes.filter {
-                    isReviewable(it) &&
-                        it.implementationReview ==
-                        MessageLabImplementationReviewState
-                            .READY_FOR_PARSER_WORK
-                }
+        MessageLabParserReadiness
+            .evidenceReady(
+                shapes
             )
+            .filter {
+                it.implementationReview ==
+                    MessageLabImplementationReviewState
+                        .READY_FOR_PARSER_WORK
+            }
 }
