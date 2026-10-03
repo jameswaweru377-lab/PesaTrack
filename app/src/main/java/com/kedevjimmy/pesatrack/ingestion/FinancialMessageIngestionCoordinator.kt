@@ -46,13 +46,14 @@ enum class FinancialDiagnosticMode {
 
 data class FinancialMessageIngestionResult(
     val recognized: Boolean,
-    val semanticallyUnderstood: Boolean,
     val consumesLegacyTransactionParsing: Boolean,
     val changed: Boolean,
     val insertedTransactions: Int,
     val insertedFinancialEvents: Int,
     val pendingReviewEvents: Int,
     val handledWithoutLedgerMovement:
+        Boolean = false,
+    val semanticallyUnderstood:
         Boolean = false
 )
 
