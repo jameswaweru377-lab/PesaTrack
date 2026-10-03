@@ -1611,6 +1611,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                 "Cash withdrawal"
             is CashDepositEventFact ->
                 "Cash deposit"
+            is FeeEventFact ->
+                "Fee"
             is ReversalEventFact -> "Reversal"
             is UnresolvedFinancialEventFact ->
                 "Needs review"
