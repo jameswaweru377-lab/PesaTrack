@@ -15,6 +15,21 @@ object MessageLabEvidenceQueue {
             }.thenByDescending {
                 it.semanticLabel != null
             }.thenByDescending {
+                when (
+                    it.implementationReview
+                ) {
+                    MessageLabImplementationReviewState
+                        .READY_FOR_PARSER_WORK ->
+                        2
+
+                    null ->
+                        1
+
+                    MessageLabImplementationReviewState
+                        .NEEDS_MORE_EVIDENCE ->
+                        0
+                }
+            }.thenByDescending {
                 it.occurrenceCount
             }.thenByDescending {
                 it.lastSeenAtEpochMs
