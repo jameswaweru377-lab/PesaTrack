@@ -509,6 +509,43 @@ object FinancialCandidateExtractor {
             creditedReceiptCandidate(body)?.let(::add)
         }
 
+        val debt =
+            DebtCandidateExtractor.extract(
+                message
+            )
+        val reversal =
+            reversalCandidate(body)
+        val cashMovements =
+            listOfNotNull(
+                cashWithdrawalCandidate(
+                    message
+                ),
+                cashDepositCandidate(
+                    message
+                )
+            )
+        val standaloneFee =
+            standaloneFeeCandidate(
+                body
+            )
+        val rawFee =
+            feeCandidate(body)
+        val hasPrimaryMovement =
+            actions.isNotEmpty() ||
+                debt.drawdown != null ||
+                debt.repayment != null ||
+                reversal != null ||
+                cashMovements.isNotEmpty()
+        val embeddedFee =
+            if (
+                standaloneFee != null &&
+                !hasPrimaryMovement
+            ) {
+                null
+            } else {
+                rawFee
+            }
+
         return FinancialMessageCandidates(
             transactionCode = codeRegex
                 .find(body)
@@ -550,11 +587,9 @@ object FinancialCandidateExtractor {
                 )?.let(::add)
             },
             fee =
-                feeCandidate(body),
+                embeddedFee,
             standaloneFee =
-                standaloneFeeCandidate(
-                    body
-                ),
+                standaloneFee,
             accountDebit =
                 accountDebitWithoutCounterpartyCandidate(
                     body
@@ -569,19 +604,12 @@ object FinancialCandidateExtractor {
                 abbreviatedAccountCreditCandidate(
                     body
                 ),
-            reversal = reversalCandidate(body),
-            cashMovements = listOfNotNull(
-                cashWithdrawalCandidate(
-                    message
-                ),
-                cashDepositCandidate(
-                    message
-                )
-            ),
+            reversal =
+                reversal,
+            cashMovements =
+                cashMovements,
             actions = actions,
-            debt = DebtCandidateExtractor.extract(
-                message
-            )
+            debt = debt
         )
     }
 
