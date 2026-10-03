@@ -5,6 +5,12 @@ import com.kedevjimmy.pesatrack.domain.interpretation.FinancialRelevanceSignal
 import org.json.JSONArray
 import org.json.JSONObject
 
+data class MessageLabManualEvidenceResult(
+    val shapeId: String,
+    val reusedExistingShape: Boolean,
+    val createdNewShape: Boolean
+)
+
 data class UnsupportedMessageShape(
     val shapeId: String,
     val familyId: String = shapeId,
@@ -269,6 +275,239 @@ class MessageLabStore private constructor(
         }
 
         return changed
+    }
+
+    @Synchronized
+    fun addManualConfirmedFinancialEvidence(
+        safeSenderLabel: String?,
+        body: String,
+        observedAtEpochMs: Long =
+            System.currentTimeMillis(),
+        relevanceScore: Int?,
+        relevanceSignals:
+            Set<FinancialRelevanceSignal>
+    ): MessageLabManualEvidenceResult? {
+        if (body.isBlank()) {
+            return null
+        }
+
+        val storedMatch =
+            inspectionMatch(
+                safeSenderLabel =
+                    safeSenderLabel,
+                body = body
+            )
+        val manualIdentity =
+            MessageLabShapeIdentityFactory
+                .create(
+                    safeSenderLabel =
+                        safeSenderLabel,
+                    body = body,
+                    sourcePackage = null,
+                    sourceKind =
+                        MessageLabManualEvidencePolicy
+                            .MANUAL_SOURCE_KIND
+                )
+        val target =
+            MessageLabManualEvidencePolicy
+                .target(
+                    inspectionMatch =
+                        storedMatch,
+                    manualShapeId =
+                        manualIdentity.shapeId
+                )
+
+        val current =
+            readArray()
+        var found = false
+
+        for (
+            index in 0 until
+                current.length()
+        ) {
+            val item =
+                current.getJSONObject(
+                    index
+                )
+            if (
+                item.optString(
+                    "shapeId"
+                ) == target.shapeId
+            ) {
+                found = true
+                if (
+                    !target
+                        .reuseExistingShape
+                ) {
+                    item.put(
+                        "familyId",
+                        manualIdentity
+                            .familyId
+                    )
+                }
+                item.put(
+                    "lastSeenAtEpochMs",
+                    maxOf(
+                        item.optLong(
+                            "lastSeenAtEpochMs"
+                        ),
+                        observedAtEpochMs
+                    )
+                )
+                item.put(
+                    "occurrenceCount",
+                    MessageLabManualEvidencePolicy
+                        .stableOccurrenceCount(
+                            item.optInt(
+                                "occurrenceCount",
+                                1
+                            )
+                        )
+                )
+                putRelevanceEvidence(
+                    item = item,
+                    relevanceScore =
+                        relevanceScore,
+                    relevanceSignals =
+                        relevanceSignals
+                )
+            }
+        }
+
+        var shapesToStore =
+            current
+
+        if (!found) {
+            val bounded =
+                JSONArray()
+            val start =
+                maxOf(
+                    0,
+                    current.length() -
+                        (MAX_SHAPES - 1)
+                )
+            for (
+                index in start until
+                    current.length()
+            ) {
+                bounded.put(
+                    current.getJSONObject(
+                        index
+                    )
+                )
+            }
+            bounded.put(
+                JSONObject().apply {
+                    put(
+                        "shapeId",
+                        manualIdentity
+                            .shapeId
+                    )
+                    put(
+                        "familyId",
+                        manualIdentity
+                            .familyId
+                    )
+                    put(
+                        "sender",
+                        manualIdentity
+                            .sender
+                    )
+                    if (
+                        manualIdentity
+                            .sourcePackage !=
+                        null
+                    ) {
+                        put(
+                            "sourcePackage",
+                            manualIdentity
+                                .sourcePackage
+                        )
+                    } else {
+                        put(
+                            "sourcePackage",
+                            JSONObject.NULL
+                        )
+                    }
+                    put(
+                        "sourceKind",
+                        MessageLabManualEvidencePolicy
+                            .MANUAL_SOURCE_KIND
+                    )
+                    put(
+                        "redactedBody",
+                        manualIdentity
+                            .redactedBody
+                    )
+                    put(
+                        "firstSeenAtEpochMs",
+                        observedAtEpochMs
+                    )
+                    put(
+                        "lastSeenAtEpochMs",
+                        observedAtEpochMs
+                    )
+                    put(
+                        "occurrenceCount",
+                        MessageLabManualEvidencePolicy
+                            .stableOccurrenceCount(
+                                null
+                            )
+                    )
+                    putRelevanceEvidence(
+                        item = this,
+                        relevanceScore =
+                            relevanceScore,
+                        relevanceSignals =
+                            relevanceSignals
+                    )
+                }
+            )
+            shapesToStore =
+                bounded
+        }
+
+        val decisions =
+            readDecisions()
+        val decision =
+            decisions.optJSONObject(
+                target.shapeId
+            ) ?: JSONObject()
+        decision.put(
+            "decision",
+            MessageLabUserDecision
+                .CONFIRMED_FINANCIAL
+                .name
+        )
+        decision.put(
+            "decidedAtEpochMs",
+            observedAtEpochMs
+        )
+        decisions.put(
+            target.shapeId,
+            decision
+        )
+
+        preferences.edit()
+            .putString(
+                KEY_SHAPES,
+                shapesToStore.toString()
+            )
+            .putString(
+                KEY_DECISIONS,
+                decisions.toString()
+            )
+            .apply()
+
+        return MessageLabManualEvidenceResult(
+            shapeId =
+                target.shapeId,
+            reusedExistingShape =
+                target
+                    .reuseExistingShape,
+            createdNewShape =
+                !found
+        )
     }
 
     @Synchronized
