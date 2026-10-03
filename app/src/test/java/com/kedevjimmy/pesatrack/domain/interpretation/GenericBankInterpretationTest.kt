@@ -778,6 +778,57 @@ class GenericBankInterpretationTest {
     }
 
     @Test
+    fun standaloneBankChargeDoesNotPopulateEmbeddedFeeCandidate() {
+        val normalized =
+            FinancialMessageNormalizer
+                .normalize(
+                    title = "My Bank",
+                    body =
+                        "Monthly service charge KES 50.00 has been debited from your account XX9087."
+                )
+
+        val candidates =
+            FinancialCandidateExtractor
+                .extract(normalized)
+
+        assertEquals(
+            null,
+            candidates.fee
+        )
+        assertEquals(
+            5_000L,
+            candidates
+                .standaloneFee
+                ?.amountMinor
+        )
+    }
+
+    @Test
+    fun debtAccessFeeStillUsesEmbeddedFeeCandidate() {
+        val normalized =
+            FinancialMessageNormalizer
+                .normalize(
+                    title = "Finance",
+                    body =
+                        "Nova Credit amount is Ksh 500.00. Access Fee charged Ksh 10.00. Total Nova Credit outstanding amount is Ksh 510.00."
+                )
+
+        val candidates =
+            FinancialCandidateExtractor
+                .extract(normalized)
+
+        assertEquals(
+            1_000L,
+            candidates.fee
+                ?.amountMinor
+        )
+        assertEquals(
+            null,
+            candidates.standaloneFee
+        )
+    }
+
+    @Test
     fun understandsPostedStandaloneBankServiceCharge() {
         val interpretation =
             FinancialMessageInterpreter.interpret(
