@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -55,6 +56,8 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.FinancialSourceCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
+import com.kedevjimmy.pesatrack.ingestion.MessageLabFinancialKind
+import com.kedevjimmy.pesatrack.ingestion.MessageLabFinancialKindSuggester
 import com.kedevjimmy.pesatrack.ingestion.MessageLabRelevanceExplainer
 import com.kedevjimmy.pesatrack.ingestion.MessageLabUserDecision
 import com.kedevjimmy.pesatrack.ingestion.UnsupportedMessageShape
@@ -195,6 +198,12 @@ fun DataHealthScreen(
     }
     var smsPermissionDenied by remember {
         mutableStateOf(false)
+    }
+
+    var financialKindShape by remember {
+        mutableStateOf<
+            UnsupportedMessageShape?
+        >(null)
     }
 
     val smsPermissionLauncher =
@@ -1099,6 +1108,16 @@ fun DataHealthScreen(
                             "Kept as financial evidence",
                             Toast.LENGTH_SHORT
                         ).show()
+                        financialKindShape =
+                            shape.copy(
+                                userDecision =
+                                    MessageLabUserDecision
+                                        .CONFIRMED_FINANCIAL
+                            )
+                    },
+                    onLabelFinancialKind = {
+                        financialKindShape =
+                            shape
                     },
                     onIgnoreNonFinancial = {
                         messageLabStore
@@ -1251,6 +1270,49 @@ fun DataHealthScreen(
                 )
             }
         }
+    }
+
+    financialKindShape?.let {
+        shape ->
+        MessageLabFinancialKindDialog(
+            shape = shape,
+            onDismiss = {
+                financialKindShape =
+                    null
+            },
+            onSelect = {
+                kind ->
+                messageLabStore
+                    .setFinancialKind(
+                        shape.shapeId,
+                        kind
+                    )
+                unsupported =
+                    messageLabStore
+                        .prioritizedUnsupported(100)
+                ignoredUnsupported =
+                    messageLabStore
+                        .recentIgnored(100)
+                financialKindShape =
+                    null
+                Toast.makeText(
+                    context,
+                    "Financial type saved",
+                    Toast.LENGTH_SHORT
+                ).show()
+            },
+            onClear = {
+                messageLabStore
+                    .clearFinancialKind(
+                        shape.shapeId
+                    )
+                unsupported =
+                    messageLabStore
+                        .prioritizedUnsupported(100)
+                financialKindShape =
+                    null
+            }
+        )
     }
 }
 
@@ -1946,6 +2008,7 @@ private fun HealthMetric(
 private fun UnsupportedShapeCard(
     shape: UnsupportedMessageShape,
     onConfirmFinancial: () -> Unit,
+    onLabelFinancialKind: () -> Unit,
     onIgnoreNonFinancial: () -> Unit,
     onClearDecision: () -> Unit,
     onCopyFixture: () -> Unit
@@ -2048,6 +2111,32 @@ private fun UnsupportedShapeCard(
                         .typography
                         .labelMedium
             )
+            if (
+                shape.userDecision ==
+                    MessageLabUserDecision
+                        .CONFIRMED_FINANCIAL
+            ) {
+                Text(
+                    if (
+                        shape.financialKind !=
+                        null
+                    ) {
+                        "Type: " +
+                            shape.financialKind
+                                .label
+                    } else {
+                        "Type not labeled yet"
+                    },
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelMedium,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .primary
+                )
+            }
             Row(
                 modifier =
                     Modifier.fillMaxWidth(),
@@ -2061,6 +2150,23 @@ private fun UnsupportedShapeCard(
                     MessageLabUserDecision
                         .CONFIRMED_FINANCIAL
                 ) {
+                    Button(
+                        onClick =
+                            onLabelFinancialKind,
+                        modifier =
+                            Modifier.weight(1f)
+                    ) {
+                        Text(
+                            if (
+                                shape.financialKind ==
+                                null
+                            ) {
+                                "Label type"
+                            } else {
+                                "Change type"
+                            }
+                        )
+                    }
                     Button(
                         onClick =
                             onClearDecision,
@@ -2100,6 +2206,107 @@ private fun UnsupportedShapeCard(
             }
         }
     }
+}
+
+@Composable
+private fun MessageLabFinancialKindDialog(
+    shape: UnsupportedMessageShape,
+    onDismiss: () -> Unit,
+    onSelect:
+        (MessageLabFinancialKind) -> Unit,
+    onClear: () -> Unit
+) {
+    val suggested =
+        MessageLabFinancialKindSuggester
+            .suggest(shape)
+
+    AlertDialog(
+        onDismissRequest =
+            onDismiss,
+        title = {
+            Text(
+                "What kind of financial message is this?"
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        4.dp
+                    )
+            ) {
+                Text(
+                    "This label improves the evidence for future parser work. It does not create or change a transaction by itself.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+                Text(
+                    "Suggested: " +
+                        suggested.label,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelMedium,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .primary
+                )
+                MessageLabFinancialKind
+                    .entries
+                    .forEach {
+                        kind ->
+                        TextButton(
+                            onClick = {
+                                onSelect(kind)
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                        ) {
+                            Text(
+                                if (
+                                    kind ==
+                                    shape.financialKind
+                                ) {
+                                    "✓ " +
+                                        kind.label
+                                } else {
+                                    kind.label
+                                }
+                            )
+                        }
+                    }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick =
+                    onDismiss
+            ) {
+                Text("Cancel")
+            }
+        },
+        dismissButton = {
+            if (
+                shape.financialKind !=
+                null
+            ) {
+                TextButton(
+                    onClick =
+                        onClear
+                ) {
+                    Text("Clear type")
+                }
+            }
+        }
+    )
 }
 
 @Composable
