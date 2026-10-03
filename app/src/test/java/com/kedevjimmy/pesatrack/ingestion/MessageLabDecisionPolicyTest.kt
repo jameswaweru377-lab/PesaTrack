@@ -50,8 +50,8 @@ class MessageLabDecisionPolicyTest {
     }
 
     @Test
-    fun notFinancialDecisionDoesNotRetireAsUnderstood() {
-        assertFalse(
+    fun strongerCurrentInterpretationCanRetireOldNotFinancialDecision() {
+        assertTrue(
             MessageLabDecisionPolicy
                 .canRetireAsUnderstood(
                     recognized = true,
