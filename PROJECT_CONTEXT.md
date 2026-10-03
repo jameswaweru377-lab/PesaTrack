@@ -3407,3 +3407,26 @@ Implemented:
 
 Recommended real-device workflow remains: reprocess one month, inspect the remaining Message Lab items, use the explanation to mark obvious noise as Not financial, confirm genuine misses as Financial, then use the confirmed bundle as the next parser corpus.
 
+## Data Health local Message Inspector — 2026-10-03
+
+The real-device evidence loop now includes a one-message diagnostic tool so parser failures can be reproduced without writing raw SMS into repository fixtures or persistent app storage.
+
+Implemented:
+
+- Added **Data Health -> Inspect one message**.
+- A user can paste an SMS body and optional sender/title and run it through the exact current Financial Intelligence + Message Pack stack.
+- Inspection is local and ephemeral; this tool does not persist the raw pasted text.
+- The result shows whether the message is recognized, semantically understood, unsupported financial evidence, or outside the unsupported-financial boundary.
+- The UI exposes parse route, matching template/revision, relevance score/signals, extracted field names, transaction code/date when present, interpreted event summaries, observed balances and semantic intent hints.
+- The inspector explicitly reports whether the current build would still place the message in Message Lab.
+- Added **Copy sanitized diagnostic**. The exported diagnostic uses Message Lab redaction and intentionally omits raw transaction codes, monetary values and other extracted raw values.
+- Added regression coverage using the real-device M-Shwari repayment shape, weak loan-marketing language and sanitized-export privacy assertions.
+
+Recommended use:
+
+1. Reprocess one month first so stored state is current.
+2. For any remaining suspicious or Not understood SMS, paste one copy into Message Inspector.
+3. If it says Recognized but the app state is still wrong, investigate reconciliation/account identity rather than adding another parser template.
+4. If it says Not understood and would enter Message Lab, copy the sanitized diagnostic and use that concrete evidence for the next parser/Message Pack increment.
+5. If it says Not financial / ignored, do not add provider-specific parsing unless stronger real evidence exists.
+
