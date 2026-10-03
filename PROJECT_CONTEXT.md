@@ -3407,3 +3407,32 @@ Implemented:
 
 Recommended real-device workflow remains: reprocess one month, inspect the remaining Message Lab items, use the explanation to mark obvious noise as Not financial, confirm genuine misses as Financial, then use the confirmed bundle as the next parser corpus.
 
+## Message Lab semantic evidence labels — 2026-10-03
+
+The confirmed-financial evidence queue can now capture what an unsupported financial message actually means, without turning the label into automatic accounting.
+
+Implemented:
+
+- Confirmed financial Message Lab shapes can be labeled as:
+  - Payment / spending
+  - Money received
+  - Transfer
+  - Cash withdrawal
+  - Cash deposit
+  - Loan received
+  - Loan repayment
+  - Balance update
+  - Savings / investment
+  - Other financial
+- Semantic labels are stored locally by stable message-shape identity.
+- Only shapes explicitly confirmed as financial can receive a semantic label.
+- Choosing the same label again clears it.
+- Clearing the overall Financial/Not financial decision also clears the semantic label because the shape decision record is removed.
+- Confirmed evidence with a semantic label ranks ahead of unlabeled confirmed evidence in the parser-work queue.
+- Confirmed-financial JSON exports now include both the stable semantic label and its display label.
+- Data Health shows how many confirmed financial shapes already have a meaning label.
+- The UI explicitly states that this label is evidence for future parser work only; it does not create, edit or classify ledger transactions.
+- Added queue regression coverage so meaning-labeled confirmed evidence remains highest priority.
+
+This is intentionally an evidence boundary, not a parser shortcut. Future parser/Message Pack work should use the redacted wording + relevance evidence + user-confirmed financial status + semantic label together before adding production extraction semantics.
+
