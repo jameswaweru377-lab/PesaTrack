@@ -168,6 +168,50 @@ class MessageLabEvidenceQueueTest {
     }
 
     @Test
+    fun familyRecurrenceBreaksPriorityAfterReviewState() {
+        val ranked =
+            MessageLabEvidenceQueue
+                .prioritize(
+                    listOf(
+                        shape(
+                            id = "exact-high",
+                            occurrences = 4,
+                            familyOccurrences = 4,
+                            lastSeen = 900L,
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL,
+                            semanticLabel =
+                                MessageLabSemanticLabel
+                                    .TRANSFER
+                        ),
+                        shape(
+                            id = "family-high",
+                            occurrences = 1,
+                            familyOccurrences = 8,
+                            lastSeen = 100L,
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL,
+                            semanticLabel =
+                                MessageLabSemanticLabel
+                                    .TRANSFER
+                        )
+                    )
+                )
+
+        assertEquals(
+            listOf(
+                "family-high",
+                "exact-high"
+            ),
+            ranked.map {
+                it.shapeId
+            }
+        )
+    }
+
+    @Test
     fun recencyBreaksEqualOccurrenceTies() {
         val ranked =
             MessageLabEvidenceQueue
@@ -245,7 +289,8 @@ class MessageLabEvidenceQueueTest {
             MessageLabSemanticLabel? = null,
         implementationReview:
             MessageLabImplementationReviewState? =
-            null
+            null,
+        familyOccurrences: Int = 0
     ) =
         UnsupportedMessageShape(
             shapeId = id,
@@ -263,6 +308,8 @@ class MessageLabEvidenceQueueTest {
             semanticLabel =
                 semanticLabel,
             implementationReview =
-                implementationReview
+                implementationReview,
+            familyOccurrenceCount =
+                familyOccurrences
         )
 }
