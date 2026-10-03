@@ -325,7 +325,6 @@ object FinancialMessageInspector {
                 )
         val redactedBody =
             sanitizeBody(
-                originalBody = body,
                 normalizedBody =
                     normalized.body,
                 interpretation =
@@ -436,7 +435,6 @@ object FinancialMessageInspector {
     )
 
     private fun sanitizeBody(
-        originalBody: String,
         normalizedBody: String,
         interpretation:
             FinancialMessageInterpretation
@@ -478,14 +476,6 @@ object FinancialMessageInspector {
                         field = field
                     )
             }
-
-        // If normalization changed currency typography or spacing,
-        // the generic/interpreter spans refer to normalizedBody.
-        // The raw body is deliberately not used after this point.
-        @Suppress("UNUSED_VARIABLE")
-        val rawBodyWasNormalized =
-            originalBody !=
-                normalizedBody
 
         return MessageLabRedactor
             .redact(
