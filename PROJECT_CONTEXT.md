@@ -3808,3 +3808,42 @@ Safety boundary:
 - DR/CR does not invent a counterparty, merchant, transfer destination, category or salary/refund meaning.
 - These movements remain unresolved / Needs Review unless stronger relationship evidence exists.
 
+## Provider-neutral standalone bank fee postings — 2026-10-03
+
+Generic banking interpretation now handles explicit posted bank charges that are themselves the financial movement, instead of leaving them in Message Lab or storing them as an ambiguous generic debit.
+
+Implemented:
+
+- Added explicit standalone-fee recognition for posted wording where the message proves:
+  - a fee/charge amount;
+  - that the amount was charged, debited or deducted;
+  - the charge applies to the user's bank account.
+- Supported generic wording includes examples such as:
+  - `Monthly service charge KES <amount> has been debited from your account ...`;
+  - `Your account ... was charged KES <amount> as monthly maintenance fee`.
+- Expanded fee descriptor extraction to common provider-neutral labels such as service, maintenance, account, ledger, SMS, mobile-banking, card and ATM fees/charges.
+- Future/informational fee notices such as `will be charged` are explicitly non-posted and do not create ledger movements.
+- Existing declined/failed/pending movement protection also applies.
+- A standalone fee is resolved only when no unexplained monetary amount remains. This prevents the fee amount from stealing a message whose primary movement is still unsupported.
+- Added a dedicated `ResolvedFeeRelationship` and `FeeEventFact`.
+- Standalone fee events map to the existing canonical `FeeDraft`; they do not fabricate a merchant/counterparty.
+- Legacy transaction persistence now accepts canonical `FEE` at the compatibility boundary.
+- The ingestion bridge stores a standalone fee exactly once as:
+  - direction: Expense;
+  - category: Fees;
+  - review state: Auto classified;
+  - account: the observed owned bank account.
+- Deterministic category/review overrides remain below Smart Rules and do not overwrite user-classified or excluded existing rows during reprocessing.
+- The local Message Inspector now shows standalone `FEE` events.
+- Added regression coverage for:
+  - posted service charge;
+  - account-first maintenance fee;
+  - canonical fee-draft mapping;
+  - future fee notice rejection;
+  - informational fee rejection;
+  - legacy storage compatibility.
+
+Guardrail:
+
+This fallback requires explicit posted-charge semantics and an owned bank-account context. A fee amount mentioned in pricing, marketing, a future notice, or another still-unexplained movement does not become a standalone expense.
+
