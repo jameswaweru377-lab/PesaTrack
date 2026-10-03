@@ -677,6 +677,10 @@ fun DataHealthScreen(
                         if (result != null) {
                             inspectorFinancialEvidenceSaved =
                                 true
+                            diagnosticsStore
+                                .restoreShapeUnsupported(
+                                    result.shapeId
+                                )
                             unsupported =
                                 messageLabStore
                                     .prioritizedUnsupported(
@@ -685,6 +689,27 @@ fun DataHealthScreen(
                             ignoredUnsupported =
                                 messageLabStore
                                     .recentIgnored(100)
+                            coverage =
+                                diagnosticsStore
+                                    .coverageSnapshot()
+                            sourceCoverage =
+                                diagnosticsStore
+                                    .sourceCoverage(
+                                        sourceLimit = 8
+                                    )
+                            if (
+                                !inspection
+                                    .savedDecisionAmbiguous
+                            ) {
+                                messageInspection =
+                                    inspection.copy(
+                                        savedUserDecision =
+                                            MessageLabUserDecision
+                                                .CONFIRMED_FINANCIAL,
+                                        savedDecisionAmbiguous =
+                                            false
+                                    )
+                            }
                             Toast.makeText(
                                 context,
                                 if (
