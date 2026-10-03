@@ -510,4 +510,94 @@ class GenericBankInterpretationTest {
         )
     }
 
+
+    @Test
+    fun understandsAvailBalAbbreviationOnBankDebit() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "EQUITY BANK",
+                body =
+                    "Your Equity a/c XXX1234 has been debited with KES 1,250.00 on 03/10/26. Avail Bal: KES 8,750.00."
+            )
+
+        val debit =
+            interpretation.events.single() as
+                UnresolvedFinancialEventFact
+
+        assertEquals(
+            125_000L,
+            debit.amountMinor
+        )
+        assertEquals(
+            875_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+        assertEquals(
+            "KENYAN_BANK_EQUITY",
+            interpretation.balances
+                .single()
+                .account
+                .providerKey
+        )
+    }
+
+    @Test
+    fun understandsAvlBalAbbreviationOnBankCredit() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "KES 825.50 has been credited to your account XX9087 on 03/10/26. AVL BAL Ksh 4,925.50."
+            )
+
+        val credit =
+            interpretation.events.single() as
+                UnresolvedFinancialEventFact
+
+        assertEquals(
+            FinancialMovementDirectionHint
+                .INCOMING,
+            credit.directionHint
+        )
+        assertEquals(
+            492_550L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun understandsCurrentBalAbbreviation() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your account XX9087 has been debited by KES 500.00. Current Bal is KES 3,600.00."
+            )
+
+        assertEquals(
+            360_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun ledgerBalIsNotSilentlyTreatedAsAvailableBalance() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your account XX9087 has been debited by KES 500.00. Ledger Bal KES 3,600.00."
+            )
+
+        assertTrue(
+            interpretation.balances.isEmpty()
+        )
+    }
+
 }
