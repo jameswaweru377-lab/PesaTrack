@@ -2111,7 +2111,7 @@ private fun UnsupportedShapeCard(
                             .onSurfaceVariant
                 )
                 MessageLabSemanticLabel
-                    .entries
+                    .values()
                     .toList()
                     .chunked(2)
                     .forEach {
