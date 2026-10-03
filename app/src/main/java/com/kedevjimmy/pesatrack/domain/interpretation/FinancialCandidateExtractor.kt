@@ -1201,6 +1201,13 @@ object FinancialCandidateExtractor {
     private fun transferFromCandidate(
         body: String
     ): FinancialActionCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
         val explicitAccountMatch =
             transferFromRegex.find(body)
                 ?: receivedFromAccountRegex.find(body)
@@ -1230,6 +1237,13 @@ object FinancialCandidateExtractor {
     private fun transferToCandidate(
         body: String
     ): FinancialActionCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
         val explicitAccountMatch =
             transferToRegex.find(body)
         if (explicitAccountMatch != null) {
@@ -1259,6 +1273,13 @@ object FinancialCandidateExtractor {
     private fun paymentCandidate(
         body: String
     ): FinancialActionCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
         val amount = sentAmountRegex.find(body)
             ?.groups
             ?.get(1)
@@ -1291,6 +1312,13 @@ object FinancialCandidateExtractor {
     private fun paidToCandidate(
         body: String
     ): FinancialActionCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
         val amount = paidAmountRegex.find(body)
             ?.groups
             ?.get(1)
@@ -1469,6 +1497,13 @@ object FinancialCandidateExtractor {
     private fun accountDebitWithoutCounterpartyCandidate(
         body: String
     ): AccountDebitCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
         val indexedMatch =
             accountDebitWithoutCounterpartyRegexes
                 .withIndex()
@@ -1531,6 +1566,13 @@ object FinancialCandidateExtractor {
     private fun accountCreditWithoutCounterpartyCandidate(
         body: String
     ): AccountCreditCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
         val indexedMatch =
             accountCreditWithoutCounterpartyRegexes
                 .withIndex()
@@ -1593,6 +1635,13 @@ object FinancialCandidateExtractor {
     private fun accountDebitCandidate(
         body: String
     ): FinancialActionCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
         val match = accountDebitToRegexes
             .asSequence()
             .mapNotNull { it.find(body) }
@@ -1612,6 +1661,13 @@ object FinancialCandidateExtractor {
     private fun transactionCreditedToCandidate(
         body: String
     ): FinancialActionCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
         val match =
             transactionCreditedToRegex.find(body)
                 ?: return null
@@ -1637,6 +1693,13 @@ object FinancialCandidateExtractor {
     private fun airtimePurchaseCandidate(
         body: String
     ): FinancialActionCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
         val match = airtimePurchaseRegex.find(body)
             ?: return null
         val amount = match.groups[1] ?: return null
@@ -1658,6 +1721,13 @@ object FinancialCandidateExtractor {
     private fun receiptCandidate(
         body: String
     ): FinancialActionCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
         val match = receiptRegex.find(body)
             ?: return null
         return actionCandidate(
@@ -1678,6 +1748,13 @@ object FinancialCandidateExtractor {
     private fun creditedReceiptCandidate(
         body: String
     ): FinancialActionCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
         val match = creditedFromRegexes
             .asSequence()
             .mapNotNull { it.find(body) }

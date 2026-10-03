@@ -3891,3 +3891,31 @@ Implemented:
 Guardrail:
 
 This fallback requires explicit posted-charge semantics and an owned bank-account context. A fee amount mentioned in pricing, marketing, a future notice, or another still-unexplained movement does not become a standalone expense.
+
+## Shared non-posted guard across generic movements — 2026-10-03
+
+Generic movement interpretation now applies the same non-posted safety boundary consistently across older and newer financial grammars.
+
+Implemented:
+
+- Extended the existing shared `nonPostedMovementAttemptRegex` guard to generic:
+  - transfer-from;
+  - transfer-to;
+  - sent/payment;
+  - paid-to;
+  - beneficiary account-debit;
+  - external transaction-credit;
+  - airtime purchase;
+  - receipt-from;
+  - credited-from;
+  - account debit without a counterparty;
+  - account credit without a counterparty.
+- Existing card/POS, ATM, cash movement and DR/CR guards remain unchanged.
+- Pending / declined / failed / unsuccessful / rejected / not-successful / could-not-complete wording therefore cannot become a posted money-movement event merely because an older generic regex also matches.
+- Balance extraction stays independent. A non-posted movement notification may still carry an observed account balance; the guard suppresses the movement, not unrelated reconciliation evidence.
+- Added end-to-end regression coverage for pending generic bank debit, pending bank credit, pending beneficiary debit, pending counterparty receipt, pending account transfer and failed sent payment.
+
+Guardrail:
+
+The safety boundary deliberately favors missing/Needs Review over inventing a posted transaction. Reprocessing a newer build can recover a movement later if stronger posted evidence is added, while a false posted ledger entry is harder to unwind safely.
+
