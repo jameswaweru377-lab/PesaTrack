@@ -92,6 +92,11 @@ class GenericBankInterpretationTest {
             InterpretationConfidence.MEDIUM,
             debit.confidence
         )
+        assertEquals(
+            FinancialMovementDirectionHint
+                .OUTGOING,
+            debit.directionHint
+        )
         assertTrue(
             debit.evidence.any {
                 it.field ==
@@ -160,6 +165,25 @@ class GenericBankInterpretationTest {
             AccountOwnershipHint.USER_OWNED,
             debit.observedAccount
                 ?.ownershipHint
+        )
+    }
+
+    @Test
+    fun genericUnresolvedMovementDoesNotInventDirection() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "MPESA",
+                body =
+                    "ABCDEF1234 Confirmed. KES 925.00 processed on 03/10/26 at 7:05 PM."
+            )
+
+        val unresolved =
+            interpretation.events.single() as
+                UnresolvedFinancialEventFact
+
+        assertEquals(
+            null,
+            unresolved.directionHint
         )
     }
 
