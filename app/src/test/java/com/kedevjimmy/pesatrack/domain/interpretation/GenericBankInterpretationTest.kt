@@ -54,6 +54,116 @@ class GenericBankInterpretationTest {
     }
 
     @Test
+    fun understandsExplicitBankDebitWithoutInventingCounterparty() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "EQUITY BANK",
+                body =
+                    "Your Equity a/c XXX1234 has been debited with KES 1,250.00 on 03/10/26. Available balance KES 8,750.00. Ref FT26276ABC."
+            )
+
+        assertTrue(
+            interpretation.recognized
+        )
+        assertTrue(
+            interpretation
+                .consumesLegacyTransactionParsing
+        )
+
+        val debit =
+            interpretation.events.single() as
+                UnresolvedFinancialEventFact
+
+        assertEquals(
+            125_000L,
+            debit.amountMinor
+        )
+        assertEquals(
+            "KENYAN_BANK_EQUITY",
+            debit.observedAccount
+                ?.providerKey
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            debit.observedAccount
+                ?.ownershipHint
+        )
+        assertEquals(
+            InterpretationConfidence.MEDIUM,
+            debit.confidence
+        )
+        assertTrue(
+            debit.evidence.any {
+                it.field ==
+                    FinancialField
+                        .ACCOUNT_REFERENCE
+            }
+        )
+        assertEquals(
+            875_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun brandedAccountDebitWithBeneficiaryStillUsesPaymentPath() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "EQUITY BANK",
+                body =
+                    "Your Equity a/c XXX5678 has been debited with KES 2,400.00. Transfer to SAMPLE BENEFICIARY completed. Available balance KES 6,350.00."
+            )
+
+        val payment =
+            interpretation.events.single() as
+                PaymentEventFact
+
+        assertEquals(
+            240_000L,
+            payment.amountMinor
+        )
+        assertEquals(
+            "SAMPLE BENEFICIARY",
+            payment.counterparty
+        )
+        assertEquals(
+            "KENYAN_BANK_EQUITY",
+            payment.source.providerKey
+        )
+    }
+
+    @Test
+    fun genericBankDebitWithoutCounterpartyUsesOwnedMessageSource() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your account XX9087 has been debited by Ksh 825.50 on 03/10/26. Available balance KES 4,100.00."
+            )
+
+        val debit =
+            interpretation.events.single() as
+                UnresolvedFinancialEventFact
+
+        assertEquals(
+            82_550L,
+            debit.amountMinor
+        )
+        assertEquals(
+            "My Bank",
+            debit.observedAccount
+                ?.displayName
+        )
+        assertEquals(
+            AccountOwnershipHint.USER_OWNED,
+            debit.observedAccount
+                ?.ownershipHint
+        )
+    }
+
+    @Test
     fun understandsAmountFirstReceivedFromBankWording() {
         val interpretation =
             FinancialMessageInterpreter.interpret(

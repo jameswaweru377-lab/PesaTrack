@@ -3603,3 +3603,25 @@ Guardrail:
 
 Shape families are evidence grouping only. They never copy Financial / Not financial decisions or semantic labels to sibling variants, never alter ledger state, and never activate parsers. Material wording changes still produce different families.
 
+## Provider-neutral bank debit fallback — 2026-10-03
+
+Real-device Message Lab work exposed a generic banking gap: PesaTrack could understand an account debit when a beneficiary/counterparty was extractable, but explicit bank-account debit messages without a beneficiary could remain unsupported.
+
+Implemented:
+
+- Added a provider-neutral explicit account-debit candidate for wording such as an owned `a/c`, `acct` or `account` being debited by a KES/Ksh amount.
+- Branded account wording such as `Your <bank> a/c ...` is accepted without adding a bank-specific parser branch.
+- If a beneficiary/counterparty is present, the existing payment relationship remains authoritative.
+- If the message proves an owned bank account was debited but does not identify who received the money, PesaTrack now emits a medium-confidence **unresolved movement** tied to the observed owned account.
+- The fallback deliberately does **not** invent a merchant/person or convert the movement into a categorized expense.
+- Masked account references are preserved as evidence when present.
+- Existing balance extraction remains independent, so an available/current balance can still reconcile the observed bank account.
+- Added regression coverage for:
+  - branded Equity-style account wording without a counterparty;
+  - beneficiary-present precedence;
+  - generic unknown-bank account debit wording.
+
+Guardrail:
+
+This is generic financial grammar, not an Equity-specific template. Exact Message Pack templates should still be added only from real sanitized wording evidence. The fallback is intended to move explicit bank debits from **Not understood** into a safe reviewable financial movement without fabricating transaction meaning.
+

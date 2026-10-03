@@ -40,6 +40,14 @@ data class FeeCandidate(
     val ruleId: String
 )
 
+data class AccountDebitCandidate(
+    val amountMinor: Long,
+    val amountSpan: MessageSpan,
+    val accountReference: String?,
+    val accountReferenceSpan: MessageSpan?,
+    val ruleId: String
+)
+
 data class FinancialActionCandidate(
     val kind: FinancialActionCandidateKind,
     val amountMinor: Long,
@@ -82,6 +90,7 @@ data class FinancialMessageCandidates(
     val moneyValues: List<MoneyValueCandidate>,
     val balances: List<BalanceCandidate>,
     val fee: FeeCandidate?,
+    val accountDebit: AccountDebitCandidate? = null,
     val reversal: ReversalCandidate?,
     val cashMovements: List<CashMovementCandidate>,
     val actions: List<FinancialActionCandidate>,
@@ -207,20 +216,32 @@ object FinancialCandidateExtractor {
     )
     private val accountDebitToRegexes = listOf(
         Regex(
-            """(?:your\s+)?(?:a/?c|account)(?:\s+[A-Za-z0-9*Xx-]+)?\s+(?:has\s+been\s+)?debited(?:\s+(?:with|by))?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?).{0,180}?(?:transfer\s+to|sent\s+to|paid\s+to|beneficiary\s*[:\-]?|to)\s+([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,80}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|successful|successfully|completed)\b|[.;]|$)""",
+            """(?:your\s+)?(?:[A-Za-z][A-Za-z0-9&'’.-]{1,30}\s+){0,2}(?:a/?c|acct|account)(?:\s+[A-Za-z0-9*Xx-]+)?\s+(?:has\s+been\s+)?debited(?:\s+(?:with|by))?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?).{0,180}?(?:transfer\s+to|sent\s+to|paid\s+to|beneficiary\s*[:\-]?|to)\s+([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,80}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|successful|successfully|completed)\b|[.;]|$)""",
             setOf(
                 RegexOption.IGNORE_CASE,
                 RegexOption.DOT_MATCHES_ALL
             )
         ),
         Regex(
-            """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?debited\s+from\s+(?:your\s+)?(?:a/?c|account)(?:\s+[A-Za-z0-9*Xx-]+)?.{0,180}?(?:transfer\s+to|sent\s+to|paid\s+to|beneficiary\s*[:\-]?|to)\s+([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,80}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|successful|successfully|completed)\b|[.;]|$)""",
+            """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?debited\s+from\s+(?:your\s+)?(?:[A-Za-z][A-Za-z0-9&'’.-]{1,30}\s+){0,2}(?:a/?c|acct|account)(?:\s+[A-Za-z0-9*Xx-]+)?.{0,180}?(?:transfer\s+to|sent\s+to|paid\s+to|beneficiary\s*[:\-]?|to)\s+([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,80}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|successful|successfully|completed)\b|[.;]|$)""",
             setOf(
                 RegexOption.IGNORE_CASE,
                 RegexOption.DOT_MATCHES_ALL
             )
         )
     )
+    private val accountDebitWithoutCounterpartyRegexes =
+        listOf(
+            Regex(
+                """(?:your\s+)?(?:[A-Za-z][A-Za-z0-9&'’.-]{1,30}\s+){0,2}(?:a/?c|acct|account)(?:\s+([A-Za-z0-9*Xx-]+))?\s+(?:has\s+been\s+)?debited(?:\s+(?:with|by))?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+                RegexOption.IGNORE_CASE
+            ),
+            Regex(
+                """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?debited\s+from\s+(?:your\s+)?(?:[A-Za-z][A-Za-z0-9&'’.-]{1,30}\s+){0,2}(?:a/?c|acct|account)(?:\s+([A-Za-z0-9*Xx-]+))?""",
+                RegexOption.IGNORE_CASE
+            )
+        )
+
     private val transactionCreditedToRegex = Regex(
         """\b(?:your\s+)?transaction\s+of\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?credited\s+to\s+(?!your\s+(?:a/?c|account|wallet)\b)(?:(?:\+?254|0)\d{9}\s+)?([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,100}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|m-?pesa\s+ref)\b|[.;]|$)""",
         setOf(
@@ -397,6 +418,10 @@ object FinancialCandidateExtractor {
                         ruleId = it.ruleId
                     )
                 },
+            accountDebit =
+                accountDebitWithoutCounterpartyCandidate(
+                    body
+                ),
             reversal = reversalCandidate(body),
             cashMovements = listOfNotNull(
                 cashWithdrawalCandidate(body),
@@ -834,6 +859,68 @@ object FinancialCandidateExtractor {
             accountReferenceSpan =
                 accountReference?.range?.toSpan(),
             ruleId = "payment.paid_to"
+        )
+    }
+
+    private fun accountDebitWithoutCounterpartyCandidate(
+        body: String
+    ): AccountDebitCandidate? {
+        val indexedMatch =
+            accountDebitWithoutCounterpartyRegexes
+                .withIndex()
+                .asSequence()
+                .mapNotNull {
+                    (index, regex) ->
+                    regex.find(body)
+                        ?.let {
+                            index to it
+                        }
+                }
+                .firstOrNull()
+                ?: return null
+        val (index, match) =
+            indexedMatch
+        val amountGroupIndex =
+            if (index == 0) {
+                2
+            } else {
+                1
+            }
+        val accountGroupIndex =
+            if (index == 0) {
+                1
+            } else {
+                2
+            }
+        val amount =
+            match.groups[
+                amountGroupIndex
+            ] ?: return null
+        val accountReference =
+            match.groups[
+                accountGroupIndex
+            ]
+
+        return AccountDebitCandidate(
+            amountMinor =
+                amountToMinor(
+                    amount.value
+                ),
+            amountSpan =
+                amount.range.toSpan(),
+            accountReference =
+                accountReference
+                    ?.value
+                    ?.trim()
+                    ?.takeIf(
+                        String::isNotBlank
+                    ),
+            accountReferenceSpan =
+                accountReference
+                    ?.range
+                    ?.toSpan(),
+            ruleId =
+                "payment.account_debit"
         )
     }
 
