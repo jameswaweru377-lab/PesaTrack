@@ -3517,3 +3517,35 @@ Guardrail:
 
 A parser draft is a development artifact only. It must never be loaded as an active Message Pack template. A developer still needs to review the financial mechanics, choose product identity/account semantics, write extraction regexes, add at least three sanitized golden fixtures, and pass the existing relevance/extraction/duplicate-accounting gates before production activation.
 
+## Message Lab implementation review gate — parser-draft baseline — 2026-10-03
+
+The real-device evidence workflow now separates **evidence ready**, **review-only parser draft**, and **approved for parser implementation**.
+
+Final flow:
+
+`confirmed financial -> meaning labeled -> repeated evidence -> review-only draft -> implementation review -> parser work`
+
+Implemented:
+
+- Added implementation-review states for evidence-ready shapes:
+  - **Needs more examples**
+  - **Ready for parser work**
+- Review decisions are allowed only when the shape is already `EVIDENCE_READY`.
+- Review-only parser drafts remain available before approval, so the developer can inspect proposed anchors/field roles first.
+- Changing or clearing the semantic meaning automatically clears any previous implementation review.
+- Clearing the overall Message Lab decision removes the implementation review with the local shape decision record.
+- Data Health distinguishes:
+  - evidence-ready;
+  - awaiting implementation review;
+  - needs more examples;
+  - ready for parser work.
+- Existing evidence-ready and review-only draft exports remain available.
+- Added a stricter **implementation-ready bundle** containing only shapes explicitly marked Ready for parser work.
+- Developer fixture exports include `implementationReview` and `readyForParserWork`.
+- The evidence queue prioritizes implementation-approved candidates ahead of unreviewed candidates, while candidates explicitly deferred for more examples are ranked lower.
+- Added pure regression tests for review eligibility, review counts, stale-review rejection, and queue ordering.
+
+Guardrail:
+
+Neither an evidence-ready shape nor an inactive parser draft is equivalent to production support. Even **Ready for parser work** is a development decision only. A production parser still requires reviewed mechanics, product/account identity decisions, extraction regexes or generic grammar, at least three sanitized golden fixtures where applicable, and the normal relevance/extraction/duplicate-accounting/reconciliation gates.
+
