@@ -64,6 +64,8 @@ data class ResolvedUnresolvedMovementRelationship(
     override val amountMinor: Long,
     val observedAccount: FinancialAccountReference?,
     override val feeMinor: Long,
+    val directionHint:
+        FinancialMovementDirectionHint? = null,
     override val confidence: InterpretationConfidence,
     override val evidence: List<FieldEvidence>
 ) : ResolvedFinancialRelationship
@@ -223,6 +225,9 @@ object FinancialRelationshipResolver {
             observedAccount = source,
             feeMinor =
                 fee?.amountMinor ?: 0L,
+            directionHint =
+                FinancialMovementDirectionHint
+                    .OUTGOING,
             confidence =
                 InterpretationConfidence.MEDIUM,
             evidence = buildList {
