@@ -587,6 +587,54 @@ class GenericBankInterpretationTest {
     }
 
     @Test
+    fun understandsPlainBalShorthandOnBankDebit() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your account XX9087 has been debited by KES 500.00. Bal: KES 3,600.00."
+            )
+
+        assertEquals(
+            360_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun understandsPlainBalShorthandOnBankCredit() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "KES 825.50 has been credited to your account XX9087. BAL Ksh 4,925.50."
+            )
+
+        assertEquals(
+            492_550L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun bookBalIsNotSilentlyTreatedAsAvailableBalance() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your account XX9087 has been debited by KES 500.00. Book Bal KES 3,600.00."
+            )
+
+        assertTrue(
+            interpretation.balances.isEmpty()
+        )
+    }
+
+    @Test
     fun ledgerBalIsNotSilentlyTreatedAsAvailableBalance() {
         val interpretation =
             FinancialMessageInterpreter.interpret(
