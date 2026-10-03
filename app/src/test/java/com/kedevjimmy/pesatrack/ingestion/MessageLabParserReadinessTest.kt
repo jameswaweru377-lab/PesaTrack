@@ -59,6 +59,27 @@ class MessageLabParserReadinessTest {
     }
 
     @Test
+    fun conservativeFamilyRecurrenceCanSatisfyRepeatedEvidenceFloor() {
+        assertEquals(
+            MessageLabParserReadinessState
+                .EVIDENCE_READY,
+            MessageLabParserReadiness
+                .stateFor(
+                    shape(
+                        decision =
+                            MessageLabUserDecision
+                                .CONFIRMED_FINANCIAL,
+                        semanticLabel =
+                            MessageLabSemanticLabel
+                                .PAYMENT,
+                        occurrences = 1,
+                        familyOccurrences = 3
+                    )
+                )
+        )
+    }
+
+    @Test
     fun repeatedLabeledConfirmedShapeIsEvidenceReady() {
         assertEquals(
             MessageLabParserReadinessState
@@ -140,6 +161,68 @@ class MessageLabParserReadinessTest {
     }
 
     @Test
+    fun evidenceReadyKeepsOneRepresentativePerFamilyAndMeaning() {
+        val ready =
+            MessageLabParserReadiness
+                .evidenceReady(
+                    listOf(
+                        shape(
+                            id = "variant-a",
+                            familyId = "family-1",
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL,
+                            semanticLabel =
+                                MessageLabSemanticLabel
+                                    .PAYMENT,
+                            occurrences = 1,
+                            familyOccurrences = 3
+                        ),
+                        shape(
+                            id = "variant-b",
+                            familyId = "family-1",
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL,
+                            semanticLabel =
+                                MessageLabSemanticLabel
+                                    .PAYMENT,
+                            occurrences = 2,
+                            familyOccurrences = 3
+                        ),
+                        shape(
+                            id = "variant-c",
+                            familyId = "family-1",
+                            decision =
+                                MessageLabUserDecision
+                                    .CONFIRMED_FINANCIAL,
+                            semanticLabel =
+                                MessageLabSemanticLabel
+                                    .TRANSFER,
+                            occurrences = 1,
+                            familyOccurrences = 3
+                        )
+                    )
+                )
+
+        assertEquals(
+            2,
+            ready.size
+        )
+        assertEquals(
+            setOf(
+                MessageLabSemanticLabel
+                    .PAYMENT,
+                MessageLabSemanticLabel
+                    .TRANSFER
+            ),
+            ready.mapNotNull {
+                it.semanticLabel
+            }.toSet()
+        )
+    }
+
+    @Test
     fun evidenceReadyFiltersOutSingleObservationAndUnlabeledShapes() {
         val ready =
             MessageLabParserReadiness
@@ -196,14 +279,17 @@ class MessageLabParserReadinessTest {
 
     private fun shape(
         id: String = "shape",
+        familyId: String = id,
         decision:
             MessageLabUserDecision?,
         semanticLabel:
             MessageLabSemanticLabel?,
-        occurrences: Int
+        occurrences: Int,
+        familyOccurrences: Int = 0
     ) =
         UnsupportedMessageShape(
             shapeId = id,
+            familyId = familyId,
             sender = "Source",
             sourcePackage = null,
             sourceKind =
@@ -216,6 +302,8 @@ class MessageLabParserReadinessTest {
             userDecision =
                 decision,
             semanticLabel =
-                semanticLabel
+                semanticLabel,
+            familyOccurrenceCount =
+                familyOccurrences
         )
 }
