@@ -3342,3 +3342,31 @@ Recommended real-device validation after installing a build containing this chan
 
 Do not treat a large SMS scanned count as a failure. The inbox is inspected locally to determine relevance without a brittle sender whitelist; only current financial interpretations affect financial state.
 
+## Message Lab user triage — financial vs non-financial — 2026-10-03
+
+Real-device validation showed that the remaining Message Lab needs an explicit user feedback loop rather than a passive unsupported-message list.
+
+Implemented:
+
+- Each unsupported redacted Message Lab shape can now be marked **Financial** or **Not financial**.
+- Decisions are stored locally by stable message-shape identity.
+- **Not financial** suppresses that unrecognized shape from future unsupported/Not understood retention.
+- User-ignored non-financial observations are removed from active financial coverage/source metrics instead of being counted as parser failures.
+- Ignored shapes remain locally reviewable in Data Health with **Undo decision**; they are not destructively deleted.
+- **Financial** preserves a shape as confirmed evidence even if a later heuristic-only relevance pass would otherwise consider it too weak.
+- Confirmed-financial fixtures export with explicit user-confirmation metadata.
+- The user decision affects only the unsupported diagnostic boundary. It does not bypass or block the actual financial interpreter/ledger.
+- If a later parser genuinely recognizes a previously ignored shape, the stronger current interpretation remains authoritative and can retire the old Message Lab triage state.
+- Added a distinct diagnostic state for user-ignored non-financial observations so "resolved by coverage" is not falsely inflated.
+- Added pure policy regression tests for default heuristic behavior, confirmed-financial retention, non-financial suppression, undo-compatible behavior, and stronger interpretation authority.
+
+Recommended workflow:
+
+1. Reprocess 1 month from Data Health.
+2. Review only the remaining Message Lab shapes.
+3. Mark obvious OTP/promotional/service/non-money wording as **Not financial**.
+4. Mark genuinely financial but unsupported wording as **Financial**.
+5. Use the confirmed financial shapes as the next evidence-driven Message Pack / generic-grammar corpus.
+
+This keeps the broad interpreter recall-friendly while letting the user's real device teach PesaTrack which unsupported shapes are noise.
+
