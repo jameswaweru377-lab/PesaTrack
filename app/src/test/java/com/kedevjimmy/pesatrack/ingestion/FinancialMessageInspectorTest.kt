@@ -106,4 +106,139 @@ class FinancialMessageInspectorTest {
             )
         )
     }
+
+    @Test
+    fun sanitizedExportRedactsGenericFallbackBalanceWithoutCurrencyPrefix() {
+        val inspection =
+            FinancialMessageInspector
+                .inspect(
+                    title =
+                        "Future Lender",
+                    body =
+                        "Your loan balance is 575.00."
+                )
+
+        assertEquals(
+            MessageParseRoute
+                .GENERIC_FALLBACK,
+            inspection.parseRoute
+        )
+
+        val exported =
+            inspection
+                .sanitizedExport()
+
+        assertFalse(
+            exported.contains(
+                "575.00"
+            )
+        )
+        assertTrue(
+            exported.contains(
+                "<AMOUNT>"
+            )
+        )
+    }
+
+    @Test
+    fun savedConfirmedFinancialDecisionCanRetainWeakUnsupportedShape() {
+        val inspection =
+            FinancialMessageInspector
+                .inspect(
+                    title = "Service",
+                    body =
+                        "Loan services are now available in the app.",
+                    savedUserDecision =
+                        MessageLabUserDecision
+                            .CONFIRMED_FINANCIAL
+                )
+
+        assertFalse(
+            inspection
+                .heuristicUnsupported
+        )
+        assertTrue(
+            inspection
+                .wouldEnterMessageLab
+        )
+        assertEquals(
+            MessageLabUserDecision
+                .CONFIRMED_FINANCIAL,
+            inspection
+                .savedUserDecision
+        )
+    }
+
+    @Test
+    fun ambiguousSourceMatchDoesNotBorrowSavedNotFinancialDecision() {
+        val body =
+            "KES 450 adjustment on your account."
+
+        val baseline =
+            FinancialMessageInspector
+                .inspect(
+                    title = "Finance",
+                    body = body
+                )
+        assertTrue(
+            baseline
+                .heuristicUnsupported
+        )
+
+        val inspection =
+            FinancialMessageInspector
+                .inspect(
+                    title = "Finance",
+                    body = body,
+                    savedUserDecision =
+                        MessageLabUserDecision
+                            .NOT_FINANCIAL,
+                    savedDecisionAmbiguous =
+                        true
+                )
+
+        assertTrue(
+            inspection
+                .savedDecisionAmbiguous
+        )
+        assertEquals(
+            null,
+            inspection
+                .savedUserDecision
+        )
+        assertEquals(
+            baseline
+                .wouldEnterMessageLab,
+            inspection
+                .wouldEnterMessageLab
+        )
+    }
+
+    @Test
+    fun sanitizedExportAlwaysReplacesRawSender() {
+        val inspection =
+            FinancialMessageInspector
+                .inspect(
+                    title =
+                        "+254712345678",
+                    body =
+                        "Loan services are now available in the app."
+                )
+
+        val exported =
+            inspection
+                .sanitizedExport()
+
+        assertFalse(
+            exported.contains(
+                "+254712345678"
+            )
+        )
+        assertTrue(
+            exported.contains(
+                "\"sender\": \"<SENDER>\""
+            )
+        )
+    }
+
 }
