@@ -645,8 +645,11 @@ object FinancialRelationshipResolver {
             )
         val account =
             if (
-                candidate.ruleId ==
-                    "cash.atm_withdrawal"
+                candidate.ruleId in
+                setOf(
+                    "cash.atm_withdrawal",
+                    "cash.bank_deposit"
+                )
             ) {
                 FinancialProviderRegistry
                     .resolveOwnedMessageSourceAccount(
