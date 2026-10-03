@@ -813,8 +813,10 @@ class GenericBankInterpretationTest {
             interpretation
                 .toCanonicalDraft()
                 .records
-                .single() as
-                FeeDraft
+                .filterIsInstance<
+                    FeeDraft
+                >()
+                .single()
         assertEquals(
             5_000L,
             canonical.amountMinor
