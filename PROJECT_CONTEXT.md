@@ -3315,3 +3315,30 @@ Implemented:
 
 The user's real transaction code was not stored in repository fixtures; regression data uses sanitized synthetic codes.
 
+## Data Health financial-history reprocessing — 2026-10-03
+
+Real-device validation now has an explicit recovery path for data that was originally interpreted by an older parser build.
+
+Implemented:
+
+- Data Health can reprocess the last 1, 2 or 3 months of SMS already on the device.
+- Reprocessing uses the same current Financial Intelligence / Message Pack ingestion path rather than a second parser.
+- Existing ledger/event dedupe remains authoritative, so replay is non-destructive and can add newly understood records without cloning already-known movements.
+- Added a reconciliation-only diagnostic mode. Replay does not append duplicate Data Health observations and does not inflate Message Lab occurrence counts.
+- Reprocessing can retire old Message Lab shapes that are now understood or no longer qualify as a supported financial candidate under the current relevance policy.
+- Historical import now reports SMS scanned, current-brain understanding, newly inserted ledger/events, preserved duplicates, refreshed existing state and pending review events.
+- Debt accounts are snapshotted before and after replay. The reconciliation report shows changed liability balances and total outstanding before/after.
+- Data Health can request READ_SMS directly when the permission is missing.
+- Reprocessing respects observed debt timestamps: older balance messages cannot overwrite a newer observed balance.
+- Added pure regression coverage for the 1–3 month reprocess window and debt-state diff analysis.
+
+Recommended real-device validation after installing a build containing this change:
+
+1. Open More -> Data Health.
+2. Choose 1 month first and run Reprocess financial history.
+3. Confirm the recent M-Shwari repayment resolves the M-Shwari Loan balance to the stated observed balance (0.00 for the supplied full-repayment example).
+4. Review the reconciliation report and the remaining Message Lab shapes.
+5. Expand to 2 or 3 months only if older financial history needs repair.
+
+Do not treat a large SMS scanned count as a failure. The inbox is inspected locally to determine relevance without a brittle sender whitelist; only current financial interpretations affect financial state.
+

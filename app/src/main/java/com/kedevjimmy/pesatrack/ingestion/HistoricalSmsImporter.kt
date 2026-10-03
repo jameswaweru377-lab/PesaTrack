@@ -11,13 +11,21 @@ import com.kedevjimmy.pesatrack.domain.rules.RuleBackedFinancialResolver
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 
+enum class HistoricalImportMode {
+    IMPORT,
+    REPROCESS
+}
+
 data class HistoricalImportResult(
     val scanned: Int,
     val matched: Int,
     val inserted: Int,
     val duplicates: Int,
     val ignored: Int,
-    val fulizaMessages: Int = 0
+    val fulizaMessages: Int = 0,
+    val understood: Int = 0,
+    val stateRefreshed: Int = 0,
+    val pendingReview: Int = 0
 )
 
 class HistoricalSmsImporter(
@@ -25,7 +33,10 @@ class HistoricalSmsImporter(
 ) {
     fun importSince(
         sinceEpochMs: Long,
-        rebuildPayCycles: Boolean = true
+        rebuildPayCycles: Boolean = true,
+        mode:
+            HistoricalImportMode =
+            HistoricalImportMode.IMPORT
     ): HistoricalImportResult {
         val rules = RuleStore.get(context).listRules(enabledOnly = true)
         val accounts = AccountStore.get(context).listAccounts()
@@ -37,6 +48,9 @@ class HistoricalSmsImporter(
         var duplicates = 0
         var ignored = 0
         var fulizaMessages = 0
+        var understood = 0
+        var stateRefreshed = 0
+        var pendingReview = 0
 
         val projection = arrayOf(
             Telephony.Sms.ADDRESS,
@@ -77,8 +91,44 @@ class HistoricalSmsImporter(
                             sourceKind =
                                 SOURCE_HISTORICAL_FINANCIAL_MESSAGE,
                             receivedAtEpochMs = smsDate,
-                            rebuildPayCycles = false
+                            rebuildPayCycles = false,
+                            diagnosticMode =
+                                if (
+                                    mode ==
+                                    HistoricalImportMode
+                                        .REPROCESS
+                                ) {
+                                    FinancialDiagnosticMode
+                                        .RECONCILE_ONLY
+                                } else {
+                                    FinancialDiagnosticMode
+                                        .RECORD
+                                }
                         )
+
+                val understoodByCurrentBrain =
+                    interpreted.recognized ||
+                        interpreted
+                            .semanticallyUnderstood ||
+                        interpreted
+                            .consumesLegacyTransactionParsing ||
+                        interpreted
+                            .handledWithoutLedgerMovement
+
+                if (understoodByCurrentBrain) {
+                    understood += 1
+                }
+
+                pendingReview +=
+                    interpreted.pendingReviewEvents
+
+                if (
+                    interpreted.changed &&
+                    interpreted.insertedTransactions == 0 &&
+                    interpreted.insertedFinancialEvents == 0
+                ) {
+                    stateRefreshed += 1
+                }
 
                 if (
                     interpreted
@@ -97,6 +147,20 @@ class HistoricalSmsImporter(
                     ) {
                         duplicates += 1
                     }
+                    continue
+                }
+
+                if (
+                    interpreted.recognized ||
+                    interpreted
+                        .semanticallyUnderstood ||
+                    interpreted
+                        .handledWithoutLedgerMovement
+                ) {
+                    matched += 1
+                    inserted +=
+                        interpreted.insertedTransactions +
+                            interpreted.insertedFinancialEvents
                     continue
                 }
 
@@ -153,6 +217,7 @@ class HistoricalSmsImporter(
                 )
 
                 matched += 1
+                understood += 1
                 if (didInsert) inserted += 1 else duplicates += 1
             }
         }
@@ -167,7 +232,12 @@ class HistoricalSmsImporter(
             inserted = inserted,
             duplicates = duplicates,
             ignored = ignored,
-            fulizaMessages = fulizaMessages
+            fulizaMessages = fulizaMessages,
+            understood = understood,
+            stateRefreshed =
+                stateRefreshed,
+            pendingReview =
+                pendingReview
         )
     }
 
