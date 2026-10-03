@@ -3829,3 +3829,27 @@ Guardrail:
 
 The sender is used only to resolve the liability when the message itself proves a loan repayment/balance relationship. The fallback does not invent a funding account, repayment source, fee, or lender-specific mechanics.
 
+## Data Health history-reprocess freshness — 2026-10-03
+
+Data Health now remembers whether existing SMS history has been reconciled after the currently installed app update.
+
+Implemented:
+
+- Added a local `FinancialHistoryReprocessStateStore`.
+- After a successful 1–3 month history replay, PesaTrack records only:
+  - the successful replay timestamp;
+  - the selected replay window in months.
+- Data Health compares the last successful replay timestamp with Android's package `lastUpdateTime`.
+- The history card now shows:
+  - **Recommended** when no successful replay has been recorded on this installation;
+  - **Recommended** when the APK was updated after the last successful replay;
+  - **Up to date** when history was reconciled after the current app update.
+- A successful replay refreshes the Data Health state immediately and clears the recommendation for the current installed build.
+- Added pure policy tests for first-run, app-updated-after-replay, replay-after-update and equal-timestamp cases.
+
+Privacy / behavior boundary:
+
+- This state contains no SMS content, transaction values, account identifiers or financial history.
+- Reprocessing remains user-triggered; PesaTrack does not silently rescan the inbox in the background.
+- An app update recommendation is intentionally conservative: a UI-only build can also trigger the reminder, but this is preferable to leaving old financial state on an older parser after intelligence/debt fixes.
+
