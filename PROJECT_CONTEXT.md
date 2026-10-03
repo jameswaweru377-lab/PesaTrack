@@ -3462,3 +3462,31 @@ Guardrail:
 
 Parser readiness is a development prioritization signal only. It does not create templates, alter ledger rows, infer amounts/directions, or bypass Message Pack/generic grammar review. Production support still requires implementing and testing the actual financial mechanics represented by the redacted wording.
 
+## Data Health local Message Inspector — corrected privacy-safe implementation — 2026-10-03
+
+The one-message diagnostic workflow has been rebuilt on top of the current Message Lab semantic-label and parser-readiness implementation.
+
+Implemented:
+
+- Added **Data Health -> Inspect one message**.
+- A pasted sender/title plus SMS body runs through the exact current Financial Intelligence + Message Pack interpreter in memory.
+- The inspector does not persist the raw pasted text.
+- Results show recognized/semantically understood/unsupported status, parse route, template/revision, relevance score/signals, extracted field names, transaction code/date, interpreted events, balance observations and semantic hints.
+- The inspector consults matching stored Message Lab evidence before deciding whether the message would still enter Message Lab. A saved **Financial** or **Not financial** choice therefore affects diagnosis exactly as the real ingestion path does.
+- Saved semantic-evidence labels are shown when the pasted shape matches stored evidence.
+- Sanitized diagnostic export always replaces the sender with `<SENDER>`.
+- Sanitized export redacts every Message Pack extracted field span before applying the generic Message Lab redactor, preventing counterparties, references or other extracted values from leaking when generic redaction wording is insufficient.
+- Exported diagnostics include event kinds and field names, but not raw extracted values.
+- Added regression coverage for the real M-Shwari repayment template, saved Message Lab decisions, sender privacy, extracted-counterparty privacy and raw transaction-value removal.
+- Existing parser-readiness scoring remains intact and continues to prioritize repeated, user-confirmed, meaning-labeled evidence.
+
+This supersedes the older unmerged Message Inspector PRs #162 and #165, whose versions did not fully account for saved Message Lab decisions and had sanitization gaps.
+
+Recommended real-device workflow:
+
+1. Reprocess one month.
+2. Paste any remaining suspicious SMS into Message Inspector.
+3. If it is recognized but app state is wrong, investigate reconciliation/account identity.
+4. If it remains unsupported, use Message Lab Financial/Not financial + semantic label + parser-readiness evidence.
+5. Copy the sanitized diagnostic only when a developer fixture/report is needed.
+
