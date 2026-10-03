@@ -31,30 +31,42 @@ object MessageLabImplementationReview {
         shapes:
             List<UnsupportedMessageShape>
     ): MessageLabImplementationReviewSnapshot {
-        val reviewable =
-            shapes.filter(
-                ::isReviewable
-            )
+        val groups =
+            reviewGroups(shapes)
 
         return MessageLabImplementationReviewSnapshot(
             evidenceReadyCount =
-                reviewable.size,
+                groups.size,
             unreviewedCount =
-                reviewable.count {
-                    it.implementationReview ==
-                        null
+                groups.count {
+                    (_, family) ->
+                    family.none {
+                        it.implementationReview !=
+                            null
+                    }
                 },
             needsMoreEvidenceCount =
-                reviewable.count {
-                    it.implementationReview ==
-                        MessageLabImplementationReviewState
-                            .NEEDS_MORE_EVIDENCE
+                groups.count {
+                    (_, family) ->
+                    family.none {
+                        it.implementationReview ==
+                            MessageLabImplementationReviewState
+                                .READY_FOR_PARSER_WORK
+                    } &&
+                        family.any {
+                            it.implementationReview ==
+                                MessageLabImplementationReviewState
+                                    .NEEDS_MORE_EVIDENCE
+                        }
                 },
             readyForParserWorkCount =
-                reviewable.count {
-                    it.implementationReview ==
-                        MessageLabImplementationReviewState
-                            .READY_FOR_PARSER_WORK
+                groups.count {
+                    (_, family) ->
+                    family.any {
+                        it.implementationReview ==
+                            MessageLabImplementationReviewState
+                                .READY_FOR_PARSER_WORK
+                    }
                 }
         )
     }
@@ -63,13 +75,44 @@ object MessageLabImplementationReview {
         shapes:
             List<UnsupportedMessageShape>
     ): List<UnsupportedMessageShape> =
-        MessageLabEvidenceQueue
-            .prioritize(
-                shapes.filter {
-                    isReviewable(it) &&
-                        it.implementationReview ==
-                        MessageLabImplementationReviewState
-                            .READY_FOR_PARSER_WORK
-                }
+        reviewGroups(shapes)
+            .values
+            .mapNotNull {
+                family ->
+                MessageLabEvidenceQueue
+                    .prioritize(
+                        family.filter {
+                            it.implementationReview ==
+                                MessageLabImplementationReviewState
+                                    .READY_FOR_PARSER_WORK
+                        }
+                    )
+                    .firstOrNull()
+            }
+            .let(
+                MessageLabEvidenceQueue::prioritize
             )
+
+    private fun reviewGroups(
+        shapes:
+            List<UnsupportedMessageShape>
+    ): Map<String, List<UnsupportedMessageShape>> =
+        shapes
+            .filter(
+                ::isReviewable
+            )
+            .groupBy {
+                reviewKey(it)
+            }
+
+    private fun reviewKey(
+        shape: UnsupportedMessageShape
+    ): String =
+        shape.familyId +
+            "|" +
+            (
+                shape.semanticLabel
+                    ?.name
+                    ?: "UNLABELED"
+                )
 }
