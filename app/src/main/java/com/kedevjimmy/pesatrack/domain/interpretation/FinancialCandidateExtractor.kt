@@ -98,6 +98,7 @@ data class FinancialMessageCandidates(
     val moneyValues: List<MoneyValueCandidate>,
     val balances: List<BalanceCandidate>,
     val fee: FeeCandidate?,
+    val standaloneFee: FeeCandidate? = null,
     val accountDebit: AccountDebitCandidate? = null,
     val accountCredit: AccountCreditCandidate? = null,
     val reversal: ReversalCandidate?,
@@ -151,10 +152,48 @@ object FinancialCandidateExtractor {
         """\b(?:(?:total|outstanding)\s+)?loan\s+(?:outstanding\s+)?balance\s*(?:is|of|:)?\s*(?:(?:Ksh|KES)\s*)?([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
+    // Embedded fees belong to another financial movement
+    // (for example a transaction cost or a loan access fee).
+    // Keep this grammar narrow so standalone bank charges are
+    // never attached to another movement by accident.
     private val feeRegex = Regex(
-        """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        """(?:transaction\s+(?:cost|fee)|access\s+fee(?:\s+(?:(?:is\s+)?charged|charge(?:d)?(?:\s+of)?|of))?)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
     )
+    private val genericChargeRegex = Regex(
+        """\bcharge\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val standaloneDescriptorFirstFeeRegex = Regex(
+        """(?:(?:monthly|annual)\s+)?(?:service|maintenance|account|ledger|sms|mobile\s+banking|card|atm)\s+(?:fee|charge)\s*[,.:]?\s*(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val standaloneAmountBeforeFeeRegex = Regex(
+        """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:(?:has\s+been\s+)?(?:charged|deducted)\s+)?(?:as|for)?\s*(?:a\s+)?(?:(?:monthly|annual)\s+)?(?:service|maintenance|account|ledger|sms|mobile\s+banking|card|atm)?\s*(?:fee|charge)\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val standalonePostedFeeRegexes =
+        listOf(
+            Regex(
+                """\b(?:fee|charge)\b.{0,120}\b(?:debited|deducted|charged)\b.{0,120}\b(?:a/?c|acct|account)\b""",
+                setOf(
+                    RegexOption.IGNORE_CASE,
+                    RegexOption.DOT_MATCHES_ALL
+                )
+            ),
+            Regex(
+                """\b(?:a/?c|acct|account)\b.{0,120}\b(?:debited|deducted|charged)\b.{0,120}\b(?:fee|charge)\b""",
+                setOf(
+                    RegexOption.IGNORE_CASE,
+                    RegexOption.DOT_MATCHES_ALL
+                )
+            )
+        )
+    private val futureFeeNoticeRegex =
+        Regex(
+            """\b(?:will|shall|may)\s+be\s+(?:charged|debited|deducted)\b""",
+            RegexOption.IGNORE_CASE
+        )
     private val transferFromRegex = Regex(
         """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?(?:transferred|withdrawn|moved)\s+from\s+(.+?)\s+account\b""",
         setOf(
@@ -470,6 +509,43 @@ object FinancialCandidateExtractor {
             creditedReceiptCandidate(body)?.let(::add)
         }
 
+        val debt =
+            DebtCandidateExtractor.extract(
+                message
+            )
+        val reversal =
+            reversalCandidate(body)
+        val cashMovements =
+            listOfNotNull(
+                cashWithdrawalCandidate(
+                    message
+                ),
+                cashDepositCandidate(
+                    message
+                )
+            )
+        val standaloneFee =
+            standaloneFeeCandidate(
+                body
+            )
+        val rawFee =
+            feeCandidate(body)
+        val hasPrimaryMovement =
+            actions.isNotEmpty() ||
+                debt.drawdown != null ||
+                debt.repayment != null ||
+                reversal != null ||
+                cashMovements.isNotEmpty()
+        val embeddedFee =
+            if (
+                standaloneFee != null &&
+                !hasPrimaryMovement
+            ) {
+                null
+            } else {
+                rawFee
+            }
+
         return FinancialMessageCandidates(
             transactionCode = codeRegex
                 .find(body)
@@ -510,19 +586,10 @@ object FinancialCandidateExtractor {
                     message = message
                 )?.let(::add)
             },
-            fee = feeRegex
-                .find(body)
-                ?.moneyCandidate(
-                    groupIndex = 1,
-                    ruleId = "fee.amount"
-                )
-                ?.let {
-                    FeeCandidate(
-                        amountMinor = it.amountMinor,
-                        amountSpan = it.span,
-                        ruleId = it.ruleId
-                    )
-                },
+            fee =
+                embeddedFee,
+            standaloneFee =
+                standaloneFee,
             accountDebit =
                 accountDebitWithoutCounterpartyCandidate(
                     body
@@ -537,20 +604,118 @@ object FinancialCandidateExtractor {
                 abbreviatedAccountCreditCandidate(
                     body
                 ),
-            reversal = reversalCandidate(body),
-            cashMovements = listOfNotNull(
-                cashWithdrawalCandidate(
-                    message
-                ),
-                cashDepositCandidate(
-                    message
-                )
-            ),
+            reversal =
+                reversal,
+            cashMovements =
+                cashMovements,
             actions = actions,
-            debt = DebtCandidateExtractor.extract(
-                message
-            )
+            debt = debt
         )
+    }
+
+    private fun feeCandidate(
+        body: String
+    ): FeeCandidate? {
+        val explicit =
+            feeRegex.find(body)
+                ?.moneyCandidate(
+                    groupIndex = 1,
+                    ruleId = "fee.amount"
+                )
+
+        val amount =
+            explicit
+                ?: if (
+                    standalonePostedFeeRegexes
+                        .any {
+                            it.containsMatchIn(
+                                body
+                            )
+                        }
+                ) {
+                    null
+                } else {
+                    genericChargeRegex
+                        .find(body)
+                        ?.moneyCandidate(
+                            groupIndex = 1,
+                            ruleId =
+                                "fee.generic_charge"
+                        )
+                }
+                ?: return null
+
+        return FeeCandidate(
+            amountMinor =
+                amount.amountMinor,
+            amountSpan =
+                amount.span,
+            ruleId =
+                amount.ruleId
+        )
+    }
+
+    private fun standaloneFeeAmountCandidate(
+        body: String
+    ): FeeCandidate? {
+        val amount =
+            standaloneDescriptorFirstFeeRegex
+                .find(body)
+                ?.moneyCandidate(
+                    groupIndex = 1,
+                    ruleId =
+                        "fee.standalone_descriptor_first"
+                )
+                ?: standaloneAmountBeforeFeeRegex
+                    .find(body)
+                    ?.moneyCandidate(
+                        groupIndex = 1,
+                        ruleId =
+                            "fee.standalone_amount_first"
+                    )
+                ?: return null
+
+        return FeeCandidate(
+            amountMinor =
+                amount.amountMinor,
+            amountSpan =
+                amount.span,
+            ruleId =
+                amount.ruleId
+        )
+    }
+
+    private fun standaloneFeeCandidate(
+        body: String
+    ): FeeCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body) ||
+            futureFeeNoticeRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
+        if (
+            standalonePostedFeeRegexes
+                .none {
+                    it.containsMatchIn(body)
+                }
+        ) {
+            return null
+        }
+
+        return standaloneFeeAmountCandidate(
+            body
+        )
+            ?.takeIf {
+                it.amountMinor > 0L
+            }
+            ?.copy(
+                ruleId =
+                    "fee.standalone_posted"
+            )
     }
 
     private fun cashWithdrawalCandidate(

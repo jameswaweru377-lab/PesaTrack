@@ -4,6 +4,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.CashDepositEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.CashWithdrawalEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
+import com.kedevjimmy.pesatrack.domain.interpretation.FeeEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FieldEvidence
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialField
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpretation
@@ -806,6 +807,8 @@ object FinancialMessageInspector {
                 event.evidence
             is DebtRepaymentEventFact ->
                 event.evidence
+            is FeeEventFact ->
+                event.evidence
             is ReversalEventFact ->
                 event.evidence
             is UnresolvedFinancialEventFact ->
@@ -885,6 +888,15 @@ object FinancialMessageInspector {
                             }
                             ?: ""
                         )
+
+            is FeeEventFact ->
+                "FEE • " +
+                    formatKes(
+                        event.amountMinor
+                    ) +
+                    " • " +
+                    event.chargedTo
+                        .displayName
 
             is ReversalEventFact ->
                 "REVERSAL • " +

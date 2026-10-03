@@ -168,6 +168,18 @@ data class UnresolvedFinancialEventFact(
         FinancialEventKind.UNRESOLVED
 }
 
+data class FeeEventFact(
+    val amountMinor: Long,
+    val chargedTo: FinancialAccountReference,
+    override val confidence: InterpretationConfidence,
+    val evidence: List<FieldEvidence> = emptyList()
+) : FinancialEventFact {
+    override val genericIngestionReady: Boolean =
+        true
+    override val kind: FinancialEventKind =
+        FinancialEventKind.FEE
+}
+
 data class ReversalEventFact(
     val amountMinor: Long,
     val referencedTransactionCode: String?,

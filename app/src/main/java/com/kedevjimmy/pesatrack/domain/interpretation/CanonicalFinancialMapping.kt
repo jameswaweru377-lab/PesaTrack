@@ -197,6 +197,20 @@ fun FinancialMessageInterpretation.toCanonicalDraft():
                         )
                     }
                 }
+                is FeeEventFact -> {
+                    add(
+                        FeeDraft(
+                            amountMinor =
+                                event.amountMinor,
+                            chargedTo =
+                                event.chargedTo,
+                            confidence =
+                                event.confidence,
+                            evidence =
+                                event.evidence
+                        )
+                    )
+                }
                 is ReversalEventFact -> {
                     add(
                         ReversalDraft(

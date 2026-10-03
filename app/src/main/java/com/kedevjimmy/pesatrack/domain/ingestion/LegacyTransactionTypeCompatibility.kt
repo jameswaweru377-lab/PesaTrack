@@ -67,6 +67,9 @@ object LegacyTransactionTypeCompatibility {
             CanonicalFinancialRecordKind.UNRESOLVED_MOVEMENT ->
                 MpesaTransactionType.OTHER
 
+            CanonicalFinancialRecordKind.FEE ->
+                MpesaTransactionType.OTHER
+
             CanonicalFinancialRecordKind.REVERSAL ->
                 MpesaTransactionType.REVERSAL
 
