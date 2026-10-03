@@ -297,6 +297,18 @@ object FinancialCandidateExtractor {
             )
         )
 
+    private val abbreviatedAccountDebitRegex =
+        Regex(
+            """(?:your\s+)?(?:[A-Za-z][A-Za-z0-9&'’.-]{1,30}\s+){0,2}(?:a/?c|acct|account)(?:\s+([A-Za-z0-9*Xx-]+))?\s+(?:dr)\b\s*[:\-]?\s*(?:(?:by|with)\s+)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+            RegexOption.IGNORE_CASE
+        )
+
+    private val abbreviatedAccountCreditRegex =
+        Regex(
+            """(?:your\s+)?(?:[A-Za-z][A-Za-z0-9&'’.-]{1,30}\s+){0,2}(?:a/?c|acct|account)(?:\s+([A-Za-z0-9*Xx-]+))?\s+(?:cr)\b\s*[:\-]?\s*(?:(?:by|with)\s+)?(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)""",
+            RegexOption.IGNORE_CASE
+        )
+
     private val transactionCreditedToRegex = Regex(
         """\b(?:your\s+)?transaction\s+of\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:has\s+been\s+)?credited\s+to\s+(?!your\s+(?:a/?c|account|wallet)\b)(?:(?:\+?254|0)\d{9}\s+)?([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,100}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|m-?pesa\s+ref)\b|[.;]|$)""",
         setOf(
@@ -514,9 +526,15 @@ object FinancialCandidateExtractor {
             accountDebit =
                 accountDebitWithoutCounterpartyCandidate(
                     body
+                ) ?:
+                abbreviatedAccountDebitCandidate(
+                    body
                 ),
             accountCredit =
                 accountCreditWithoutCounterpartyCandidate(
+                    body
+                ) ?:
+                abbreviatedAccountCreditCandidate(
                     body
                 ),
             reversal = reversalCandidate(body),
@@ -1194,6 +1212,92 @@ object FinancialCandidateExtractor {
             partyPhone = null,
             ruleId =
                 "payment.card_purchase"
+        )
+    }
+
+    private fun abbreviatedAccountDebitCandidate(
+        body: String
+    ): AccountDebitCandidate? {
+        if (
+            nonPostedMovementRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
+        val match =
+            abbreviatedAccountDebitRegex
+                .find(body)
+                ?: return null
+        val accountReference =
+            match.groups[1]
+        val amount =
+            match.groups[2]
+                ?: return null
+
+        return AccountDebitCandidate(
+            amountMinor =
+                amountToMinor(
+                    amount.value
+                ),
+            amountSpan =
+                amount.range.toSpan(),
+            accountReference =
+                accountReference
+                    ?.value
+                    ?.trim()
+                    ?.takeIf(
+                        String::isNotBlank
+                    ),
+            accountReferenceSpan =
+                accountReference
+                    ?.range
+                    ?.toSpan(),
+            ruleId =
+                "payment.account_dr"
+        )
+    }
+
+    private fun abbreviatedAccountCreditCandidate(
+        body: String
+    ): AccountCreditCandidate? {
+        if (
+            nonPostedMovementRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
+        val match =
+            abbreviatedAccountCreditRegex
+                .find(body)
+                ?: return null
+        val accountReference =
+            match.groups[1]
+        val amount =
+            match.groups[2]
+                ?: return null
+
+        return AccountCreditCandidate(
+            amountMinor =
+                amountToMinor(
+                    amount.value
+                ),
+            amountSpan =
+                amount.range.toSpan(),
+            accountReference =
+                accountReference
+                    ?.value
+                    ?.trim()
+                    ?.takeIf(
+                        String::isNotBlank
+                    ),
+            accountReferenceSpan =
+                accountReference
+                    ?.range
+                    ?.toSpan(),
+            ruleId =
+                "receipt.account_cr"
         )
     }
 
