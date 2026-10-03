@@ -3517,3 +3517,35 @@ Guardrail:
 
 A parser draft is a development artifact only. It must never be loaded as an active Message Pack template. A developer still needs to review the financial mechanics, choose product identity/account semantics, write extraction regexes, add at least three sanitized golden fixtures, and pass the existing relevance/extraction/duplicate-accounting gates before production activation.
 
+## Message Lab conservative shape families — 2026-10-03
+
+Real-device evidence can now group small wording-format variants without changing or replacing existing exact Message Lab shape identities.
+
+Implemented:
+
+- Added a second, conservative `familyId` alongside the existing exact `shapeId`.
+- Exact `shapeId` behavior is unchanged. Existing Financial / Not financial decisions and semantic labels remain attached to the exact original shape.
+- Family identity normalizes only low-risk presentation variation:
+  - case;
+  - punctuation;
+  - whitespace;
+  - common currency spellings such as KES / Ksh / Kshs / Sh;
+  - M-PESA / M PESA, M-Shwari / M Shwari and PesaLink spacing/hyphen variants.
+- Source kind, source package and normalized sender remain part of the family fingerprint, so unrelated institutions/channels do not collapse together.
+- Older locally stored Message Lab rows without a `familyId` are given a deterministic family ID at read time; no destructive migration is required.
+- Message Lab now computes:
+  - exact-shape occurrence count;
+  - family occurrence count;
+  - number of exact wording variants in the family.
+- Shapes marked **Not financial** do not contribute recurrence evidence to a financial family.
+- Parser readiness can satisfy the repeated-evidence floor from conservative family recurrence while still requiring the exact shape being reviewed to be explicitly confirmed financial and meaning-labeled.
+- Parser-ready work is deduplicated by **family + semantic meaning**, preventing multiple near-identical variants from creating duplicate parser tasks.
+- Evidence ranking now uses family-supported recurrence.
+- Parser drafts include family ID, family occurrence count and family variant count.
+- Data Health shows family recurrence when a shape belongs to multiple wording variants.
+- Added regression coverage for currency/case/punctuation family equivalence, materially different wording separation, family-supported readiness, family ranking and parser-ready family deduplication.
+
+Guardrail:
+
+Shape families are an evidence-grouping mechanism only. They never copy a user's Financial/Not financial decision or semantic label to a sibling shape, never create transactions, and never activate parsers. Material wording changes still produce different families.
+
