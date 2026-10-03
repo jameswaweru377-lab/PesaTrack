@@ -16,8 +16,6 @@ import com.kedevjimmy.pesatrack.domain.interpretation.UnresolvedFinancialEventFa
 import com.kedevjimmy.pesatrack.domain.interpretation.UnsupportedFinancialCandidatePolicy
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageLabRedactor
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseRoute
-import org.json.JSONArray
-import org.json.JSONObject
 import java.util.Locale
 
 data class FinancialMessageInspection(
@@ -41,83 +39,199 @@ data class FinancialMessageInspection(
     val redactedBody: String
 ) {
     fun sanitizedExport(): String =
-        JSONObject().apply {
-            put(
-                "sender",
-                redactedSender
+        buildString {
+            append("{\n")
+            appendJsonField(
+                name = "sender",
+                value = redactedSender,
+                comma = true
             )
-            put(
-                "body",
-                redactedBody
+            appendJsonField(
+                name = "body",
+                value = redactedBody,
+                comma = true
             )
-            put(
-                "recognized",
-                recognized
+            appendJsonField(
+                name = "recognized",
+                value = recognized,
+                comma = true
             )
-            put(
-                "semanticallyUnderstood",
-                semanticallyUnderstood
+            appendJsonField(
+                name =
+                    "semanticallyUnderstood",
+                value =
+                    semanticallyUnderstood,
+                comma = true
             )
-            put(
-                "relevanceScore",
-                relevanceScore
+            appendJsonField(
+                name = "relevanceScore",
+                value = relevanceScore,
+                comma = true
             )
-            put(
-                "relevanceSignals",
-                JSONArray(
+            appendJsonArrayField(
+                name = "relevanceSignals",
+                values =
                     relevanceSignals
                         .map { it.name }
-                        .sorted()
-                )
+                        .sorted(),
+                comma = true
             )
-            put(
-                "parseRoute",
-                parseRoute.name
+            appendJsonField(
+                name = "parseRoute",
+                value = parseRoute.name,
+                comma = true
             )
-            if (templateId != null) {
-                put(
-                    "templateId",
-                    templateId
+            templateId?.let {
+                appendJsonField(
+                    name = "templateId",
+                    value = it,
+                    comma = true
                 )
             }
-            if (templateRevision != null) {
-                put(
-                    "templateRevision",
-                    templateRevision
+            templateRevision?.let {
+                appendJsonField(
+                    name =
+                        "templateRevision",
+                    value = it,
+                    comma = true
                 )
             }
-            put(
-                "eventKinds",
-                JSONArray(
+            appendJsonArrayField(
+                name = "eventKinds",
+                values =
                     eventSummaries.map {
                         it.substringBefore(
                             " • "
                         )
-                    }
-                )
+                    },
+                comma = true
             )
-            put(
-                "semanticIntents",
-                JSONArray(
-                    semanticIntents
-                )
+            appendJsonArrayField(
+                name = "semanticIntents",
+                values = semanticIntents,
+                comma = true
             )
-            put(
-                "extractedFieldNames",
-                JSONArray(
-                    extractedFieldNames
-                )
+            appendJsonArrayField(
+                name =
+                    "extractedFieldNames",
+                values =
+                    extractedFieldNames,
+                comma = true
             )
-            put(
-                "wouldEnterMessageLab",
-                wouldEnterMessageLab
+            appendJsonField(
+                name =
+                    "wouldEnterMessageLab",
+                value =
+                    wouldEnterMessageLab,
+                comma = true
             )
-            put(
-                "notes",
-                "Sanitized local PesaTrack inspection. Raw message text and extracted values are intentionally omitted."
+            appendJsonField(
+                name = "notes",
+                value =
+                    "Sanitized local PesaTrack inspection. Raw message text and extracted values are intentionally omitted.",
+                comma = false
             )
-        }.toString(2)
+            append("\n}")
+        }
 }
+
+
+private fun StringBuilder
+    .appendJsonField(
+        name: String,
+        value: String,
+        comma: Boolean
+    ) {
+        append("  ")
+        appendJsonString(name)
+        append(": ")
+        appendJsonString(value)
+        if (comma) {
+            append(',')
+        }
+        append('\n')
+    }
+
+private fun StringBuilder
+    .appendJsonField(
+        name: String,
+        value: Boolean,
+        comma: Boolean
+    ) {
+        append("  ")
+        appendJsonString(name)
+        append(": ")
+        append(value)
+        if (comma) {
+            append(',')
+        }
+        append('\n')
+    }
+
+private fun StringBuilder
+    .appendJsonField(
+        name: String,
+        value: Int,
+        comma: Boolean
+    ) {
+        append("  ")
+        appendJsonString(name)
+        append(": ")
+        append(value)
+        if (comma) {
+            append(',')
+        }
+        append('\n')
+    }
+
+private fun StringBuilder
+    .appendJsonArrayField(
+        name: String,
+        values: List<String>,
+        comma: Boolean
+    ) {
+        append("  ")
+        appendJsonString(name)
+        append(": [")
+        values.forEachIndexed {
+                index,
+                value ->
+            if (index > 0) {
+                append(", ")
+            }
+            appendJsonString(value)
+        }
+        append(']')
+        if (comma) {
+            append(',')
+        }
+        append('\n')
+    }
+
+private fun StringBuilder
+    .appendJsonString(
+        value: String
+    ) {
+        append('"')
+        value.forEach {
+            character ->
+            when (character) {
+                '\\' ->
+                    append("\\\\")
+                '"' ->
+                    append("\\\"")
+                '\n' ->
+                    append("\\n")
+                '\r' ->
+                    append("\\r")
+                '\t' ->
+                    append("\\t")
+                else ->
+                    append(character)
+            }
+        }
+        append('"')
+    }
 
 object FinancialMessageInspector {
     fun inspect(
