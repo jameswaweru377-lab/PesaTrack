@@ -655,6 +655,32 @@ class MessageLabStore private constructor(
         }.toString(2)
     }
 
+    fun exportEvidenceReadyParserDrafts(
+        limit: Int = 50
+    ): String? =
+        MessageLabParserDraftGenerator
+            .bundleJson(
+                evidenceReadyParserCandidates(
+                    limit
+                )
+            )
+
+    fun exportParserDraft(
+        shapeId: String
+    ): String? {
+        val shape =
+            recentUnsupported(
+                MAX_SHAPES
+            ).firstOrNull {
+                it.shapeId ==
+                    shapeId
+            } ?: return null
+
+        return MessageLabParserDraftGenerator
+            .generate(shape)
+            ?.toJson()
+    }
+
     fun exportConfirmedFinancialFixtures(
         limit: Int = 50
     ): String? {
