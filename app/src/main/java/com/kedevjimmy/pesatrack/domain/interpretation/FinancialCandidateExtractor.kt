@@ -90,7 +90,7 @@ data class FinancialMessageCandidates(
     val moneyValues: List<MoneyValueCandidate>,
     val balances: List<BalanceCandidate>,
     val fee: FeeCandidate?,
-    val accountDebit: AccountDebitCandidate?,
+    val accountDebit: AccountDebitCandidate? = null,
     val reversal: ReversalCandidate?,
     val cashMovements: List<CashMovementCandidate>,
     val actions: List<FinancialActionCandidate>,
