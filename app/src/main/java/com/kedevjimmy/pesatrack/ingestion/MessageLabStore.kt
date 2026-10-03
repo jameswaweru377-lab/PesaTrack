@@ -902,8 +902,7 @@ class MessageLabStore private constructor(
                                                 it
                                             )
                                     }.getOrNull()
-                                }
-,
+                                },
                         relevanceScore =
                             if (
                                 item.has(
@@ -941,8 +940,7 @@ class MessageLabStore private constructor(
                                             ?.let(::add)
                                     }
                                 }
-                            }.orEmpty()
-,
+                            }.orEmpty(),
                         financialKind =
                             decisions
                                 .optJSONObject(
