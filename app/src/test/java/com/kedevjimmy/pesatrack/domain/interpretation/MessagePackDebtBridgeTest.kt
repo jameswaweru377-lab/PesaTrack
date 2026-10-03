@@ -121,6 +121,52 @@ class MessagePackDebtBridgeTest {
     }
 
     @Test
+    fun realMshwariRepaymentShapeUsesObservedBalanceAndMessageDate() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "MPESA",
+                    body =
+                        "TSTV14M001 Confirmed. Loan of Ksh575.00 repaid from M-PESA on 2/10/26 at 7:33 AM. Loan balance is Ksh0.00. Transaction cost Kshs 0.00"
+                )
+
+        val event =
+            interpretation.events
+                .single() as
+                DebtRepaymentEventFact
+
+        assertEquals(
+            57_500L,
+            event.amountMinor
+        )
+        assertEquals(
+            "NCBA_MSHWARI_LOAN",
+            event.liability.providerKey
+        )
+        assertEquals(
+            "SAFARICOM_MPESA",
+            event.fundingAccount
+                ?.providerKey
+        )
+        assertEquals(
+            DebtCompletion.FULL,
+            event.completion
+        )
+        assertEquals(
+            0L,
+            event.outstandingAfterMinor
+        )
+        assertEquals(
+            "TSTV14M001",
+            interpretation.transactionCode
+        )
+        assertEquals(
+            "2/10/26 at 7:33 AM",
+            interpretation.occurredAtText
+        )
+    }
+
+    @Test
     fun okashDrawdownKeepsDestinationUnknownWhenMessageDoesNotSay() {
         val interpretation =
             FinancialMessageInterpreter
