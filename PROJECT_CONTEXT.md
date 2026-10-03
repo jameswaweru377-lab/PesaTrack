@@ -3745,3 +3745,22 @@ Safety boundary:
 - `Ledger Bal` and `Book Bal` are intentionally **not** treated as the same balance as Available/Current/Closing balance. They can differ from spendable balance and PesaTrack does not yet model balance types strongly enough to collapse them safely.
 - A regression test locks this distinction so coverage expansion cannot silently overwrite the user's usable balance with a ledger/book balance.
 
+## Plain bank balance shorthand — 2026-10-03
+
+Follow-up to safe bank balance abbreviations adds the common plain `Bal` shorthand without collapsing distinct ledger/book balance concepts.
+
+Implemented:
+
+- Generic bank reconciliation now recognizes plain:
+  - `Bal: KES <amount>`;
+  - `Bal Ksh <amount>`;
+  - case variants such as `BAL`.
+- `BAL` is excluded from generic named-account labels so the shorthand cannot become a fake account identity.
+- Plain `Bal` still resolves through the financial message source, matching the behavior of `Balance`, `Available Bal`, `Current Bal`, and `Closing Bal`.
+- Added debit and credit regression coverage.
+
+Safety boundary:
+
+- `Ledger Bal` and `Book Bal` remain intentionally unsupported as usable/current balance.
+- The extractor still requires the balance shorthand to appear as its own balance phrase, rather than matching arbitrary words ending in `bal`.
+
