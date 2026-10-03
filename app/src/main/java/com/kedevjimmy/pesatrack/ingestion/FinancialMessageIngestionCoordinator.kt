@@ -18,6 +18,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.DebtDrawdownEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtRepaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAppSourceRegistry
+import com.kedevjimmy.pesatrack.domain.interpretation.FeeEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpretation
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageNormalizer
@@ -30,6 +31,8 @@ import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.DebtCompletion
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.ReviewState
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentEventFact
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
 import com.kedevjimmy.pesatrack.domain.interpretation.ReceiptEventFact
@@ -1022,6 +1025,85 @@ class FinancialMessageIngestionCoordinator private constructor(
                         changed = true
                     }
                 }
+                is FeeEventFact -> {
+                    understandingStore.observeEntity(
+                        reference =
+                            event.chargedTo,
+                        observedAtEpochMs =
+                            occurredAtEpochMs
+                    )
+                    val accountId =
+                        understandingStore.accountIdFor(
+                            event.chargedTo
+                        )
+                    if (accountId == null) {
+                        pendingReviewEvents += 1
+                        changed = true
+                        return@forEach
+                    }
+
+                    val observedBalance =
+                        balanceForAccount(
+                            interpretation,
+                            event.chargedTo
+                        )
+                    val legacyWalletBalance =
+                        if (
+                            accountId ==
+                            AccountStore.DEFAULT_MPESA_ID
+                        ) {
+                            observedBalance
+                        } else {
+                            null
+                        }
+
+                    val inserted =
+                        transactionStore
+                            .insertInterpretedMoneyMovementIfNew(
+                                kind =
+                                    CanonicalFinancialRecordKind
+                                        .FEE,
+                                transactionCode =
+                                    interpretation.transactionCode,
+                                amountMinor =
+                                    event.amountMinor,
+                                counterparty = null,
+                                counterpartyPhone = null,
+                                feeMinor = 0L,
+                                balanceMinor =
+                                    legacyWalletBalance,
+                                occurredAtText =
+                                    interpretation.occurredAtText,
+                                rawMessage = body,
+                                sourcePackage =
+                                    sourcePackage,
+                                sourceKind =
+                                    SOURCE_INTERPRETED_PREFIX +
+                                        sourceKind,
+                                receivedAtEpochMs =
+                                    receivedAtEpochMs,
+                                occurredAtEpochMs =
+                                    occurredAtEpochMs,
+                                matchedRule = null,
+                                rebuildPayCycles =
+                                    rebuildPayCycles,
+                                accountIdOverride =
+                                    accountId,
+                                directionOverride =
+                                    MoneyDirection.EXPENSE,
+                                categoryOverride =
+                                    TransactionCategory.FEES,
+                                reviewStateOverride =
+                                    ReviewState.AUTO_CLASSIFIED,
+                                externalReferences =
+                                    correlationReferences
+                            )
+
+                    if (inserted) {
+                        insertedTransactions += 1
+                        changed = true
+                    }
+                }
                 is ReversalEventFact -> {
                     val accountId =
                         event.observedAccount?.let { account ->
@@ -1529,6 +1611,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                 "Cash withdrawal"
             is CashDepositEventFact ->
                 "Cash deposit"
+            is FeeEventFact ->
+                "Fee"
             is ReversalEventFact -> "Reversal"
             is UnresolvedFinancialEventFact ->
                 "Needs review"
