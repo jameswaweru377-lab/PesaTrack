@@ -31,7 +31,10 @@ object MessageLabParserReadiness {
                 MessageLabParserReadinessState
                     .NEEDS_MEANING_LABEL
 
-            shape.occurrenceCount <
+            maxOf(
+                shape.occurrenceCount,
+                shape.familyOccurrenceCount
+            ) <
                 MIN_REPEATED_OCCURRENCES ->
                 MessageLabParserReadinessState
                     .LABELED_SINGLE_OBSERVATION
