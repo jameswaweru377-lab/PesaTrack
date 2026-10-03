@@ -1235,14 +1235,9 @@ class FinancialMessageIngestionCoordinator private constructor(
             FinancialMessageRelevanceGate.assess(
                 normalizedMessage
             )
-        val unsupportedCandidate =
+        val heuristicUnsupportedCandidate =
             UnsupportedFinancialCandidatePolicy
                 .shouldTrack(relevance)
-        val diagnosticCandidate =
-            interpretation.recognized ||
-                interpretation
-                    .semanticallyUnderstood ||
-                unsupportedCandidate
         val bankLike =
             BANK_SOURCE_LANGUAGE_REGEX
                 .containsMatchIn(
@@ -1334,6 +1329,27 @@ class FinancialMessageIngestionCoordinator private constructor(
                 null
             }
 
+        val userDecision =
+            messageShapeIdentity
+                ?.shapeId
+                ?.let(
+                    messageLabStore::
+                        userDecision
+                )
+        val unsupportedCandidate =
+            MessageLabDecisionPolicy
+                .retainUnsupported(
+                    heuristicUnsupported =
+                        heuristicUnsupportedCandidate,
+                    userDecision =
+                        userDecision
+                )
+        val diagnosticCandidate =
+            interpretation.recognized ||
+                interpretation
+                    .semanticallyUnderstood ||
+                unsupportedCandidate
+
         if (
             diagnosticMode ==
             FinancialDiagnosticMode.RECORD
@@ -1389,19 +1405,23 @@ class FinancialMessageIngestionCoordinator private constructor(
                 )
             }
         } else if (
-            (
-                relevance.isRelevant &&
-                (
-                    interpretation.recognized ||
+            MessageLabDecisionPolicy
+                .canRetireAsUnderstood(
+                    recognized =
                         interpretation
-                            .semanticallyUnderstood
-                )
-            ) ||
+                            .recognized,
+                    semanticallyUnderstood =
+                        interpretation
+                            .semanticallyUnderstood,
+                    userDecision =
+                        userDecision
+                ) ||
             (
                 diagnosticMode ==
                     FinancialDiagnosticMode
                         .RECONCILE_ONLY &&
-                !unsupportedCandidate
+                userDecision == null &&
+                !heuristicUnsupportedCandidate
             )
         ) {
             val retired =
