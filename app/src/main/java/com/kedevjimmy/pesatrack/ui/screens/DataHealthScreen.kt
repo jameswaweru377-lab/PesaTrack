@@ -55,6 +55,7 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.FinancialSourceCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
+import com.kedevjimmy.pesatrack.ingestion.MessageLabRelevanceExplainer
 import com.kedevjimmy.pesatrack.ingestion.MessageLabUserDecision
 import com.kedevjimmy.pesatrack.ingestion.UnsupportedMessageShape
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -2028,6 +2029,9 @@ private fun UnsupportedShapeCard(
                         .colorScheme
                         .onSurfaceVariant
             )
+            MessageLabRelevanceExplanation(
+                shape = shape
+            )
             Text(
                 "Seen " +
                     shape.occurrenceCount +
@@ -2099,6 +2103,71 @@ private fun UnsupportedShapeCard(
 }
 
 @Composable
+private fun MessageLabRelevanceExplanation(
+    shape: UnsupportedMessageShape
+) {
+    val explanation =
+        MessageLabRelevanceExplainer
+            .explain(
+                score =
+                    shape.relevanceScore,
+                signals =
+                    shape.relevanceSignals,
+                userDecision =
+                    shape.userDecision
+            )
+
+    Column(
+        verticalArrangement =
+            Arrangement.spacedBy(
+                3.dp
+            )
+    ) {
+        Text(
+            explanation.headline,
+            style =
+                MaterialTheme
+                    .typography
+                    .labelLarge,
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .primary
+        )
+        explanation.reasons
+            .take(4)
+            .forEach {
+                reason ->
+                Text(
+                    "• " + reason,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+            }
+        explanation.caution?.let {
+            caution ->
+            Text(
+                caution,
+                style =
+                    MaterialTheme
+                        .typography
+                        .labelSmall,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
 private fun IgnoredShapeCard(
     shape: UnsupportedMessageShape,
     onUndo: () -> Unit
@@ -2148,6 +2217,9 @@ private fun IgnoredShapeCard(
                     MaterialTheme
                         .colorScheme
                         .onSurfaceVariant
+            )
+            MessageLabRelevanceExplanation(
+                shape = shape
             )
             TextButton(
                 onClick = onUndo,

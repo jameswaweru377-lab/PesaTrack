@@ -3388,3 +3388,22 @@ Implemented:
 
 This does not auto-create parser templates. Confirmed evidence is a prioritization signal only; implementation still requires reviewing the actual redacted financial mechanics before adding Message Pack or generic grammar coverage.
 
+## Message Lab relevance explanations — 2026-10-03
+
+The unsupported-message workflow now explains why each shape was admitted into Message Lab instead of showing only "Not understood".
+
+Implemented:
+
+- Message Lab stores the local financial relevance score and the exact relevance signals present when an unsupported shape is observed.
+- Signals include currency amount, financial action, account context, debt context, investment context, financial confirmation, purchase context, and any detected security/promotion/solicitation/telecom-noise evidence.
+- Data Health now shows a short human-readable **Why PesaTrack flagged this** explanation under each unsupported redacted shape.
+- User-confirmed financial and user-ignored non-financial shapes get explicit explanations of the user's decision.
+- Older shapes that predate relevance evidence display a prompt to reprocess recent history rather than inventing an explanation.
+- Reconciliation-only history replay refreshes relevance evidence for existing Message Lab shapes without incrementing occurrence counts.
+- Relevance evidence is included in sanitized developer fixture exports, making confirmed-financial bundles more useful for future parser work.
+- Stable shape identity is now computed before the unsupported decision so an existing user decision remains addressable even if the heuristic score changes in a later build.
+- User triage still affects only the unsupported diagnostic layer; recognized financial semantics remain authoritative.
+- Added pure explanation regression tests.
+
+Recommended real-device workflow remains: reprocess one month, inspect the remaining Message Lab items, use the explanation to mark obvious noise as Not financial, confirm genuine misses as Financial, then use the confirmed bundle as the next parser corpus.
+

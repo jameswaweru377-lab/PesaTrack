@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.ingestion
 
 import android.content.Context
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialRelevanceSignal
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -14,7 +15,11 @@ data class UnsupportedMessageShape(
     val lastSeenAtEpochMs: Long,
     val occurrenceCount: Int,
     val userDecision:
-        MessageLabUserDecision? = null
+        MessageLabUserDecision? = null,
+    val relevanceScore: Int? = null,
+    val relevanceSignals:
+        Set<FinancialRelevanceSignal> =
+        emptySet()
 )
 
 class MessageLabStore private constructor(
@@ -33,7 +38,11 @@ class MessageLabStore private constructor(
         body: String,
         observedAtEpochMs: Long,
         sourcePackage: String? = null,
-        sourceKind: String? = null
+        sourceKind: String? = null,
+        relevanceScore: Int? = null,
+        relevanceSignals:
+            Set<FinancialRelevanceSignal> =
+            emptySet()
     ) {
         val identity =
             MessageLabShapeIdentityFactory
@@ -95,6 +104,13 @@ class MessageLabStore private constructor(
                         1
                     ) + 1
                 )
+                putRelevanceEvidence(
+                    item = item,
+                    relevanceScore =
+                        relevanceScore,
+                    relevanceSignals =
+                        relevanceSignals
+                )
             }
             next.put(item)
         }
@@ -154,6 +170,13 @@ class MessageLabStore private constructor(
                         "occurrenceCount",
                         1
                     )
+                    putRelevanceEvidence(
+                        item = this,
+                        relevanceScore =
+                            relevanceScore,
+                        relevanceSignals =
+                            relevanceSignals
+                    )
                 }
             )
         }
@@ -164,6 +187,68 @@ class MessageLabStore private constructor(
                 next.toString()
             )
             .apply()
+    }
+
+    @Synchronized
+    fun refreshUnsupportedEvidence(
+        safeSenderLabel: String?,
+        body: String,
+        sourcePackage: String? = null,
+        sourceKind: String? = null,
+        relevanceScore: Int?,
+        relevanceSignals:
+            Set<FinancialRelevanceSignal>
+    ): Boolean {
+        val identity =
+            MessageLabShapeIdentityFactory
+                .create(
+                    safeSenderLabel =
+                        safeSenderLabel,
+                    body = body,
+                    sourcePackage =
+                        sourcePackage,
+                    sourceKind =
+                        sourceKind
+                )
+        val current =
+            readArray()
+        var changed = false
+
+        for (
+            index in 0 until
+                current.length()
+        ) {
+            val item =
+                current.getJSONObject(
+                    index
+                )
+            if (
+                item.optString(
+                    "shapeId"
+                ) ==
+                identity.shapeId
+            ) {
+                putRelevanceEvidence(
+                    item = item,
+                    relevanceScore =
+                        relevanceScore,
+                    relevanceSignals =
+                        relevanceSignals
+                )
+                changed = true
+            }
+        }
+
+        if (changed) {
+            preferences.edit()
+                .putString(
+                    KEY_SHAPES,
+                    current.toString()
+                )
+                .apply()
+        }
+
+        return changed
     }
 
     @Synchronized
@@ -552,6 +637,27 @@ class MessageLabStore private constructor(
                 "occurrenceCount",
                 shape.occurrenceCount
             )
+            shape.relevanceScore
+                ?.let {
+                    put(
+                        "relevanceScore",
+                        it
+                    )
+                }
+            put(
+                "relevanceSignals",
+                JSONArray().apply {
+                    shape.relevanceSignals
+                        .map {
+                            it.name
+                        }
+                        .sorted()
+                        .forEach {
+                            signalName ->
+                            put(signalName)
+                        }
+                }
+            )
             put(
                 "notes",
                 "Redacted locally by PesaTrack Message Lab. Review before contributing."
@@ -664,9 +770,78 @@ class MessageLabStore private constructor(
                                             )
                                     }.getOrNull()
                                 }
+,
+                        relevanceScore =
+                            if (
+                                item.has(
+                                    "relevanceScore"
+                                ) &&
+                                !item.isNull(
+                                    "relevanceScore"
+                                )
+                            ) {
+                                item.optInt(
+                                    "relevanceScore"
+                                )
+                            } else {
+                                null
+                            },
+                        relevanceSignals =
+                            item.optJSONArray(
+                                "relevanceSignals"
+                            )?.let {
+                                array ->
+                                buildSet {
+                                    for (
+                                        signalIndex in
+                                            0 until
+                                                array.length()
+                                    ) {
+                                        runCatching {
+                                            FinancialRelevanceSignal
+                                                .valueOf(
+                                                    array.optString(
+                                                        signalIndex
+                                                    )
+                                                )
+                                        }.getOrNull()
+                                            ?.let(::add)
+                                    }
+                                }
+                            }.orEmpty()
                     )
                 )
             }
+        }
+    }
+
+    private fun putRelevanceEvidence(
+        item: JSONObject,
+        relevanceScore: Int?,
+        relevanceSignals:
+            Set<FinancialRelevanceSignal>
+    ) {
+        if (relevanceScore != null) {
+            item.put(
+                "relevanceScore",
+                relevanceScore
+            )
+        }
+        if (relevanceSignals.isNotEmpty()) {
+            item.put(
+                "relevanceSignals",
+                JSONArray().apply {
+                    relevanceSignals
+                        .map {
+                            it.name
+                        }
+                        .sorted()
+                        .forEach {
+                            signalName ->
+                            put(signalName)
+                        }
+                }
+            )
         }
     }
 
