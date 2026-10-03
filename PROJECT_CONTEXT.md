@@ -3295,3 +3295,23 @@ Implemented:
 
 This pass is provider-neutral. Do not fix future real-device gaps by adding provider-specific branches unless the financial mechanics genuinely require provider metadata. Prefer message-shape evidence, generic semantics and durable account identity.
 
+## Real-device M-Shwari repayment shape — 2026-10-03
+
+Added a real-device M-Shwari repayment message shape based on sanitized user-provided wording:
+
+`<CODE> Confirmed. Loan of Ksh<AMOUNT> repaid from M-PESA on <DATE> at <TIME>. Loan balance is Ksh<OUTSTANDING>. Transaction cost Kshs <FEE>`
+
+Implemented:
+
+- new Message Pack template `ke.mshwari.loan.repaid-from-mpesa`;
+- stable product identity `NCBA_MSHWARI_LOAN`;
+- variable date/time extraction rather than hard-coding the observed date;
+- structured extraction for transaction code, repayment amount, M-Pesa funding source, date/time, outstanding loan balance and transaction cost;
+- Message Pack -> debt-repayment bridge so the generic phrase `Loan balance` resolves to M-Shwari Loan instead of an anonymous liability;
+- outstanding `0.00` marks the debt fully repaid; a non-zero observed balance remains authoritative;
+- three sanitized value/date variants in `fixtures-v14.json`;
+- Message Pack active-template baseline is now 63, all with >=3 golden fixtures;
+- regression coverage confirms the repayment amount, M-Shwari liability identity, M-Pesa funding account, zero balance, transaction code and variable occurred-at date.
+
+The user's real transaction code was not stored in repository fixtures; regression data uses sanitized synthetic codes.
+
