@@ -3569,3 +3569,37 @@ Implemented:
 
 This remains diagnostic only. It does not create or edit transactions, debt balances, Message Lab decisions, semantic labels, implementation-review state or parser-readiness state.
 
+## Message Lab conservative shape families — current privacy + implementation-review baseline — 2026-10-03
+
+Real-device evidence now groups small presentation variants without changing or replacing exact Message Lab shape identities.
+
+Implemented:
+
+- Added a conservative `familyId` alongside the existing exact `shapeId`.
+- Exact shape identity remains authoritative for user Financial / Not financial decisions and semantic meaning labels.
+- Family normalization covers only low-risk presentation variation:
+  - case;
+  - punctuation;
+  - whitespace;
+  - common currency spellings such as KES / Ksh / Kshs / Sh;
+  - M-PESA / M PESA, M-Shwari / M Shwari and PesaLink spacing/hyphen variants.
+- Source kind, source package and normalized sender remain part of the family fingerprint, so unrelated institutions/channels do not collapse together.
+- Older stored shapes without a family ID receive a deterministic family ID at read time; no destructive migration is required.
+- Message Lab now computes exact-shape occurrence count, family occurrence count and family wording-variant count.
+- Shapes explicitly marked **Not financial** do not contribute recurrence evidence to a financial family.
+- Parser readiness can satisfy the repeated-evidence floor from conservative family recurrence while still requiring the exact reviewed shape to be user-confirmed financial and meaning-labeled.
+- Evidence-ready parser work is deduplicated by **family + semantic meaning**.
+- Review-only parser drafts include family ID, family recurrence and variant count.
+- The implementation-review gate is also family-aware:
+  - one family + meaning is counted as one parser task;
+  - a Ready for parser work decision prevents duplicate sibling tasks;
+  - a Needs more examples decision does not reappear as an unreviewed sibling task.
+- Evidence ranking uses family-supported recurrence while preserving the stronger implementation-review priority.
+- Data Health shows family recurrence when multiple wording variants support the same conservative family.
+- Developer fixture exports include family evidence.
+- Added regression coverage for family equivalence/separation, family-supported readiness, family ranking, parser-draft family evidence and implementation-review deduplication.
+
+Guardrail:
+
+Shape families are evidence grouping only. They never copy Financial / Not financial decisions or semantic labels to sibling variants, never alter ledger state, and never activate parsers. Material wording changes still produce different families.
+

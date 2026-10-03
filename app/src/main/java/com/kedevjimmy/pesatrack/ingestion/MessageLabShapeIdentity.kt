@@ -5,6 +5,7 @@ import java.security.MessageDigest
 
 data class MessageLabShapeIdentity(
     val shapeId: String,
+    val familyId: String,
     val sender: String,
     val sourcePackage: String?,
     val sourceKind: String?,
@@ -55,9 +56,21 @@ object MessageLabShapeIdentityFactory {
                     redacted.body
                 ).joinToString("\n")
             )
+        val familyId =
+            familyIdForRedacted(
+                sender =
+                    redacted.sender,
+                redactedBody =
+                    redacted.body,
+                sourcePackage =
+                    safePackage,
+                sourceKind =
+                    safeKind
+            )
 
         return MessageLabShapeIdentity(
             shapeId = shapeId,
+            familyId = familyId,
             sender = redacted.sender,
             sourcePackage =
                 safePackage,
@@ -67,6 +80,89 @@ object MessageLabShapeIdentityFactory {
                 redacted.body
         )
     }
+
+    fun familyIdForRedacted(
+        sender: String,
+        redactedBody: String,
+        sourcePackage: String?,
+        sourceKind: String?
+    ): String =
+        fingerprint(
+            listOf(
+                sourceKind
+                    ?.trim()
+                    ?.lowercase()
+                    .orEmpty(),
+                sourcePackage
+                    ?.trim()
+                    ?.lowercase()
+                    .orEmpty(),
+                canonicalSender(
+                    sender
+                ),
+                canonicalFamilyBody(
+                    redactedBody
+                )
+            ).joinToString("\n")
+        )
+
+    fun canonicalFamilyBody(
+        redactedBody: String
+    ): String =
+        redactedBody
+            .lowercase()
+            .replace(
+                Regex(
+                    """\bm[\s-]*pesa\b"""
+                ),
+                "mpesa"
+            )
+            .replace(
+                Regex(
+                    """\bm[\s-]*shwari\b"""
+                ),
+                "mshwari"
+            )
+            .replace(
+                Regex(
+                    """\bpesa[\s-]*link\b"""
+                ),
+                "pesalink"
+            )
+            .replace(
+                Regex(
+                    """\b(?:kshs?|kes|shs?)[.]?\b"""
+                ),
+                "<currency>"
+            )
+            .replace(
+                Regex(
+                    """[.,:;!?()"\u2019'-]+"""
+                ),
+                " "
+            )
+            .replace(
+                Regex(
+                    """\s+"""
+                ),
+                " "
+            )
+            .trim()
+
+    private fun canonicalSender(
+        sender: String
+    ): String =
+        sender
+            .lowercase()
+            .replace(
+                Regex(
+                    """[^a-z0-9]+"""
+                ),
+                ""
+            )
+            .ifBlank {
+                "<sender>"
+            }
 
     private fun fingerprint(
         value: String

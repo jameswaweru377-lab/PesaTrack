@@ -7,6 +7,7 @@ import org.json.JSONObject
 
 data class UnsupportedMessageShape(
     val shapeId: String,
+    val familyId: String = shapeId,
     val sender: String,
     val sourcePackage: String?,
     val sourceKind: String?,
@@ -22,6 +23,8 @@ data class UnsupportedMessageShape(
     val relevanceSignals:
         Set<FinancialRelevanceSignal> =
         emptySet(),
+    val familyOccurrenceCount: Int = 0,
+    val familyVariantCount: Int = 1,
     val implementationReview:
         MessageLabImplementationReviewState? =
         null
@@ -99,6 +102,10 @@ class MessageLabStore private constructor(
             ) {
                 matched = true
                 item.put(
+                    "familyId",
+                    identity.familyId
+                )
+                item.put(
                     "lastSeenAtEpochMs",
                     observedAtEpochMs
                 )
@@ -126,6 +133,10 @@ class MessageLabStore private constructor(
                     put(
                         "shapeId",
                         shapeId
+                    )
+                    put(
+                        "familyId",
+                        identity.familyId
                     )
                     put(
                         "sender",
@@ -233,6 +244,10 @@ class MessageLabStore private constructor(
                 ) ==
                 identity.shapeId
             ) {
+                item.put(
+                    "familyId",
+                    identity.familyId
+                )
                 putRelevanceEvidence(
                     item = item,
                     relevanceScore =
@@ -1065,6 +1080,18 @@ class MessageLabStore private constructor(
                 "occurrenceCount",
                 shape.occurrenceCount
             )
+            put(
+                "familyId",
+                shape.familyId
+            )
+            put(
+                "familyOccurrenceCount",
+                shape.familyOccurrenceCount
+            )
+            put(
+                "familyVariantCount",
+                shape.familyVariantCount
+            )
             shape.relevanceScore
                 ?.let {
                     put(
@@ -1108,176 +1135,245 @@ class MessageLabStore private constructor(
         val decisions =
             readDecisions()
 
-        return buildList {
-            for (
-                index in 0 until
-                    array.length()
-            ) {
-                val item =
-                    array.getJSONObject(
-                        index
-                    )
-                val shapeId =
-                    item.optString(
-                        "shapeId"
-                    )
-                add(
-                    UnsupportedMessageShape(
-                        shapeId =
-                            shapeId,
-                        sender =
+        val baseShapes =
+            buildList {
+                for (
+                    index in 0 until
+                        array.length()
+                ) {
+                    val item =
+                        array.getJSONObject(
+                            index
+                        )
+                    val shapeId =
+                        item.optString(
+                            "shapeId"
+                        )
+                    val sender =
+                        item.optString(
+                            "sender",
+                            "<SENDER>"
+                        )
+                    val sourcePackage =
+                        if (
+                            item.isNull(
+                                "sourcePackage"
+                            )
+                        ) {
+                            null
+                        } else {
                             item.optString(
-                                "sender",
-                                "<SENDER>"
-                            ),
-                        sourcePackage =
-                            if (
-                                item.isNull(
-                                    "sourcePackage"
-                                )
-                            ) {
-                                null
-                            } else {
-                                item.optString(
-                                    "sourcePackage"
-                                )
-                                    .trim()
-                                    .takeIf(
-                                        String::isNotBlank
-                                    )
-                            },
-                        sourceKind =
-                            if (
-                                item.isNull(
-                                    "sourceKind"
-                                )
-                            ) {
-                                null
-                            } else {
-                                item.optString(
-                                    "sourceKind"
-                                )
-                                    .trim()
-                                    .takeIf(
-                                        String::isNotBlank
-                                    )
-                            },
-                        redactedBody =
-                            item.optString(
-                                "redactedBody"
-                            ),
-                        firstSeenAtEpochMs =
-                            item.optLong(
-                                "firstSeenAtEpochMs"
-                            ),
-                        lastSeenAtEpochMs =
-                            item.optLong(
-                                "lastSeenAtEpochMs"
-                            ),
-                        occurrenceCount =
-                            item.optInt(
-                                "occurrenceCount",
-                                1
-                            ),
-                        userDecision =
-                            decisions
-                                .optJSONObject(
-                                    shapeId
-                                )
-                                ?.optString(
-                                    "decision"
-                                )
-                                ?.takeIf(
+                                "sourcePackage"
+                            )
+                                .trim()
+                                .takeIf(
                                     String::isNotBlank
                                 )
-                                ?.let {
-                                    runCatching {
-                                        MessageLabUserDecision
-                                            .valueOf(
-                                                it
-                                            )
-                                    }.getOrNull()
-                                }
-,
-                        semanticLabel =
-                            decisions
-                                .optJSONObject(
-                                    shapeId
-                                )
-                                ?.optString(
-                                    "semanticLabel"
-                                )
-                                ?.takeIf(
+                        }
+                    val sourceKind =
+                        if (
+                            item.isNull(
+                                "sourceKind"
+                            )
+                        ) {
+                            null
+                        } else {
+                            item.optString(
+                                "sourceKind"
+                            )
+                                .trim()
+                                .takeIf(
                                     String::isNotBlank
                                 )
-                                ?.let {
-                                    runCatching {
-                                        MessageLabSemanticLabel
-                                            .valueOf(
-                                                it
-                                            )
-                                    }.getOrNull()
-                                },
-                        relevanceScore =
-                            if (
-                                item.has(
-                                    "relevanceScore"
-                                ) &&
-                                !item.isNull(
-                                    "relevanceScore"
+                        }
+                    val redactedBody =
+                        item.optString(
+                            "redactedBody"
+                        )
+                    val familyId =
+                        item.optString(
+                            "familyId"
+                        )
+                            .trim()
+                            .takeIf(
+                                String::isNotBlank
+                            )
+                            ?: MessageLabShapeIdentityFactory
+                                .familyIdForRedacted(
+                                    sender =
+                                        sender,
+                                    redactedBody =
+                                        redactedBody,
+                                    sourcePackage =
+                                        sourcePackage,
+                                    sourceKind =
+                                        sourceKind
                                 )
-                            ) {
+
+                    add(
+                        UnsupportedMessageShape(
+                            shapeId =
+                                shapeId,
+                            familyId =
+                                familyId,
+                            sender =
+                                sender,
+                            sourcePackage =
+                                sourcePackage,
+                            sourceKind =
+                                sourceKind,
+                            redactedBody =
+                                redactedBody,
+                            firstSeenAtEpochMs =
+                                item.optLong(
+                                    "firstSeenAtEpochMs"
+                                ),
+                            lastSeenAtEpochMs =
+                                item.optLong(
+                                    "lastSeenAtEpochMs"
+                                ),
+                            occurrenceCount =
                                 item.optInt(
-                                    "relevanceScore"
-                                )
-                            } else {
-                                null
-                            },
-                        relevanceSignals =
-                            item.optJSONArray(
-                                "relevanceSignals"
-                            )?.let {
-                                array ->
-                                buildSet {
-                                    for (
-                                        signalIndex in
-                                            0 until
-                                                array.length()
-                                    ) {
+                                    "occurrenceCount",
+                                    1
+                                ),
+                            userDecision =
+                                decisions
+                                    .optJSONObject(
+                                        shapeId
+                                    )
+                                    ?.optString(
+                                        "decision"
+                                    )
+                                    ?.takeIf(
+                                        String::isNotBlank
+                                    )
+                                    ?.let {
                                         runCatching {
-                                            FinancialRelevanceSignal
+                                            MessageLabUserDecision
                                                 .valueOf(
-                                                    array.optString(
-                                                        signalIndex
-                                                    )
+                                                    it
                                                 )
                                         }.getOrNull()
-                                            ?.let(::add)
+                                    },
+                            semanticLabel =
+                                decisions
+                                    .optJSONObject(
+                                        shapeId
+                                    )
+                                    ?.optString(
+                                        "semanticLabel"
+                                    )
+                                    ?.takeIf(
+                                        String::isNotBlank
+                                    )
+                                    ?.let {
+                                        runCatching {
+                                            MessageLabSemanticLabel
+                                                .valueOf(
+                                                    it
+                                                )
+                                        }.getOrNull()
+                                    },
+                            relevanceScore =
+                                if (
+                                    item.has(
+                                        "relevanceScore"
+                                    ) &&
+                                    !item.isNull(
+                                        "relevanceScore"
+                                    )
+                                ) {
+                                    item.optInt(
+                                        "relevanceScore"
+                                    )
+                                } else {
+                                    null
+                                },
+                            relevanceSignals =
+                                item.optJSONArray(
+                                    "relevanceSignals"
+                                )?.let {
+                                    signalArray ->
+                                    buildSet {
+                                        for (
+                                            signalIndex in
+                                                0 until
+                                                    signalArray.length()
+                                        ) {
+                                            runCatching {
+                                                FinancialRelevanceSignal
+                                                    .valueOf(
+                                                        signalArray
+                                                            .optString(
+                                                                signalIndex
+                                                            )
+                                                    )
+                                            }.getOrNull()
+                                                ?.let(::add)
+                                        }
                                     }
-                                }
-                            }.orEmpty(),
-                        implementationReview =
-                            decisions
-                                .optJSONObject(
-                                    shapeId
-                                )
-                                ?.optString(
-                                    "implementationReview"
-                                )
-                                ?.takeIf(
-                                    String::isNotBlank
-                                )
-                                ?.let {
-                                    runCatching {
-                                        MessageLabImplementationReviewState
-                                            .valueOf(
-                                                it
-                                            )
-                                    }.getOrNull()
-                                }
+                                }.orEmpty(),
+                            implementationReview =
+                                decisions
+                                    .optJSONObject(
+                                        shapeId
+                                    )
+                                    ?.optString(
+                                        "implementationReview"
+                                    )
+                                    ?.takeIf(
+                                        String::isNotBlank
+                                    )
+                                    ?.let {
+                                        runCatching {
+                                            MessageLabImplementationReviewState
+                                                .valueOf(
+                                                    it
+                                                )
+                                        }.getOrNull()
+                                    }
+                        )
                     )
-                )
+                }
             }
+
+        val activeShapes =
+            baseShapes.filter {
+                it.userDecision !=
+                    MessageLabUserDecision
+                        .NOT_FINANCIAL
+            }
+        val familyOccurrences =
+            activeShapes
+                .groupBy {
+                    it.familyId
+                }
+                .mapValues {
+                    (_, family) ->
+                    family.sumOf {
+                        it.occurrenceCount
+                    }
+                }
+        val familyVariants =
+            activeShapes
+                .groupingBy {
+                    it.familyId
+                }
+                .eachCount()
+
+        return baseShapes.map {
+            shape ->
+            shape.copy(
+                familyOccurrenceCount =
+                    familyOccurrences[
+                        shape.familyId
+                    ] ?: shape.occurrenceCount,
+                familyVariantCount =
+                    familyVariants[
+                        shape.familyId
+                    ] ?: 1
+            )
         }
     }
 

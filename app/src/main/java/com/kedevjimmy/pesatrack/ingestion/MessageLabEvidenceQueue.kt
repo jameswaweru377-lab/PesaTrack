@@ -30,7 +30,10 @@ object MessageLabEvidenceQueue {
                         0
                 }
             }.thenByDescending {
-                it.occurrenceCount
+                maxOf(
+                    it.occurrenceCount,
+                    it.familyOccurrenceCount
+                )
             }.thenByDescending {
                 it.lastSeenAtEpochMs
             }.thenBy {
