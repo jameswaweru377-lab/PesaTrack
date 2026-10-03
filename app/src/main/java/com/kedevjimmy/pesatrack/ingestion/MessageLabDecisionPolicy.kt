@@ -30,11 +30,6 @@ object MessageLabDecisionPolicy {
         userDecision:
             MessageLabUserDecision?
     ): Boolean =
-        userDecision !=
-            MessageLabUserDecision
-                .NOT_FINANCIAL &&
-            (
-                recognized ||
-                    semanticallyUnderstood
-            )
+        recognized ||
+            semanticallyUnderstood
 }
