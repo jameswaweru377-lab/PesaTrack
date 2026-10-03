@@ -19,7 +19,9 @@ data class UnsupportedMessageShape(
     val relevanceScore: Int? = null,
     val relevanceSignals:
         Set<FinancialRelevanceSignal> =
-        emptySet()
+        emptySet(),
+    val financialKind:
+        MessageLabFinancialKind? = null
 )
 
 class MessageLabStore private constructor(
@@ -349,8 +351,11 @@ class MessageLabStore private constructor(
 
         val decisions =
             readDecisions()
-        decisions.put(
-            shapeId,
+        val existing =
+            decisions.optJSONObject(
+                shapeId
+            )
+        val next =
             JSONObject().apply {
                 put(
                     "decision",
@@ -360,7 +365,29 @@ class MessageLabStore private constructor(
                     "decidedAtEpochMs",
                     System.currentTimeMillis()
                 )
+                if (
+                    decision ==
+                        MessageLabUserDecision
+                            .CONFIRMED_FINANCIAL
+                ) {
+                    existing
+                        ?.optString(
+                            "financialKind"
+                        )
+                        ?.takeIf(
+                            String::isNotBlank
+                        )
+                        ?.let {
+                            put(
+                                "financialKind",
+                                it
+                            )
+                        }
+                }
             }
+        decisions.put(
+            shapeId,
+            next
         )
         preferences.edit()
             .putString(
@@ -411,6 +438,105 @@ class MessageLabStore private constructor(
                 )
         }.getOrNull()
     }
+
+    @Synchronized
+    fun setFinancialKind(
+        shapeId: String,
+        kind:
+            MessageLabFinancialKind
+    ): Boolean {
+        if (
+            shapeId.isBlank() ||
+            shapeById(shapeId) == null
+        ) {
+            return false
+        }
+
+        val decisions =
+            readDecisions()
+        val existing =
+            decisions.optJSONObject(
+                shapeId
+            ) ?: JSONObject()
+        existing.put(
+            "decision",
+            MessageLabUserDecision
+                .CONFIRMED_FINANCIAL
+                .name
+        )
+        existing.put(
+            "financialKind",
+            kind.name
+        )
+        existing.put(
+            "decidedAtEpochMs",
+            System.currentTimeMillis()
+        )
+        decisions.put(
+            shapeId,
+            existing
+        )
+        preferences.edit()
+            .putString(
+                KEY_DECISIONS,
+                decisions.toString()
+            )
+            .apply()
+        return true
+    }
+
+    @Synchronized
+    fun clearFinancialKind(
+        shapeId: String
+    ): Boolean {
+        val decisions =
+            readDecisions()
+        val existing =
+            decisions.optJSONObject(
+                shapeId
+            ) ?: return false
+        if (
+            !existing.has(
+                "financialKind"
+            )
+        ) {
+            return false
+        }
+        existing.remove(
+            "financialKind"
+        )
+        decisions.put(
+            shapeId,
+            existing
+        )
+        preferences.edit()
+            .putString(
+                KEY_DECISIONS,
+                decisions.toString()
+            )
+            .apply()
+        return true
+    }
+
+    fun financialKind(
+        shapeId: String
+    ): MessageLabFinancialKind? =
+        readDecisions()
+            .optJSONObject(
+                shapeId
+            )
+            ?.optString(
+                "financialKind"
+            )
+            ?.takeIf(
+                String::isNotBlank
+            )
+            ?.let {
+                runCatching {
+                    MessageLabFinancialKind
+                        .valueOf(it)
+                }.getOrNull()
+            }
 
     fun ignoredShapeCount(): Int =
         allStoredShapes()
@@ -637,6 +763,13 @@ class MessageLabStore private constructor(
                 "occurrenceCount",
                 shape.occurrenceCount
             )
+            shape.financialKind
+                ?.let {
+                    put(
+                        "userFinancialKind",
+                        it.name
+                    )
+                }
             shape.relevanceScore
                 ?.let {
                     put(
@@ -809,6 +942,26 @@ class MessageLabStore private constructor(
                                     }
                                 }
                             }.orEmpty()
+,
+                        financialKind =
+                            decisions
+                                .optJSONObject(
+                                    shapeId
+                                )
+                                ?.optString(
+                                    "financialKind"
+                                )
+                                ?.takeIf(
+                                    String::isNotBlank
+                                )
+                                ?.let {
+                                    runCatching {
+                                        MessageLabFinancialKind
+                                            .valueOf(
+                                                it
+                                            )
+                                    }.getOrNull()
+                                }
                     )
                 )
             }
