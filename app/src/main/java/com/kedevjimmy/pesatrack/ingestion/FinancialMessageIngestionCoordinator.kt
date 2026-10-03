@@ -39,8 +39,14 @@ import com.kedevjimmy.pesatrack.domain.rules.InterpretedRuleResolver
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch
 import com.kedevjimmy.pesatrack.domain.rules.OwnTransferEvidence
 
+enum class FinancialDiagnosticMode {
+    RECORD,
+    RECONCILE_ONLY
+}
+
 data class FinancialMessageIngestionResult(
     val recognized: Boolean,
+    val semanticallyUnderstood: Boolean,
     val consumesLegacyTransactionParsing: Boolean,
     val changed: Boolean,
     val insertedTransactions: Int,
@@ -76,7 +82,10 @@ class FinancialMessageIngestionCoordinator private constructor(
         sourcePackage: String?,
         sourceKind: String,
         receivedAtEpochMs: Long,
-        rebuildPayCycles: Boolean = true
+        rebuildPayCycles: Boolean = true,
+        diagnosticMode:
+            FinancialDiagnosticMode =
+            FinancialDiagnosticMode.RECORD
     ): FinancialMessageIngestionResult {
         val interpretation =
             FinancialMessageInterpreter.interpret(
@@ -128,6 +137,9 @@ class FinancialMessageIngestionCoordinator private constructor(
             val result =
                 FinancialMessageIngestionResult(
                     recognized = false,
+                    semanticallyUnderstood =
+                        interpretation
+                            .semanticallyUnderstood,
                     consumesLegacyTransactionParsing =
                         interpretation
                             .consumesLegacyTransactionParsing,
@@ -158,7 +170,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                 sourceKind = sourceKind,
                 receivedAtEpochMs =
                     receivedAtEpochMs,
-                result = result
+                result = result,
+                diagnosticMode =
+                    diagnosticMode
             )
             updateIdentityGraph(
                 result = result,
@@ -1137,6 +1151,9 @@ class FinancialMessageIngestionCoordinator private constructor(
         val result =
             FinancialMessageIngestionResult(
                 recognized = true,
+                semanticallyUnderstood =
+                    interpretation
+                        .semanticallyUnderstood,
                 consumesLegacyTransactionParsing =
                     interpretation
                         .consumesLegacyTransactionParsing,
@@ -1156,7 +1173,9 @@ class FinancialMessageIngestionCoordinator private constructor(
             sourceKind = sourceKind,
             receivedAtEpochMs =
                 receivedAtEpochMs,
-            result = result
+            result = result,
+            diagnosticMode =
+                diagnosticMode
         )
         updateIdentityGraph(
             result = result,
@@ -1202,7 +1221,9 @@ class FinancialMessageIngestionCoordinator private constructor(
         sourcePackage: String?,
         sourceKind: String,
         receivedAtEpochMs: Long,
-        result: FinancialMessageIngestionResult
+        result: FinancialMessageIngestionResult,
+        diagnosticMode:
+            FinancialDiagnosticMode
     ) {
         val normalizedMessage =
             FinancialMessageNormalizer.normalize(
@@ -1312,7 +1333,11 @@ class FinancialMessageIngestionCoordinator private constructor(
                 null
             }
 
-        diagnosticsStore.record(
+        if (
+            diagnosticMode ==
+            FinancialDiagnosticMode.RECORD
+        ) {
+            diagnosticsStore.record(
             title = title,
             sourceDisplayName =
                 sourceReference?.displayName,
@@ -1337,7 +1362,8 @@ class FinancialMessageIngestionCoordinator private constructor(
             messageShapeId =
                 messageShapeIdentity
                     ?.shapeId
-        )
+            )
+        }
 
         if (
             unsupportedCandidate &&
@@ -1345,23 +1371,36 @@ class FinancialMessageIngestionCoordinator private constructor(
             !interpretation
                 .semanticallyUnderstood
         ) {
-            messageLabStore.recordUnsupported(
-                safeSenderLabel =
-                    safeSenderLabel,
-                body = body,
-                observedAtEpochMs =
-                    receivedAtEpochMs,
-                sourcePackage =
-                    sourcePackage,
-                sourceKind =
-                    sourceKind
-            )
+            if (
+                diagnosticMode ==
+                FinancialDiagnosticMode.RECORD
+            ) {
+                messageLabStore.recordUnsupported(
+                    safeSenderLabel =
+                        safeSenderLabel,
+                    body = body,
+                    observedAtEpochMs =
+                        receivedAtEpochMs,
+                    sourcePackage =
+                        sourcePackage,
+                    sourceKind =
+                        sourceKind
+                )
+            }
         } else if (
-            relevance.isRelevant &&
             (
-                interpretation.recognized ||
-                    interpretation
-                        .semanticallyUnderstood
+                relevance.isRelevant &&
+                (
+                    interpretation.recognized ||
+                        interpretation
+                            .semanticallyUnderstood
+                )
+            ) ||
+            (
+                diagnosticMode ==
+                    FinancialDiagnosticMode
+                        .RECONCILE_ONLY &&
+                !unsupportedCandidate
             )
         ) {
             val retired =
@@ -1375,7 +1414,14 @@ class FinancialMessageIngestionCoordinator private constructor(
                         sourceKind =
                             sourceKind
                     )
-            if (retired) {
+            if (
+                retired &&
+                (
+                    interpretation.recognized ||
+                        interpretation
+                            .semanticallyUnderstood
+                )
+            ) {
                 messageShapeIdentity
                     ?.shapeId
                     ?.let {
