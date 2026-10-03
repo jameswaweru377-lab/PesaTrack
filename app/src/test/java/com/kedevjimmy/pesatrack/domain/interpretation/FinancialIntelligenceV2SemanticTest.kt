@@ -208,6 +208,94 @@ class FinancialIntelligenceV2SemanticTest {
     }
 
     @Test
+    fun pendingTransferIsPendingActionAndNeverCreatesLedgerMovement() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "My Bank",
+                    body =
+                        "KES 1,000.00 transferred from Savings account to Current account pending."
+                )
+
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+        assertEquals(
+            FinancialSemanticIntent.TRANSFER,
+            interpretation
+                .semanticAssessment
+                ?.primaryIntent
+        )
+        assertEquals(
+            FinancialSemanticRole.PENDING_ACTION,
+            interpretation
+                .semanticAssessment
+                ?.role
+        )
+    }
+
+    @Test
+    fun pendingBankCreditKeepsObservedBalanceButNoMovement() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "My Bank",
+                    body =
+                        "KES 825.50 has been credited to your account XX9087 pending. Available balance KES 4,925.50."
+                )
+
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+        assertEquals(
+            FinancialSemanticIntent.RECEIPT,
+            interpretation
+                .semanticAssessment
+                ?.primaryIntent
+        )
+        assertEquals(
+            FinancialSemanticRole.PENDING_ACTION,
+            interpretation
+                .semanticAssessment
+                ?.role
+        )
+        assertEquals(
+            492_550L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun informationalBalanceMentioningNoPendingTransactionsStaysInformation() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "My Bank",
+                    body =
+                        "You have no pending transactions. Available balance KES 4,925.50."
+                )
+
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+        assertEquals(
+            FinancialSemanticIntent
+                .BALANCE_UPDATE,
+            interpretation
+                .semanticAssessment
+                ?.primaryIntent
+        )
+        assertEquals(
+            FinancialSemanticRole.INFORMATION,
+            interpretation
+                .semanticAssessment
+                ?.role
+        )
+    }
+
+    @Test
     fun confirmationOnlyMessageNeverCreatesSecondLedgerEvent() {
         val interpretation =
             FinancialMessageInterpreter.interpret(
