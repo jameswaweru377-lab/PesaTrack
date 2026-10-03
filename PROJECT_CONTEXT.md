@@ -3808,3 +3808,24 @@ Safety boundary:
 - DR/CR does not invent a counterparty, merchant, transfer destination, category or salary/refund meaning.
 - These movements remain unresolved / Needs Review unless stronger relationship evidence exists.
 
+## Provider-neutral loan payment-received repayment fallback — 2026-10-03
+
+Debt interpretation now handles lender repayment confirmations that prove both a received payment and the resulting loan balance even when they do not use the exact phrase "loan repayment".
+
+Implemented:
+
+- Added provider-neutral repayment wording for shapes such as:
+  - `We have received your payment of KES <amount>. Your loan balance is KES <balance>.`
+  - `Payment of Ksh <amount> has been received. Your loan balance is Ksh <balance>.`
+- A plain sender-scoped `Your loan balance is ...` can identify the liability through the message source (for example `BRANCH` -> `Branch Loan`) without adding a Branch-specific parser branch.
+- An explicit resulting balance is authoritative:
+  - balance `0` -> full repayment;
+  - non-zero balance -> partial repayment.
+- Existing named-loan balance wording remains authoritative when the message explicitly names the loan product.
+- The fallback requires explicit loan context. An ordinary service message such as `We have received your payment of KES ...` without loan wording/balance does not become debt.
+- Added regression coverage for sender-scoped partial repayment, zero-balance full repayment and non-loan payment-received rejection.
+
+Guardrail:
+
+The sender is used only to resolve the liability when the message itself proves a loan repayment/balance relationship. The fallback does not invent a funding account, repayment source, fee, or lender-specific mechanics.
+
