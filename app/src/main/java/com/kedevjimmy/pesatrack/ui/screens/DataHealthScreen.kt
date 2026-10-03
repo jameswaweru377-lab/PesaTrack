@@ -236,6 +236,17 @@ fun DataHealthScreen(
             mutableStateOf(false)
         }
 
+    var inspectorFinancialEvidenceShapeId by
+        remember {
+            mutableStateOf<String?>(null)
+        }
+    var inspectorFinancialEvidenceSemanticLabel by
+        remember {
+            mutableStateOf<
+                MessageLabSemanticLabel?
+            >(null)
+        }
+
     val smsPermissionLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts
@@ -582,12 +593,20 @@ fun DataHealthScreen(
                     messageInspection = null
                     inspectorFinancialEvidenceSaved =
                         false
+                    inspectorFinancialEvidenceShapeId =
+                        null
+                    inspectorFinancialEvidenceSemanticLabel =
+                        null
                 },
                 onBodyChange = {
                     inspectorBody = it
                     messageInspection = null
                     inspectorFinancialEvidenceSaved =
                         false
+                    inspectorFinancialEvidenceShapeId =
+                        null
+                    inspectorFinancialEvidenceSemanticLabel =
+                        null
                 },
                 onAnalyze = {
                     if (
@@ -635,6 +654,26 @@ fun DataHealthScreen(
                                     ?.userDecision ==
                                 MessageLabUserDecision
                                     .CONFIRMED_FINANCIAL
+                        inspectorFinancialEvidenceShapeId =
+                            if (
+                                inspectorFinancialEvidenceSaved
+                            ) {
+                                storedMatch
+                                    .shape
+                                    ?.shapeId
+                            } else {
+                                null
+                            }
+                        inspectorFinancialEvidenceSemanticLabel =
+                            if (
+                                inspectorFinancialEvidenceSaved
+                            ) {
+                                storedMatch
+                                    .shape
+                                    ?.semanticLabel
+                            } else {
+                                null
+                            }
                     }
                 },
                 onClear = {
@@ -643,6 +682,10 @@ fun DataHealthScreen(
                     messageInspection = null
                     inspectorFinancialEvidenceSaved =
                         false
+                    inspectorFinancialEvidenceShapeId =
+                        null
+                    inspectorFinancialEvidenceSemanticLabel =
+                        null
                 },
                 financialEvidenceSaved =
                     inspectorFinancialEvidenceSaved,
@@ -677,6 +720,13 @@ fun DataHealthScreen(
                         if (result != null) {
                             inspectorFinancialEvidenceSaved =
                                 true
+                            inspectorFinancialEvidenceShapeId =
+                                result.shapeId
+                            inspectorFinancialEvidenceSemanticLabel =
+                                messageLabStore
+                                    .semanticLabel(
+                                        result.shapeId
+                                    )
                             diagnosticsStore
                                 .restoreShapeUnsupported(
                                     result.shapeId
@@ -723,6 +773,62 @@ fun DataHealthScreen(
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
+                    }
+                },
+                financialEvidenceSemanticLabel =
+                    inspectorFinancialEvidenceSemanticLabel,
+                onFinancialEvidenceSemanticLabelSelected = {
+                        label ->
+                    val shapeId =
+                        inspectorFinancialEvidenceShapeId
+                    if (
+                        shapeId != null &&
+                        messageLabStore
+                            .setSemanticLabel(
+                                shapeId,
+                                label
+                            )
+                    ) {
+                        inspectorFinancialEvidenceSemanticLabel =
+                            label
+                        unsupported =
+                            messageLabStore
+                                .prioritizedUnsupported(100)
+                        messageInspection =
+                            messageInspection
+                                ?.copy(
+                                    savedSemanticLabel =
+                                        label
+                                )
+                        Toast.makeText(
+                            context,
+                            "Meaning saved: " +
+                                label.displayLabel,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                },
+                onFinancialEvidenceSemanticLabelCleared = {
+                    val shapeId =
+                        inspectorFinancialEvidenceShapeId
+                    if (
+                        shapeId != null &&
+                        messageLabStore
+                            .clearSemanticLabel(
+                                shapeId
+                            )
+                    ) {
+                        inspectorFinancialEvidenceSemanticLabel =
+                            null
+                        unsupported =
+                            messageLabStore
+                                .prioritizedUnsupported(100)
+                        messageInspection =
+                            messageInspection
+                                ?.copy(
+                                    savedSemanticLabel =
+                                        null
+                                )
                     }
                 },
                 onCopySanitized = {
@@ -1837,11 +1943,17 @@ private fun MessageInspectorCard(
     inspection:
         FinancialMessageInspection?,
     financialEvidenceSaved: Boolean,
+    financialEvidenceSemanticLabel:
+        MessageLabSemanticLabel?,
     onTitleChange: (String) -> Unit,
     onBodyChange: (String) -> Unit,
     onAnalyze: () -> Unit,
     onClear: () -> Unit,
     onAddFinancialEvidence: () -> Unit,
+    onFinancialEvidenceSemanticLabelSelected:
+        (MessageLabSemanticLabel) -> Unit,
+    onFinancialEvidenceSemanticLabelCleared:
+        () -> Unit,
     onCopySanitized: () -> Unit
 ) {
     PesaCard(
@@ -2278,6 +2390,81 @@ private fun MessageInspectorCard(
                                     .colorScheme
                                     .primary
                         )
+                        Text(
+                            "What does this message mean?",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .titleSmall
+                        )
+                        Text(
+                            "Choose the closest financial meaning. This labels evidence for future parser work only; it does not create or edit a transaction.",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                        MessageLabSemanticLabel
+                            .values()
+                            .toList()
+                            .chunked(2)
+                            .forEach {
+                                rowLabels ->
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth(),
+                                    horizontalArrangement =
+                                        Arrangement
+                                            .spacedBy(
+                                                8.dp
+                                            )
+                                ) {
+                                    rowLabels
+                                        .forEach {
+                                            label ->
+                                            FilterChip(
+                                                selected =
+                                                    financialEvidenceSemanticLabel ==
+                                                        label,
+                                                onClick = {
+                                                    if (
+                                                        financialEvidenceSemanticLabel ==
+                                                        label
+                                                    ) {
+                                                        onFinancialEvidenceSemanticLabelCleared()
+                                                    } else {
+                                                        onFinancialEvidenceSemanticLabelSelected(
+                                                            label
+                                                        )
+                                                    }
+                                                },
+                                                label = {
+                                                    Text(
+                                                        label.displayLabel
+                                                    )
+                                                },
+                                                modifier =
+                                                    Modifier
+                                                        .weight(1f)
+                                            )
+                                        }
+                                    if (
+                                        rowLabels.size ==
+                                        1
+                                    ) {
+                                        Spacer(
+                                            modifier =
+                                                Modifier
+                                                    .weight(1f)
+                                        )
+                                    }
+                                }
+                            }
                     } else {
                         Button(
                             onClick =
