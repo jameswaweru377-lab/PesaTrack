@@ -3891,3 +3891,26 @@ Implemented:
 Guardrail:
 
 This fallback requires explicit posted-charge semantics and an owned bank-account context. A fee amount mentioned in pricing, marketing, a future notice, or another still-unexplained movement does not become a standalone expense.
+
+## Message Inspector -> sanitized financial evidence — 2026-10-03
+
+The local Message Inspector can now turn a manually pasted unsupported financial SMS into explicit, sanitized Message Lab evidence without creating accounting state.
+
+Implemented:
+
+- When Inspector says a pasted message would still enter Message Lab, Data Health shows **Add as financial evidence**.
+- The action stores only the normal locally redacted Message Lab shape plus relevance score/signals; the raw pasted SMS is not persisted by this workflow.
+- The saved evidence is explicitly marked **Financial**.
+- If the pasted wording already matches exactly one stored Message Lab shape, that existing shape is reused and confirmed instead of creating a duplicate.
+- If the same redacted wording exists in multiple source channels, the Inspector does not copy a source-specific decision across them. It stores a separate `manual_message_inspector` shape.
+- A brand-new manual-inspector shape starts with occurrence count 1.
+- Repeated taps on the same manual evidence do **not** increment occurrence count. Manual pasting therefore cannot manufacture the repeated-evidence threshold used by parser readiness.
+- Confirming an existing shape from Inspector restores it from the ignored-non-financial diagnostics state when appropriate.
+- Existing semantic labels / implementation review metadata on a reused shape are preserved.
+- Manual evidence respects the same bounded Message Lab storage cap.
+- Added pure regression coverage for unique-shape reuse, ambiguous-source separation, new manual evidence targeting, and stable non-incrementing occurrence counts.
+
+Guardrail:
+
+Manual Inspector evidence is development evidence only. It never creates a transaction, balance, debt update, parser template, Smart Rule, account ownership decision, or repeated-observation credit. Production parsing still requires the normal semantic-label, evidence-readiness, implementation-review and tested parser gates.
+
