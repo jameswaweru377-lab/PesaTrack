@@ -3648,3 +3648,25 @@ Guardrail:
 
 A direction hint says only which way money moved. It does not invent a counterparty, category, transfer destination, or merchant identity. Explicit debit-without-beneficiary rows remain Needs Review until further evidence or a user rule resolves their meaning.
 
+## Provider-neutral bank credit fallback without counterparty — 2026-10-03
+
+Follow-up to the explicit bank-debit fallback adds the safe incoming mirror for bank messages that prove an owned account was credited but do not identify who sent the money.
+
+Implemented:
+
+- Added a provider-neutral explicit account-credit candidate for wording such as:
+  - `Your <bank> a/c ... has been credited with KES <amount>`;
+  - `KES <amount> has been credited to your account ...`.
+- The fallback resolves the observed destination as the user's owned bank account from the message source / balance context.
+- The resulting unresolved movement carries the semantic direction hint `INCOMING`.
+- Existing receipt wording with an explicit `from/by <counterparty>` still wins and produces the normal higher-confidence Receipt event.
+- Debt, reversal, cash, transfer and other already-known relationships still outrank this fallback.
+- The fallback does not invent a sender, employer, merchant or transfer source.
+- Account reference evidence is preserved when present.
+- Existing balance extraction remains independent, so the same message can update the observed account balance.
+- Added regression coverage for branded bank credit, amount-first generic bank credit, and counterparty-present precedence.
+
+Guardrail:
+
+Incoming direction is the only asserted movement meaning. An account credit without a counterparty remains unresolved / Needs Review; it is not automatically called salary, transfer, refund or any other income category without additional evidence.
+
