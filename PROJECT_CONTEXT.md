@@ -3964,3 +3964,31 @@ Guardrail:
 
 Manual Inspector evidence is development evidence only. It never creates a transaction, balance, debt update, parser template, Smart Rule, account ownership decision, or repeated-observation credit. Production parsing still requires the normal semantic-label, evidence-readiness, implementation-review and tested parser gates.
 
+## Message Inspector inline semantic labeling — 2026-10-03
+
+The manual-evidence workflow now keeps the next evidence step inside the Message Inspector instead of forcing the user to find the same shape again lower in Data Health.
+
+Implemented:
+
+- When an inspected unsupported message is already confirmed as financial, the Inspector shows **What does this message mean?** directly in the inspection result.
+- The same semantic evidence labels used by Message Lab are available inline:
+  - Payment / spending
+  - Money received
+  - Transfer
+  - Cash withdrawal
+  - Cash deposit
+  - Loan received
+  - Loan repayment
+  - Balance update
+  - Savings / investment
+  - Other financial
+- Saving a new manual financial-evidence sample immediately binds the Inspector to the exact stored shape ID, including the separate manual shape used when source-channel identity is ambiguous.
+- Re-analyzing an already confirmed unique stored shape also restores the exact shape ID, so existing meaning can be changed or cleared inline.
+- After a manual save, an earlier ambiguous inspection state is replaced by the newly created/selected exact evidence shape.
+- Selecting or clearing meaning refreshes the prioritized Message Lab queue and the Inspector's saved-meaning display immediately.
+- Editing sender/body or clearing the Inspector clears the bound stored-shape target so a label cannot accidentally be written to stale evidence.
+
+Guardrail:
+
+Inline meaning remains evidence only. It does not create, edit, categorize, or reconcile ledger transactions. Changing meaning also keeps the existing Message Lab rule that clears stale implementation-review approval until the updated evidence is reviewed again.
+

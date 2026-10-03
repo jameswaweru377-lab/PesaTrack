@@ -236,6 +236,11 @@ fun DataHealthScreen(
             mutableStateOf(false)
         }
 
+    var inspectorSavedShapeId by
+        remember {
+            mutableStateOf<String?>(null)
+        }
+
     val smsPermissionLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts
@@ -582,12 +587,16 @@ fun DataHealthScreen(
                     messageInspection = null
                     inspectorFinancialEvidenceSaved =
                         false
+                    inspectorSavedShapeId =
+                        null
                 },
                 onBodyChange = {
                     inspectorBody = it
                     messageInspection = null
                     inspectorFinancialEvidenceSaved =
                         false
+                    inspectorSavedShapeId =
+                        null
                 },
                 onAnalyze = {
                     if (
@@ -635,6 +644,17 @@ fun DataHealthScreen(
                                     ?.userDecision ==
                                 MessageLabUserDecision
                                     .CONFIRMED_FINANCIAL
+                        inspectorSavedShapeId =
+                            storedMatch
+                                .shape
+                                ?.takeIf {
+                                    !storedMatch
+                                        .ambiguousSourceMatch &&
+                                        it.userDecision ==
+                                        MessageLabUserDecision
+                                            .CONFIRMED_FINANCIAL
+                                }
+                                ?.shapeId
                     }
                 },
                 onClear = {
@@ -643,6 +663,8 @@ fun DataHealthScreen(
                     messageInspection = null
                     inspectorFinancialEvidenceSaved =
                         false
+                    inspectorSavedShapeId =
+                        null
                 },
                 financialEvidenceSaved =
                     inspectorFinancialEvidenceSaved,
@@ -677,6 +699,8 @@ fun DataHealthScreen(
                         if (result != null) {
                             inspectorFinancialEvidenceSaved =
                                 true
+                            inspectorSavedShapeId =
+                                result.shapeId
                             diagnosticsStore
                                 .restoreShapeUnsupported(
                                     result.shapeId
@@ -697,19 +721,19 @@ fun DataHealthScreen(
                                     .sourceCoverage(
                                         sourceLimit = 8
                                     )
-                            if (
-                                !inspection
-                                    .savedDecisionAmbiguous
-                            ) {
-                                messageInspection =
-                                    inspection.copy(
-                                        savedUserDecision =
-                                            MessageLabUserDecision
-                                                .CONFIRMED_FINANCIAL,
-                                        savedDecisionAmbiguous =
-                                            false
-                                    )
-                            }
+                            messageInspection =
+                                inspection.copy(
+                                    savedUserDecision =
+                                        MessageLabUserDecision
+                                            .CONFIRMED_FINANCIAL,
+                                    savedSemanticLabel =
+                                        messageLabStore
+                                            .semanticLabel(
+                                                result.shapeId
+                                            ),
+                                    savedDecisionAmbiguous =
+                                        false
+                                )
                             Toast.makeText(
                                 context,
                                 if (
@@ -724,6 +748,67 @@ fun DataHealthScreen(
                             ).show()
                         }
                     }
+                },
+                onSemanticLabelSelected = {
+                        label ->
+                    inspectorSavedShapeId
+                        ?.let {
+                            shapeId ->
+                            if (
+                                messageLabStore
+                                    .setSemanticLabel(
+                                        shapeId,
+                                        label
+                                    )
+                            ) {
+                                unsupported =
+                                    messageLabStore
+                                        .prioritizedUnsupported(
+                                            100
+                                        )
+                                messageInspection =
+                                    messageInspection
+                                        ?.copy(
+                                            savedUserDecision =
+                                                MessageLabUserDecision
+                                                    .CONFIRMED_FINANCIAL,
+                                            savedSemanticLabel =
+                                                label,
+                                            savedDecisionAmbiguous =
+                                                false
+                                        )
+                                Toast.makeText(
+                                    context,
+                                    "Meaning saved: " +
+                                        label.displayLabel,
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                },
+                onSemanticLabelCleared = {
+                    inspectorSavedShapeId
+                        ?.let {
+                            shapeId ->
+                            if (
+                                messageLabStore
+                                    .clearSemanticLabel(
+                                        shapeId
+                                    )
+                            ) {
+                                unsupported =
+                                    messageLabStore
+                                        .prioritizedUnsupported(
+                                            100
+                                        )
+                                messageInspection =
+                                    messageInspection
+                                        ?.copy(
+                                            savedSemanticLabel =
+                                                null
+                                        )
+                            }
+                        }
                 },
                 onCopySanitized = {
                     messageInspection
@@ -1842,6 +1927,9 @@ private fun MessageInspectorCard(
     onAnalyze: () -> Unit,
     onClear: () -> Unit,
     onAddFinancialEvidence: () -> Unit,
+    onSemanticLabelSelected:
+        (MessageLabSemanticLabel) -> Unit,
+    onSemanticLabelCleared: () -> Unit,
     onCopySanitized: () -> Unit
 ) {
     PesaCard(
@@ -2278,6 +2366,83 @@ private fun MessageInspectorCard(
                                     .colorScheme
                                     .primary
                         )
+                        Text(
+                            "What does this message mean?",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .titleSmall
+                        )
+                        Text(
+                            "This meaning is evidence for future parser work only. It does not create, edit, or categorize a ledger transaction.",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                        MessageLabSemanticLabel
+                            .values()
+                            .toList()
+                            .chunked(2)
+                            .forEach {
+                                rowLabels ->
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth(),
+                                    horizontalArrangement =
+                                        Arrangement
+                                            .spacedBy(
+                                                8.dp
+                                            )
+                                ) {
+                                    rowLabels.forEach {
+                                        label ->
+                                        FilterChip(
+                                            selected =
+                                                result
+                                                    .savedSemanticLabel ==
+                                                label,
+                                            onClick = {
+                                                if (
+                                                    result
+                                                        .savedSemanticLabel ==
+                                                    label
+                                                ) {
+                                                    onSemanticLabelCleared()
+                                                } else {
+                                                    onSemanticLabelSelected(
+                                                        label
+                                                    )
+                                                }
+                                            },
+                                            label = {
+                                                Text(
+                                                    label
+                                                        .displayLabel
+                                                )
+                                            },
+                                            modifier =
+                                                Modifier
+                                                    .weight(1f)
+                                        )
+                                    }
+                                    if (
+                                        rowLabels.size ==
+                                        1
+                                    ) {
+                                        Spacer(
+                                            modifier =
+                                                Modifier
+                                                    .weight(1f)
+                                        )
+                                    }
+                                }
+                            }
                     } else {
                         Button(
                             onClick =
