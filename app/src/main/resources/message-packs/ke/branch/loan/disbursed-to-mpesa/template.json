@@ -1,17 +1,17 @@
 {
   "id": "ke.branch.loan.disbursed-to-mpesa",
-  "revision": 1,
+  "revision": 2,
   "country": "KE",
   "senderIds": ["BRANCH"],
-  "requiredAnchors": ["has been transferred to your M-Pesa account", "Repay", "to grow your limit"],
-  "anyAnchors": [],
+  "requiredAnchors": ["your M-Pesa account"],
+  "anyAnchors": ["Your loan of", "to grow your limit"],
   "eventKind": "DEBT_DRAWDOWN",
   "productIdentity": "BRANCH_LOAN",
   "active": true,
   "extractors": [
     {
       "field": "AMOUNT",
-      "pattern": "(?:KES|Kshs?|Ksh)[.]?[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+has been transferred to your M-Pesa account",
+      "pattern": "(?:Your loan of[ ]+)?(?:(?:KES|Kshs?|Ksh)[.]?|Kenya[ ]+Shillings?)[ ]*([0-9,]+(?:[.][0-9]{1,2})?)[ ]+has been[ ]+(?:transferred|disbursed)[ ]+to your M-Pesa account",
       "group": 1,
       "required": true
     },
