@@ -1979,6 +1979,7 @@ private fun UnsupportedShapeCard(
             }
         }
     }
+}
 
 @Composable
 private fun IgnoredShapeCard(
@@ -2042,5 +2043,4 @@ private fun IgnoredShapeCard(
             }
         }
     }
-}
 }
