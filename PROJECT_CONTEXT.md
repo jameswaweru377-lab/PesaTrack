@@ -3436,3 +3436,30 @@ Implemented:
 
 This is intentionally an evidence boundary, not a parser shortcut. Future parser/Message Pack work should use the redacted wording + relevance evidence + user-confirmed financial status + semantic label together before adding production extraction semantics.
 
+## Data Health local Message Inspector — corrected privacy-safe implementation — 2026-10-03
+
+The one-message diagnostic workflow has been rebuilt on top of the current Message Lab semantic-evidence implementation.
+
+Implemented:
+
+- Added **Data Health -> Inspect one message**.
+- A pasted sender/title plus SMS body runs through the exact current Financial Intelligence + Message Pack interpreter in memory.
+- The inspector does not persist the raw pasted text.
+- Results show recognized/semantically understood/unsupported status, parse route, template/revision, relevance score/signals, extracted field names, transaction code/date, interpreted events, balance observations and semantic hints.
+- The inspector consults the closest stored Message Lab shape before deciding whether the message would still enter Message Lab. A saved **Financial** or **Not financial** decision therefore changes the diagnosis exactly as the real ingestion path does.
+- Saved semantic-evidence labels are shown when the pasted shape matches stored Message Lab evidence.
+- Sanitized diagnostic export always replaces the sender with `<SENDER>`.
+- Sanitized export redacts every Message Pack extracted field span before applying the generic Message Lab redactor, preventing counterparties, references or other extracted values from leaking when generic redaction wording is insufficient.
+- Exported diagnostics include event kinds and field names, but not raw extracted values.
+- Added regression coverage for the real M-Shwari repayment template, saved Message Lab decisions, sender privacy, extracted-counterparty privacy and raw transaction-value removal.
+
+This supersedes the earlier unmerged Message Inspector PR #162, whose review correctly identified privacy and saved-decision gaps. Do not merge that older branch.
+
+Recommended real-device workflow:
+
+1. Reprocess one month.
+2. Paste any remaining suspicious SMS into Message Inspector.
+3. If it is recognized but app state is wrong, investigate reconciliation/account identity.
+4. If it remains unsupported, use Message Lab Financial/Not financial + semantic label evidence.
+5. Copy the sanitized diagnostic only when a developer fixture/report is needed.
+
