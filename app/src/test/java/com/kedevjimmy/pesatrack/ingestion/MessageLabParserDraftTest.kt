@@ -102,6 +102,32 @@ class MessageLabParserDraftTest {
     }
 
     @Test
+    fun draftCarriesFamilyEvidenceWithoutChangingExactShape() {
+        val draft =
+            MessageLabParserDraftGenerator
+                .generate(
+                    shape(
+                        occurrences = 1,
+                        familyOccurrences = 4,
+                        familyVariants = 3
+                    )
+                )!!
+
+        assertEquals(
+            1,
+            draft.occurrenceCount
+        )
+        assertEquals(
+            4,
+            draft.familyOccurrenceCount
+        )
+        assertEquals(
+            3,
+            draft.familyVariantCount
+        )
+    }
+
+    @Test
     fun generatedDraftStaysInactiveAndReviewOnly() {
         val draft =
             MessageLabParserDraftGenerator
@@ -173,7 +199,9 @@ class MessageLabParserDraftTest {
             MessageLabSemanticLabel =
             MessageLabSemanticLabel
                 .PAYMENT,
-        occurrences: Int = 2
+        occurrences: Int = 2,
+        familyOccurrences: Int = 0,
+        familyVariants: Int = 1
     ) =
         UnsupportedMessageShape(
             shapeId = id,
@@ -190,6 +218,10 @@ class MessageLabParserDraftTest {
                 MessageLabUserDecision
                     .CONFIRMED_FINANCIAL,
             semanticLabel =
-                semantic
+                semantic,
+            familyOccurrenceCount =
+                familyOccurrences,
+            familyVariantCount =
+                familyVariants
         )
 }
