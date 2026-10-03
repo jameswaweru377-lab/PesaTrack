@@ -2748,6 +2748,45 @@ private fun UnsupportedShapeCard(
                         .labelMedium
             )
             if (
+                shape.familyVariantCount >
+                    1 ||
+                shape.familyOccurrenceCount >
+                    shape.occurrenceCount
+            ) {
+                Text(
+                    "Format family: " +
+                        shape.familyOccurrenceCount +
+                        " observation" +
+                        if (
+                            shape.familyOccurrenceCount ==
+                            1
+                        ) {
+                            ""
+                        } else {
+                            "s"
+                        } +
+                        " across " +
+                        shape.familyVariantCount +
+                        " wording variant" +
+                        if (
+                            shape.familyVariantCount ==
+                            1
+                        ) {
+                            ""
+                        } else {
+                            "s"
+                        },
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelSmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+            }
+            if (
                 shape.userDecision ==
                 MessageLabUserDecision
                     .CONFIRMED_FINANCIAL
