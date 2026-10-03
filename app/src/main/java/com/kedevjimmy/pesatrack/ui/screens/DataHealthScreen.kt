@@ -55,6 +55,8 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.FinancialSourceCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
+import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadiness
+import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadinessState
 import com.kedevjimmy.pesatrack.ingestion.MessageLabRelevanceExplainer
 import com.kedevjimmy.pesatrack.ingestion.MessageLabSemanticLabel
 import com.kedevjimmy.pesatrack.ingestion.MessageLabUserDecision
@@ -858,6 +860,11 @@ fun DataHealthScreen(
                         .CONFIRMED_FINANCIAL &&
                     it.semanticLabel != null
             }
+        val parserReadiness =
+            MessageLabParserReadiness
+                .snapshot(
+                    unsupported
+                )
 
         if (
             confirmedFinancialCount > 0
@@ -965,6 +972,83 @@ fun DataHealthScreen(
                             Text(
                                 "Copy confirmed financial bundle"
                             )
+                        }
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(
+                                    8.dp
+                                )
+                        ) {
+                            HealthMetric(
+                                label =
+                                    "Need meaning",
+                                value =
+                                    parserReadiness
+                                        .needsMeaningCount
+                            )
+                        }
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(
+                                    8.dp
+                                )
+                        ) {
+                            HealthMetric(
+                                label =
+                                    "Evidence-ready",
+                                value =
+                                    parserReadiness
+                                        .evidenceReadyCount
+                            )
+                        }
+                        if (
+                            parserReadiness
+                                .evidenceReadyCount >
+                            0
+                        ) {
+                            Button(
+                                onClick = {
+                                    val fixtures =
+                                        messageLabStore
+                                            .exportEvidenceReadyParserCandidates(
+                                                limit = 50
+                                            )
+                                    if (
+                                        fixtures != null
+                                    ) {
+                                        val clipboard =
+                                            context
+                                                .getSystemService(
+                                                    Context
+                                                        .CLIPBOARD_SERVICE
+                                                ) as
+                                                ClipboardManager
+                                        clipboard
+                                            .setPrimaryClip(
+                                                ClipData
+                                                    .newPlainText(
+                                                        "PesaTrack parser-ready evidence",
+                                                        fixtures
+                                                    )
+                                            )
+                                        Toast.makeText(
+                                            context,
+                                            "Parser-ready evidence copied",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                },
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "Copy parser-ready bundle"
+                                )
+                            }
                         }
                     }
                 }
@@ -2087,6 +2171,47 @@ private fun UnsupportedShapeCard(
                         .typography
                         .labelMedium
             )
+            if (
+                shape.userDecision ==
+                MessageLabUserDecision
+                    .CONFIRMED_FINANCIAL
+            ) {
+                val readiness =
+                    MessageLabParserReadiness
+                        .stateFor(shape)
+                val readinessText =
+                    when (readiness) {
+                        MessageLabParserReadinessState
+                            .NEEDS_FINANCIAL_CONFIRMATION ->
+                            "Confirm financial"
+
+                        MessageLabParserReadinessState
+                            .NEEDS_MEANING_LABEL ->
+                            "Needs meaning"
+
+                        MessageLabParserReadinessState
+                            .LABELED_SINGLE_OBSERVATION ->
+                            "Need another example"
+
+                        MessageLabParserReadinessState
+                            .EVIDENCE_READY ->
+                            "Evidence ready"
+                    }
+                SmallStatusPill(
+                    text =
+                        readinessText,
+                    tone =
+                        if (
+                            readiness ==
+                            MessageLabParserReadinessState
+                                .EVIDENCE_READY
+                        ) {
+                            "green"
+                        } else {
+                            "amber"
+                        }
+                )
+            }
             if (
                 shape.userDecision ==
                 MessageLabUserDecision
