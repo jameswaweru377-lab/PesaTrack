@@ -11,6 +11,7 @@ data class MessageLabParserDraftField(
 data class MessageLabParserDraft(
     val draftId: String,
     val shapeId: String,
+    val familyId: String,
     val senderIds: List<String>,
     val sourcePackage: String?,
     val sourceKind: String?,
@@ -22,6 +23,8 @@ data class MessageLabParserDraft(
     val fields:
         List<MessageLabParserDraftField>,
     val occurrenceCount: Int,
+    val familyOccurrenceCount: Int,
+    val familyVariantCount: Int,
     val warnings: List<String>
 ) {
     fun toJson(): String =
@@ -40,6 +43,11 @@ data class MessageLabParserDraft(
             appendJsonField(
                 "shapeId",
                 shapeId,
+                true
+            )
+            appendJsonField(
+                "familyId",
+                familyId,
                 true
             )
             appendJsonField(
@@ -89,6 +97,16 @@ data class MessageLabParserDraft(
             appendJsonField(
                 "occurrenceCount",
                 occurrenceCount,
+                true
+            )
+            appendJsonField(
+                "familyOccurrenceCount",
+                familyOccurrenceCount,
+                true
+            )
+            appendJsonField(
+                "familyVariantCount",
+                familyVariantCount,
                 true
             )
             appendJsonField(
@@ -191,6 +209,8 @@ object MessageLabParserDraftGenerator {
                 ),
             shapeId =
                 shape.shapeId,
+            familyId =
+                shape.familyId,
             senderIds =
                 shape.sender
                     .trim()
@@ -220,6 +240,13 @@ object MessageLabParserDraftGenerator {
                 fields,
             occurrenceCount =
                 shape.occurrenceCount,
+            familyOccurrenceCount =
+                maxOf(
+                    shape.occurrenceCount,
+                    shape.familyOccurrenceCount
+                ),
+            familyVariantCount =
+                shape.familyVariantCount,
             warnings =
                 warningsFor(
                     semanticLabel =
