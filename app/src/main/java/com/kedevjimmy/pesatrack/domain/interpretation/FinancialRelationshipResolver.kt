@@ -149,9 +149,11 @@ object FinancialRelationshipResolver {
             )
         val cashRelationship =
             resolveCashMovement(
-                candidates.cashMovements
-                    .firstOrNull(),
-                fee = candidates.fee
+                candidate =
+                    candidates.cashMovements
+                        .firstOrNull(),
+                fee = candidates.fee,
+                message = message
             )
 
         val prioritized = candidates.actions
@@ -632,13 +634,29 @@ object FinancialRelationshipResolver {
 
     private fun resolveCashMovement(
         candidate: CashMovementCandidate?,
-        fee: FeeCandidate?
+        fee: FeeCandidate?,
+        message:
+            NormalizedFinancialMessage
     ): ResolvedFinancialRelationship? {
         candidate ?: return null
-        val account =
+        val directAccount =
             FinancialProviderRegistry.resolveAccount(
                 candidate.accountLabel
             )
+        val account =
+            if (
+                candidate.ruleId ==
+                    "cash.atm_withdrawal"
+            ) {
+                FinancialProviderRegistry
+                    .resolveOwnedMessageSourceAccount(
+                        title = message.title,
+                        bankLike = true
+                    )
+                    ?: directAccount
+            } else {
+                directAccount
+            }
         val cash =
             FinancialProviderRegistry.cashAccount()
         val confidence =
@@ -1563,7 +1581,7 @@ object FinancialRelationshipResolver {
 
     private val BANK_SOURCE_LANGUAGE_REGEX =
         Regex(
-            """\b(?:a/?c|acct|account|debited|credited|available\s+balance|book\s+balance|bank\s+balance)\b""",
+            """\b(?:a/?c|acct|account|debited|credited|available\s+balance|book\s+balance|bank\s+balance|card|pos|atm|cash\s+withdrawal)\b""",
             RegexOption.IGNORE_CASE
         )
 

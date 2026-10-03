@@ -336,4 +336,130 @@ class GenericBankInterpretationTest {
                 .balanceMinor
         )
     }
+
+    @Test
+    fun understandsSuccessfulCardPurchaseAtMerchant() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Purchase of KES 1,250.00 at SAMPLE CAFE using your card ending 1234 was successful. Available balance KES 7,500.00."
+            )
+
+        val payment =
+            interpretation.events.single() as
+                PaymentEventFact
+
+        assertEquals(
+            125_000L,
+            payment.amountMinor
+        )
+        assertEquals(
+            "SAMPLE CAFE",
+            payment.counterparty
+        )
+        assertEquals(
+            PaymentRouteHint.MERCHANT,
+            payment.routeHint
+        )
+        assertEquals(
+            "My Bank",
+            payment.source.displayName
+        )
+        assertEquals(
+            750_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun cardUsedWordingPreservesTransactionFee() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Your card ending 9876 was used for Ksh 2,400.00 at SAMPLE STORE. Transaction fee KES 30.00. Available balance KES 4,100.00."
+            )
+
+        val payment =
+            interpretation.events.single() as
+                PaymentEventFact
+
+        assertEquals(
+            240_000L,
+            payment.amountMinor
+        )
+        assertEquals(
+            3_000L,
+            payment.feeMinor
+        )
+        assertEquals(
+            "SAMPLE STORE",
+            payment.counterparty
+        )
+    }
+
+    @Test
+    fun declinedCardPurchaseDoesNotCreateFinancialEvent() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "My Bank",
+                body =
+                    "Purchase of KES 3,000.00 at SAMPLE STORE using your card ending 1234 was declined."
+            )
+
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+    }
+
+    @Test
+    fun understandsAtmWithdrawalFromOwnedBankAccount() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "EQUITY BANK",
+                body =
+                    "Cash withdrawal of KES 5,000.00 from your account XXX1234 at SAMPLE ATM on 03/10/26. Available balance KES 10,000.00."
+            )
+
+        val withdrawal =
+            interpretation.events.single() as
+                CashWithdrawalEventFact
+
+        assertEquals(
+            500_000L,
+            withdrawal.amountMinor
+        )
+        assertEquals(
+            "KENYAN_BANK_EQUITY",
+            withdrawal.source.providerKey
+        )
+        assertEquals(
+            "SAMPLE ATM",
+            withdrawal.counterparty
+        )
+        assertEquals(
+            1_000_000L,
+            interpretation.balances
+                .single()
+                .balanceMinor
+        )
+    }
+
+    @Test
+    fun failedAtmWithdrawalDoesNotCreateFinancialEvent() {
+        val interpretation =
+            FinancialMessageInterpreter.interpret(
+                title = "EQUITY BANK",
+                body =
+                    "Cash withdrawal of KES 5,000.00 from your account XXX1234 at SAMPLE ATM failed."
+            )
+
+        assertTrue(
+            interpretation.events.isEmpty()
+        )
+    }
+
 }

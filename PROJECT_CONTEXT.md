@@ -3670,3 +3670,30 @@ Guardrail:
 
 Incoming direction is the only asserted movement meaning. An account credit without a counterparty remains unresolved / Needs Review; it is not automatically called salary, transfer, refund or any other income category without additional evidence.
 
+## Provider-neutral card/POS purchase + ATM withdrawal fallback — 2026-10-03
+
+Real-device banking coverage now handles common card/POS and ATM wording that does not explicitly say an account was debited.
+
+Implemented:
+
+- Added generic card/POS purchase recognition for wording such as:
+  - `Purchase of KES <amount> at <merchant> using your card ...`;
+  - `Your card ending <digits> was used for KES <amount> at <merchant>`;
+  - `KES <amount> card purchase at <merchant>`.
+- Card purchases reuse the existing payment relationship and produce merchant-route payments; no provider-specific parser branch is added.
+- Existing fee extraction remains authoritative, so a transaction fee in the same message is preserved on the payment.
+- Explicit card/POS/ATM wording now counts as bank-source evidence when resolving an owned message-source account.
+- Added generic ATM withdrawal recognition for explicit cash-withdrawal wording tied to the user's account, with optional ATM/location counterparty.
+- ATM withdrawals reuse the existing cash-movement relationship rather than becoming generic expenses.
+- Added a shared non-posted movement guard. Wording such as **declined**, **failed**, **unsuccessful**, **rejected**, **pending**, or **not successful** does not create card/ATM ledger events.
+- Added regression coverage for:
+  - successful card purchase;
+  - card purchase with transaction fee;
+  - declined card purchase;
+  - ATM cash withdrawal with observed bank balance;
+  - failed ATM withdrawal.
+
+Guardrail:
+
+The fallback requires explicit posted-movement wording and an amount. It does not turn promotional card messages, authorization offers, declined attempts, or generic ATM references into transactions. Provider-specific Message Pack templates should still be added only from repeated real-device evidence where exact wording/mechanics justify them.
+

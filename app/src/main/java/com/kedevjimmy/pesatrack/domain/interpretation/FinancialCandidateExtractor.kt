@@ -223,6 +223,37 @@ object FinancialCandidateExtractor {
             RegexOption.DOT_MATCHES_ALL
         )
     )
+    private val cardPurchaseRegexes =
+        listOf(
+            Regex(
+                """\b(?:card\s+)?purchase(?:\s+(?:of|for))?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:at|from)\s+(.+?)(?=\s+(?:using|with|on)\s+(?:your\s+)?card\b|\s+(?:on|ref|reference|available|current|closing|balance)\b|[.;]|$)""",
+                setOf(
+                    RegexOption.IGNORE_CASE,
+                    RegexOption.DOT_MATCHES_ALL
+                )
+            ),
+            Regex(
+                """\b(?:your\s+)?card(?:\s+(?:ending(?:\s+in)?|no\.?|number)\s*[A-Za-z0-9*Xx-]+)?\s+(?:was\s+)?used\s+(?:for|to\s+pay)\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:at|to)\s+(.+?)(?=\s+(?:on|ref|reference|available|current|closing|balance)\b|[.;]|$)""",
+                setOf(
+                    RegexOption.IGNORE_CASE,
+                    RegexOption.DOT_MATCHES_ALL
+                )
+            ),
+            Regex(
+                """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:card\s+)?purchase\s+(?:at|from)\s+(.+?)(?=\s+(?:on|ref|reference|available|current|closing|balance)\b|[.;]|$)""",
+                setOf(
+                    RegexOption.IGNORE_CASE,
+                    RegexOption.DOT_MATCHES_ALL
+                )
+            )
+        )
+
+    private val nonPostedMovementAttemptRegex =
+        Regex(
+            """\b(?:declined|failed|unsuccessful|rejected|pending|not\s+successful|could\s+not\s+be\s+completed)\b""",
+            RegexOption.IGNORE_CASE
+        )
+
     private val accountDebitToRegexes = listOf(
         Regex(
             """(?:your\s+)?(?:[A-Za-z][A-Za-z0-9&'’.-]{1,30}\s+){0,2}(?:a/?c|acct|account)(?:\s+[A-Za-z0-9*Xx-]+)?\s+(?:has\s+been\s+)?debited(?:\s+(?:with|by))?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?).{0,180}?(?:transfer\s+to|sent\s+to|paid\s+to|beneficiary\s*[:\-]?|to)\s+([A-Za-z][A-Za-z0-9&'’()./+\- ]{1,80}?)(?=\s+(?:on|ref|reference|available|current|closing|balance|successful|successfully|completed)\b|[.;]|$)""",
@@ -316,6 +347,24 @@ object FinancialCandidateExtractor {
             RegexOption.DOT_MATCHES_ALL
         )
     )
+    private val atmWithdrawalRegexes =
+        listOf(
+            Regex(
+                """\b(?:cash\s+)?withdrawal(?:\s+of)?\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+(?:your\s+)?((?:[A-Za-z][A-Za-z0-9&'’.-]*\s+){0,2}(?:a/?c|acct|account)(?:\s+[A-Za-z0-9*Xx-]+)?)(?:\s+at\s+(.+?))?(?=\s+on\s+\d|\s+(?:ref|reference|available|current|closing|balance)\b|[.;]|$)""",
+                setOf(
+                    RegexOption.IGNORE_CASE,
+                    RegexOption.DOT_MATCHES_ALL
+                )
+            ),
+            Regex(
+                """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+(?:cash\s+)?withdrawn\s+from\s+(?:your\s+)?((?:[A-Za-z][A-Za-z0-9&'’.-]*\s+){0,2}(?:a/?c|acct|account)(?:\s+[A-Za-z0-9*Xx-]+)?)(?:\s+at\s+(.+?))?(?=\s+on\s+\d|\s+(?:ref|reference|available|current|closing|balance)\b|[.;]|$)""",
+                setOf(
+                    RegexOption.IGNORE_CASE,
+                    RegexOption.DOT_MATCHES_ALL
+                )
+            )
+        )
+
     private val withdrawalCounterpartyRegex = Regex(
         """withdrawn\s+from\s+.+?\s+at\s+(.+?)(?=\s+on\s+\d|\.\s*(?:New\s+)?[A-Za-z]|$)""",
         setOf(
@@ -381,6 +430,8 @@ object FinancialCandidateExtractor {
                 ?.let(::add)
             paymentCandidate(body)?.let(::add)
             paidToCandidate(body)?.let(::add)
+            cardPurchaseCandidate(body)
+                ?.let(::add)
             airtimePurchaseCandidate(body)?.let(::add)
             receiptCandidate(body)?.let(::add)
             creditedReceiptCandidate(body)?.let(::add)
@@ -449,7 +500,9 @@ object FinancialCandidateExtractor {
                 ),
             reversal = reversalCandidate(body),
             cashMovements = listOfNotNull(
-                cashWithdrawalCandidate(body),
+                cashWithdrawalCandidate(
+                    message
+                ),
                 cashDepositCandidate(body)
             ),
             actions = actions,
@@ -460,28 +513,115 @@ object FinancialCandidateExtractor {
     }
 
     private fun cashWithdrawalCandidate(
-        body: String
+        message:
+            NormalizedFinancialMessage
     ): CashMovementCandidate? {
-        val match = cashWithdrawalRegex.find(body)
-            ?: return null
-        val amount = match.groups[1] ?: return null
-        val account = match.groups[2] ?: return null
-        val counterparty =
-            withdrawalCounterpartyRegex.find(body)
-                ?.groups
-                ?.get(1)
+        val body =
+            message.body
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+        val existing =
+            cashWithdrawalRegex
+                .find(body)
+        if (existing != null) {
+            val amount =
+                existing.groups[1]
+                    ?: return null
+            val account =
+                existing.groups[2]
+                    ?: return null
+            val counterparty =
+                withdrawalCounterpartyRegex
+                    .find(body)
+                    ?.groups
+                    ?.get(1)
+
+            return CashMovementCandidate(
+                kind =
+                    CashMovementCandidateKind
+                        .WITHDRAWAL,
+                amountMinor =
+                    amountToMinor(
+                        amount.value
+                    ),
+                amountSpan =
+                    amount.range.toSpan(),
+                accountLabel =
+                    account.value.trim(),
+                accountSpan =
+                    account.range.toSpan(),
+                counterpartyLabel =
+                    counterparty
+                        ?.value
+                        ?.trim(),
+                counterpartySpan =
+                    counterparty
+                        ?.range
+                        ?.toSpan(),
+                ruleId =
+                    "cash.withdrawal"
+            )
+        }
+
+        val atmMatch =
+            atmWithdrawalRegexes
+                .asSequence()
+                .mapNotNull {
+                    it.find(body)
+                }
+                .firstOrNull()
+                ?: return null
+        val amount =
+            atmMatch.groups[1]
+                ?: return null
+        val accountPhrase =
+            atmMatch.groups[2]
+                ?: return null
+        val location =
+            atmMatch.groups[3]
+        val accountLabel =
+            message.title
+                ?.trim()
+                ?.takeIf(
+                    String::isNotBlank
+                )
+                ?: accountPhrase
+                    .value
+                    .trim()
 
         return CashMovementCandidate(
-            kind = CashMovementCandidateKind.WITHDRAWAL,
-            amountMinor = amountToMinor(amount.value),
-            amountSpan = amount.range.toSpan(),
-            accountLabel = account.value.trim(),
-            accountSpan = account.range.toSpan(),
+            kind =
+                CashMovementCandidateKind
+                    .WITHDRAWAL,
+            amountMinor =
+                amountToMinor(
+                    amount.value
+                ),
+            amountSpan =
+                amount.range.toSpan(),
+            accountLabel =
+                accountLabel,
+            accountSpan =
+                accountPhrase
+                    .range
+                    .toSpan(),
             counterpartyLabel =
-                counterparty?.value?.trim(),
+                location
+                    ?.value
+                    ?.trim()
+                    ?.takeIf(
+                        String::isNotBlank
+                    ),
             counterpartySpan =
-                counterparty?.range?.toSpan(),
-            ruleId = "cash.withdrawal"
+                location
+                    ?.range
+                    ?.toSpan(),
+            ruleId =
+                "cash.atm_withdrawal"
         )
     }
 
@@ -884,6 +1024,65 @@ object FinancialCandidateExtractor {
             accountReferenceSpan =
                 accountReference?.range?.toSpan(),
             ruleId = "payment.paid_to"
+        )
+    }
+
+    private fun cardPurchaseCandidate(
+        body: String
+    ): FinancialActionCandidate? {
+        if (
+            nonPostedMovementAttemptRegex
+                .containsMatchIn(body)
+        ) {
+            return null
+        }
+
+        val match =
+            cardPurchaseRegexes
+                .asSequence()
+                .mapNotNull {
+                    it.find(body)
+                }
+                .firstOrNull()
+                ?: return null
+
+        val amount =
+            match.groups[1]
+                ?: return null
+        val merchant =
+            match.groups[2]
+                ?: return null
+        val merchantLabel =
+            merchant.value
+                .trim()
+                .trimEnd(
+                    '.',
+                    ',',
+                    ':',
+                    ';'
+                )
+                .takeIf(
+                    String::isNotBlank
+                )
+                ?: return null
+
+        return FinancialActionCandidate(
+            kind =
+                FinancialActionCandidateKind
+                    .PAYMENT_PAID_TO,
+            amountMinor =
+                amountToMinor(
+                    amount.value
+                ),
+            amountSpan =
+                amount.range.toSpan(),
+            partyLabel =
+                merchantLabel,
+            partySpan =
+                merchant.range.toSpan(),
+            partyPhone = null,
+            ruleId =
+                "payment.card_purchase"
         )
     }
 
