@@ -65,11 +65,9 @@ object MessageLabParserReadiness {
             meaningLabeledCount =
                 labeled.size,
             evidenceReadyCount =
-                labeled.count {
-                    stateFor(it) ==
-                        MessageLabParserReadinessState
-                            .EVIDENCE_READY
-                },
+                evidenceReady(
+                    shapes
+                ).size,
             needsMeaningCount =
                 confirmed.count {
                     it.semanticLabel == null
@@ -80,13 +78,30 @@ object MessageLabParserReadiness {
     fun evidenceReady(
         shapes:
             List<UnsupportedMessageShape>
-    ): List<UnsupportedMessageShape> =
-        MessageLabEvidenceQueue
-            .prioritize(
-                shapes.filter {
-                    stateFor(it) ==
-                        MessageLabParserReadinessState
-                            .EVIDENCE_READY
-                }
-            )
+    ): List<UnsupportedMessageShape> {
+        val prioritized =
+            MessageLabEvidenceQueue
+                .prioritize(
+                    shapes.filter {
+                        stateFor(it) ==
+                            MessageLabParserReadinessState
+                                .EVIDENCE_READY
+                    }
+                )
+        val seenFamilies =
+            mutableSetOf<String>()
+
+        return prioritized.filter {
+            shape ->
+            val key =
+                shape.familyId +
+                    "|" +
+                    (
+                        shape.semanticLabel
+                            ?.name
+                            ?: "UNLABELED"
+                        )
+            seenFamilies.add(key)
+        }
+    }
 }
