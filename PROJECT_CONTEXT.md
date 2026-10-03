@@ -3370,3 +3370,21 @@ Recommended workflow:
 
 This keeps the broad interpreter recall-friendly while letting the user's real device teach PesaTrack which unsupported shapes are noise.
 
+## Message Lab confirmed-financial evidence queue — 2026-10-03
+
+The real-device feedback loop now prioritizes unsupported shapes that the user explicitly confirms are financial.
+
+Implemented:
+
+- Added deterministic Message Lab evidence prioritization.
+- Confirmed-financial shapes rank ahead of unconfirmed unsupported shapes.
+- Within the same decision class, higher occurrence count ranks first, then newer last-seen time.
+- Data Health now loads the prioritized unsupported queue rather than a purely chronological list.
+- Data Health shows a dedicated **Confirmed financial evidence** card when confirmed unsupported shapes exist.
+- All confirmed financial shapes can be copied as one sanitized JSON fixture bundle for parser/Message Pack work.
+- Exported evidence includes the redacted shape, source context, occurrence count and explicit user-confirmed-financial flag.
+- Source-specific fixture export remains available.
+- Added pure ranking/filter regression tests.
+
+This does not auto-create parser templates. Confirmed evidence is a prioritization signal only; implementation still requires reviewing the actual redacted financial mechanics before adding Message Pack or generic grammar coverage.
+

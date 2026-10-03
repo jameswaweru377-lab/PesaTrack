@@ -229,7 +229,7 @@ fun DataHealthScreen(
                         ),
                 unsupported =
                     messageLabStore
-                        .recentUnsupported(100),
+                        .prioritizedUnsupported(100),
                 ignoredUnsupported =
                     messageLabStore
                         .recentIgnored(100),
@@ -843,6 +843,123 @@ fun DataHealthScreen(
             }
         }
 
+        val confirmedFinancialCount =
+            unsupported.count {
+                it.userDecision ==
+                    MessageLabUserDecision
+                        .CONFIRMED_FINANCIAL
+            }
+
+        if (
+            confirmedFinancialCount > 0
+        ) {
+            item {
+                PesaCard(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier =
+                            Modifier.padding(
+                                16.dp
+                            ),
+                        verticalArrangement =
+                            Arrangement.spacedBy(
+                                8.dp
+                            )
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier =
+                                    Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    "Confirmed financial evidence",
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .titleMedium
+                                )
+                                Text(
+                                    confirmedFinancialCount
+                                        .toString() +
+                                        " unsupported shape" +
+                                        if (
+                                            confirmedFinancialCount ==
+                                            1
+                                        ) {
+                                            ""
+                                        } else {
+                                            "s"
+                                        } +
+                                        " prioritized for parser work",
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                )
+                            }
+                            SmallStatusPill(
+                                text =
+                                    confirmedFinancialCount
+                                        .toString(),
+                                tone = "green"
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                val fixtures =
+                                    messageLabStore
+                                        .exportConfirmedFinancialFixtures(
+                                            limit = 50
+                                        )
+                                if (
+                                    fixtures != null
+                                ) {
+                                    val clipboard =
+                                        context
+                                            .getSystemService(
+                                                Context
+                                                    .CLIPBOARD_SERVICE
+                                            ) as
+                                            ClipboardManager
+                                    clipboard
+                                        .setPrimaryClip(
+                                            ClipData
+                                                .newPlainText(
+                                                    "PesaTrack confirmed financial fixtures",
+                                                    fixtures
+                                                )
+                                        )
+                                    Toast.makeText(
+                                        context,
+                                        "Confirmed financial evidence copied",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            modifier =
+                                Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "Copy confirmed financial bundle"
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         val visibleUnsupported =
             selectedCoverageSource
                 ?.let { selected ->
@@ -964,7 +1081,7 @@ fun DataHealthScreen(
                             )
                         unsupported =
                             messageLabStore
-                                .recentUnsupported(100)
+                                .prioritizedUnsupported(100)
                         ignoredUnsupported =
                             messageLabStore
                                 .recentIgnored(100)
@@ -995,7 +1112,7 @@ fun DataHealthScreen(
                             )
                         unsupported =
                             messageLabStore
-                                .recentUnsupported(100)
+                                .prioritizedUnsupported(100)
                         ignoredUnsupported =
                             messageLabStore
                                 .recentIgnored(100)
@@ -1024,7 +1141,7 @@ fun DataHealthScreen(
                             )
                         unsupported =
                             messageLabStore
-                                .recentUnsupported(100)
+                                .prioritizedUnsupported(100)
                         ignoredUnsupported =
                             messageLabStore
                                 .recentIgnored(100)
@@ -1117,7 +1234,7 @@ fun DataHealthScreen(
                             )
                         unsupported =
                             messageLabStore
-                                .recentUnsupported(100)
+                                .prioritizedUnsupported(100)
                         ignoredUnsupported =
                             messageLabStore
                                 .recentIgnored(100)

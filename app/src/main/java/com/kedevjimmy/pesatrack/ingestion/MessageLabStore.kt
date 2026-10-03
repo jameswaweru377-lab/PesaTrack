@@ -360,6 +360,68 @@ class MessageLabStore private constructor(
             )
 
     @Synchronized
+    fun prioritizedUnsupported(
+        limit: Int = MAX_SHAPES
+    ): List<UnsupportedMessageShape> =
+        MessageLabEvidenceQueue
+            .prioritize(
+                allStoredShapes()
+                    .filter {
+                        it.userDecision !=
+                            MessageLabUserDecision
+                                .NOT_FINANCIAL
+                    }
+            )
+            .take(
+                limit.coerceIn(
+                    1,
+                    MAX_SHAPES
+                )
+            )
+
+    @Synchronized
+    fun confirmedFinancial(
+        limit: Int = MAX_SHAPES
+    ): List<UnsupportedMessageShape> =
+        MessageLabEvidenceQueue
+            .confirmedFinancial(
+                allStoredShapes()
+            )
+            .take(
+                limit.coerceIn(
+                    1,
+                    MAX_SHAPES
+                )
+            )
+
+    fun confirmedFinancialCount(): Int =
+        confirmedFinancial(
+            MAX_SHAPES
+        ).size
+
+    fun exportConfirmedFinancialFixtures(
+        limit: Int = 50
+    ): String? {
+        val shapes =
+            confirmedFinancial(
+                limit
+            )
+        if (shapes.isEmpty()) {
+            return null
+        }
+
+        return JSONArray().apply {
+            shapes.forEach { shape ->
+                put(
+                    developerFixtureJson(
+                        shape
+                    )
+                )
+            }
+        }.toString(2)
+    }
+
+    @Synchronized
     fun recentIgnored(
         limit: Int = MAX_SHAPES
     ): List<UnsupportedMessageShape> =
@@ -388,50 +450,9 @@ class MessageLabStore private constructor(
                     shapeId
             } ?: return null
 
-        return JSONObject().apply {
-            put(
-                "id",
-                "unsupported_" +
-                    shape.shapeId
-                        .take(12)
-            )
-            put(
-                "title",
-                shape.sender
-            )
-            put(
-                "body",
-                shape.redactedBody
-            )
-            shape.sourcePackage
-                ?.let {
-                    put(
-                        "sourcePackage",
-                        it
-                    )
-                }
-            shape.sourceKind
-                ?.let {
-                    put(
-                        "sourceKind",
-                        it
-                    )
-                }
-            put(
-                "expectedRoute",
-                "UNSUPPORTED"
-            )
-            put(
-                "userConfirmedFinancial",
-                shape.userDecision ==
-                    MessageLabUserDecision
-                        .CONFIRMED_FINANCIAL
-            )
-            put(
-                "notes",
-                "Redacted locally by PesaTrack Message Lab. Review before contributing."
-            )
-        }.toString(2)
+        return developerFixtureJson(
+            shape
+        ).toString(2)
     }
 
     fun recentUnsupportedForSource(
@@ -477,54 +498,65 @@ class MessageLabStore private constructor(
         return JSONArray().apply {
             shapes.forEach { shape ->
                 put(
-                    JSONObject().apply {
-                        put(
-                            "id",
-                            "unsupported_" +
-                                shape.shapeId
-                                    .take(12)
-                        )
-                        put(
-                            "title",
-                            shape.sender
-                        )
-                        put(
-                            "body",
-                            shape.redactedBody
-                        )
-                        shape.sourcePackage
-                            ?.let {
-                                put(
-                                    "sourcePackage",
-                                    it
-                                )
-                            }
-                        shape.sourceKind
-                            ?.let {
-                                put(
-                                    "sourceKind",
-                                    it
-                                )
-                            }
-                        put(
-                            "expectedRoute",
-                            "UNSUPPORTED"
-                        )
-                        put(
-                            "userConfirmedFinancial",
-                            shape.userDecision ==
-                                MessageLabUserDecision
-                                    .CONFIRMED_FINANCIAL
-                        )
-                        put(
-                            "notes",
-                            "Redacted locally by PesaTrack Message Lab. Review before contributing."
-                        )
-                    }
+                    developerFixtureJson(
+                        shape
+                    )
                 )
             }
         }.toString(2)
     }
+
+    private fun developerFixtureJson(
+        shape: UnsupportedMessageShape
+    ): JSONObject =
+        JSONObject().apply {
+            put(
+                "id",
+                "unsupported_" +
+                    shape.shapeId
+                        .take(12)
+            )
+            put(
+                "title",
+                shape.sender
+            )
+            put(
+                "body",
+                shape.redactedBody
+            )
+            shape.sourcePackage
+                ?.let {
+                    put(
+                        "sourcePackage",
+                        it
+                    )
+                }
+            shape.sourceKind
+                ?.let {
+                    put(
+                        "sourceKind",
+                        it
+                    )
+                }
+            put(
+                "expectedRoute",
+                "UNSUPPORTED"
+            )
+            put(
+                "userConfirmedFinancial",
+                shape.userDecision ==
+                    MessageLabUserDecision
+                        .CONFIRMED_FINANCIAL
+            )
+            put(
+                "occurrenceCount",
+                shape.occurrenceCount
+            )
+            put(
+                "notes",
+                "Redacted locally by PesaTrack Message Lab. Review before contributing."
+            )
+        }
 
     private fun shapeById(
         shapeId: String
