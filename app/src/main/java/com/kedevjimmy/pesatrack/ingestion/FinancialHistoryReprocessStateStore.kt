@@ -47,8 +47,8 @@ class FinancialHistoryReprocessStateStore(
                 it in
                     FinancialHistoryReprocessor
                         .MIN_MONTHS..
-                    FinancialHistoryReprocessor
-                        .MAX_MONTHS
+                        FinancialHistoryReprocessor
+                            .MAX_MONTHS
             }
         val appLastUpdate =
             runCatching {
