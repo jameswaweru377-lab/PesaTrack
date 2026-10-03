@@ -3719,3 +3719,29 @@ Guardrail:
 
 This fallback requires explicit cash-deposit wording tied to the user's bank account. It does not reinterpret generic account credits as cash deposits and does not invent a depositor when none is stated.
 
+## Safe bank balance abbreviations — 2026-10-03
+
+Generic bank reconciliation now understands common abbreviations for spendable/current balance without collapsing distinct accounting balance concepts.
+
+Implemented:
+
+- The message-source balance extractor now recognizes:
+  - `Available Balance`;
+  - `Available Bal`;
+  - `Avail Balance`;
+  - `Avail Bal`;
+  - `Avl Balance`;
+  - `Avl Bal`;
+  - `Current Balance / Current Bal`;
+  - `Closing Balance / Closing Bal`;
+  - the existing plain `Balance` wording.
+- Optional `is` or `:` separators remain supported.
+- `Avail` and `Avl` are excluded from generic named-account balance parsing so the same balance is not duplicated as a fake account named “Avail”.
+- Abbreviated balance observations still resolve through the financial message source, so known banks update the correct owned bank account.
+- Added regression coverage for abbreviated balances on outgoing bank debits and incoming bank credits.
+
+Safety boundary:
+
+- `Ledger Bal` and `Book Bal` are intentionally **not** treated as the same balance as Available/Current/Closing balance. They can differ from spendable balance and PesaTrack does not yet model balance types strongly enough to collapse them safely.
+- A regression test locks this distinction so coverage expansion cannot silently overwrite the user's usable balance with a ledger/book balance.
+
