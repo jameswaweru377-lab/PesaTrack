@@ -331,12 +331,16 @@ object MessageLabImplementationPacketGenerator {
 
     fun bundleJson(
         allShapes:
-            List<UnsupportedMessageShape>
+            List<UnsupportedMessageShape>,
+        limit: Int = 50
     ): String? {
         val representatives =
             MessageLabImplementationReview
                 .readyForParserWork(
                     allShapes
+                )
+                .take(
+                    limit.coerceAtLeast(1)
                 )
         val packets =
             representatives
