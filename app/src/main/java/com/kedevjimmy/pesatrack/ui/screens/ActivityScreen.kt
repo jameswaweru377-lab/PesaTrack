@@ -167,8 +167,15 @@ fun ActivityScreen(
     onTransactionClick: (Long) -> Unit = {},
     onProfileClick: () -> Unit = {},
     onIdentityReviewClick: () -> Unit = {},
+    onSalaryClick: () -> Unit = {},
     openNeedsAttention: Boolean = false
 ) {
+    var payCycleMode by rememberSaveable { mutableStateOf(false) }
+    if (payCycleMode) {
+        PayCycleActivityScreen(scaffoldPadding, onCalendar = { payCycleMode = false },
+            onSalaryClick = onSalaryClick, onTransactionClick = onTransactionClick)
+        return
+    }
     val context = LocalContext.current
     val activityScope =
         rememberCoroutineScope()
@@ -608,6 +615,8 @@ fun ActivityScreen(
                     LiveActivityUpdateStatus()
                 }
             }
+
+            item { SpendingPeriodSelector(false, {}, { payCycleMode = true }) }
 
             item {
                 ActivityMonthNavigator(
@@ -3783,4 +3792,5 @@ private fun ActivityRow(
         }
     }
 }
+
 
