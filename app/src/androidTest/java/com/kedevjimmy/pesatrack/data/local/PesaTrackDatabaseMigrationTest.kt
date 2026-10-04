@@ -82,7 +82,7 @@ class PesaTrackDatabaseMigrationTest {
                     created_at_epoch_ms
                 ) VALUES(?, ?, ?, ?, ?, ?, ?, ?)
                 """.trimIndent(),
-                arrayOf(
+                arrayOf<Any>(
                     TEST_FINGERPRINT,
                     "OTHER",
                     TEST_AMOUNT_MINOR,
