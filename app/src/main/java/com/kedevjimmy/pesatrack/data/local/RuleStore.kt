@@ -9,7 +9,7 @@ import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import java.util.UUID
 
 class RuleStore private constructor(context: Context) {
-    private val database = PesaTrackDatabase(context)
+    private val database = PesaTrackDatabase.get(context)
 
     @Synchronized
     fun listRules(enabledOnly: Boolean = false): List<SmartRule> {
