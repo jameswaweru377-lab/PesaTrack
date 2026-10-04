@@ -52,6 +52,7 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
 }
 
@@ -78,4 +79,5 @@ dependencies {
     androidTestImplementation("androidx.test:core-ktx:1.7.0")
     androidTestImplementation("androidx.test.ext:junit-ktx:1.3.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestUtil("androidx.test:orchestrator:1.6.1")
 }
