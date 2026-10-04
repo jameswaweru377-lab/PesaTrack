@@ -455,7 +455,7 @@ fun HomeScreen(
                     .availableToLiveMinor
             )
 
-    val spendSlices = remember(activitySnapshot) {
+    val spendSlices = remember(activitySnapshot, categoryLabels) {
         activitySnapshot.transactions
             .filter {
                 it.id in activitySnapshot.trustedTransactionIds &&

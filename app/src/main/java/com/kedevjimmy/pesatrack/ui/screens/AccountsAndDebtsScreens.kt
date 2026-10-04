@@ -157,7 +157,7 @@ fun AccountsScreen(
     LaunchedEffect(revision) {
         activeDebts =
             withContext(Dispatchers.IO) {
-                debtStore.accounts()
+                debtStore.readAccounts()
                     .filter {
                         it.outstandingMinor >
                             0L
@@ -427,7 +427,7 @@ fun DebtsScreen(
     LaunchedEffect(revision) {
         activeDebts =
             withContext(Dispatchers.IO) {
-                debtStore.accounts()
+                debtStore.readAccounts()
                     .filter {
                         it.outstandingMinor > 0L ||
                             it.hasUnresolvedDrawdown
@@ -1145,3 +1145,4 @@ private fun formatDetailDateTime(
     ).format(
         Date(epochMs)
     )
+

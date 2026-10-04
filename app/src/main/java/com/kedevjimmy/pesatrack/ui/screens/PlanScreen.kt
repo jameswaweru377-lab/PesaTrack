@@ -108,8 +108,7 @@ fun PlanScreen(
     ) {
         val loaded =
             withContext(Dispatchers.IO) {
-                store.rebuild()
-                store.snapshot() to
+                store.readSnapshot() to
                     recurringStore
                         .suggestions(
                             limit = 3
@@ -932,3 +931,4 @@ private fun emptyPlanSnapshot(): PayCycleSnapshot =
         commitments = emptyList(),
         pendingSalary = null
     )
+

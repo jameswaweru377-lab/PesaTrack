@@ -10,6 +10,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.ui.screens.*
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
+import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.*
 import org.junit.Assert.*
@@ -87,5 +88,22 @@ class HomeLoadingUiTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Waiting for salary").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("KES 1,010 this month").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("KES 610 this month").assertDoesNotExist()
+    }
+
+    @Test fun mainNavigationOpensAccountsActivityAndPlanAndReturnsHome() {
+        compose.setContent {
+            PesaTrackTheme(darkTheme = false) {
+                PesaTrackApp(ThemeMode.LIGHT, {}, setupComplete = true, onSetupComplete = {})
+            }
+        }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Waiting for salary").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Accounts").performClick()
+        compose.onNodeWithText("Known balances").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Activity").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("All").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Plan").performClick()
+        compose.onNodeWithText("Your plan will begin when PesaTrack recognizes a salary.").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Home").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Waiting for salary").fetchSemanticsNodes().isNotEmpty() }
     }
 }

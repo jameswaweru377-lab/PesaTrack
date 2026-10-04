@@ -137,3 +137,9 @@ salary/replay, read-only Home while transaction/debt writer monitors are held,
 failure recovery, delayed-load recovery, and the actual first-salary UI save.
 These are emulator checks; the user's installed database and Redmi still require
 verification. This does not claim every provider format or device state is covered.
+
+Accounts/Debts now use the persisted debt reader for display, and Plan reads the
+saved cycle instead of rebuilding it whenever the tab opens. The Compose suite
+also opens Accounts, Activity and Plan through the real navigation host and
+returns to Home. Recurring-plan acceptance still rebuilds the cycle when it
+changes the plan.
