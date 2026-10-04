@@ -46,6 +46,19 @@ or describe them as proof that the user's installed APK has been repaired.
 - A null SMS-provider query is an error, not a successful empty repair. Failed work
   is retried; it is never stamped successful before import and reconciliation finish.
 
+## Transfer reconciliation follow-up
+
+PR #232 preserves an own-account path when complementary bank/wallet observations
+share a reference, instead of overwriting the first account with the latest receipt.
+The pair becomes one transfer, fees remain counted once, and replay preserves the
+structural result. Activity describes the named source and destination.
+
+A bank name alone no longer proves that an incoming payment is a self-transfer.
+For example, a person can send money from the same bank the user uses. Existing
+bank-name-only decisions can be repaired to wallet income during replay, including
+correcting the primary account and clearing the old linked path. Explicit one-off
+user decisions remain protected even if a conflicting learned rule matches later.
+
 ## Research informing the direction
 
 Sources reviewed on 2026-10-04:
@@ -61,7 +74,7 @@ Sources reviewed on 2026-10-04:
    financial-attention rates separately. Check current M-Pesa/bank balance, current
    debts, refunds, and transfer totals against messages. A green synthetic suite
    cannot prove the user's KES -95,000 symptom has disappeared.
-2. **Complete cross-account matching.** Use shared references and complementary
+2. **Expand cross-account matching.** Use shared references and complementary
    account paths; require a unique match. Infer a self number only from corroborated
    own-account movement, never merely the most frequent destination. Cover separate
    transfers of equal amounts, delayed SMS, third-party recipients, fees, and both

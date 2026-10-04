@@ -329,10 +329,18 @@ class TransactionStore private constructor(context: Context) {
                             existingFingerprint.reviewState !=
                                 ReviewState.EXCLUDED.name
 
+                    val preservesUserDecision = existingFingerprint.reviewState in setOf(
+                        ReviewState.USER_CLASSIFIED.name, ReviewState.EXCLUDED.name
+                    )
                     if (
-                        matchedRule != null ||
-                        safeSemanticOverride
+                        (matchedRule != null || safeSemanticOverride) && !preservesUserDecision &&
+                        existingFingerprint.evidenceSource != "owned_mirror_transfer"
                     ) {
+                        if (safeSemanticOverride && accountId != null) {
+                            put("account_id", accountId)
+                            if (linkedAccountId == null) putNull("linked_account_id")
+                            else put("linked_account_id", linkedAccountId)
+                        }
                         put(
                             "direction",
                             classification.direction.name
@@ -408,6 +416,25 @@ class TransactionStore private constructor(context: Context) {
                 null
             }
         if (mirrorCandidate != null) {
+            val mirrorTransfer = OwnedMirrorTransferReconciler.resolve(
+                existing = mirrorCandidate,
+                direction = classification.direction.name,
+                accountId = accountId,
+                linkedAccountId = linkedAccountId,
+                amountMinor = parsed.amountMinor,
+                references = correlationReferences,
+                existingReferences = externalReferencesForTransaction(mirrorCandidate.id),
+                accounts = accounts,
+                incomingHasRule = classification.ruleId != null ||
+                    classification.category == TransactionCategory.DEBT_LOAN ||
+                    parsed.type == MpesaTransactionType.REVERSAL
+            )
+            fun applyMirrorTransfer() {
+                mirrorTransfer?.let {
+                    OwnedMirrorTransferReconciler.apply(database.writableDatabase, mirrorCandidate.id, it,
+                        maxOf(mirrorCandidate.feeMinor, parsed.feeMinor), accounts)
+                }
+            }
             attachExternalReferences(
                 transactionId = mirrorCandidate.id,
                 references = correlationReferences,
@@ -425,6 +452,8 @@ class TransactionStore private constructor(context: Context) {
             }
 
             if (parsed.transactionCode.isNullOrBlank()) {
+                applyMirrorTransfer()
+                if (mirrorTransfer != null && rebuildPayCycles) PayCycleStore.get(appContext).rebuild()
                 return false
             }
 
@@ -442,6 +471,7 @@ class TransactionStore private constructor(context: Context) {
                 linkedAccountId = linkedAccountId,
                 evidence = evidence
             )
+            applyMirrorTransfer()
             if (runRelationshipReconciliation) {
                 DebtStore.get(appContext)
                     .reconcilePendingDrawdownsForTransaction(
@@ -3815,3 +3845,4 @@ private fun StoredTransaction.toParsedTransaction(): ParsedMpesaTransaction =
         rawMessage = "",
         reversalOfCode = reversalOfCode
     )
+
