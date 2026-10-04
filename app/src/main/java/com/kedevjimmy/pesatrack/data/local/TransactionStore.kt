@@ -1900,16 +1900,12 @@ class TransactionStore private constructor(context: Context) {
                 AND cycle_candidate_reason IS NULL
                 AND account_id IS NOT NULL
                 AND direction IN (?, ?)
-                AND (
-                    source_kind LIKE ?
-                    OR type IN (?, ?, ?, ?, ?)
-                )
+                AND type IN (?, ?, ?, ?, ?)
                 """.trimIndent(),
                 arrayOf(
                     ReviewState.NEEDS_REVIEW.name,
                     MoneyDirection.INCOME.name,
                     MoneyDirection.EXPENSE.name,
-                    "interpreted_%",
                     MpesaTransactionType.RECEIVED.name,
                     MpesaTransactionType.DEPOSIT.name,
                     MpesaTransactionType.SENT_MONEY.name,
