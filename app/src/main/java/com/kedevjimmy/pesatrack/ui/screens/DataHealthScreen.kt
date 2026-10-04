@@ -527,55 +527,55 @@ fun DataHealthScreen(
                                 .typography
                                 .headlineSmall
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label =
                             "Financial observations",
                         value =
                             coverage
                                 .totalFinancialObservations
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label =
                             "Template parsed",
                         value =
                             coverage
                                 .templateParsed
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label =
                             "V2 generic fallback",
                         value =
                             coverage
                                 .genericFallbackParsed
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label =
                             "Understood, no ledger effect",
                         value =
                             coverage
                                 .understoodNoLedgerEffect
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label =
                             "Resolved by current coverage",
                         value =
                             coverage
                                 .resolvedByCurrentCoverage
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label =
                             "Unsupported financial shapes",
                         value =
                             coverage
                                 .unsupportedFinancial
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label =
                             "Resolved Message Lab occurrences",
                         value =
                             retiredMessageLabCount
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label =
                             "Ignored as non-financial",
                         value =
@@ -593,7 +593,7 @@ fun DataHealthScreen(
         }
 
         item {
-            HistoryReprocessCard(
+            DataHealthHistoryReprocessCard(
                 permissionGranted =
                     smsPermissionGranted,
                 permissionDenied =
@@ -1187,42 +1187,42 @@ fun DataHealthScreen(
                                 .colorScheme
                                 .onSurfaceVariant
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label = "Identity nodes",
                         value =
                             identitySnapshot
                                 .nodeCount
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label = "Known aliases",
                         value =
                             identitySnapshot
                                 .aliasCount
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label = "Confirmed self aliases",
                         value =
                             identitySnapshot
                                 .selfAliasCount
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label = "Questions waiting",
                         value =
                             identitySnapshot
                                 .pendingPromptCount
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label = "Still unclassified",
                         value =
                             identitySnapshot
                                 .unclassifiedIdentityCount
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label = "Learned category identities",
                         value =
                             learningPreferenceCount
                     )
-                    HealthMetric(
+                    DataHealthMetric(
                         label = "Auto-applied by learning",
                         value =
                             learningApplicationCount
@@ -1482,7 +1482,7 @@ fun DataHealthScreen(
                                     8.dp
                                 )
                         ) {
-                            HealthMetric(
+                            DataHealthMetric(
                                 label =
                                     "Need meaning",
                                 value =
@@ -1498,7 +1498,7 @@ fun DataHealthScreen(
                                     8.dp
                                 )
                         ) {
-                            HealthMetric(
+                            DataHealthMetric(
                                 label =
                                     "Evidence-ready",
                                 value =
@@ -1609,7 +1609,7 @@ fun DataHealthScreen(
                                     8.dp
                                 )
                         ) {
-                            HealthMetric(
+                            DataHealthMetric(
                                 label =
                                     "Awaiting implementation review",
                                 value =
@@ -1625,7 +1625,7 @@ fun DataHealthScreen(
                                     8.dp
                                 )
                         ) {
-                            HealthMetric(
+                            DataHealthMetric(
                                 label =
                                     "Needs more examples",
                                 value =
@@ -1641,7 +1641,7 @@ fun DataHealthScreen(
                                     8.dp
                                 )
                         ) {
-                            HealthMetric(
+                            DataHealthMetric(
                                 label =
                                     "Ready for parser work",
                                 value =
@@ -2302,409 +2302,6 @@ private data class DataHealthLoadResult(
 )
 
 @Composable
-private fun HistoryReprocessCard(
-    permissionGranted: Boolean,
-    permissionDenied: Boolean,
-    selectedMonths: Int,
-    freshness:
-        FinancialHistoryReprocessFreshness,
-    reprocessing: Boolean,
-    report:
-        FinancialHistoryReprocessReport?,
-    error: String?,
-    onMonthsSelected: (Int) -> Unit,
-    onRequestPermission: () -> Unit,
-    onReprocess: () -> Unit
-) {
-    PesaCard(
-        modifier =
-            Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier =
-                Modifier.padding(
-                    16.dp
-                ),
-            verticalArrangement =
-                Arrangement.spacedBy(
-                    10.dp
-                )
-        ) {
-            Row(
-                modifier =
-                    Modifier.fillMaxWidth(),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                Text(
-                    "Reprocess financial history",
-                    modifier =
-                        Modifier.weight(1f),
-                    style =
-                        MaterialTheme
-                            .typography
-                            .titleLarge
-                )
-                SmallStatusPill(
-                    text =
-                        if (
-                            freshness
-                                .reprocessRecommended
-                        ) {
-                            "Recommended"
-                        } else {
-                            "Up to date"
-                        },
-                    tone =
-                        if (
-                            freshness
-                                .reprocessRecommended
-                        ) {
-                            "amber"
-                        } else {
-                            "green"
-                        }
-                )
-            }
-            Text(
-                when {
-                    freshness
-                        .lastSuccessfulAtEpochMs ==
-                        null ->
-                        "No successful history reconciliation has been recorded on this installation yet."
-
-                    freshness
-                        .reprocessRecommended ->
-                        "PesaTrack was updated after the last successful history reconciliation. Run it again so older SMS can benefit from the newer intelligence."
-
-                    else ->
-                        "History has been reconciled after the current app update" +
-                            (
-                                freshness
-                                    .lastMonths
-                                    ?.let {
-                                        months ->
-                                        " using the last " +
-                                            months +
-                                            if (
-                                                months == 1
-                                            ) {
-                                                " month."
-                                            } else {
-                                                " months."
-                                            }
-                                    }
-                                    ?: "."
-                                )
-                },
-                style =
-                    MaterialTheme
-                        .typography
-                        .labelMedium,
-                color =
-                    if (
-                        freshness
-                            .reprocessRecommended
-                    ) {
-                        MaterialTheme
-                            .colorScheme
-                            .tertiary
-                    } else {
-                        MaterialTheme
-                            .colorScheme
-                            .onSurfaceVariant
-                    }
-            )
-            Text(
-                "Run the latest PesaTrack intelligence over SMS already on this phone. Existing ledger movements are deduplicated, while newer debt and account understanding can refresh old state.",
-                style =
-                    MaterialTheme
-                        .typography
-                        .bodySmall,
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant
-            )
-            Text(
-                "This reconciliation pass does not add duplicate Data Health observations or inflate existing Message Lab occurrence counts.",
-                style =
-                    MaterialTheme
-                        .typography
-                        .labelMedium,
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant
-            )
-
-            if (!permissionGranted) {
-                Button(
-                    onClick =
-                        onRequestPermission,
-                    modifier =
-                        Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        "Allow SMS history access"
-                    )
-                }
-                if (permissionDenied) {
-                    Text(
-                        "SMS access was not granted. Real-time notification capture can still work, but existing SMS cannot be reconciled.",
-                        style =
-                            MaterialTheme
-                                .typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .error
-                    )
-                }
-            } else {
-                Row(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-                    horizontalArrangement =
-                        Arrangement.spacedBy(
-                            8.dp
-                        )
-                ) {
-                    (1..3).forEach {
-                        months ->
-                        FilterChip(
-                            selected =
-                                selectedMonths ==
-                                    months,
-                            onClick = {
-                                onMonthsSelected(
-                                    months
-                                )
-                            },
-                            label = {
-                                Text(
-                                    months.toString() +
-                                        if (
-                                            months == 1
-                                        ) {
-                                            " month"
-                                        } else {
-                                            " months"
-                                        }
-                                )
-                            },
-                            enabled =
-                                !reprocessing,
-                            modifier =
-                                Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                Button(
-                    onClick =
-                        onReprocess,
-                    enabled =
-                        !reprocessing,
-                    modifier =
-                        Modifier.fillMaxWidth()
-                ) {
-                    if (reprocessing) {
-                        CircularProgressIndicator(
-                            modifier =
-                                Modifier.height(
-                                    20.dp
-                                ),
-                            strokeWidth = 2.dp
-                        )
-                        Text(
-                            " Reprocessing…"
-                        )
-                    } else {
-                        Text(
-                            "Reprocess last " +
-                                selectedMonths +
-                                if (
-                                    selectedMonths == 1
-                                ) {
-                                    " month"
-                                } else {
-                                    " months"
-                                }
-                        )
-                    }
-                }
-            }
-
-            error?.let {
-                message ->
-                Text(
-                    message,
-                    style =
-                        MaterialTheme
-                            .typography
-                            .bodySmall,
-                    color =
-                        MaterialTheme
-                            .colorScheme
-                            .error
-                )
-            }
-
-            report?.let {
-                result ->
-                Text(
-                    "Reconciliation report",
-                    style =
-                        MaterialTheme
-                            .typography
-                            .titleMedium
-                )
-                HealthMetric(
-                    label = "SMS scanned",
-                    value =
-                        result
-                            .importResult
-                            .scanned
-                )
-                HealthMetric(
-                    label =
-                        "Understood by current brain",
-                    value =
-                        result
-                            .importResult
-                            .understood
-                )
-                HealthMetric(
-                    label =
-                        "New ledger/events added",
-                    value =
-                        result
-                            .importResult
-                            .inserted
-                )
-                HealthMetric(
-                    label =
-                        "Existing duplicates preserved",
-                    value =
-                        result
-                            .importResult
-                            .duplicates
-                )
-                HealthMetric(
-                    label =
-                        "Existing state refreshed",
-                    value =
-                        result
-                            .importResult
-                            .stateRefreshed
-                )
-                HealthMetric(
-                    label =
-                        "Pending review events",
-                    value =
-                        result
-                            .importResult
-                            .pendingReview
-                )
-                HealthMetric(
-                    label =
-                        "Not applied",
-                    value =
-                        result
-                            .importResult
-                            .ignored
-                )
-                HealthMetric(
-                    label =
-                        "Old unsupported occurrences cleared",
-                    value =
-                        result
-                            .retiredUnsupportedOccurrences
-                )
-
-                Text(
-                    "Debt outstanding: " +
-                        formatKesMinor(
-                            result
-                                .totalOutstandingBeforeMinor
-                        ) +
-                        " → " +
-                        formatKesMinor(
-                            result
-                                .totalOutstandingAfterMinor
-                        ),
-                    style =
-                        MaterialTheme
-                            .typography
-                            .titleSmall
-                )
-
-                if (
-                    result
-                        .debtBalanceChanges
-                        .isEmpty()
-                ) {
-                    Text(
-                        "No debt balance changed during this pass.",
-                        style =
-                            MaterialTheme
-                                .typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .onSurfaceVariant
-                    )
-                } else {
-                    result
-                        .debtBalanceChanges
-                        .take(6)
-                        .forEach {
-                            change ->
-                            Text(
-                                change.name +
-                                    ": " +
-                                    (
-                                        change
-                                            .beforeOutstandingMinor
-                                            ?.let(
-                                                ::formatKesMinor
-                                            )
-                                            ?: "new"
-                                        ) +
-                                    " → " +
-                                    formatKesMinor(
-                                        change
-                                            .afterOutstandingMinor
-                                    ),
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                        }
-                }
-            }
-        }
-    }
-}
-
-private fun formatKesMinor(
-    amountMinor: Long
-): String =
-    String.format(
-        Locale.US,
-        "KES %,.2f",
-        amountMinor / 100.0
-    )
-
-@Composable
 private fun ReviewBurdenCard(
     snapshot:
         ReviewBurdenSnapshot
@@ -2793,21 +2390,21 @@ private fun ReviewBurdenCard(
                         .headlineSmall
             )
 
-            HealthMetric(
+            DataHealthMetric(
                 label =
                     "Ordinary spending transactions",
                 value =
                     snapshot
                         .eligibleTransactionCount
             )
-            HealthMetric(
+            DataHealthMetric(
                 label =
                     "Needed manual category review",
                 value =
                     snapshot
                         .manualReviewTransactionCount
             )
-            HealthMetric(
+            DataHealthMetric(
                 label =
                     "Eligible history days",
                 value =
@@ -3019,7 +2616,7 @@ private fun sourceChannelLabel(
 }
 
 @Composable
-private fun HealthMetric(
+internal fun DataHealthMetric(
     label: String,
     value: Int
 ) {
