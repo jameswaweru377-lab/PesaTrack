@@ -66,6 +66,7 @@ import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
+import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
@@ -463,6 +464,13 @@ fun HomeScreen(
         return
     }
 
+    val planningAvailability =
+        PlanningAvailabilityPolicy
+            .from(
+                cycleSnapshot
+                    .availableToLiveMinor
+            )
+
     val spendSlices = remember(activitySnapshot) {
         activitySnapshot.transactions
             .filter {
@@ -750,14 +758,25 @@ fun HomeScreen(
                         "Waiting for salary"
                     } else {
                         formatMoney(
-                            cycleSnapshot
-                                .availableToLiveMinor
+                            planningAvailability
+                                .availableMinor
                         )
                     },
                 subtitle =
-                    cycleSnapshot.cycle
-                        ?.let { cycle ->
-                            buildString {
+                    if (
+                        planningAvailability
+                            .shortfallMinor > 0L
+                    ) {
+                        "Tracked commitments exceed cycle funds by " +
+                            formatMoney(
+                                planningAvailability
+                                    .shortfallMinor
+                            ) +
+                            ". This is a planning shortfall, not your account balance."
+                    } else {
+                        cycleSnapshot.cycle
+                            ?.let { cycle ->
+                                buildString {
                                 append(
                                     "Since "
                                 )
@@ -782,9 +801,10 @@ fun HomeScreen(
                                             }
                                         )
                                     }
+                                }
                             }
-                        }
-                        ?: "PesaTrack will calculate this from real salary-cycle data.",
+                            ?: "PesaTrack will calculate this from real salary-cycle data."
+                    },
                 footer = null,
                 title = "Available after commitments",
                 spentToday = null,
