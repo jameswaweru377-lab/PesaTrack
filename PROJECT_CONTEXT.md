@@ -4062,3 +4062,34 @@ Guardrail:
 
 **Ready for parser work is still not production approval.** The implementation packet is a handoff artifact. Production support still requires reviewed financial mechanics, deterministic extraction/generic grammar, product/account identity only where proven, >=3 sanitized golden fixtures where applicable, and the existing relevance/extraction/duplicate-accounting/reconciliation gates.
 
+## Message Inspector inline parser handoff — 2026-10-04
+
+The Inspector now completes the full evidence-to-developer flow without forcing the user to find the same shape again lower in Message Lab.
+
+Implemented:
+
+- When the bound Inspector evidence reaches `EVIDENCE_READY`, the Inspector exposes **Copy review-only parser draft** directly beside the implementation-review controls.
+- When the same shape/family is explicitly marked **Ready for parser work**, the Inspector additionally exposes **Copy implementation work packet**.
+- The implementation packet uses the same family-aware generator as the Data Health bundle and includes:
+  - the approved representative;
+  - active sanitized family variants;
+  - parser draft;
+  - implementation checklist;
+  - validation checklist;
+  - permanent parser/accounting/privacy guardrails.
+- Added a pure `MessageInspectorParserHandoffPolicy` so developer actions are gated by the same readiness/review rules rather than UI-only conditions.
+- Added regression coverage for:
+  - no saved evidence;
+  - single-observation evidence;
+  - evidence-ready but unreviewed evidence;
+  - Ready for parser work;
+  - Needs more examples.
+
+Final inline Inspector path:
+
+`paste/inspect -> save sanitized financial evidence -> label meaning -> gather repeated evidence -> review implementation -> copy draft/work packet`
+
+Guardrail:
+
+The Inspector never exposes an implementation work packet before both evidence readiness and explicit **Ready for parser work** review are satisfied. Copying a draft or work packet is still a development handoff only and does not activate parsing or write accounting state.
+
