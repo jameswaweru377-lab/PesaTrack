@@ -40,7 +40,6 @@ class InvestmentStore private constructor(
     private val transactionStore =
         TransactionStore.get(appContext)
 
-    @Synchronized
     fun record(
         fact: SemanticInvestmentFact,
         references: Set<String>,
@@ -49,6 +48,7 @@ class InvestmentStore private constructor(
         sourceKind: String,
         occurredAtEpochMs: Long
     ): InvestmentWriteResult {
+        synchronized(CanonicalStoreLock.monitor) {
         val eventType = eventType(fact)
         val normalizedReferences =
             references
@@ -206,12 +206,13 @@ class InvestmentStore private constructor(
             changed = changed
         )
     }
+    }
 
-    @Synchronized
     fun reconcileTransaction(
         transactionId: Long,
         references: Set<String>
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val normalizedReferences =
             references
                 .mapNotNull(::normalizeReference)
@@ -282,6 +283,7 @@ class InvestmentStore private constructor(
             event = event,
             transaction = transaction
         )
+    }
     }
 
     private fun tryLinkEvent(
@@ -376,11 +378,11 @@ class InvestmentStore private constructor(
         return true
     }
 
-    @Synchronized
     fun resolveManualSettlement(
         eventId: Long,
         transactionId: Long?
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val event =
             eventForManualReview(eventId)
                 ?: return false
@@ -471,6 +473,7 @@ class InvestmentStore private constructor(
             LedgerUpdateBus.notifyChanged()
         }
         return changed
+    }
     }
 
     private fun eventForManualReview(

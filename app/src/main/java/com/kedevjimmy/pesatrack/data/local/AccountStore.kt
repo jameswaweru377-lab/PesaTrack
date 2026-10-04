@@ -10,8 +10,8 @@ import java.util.UUID
 class AccountStore private constructor(context: Context) {
     private val database = PesaTrackDatabase.get(context)
 
-    @Synchronized
     fun listAccounts(enabledOnly: Boolean = true): List<MoneyAccount> {
+        synchronized(CanonicalStoreLock.monitor) {
         val where = if (enabledOnly) "WHERE enabled = 1" else ""
         return database.readableDatabase.rawQuery(
             """
@@ -48,13 +48,14 @@ class AccountStore private constructor(context: Context) {
             }
         }
     }
+    }
 
-    @Synchronized
     fun save(
         name: String,
         type: AccountType,
         id: String = UUID.randomUUID().toString()
     ): MoneyAccount {
+        synchronized(CanonicalStoreLock.monitor) {
         require(name.isNotBlank()) { "Give this account a name." }
         val now = System.currentTimeMillis()
         val values = ContentValues().apply {
@@ -73,12 +74,13 @@ class AccountStore private constructor(context: Context) {
         )
         return MoneyAccount(id = id, name = name.trim(), type = type)
     }
+    }
 
-    @Synchronized
     fun findOrCreate(
         name: String,
         type: AccountType
     ): MoneyAccount {
+        synchronized(CanonicalStoreLock.monitor) {
         val normalized = name.trim()
         require(normalized.isNotBlank()) { "Give this account a name." }
 
@@ -110,14 +112,15 @@ class AccountStore private constructor(context: Context) {
 
         return existing ?: save(normalized, type)
     }
+    }
 
-    @Synchronized
     fun updateDetails(
         id: String,
         identifier: String?,
         openingBalanceMinor: Long?,
         openingBalanceAsOfEpochMs: Long? = System.currentTimeMillis()
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         val account = listAccounts(enabledOnly = false)
             .firstOrNull { it.id == id }
             ?: error("Account not found.")
@@ -154,9 +157,10 @@ class AccountStore private constructor(context: Context) {
             arrayOf(id)
         )
     }
+    }
 
-    @Synchronized
     fun setEnabled(id: String, enabled: Boolean) {
+        synchronized(CanonicalStoreLock.monitor) {
         val values = ContentValues().apply {
             put("enabled", if (enabled) 1 else 0)
             put("updated_at_epoch_ms", System.currentTimeMillis())
@@ -167,6 +171,7 @@ class AccountStore private constructor(context: Context) {
             "id = ?",
             arrayOf(id)
         )
+    }
     }
 
     companion object {

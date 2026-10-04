@@ -66,8 +66,8 @@ class CategoryStore private constructor(context: Context) {
                 }
         }
 
-    @Synchronized
     fun addCustom(label: String): PesaCategory {
+        synchronized(CanonicalStoreLock.monitor) {
         val clean = label.trim().replace(Regex("""\s+"""), " ")
         require(clean.length in 2..32) {
             "Category name must be 2 to 32 characters."
@@ -104,6 +104,7 @@ class CategoryStore private constructor(context: Context) {
             budgetable = true,
             sortOrder = 900
         )
+    }
     }
 
     fun canonicalId(id: String): String =

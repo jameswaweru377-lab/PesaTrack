@@ -65,11 +65,11 @@ class FinancialUnderstandingStore private constructor(
             AccountStore.DEFAULT_MPESA_ID
     )
 
-    @Synchronized
     fun observeEntity(
         reference: FinancialAccountReference,
         observedAtEpochMs: Long
     ): String? {
+        synchronized(CanonicalStoreLock.monitor) {
         val accountId = resolveOwnedAccount(reference)
         val now = System.currentTimeMillis()
 
@@ -165,8 +165,8 @@ class FinancialUnderstandingStore private constructor(
 
         return accountId
     }
+    }
 
-    @Synchronized
     fun recordBalance(
         fact: BalanceObservationFact,
         messageFingerprint: String,
@@ -174,6 +174,7 @@ class FinancialUnderstandingStore private constructor(
         sourcePackage: String?,
         sourceKind: String
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val accountId = observeEntity(
             fact.account,
             observedAtEpochMs
@@ -258,8 +259,8 @@ class FinancialUnderstandingStore private constructor(
         }
         return inserted || attached
     }
+    }
 
-    @Synchronized
     fun recordTransfer(
         event: TransferEventFact,
         messageFingerprint: String,
@@ -269,6 +270,7 @@ class FinancialUnderstandingStore private constructor(
         status: FinancialEventStatus,
         linkedTransactionId: Long? = null
     ): String {
+        synchronized(CanonicalStoreLock.monitor) {
         observeEntity(event.source, occurredAtEpochMs)
         observeEntity(event.destination, occurredAtEpochMs)
 
@@ -353,9 +355,9 @@ class FinancialUnderstandingStore private constructor(
 
         return eventKey
     }
+    }
 
-    @Synchronized
-    fun pendingEntities(): List<DiscoveredFinancialEntity> =
+    fun pendingEntities(): List<DiscoveredFinancialEntity> = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             """
             SELECT entity_key, display_name, provider_key,
@@ -407,9 +409,9 @@ class FinancialUnderstandingStore private constructor(
                 }
             }
         }
+    }
 
-    @Synchronized
-    fun confirmedAccountIds(): Set<String> =
+    fun confirmedAccountIds(): Set<String> = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase
             .rawQuery(
                 """
@@ -433,9 +435,9 @@ class FinancialUnderstandingStore private constructor(
                     }
                 }
             }
+    }
 
-    @Synchronized
-    fun latestBalances(): List<ObservedAccountBalance> =
+    fun latestBalances(): List<ObservedAccountBalance> = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             """
             SELECT o.entity_key,
@@ -489,11 +491,12 @@ class FinancialUnderstandingStore private constructor(
                 }
             }
         }
+    }
 
-    @Synchronized
     fun confirmEntityOwned(
         entityKey: String
     ): String? {
+        synchronized(CanonicalStoreLock.monitor) {
         val entity =
             entityByKey(entityKey)
                 ?: return null
@@ -657,6 +660,7 @@ class FinancialUnderstandingStore private constructor(
         LedgerUpdateBus.notifyChanged()
         return account.id
     }
+    }
 
     private fun canonicalOwnedReference(
         entity: DiscoveredFinancialEntity
@@ -735,11 +739,11 @@ class FinancialUnderstandingStore private constructor(
                 it.moveToFirst()
             }
 
-    @Synchronized
     fun confirmProviderOwned(
         providerKey: String,
         accountId: String? = null
     ): String? {
+        synchronized(CanonicalStoreLock.monitor) {
         val providerReference =
             FinancialProviderRegistry
                 .referenceForProviderKey(
@@ -914,11 +918,12 @@ class FinancialUnderstandingStore private constructor(
         LedgerUpdateBus.notifyChanged()
         return resolvedAccountId
     }
+    }
 
-    @Synchronized
     fun markEntityExternal(
         entityKey: String
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val values = ContentValues().apply {
             put(
                 "ownership_hint",
@@ -937,11 +942,11 @@ class FinancialUnderstandingStore private constructor(
         }
         return changed
     }
+    }
 
-    @Synchronized
     fun isUserOwned(
         entityKey: String
-    ): Boolean =
+    ): Boolean = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             """
             SELECT ownership_hint, confirmed_account_id
@@ -956,11 +961,11 @@ class FinancialUnderstandingStore private constructor(
                     AccountOwnershipHint.USER_OWNED.name &&
                 !cursor.isNull(1)
         }
+    }
 
-    @Synchronized
     fun entityByKey(
         entityKey: String
-    ): DiscoveredFinancialEntity? =
+    ): DiscoveredFinancialEntity? = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             """
             SELECT entity_key, display_name, provider_key,
@@ -999,11 +1004,11 @@ class FinancialUnderstandingStore private constructor(
                 )
             }
         }
+    }
 
-    @Synchronized
     fun pendingTransfersForEntity(
         entityKey: String
-    ): List<PendingFinancialTransfer> =
+    ): List<PendingFinancialTransfer> = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             """
             SELECT event_key, amount_minor, fee_minor,
@@ -1054,12 +1059,13 @@ class FinancialUnderstandingStore private constructor(
                 }
             }
         }
+    }
 
-    @Synchronized
     fun markEventApplied(
         eventKey: String,
         linkedTransactionId: Long?
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         val values = ContentValues().apply {
             put(
                 "status",
@@ -1080,11 +1086,12 @@ class FinancialUnderstandingStore private constructor(
         )
         LedgerUpdateBus.notifyChanged()
     }
+    }
 
-    @Synchronized
     fun accountIdFor(
         reference: FinancialAccountReference
     ): String? {
+        synchronized(CanonicalStoreLock.monitor) {
         val stored = database.readableDatabase.rawQuery(
             """
             SELECT confirmed_account_id
@@ -1104,6 +1111,7 @@ class FinancialUnderstandingStore private constructor(
             }
         }
         return stored ?: resolveOwnedAccount(reference)
+    }
     }
 
     private fun resolveOwnedAccount(

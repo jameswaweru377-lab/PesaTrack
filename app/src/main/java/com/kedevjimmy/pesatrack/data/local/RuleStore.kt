@@ -11,8 +11,8 @@ import java.util.UUID
 class RuleStore private constructor(context: Context) {
     private val database = PesaTrackDatabase.get(context)
 
-    @Synchronized
     fun listRules(enabledOnly: Boolean = false): List<SmartRule> {
+        synchronized(CanonicalStoreLock.monitor) {
         val where = if (enabledOnly) "WHERE enabled = 1" else ""
         return database.readableDatabase.rawQuery(
             """
@@ -60,22 +60,23 @@ class RuleStore private constructor(context: Context) {
             }
         }
     }
+    }
 
-    @Synchronized
     fun getById(
         id: String
-    ): SmartRule? =
+    ): SmartRule? = synchronized(CanonicalStoreLock.monitor) {
         listRules(
             enabledOnly = false
         ).firstOrNull {
             it.id == id
         }
+    }
 
-    @Synchronized
     fun setEnabled(
         id: String,
         enabled: Boolean
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val values =
             ContentValues().apply {
                 put(
@@ -103,8 +104,8 @@ class RuleStore private constructor(context: Context) {
 
         return changed
     }
+    }
 
-    @Synchronized
     fun save(
         name: String,
         counterpartyContains: String,
@@ -127,6 +128,7 @@ class RuleStore private constructor(context: Context) {
         counterpartyPhoneEquals: String = "",
         id: String = UUID.randomUUID().toString()
     ): SmartRule {
+        synchronized(CanonicalStoreLock.monitor) {
         require(
             counterpartyContains.isNotBlank() ||
                 counterpartyExact.isNotBlank() ||
@@ -198,10 +200,12 @@ class RuleStore private constructor(context: Context) {
             counterpartyPhoneEquals = normalizePhone(counterpartyPhoneEquals)
         )
     }
+    }
 
-    @Synchronized
     fun delete(id: String) {
+        synchronized(CanonicalStoreLock.monitor) {
         database.writableDatabase.delete("smart_rules", "id = ?", arrayOf(id))
+    }
     }
 
     companion object {

@@ -81,6 +81,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -188,6 +190,10 @@ fun HomeScreen(
     var homeLoading by remember {
         mutableStateOf(true)
     }
+    var homeError by remember { mutableStateOf(false) }
+    var refreshJob by remember { mutableStateOf<Job?>(null) }
+    var refreshPending by remember { mutableStateOf(false) }
+    var rebuildPending by remember { mutableStateOf(false) }
     var homeLoaded by remember {
         mutableStateOf(false)
     }
@@ -296,30 +302,45 @@ fun HomeScreen(
     fun refresh(
         rebuildCycles: Boolean = false
     ) {
-        homeScope.launch {
+        refreshPending = true
+        rebuildPending = rebuildPending || rebuildCycles
+        if (refreshJob?.isActive == true) return
+        refreshJob = homeScope.launch {
+            homeError = false
+            homeLoading = !homeLoaded
             try {
-                val loaded =
-                    loadHomeState(
-                        rebuildCycles =
-                            rebuildCycles
-                    )
-                cycleSnapshot =
-                    loaded.cycleSnapshot
-                ledgerSnapshot =
-                    loaded.ledgerSnapshot
-                activitySnapshot =
-                    loaded.activitySnapshot
-                debtAccounts =
-                    loaded.debtAccounts
-                trackedAccounts =
-                    loaded.trackedAccounts
-                confirmedAccountIds =
-                    loaded.confirmedAccountIds
-                salaryRule =
-                    loaded.salaryRule
-                needsAttentionCount =
-                    loaded.needsAttentionCount
-                homeLoaded = true
+                do {
+                    refreshPending = false
+                    val shouldRebuild = rebuildPending
+                    rebuildPending = false
+                    val loaded =
+                        loadHomeState(
+                            rebuildCycles =
+                                shouldRebuild
+                        )
+                    cycleSnapshot =
+                        loaded.cycleSnapshot
+                    ledgerSnapshot =
+                        loaded.ledgerSnapshot
+                    activitySnapshot =
+                        loaded.activitySnapshot
+                    debtAccounts =
+                        loaded.debtAccounts
+                    trackedAccounts =
+                        loaded.trackedAccounts
+                    confirmedAccountIds =
+                        loaded.confirmedAccountIds
+                    salaryRule =
+                        loaded.salaryRule
+                    needsAttentionCount =
+                        loaded.needsAttentionCount
+                    homeLoaded = true
+                } while (refreshPending)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                android.util.Log.e("PesaTrackHome", "Home data could not be loaded", failure)
+                homeError = true
             } finally {
                 homeLoading = false
             }
@@ -327,13 +348,12 @@ fun HomeScreen(
     }
 
     LaunchedEffect(Unit) {
-        refresh(
-            rebuildCycles = true
-        )
+        refresh()
     }
 
     LaunchedEffect(
-        ledgerUpdateState.revision
+        ledgerUpdateState.revision,
+        homeLoaded
     ) {
         if (
             homeLoaded &&
@@ -383,7 +403,7 @@ fun HomeScreen(
         )
     }
 
-    if (homeLoading) {
+    if (!homeLoaded) {
         LazyColumn(
             modifier = Modifier
                 .padding(scaffoldPadding)
@@ -423,7 +443,7 @@ fun HomeScreen(
                             Alignment
                                 .CenterVertically
                     ) {
-                        CircularProgressIndicator(
+                        if (homeLoading) CircularProgressIndicator(
                             modifier =
                                 Modifier.size(
                                     26.dp
@@ -437,7 +457,7 @@ fun HomeScreen(
                                 )
                         ) {
                             Text(
-                                "Preparing your money picture",
+                                if (homeError) "Your money picture could not load" else "Preparing your money picture",
                                 style =
                                     MaterialTheme
                                         .typography
@@ -447,7 +467,7 @@ fun HomeScreen(
                                         .SemiBold
                             )
                             Text(
-                                "Loading your accounts, pay cycle and balances without blocking the app.",
+                                if (homeError) "Your saved data is still on this device. Try loading it again." else "Loading your accounts, pay cycle and balances.",
                                 style =
                                     MaterialTheme
                                         .typography
@@ -457,6 +477,9 @@ fun HomeScreen(
                                         .colorScheme
                                         .onSurfaceVariant
                             )
+                            if (homeError) {
+                                TextButton(onClick = { refresh() }) { Text("Try again") }
+                            }
                         }
                     }
                 }

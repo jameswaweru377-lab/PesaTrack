@@ -127,6 +127,16 @@ object MirrorTransactionMatcher {
             )
         }
 
+        // Distinct coded transactions from one capture source remain separate,
+        // even when their owned-account paths, amounts and timestamps coincide.
+        // An exact shared external reference has already been handled above.
+        if (
+            firstCode != null && secondCode != null && firstCode != secondCode &&
+            !hasDistinctSources(first, second)
+        ) {
+            return none()
+        }
+
         val receivedDelta =
             abs(
                 first.receivedAtEpochMs -

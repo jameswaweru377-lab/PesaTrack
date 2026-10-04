@@ -59,7 +59,6 @@ class TransactionStore private constructor(context: Context) {
      * compatibility boundary while the legacy transactions table is
      * migrated incrementally.
      */
-    @Synchronized
     fun insertInterpretedMoneyMovementIfNew(
         kind: CanonicalFinancialRecordKind,
         paymentRouteHint: PaymentRouteHint? = null,
@@ -88,6 +87,7 @@ class TransactionStore private constructor(context: Context) {
             ReviewState? = null,
         externalReferences: Set<String> = emptySet()
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val legacyType =
             LegacyTransactionTypeCompatibility.resolve(
                 kind = kind,
@@ -145,8 +145,8 @@ class TransactionStore private constructor(context: Context) {
                 externalReferences
         )
     }
+    }
 
-    @Synchronized
     fun insertIfNew(
         parsed: ParsedMpesaTransaction,
         sourcePackage: String?,
@@ -169,6 +169,7 @@ class TransactionStore private constructor(context: Context) {
             ReviewState? = null,
         externalReferences: Set<String> = emptySet()
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val fingerprint = TransactionFingerprint.of(parsed, occurredAtEpochMs)
         if (parsed.transactionCode.isNullOrBlank()) {
             val legacyFingerprint = TransactionFingerprint.of(parsed)
@@ -668,14 +669,15 @@ class TransactionStore private constructor(context: Context) {
         }
         return inserted
     }
+    }
 
-    @Synchronized
     fun salaryHistoryCandidates(
         payerQuery: String,
         sinceEpochMs: Long,
         accountId: String? = null,
         limit: Int = 24
     ): List<SalaryHistoryCandidate> {
+        synchronized(CanonicalStoreLock.monitor) {
         val query =
             payerQuery.trim()
         if (query.isBlank()) {
@@ -774,8 +776,8 @@ class TransactionStore private constructor(context: Context) {
                 }
             }
     }
+    }
 
-    @Synchronized
     fun insertManualIncome(
         amountMinor: Long,
         occurredAtEpochMs: Long,
@@ -783,6 +785,7 @@ class TransactionStore private constructor(context: Context) {
         matchedRule: SmartRule,
         rebuildPayCycles: Boolean = true
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         require(amountMinor > 0L) { "Income amount must be greater than zero." }
 
         val parsed = ParsedMpesaTransaction(
@@ -813,9 +816,10 @@ class TransactionStore private constructor(context: Context) {
                 false
         )
     }
+    }
 
-    @Synchronized
     fun snapshot(): LedgerSnapshot {
+        synchronized(CanonicalStoreLock.monitor) {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
         ensureSemanticReviewStateReconciled()
@@ -882,20 +886,20 @@ class TransactionStore private constructor(context: Context) {
             latestBalanceObservedAtEpochMs = balance?.second
         )
     }
+    }
 
-    @Synchronized
-    fun getById(id: Long): StoredTransaction? =
+    fun getById(id: Long): StoredTransaction? = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             BASE_SELECT + " WHERE id = ? LIMIT 1",
             arrayOf(id.toString())
         ).use { cursor ->
             if (cursor.moveToFirst()) cursor.toStoredTransaction() else null
         }
+    }
 
-    @Synchronized
     fun findByTransactionCode(
         transactionCode: String
-    ): StoredTransaction? =
+    ): StoredTransaction? = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             BASE_SELECT +
                 " WHERE transaction_code = ? LIMIT 1",
@@ -907,9 +911,9 @@ class TransactionStore private constructor(context: Context) {
                 null
             }
         }
+    }
 
-    @Synchronized
-    fun recent(limit: Int = 100): List<StoredTransaction> =
+    fun recent(limit: Int = 100): List<StoredTransaction> = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             BASE_SELECT + " ORDER BY occurred_at_epoch_ms DESC, id DESC LIMIT ?",
             arrayOf(limit.coerceIn(1, 500).toString())
@@ -918,12 +922,13 @@ class TransactionStore private constructor(context: Context) {
                 while (cursor.moveToNext()) add(cursor.toStoredTransaction())
             }
         }
+    }
 
-    @Synchronized
     fun reviewBurdenSnapshot(
         nowEpochMs: Long =
             System.currentTimeMillis()
     ): ReviewBurdenSnapshot {
+        synchronized(CanonicalStoreLock.monitor) {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
         ensureSemanticReviewStateReconciled()
@@ -1029,11 +1034,12 @@ class TransactionStore private constructor(context: Context) {
                     nowEpochMs
             )
     }
+    }
 
-    @Synchronized
     fun activityMonths(
         timeZone: TimeZone = TimeZone.getDefault()
     ): List<ActivityMonthBucket> {
+        synchronized(CanonicalStoreLock.monitor) {
         val counts = linkedMapOf<Long, Int>()
 
         database.readableDatabase.rawQuery(
@@ -1061,11 +1067,12 @@ class TransactionStore private constructor(context: Context) {
             )
         }
     }
+    }
 
-    @Synchronized
     fun onboardingDuplicateCandidateCount(
         sinceEpochMs: Long
     ): Int {
+        synchronized(CanonicalStoreLock.monitor) {
         val recentTransactions =
             recent(500).filter {
                 it.receivedAtEpochMs >=
@@ -1078,9 +1085,10 @@ class TransactionStore private constructor(context: Context) {
             recentTransactions
         ).size
     }
+    }
 
-    @Synchronized
     fun activityReviewOverview(): ActivityReviewOverview {
+        synchronized(CanonicalStoreLock.monitor) {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
         ensureSemanticReviewStateReconciled()
@@ -1107,12 +1115,13 @@ class TransactionStore private constructor(context: Context) {
             possibleDuplicates = possibleDuplicates
         )
     }
+    }
 
-    @Synchronized
     fun activitySnapshot(
         nowEpochMs: Long = System.currentTimeMillis(),
         timeZone: TimeZone = TimeZone.getDefault()
     ): ActivityLedgerSnapshot {
+        synchronized(CanonicalStoreLock.monitor) {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
         ensureSemanticReviewStateReconciled()
@@ -1206,12 +1215,13 @@ class TransactionStore private constructor(context: Context) {
             possibleDuplicates = possibleDuplicates
         )
     }
+    }
 
-    @Synchronized
     fun reconcileRecentReviewTriage(
         nowEpochMs: Long = System.currentTimeMillis(),
         timeZone: TimeZone = TimeZone.getDefault()
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         var changed = 0
         repeat(3) { monthOffset ->
             val calendar = Calendar.getInstance(timeZone).apply {
@@ -1227,12 +1237,13 @@ class TransactionStore private constructor(context: Context) {
             PayCycleStore.get(appContext).rebuild()
         }
     }
+    }
 
-    @Synchronized
     fun reconcileReviewTriageForMonth(
         epochMs: Long,
         timeZone: TimeZone = TimeZone.getDefault()
     ): Int {
+        synchronized(CanonicalStoreLock.monitor) {
         val monthStart = Calendar.getInstance(timeZone).apply {
             timeInMillis = epochMs
             set(Calendar.DAY_OF_MONTH, 1)
@@ -1313,6 +1324,7 @@ class TransactionStore private constructor(context: Context) {
         }
         return changed
     }
+    }
 
     private fun buildReviewGroups(
         transactions: List<StoredTransaction>
@@ -1345,8 +1357,8 @@ class TransactionStore private constructor(context: Context) {
             }
             .sortedByDescending(ReviewGroup::latestEpochMs)
 
-    @Synchronized
     fun reapplyCounterpartyRules(rules: List<SmartRule>) {
+        synchronized(CanonicalStoreLock.monitor) {
         if (rules.isEmpty()) return
 
         val db = database.writableDatabase
@@ -1383,12 +1395,12 @@ class TransactionStore private constructor(context: Context) {
         }
         PayCycleStore.get(appContext).rebuild()
     }
+    }
 
-    @Synchronized
     fun matchingPendingCount(
         rule: SmartRule,
         excludingId: Long? = null
-    ): Int =
+    ): Int = synchronized(CanonicalStoreLock.monitor) {
         learnableHistoricalTransactions().count { stored ->
             stored.id != excludingId &&
                 SmartRuleEngine.matchTransaction(
@@ -1396,12 +1408,13 @@ class TransactionStore private constructor(context: Context) {
                     listOf(rule)
                 ) != null
         }
+    }
 
-    @Synchronized
     fun applyRuleToTransaction(
         transactionId: Long,
         rule: SmartRule
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val stored =
             getById(transactionId)
                 ?: return false
@@ -1468,13 +1481,14 @@ class TransactionStore private constructor(context: Context) {
         }
         return changed
     }
+    }
 
-    @Synchronized
     fun reapplyRuleForCounterparty(
         rule: SmartRule,
         counterpartyQuery: String,
         rebuildPayCycles: Boolean = true
     ): Int {
+        synchronized(CanonicalStoreLock.monitor) {
         val query =
             counterpartyQuery.trim()
         if (query.isBlank()) {
@@ -1615,12 +1629,13 @@ class TransactionStore private constructor(context: Context) {
         }
         return changed
     }
+    }
 
-    @Synchronized
     fun reapplyRule(
         rule: SmartRule,
         rebuildPayCycles: Boolean = true
     ): Int {
+        synchronized(CanonicalStoreLock.monitor) {
         val db = database.writableDatabase
         var changed = 0
 
@@ -1662,6 +1677,7 @@ class TransactionStore private constructor(context: Context) {
         }
         return changed
     }
+    }
 
     private fun isLearnableHistoricalMatch(
         stored: StoredTransaction
@@ -1695,8 +1711,8 @@ class TransactionStore private constructor(context: Context) {
             }
         }
 
-    @Synchronized
     fun reconcileMirrorDuplicates(): Int {
+        synchronized(CanonicalStoreLock.monitor) {
         val transactions = allTransactions()
         val mpesaCanonical = transactions.filter {
             !it.transactionCode.isNullOrBlank() &&
@@ -1804,6 +1820,7 @@ class TransactionStore private constructor(context: Context) {
             PayCycleStore.get(appContext).rebuild()
         }
         return removed
+    }
     }
 
     private fun ensureMirrorReconciled() {
@@ -2238,10 +2255,10 @@ class TransactionStore private constructor(context: Context) {
         return matches.single().first
     }
 
-    @Synchronized
     fun findByAnyExternalReference(
         references: Set<String>
     ): StoredTransaction? {
+        synchronized(CanonicalStoreLock.monitor) {
         val normalized =
             normalizedCorrelationReferences(
                 transactionCode = null,
@@ -2253,6 +2270,7 @@ class TransactionStore private constructor(context: Context) {
                 amountMinor = null
             )
         return matches.singleOrNull()
+    }
     }
 
     private fun findTransactionsByExternalReferences(
@@ -2557,11 +2575,11 @@ class TransactionStore private constructor(context: Context) {
         }
     }
 
-    @Synchronized
     fun attachEvidenceToNearbyUnknown(
         evidence: FinancialMessageEvidence,
         rules: List<SmartRule>
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val start = evidence.observedAtEpochMs - TransactionEvidenceResolver.MAX_WINDOW_MS
         val end = evidence.observedAtEpochMs + TransactionEvidenceResolver.MAX_WINDOW_MS
         val candidates = database.readableDatabase.rawQuery(
@@ -2622,9 +2640,10 @@ class TransactionStore private constructor(context: Context) {
         applyEvidence(selected.first, selected.second, rules)
         return true
     }
+    }
 
-    @Synchronized
     fun acceptEvidenceIdentity(id: Long): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val stored = getById(id) ?: return false
         val label = stored.evidenceLabel?.trim()?.takeIf { it.isNotBlank() }
             ?: return false
@@ -2644,6 +2663,7 @@ class TransactionStore private constructor(context: Context) {
             acceptedByUser = true
         )
         return true
+    }
     }
 
     private fun applyEvidence(
@@ -2695,10 +2715,10 @@ class TransactionStore private constructor(context: Context) {
         }
     }
 
-    @Synchronized
     fun reconcileOwnAccountTransfers(
         rebuildPayCycles: Boolean = true
     ): Int {
+        synchronized(CanonicalStoreLock.monitor) {
         val accounts = AccountStore.get(appContext).listAccounts()
         val db = database.writableDatabase
         var changed = 0
@@ -2749,12 +2769,13 @@ class TransactionStore private constructor(context: Context) {
         }
         return changed
     }
+    }
 
-    @Synchronized
     fun resolvePossibleDuplicate(
         pairKey: String,
         sameTransaction: Boolean
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val ids = pairKey.split(":").mapNotNull(String::toLongOrNull)
         if (ids.size != 2) return false
 
@@ -2802,6 +2823,7 @@ class TransactionStore private constructor(context: Context) {
         PayCycleStore.get(appContext).rebuild()
         LedgerUpdateBus.notifyChanged()
         return true
+    }
     }
 
     private fun chooseDuplicateCanonical(
@@ -2912,11 +2934,11 @@ class TransactionStore private constructor(context: Context) {
             secondId.toString() + ":" + firstId
         }
 
-    @Synchronized
     fun applyRemoteEntityEnrichmentByDescriptor(
         sanitizedDescriptor: String,
         result: RemoteEntityEnrichment
     ): Int {
+        synchronized(CanonicalStoreLock.monitor) {
         if (
             !RemoteEntityAutoReviewPolicy
                 .shouldAutoReview(result)
@@ -3034,12 +3056,13 @@ class TransactionStore private constructor(context: Context) {
 
         return changed
     }
+    }
 
-    @Synchronized
     fun applyRemoteEntityEnrichment(
         transactionId: Long,
         result: RemoteEntityEnrichment
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val current =
             getById(transactionId)
                 ?: return false
@@ -3119,6 +3142,7 @@ class TransactionStore private constructor(context: Context) {
 
         return changed
     }
+    }
 
     private fun scheduleRemoteEntityEnrichment(
         transactions: List<StoredTransaction>
@@ -3158,22 +3182,21 @@ class TransactionStore private constructor(context: Context) {
             }
     }
 
-    @Synchronized
     fun classifyManually(
         id: Long,
         category: TransactionCategory,
         direction: MoneyDirection,
         planningMonth: String? = null,
         markTransfer: Boolean = false
-    ) = classifyManually(
+    ) = synchronized(CanonicalStoreLock.monitor) { classifyManually(
         id = id,
         categoryId = category.name,
         direction = direction,
         planningMonth = planningMonth,
         markTransfer = markTransfer
     )
+    }
 
-    @Synchronized
     fun classifyManually(
         id: Long,
         categoryId: String,
@@ -3181,6 +3204,7 @@ class TransactionStore private constructor(context: Context) {
         planningMonth: String? = null,
         markTransfer: Boolean = false
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         val canonicalCategory = CategoryStore
             .get(appContext)
             .canonicalId(categoryId)
@@ -3217,14 +3241,15 @@ class TransactionStore private constructor(context: Context) {
         PayCycleStore.get(appContext).rebuild()
         LedgerUpdateBus.notifyChanged()
     }
+    }
 
-    @Synchronized
     fun markInvestmentSettlement(
         transactionId: Long,
         action: SemanticInvestmentAction,
         instrumentLabel: String,
         userConfirmed: Boolean = false
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val current =
             getById(transactionId)
                 ?: return false
@@ -3321,14 +3346,15 @@ class TransactionStore private constructor(context: Context) {
         }
         return changed
     }
+    }
 
-    @Synchronized
     fun markDebtRepayment(
         transactionId: Long,
         debtEventId: Long,
         debtName: String,
         userConfirmed: Boolean
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val current =
             getById(transactionId)
                 ?: return false
@@ -3409,9 +3435,10 @@ class TransactionStore private constructor(context: Context) {
         }
         return changed
     }
+    }
 
-    @Synchronized
     fun unlinkRefund(id: Long): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val current = getById(id) ?: return false
         if (current.relationType != RELATION_REFUND) {
             return false
@@ -3444,9 +3471,10 @@ class TransactionStore private constructor(context: Context) {
         }
         return changed
     }
+    }
 
-    @Synchronized
     fun excludeFromBudget(id: Long) {
+        synchronized(CanonicalStoreLock.monitor) {
         val values = ContentValues().apply {
             put("review_state", ReviewState.EXCLUDED.name)
         }
@@ -3457,6 +3485,7 @@ class TransactionStore private constructor(context: Context) {
             arrayOf(id.toString())
         )
         PayCycleStore.get(appContext).rebuild()
+    }
     }
 
     private fun allTransactions(): List<StoredTransaction> =

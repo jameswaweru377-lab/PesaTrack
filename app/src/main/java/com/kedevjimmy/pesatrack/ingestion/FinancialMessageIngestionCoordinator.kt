@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ingestion
 
+import com.kedevjimmy.pesatrack.data.local.CanonicalStoreLock
 import android.content.Context
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.DebtStore
@@ -81,7 +82,6 @@ class FinancialMessageIngestionCoordinator private constructor(
     private val personalLearningStore =
         PersonalLearningStore.get(appContext)
 
-    @Synchronized
     fun ingest(
         title: String?,
         body: String,
@@ -93,6 +93,7 @@ class FinancialMessageIngestionCoordinator private constructor(
             FinancialDiagnosticMode =
             FinancialDiagnosticMode.RECORD
     ): FinancialMessageIngestionResult {
+        synchronized(CanonicalStoreLock.monitor) {
         val interpretation =
             FinancialMessageInterpreter.interpret(
                 title = title,
@@ -1330,6 +1331,7 @@ class FinancialMessageIngestionCoordinator private constructor(
             throw error
         }
     }
+    }
 
     private fun updateIdentityGraph(
         result: FinancialMessageIngestionResult,
@@ -1771,10 +1773,10 @@ class FinancialMessageIngestionCoordinator private constructor(
             }
             ?.balanceMinor
 
-    @Synchronized
     fun reconcileExternalEntity(
         entityKey: String
     ): Int {
+        synchronized(CanonicalStoreLock.monitor) {
         val pending =
             understandingStore.pendingTransfersForEntity(
                 entityKey
@@ -1883,12 +1885,13 @@ class FinancialMessageIngestionCoordinator private constructor(
 
         return applied
     }
+    }
 
-    @Synchronized
     fun reconcilePendingTransfers(
         entityKey: String,
         rebuildPayCycles: Boolean = true
     ): Int {
+        synchronized(CanonicalStoreLock.monitor) {
         val pending =
             understandingStore.pendingTransfersForEntity(
                 entityKey
@@ -1999,6 +2002,7 @@ class FinancialMessageIngestionCoordinator private constructor(
         }
 
         return applied
+    }
     }
 
     companion object {

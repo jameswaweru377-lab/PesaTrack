@@ -84,12 +84,12 @@ class DebtStore private constructor(context: Context) {
     private val appContext = context.applicationContext
     private val database = PesaTrackDatabase.get(appContext)
 
-    @Synchronized
     fun recordObservedOutstanding(
         reference: FinancialAccountReference,
         outstandingMinor: Long,
         observedAtEpochMs: Long
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         if (
             reference.nature !=
                 FinancialAccountNature.LIABILITY
@@ -111,8 +111,8 @@ class DebtStore private constructor(context: Context) {
             observedAtEpochMs = observedAtEpochMs
         )
     }
+    }
 
-    @Synchronized
     fun recordDrawdown(
         event: DebtDrawdownEventFact,
         transactionCode: String?,
@@ -122,6 +122,7 @@ class DebtStore private constructor(context: Context) {
         occurredAtEpochMs: Long,
         linkedTransactionIdOverride: Long? = null
     ): DebtWriteResult {
+        synchronized(CanonicalStoreLock.monitor) {
         val identity =
             debtAccountIdentity(event.liability)
         ensureAccount(
@@ -256,8 +257,8 @@ class DebtStore private constructor(context: Context) {
                 linkedTransactionId
         )
     }
+    }
 
-    @Synchronized
     fun recordRepayment(
         event: DebtRepaymentEventFact,
         transactionCode: String?,
@@ -271,6 +272,7 @@ class DebtStore private constructor(context: Context) {
             RepaymentChainConfidence? = null,
         fundingLinkReasonOverride: String? = null
     ): DebtWriteResult {
+        synchronized(CanonicalStoreLock.monitor) {
         val identity =
             debtAccountIdentity(event.liability)
         ensureAccount(
@@ -389,12 +391,12 @@ class DebtStore private constructor(context: Context) {
             linkedTransactionId = linked
         )
     }
+    }
 
-    @Synchronized
     fun liabilityPaymentMatches(
         counterparty: String?,
         amountMinor: Long
-    ): List<LiabilityPaymentMatch> =
+    ): List<LiabilityPaymentMatch> = synchronized(CanonicalStoreLock.monitor) {
         LiabilityPaymentLinkPolicy.candidates(
             counterparty = counterparty,
             amountMinor = amountMinor,
@@ -416,11 +418,12 @@ class DebtStore private constructor(context: Context) {
                     )
                 }
         )
+    }
 
-    @Synchronized
     fun tryAutoLinkOutgoingPayment(
         transactionId: Long
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         if (
             hasLiabilityPaymentDecision(
                 transactionId
@@ -473,13 +476,14 @@ class DebtStore private constructor(context: Context) {
             userConfirmed = false
         )
     }
+    }
 
-    @Synchronized
     fun recordPaymentAsRepayment(
         transactionId: Long,
         debtAccountId: String,
         userConfirmed: Boolean
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         if (
             hasRepaymentLinkedToTransaction(
                 transactionId
@@ -593,6 +597,7 @@ class DebtStore private constructor(context: Context) {
                 )
 
         return result.inserted || classified
+    }
     }
 
     private fun paymentForLiabilityLink(
@@ -723,11 +728,11 @@ class DebtStore private constructor(context: Context) {
             arrayOf(transactionId.toString())
         ).use { it.moveToFirst() }
 
-    @Synchronized
     fun reconcilePendingRepaymentsAround(
         transactionId: Long,
         occurredAtEpochMs: Long
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         val transactionAccounts =
             database.readableDatabase.rawQuery(
                 """
@@ -801,6 +806,7 @@ class DebtStore private constructor(context: Context) {
             reconcileRepaymentEvent(eventId)
             reconcileRepaymentBalance(eventId)
         }
+    }
     }
 
     private fun reconcileRepaymentEvent(
@@ -974,12 +980,12 @@ class DebtStore private constructor(context: Context) {
         LedgerUpdateBus.notifyChanged()
     }
 
-    @Synchronized
     fun reconcilePendingRepaymentBalancesAround(
         accountId: String,
         entityKey: String,
         observedAtEpochMs: Long
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         val window =
             DebtRepaymentBalancePolicy
                 .MAX_LINK_DISTANCE_MS
@@ -1024,6 +1030,7 @@ class DebtStore private constructor(context: Context) {
             }
 
         eventIds.forEach(::reconcileRepaymentBalance)
+    }
     }
 
     private fun reconcileRepaymentBalance(
@@ -1266,11 +1273,12 @@ class DebtStore private constructor(context: Context) {
         LedgerUpdateBus.notifyChanged()
     }
 
-    @Synchronized
     fun reconcileBalanceAfterManualFunding(
         eventId: Long
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         reconcileRepaymentBalance(eventId)
+    }
     }
 
     private fun reconcileRepaymentFromDebtProceeds(
@@ -1439,11 +1447,11 @@ class DebtStore private constructor(context: Context) {
         )
     }
 
-    @Synchronized
     fun reconcilePendingChainsForFundingAccount(
         accountId: String,
         entityKey: String
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         ContentValues().apply {
             put("funding_account_id", accountId)
         }.also { values ->
@@ -1482,6 +1490,7 @@ class DebtStore private constructor(context: Context) {
             reconcileRepaymentEvent(eventId)
             reconcileRepaymentBalance(eventId)
         }
+    }
     }
 
     private fun ensureEventChainsReconciled() {
@@ -1590,8 +1599,8 @@ class DebtStore private constructor(context: Context) {
             .apply()
     }
 
-    @Synchronized
     fun accounts(): List<DebtAccountSnapshot> {
+        synchronized(CanonicalStoreLock.monitor) {
         ensureEventChainsReconciled()
         return database.readableDatabase.rawQuery(
             """
@@ -1673,12 +1682,13 @@ class DebtStore private constructor(context: Context) {
             }
         }
     }
+    }
 
-    @Synchronized
     fun recentEvents(
         debtAccountId: String,
         limit: Int = 50
     ): List<DebtEventRecord> {
+        synchronized(CanonicalStoreLock.monitor) {
         ensureEventChainsReconciled()
         return database.readableDatabase.rawQuery(
             """
@@ -1819,12 +1829,12 @@ class DebtStore private constructor(context: Context) {
             }
         }
     }
+    }
 
-    @Synchronized
     fun sumFeesBetween(
         startEpochMs: Long,
         endEpochMsExclusive: Long
-    ): Long =
+    ): Long = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             """
             SELECT COALESCE(SUM(fee_minor), 0)
@@ -1843,8 +1853,8 @@ class DebtStore private constructor(context: Context) {
                 0L
             }
         }
+    }
 
-    @Synchronized
     fun reconcilePendingDrawdownsForTransaction(
         transactionId: Long,
         parsed:
@@ -1852,6 +1862,7 @@ class DebtStore private constructor(context: Context) {
                 .ParsedMpesaTransaction,
         occurredAtEpochMs: Long
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         if (
             parsed.type !in setOf(
                 MpesaTransactionType.SENT_MONEY,
@@ -1959,6 +1970,7 @@ class DebtStore private constructor(context: Context) {
             eventId = selected.eventId,
             transactionId = transactionId
         )
+    }
     }
 
     private fun findDrawdownFundingTransaction(

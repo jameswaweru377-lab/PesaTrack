@@ -67,10 +67,10 @@ class PaydaySnapshotStore private constructor(
     private val accountStore =
         AccountStore.get(appContext)
 
-    @Synchronized
     fun rebuildForSalaryAnchors(
         anchors: List<PaydaySalaryAnchor>
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         val db =
             database.writableDatabase
         db.beginTransaction()
@@ -83,6 +83,7 @@ class PaydaySnapshotStore private constructor(
         } finally {
             db.endTransaction()
         }
+    }
     }
 
     internal fun rebuildForSalaryAnchors(
@@ -140,10 +141,9 @@ class PaydaySnapshotStore private constructor(
         }
     }
 
-    @Synchronized
     fun snapshotForSalaryTransaction(
         transactionId: Long
-    ): PaydaySnapshot? =
+    ): PaydaySnapshot? = synchronized(CanonicalStoreLock.monitor) {
         readSnapshot(
             db =
                 database.readableDatabase,
@@ -152,6 +152,7 @@ class PaydaySnapshotStore private constructor(
                     transactionId
                 )
         )
+    }
 
     internal fun snapshotForSalaryTransaction(
         db: SQLiteDatabase,
@@ -165,20 +166,19 @@ class PaydaySnapshotStore private constructor(
                 )
         )
 
-    @Synchronized
     fun snapshotForCycleStart(
         cycleStartTransactionId: Long
-    ): PaydaySnapshot? =
+    ): PaydaySnapshot? = synchronized(CanonicalStoreLock.monitor) {
         snapshotForSalaryTransaction(
             cycleStartTransactionId
         )
+    }
 
-    @Synchronized
     fun currentAccountSnapshot(
         account: MoneyAccount,
         nowEpochMs: Long =
             System.currentTimeMillis()
-    ): PaydayAccountSnapshot =
+    ): PaydayAccountSnapshot = synchronized(CanonicalStoreLock.monitor) {
         accountSnapshotAt(
             db =
                 database.readableDatabase,
@@ -186,6 +186,7 @@ class PaydaySnapshotStore private constructor(
             snapshotEpochMs =
                 nowEpochMs
         )
+    }
 
     private fun rebuildSnapshot(
         db: SQLiteDatabase,

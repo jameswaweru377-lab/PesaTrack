@@ -12,12 +12,12 @@ class EntityEnrichmentCacheStore private constructor(
     private val database =
         PesaTrackDatabase.get(context.applicationContext)
 
-    @Synchronized
     fun get(
         descriptorKey: String,
         nowEpochMs: Long =
             System.currentTimeMillis()
     ): RemoteEntityEnrichment? {
+        synchronized(CanonicalStoreLock.monitor) {
         database.writableDatabase.delete(
             "entity_enrichment_cache",
             "expires_at_epoch_ms <= ?",
@@ -87,8 +87,8 @@ class EntityEnrichmentCacheStore private constructor(
             }
         }
     }
+    }
 
-    @Synchronized
     fun put(
         descriptorKey: String,
         result: RemoteEntityEnrichment,
@@ -96,6 +96,7 @@ class EntityEnrichmentCacheStore private constructor(
             System.currentTimeMillis(),
         ttlMs: Long = DEFAULT_TTL_MS
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         val values = ContentValues().apply {
             put("descriptor_key", descriptorKey)
             put(
@@ -143,6 +144,7 @@ class EntityEnrichmentCacheStore private constructor(
                 android.database.sqlite
                     .SQLiteDatabase.CONFLICT_REPLACE
             )
+    }
     }
 
     companion object {
