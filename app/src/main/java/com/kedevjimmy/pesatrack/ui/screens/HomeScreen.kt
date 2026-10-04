@@ -1407,14 +1407,22 @@ private fun ManualSalaryEntryDialog(
     onDismiss: () -> Unit,
     onSave: (Long, Long) -> Boolean
 ) {
+    val currentLocale =
+        androidx.compose.ui.platform
+            .LocalConfiguration
+            .current
+            .locales[0]
     var amount by remember(prompt.windowEndEpochMs) {
         mutableStateOf("")
     }
-    var date by remember(prompt.windowEndEpochMs) {
+    var date by remember(
+        prompt.windowEndEpochMs,
+        currentLocale
+    ) {
         mutableStateOf(
             SimpleDateFormat(
                 "dd/MM/yyyy",
-                Locale.getDefault()
+                currentLocale
             ).format(Date(prompt.windowEndEpochMs))
         )
     }
