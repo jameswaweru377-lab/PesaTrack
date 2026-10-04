@@ -565,7 +565,7 @@ class PayCycleStore private constructor(context: Context) {
                         direction = ?
                         AND (
                             planned_amount_minor IS NOT NULL
-                            OR preset IN ('RENT', 'INTERNET', 'ELECTRICITY', 'FAMILY_SUPPORT', 'OTHER_RECURRING')
+                            OR preset IN ('RENT', 'INTERNET', 'ELECTRICITY', 'FAMILY_SUPPORT')
                         )
                     )
                     OR (
@@ -640,13 +640,15 @@ class PayCycleStore private constructor(context: Context) {
             WHERE rule_id = ?
               AND direction = ?
               AND review_state != ?
+              AND review_state != ?
             ORDER BY occurred_at_epoch_ms DESC
             LIMIT 1
             """.trimIndent(),
             arrayOf(
                 ruleId,
                 MoneyDirection.EXPENSE.name,
-                ReviewState.EXCLUDED.name
+                ReviewState.EXCLUDED.name,
+                ReviewState.NEEDS_REVIEW.name
             )
         ).use { cursor ->
             if (cursor.moveToFirst()) cursor.getLong(0) else null
