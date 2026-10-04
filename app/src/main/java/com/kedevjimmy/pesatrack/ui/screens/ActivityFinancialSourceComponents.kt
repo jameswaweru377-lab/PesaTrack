@@ -142,7 +142,7 @@ data class FinancialSourceSummary(
 )
 
 @Composable
-internal fun FinancialSourceNavigator(
+private fun FinancialSourceNavigator(
     sources: List<FinancialSourceSummary>,
     selectedSourceKey: String?,
     onSourceSelected: (String?) -> Unit
@@ -527,7 +527,7 @@ internal fun financialSourceDisplayName(
             ?.takeIf(String::isNotBlank)
         ?: "Unknown financial source"
 
-internal fun financialSourceType(
+private fun financialSourceType(
     diagnostic: FinancialIngestionDiagnostic
 ): String {
     val source =
@@ -763,7 +763,7 @@ internal fun shouldOfferOwnershipReview(
     return !looksLikeLegacyPseudoBank
 }
 
-internal fun ownershipReviewKey(
+private fun ownershipReviewKey(
     value: String
 ): String =
     value.lowercase(Locale.ROOT)
@@ -772,7 +772,7 @@ internal fun ownershipReviewKey(
             ""
         )
 
-internal fun financialSourceKey(
+private fun financialSourceKey(
     displayName: String
 ): String =
     displayName
@@ -871,7 +871,7 @@ internal fun MerchantBadge(
     )
 }
 
-internal fun iconFor(
+private fun iconFor(
     categoryId: String,
     type: String
 ): ImageVector = when (categoryId) {
@@ -1033,7 +1033,7 @@ internal fun humanize(value: String): String =
         .replace('_', ' ')
         .replaceFirstChar { it.uppercase() }
 
-internal fun TransactionCategory.prettyName(): String =
+private fun TransactionCategory.prettyName(): String =
     name.lowercase()
         .replace('_', ' ')
         .replaceFirstChar { it.uppercase() }
