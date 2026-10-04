@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKind
+import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
 import com.kedevjimmy.pesatrack.domain.model.*
 import org.junit.Assert.*
 import org.junit.Before
@@ -101,6 +102,7 @@ class OwnedMirrorTransferIntegrationTest {
 
     private fun insert(bankSide: Boolean) = store.insertInterpretedMoneyMovementIfNew(
         kind = if (bankSide) CanonicalFinancialRecordKind.PAYMENT else CanonicalFinancialRecordKind.RECEIPT,
+        paymentRouteHint = if (bankSide) PaymentRouteHint.PERSON_TO_PERSON else null,
         transactionCode = if (bankSide) "BANK000001" else "MPESA00001",
         amountMinor = 20_000L, counterparty = if (bankSide) "Sample Recipient" else "Sample Sender",
         counterpartyPhone = null, feeMinor = if (bankSide) 1_000L else 0L,
