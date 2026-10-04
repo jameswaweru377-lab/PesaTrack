@@ -50,8 +50,8 @@ class PesaTrackDatabaseMigrationTest {
                 "money_accounts",
                 "debt_accounts",
                 "financial_entities",
-                "identity_entities",
-                "personal_learning_rules",
+                "identity_nodes",
+                "identity_category_preferences",
                 "recurring_pattern_decisions",
                 "entity_enrichment_cache",
                 "payday_snapshots"
