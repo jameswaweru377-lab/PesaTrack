@@ -295,6 +295,45 @@ class MirrorTransactionMatcherTest {
         )
     }
 
+    @Test
+    fun separateCodedWithdrawalsWithTheSameOwnedAccountPathDoNotMerge() {
+        val first = mpesa(
+            amount = 100_000L,
+            receivedAt = 1_000_000L,
+            counterparty = "SAMPLE AGENT",
+            code = "TSTHOME000",
+            direction = "TRANSFER"
+        ).copy(
+            type = "WITHDRAWAL",
+            accountIds = setOf("account-mpesa", "account-cash")
+        )
+        val second = first.copy(
+            transactionCode = "TSTHOME001",
+            receivedAtEpochMs = first.receivedAtEpochMs + 1L
+        )
+
+        assertFalse(MirrorTransactionMatcher.match(first, second).autoLink)
+        assertTrue(MirrorTransactionMatcher.match(first, first).autoLink)
+    }
+
+    @Test
+    fun exactSharedReferenceStillLinksCodedObservationsFromTheSameSmsApp() {
+        val first = mpesa(
+            amount = 100_000L,
+            receivedAt = 1_000_000L,
+            counterparty = null,
+            code = "TSTBANK001"
+        ).copy(externalReferences = setOf("SHARED1234"))
+        val second = first.copy(
+            transactionCode = "TSTMPESA01",
+            receivedAtEpochMs = first.receivedAtEpochMs + 60_000L
+        )
+        assertEquals(
+            MirrorMatchReason.EXACT_SHARED_REFERENCE,
+            MirrorTransactionMatcher.match(first, second).reason
+        )
+    }
+
     private fun mpesa(
         amount: Long,
         receivedAt: Long,

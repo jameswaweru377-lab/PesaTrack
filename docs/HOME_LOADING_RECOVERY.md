@@ -37,3 +37,12 @@ Physical-device acceptance remains required: install the updated APK over the
 existing app, reopen Home, confirm Activity messages and balances, and check salary.
 Do not clear app storage to apply this fix. Do not claim all parsing/accounting
 issues are solved by this concurrency repair.
+
+## Distinct-withdrawal regression found during validation
+
+The concurrency test completed but showed 12 distinct M-Pesa withdrawal codes
+collapsing into one row. Mirror matching treated a shared owned-account path as
+sufficient despite conflicting codes from the same capture source. It now rejects
+that heuristic match; an exact shared external reference still takes precedence.
+The original 12-message test remains unchanged and must retain every withdrawal.
+Unit cases protect both distinct withdrawals and legitimate shared-reference pairs.
