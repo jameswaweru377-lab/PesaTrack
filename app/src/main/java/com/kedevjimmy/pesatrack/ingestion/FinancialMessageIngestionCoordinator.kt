@@ -1538,15 +1538,7 @@ class FinancialMessageIngestionCoordinator private constructor(
             val resolutionContext =
                 MessageLabResolutionPolicy
                     .contextFor(
-                        recognized =
-                            interpretation
-                                .recognized,
-                        semanticallyUnderstood =
-                            interpretation
-                                .semanticallyUnderstood,
-                        provenance =
-                            interpretation
-                                .parseProvenance
+                        interpretation
                     )
             val retired =
                 messageLabStore

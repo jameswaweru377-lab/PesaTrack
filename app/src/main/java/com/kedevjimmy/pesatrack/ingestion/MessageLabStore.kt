@@ -543,6 +543,19 @@ class MessageLabStore private constructor(
                 identity.shapeId
             )
 
+        if (
+            existingShape != null &&
+            !MessageLabResolutionPolicy
+                .canRetire(
+                    shape =
+                        existingShape,
+                    context =
+                        resolutionContext
+                )
+        ) {
+            return false
+        }
+
         val current =
             readArray()
         val next =
@@ -1856,6 +1869,23 @@ class MessageLabStore private constructor(
                     .name
             )
             put(
+                "resolutionAgreement",
+                record.resolutionAgreement
+                    .name
+            )
+            put(
+                "resolvedSemanticLabels",
+                JSONArray().apply {
+                    record
+                        .resolvedSemanticLabels
+                        .map {
+                            it.name
+                        }
+                        .sorted()
+                        .forEach(::put)
+                }
+            )
+            put(
                 "parseRoute",
                 record.parseRoute
                     ?: JSONObject.NULL
@@ -1987,6 +2017,40 @@ class MessageLabStore private constructor(
                 ),
             resolutionKind =
                 resolutionKind,
+            resolutionAgreement =
+                nullableEnum(
+                    item = item,
+                    key =
+                        "resolutionAgreement",
+                    parser = {
+                        MessageLabResolutionAgreement
+                            .valueOf(it)
+                    }
+                )
+                    ?: MessageLabResolutionAgreement
+                        .UNKNOWN,
+            resolvedSemanticLabels =
+                item.optJSONArray(
+                    "resolvedSemanticLabels"
+                )?.let {
+                    labels ->
+                    buildSet {
+                        for (
+                            index in 0 until
+                                labels.length()
+                        ) {
+                            runCatching {
+                                MessageLabSemanticLabel
+                                    .valueOf(
+                                        labels.optString(
+                                            index
+                                        )
+                                    )
+                            }.getOrNull()
+                                ?.let(::add)
+                        }
+                    }
+                }.orEmpty(),
             parseRoute =
                 nullableString(
                     item,

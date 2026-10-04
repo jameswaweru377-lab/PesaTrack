@@ -164,6 +164,11 @@ class MessageLabResolutionRegressionCheckerTest {
                 null,
             resolutionKind =
                 resolutionKind,
+            resolutionAgreement =
+                MessageLabResolutionAgreement
+                    .UNKNOWN,
+            resolvedSemanticLabels =
+                emptySet(),
             parseRoute =
                 route,
             templateId =
