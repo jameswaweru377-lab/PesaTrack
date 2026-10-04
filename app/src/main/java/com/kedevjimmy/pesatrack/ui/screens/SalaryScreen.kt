@@ -53,9 +53,8 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
     var reminders by remember { mutableStateOf(SalaryReminders.preferences(context).getBoolean("salary_reminders_enabled", false)) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         reminders = granted
-        SalaryReminders.preferences(context).edit().putBoolean("salary_reminders_enabled", granted).apply()
-        if (granted) SalaryReminders.checkSoon(context)
-        else message = "Phone notifications are disabled. You can still record salary here."
+        SalaryReminders.setEnabled(context, granted)
+        if (!granted) message = "Phone notifications are disabled. You can still record salary here."
     }
     suspend fun loadCandidates(active: SmartRule?) {
         candidates = withContext(Dispatchers.IO) {
@@ -152,8 +151,7 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
                     if (enabled && Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     else {
                         reminders = enabled
-                        SalaryReminders.preferences(context).edit().putBoolean("salary_reminders_enabled", enabled).apply()
-                        if (enabled) SalaryReminders.checkSoon(context)
+                        SalaryReminders.setEnabled(context, enabled)
                     }
                 })
                 Text("Ask me if salary is missing after payday", modifier = Modifier.padding(12.dp))
@@ -164,6 +162,10 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
         item {
             HorizontalDivider()
             Text("Add a missing salary receipt", style = MaterialTheme.typography.titleLarge)
+            rule?.let { saved ->
+                Text("Saved source: " + (saved.displayLabel ?: saved.name) + " · " +
+                    (accounts.firstOrNull { it.id == saved.accountId }?.name ?: "Receiving account"))
+            }
             Text("Use the actual amount and receipt date. You can enter earlier months separately. Manual entries start at the beginning of the selected date. If the receipt is listed below, confirm it instead.")
             OutlinedTextField(amount, { amount = it }, label = { Text("Amount (KES)") }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
             OutlinedTextField(receiptDate, { receiptDate = it }, label = { Text("Received on (yyyy-MM-dd)") }, modifier = Modifier.fillMaxWidth(), enabled = !busy)

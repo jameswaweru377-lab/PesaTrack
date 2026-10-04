@@ -50,6 +50,34 @@ class SalaryCycleSpendingTest {
         assertTrue(income("OTHERACCOUNT", "2026-09-28 10:00", salary, AccountStore.DEFAULT_CASH_ID))
         assertEquals(3, store.snapshot().transactionCount)
     }
+    @Test fun backfillingThreeMonthsKeepsCurrentSalaryAndAcceptsExplicitEarlyPayday() {
+        val salary = rule(); val store = TransactionStore.get(context)
+        store.insertManualIncome(6000000, at("2026-09-20 00:00"), "XYZ SCHOOL", salary)
+        val currentId = PayCycleStore.get(context).currentCycle()!!.startTransactionId
+        store.insertManualIncome(5900000, at("2026-07-28 00:00"), "XYZ SCHOOL", salary)
+        store.insertManualIncome(5900000, at("2026-08-28 00:00"), "XYZ SCHOOL", salary)
+        val cycles = PayCycleStore.get(context).listCycles()
+        assertEquals(3, cycles.size)
+        assertEquals(currentId, cycles.first().startTransactionId)
+        assertEquals(at("2026-09-20 00:00"), cycles[1].endEpochMs)
+        assertEquals(at("2026-08-28 00:00"), cycles[2].endEpochMs)
+    }
+    @Test fun confirmingCapturedIncomeDoesNotInsertAnotherReceipt() {
+        val salary = rule(); val store = TransactionStore.get(context)
+        store.insertIfNew(ParsedMpesaTransaction("EXISTING", MpesaTransactionType.RECEIVED,
+            6000000, "XYZ SCHOOL", feeMinor = 0, balanceMinor = null,
+            occurredAtText = null, rawMessage = "EXISTING"), null, "TEST_SMS",
+            at("2026-09-28 10:00"), at("2026-09-28 10:00"),
+            accountIdOverride = AccountStore.DEFAULT_MPESA_ID,
+            directionOverride = MoneyDirection.INCOME, categoryOverride = TransactionCategory.INCOME,
+            reviewStateOverride = ReviewState.USER_CLASSIFIED)
+        val receipt = store.recent().single()
+        assertNull(PayCycleStore.get(context).currentCycle())
+        assertTrue(store.applyRuleToTransaction(receipt.id, salary))
+        PayCycleStore.get(context).confirmNewCycle(receipt.id)
+        assertEquals(1, store.snapshot().transactionCount)
+        assertEquals(receipt.id, PayCycleStore.get(context).currentCycle()!!.startTransactionId)
+    }
     @Test fun cycleIncludesLateMonthAndSavingsSpendingAndExcludesNextSalary() {
         val salary = rule(); val store = TransactionStore.get(context)
         store.insertManualIncome(6000000, at("2026-08-28 00:00"), "XYZ SCHOOL", salary)

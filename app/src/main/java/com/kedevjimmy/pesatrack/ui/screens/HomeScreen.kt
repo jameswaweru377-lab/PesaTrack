@@ -182,6 +182,9 @@ fun HomeScreen(
             )
         )
     }
+    LaunchedEffect(ledgerUpdateState.revision) {
+        salaryPromptDeferredUntil = preferences.getLong("salary_prompt_deferred_until", 0L)
+    }
     var showManualSalaryDialog by remember {
         mutableStateOf(false)
     }

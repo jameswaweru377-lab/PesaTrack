@@ -181,7 +181,7 @@ class TransactionStore private constructor(context: Context) {
             }
         } else {
             val existing = getByTransactionCode(parsed.transactionCode)
-            if (existing != null) {
+            if (existing != null && (evidence != null || existing.sourceKind == "manual_setup")) {
                 if (evidence != null) updateExistingDuplicateWithEvidence(
                     stored = existing,
                     parsed = parsed,
@@ -312,8 +312,8 @@ class TransactionStore private constructor(context: Context) {
             if (manual != null) {
                 val values = ContentValues().apply {
                     put("transaction_code", parsed.transactionCode)
-                    // Keep the manual fingerprint for repeated form submissions.
-                    if (parsed.balanceMinor != null) put("balance_minor", parsed.balanceMinor)
+                    // Keep the manual fingerprint and date for repeated form submissions.
+                    // The ingestion coordinator records the message's balance at its real observation time.
                 }
                 database.writableDatabase.update("transactions", values, "id = ?", arrayOf(manual.id.toString()))
                 attachExternalReferences(manual.id, externalReferences + parsed.transactionCode.orEmpty(), sourceKind, receivedAtEpochMs)

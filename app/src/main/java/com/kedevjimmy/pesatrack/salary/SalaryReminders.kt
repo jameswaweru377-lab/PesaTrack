@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.work.*
 import com.kedevjimmy.pesatrack.MainActivity
 import com.kedevjimmy.pesatrack.R
+import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.rules.SalaryReminderPolicy
@@ -26,11 +27,22 @@ object SalaryReminders {
     private const val WORK = "pesatrack-salary-check"
     fun preferences(context: Context) = context.getSharedPreferences("pesatrack_preferences", Context.MODE_PRIVATE)
     fun schedule(context: Context) {
-        if (!preferences(context).getBoolean("setup_complete", false)) return
+        if (!preferences(context).getBoolean("setup_complete", false) ||
+            !preferences(context).getBoolean("salary_reminders_enabled", false)) return
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequest.Builder(SalaryReminderWorker::class.java, 12, TimeUnit.HOURS).build())
     }
+    fun setEnabled(context: Context, enabled: Boolean) {
+        preferences(context).edit().putBoolean("salary_reminders_enabled", enabled).apply()
+        if (enabled) checkSoon(context) else {
+            WorkManager.getInstance(context).cancelUniqueWork(WORK)
+            WorkManager.getInstance(context).cancelUniqueWork("$WORK-now")
+            NotificationManagerCompat.from(context).cancel(910)
+        }
+    }
     fun checkSoon(context: Context) {
+        if (!preferences(context).getBoolean("setup_complete", false) ||
+            !preferences(context).getBoolean("salary_reminders_enabled", false)) return
         schedule(context)
         WorkManager.getInstance(context).enqueueUniqueWork("$WORK-now", ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequest.Builder(SalaryReminderWorker::class.java).build())
@@ -39,6 +51,7 @@ object SalaryReminders {
         preferences(context).edit().putLong("salary_prompt_deferred_until",
             System.currentTimeMillis() + TimeUnit.DAYS.toMillis(3)).apply()
         NotificationManagerCompat.from(context).cancel(910)
+        LedgerUpdateBus.notifyChanged()
     }
     fun receiptRecorded(context: Context) {
         preferences(context).edit().remove("salary_prompt_deferred_until").apply()

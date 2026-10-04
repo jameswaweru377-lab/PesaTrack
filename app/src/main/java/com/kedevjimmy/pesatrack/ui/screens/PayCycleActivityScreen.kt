@@ -68,7 +68,7 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
             Text("Record or confirm a received salary to start your first pay cycle. An expected payday alone does not create one.")
             Button(onClick = onSalaryClick) { Text("Set up / add salary") }
         }
-        if (selected != null && error == null) {
+        if (selected != null && !loading && error == null) {
             item {
                 Text(salaryDate(selected.startEpochMs) + " → " + (selected.endEpochMs?.let(::salaryDate) ?: "next received salary"),
                     style = MaterialTheme.typography.titleMedium)
