@@ -66,6 +66,8 @@ import com.kedevjimmy.pesatrack.ingestion.MessageInspectorParserHandoffPolicy
 import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadiness
 import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadinessState
 import com.kedevjimmy.pesatrack.ingestion.MessageLabRelevanceExplainer
+import com.kedevjimmy.pesatrack.ingestion.MessageLabResolutionKind
+import com.kedevjimmy.pesatrack.ingestion.ResolvedMessageLabShape
 import com.kedevjimmy.pesatrack.ingestion.MessageLabSemanticLabel
 import com.kedevjimmy.pesatrack.ingestion.MessageLabUserDecision
 import com.kedevjimmy.pesatrack.ingestion.UnsupportedMessageShape
@@ -147,6 +149,11 @@ fun DataHealthScreen(
     var ignoredUnsupported by remember {
         mutableStateOf<
             List<UnsupportedMessageShape>
+        >(emptyList())
+    }
+    var resolvedMessageLab by remember {
+        mutableStateOf<
+            List<ResolvedMessageLabShape>
         >(emptyList())
     }
     var selectedCoverageSource by
@@ -279,6 +286,9 @@ fun DataHealthScreen(
                 ignoredUnsupported =
                     messageLabStore
                         .recentIgnored(100),
+                resolvedMessageLab =
+                    messageLabStore
+                        .recentResolved(25),
                 identitySnapshot =
                     identityGraphStore
                         .snapshot(),
@@ -311,6 +321,8 @@ fun DataHealthScreen(
         unsupported = loaded.unsupported
         ignoredUnsupported =
             loaded.ignoredUnsupported
+        resolvedMessageLab =
+            loaded.resolvedMessageLab
         identitySnapshot =
             loaded.identitySnapshot
         identityBackfillCount =
@@ -2001,6 +2013,45 @@ fun DataHealthScreen(
             }
         }
 
+        if (resolvedMessageLab.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    "Resolved Message Lab evidence"
+                )
+            }
+
+            item {
+                Text(
+                    "These were previously unsupported financial shapes that the current build can now explain or safely retire. Only sanitized shape evidence and parser provenance are kept.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+            }
+
+            items(
+                count =
+                    resolvedMessageLab
+                        .take(10)
+                        .size,
+                key = {
+                    "resolved-" +
+                        resolvedMessageLab[it]
+                            .shapeId
+                }
+            ) { index ->
+                ResolvedMessageLabCard(
+                    record =
+                        resolvedMessageLab[index]
+                )
+            }
+        }
+
         if (ignoredUnsupported.isNotEmpty()) {
             item {
                 SectionHeader(
@@ -2076,6 +2127,8 @@ private data class DataHealthLoadResult(
         List<UnsupportedMessageShape>,
     val ignoredUnsupported:
         List<UnsupportedMessageShape>,
+    val resolvedMessageLab:
+        List<ResolvedMessageLabShape>,
     val identitySnapshot:
         IdentityGraphSnapshot,
     val identityBackfillCount: Int,
@@ -4172,6 +4225,183 @@ private fun MessageLabRelevanceExplanation(
                         .colorScheme
                         .onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun ResolvedMessageLabCard(
+    record: ResolvedMessageLabShape
+) {
+    PesaCard(
+        modifier =
+            Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier =
+                Modifier.padding(
+                    16.dp
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    8.dp
+                )
+        ) {
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Text(
+                    record.sender,
+                    modifier =
+                        Modifier.weight(1f),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleMedium
+                )
+                SmallStatusPill(
+                    text =
+                        if (
+                            record.resolutionKind ==
+                            MessageLabResolutionKind
+                                .PARSER_COVERAGE
+                        ) {
+                            "Resolved"
+                        } else {
+                            "Retired"
+                        },
+                    tone =
+                        if (
+                            record.resolutionKind ==
+                            MessageLabResolutionKind
+                                .PARSER_COVERAGE
+                        ) {
+                            "green"
+                        } else {
+                            "blue"
+                        }
+                )
+            }
+
+            Text(
+                record.redactedBody,
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodyMedium
+            )
+
+            val routeLabel =
+                when {
+                    record.templateId != null ->
+                        "Template " +
+                            record.templateId +
+                            (
+                                record.templateRevision
+                                    ?.let {
+                                        " @r$it"
+                                    } ?: ""
+                                )
+
+                    record.parseRoute != null ->
+                        record.parseRoute
+                            .lowercase()
+                            .replace(
+                                "_",
+                                " "
+                            )
+                            .replaceFirstChar {
+                                it.titlecase()
+                            }
+
+                    else ->
+                        record.resolutionKind
+                            .displayLabel
+                }
+
+            InspectionDetail(
+                label = "Resolved by",
+                value = routeLabel
+            )
+
+            record.eventKind
+                ?.let {
+                    InspectionDetail(
+                        label =
+                            "Event kind",
+                        value = it
+                    )
+                }
+
+            record.semanticLabel
+                ?.let {
+                    InspectionDetail(
+                        label =
+                            "Previous meaning",
+                        value =
+                            it.displayLabel
+                    )
+                }
+
+            Text(
+                "Observed " +
+                    record.occurrenceCount +
+                    " time" +
+                    if (
+                        record.occurrenceCount ==
+                        1
+                    ) {
+                        ""
+                    } else {
+                        "s"
+                    } +
+                    if (
+                        record.familyOccurrenceCount >
+                        record.occurrenceCount
+                    ) {
+                        " · " +
+                            record.familyOccurrenceCount +
+                            " across " +
+                            record.familyVariantCount +
+                            " format variant" +
+                            if (
+                                record.familyVariantCount ==
+                                1
+                            ) {
+                                ""
+                            } else {
+                                "s"
+                            }
+                    } else {
+                        ""
+                    },
+                style =
+                    MaterialTheme
+                        .typography
+                        .labelSmall,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+
+            record.provenanceReason
+                ?.let {
+                    Text(
+                        it,
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelSmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
         }
     }
 }
