@@ -1085,6 +1085,39 @@ class MessageLabStore private constructor(
         }.toString(2)
     }
 
+    @Synchronized
+    fun exportImplementationReadyWorkPackets(
+        limit: Int = 50
+    ): String? =
+        MessageLabImplementationPacketGenerator
+            .bundleJson(
+                allShapes =
+                    allStoredShapes(),
+                limit = limit
+            )
+
+    @Synchronized
+    fun exportImplementationWorkPacket(
+        shapeId: String
+    ): String? {
+        val allShapes =
+            allStoredShapes()
+        val shape =
+            allShapes.firstOrNull {
+                it.shapeId ==
+                    shapeId
+            } ?: return null
+
+        return MessageLabImplementationPacketGenerator
+            .generate(
+                representative =
+                    shape,
+                allShapes =
+                    allShapes
+            )
+            ?.toJson()
+    }
+
     fun exportEvidenceReadyParserCandidates(
         limit: Int = 50
     ): String? {
