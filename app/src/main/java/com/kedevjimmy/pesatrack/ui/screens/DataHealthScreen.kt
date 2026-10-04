@@ -1571,6 +1571,56 @@ fun DataHealthScreen(
                                     "Copy implementation-ready bundle"
                                 )
                             }
+                            Button(
+                                onClick = {
+                                    val packets =
+                                        messageLabStore
+                                            .exportImplementationReadyWorkPackets(
+                                                limit = 50
+                                            )
+                                    if (
+                                        packets != null
+                                    ) {
+                                        val clipboard =
+                                            context
+                                                .getSystemService(
+                                                    Context
+                                                        .CLIPBOARD_SERVICE
+                                                ) as
+                                                ClipboardManager
+                                        clipboard
+                                            .setPrimaryClip(
+                                                ClipData
+                                                    .newPlainText(
+                                                        "PesaTrack parser implementation work packets",
+                                                        packets
+                                                    )
+                                            )
+                                        Toast.makeText(
+                                            context,
+                                            "Implementation work packets copied",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                },
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "Copy implementation work packets"
+                                )
+                            }
+                            Text(
+                                "Work packets combine the approved representative, all active family variants, the review-only parser draft, and the safety/test checklist needed before production activation.",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelSmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
                         }
                     }
                 }
