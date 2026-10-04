@@ -1,13 +1,38 @@
 const MAX_DESCRIPTOR_LENGTH = 80;
 
-function json(body, status = 200) {
+function json(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
+      ...extraHeaders,
     },
   });
+}
+
+async function enforceResolveRateLimit(env) {
+  const limiter = env.ENTITY_RESOLVE_RATE_LIMITER;
+  if (!limiter || typeof limiter.limit !== "function") {
+    return json(
+      { error: "Rate limiter is not configured." },
+      503,
+    );
+  }
+
+  const { success } = await limiter.limit({
+    key: "v1-entity-resolve",
+  });
+
+  if (!success) {
+    return json(
+      { error: "Too many enrichment requests." },
+      429,
+      { "retry-after": "60" },
+    );
+  }
+
+  return null;
 }
 
 function normalizeWhitespace(value) {
@@ -435,6 +460,12 @@ export default {
         { error: "Not found." },
         404,
       );
+    }
+
+    const limited =
+      await enforceResolveRateLimit(env);
+    if (limited) {
+      return limited;
     }
 
     let payload;
