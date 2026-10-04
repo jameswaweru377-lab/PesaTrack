@@ -22,7 +22,6 @@ data class HistoricalImportResult(
     val inserted: Int,
     val duplicates: Int,
     val ignored: Int,
-    val fulizaMessages: Int = 0,
     val understood: Int = 0,
     val stateRefreshed: Int = 0,
     val pendingReview: Int = 0
@@ -47,7 +46,6 @@ class HistoricalSmsImporter(
         var inserted = 0
         var duplicates = 0
         var ignored = 0
-        var fulizaMessages = 0
         var understood = 0
         var stateRefreshed = 0
         var pendingReview = 0
@@ -59,7 +57,7 @@ class HistoricalSmsImporter(
         )
 
         context.contentResolver.query(
-            Telephony.Sms.CONTENT_URI,
+            Telephony.Sms.Inbox.CONTENT_URI,
             projection,
             Telephony.Sms.DATE + " >= ?",
             arrayOf(sinceEpochMs.toString()),
@@ -232,7 +230,6 @@ class HistoricalSmsImporter(
             inserted = inserted,
             duplicates = duplicates,
             ignored = ignored,
-            fulizaMessages = fulizaMessages,
             understood = understood,
             stateRefreshed =
                 stateRefreshed,
