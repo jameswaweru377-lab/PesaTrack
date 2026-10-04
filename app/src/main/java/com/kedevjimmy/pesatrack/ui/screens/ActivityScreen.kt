@@ -2543,7 +2543,7 @@ private fun ActivitySummaryCard(
             ) {
                 SummaryAmountWithChange(
                     label = "Money in",
-                    value = formatMoney(
+                    value = formatActivityMoney(
                         summary.incomeMinor
                     ),
                     current = summary.incomeMinor,
@@ -2553,7 +2553,7 @@ private fun ActivitySummaryCard(
                 )
                 SummaryAmountWithChange(
                     label = "Money spent",
-                    value = formatMoney(
+                    value = formatActivityMoney(
                         summary.spentMinor
                     ),
                     current = summary.spentMinor,
@@ -2622,7 +2622,7 @@ private fun ActivitySummaryCard(
                                     .onSurfaceVariant
                         )
                         Text(
-                            formatMoney(savingsMinor),
+                            formatActivityMoney(savingsMinor),
                             style =
                                 MaterialTheme
                                     .typography
@@ -2871,7 +2871,7 @@ private fun ResponsiveActivityMetrics(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     ActivityMetric(
                         "Spent",
-                        formatMoney(summary.spentMinor),
+                        formatActivityMoney(summary.spentMinor),
                         "$monthLabel",
                         Icons.Rounded.Paid,
                         "red",
@@ -2879,7 +2879,7 @@ private fun ResponsiveActivityMetrics(
                     )
                     ActivityMetric(
                         "Income",
-                        formatMoney(summary.incomeMinor),
+                        formatActivityMoney(summary.incomeMinor),
                         "$monthLabel",
                         Icons.AutoMirrored.Rounded.CallReceived,
                         "green",
@@ -2889,7 +2889,7 @@ private fun ResponsiveActivityMetrics(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     ActivityMetric(
                         "Fees",
-                        formatMoney(summary.feesMinor),
+                        formatActivityMoney(summary.feesMinor),
                         "M-Pesa + Fuliza",
                         Icons.AutoMirrored.Rounded.ReceiptLong,
                         "amber",
@@ -2907,9 +2907,9 @@ private fun ResponsiveActivityMetrics(
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ActivityMetric("Spent", formatMoney(summary.spentMinor), "$monthLabel", Icons.Rounded.Paid, "red", Modifier.weight(1f))
-                ActivityMetric("Income", formatMoney(summary.incomeMinor), "$monthLabel", Icons.AutoMirrored.Rounded.CallReceived, "green", Modifier.weight(1f))
-                ActivityMetric("Fees", formatMoney(summary.feesMinor), "M-Pesa fees", Icons.AutoMirrored.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
+                ActivityMetric("Spent", formatActivityMoney(summary.spentMinor), "$monthLabel", Icons.Rounded.Paid, "red", Modifier.weight(1f))
+                ActivityMetric("Income", formatActivityMoney(summary.incomeMinor), "$monthLabel", Icons.AutoMirrored.Rounded.CallReceived, "green", Modifier.weight(1f))
+                ActivityMetric("Fees", formatActivityMoney(summary.feesMinor), "M-Pesa fees", Icons.AutoMirrored.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
                 ActivityMetric("Net", formatSignedMoney(summary.netMinor), "Cash flow", Icons.Rounded.AccountBalance, "blue", Modifier.weight(1f))
             }
         }
@@ -3113,7 +3113,7 @@ private fun RelationshipReviewRow(
                     Text(
                         item.debtName +
                             " • " +
-                            formatMoney(
+                            formatActivityMoney(
                                 item.repaymentAmountMinor
                             ),
                         style =
@@ -3177,7 +3177,7 @@ private fun RelationshipReviewRow(
                                     .labelLarge
                         )
                         Text(
-                            formatMoney(
+                            formatActivityMoney(
                                 candidate
                                     .amountMinor
                             ) +
@@ -3356,7 +3356,7 @@ private fun PossibleDuplicateRow(
                         .padding(start = 11.dp)
                 ) {
                     Text(
-                        formatMoney(group.amountMinor),
+                        formatActivityMoney(group.amountMinor),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -3564,7 +3564,7 @@ private fun ReviewGroupRow(
                 Text(
                     "${group.transactionCount} transaction" +
                         if (group.transactionCount == 1) "" else "s" +
-                        " • ${formatMoney(group.totalMinor)} total",
+                        " • ${formatActivityMoney(group.totalMinor)} total",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -3607,7 +3607,7 @@ private fun ActivityDateHeader(
         )
         if (expenseTotal > 0L) {
             Text(
-                formatMoney(expenseTotal),
+                formatActivityMoney(expenseTotal),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -3738,10 +3738,10 @@ private fun ActivityRow(
                 if (item.fulizaFinancedMinor > 0L) {
                     Text(
                         "Fuliza financed " +
-                            formatMoney(item.fulizaFinancedMinor) +
+                            formatActivityMoney(item.fulizaFinancedMinor) +
                             if (item.fulizaAccessFeeMinor > 0L) {
                                 " • access fee " +
-                                    formatMoney(
+                                    formatActivityMoney(
                                         item.fulizaAccessFeeMinor
                                     )
                             } else {
