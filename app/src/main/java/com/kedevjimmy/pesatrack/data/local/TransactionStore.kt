@@ -50,7 +50,7 @@ data class SalaryHistoryCandidate(
 
 class TransactionStore private constructor(context: Context) {
     private val appContext = context.applicationContext
-    private val database = PesaTrackDatabase(appContext)
+    private val database = PesaTrackDatabase.get(appContext)
 
     /**
      * Provider-neutral entry point for financial movements that were
