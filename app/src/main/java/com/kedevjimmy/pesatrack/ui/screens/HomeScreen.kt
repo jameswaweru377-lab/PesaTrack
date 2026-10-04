@@ -786,7 +786,7 @@ fun HomeScreen(
                         }
                         ?: "PesaTrack will calculate this from real salary-cycle data.",
                 footer = null,
-                title = "Available this cycle",
+                title = "Available after commitments",
                 spentToday = null,
                 safeToday = null
             )
