@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentFetchResult
+import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentClientIdentity
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentHttpClient
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityDescriptorPrivacyPolicy
 import java.security.MessageDigest
@@ -182,7 +183,11 @@ class EntityEnrichmentWorker(
         }
 
         val remote =
-            EntityEnrichmentHttpClient()
+            EntityEnrichmentHttpClient(
+                clientId =
+                    EntityEnrichmentClientIdentity
+                        .get(applicationContext)
+            )
         if (!remote.isConfigured()) {
             return Result.success()
         }
