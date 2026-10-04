@@ -4202,14 +4202,13 @@ Architecture warnings recorded:
 - No Android instrumentation test suite exists yet.
 - Schema is v31 but migration behavior is not covered by an Android migration test matrix.
 - Several UI/store/interpreter files have exceeded a healthy responsibility boundary; do not keep adding features to the giant files without decomposition.
-- Old open PRs #43, #45, #77 and #111 are stale relative to main and should be retired after this cleanup is verified.
+- Old PRs #43, #45, #77 and #111 were confirmed stale and closed with superseded-work notes during this audit.
 
 Next engineering order:
 
 1. migration + high-value Android smoke tests;
-2. close stale PRs;
-3. decompose largest files by responsibility;
-4. continue long-tail parser work only from real Message Lab evidence;
-5. use real 30-day Data Health review burden to decide future intelligence work.
+2. decompose largest files by responsibility;
+3. continue long-tail parser work only from real Message Lab evidence;
+4. use real 30-day Data Health review burden to decide future intelligence work.
 
 Do not invent a Phase 7 merely to keep the roadmap moving.
