@@ -66,13 +66,48 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             db.execSQL("ALTER TABLE transactions ADD COLUMN cycle_candidate_reason TEXT")
             db.execSQL("ALTER TABLE transactions ADD COLUMN cycle_override TEXT")
 
-            db.execSQL("ALTER TABLE smart_rules ADD COLUMN preset TEXT NOT NULL DEFAULT 'CUSTOM'")
-            db.execSQL("ALTER TABLE smart_rules ADD COLUMN planned_amount_minor INTEGER")
-            db.execSQL("ALTER TABLE smart_rules ADD COLUMN starts_pay_cycle INTEGER NOT NULL DEFAULT 0")
-            db.execSQL("ALTER TABLE smart_rules ADD COLUMN account_id TEXT")
-            db.execSQL("ALTER TABLE smart_rules ADD COLUMN linked_account_id TEXT")
-            db.execSQL("ALTER TABLE smart_rules ADD COLUMN pay_window_start_day INTEGER")
-            db.execSQL("ALTER TABLE smart_rules ADD COLUMN pay_window_end_day INTEGER")
+            addColumnIfMissing(
+                db,
+                "smart_rules",
+                "preset",
+                "TEXT NOT NULL DEFAULT 'CUSTOM'"
+            )
+            addColumnIfMissing(
+                db,
+                "smart_rules",
+                "planned_amount_minor",
+                "INTEGER"
+            )
+            addColumnIfMissing(
+                db,
+                "smart_rules",
+                "starts_pay_cycle",
+                "INTEGER NOT NULL DEFAULT 0"
+            )
+            addColumnIfMissing(
+                db,
+                "smart_rules",
+                "account_id",
+                "TEXT"
+            )
+            addColumnIfMissing(
+                db,
+                "smart_rules",
+                "linked_account_id",
+                "TEXT"
+            )
+            addColumnIfMissing(
+                db,
+                "smart_rules",
+                "pay_window_start_day",
+                "INTEGER"
+            )
+            addColumnIfMissing(
+                db,
+                "smart_rules",
+                "pay_window_end_day",
+                "INTEGER"
+            )
             db.execSQL(
                 """
                 UPDATE transactions
@@ -103,8 +138,18 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 5) {
             db.execSQL("ALTER TABLE transactions ADD COLUMN counterparty_phone TEXT")
-            db.execSQL("ALTER TABLE smart_rules ADD COLUMN counterparty_exact TEXT NOT NULL DEFAULT ''")
-            db.execSQL("ALTER TABLE smart_rules ADD COLUMN counterparty_phone_equals TEXT NOT NULL DEFAULT ''")
+            addColumnIfMissing(
+                db,
+                "smart_rules",
+                "counterparty_exact",
+                "TEXT NOT NULL DEFAULT ''"
+            )
+            addColumnIfMissing(
+                db,
+                "smart_rules",
+                "counterparty_phone_equals",
+                "TEXT NOT NULL DEFAULT ''"
+            )
         }
 
         if (oldVersion < 6) {
@@ -116,9 +161,24 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         if (oldVersion < 7) {
-            db.execSQL("ALTER TABLE money_accounts ADD COLUMN identifier TEXT")
-            db.execSQL("ALTER TABLE money_accounts ADD COLUMN opening_balance_minor INTEGER")
-            db.execSQL("ALTER TABLE money_accounts ADD COLUMN opening_balance_as_of_epoch_ms INTEGER")
+            addColumnIfMissing(
+                db,
+                "money_accounts",
+                "identifier",
+                "TEXT"
+            )
+            addColumnIfMissing(
+                db,
+                "money_accounts",
+                "opening_balance_minor",
+                "INTEGER"
+            )
+            addColumnIfMissing(
+                db,
+                "money_accounts",
+                "opening_balance_as_of_epoch_ms",
+                "INTEGER"
+            )
         }
 
         if (oldVersion < 8) {
