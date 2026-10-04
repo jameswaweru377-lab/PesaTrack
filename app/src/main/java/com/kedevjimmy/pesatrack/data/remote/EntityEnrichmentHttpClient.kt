@@ -29,7 +29,8 @@ sealed interface EntityEnrichmentFetchResult {
 
 class EntityEnrichmentHttpClient(
     private val endpoint:
-        String = BuildConfig.ENTITY_ENRICHMENT_URL
+        String = BuildConfig.ENTITY_ENRICHMENT_URL,
+    private val clientId: String? = null
 ) {
     fun isConfigured(): Boolean =
         endpoint.startsWith(
@@ -80,6 +81,17 @@ class EntityEnrichmentHttpClient(
                             "Accept",
                             "application/json"
                         )
+                        clientId
+                            ?.trim()
+                            ?.takeIf {
+                                CLIENT_ID_REGEX.matches(it)
+                            }
+                            ?.let {
+                                setRequestProperty(
+                                    "X-PesaTrack-Client-Id",
+                                    it
+                                )
+                            }
                     }
             }.getOrElse {
                 return EntityEnrichmentFetchResult
@@ -261,5 +273,11 @@ class EntityEnrichmentHttpClient(
                     )
             )
         }.getOrNull()
+    }    
+    private companion object {
+        val CLIENT_ID_REGEX =
+            Regex(
+                """^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$"""
+            )
     }
 }
