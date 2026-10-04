@@ -394,12 +394,14 @@ class DebtStore private constructor(context: Context) {
     fun liabilityPaymentMatches(
         counterparty: String?,
         amountMinor: Long
-    ): List<LiabilityPaymentMatch> =
+    ): List<LiabilityPaymentMatch> = readLiabilityPaymentMatches(counterparty, amountMinor)
+
+    fun readLiabilityPaymentMatches(counterparty: String?, amountMinor: Long): List<LiabilityPaymentMatch> =
         LiabilityPaymentLinkPolicy.candidates(
             counterparty = counterparty,
             amountMinor = amountMinor,
             candidates =
-                accounts().map { account ->
+                readAccounts().map { account ->
                     LiabilityPaymentCandidate(
                         debtAccountId = account.id,
                         displayName = account.name,
@@ -1593,6 +1595,11 @@ class DebtStore private constructor(context: Context) {
     @Synchronized
     fun accounts(): List<DebtAccountSnapshot> {
         ensureEventChainsReconciled()
+        return readAccounts()
+    }
+
+    /** Home is a reader, not a trigger for debt reconciliation. */
+    fun readAccounts(): List<DebtAccountSnapshot> {
         return database.readableDatabase.rawQuery(
             """
             SELECT id, provider_key, name, outstanding_minor,
@@ -1824,7 +1831,9 @@ class DebtStore private constructor(context: Context) {
     fun sumFeesBetween(
         startEpochMs: Long,
         endEpochMsExclusive: Long
-    ): Long =
+    ): Long = readFeesBetween(startEpochMs, endEpochMsExclusive)
+
+    fun readFeesBetween(startEpochMs: Long, endEpochMsExclusive: Long): Long =
         database.readableDatabase.rawQuery(
             """
             SELECT COALESCE(SUM(fee_minor), 0)
@@ -2826,3 +2835,4 @@ class DebtStore private constructor(context: Context) {
             }
     }
 }
+

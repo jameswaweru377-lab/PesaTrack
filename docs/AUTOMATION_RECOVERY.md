@@ -102,3 +102,38 @@ decisions, and continuing setup without manual salary/account forms.
 
 Do not claim "fully fixed" until CI and real-device acceptance agree. Do not require
 the user to reinstall or erase the local ledger to apply a parser/account fix.
+
+## Home loading and salary follow-up
+
+Opening Home previously rebuilt the entire pay-cycle history, ran transaction
+reconciliation and review triage, and computed relationship candidates through a
+debt-account reader that also reconciled events. Those operations ran before the
+first usable overview. They also competed with automatic history repair for store
+monitors. Home now reads persisted state through a separate reader; it does not
+start reconciliation, remote enrichment, or a pay-cycle rebuild. SQLite WAL lets
+readers proceed while history is written. Ingestion still rebuilds cycles when
+money changes. Duplicate checks inspect only unresolved records within the
+existing 90-second candidate window rather than comparing every history pair.
+
+Loading failures show recovery and Accounts/Activity navigation instead of an
+unhandled coroutine error. A 15-second watchdog replaces an endless spinner with
+navigation while the single outstanding load finishes. Revision updates coalesce;
+loaded content stays visible during refresh. Home spending uses the same trusted
+transaction/refund IDs as Activity, avoids Main-thread refund lookups, and no
+longer subtracts refunds twice from the already-net spending total.
+
+Home offers Add salary for a first salary as well as an overdue one, with named
+account, amount, and actual arrival date. Saving, pending-cycle decisions, and
+protection edits run on IO with visible errors; repeat submission is disabled.
+Explicit manual salary starts its cycle without another pay-window confirmation.
+A manual-only rule never labels unrelated incoming SMS as salary. Existing employer
+rules continue to recognize salary and deduplicate replay. A manually selected
+income account is treated as explicit ownership evidence for account display.
+Payday snapshots no longer omit a recognized wallet merely because its phone
+number has not been entered.
+
+Regression coverage includes first/manual/early salary, known-employer automatic
+salary/replay, read-only Home while transaction/debt writer monitors are held,
+failure recovery, delayed-load recovery, and the actual first-salary UI save.
+These are emulator checks; the user's installed database and Redmi still require
+verification. This does not claim every provider format or device state is covered.

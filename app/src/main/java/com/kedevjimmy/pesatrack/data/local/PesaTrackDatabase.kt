@@ -10,6 +10,11 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
     null,
     DATABASE_VERSION
 ) {
+    init {
+        // Keep the overview readable while imported history is being written.
+        setWriteAheadLoggingEnabled(true)
+    }
+
     override fun onCreate(db: SQLiteDatabase) {
         createTransactionsTable(db)
         createRulesTable(db)
@@ -1604,3 +1609,4 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         private const val DATABASE_VERSION = 31
     }
 }
+

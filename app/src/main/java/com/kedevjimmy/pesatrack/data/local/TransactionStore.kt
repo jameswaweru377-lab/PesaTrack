@@ -784,6 +784,9 @@ class TransactionStore private constructor(context: Context) {
         rebuildPayCycles: Boolean = true
     ): Boolean {
         require(amountMinor > 0L) { "Income amount must be greater than zero." }
+        require(occurredAtEpochMs > 0L && occurredAtEpochMs <= System.currentTimeMillis()) {
+            "Income must be dated when it actually arrived."
+        }
 
         val parsed = ParsedMpesaTransaction(
             transactionCode = null,
@@ -798,20 +801,34 @@ class TransactionStore private constructor(context: Context) {
             reversalOfCode = null
         )
 
-        return insertIfNew(
+        val inserted = insertIfNew(
             parsed = parsed,
             sourcePackage = null,
             sourceKind = "manual_setup",
             receivedAtEpochMs = System.currentTimeMillis(),
             occurredAtEpochMs = occurredAtEpochMs,
             matchedRule = matchedRule,
-            rebuildPayCycles =
-                rebuildPayCycles,
+            rebuildPayCycles = false,
             runRelationshipReconciliation =
                 false,
             runMirrorCorrelation =
                 false
         )
+        if (inserted && matchedRule.startsPayCycle) {
+            getByFingerprint(TransactionFingerprint.of(parsed, occurredAtEpochMs))?.let { stored ->
+                database.writableDatabase.update(
+                    "transactions",
+                    ContentValues().apply {
+                        put("cycle_override", PayCycleStore.OVERRIDE_FORCE_START)
+                        put("review_state", ReviewState.USER_CLASSIFIED.name)
+                    },
+                    "id = ?", arrayOf(stored.id.toString())
+                )
+            }
+        }
+        if (inserted && rebuildPayCycles) PayCycleStore.get(appContext).rebuild()
+        if (inserted) LedgerUpdateBus.notifyChanged()
+        return inserted
     }
 
     @Synchronized
@@ -820,6 +837,11 @@ class TransactionStore private constructor(context: Context) {
         ensureBuiltInRecognitionReconciled()
         ensureSemanticReviewStateReconciled()
         ensureRefundsReconciled()
+        return readSnapshot()
+    }
+
+    /** Read the persisted ledger without starting migrations or taking the writer monitor. */
+    fun readSnapshot(): LedgerSnapshot {
         val db = database.readableDatabase
 
         val count = db.rawQuery("SELECT COUNT(*) FROM transactions", null).use { cursor ->
@@ -884,7 +906,9 @@ class TransactionStore private constructor(context: Context) {
     }
 
     @Synchronized
-    fun getById(id: Long): StoredTransaction? =
+    fun getById(id: Long): StoredTransaction? = readById(id)
+
+    fun readById(id: Long): StoredTransaction? =
         database.readableDatabase.rawQuery(
             BASE_SELECT + " WHERE id = ? LIMIT 1",
             arrayOf(id.toString())
@@ -1086,11 +1110,14 @@ class TransactionStore private constructor(context: Context) {
         ensureSemanticReviewStateReconciled()
         ensureRefundsReconciled()
 
+        val overview = readActivityReviewOverview()
+        scheduleRemoteEntityEnrichment(allTransactions())
+        return overview
+    }
+
+    fun readActivityReviewOverview(): ActivityReviewOverview {
         val transactions = allTransactions()
             .filter { it.reviewState != ReviewState.EXCLUDED.name }
-        scheduleRemoteEntityEnrichment(
-            transactions
-        )
         val possibleDuplicates = buildPossibleDuplicateGroups(
             transactions
         )
@@ -1118,7 +1145,13 @@ class TransactionStore private constructor(context: Context) {
         ensureSemanticReviewStateReconciled()
         ensureRefundsReconciled()
         reconcileRecentReviewTriage(nowEpochMs, timeZone)
+        return readActivitySnapshot(nowEpochMs, timeZone)
+    }
 
+    fun readActivitySnapshot(
+        nowEpochMs: Long = System.currentTimeMillis(),
+        timeZone: TimeZone = TimeZone.getDefault()
+    ): ActivityLedgerSnapshot {
         val monthStart = Calendar.getInstance(timeZone).apply {
             timeInMillis = nowEpochMs
             set(Calendar.DAY_OF_MONTH, 1)
@@ -1159,12 +1192,10 @@ class TransactionStore private constructor(context: Context) {
             .filter { it.direction == MoneyDirection.EXPENSE.name }
             .sumOf { it.amountMinor }
 
-        val refunds = effective
-            .filter {
-                it.relationType == RELATION_REFUND &&
-                    refundOriginalIsTrusted(it)
-            }
-            .sumOf { it.amountMinor }
+        val trustedRefunds = effective.filter {
+            it.relationType == RELATION_REFUND && refundOriginalIsTrusted(it)
+        }
+        val refunds = trustedRefunds.sumOf { it.amountMinor }
 
         val spent = maxOf(0L, grossSpent - refunds)
 
@@ -1176,13 +1207,15 @@ class TransactionStore private constructor(context: Context) {
             .sumOf { it.amountMinor }
 
         val fees = effective.sumOf { it.feeMinor } +
-            DebtStore.get(appContext).sumFeesBetween(
+            DebtStore.get(appContext).readFeesBetween(
                 startEpochMs = monthStart.timeInMillis,
                 endEpochMsExclusive = nextMonthStart.timeInMillis
             )
 
         return ActivityLedgerSnapshot(
             transactions = monthTransactions,
+            trustedTransactionIds = effective.map { it.id }.toSet(),
+            trustedRefundIds = trustedRefunds.map { it.id }.toSet(),
             summary = ActivitySummary(
                 incomeMinor = income,
                 spentMinor = spent,
@@ -1961,7 +1994,7 @@ class TransactionStore private constructor(context: Context) {
     ): Boolean {
         val originalId =
             refund.relatedTransactionId ?: return false
-        val original = getById(originalId) ?: return false
+        val original = readById(originalId) ?: return false
         return original.direction == MoneyDirection.EXPENSE.name &&
             original.reviewState != ReviewState.EXCLUDED.name &&
             original.reviewState != ReviewState.NEEDS_REVIEW.name &&
@@ -2834,8 +2867,7 @@ class TransactionStore private constructor(context: Context) {
         val resolvedKeys = duplicateResolutionKeys()
         val eligible = transactions
             .filter { item ->
-                item.reviewState != ReviewState.EXCLUDED.name &&
-                    item.reviewState != ReviewState.USER_CLASSIFIED.name
+                item.reviewState == ReviewState.NEEDS_REVIEW.name
             }
             .sortedByDescending(StoredTransaction::receivedAtEpochMs)
 
@@ -2846,37 +2878,27 @@ class TransactionStore private constructor(context: Context) {
             if (first.id in claimedIds) return@forEachIndexed
 
             val firstObservation = first.toPossibleDuplicateObservation()
-            val best = eligible
-                .asSequence()
-                .drop(index + 1)
-                .filter { it.id !in claimedIds }
-                .mapNotNull { second ->
-                    val key = duplicatePairKey(first.id, second.id)
-                    if (key in resolvedKeys) return@mapNotNull null
-                    if (
-                        !PossibleDuplicatePolicy.isCandidate(
-                            firstObservation,
-                            second.toPossibleDuplicateObservation()
-                        )
-                    ) {
-                        return@mapNotNull null
-                    }
+            var best: Pair<StoredTransaction, Long>? = null
+            for (secondIndex in index + 1 until eligible.size) {
+                val second = eligible[secondIndex]
+                val delta = first.receivedAtEpochMs - second.receivedAtEpochMs
+                // Sorted by capture time: later candidates cannot come back into the window.
+                if (delta > PossibleDuplicatePolicy.MAX_WINDOW_MS) break
+                if (second.id in claimedIds || first.amountMinor != second.amountMinor) continue
+                val key = duplicatePairKey(first.id, second.id)
+                if (key in resolvedKeys) continue
+                if (!PossibleDuplicatePolicy.isCandidate(firstObservation, second.toPossibleDuplicateObservation())) continue
+                if (best == null || delta < best.second) best = second to delta
+            }
+            val match = best ?: return@forEachIndexed
 
-                    second to kotlin.math.abs(
-                        first.receivedAtEpochMs -
-                            second.receivedAtEpochMs
-                    )
-                }
-                .minByOrNull { it.second }
-                ?: return@forEachIndexed
-
-            val second = best.first
+            val second = match.first
             val key = duplicatePairKey(first.id, second.id)
             groups += PossibleDuplicateGroup(
                 key = key,
                 first = first,
                 second = second,
-                timeDeltaMs = best.second
+                timeDeltaMs = match.second
             )
             claimedIds += first.id
             claimedIds += second.id

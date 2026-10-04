@@ -483,14 +483,6 @@ class PaydaySnapshotStore private constructor(
     ): Boolean {
         if (
             account.id ==
-            AccountStore.DEFAULT_MPESA_ID &&
-            account.identifier.isNullOrBlank()
-        ) {
-            return false
-        }
-
-        if (
-            account.id ==
             AccountStore.DEFAULT_CASH_ID
         ) {
             return account.openingBalanceMinor !=
@@ -1261,3 +1253,4 @@ class PaydaySnapshotStore private constructor(
             }
     }
 }
+

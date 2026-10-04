@@ -21,6 +21,8 @@ import androidx.compose.material.icons.automirrored.rounded.FactCheck
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
@@ -48,20 +50,18 @@ import com.kedevjimmy.pesatrack.data.local.ActivitySummary
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.CycleProtectionStore
 import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
-import com.kedevjimmy.pesatrack.data.local.DebtStore
-import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
-import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
 import com.kedevjimmy.pesatrack.data.local.LedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
-import com.kedevjimmy.pesatrack.data.local.RelationshipReviewStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.SalaryCycleCandidate
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
+import com.kedevjimmy.pesatrack.domain.model.RulePreset
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
@@ -77,15 +77,20 @@ import com.kedevjimmy.pesatrack.ui.components.SpendingSlice
 import com.kedevjimmy.pesatrack.ui.components.premiumCategoryColor
 import java.text.NumberFormat
 import java.math.RoundingMode
+import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private data class HomeLoadedState(
+data class HomeLoadedState(
     val cycleSnapshot: PayCycleSnapshot,
     val ledgerSnapshot: LedgerSnapshot,
     val activitySnapshot: ActivityLedgerSnapshot,
@@ -93,7 +98,8 @@ private data class HomeLoadedState(
     val trackedAccounts: List<MoneyAccount>,
     val confirmedAccountIds: Set<String>,
     val salaryRule: SmartRule?,
-    val needsAttentionCount: Int
+    val needsAttentionCount: Int,
+    val categoryLabels: Map<String, String> = emptyMap()
 )
 
 private fun emptyPayCycleSnapshot() =
@@ -135,32 +141,19 @@ fun HomeScreen(
     onTransactionClick: (Long) -> Unit = {},
     onPlanClick: () -> Unit = {},
     onAccountsClick: () -> Unit = {},
-    onDebtsClick: () -> Unit = {}
+    onDebtsClick: () -> Unit = {},
+    homeStateLoader: (suspend () -> HomeLoadedState)? = null,
+    loadingTimeoutMs: Long = 15_000L
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val cycleStore = remember { PayCycleStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
-    val accountStore = remember { AccountStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
-    val debtStore = remember { DebtStore.get(context) }
     val cycleProtectionStore =
         remember {
             CycleProtectionStore.get(context)
         }
-    val financialStore =
-        remember {
-            FinancialUnderstandingStore
-                .get(context)
-        }
     val ruleStore = remember { RuleStore.get(context) }
-    val relationshipReviewStore =
-        remember {
-            RelationshipReviewStore.get(context)
-        }
-    val identityGraphStore =
-        remember {
-            IdentityGraphStore.get(context)
-        }
     val preferences = remember {
         context.getSharedPreferences(
             "pesatrack_preferences",
@@ -188,9 +181,10 @@ fun HomeScreen(
     var homeLoading by remember {
         mutableStateOf(true)
     }
-    var homeLoaded by remember {
-        mutableStateOf(false)
-    }
+    var homeLoaded by remember { mutableStateOf(false) }
+    var homeLoadError by remember { mutableStateOf<String?>(null) }
+    var homeLoadJob by remember { mutableStateOf<Job?>(null) }
+    var refreshPending by remember { mutableStateOf(false) }
 
     var cycleSnapshot by remember {
         mutableStateOf(
@@ -233,76 +227,34 @@ fun HomeScreen(
             null
         )
     }
+    var categoryLabels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var homeActionError by remember { mutableStateOf<String?>(null) }
+    var homeActionRunning by remember { mutableStateOf(false) }
     var needsAttentionCount by remember {
         mutableStateOf(0)
     }
 
-    suspend fun loadHomeState(
-        rebuildCycles: Boolean
-    ): HomeLoadedState =
+    suspend fun loadHomeState(): HomeLoadedState =
         withContext(Dispatchers.IO) {
-            if (rebuildCycles) {
-                cycleStore.rebuild()
-            }
-            HomeLoadedState(
-                cycleSnapshot =
-                    cycleStore.snapshot(),
-                ledgerSnapshot =
-                    transactionStore.snapshot(),
-                activitySnapshot =
-                    transactionStore
-                        .activitySnapshot(),
-                debtAccounts =
-                    debtStore.accounts(),
-                trackedAccounts =
-                    accountStore.listAccounts(
-                        enabledOnly = true
-                    ),
-                confirmedAccountIds =
-                    financialStore
-                        .confirmedAccountIds(),
-                salaryRule =
-                    ruleStore
-                        .listRules(
-                            enabledOnly = true
-                        )
-                        .firstOrNull {
-                            it.startsPayCycle
-                        },
-                needsAttentionCount =
-                    transactionStore
-                        .activityReviewOverview()
-                        .let { overview ->
-                            overview.reviewGroups
-                                .sumOf {
-                                    it.transactionCount
-                                } +
-                                overview
-                                    .possibleDuplicates
-                                    .size
-                        } +
-                        relationshipReviewStore
-                            .pendingReviews()
-                            .size +
-                        identityGraphStore
-                            .pendingReviewPrompts(
-                                limit = 100,
-                                includeOptional = false
-                            )
-                            .size
-            )
+            homeStateLoader?.let { return@withContext it() }
+            HomeStateReader.read(context)
         }
 
-    fun refresh(
-        rebuildCycles: Boolean = false
-    ) {
-        homeScope.launch {
+    fun refresh() {
+        if (homeLoadJob?.isActive == true) {
+            refreshPending = true
+            return
+        }
+        homeLoadError = null
+        if (!homeLoaded) homeLoading = true
+        homeLoadJob = homeScope.launch {
+            val watchdog = launch {
+                delay(loadingTimeoutMs)
+                homeLoading = false
+                homeLoadError = "Your overview is taking longer than expected. You can still open your accounts or activity."
+            }
             try {
-                val loaded =
-                    loadHomeState(
-                        rebuildCycles =
-                            rebuildCycles
-                    )
+                val loaded = loadHomeState()
                 cycleSnapshot =
                     loaded.cycleSnapshot
                 ledgerSnapshot =
@@ -319,24 +271,48 @@ fun HomeScreen(
                     loaded.salaryRule
                 needsAttentionCount =
                     loaded.needsAttentionCount
+                categoryLabels = loaded.categoryLabels
                 homeLoaded = true
+                homeLoadError = null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                android.util.Log.e("PesaTrackHome", "Could not read Home", error)
+                homeLoadError = "We couldn't load your overview. Your saved records are still available."
             } finally {
+                watchdog.cancel()
                 homeLoading = false
+                homeLoadJob = null
+                if (refreshPending && homeScope.isActive) {
+                    refreshPending = false
+                    refresh()
+                }
             }
         }
     }
 
-    LaunchedEffect(Unit) {
-        refresh(
-            rebuildCycles = true
-        )
+    fun updateCycle(action: () -> Unit) {
+        if (homeActionRunning) return
+        homeActionRunning = true
+        homeActionError = null
+        homeScope.launch {
+            try {
+                withContext(Dispatchers.IO) { action() }
+                refresh()
+            } catch (cancelled: CancellationException) { throw cancelled
+            } catch (error: Exception) {
+                android.util.Log.e("PesaTrackHome", "Could not update salary cycle", error)
+                homeActionError = "We couldn't update this salary. Please try again."
+            } finally { homeActionRunning = false }
+        }
     }
+
+    LaunchedEffect(Unit) { refresh() }
 
     LaunchedEffect(
         ledgerUpdateState.revision
     ) {
         if (
-            homeLoaded &&
             ledgerUpdateState.revision > 0L
         ) {
             refresh()
@@ -383,7 +359,7 @@ fun HomeScreen(
         )
     }
 
-    if (homeLoading) {
+    if (homeLoading || !homeLoaded) {
         LazyColumn(
             modifier = Modifier
                 .padding(scaffoldPadding)
@@ -423,7 +399,7 @@ fun HomeScreen(
                             Alignment
                                 .CenterVertically
                     ) {
-                        CircularProgressIndicator(
+                        if (homeLoading) CircularProgressIndicator(
                             modifier =
                                 Modifier.size(
                                     26.dp
@@ -437,7 +413,7 @@ fun HomeScreen(
                                 )
                         ) {
                             Text(
-                                "Preparing your money picture",
+                                if (homeLoading) "Loading your overview" else "Your overview is unavailable",
                                 style =
                                     MaterialTheme
                                         .typography
@@ -447,7 +423,7 @@ fun HomeScreen(
                                         .SemiBold
                             )
                             Text(
-                                "Loading your accounts, pay cycle and balances without blocking the app.",
+                                homeLoadError ?: "Reading your saved accounts and activity…",
                                 style =
                                     MaterialTheme
                                         .typography
@@ -459,6 +435,13 @@ fun HomeScreen(
                             )
                         }
                     }
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!homeLoading) OutlinedButton(onClick = { refresh() }, enabled = homeLoadJob?.isActive != true) { Text("Try again") }
+                    OutlinedButton(onClick = onAccountsClick) { Text("Open accounts") }
+                    OutlinedButton(onClick = onActivityClick) { Text("Open activity") }
                 }
             }
         }
@@ -475,8 +458,7 @@ fun HomeScreen(
     val spendSlices = remember(activitySnapshot) {
         activitySnapshot.transactions
             .filter {
-                it.reviewState != ReviewState.EXCLUDED.name &&
-                    it.reviewState != ReviewState.NEEDS_REVIEW.name &&
+                it.id in activitySnapshot.trustedTransactionIds &&
                     (
                         it.direction ==
                             MoneyDirection.EXPENSE.name ||
@@ -496,10 +478,7 @@ fun HomeScreen(
                             TransactionStore.RELATION_REFUND
                         ) {
                             if (
-                                refundCountsInTrustedTotals(
-                                    item = item,
-                                    store = transactionStore
-                                )
+                                item.id in activitySnapshot.trustedRefundIds
                             ) {
                                 -item.amountMinor
                             } else {
@@ -516,7 +495,7 @@ fun HomeScreen(
             .sortedByDescending { it.value }
             .mapIndexed { index, entry ->
                 SpendingSlice(
-                    label = categoryStore.labelFor(entry.key),
+                    label = categoryLabels[entry.key] ?: entry.key.lowercase().replace('_', ' '),
                     amountMinor = entry.value,
                     color = premiumCategoryColor(index)
                 )
@@ -551,10 +530,7 @@ fun HomeScreen(
                         startOfToday &&
                         it.occurredAtEpochMs <
                             startOfTomorrow &&
-                        it.reviewState !=
-                            ReviewState.EXCLUDED.name &&
-                        it.reviewState !=
-                            ReviewState.NEEDS_REVIEW.name &&
+                        it.id in activitySnapshot.trustedTransactionIds &&
                         (
                             it.direction ==
                                 MoneyDirection.EXPENSE.name ||
@@ -569,10 +545,7 @@ fun HomeScreen(
                         TransactionStore.RELATION_REFUND
                     ) {
                         if (
-                            refundCountsInTrustedTotals(
-                                item = item,
-                                store = transactionStore
-                            )
+                            item.id in activitySnapshot.trustedRefundIds
                         ) {
                             -item.amountMinor
                         } else {
@@ -604,10 +577,7 @@ fun HomeScreen(
                 .spentMinor +
                 activitySnapshot
                     .summary
-                    .feesMinor -
-                activitySnapshot
-                    .summary
-                    .refundMinor
+                    .feesMinor
         )
     val unresolvedDuplicateSecondIds =
         activitySnapshot
@@ -642,37 +612,36 @@ fun HomeScreen(
                 it.remainingMinor > 0L
             }
 
-    val activeSalaryRule =
-        salaryRule
-    if (
-        showManualSalaryDialog &&
-        activeSalaryRule != null &&
-        expectedSalaryPrompt != null
-    ) {
+    val manualSalaryPrompt = remember(showManualSalaryDialog, expectedSalaryPrompt, cycleSnapshot.cycle?.startEpochMs) {
+        expectedSalaryPrompt ?: ExpectedSalaryPrompt(
+                windowStartEpochMs = System.currentTimeMillis(),
+                windowEndEpochMs = System.currentTimeMillis(),
+                currentCycleStartEpochMs = cycleSnapshot.cycle?.startEpochMs ?: 0L
+            )
+    }
+    if (showManualSalaryDialog) {
         ManualSalaryEntryDialog(
-            prompt = expectedSalaryPrompt,
-            onDismiss = {
-                showManualSalaryDialog = false
-            },
-            onSave = { amountMinor, occurredAtEpochMs ->
-                val inserted = transactionStore.insertManualIncome(
-                    amountMinor = amountMinor,
-                    occurredAtEpochMs = occurredAtEpochMs,
-                    label =
-                        activeSalaryRule
-                            .displayLabel
-                            ?: activeSalaryRule
-                                .name
-                                .ifBlank {
-                                    "Salary"
-                                },
-                    matchedRule =
-                        activeSalaryRule
-                )
+            prompt = manualSalaryPrompt,
+            accounts = trackedAccounts,
+            initialAccountId = salaryRule?.accountId,
+            onDismiss = { showManualSalaryDialog = false },
+            onSave = { amountMinor, occurredAtEpochMs, accountId ->
+                val inserted = withContext(Dispatchers.IO) {
+                    val rule = salaryRule?.copy(accountId = accountId) ?: ruleStore.save(
+                        name = "Salary", counterpartyContains = "",
+                        messageContains = "pesatrack-manual-salary:$accountId",
+                        category = TransactionCategory.INCOME, direction = MoneyDirection.INCOME,
+                        displayLabel = "Salary", preset = RulePreset.SALARY,
+                        startsPayCycle = true, accountId = accountId,
+                        id = "manual-salary-$accountId"
+                    )
+                    transactionStore.insertManualIncome(
+                        amountMinor = amountMinor, occurredAtEpochMs = occurredAtEpochMs,
+                        label = rule.displayLabel ?: rule.name.ifBlank { "Salary" }, matchedRule = rule
+                    )
+                }
                 if (inserted) {
-                    preferences.edit()
-                        .remove("salary_prompt_deferred_until")
-                        .apply()
+                    preferences.edit().remove("salary_prompt_deferred_until").apply()
                     salaryPromptDeferredUntil = 0L
                     showManualSalaryDialog = false
                     refresh()
@@ -718,11 +687,12 @@ fun HomeScreen(
                 if (activeCycle == null) {
                     false
                 } else {
-                    cycleProtectionStore.set(
-                        cycleStartTransactionId =
-                            activeCycle.startTransactionId,
-                        amountMinor = amountMinor
-                    )
+                    withContext(Dispatchers.IO) {
+                        cycleProtectionStore.set(
+                            cycleStartTransactionId = activeCycle.startTransactionId,
+                            amountMinor = amountMinor
+                        )
+                    }
                     showProtectionDialog = false
                     refresh()
                     true
@@ -747,6 +717,14 @@ fun HomeScreen(
 
         item {
             GreetingBlock(onProfileClick = onProfileClick)
+        }
+
+        homeActionError?.let { message -> item { PesaCard { Text(message, Modifier.padding(16.dp)) } } }
+        homeLoadError?.let { message ->
+            item { PesaCard { Column(Modifier.padding(16.dp)) {
+                Text(message)
+                TextButton(onClick = { refresh() }, enabled = homeLoadJob?.isActive != true) { Text("Try again") }
+            } } }
         }
 
         item {
@@ -813,26 +791,20 @@ fun HomeScreen(
             )
         }
 
+        item {
+            TextButton(onClick = { showManualSalaryDialog = true }) { Text("Add salary") }
+        }
+
         cycleSnapshot.pendingSalary?.let {
                 candidate ->
             item {
                 PendingSalaryCard(
                     candidate = candidate,
                     onStartCycle = {
-                        cycleStore
-                            .confirmNewCycle(
-                                candidate
-                                    .transactionId
-                            )
-                        refresh()
+                        updateCycle { cycleStore.confirmNewCycle(candidate.transactionId) }
                     },
                     onKeepAsIncome = {
-                        cycleStore
-                            .keepAsAdditionalIncome(
-                                candidate
-                                    .transactionId
-                            )
-                        refresh()
+                        updateCycle { cycleStore.keepAsAdditionalIncome(candidate.transactionId) }
                     }
                 )
             }
@@ -1071,20 +1043,6 @@ fun HomeScreen(
     }
 }
 
-private fun refundCountsInTrustedTotals(
-    item: com.kedevjimmy.pesatrack.data.local.StoredTransaction,
-    store: TransactionStore
-): Boolean {
-    val originalId = item.relatedTransactionId ?: return false
-    val original = store.getById(originalId) ?: return false
-    return original.direction == MoneyDirection.EXPENSE.name &&
-        original.reviewState != ReviewState.EXCLUDED.name &&
-        original.reviewState != ReviewState.NEEDS_REVIEW.name &&
-        original.type !=
-            com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
-                .REVERSAL.name
-}
-
 @Composable
 private fun GreetingBlock(
     onProfileClick: () -> Unit
@@ -1267,8 +1225,10 @@ private fun ProtectMoneyDialog(
     currentMinor: Long,
     maximumSuggestedMinor: Long,
     onDismiss: () -> Unit,
-    onSave: (Long) -> Boolean
+    onSave: suspend (Long) -> Boolean
 ) {
+    val saveScope = rememberCoroutineScope()
+    var saving by remember { mutableStateOf(false) }
     var amount by remember(
         currentMinor
     ) {
@@ -1292,7 +1252,7 @@ private fun ProtectMoneyDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!saving) onDismiss() },
         title = {
             Text(
                 "Protect money"
@@ -1367,13 +1327,14 @@ private fun ProtectMoneyDialog(
         },
         dismissButton = {
             TextButton(
-                onClick = onDismiss
+                onClick = onDismiss, enabled = !saving
             ) {
                 Text("Cancel")
             }
         },
         confirmButton = {
             Button(
+                enabled = !saving,
                 onClick = {
                     val parsed =
                         if (
@@ -1395,12 +1356,20 @@ private fun ProtectMoneyDialog(
                             parsed >
                                 maximumSuggestedMinor ->
                                 "That is more than the cash PesaTrack currently knows is available."
-                            !onSave(
-                                parsed
-                            ) ->
-                                "Could not save this protection."
                             else -> null
                         }
+                    if (error == null && parsed != null) {
+                        saving = true
+                        saveScope.launch {
+                            try {
+                                if (!onSave(parsed)) error = "Could not save this protection."
+                            } catch (cancelled: CancellationException) { throw cancelled
+                            } catch (failure: Exception) {
+                                android.util.Log.e("PesaTrackHome", "Could not protect money", failure)
+                                error = "Could not save this protection. Please try again."
+                            } finally { saving = false }
+                        }
+                    }
                 }
             ) {
                 Text(
@@ -1420,9 +1389,15 @@ private fun ProtectMoneyDialog(
 @Composable
 private fun ManualSalaryEntryDialog(
     prompt: ExpectedSalaryPrompt,
+    accounts: List<MoneyAccount>,
+    initialAccountId: String?,
     onDismiss: () -> Unit,
-    onSave: (Long, Long) -> Boolean
+    onSave: suspend (Long, Long, String) -> Boolean
 ) {
+    val saveScope = rememberCoroutineScope()
+    var saving by remember { mutableStateOf(false) }
+    var accountId by remember { mutableStateOf(initialAccountId?.takeIf { id -> accounts.any { it.id == id } } ?: accounts.firstOrNull()?.id) }
+    var choosingAccount by remember { mutableStateOf(false) }
     val currentLocale =
         androidx.compose.ui.platform
             .LocalConfiguration
@@ -1447,21 +1422,36 @@ private fun ManualSalaryEntryDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add salary manually") },
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("Add salary") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "Only add this if the salary actually arrived and is not already visible in Activity. If the payment is there, classify that transaction instead. The date you enter becomes the start of the new pay cycle.",
+                    "Add money you actually received. If it already appears in Activity, mark that payment as salary there to avoid counting it twice.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Text("Received in")
+                Box {
+                    OutlinedButton(onClick = { choosingAccount = true }, enabled = !saving) {
+                        Text(accounts.firstOrNull { it.id == accountId }?.name ?: "Choose account")
+                    }
+                    DropdownMenu(expanded = choosingAccount, onDismissRequest = { choosingAccount = false }) {
+                        accounts.forEach { account ->
+                            DropdownMenuItem(text = { Text(account.name) }, onClick = {
+                                accountId = account.id
+                                choosingAccount = false
+                            })
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = amount,
                     onValueChange = {
                         amount = it
                         error = null
                     },
+                    enabled = !saving,
                     label = { Text("Salary amount") },
                     prefix = { Text("KES ") },
                     keyboardOptions = KeyboardOptions(
@@ -1476,6 +1466,7 @@ private fun ManualSalaryEntryDialog(
                         date = it
                         error = null
                     },
+                    enabled = !saving,
                     label = { Text("Date salary arrived") },
                     placeholder = { Text("25/09/2026") },
                     supportingText = {
@@ -1494,12 +1485,11 @@ private fun ManualSalaryEntryDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
+            TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") }
         },
         confirmButton = {
             Button(
+                enabled = !saving,
                 onClick = {
                     val amountMinor =
                         parseHomeMoneyMinor(amount)
@@ -1507,6 +1497,7 @@ private fun ManualSalaryEntryDialog(
                         parseHomeDate(date)
 
                     error = when {
+                        accountId == null -> "Choose the account that received your salary."
                         amountMinor == null ||
                             amountMinor <= 0L ->
                             "Enter a salary amount above zero."
@@ -1518,16 +1509,25 @@ private fun ManualSalaryEntryDialog(
                         occurredAt <=
                             prompt.currentCycleStartEpochMs ->
                             "The new salary must be after the current cycle started."
-                        !onSave(
-                            amountMinor,
-                            occurredAt
-                        ) ->
-                            "That salary entry is already recorded."
                         else -> null
+                    }
+                    val selectedAccountId = accountId
+                    if (error == null && amountMinor != null && occurredAt != null && selectedAccountId != null) {
+                        saving = true
+                        saveScope.launch {
+                            try {
+                                if (!onSave(amountMinor, occurredAt, selectedAccountId)) error = "That salary entry is already recorded."
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (failure: Exception) {
+                                android.util.Log.e("PesaTrackHome", "Could not save salary", failure)
+                                error = "Salary could not be saved. Please try again."
+                            } finally { saving = false }
+                        }
                     }
                 }
             ) {
-                Text("Add salary")
+                Text(if (saving) "Saving…" else "Add salary")
             }
         }
     )
@@ -1545,12 +1545,12 @@ private fun parseHomeMoneyMinor(raw: String): Long? =
 
 private fun parseHomeDate(raw: String): Long? =
     runCatching {
-        SimpleDateFormat(
-            "d/M/yyyy",
-            Locale.getDefault()
-        ).apply {
+        val text = raw.trim()
+        val position = ParsePosition(0)
+        val date = SimpleDateFormat("d/M/yyyy", Locale.getDefault()).apply {
             isLenient = false
-        }.parse(raw.trim())?.time
+        }.parse(text, position)
+        date?.time?.takeIf { position.index == text.length }
     }.getOrNull()
 
 private fun homeInsight(

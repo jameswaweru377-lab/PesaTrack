@@ -56,7 +56,9 @@ class RelationshipReviewStore private constructor(
     private val database = PesaTrackDatabase.get(appContext)
 
     @Synchronized
-    fun pendingReviews(): List<RelationshipReviewItem> =
+    fun pendingReviews(): List<RelationshipReviewItem> = readPendingReviews()
+
+    fun readPendingReviews(): List<RelationshipReviewItem> =
         (
             pendingFundingReviews() +
                 pendingBalanceReviews() +
@@ -591,7 +593,7 @@ class RelationshipReviewStore private constructor(
         val debtStore =
             DebtStore.get(appContext)
         val debts =
-            debtStore.accounts()
+            debtStore.readAccounts()
                 .associateBy { it.id }
 
         return database.readableDatabase.rawQuery(
@@ -646,7 +648,7 @@ class RelationshipReviewStore private constructor(
                         cursor.getString(4)
 
                     val matches =
-                        debtStore.liabilityPaymentMatches(
+                        debtStore.readLiabilityPaymentMatches(
                             counterparty =
                                 counterparty,
                             amountMinor =
@@ -1241,3 +1243,4 @@ class RelationshipReviewStore private constructor(
                 }
     }
 }
+

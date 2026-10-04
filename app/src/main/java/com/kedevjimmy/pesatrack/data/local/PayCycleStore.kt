@@ -212,7 +212,10 @@ class PayCycleStore private constructor(context: Context) {
     @Synchronized
     fun snapshot(
         nowEpochMs: Long = System.currentTimeMillis()
-    ): PayCycleSnapshot {
+    ): PayCycleSnapshot = readSnapshot(nowEpochMs)
+
+    /** Use persisted cycles; transaction ingestion is responsible for rebuilding them. */
+    fun readSnapshot(nowEpochMs: Long = System.currentTimeMillis()): PayCycleSnapshot {
         val cycle = currentCycle()
         val pending = pendingSalaryCandidate()
         val paydaySnapshot =
@@ -759,3 +762,4 @@ private fun android.database.Cursor.toPayCycle(): PayCycle =
         endingTrackedMinor = if (isNull(6)) null else getLong(6),
         state = getString(7)
     )
+

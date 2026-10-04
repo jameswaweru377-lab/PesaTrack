@@ -417,6 +417,13 @@ class FinancialUnderstandingStore private constructor(
                 FROM financial_entities
                 WHERE confirmed_account_id IS NOT NULL
                   AND ownership_hint = ?
+                UNION
+                SELECT DISTINCT account_id
+                FROM transactions
+                WHERE source_kind = 'manual_setup'
+                  AND account_id IS NOT NULL
+                  AND review_state != 'EXCLUDED'
+                  AND direction = 'INCOME'
                 """.trimIndent(),
                 arrayOf(
                     AccountOwnershipHint
