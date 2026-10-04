@@ -1535,6 +1535,19 @@ class FinancialMessageIngestionCoordinator private constructor(
                 !heuristicUnsupportedCandidate
             )
         ) {
+            val resolutionContext =
+                MessageLabResolutionPolicy
+                    .contextFor(
+                        recognized =
+                            interpretation
+                                .recognized,
+                        semanticallyUnderstood =
+                            interpretation
+                                .semanticallyUnderstood,
+                        provenance =
+                            interpretation
+                                .parseProvenance
+                    )
             val retired =
                 messageLabStore
                     .markUnderstood(
@@ -1544,7 +1557,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                         sourcePackage =
                             sourcePackage,
                         sourceKind =
-                            sourceKind
+                            sourceKind,
+                        resolutionContext =
+                            resolutionContext
                     )
             if (
                 retired &&

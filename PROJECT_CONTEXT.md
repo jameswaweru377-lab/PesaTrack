@@ -4093,3 +4093,40 @@ Guardrail:
 
 The Inspector never exposes an implementation work packet before both evidence readiness and explicit **Ready for parser work** review are satisfied. Copying a draft or work packet is still a development handoff only and does not activate parsing or write accounting state.
 
+## Message Lab sanitized resolution archive — 2026-10-04
+
+The real-device parser feedback loop now preserves proof when previously unsupported evidence becomes understood instead of silently deleting that history.
+
+Implemented:
+
+- Added a bounded local archive of the latest 50 resolved Message Lab shapes.
+- Before an active unsupported shape is retired, PesaTrack preserves only its existing sanitized evidence:
+  - exact shape ID and conservative family ID;
+  - safe sender/source channel metadata;
+  - redacted body;
+  - exact/family occurrence counts;
+  - prior Financial/Not-financial decision where applicable;
+  - semantic meaning label;
+  - implementation-review state.
+- Resolution provenance is recorded from the current interpretation:
+  - `TEMPLATE` vs `GENERIC_FALLBACK`;
+  - Message Pack template ID/revision when present;
+  - event kind and product identity when present;
+  - existing provenance reason.
+- A shape retired only because it no longer qualifies as unsupported evidence is recorded separately as `NO_LONGER_UNSUPPORTED`; it is not falsely reported as a parser fix.
+- Active Message Lab evidence and its decision metadata are still removed after successful retirement, so resolved work does not remain in the active queue.
+- Data Health now shows **Resolved Message Lab evidence** with the sanitized shape, parser route/template, prior meaning, and recurrence evidence.
+- Added pure policy tests for:
+  - template-based parser resolution;
+  - generic semantic resolution;
+  - relevance-only retirement;
+  - preservation of sanitized evidence/review state.
+
+Feedback loop:
+
+`unsupported real message -> evidence/review -> parser or generic-grammar improvement -> reprocess/new occurrence -> resolved archive with provenance`
+
+Guardrail:
+
+The archive contains no raw SMS body, transaction code, amount, phone number, email, account number or unredacted counterparty. It is diagnostic proof of coverage improvement, not an accounting ledger and not parser activation authority.
+

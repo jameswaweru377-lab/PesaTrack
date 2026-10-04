@@ -515,7 +515,16 @@ class MessageLabStore private constructor(
         safeSenderLabel: String?,
         body: String,
         sourcePackage: String? = null,
-        sourceKind: String? = null
+        sourceKind: String? = null,
+        resolutionContext:
+            MessageLabResolutionContext =
+            MessageLabResolutionContext(
+                kind =
+                    MessageLabResolutionKind
+                        .NO_LONGER_UNSUPPORTED
+            ),
+        resolvedAtEpochMs: Long =
+            System.currentTimeMillis()
     ): Boolean {
         val identity =
             MessageLabShapeIdentityFactory
@@ -528,6 +537,11 @@ class MessageLabStore private constructor(
                     sourceKind =
                         sourceKind
                 )
+
+        val existingShape =
+            shapeById(
+                identity.shapeId
+            )
 
         val current =
             readArray()
@@ -569,6 +583,20 @@ class MessageLabStore private constructor(
                 0
             ) + removed
 
+        existingShape
+            ?.let {
+                archiveResolvedShape(
+                    MessageLabResolutionPolicy
+                        .resolvedRecord(
+                            shape = it,
+                            context =
+                                resolutionContext,
+                            resolvedAtEpochMs =
+                                resolvedAtEpochMs
+                        )
+                )
+            }
+
         val decisions =
             readDecisions()
         decisions.remove(
@@ -592,6 +620,46 @@ class MessageLabStore private constructor(
 
         return true
     }
+
+    @Synchronized
+    fun recentResolved(
+        limit: Int =
+            MAX_RESOLVED_SHAPES
+    ): List<ResolvedMessageLabShape> {
+        val array =
+            readResolvedArray()
+
+        return buildList {
+            for (
+                index in 0 until
+                    array.length()
+            ) {
+                val item =
+                    array.optJSONObject(
+                        index
+                    ) ?: continue
+                resolvedShapeFromJson(
+                    item
+                )?.let(::add)
+            }
+        }
+            .asReversed()
+            .take(
+                limit.coerceIn(
+                    1,
+                    MAX_RESOLVED_SHAPES
+                )
+            )
+    }
+
+    fun resolvedByParserCount(): Int =
+        recentResolved(
+            MAX_RESOLVED_SHAPES
+        ).count {
+            it.resolutionKind ==
+                MessageLabResolutionKind
+                    .PARSER_COVERAGE
+        }
 
     @Synchronized
     fun setUserDecision(
@@ -1649,6 +1717,353 @@ class MessageLabStore private constructor(
         }
     }
 
+    private fun archiveResolvedShape(
+        record:
+            ResolvedMessageLabShape
+    ) {
+        val current =
+            readResolvedArray()
+        val next =
+            JSONArray()
+
+        val start =
+            maxOf(
+                0,
+                current.length() -
+                    (MAX_RESOLVED_SHAPES - 1)
+            )
+
+        for (
+            index in start until
+                current.length()
+        ) {
+            val item =
+                current.optJSONObject(
+                    index
+                ) ?: continue
+            if (
+                item.optString(
+                    "shapeId"
+                ) != record.shapeId
+            ) {
+                next.put(item)
+            }
+        }
+
+        next.put(
+            resolvedShapeToJson(
+                record
+            )
+        )
+
+        while (
+            next.length() >
+            MAX_RESOLVED_SHAPES
+        ) {
+            val trimmed =
+                JSONArray()
+            for (
+                index in 1 until
+                    next.length()
+            ) {
+                trimmed.put(
+                    next.get(
+                        index
+                    )
+                )
+            }
+            preferences.edit()
+                .putString(
+                    KEY_RESOLVED_SHAPES,
+                    trimmed.toString()
+                )
+                .apply()
+            return
+        }
+
+        preferences.edit()
+            .putString(
+                KEY_RESOLVED_SHAPES,
+                next.toString()
+            )
+            .apply()
+    }
+
+    private fun resolvedShapeToJson(
+        record:
+            ResolvedMessageLabShape
+    ): JSONObject =
+        JSONObject().apply {
+            put(
+                "shapeId",
+                record.shapeId
+            )
+            put(
+                "familyId",
+                record.familyId
+            )
+            put(
+                "sender",
+                record.sender
+            )
+            put(
+                "sourcePackage",
+                record.sourcePackage
+                    ?: JSONObject.NULL
+            )
+            put(
+                "sourceKind",
+                record.sourceKind
+                    ?: JSONObject.NULL
+            )
+            put(
+                "redactedBody",
+                record.redactedBody
+            )
+            put(
+                "occurrenceCount",
+                record.occurrenceCount
+            )
+            put(
+                "familyOccurrenceCount",
+                record.familyOccurrenceCount
+            )
+            put(
+                "familyVariantCount",
+                record.familyVariantCount
+            )
+            put(
+                "previousUserDecision",
+                record.previousUserDecision
+                    ?.name
+                    ?: JSONObject.NULL
+            )
+            put(
+                "semanticLabel",
+                record.semanticLabel
+                    ?.name
+                    ?: JSONObject.NULL
+            )
+            put(
+                "implementationReview",
+                record.implementationReview
+                    ?.name
+                    ?: JSONObject.NULL
+            )
+            put(
+                "resolutionKind",
+                record.resolutionKind
+                    .name
+            )
+            put(
+                "parseRoute",
+                record.parseRoute
+                    ?: JSONObject.NULL
+            )
+            put(
+                "templateId",
+                record.templateId
+                    ?: JSONObject.NULL
+            )
+            put(
+                "templateRevision",
+                record.templateRevision
+                    ?: JSONObject.NULL
+            )
+            put(
+                "eventKind",
+                record.eventKind
+                    ?: JSONObject.NULL
+            )
+            put(
+                "productIdentity",
+                record.productIdentity
+                    ?: JSONObject.NULL
+            )
+            put(
+                "provenanceReason",
+                record.provenanceReason
+                    ?: JSONObject.NULL
+            )
+            put(
+                "resolvedAtEpochMs",
+                record.resolvedAtEpochMs
+            )
+        }
+
+    private fun resolvedShapeFromJson(
+        item: JSONObject
+    ): ResolvedMessageLabShape? {
+        val shapeId =
+            item.optString(
+                "shapeId"
+            ).takeIf(
+                String::isNotBlank
+            ) ?: return null
+        val resolutionKind =
+            runCatching {
+                MessageLabResolutionKind
+                    .valueOf(
+                        item.optString(
+                            "resolutionKind"
+                        )
+                    )
+            }.getOrNull()
+                ?: return null
+
+        return ResolvedMessageLabShape(
+            shapeId =
+                shapeId,
+            familyId =
+                item.optString(
+                    "familyId",
+                    shapeId
+                ),
+            sender =
+                item.optString(
+                    "sender",
+                    "<SENDER>"
+                ),
+            sourcePackage =
+                nullableString(
+                    item,
+                    "sourcePackage"
+                ),
+            sourceKind =
+                nullableString(
+                    item,
+                    "sourceKind"
+                ),
+            redactedBody =
+                item.optString(
+                    "redactedBody"
+                ),
+            occurrenceCount =
+                item.optInt(
+                    "occurrenceCount",
+                    1
+                ).coerceAtLeast(1),
+            familyOccurrenceCount =
+                item.optInt(
+                    "familyOccurrenceCount",
+                    item.optInt(
+                        "occurrenceCount",
+                        1
+                    )
+                ).coerceAtLeast(1),
+            familyVariantCount =
+                item.optInt(
+                    "familyVariantCount",
+                    1
+                ).coerceAtLeast(1),
+            previousUserDecision =
+                nullableEnum(
+                    item = item,
+                    key =
+                        "previousUserDecision",
+                    parser = {
+                        MessageLabUserDecision
+                            .valueOf(it)
+                    }
+                ),
+            semanticLabel =
+                nullableEnum(
+                    item = item,
+                    key = "semanticLabel",
+                    parser = {
+                        MessageLabSemanticLabel
+                            .valueOf(it)
+                    }
+                ),
+            implementationReview =
+                nullableEnum(
+                    item = item,
+                    key =
+                        "implementationReview",
+                    parser = {
+                        MessageLabImplementationReviewState
+                            .valueOf(it)
+                    }
+                ),
+            resolutionKind =
+                resolutionKind,
+            parseRoute =
+                nullableString(
+                    item,
+                    "parseRoute"
+                ),
+            templateId =
+                nullableString(
+                    item,
+                    "templateId"
+                ),
+            templateRevision =
+                if (
+                    item.has(
+                        "templateRevision"
+                    ) &&
+                    !item.isNull(
+                        "templateRevision"
+                    )
+                ) {
+                    item.optInt(
+                        "templateRevision"
+                    )
+                } else {
+                    null
+                },
+            eventKind =
+                nullableString(
+                    item,
+                    "eventKind"
+                ),
+            productIdentity =
+                nullableString(
+                    item,
+                    "productIdentity"
+                ),
+            provenanceReason =
+                nullableString(
+                    item,
+                    "provenanceReason"
+                ),
+            resolvedAtEpochMs =
+                item.optLong(
+                    "resolvedAtEpochMs"
+                )
+        )
+    }
+
+    private fun nullableString(
+        item: JSONObject,
+        key: String
+    ): String? =
+        if (
+            item.isNull(key)
+        ) {
+            null
+        } else {
+            item.optString(key)
+                .trim()
+                .takeIf(
+                    String::isNotBlank
+                )
+        }
+
+    private fun <T> nullableEnum(
+        item: JSONObject,
+        key: String,
+        parser: (String) -> T
+    ): T? =
+        nullableString(
+            item,
+            key
+        )?.let {
+            runCatching {
+                parser(it)
+            }.getOrNull()
+        }
+
     private fun putRelevanceEvidence(
         item: JSONObject,
         relevanceScore: Int?,
@@ -1691,6 +2106,18 @@ class MessageLabStore private constructor(
             JSONArray()
         }
 
+    private fun readResolvedArray(): JSONArray =
+        runCatching {
+            JSONArray(
+                preferences.getString(
+                    KEY_RESOLVED_SHAPES,
+                    "[]"
+                ) ?: "[]"
+            )
+        }.getOrElse {
+            JSONArray()
+        }
+
     private fun readDecisions(): JSONObject =
         runCatching {
             JSONObject(
@@ -1712,7 +2139,11 @@ class MessageLabStore private constructor(
             "retired_occurrence_count"
         private const val KEY_DECISIONS =
             "user_shape_decisions"
+        private const val KEY_RESOLVED_SHAPES =
+            "resolved_shapes"
         private const val MAX_SHAPES = 100
+        private const val MAX_RESOLVED_SHAPES =
+            50
 
         @Volatile
         private var instance:
