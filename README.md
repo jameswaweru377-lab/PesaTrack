@@ -51,7 +51,7 @@ The short version:
 - Data Health
 - Settings / theme / Smart Rules
 
-Goals and Community source files remain in the repository for now, but they are **quarantined from live navigation** because they contain preview or fabricated values and are not part of the trustworthy ledger product.
+Goals, Goal Detail, Community, and the superseded onboarding screens have been removed from source. Compatibility redirects may remain for restored navigation state, but these are not product features.
 
 ## Financial intelligence architecture
 
@@ -92,6 +92,6 @@ Important remaining engineering debt:
 - no automated old-schema-to-v31 migration test matrix yet;
 - database ownership is fragmented across many stores and multi-store financial writes do not yet have a proven crash-atomic transaction boundary;
 - several files have grown too large and must be decomposed before substantial new feature work;
-- legacy/preview source should be deleted only after a clean quarantine period and CI confirmation.
+- retired preview/onboarding source has been removed after a clean quarantine period and repeated CI confirmation.
 
 See [docs/AUDIT_2026-10-04.md](docs/AUDIT_2026-10-04.md) for the current repository audit and [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for detailed implementation history.
