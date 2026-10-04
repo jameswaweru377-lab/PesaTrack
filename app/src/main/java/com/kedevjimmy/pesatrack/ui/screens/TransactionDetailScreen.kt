@@ -930,6 +930,11 @@ fun TransactionDetailScreen(
 
 @Composable
 private fun TransactionHero(item: StoredTransaction) {
+    val currentLocale =
+        androidx.compose.ui.platform
+            .LocalConfiguration
+            .current
+            .locales[0]
     val direction = runCatching {
         MoneyDirection.valueOf(item.direction)
     }.getOrDefault(MoneyDirection.NEUTRAL)
@@ -999,7 +1004,7 @@ private fun TransactionHero(item: StoredTransaction) {
                     )
                     HeroMetric(
                         "Transaction date",
-                        SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(item.occurredAtEpochMs)),
+                        SimpleDateFormat("d MMM", currentLocale).format(Date(item.occurredAtEpochMs)),
                         Icons.Rounded.CalendarMonth,
                         Modifier.weight(1f)
                     )
