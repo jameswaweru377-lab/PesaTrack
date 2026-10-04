@@ -3,7 +3,9 @@ package com.kedevjimmy.pesatrack.ingestion
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseProvenance
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseRoute
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MessageLabResolutionPolicyTest {
@@ -109,6 +111,132 @@ class MessageLabResolutionPolicyTest {
     }
 
     @Test
+    fun conflictingParserMeaningDoesNotRetireUserConfirmedEvidence() {
+        val shape =
+            confirmedShape(
+                MessageLabSemanticLabel
+                    .LOAN_REPAYMENT
+            )
+        val context =
+            MessageLabResolutionContext(
+                kind =
+                    MessageLabResolutionKind
+                        .PARSER_COVERAGE,
+                resolvedSemanticLabels =
+                    setOf(
+                        MessageLabSemanticLabel
+                            .PAYMENT
+                    )
+            )
+
+        assertFalse(
+            MessageLabResolutionPolicy
+                .canRetire(
+                    shape = shape,
+                    context = context
+                )
+        )
+        assertEquals(
+            MessageLabResolutionAgreement
+                .DISAGREES,
+            MessageLabResolutionPolicy
+                .agreementFor(
+                    previous =
+                        shape.semanticLabel,
+                    current =
+                        context
+                            .resolvedSemanticLabels
+                )
+        )
+    }
+
+    @Test
+    fun matchingParserMeaningCanRetireUserConfirmedEvidence() {
+        val shape =
+            confirmedShape(
+                MessageLabSemanticLabel
+                    .LOAN_REPAYMENT
+            )
+        val context =
+            MessageLabResolutionContext(
+                kind =
+                    MessageLabResolutionKind
+                        .PARSER_COVERAGE,
+                resolvedSemanticLabels =
+                    setOf(
+                        MessageLabSemanticLabel
+                            .LOAN_REPAYMENT,
+                        MessageLabSemanticLabel
+                            .BALANCE_UPDATE
+                    )
+            )
+
+        assertTrue(
+            MessageLabResolutionPolicy
+                .canRetire(
+                    shape = shape,
+                    context = context
+                )
+        )
+        assertEquals(
+            MessageLabResolutionAgreement
+                .AGREES,
+            MessageLabResolutionPolicy
+                .agreementFor(
+                    previous =
+                        shape.semanticLabel,
+                    current =
+                        context
+                            .resolvedSemanticLabels
+                )
+        )
+    }
+
+    @Test
+    fun broadOrUncomparableMeaningDoesNotBlockRetirement() {
+        val broad =
+            confirmedShape(
+                MessageLabSemanticLabel
+                    .OTHER_FINANCIAL
+            )
+        val ambiguous =
+            confirmedShape(
+                MessageLabSemanticLabel
+                    .TRANSFER
+            )
+
+        assertTrue(
+            MessageLabResolutionPolicy
+                .canRetire(
+                    shape = broad,
+                    context =
+                        MessageLabResolutionContext(
+                            kind =
+                                MessageLabResolutionKind
+                                    .PARSER_COVERAGE,
+                            resolvedSemanticLabels =
+                                setOf(
+                                    MessageLabSemanticLabel
+                                        .PAYMENT
+                                )
+                        )
+                )
+        )
+        assertTrue(
+            MessageLabResolutionPolicy
+                .canRetire(
+                    shape = ambiguous,
+                    context =
+                        MessageLabResolutionContext(
+                            kind =
+                                MessageLabResolutionKind
+                                    .PARSER_COVERAGE
+                        )
+                )
+        )
+    }
+
+    @Test
     fun resolvedRecordPreservesSanitizedEvidenceAndReviewState() {
         val shape =
             UnsupportedMessageShape(
@@ -145,7 +273,12 @@ class MessageLabResolutionPolicyTest {
                     "ke.mshwari.loan.repaid-from-mpesa",
                 templateRevision = 1,
                 eventKind =
-                    "DEBT_REPAYMENT"
+                    "DEBT_REPAYMENT",
+                resolvedSemanticLabels =
+                    setOf(
+                        MessageLabSemanticLabel
+                            .LOAN_REPAYMENT
+                    )
             )
 
         val record =
@@ -183,8 +316,45 @@ class MessageLabResolutionPolicyTest {
             record.templateId
         )
         assertEquals(
+            MessageLabResolutionAgreement
+                .AGREES,
+            record.resolutionAgreement
+        )
+        assertEquals(
+            setOf(
+                MessageLabSemanticLabel
+                    .LOAN_REPAYMENT
+            ),
+            record.resolvedSemanticLabels
+        )
+        assertEquals(
             99L,
             record.resolvedAtEpochMs
         )
     }
+
+    private fun confirmedShape(
+        semanticLabel:
+            MessageLabSemanticLabel
+    ) =
+        UnsupportedMessageShape(
+            shapeId = "shape",
+            familyId = "family",
+            sender = "Source",
+            sourcePackage = null,
+            sourceKind =
+                "historical_financial_message",
+            redactedBody =
+                "<AMOUNT>",
+            firstSeenAtEpochMs = 1L,
+            lastSeenAtEpochMs = 2L,
+            occurrenceCount = 2,
+            userDecision =
+                MessageLabUserDecision
+                    .CONFIRMED_FINANCIAL,
+            semanticLabel =
+                semanticLabel,
+            familyOccurrenceCount = 2,
+            familyVariantCount = 1
+        )
 }
