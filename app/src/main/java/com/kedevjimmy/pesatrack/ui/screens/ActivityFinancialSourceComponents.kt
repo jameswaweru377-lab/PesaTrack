@@ -937,14 +937,14 @@ internal fun amountLabel(
         direction == MoneyDirection.EXPENSE -> "-"
         else -> ""
     }
-    return "$sign ${formatMoney(item.amountMinor)}".trim()
+    return "$sign ${formatActivityMoney(item.amountMinor)}".trim()
 }
 
-internal fun formatMoney(minor: Long): String =
+internal fun formatActivityMoney(minor: Long): String =
     "KES ${NumberFormat.getNumberInstance(Locale.US).format(minor / 100.0)}"
 
 internal fun formatSignedMoney(minor: Long): String =
-    if (minor < 0) "- ${formatMoney(-minor)}" else formatMoney(minor)
+    if (minor < 0) "- ${formatActivityMoney(-minor)}" else formatActivityMoney(minor)
 
 internal fun formatTime(epochMs: Long): String =
     SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(Date(epochMs))
