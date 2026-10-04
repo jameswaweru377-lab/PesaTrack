@@ -4508,6 +4508,41 @@ private fun ResolvedMessageLabCard(
                     )
                 }
 
+            if (
+                record
+                    .resolvedSemanticLabels
+                    .isNotEmpty()
+            ) {
+                InspectionDetail(
+                    label =
+                        "Current meaning",
+                    value =
+                        record
+                            .resolvedSemanticLabels
+                            .map {
+                                it.displayLabel
+                            }
+                            .sorted()
+                            .joinToString()
+                )
+            }
+
+            if (
+                record.resolutionKind ==
+                    MessageLabResolutionKind
+                        .PARSER_COVERAGE &&
+                record.semanticLabel != null
+            ) {
+                InspectionDetail(
+                    label =
+                        "Meaning check",
+                    value =
+                        record
+                            .resolutionAgreement
+                            .displayLabel
+                )
+            }
+
             Text(
                 "Observed " +
                     record.occurrenceCount +
