@@ -22,7 +22,7 @@ class RecurringPatternStore private constructor(
     private val appContext =
         context.applicationContext
     private val database =
-        PesaTrackDatabase(appContext)
+        PesaTrackDatabase.get(appContext)
     private val transactionStore =
         TransactionStore.get(appContext)
     private val ruleStore =
