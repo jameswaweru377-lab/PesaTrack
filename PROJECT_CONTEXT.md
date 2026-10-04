@@ -4130,3 +4130,22 @@ Guardrail:
 
 The archive contains no raw SMS body, transaction code, amount, phone number, email, account number or unredacted counterparty. It is diagnostic proof of coverage improvement, not an accounting ledger and not parser activation authority.
 
+### Resolution meaning agreement guard — 2026-10-04
+
+The sanitized resolution archive now verifies that parser coverage does not contradict earlier user-confirmed meaning before active Message Lab evidence is retired.
+
+- Current parser meaning is derived from deterministic event facts plus semantic intents.
+- The archive compares that current meaning with the prior Message Lab semantic label.
+- Clear agreement allows normal retirement/archive.
+- Broad `Other financial` evidence or interpretations with no comparable meaning remain `UNKNOWN` rather than being called conflicts.
+- A clear mismatch blocks retirement. The active unsupported evidence and its review metadata remain in Message Lab, and the diagnostic is not marked covered.
+- Archived records now preserve:
+  - previous user meaning;
+  - current resolved meaning labels;
+  - meaning agreement status.
+- Data Health shows **Current meaning** and **Meaning check** for archived parser resolutions.
+
+Example safety boundary:
+
+A shape previously confirmed as **Loan repayment** is not allowed to disappear merely because a later parser recognizes the wording as an ordinary **Payment**. The evidence stays active until parser semantics agree or the user/developer reviews the mismatch.
+
