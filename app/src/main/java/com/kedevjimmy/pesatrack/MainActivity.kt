@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.kedevjimmy.pesatrack.ingestion.AutomaticHistoryRepair
 import com.kedevjimmy.pesatrack.ui.PesaTrackApp
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
@@ -17,6 +18,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        AutomaticHistoryRepair.scheduleIfAllowed(this)
         setContent {
             val preferences = remember {
                 getSharedPreferences("pesatrack_preferences", MODE_PRIVATE)
@@ -57,9 +59,11 @@ class MainActivity : ComponentActivity() {
                                 true
                             )
                             .apply()
+                        AutomaticHistoryRepair.scheduleIfAllowed(this)
                     }
                 )
             }
         }
     }
 }
+

@@ -363,7 +363,8 @@ fun ActivityScreen(
                 identityReviewCount =
                     identityGraphStore
                         .pendingReviewPrompts(
-                            limit = 100
+                            limit = 100,
+                            includeOptional = false
                         )
                         .size
             )
@@ -3782,3 +3783,4 @@ private fun ActivityRow(
         }
     }
 }
+

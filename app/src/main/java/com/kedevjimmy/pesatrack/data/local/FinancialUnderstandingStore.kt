@@ -11,6 +11,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.FinancialEventKind
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
+import com.kedevjimmy.pesatrack.domain.rules.AutomaticAccountPolicy
 import java.security.MessageDigest
 
 enum class FinancialEventStatus {
@@ -217,6 +218,15 @@ class FinancialUnderstandingStore private constructor(
                 SQLiteDatabase.CONFLICT_IGNORE
             ) != -1L
 
+        val attached = if (accountId != null) {
+            database.writableDatabase.update(
+                "account_balance_observations",
+                ContentValues().apply { put("account_id", accountId) },
+                "entity_key = ? AND account_id IS NULL",
+                arrayOf(fact.account.entityKey)
+            ) > 0
+        } else false
+
         if (
             fact.account.nature ==
                 FinancialAccountNature.LIABILITY
@@ -230,7 +240,7 @@ class FinancialUnderstandingStore private constructor(
                         observedAtEpochMs
                 )
         } else if (
-            inserted &&
+            (inserted || attached) &&
             accountId != null
         ) {
             DebtStore.get(appContext)
@@ -243,10 +253,10 @@ class FinancialUnderstandingStore private constructor(
                 )
         }
 
-        if (inserted) {
+        if (inserted || attached) {
             LedgerUpdateBus.notifyChanged()
         }
-        return inserted
+        return inserted || attached
     }
 
     @Synchronized
@@ -1099,61 +1109,22 @@ class FinancialUnderstandingStore private constructor(
     private fun resolveOwnedAccount(
         reference: FinancialAccountReference
     ): String? {
-        if (
-            reference.entityKey ==
-            "system:cash"
-        ) {
-            return AccountStore
-                .DEFAULT_CASH_ID
+        val existing = database.readableDatabase.rawQuery(
+            "SELECT ownership_hint, confirmed_account_id FROM financial_entities WHERE entity_key = ? LIMIT 1",
+            arrayOf(reference.entityKey)
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null
+            else cursor.getString(0) to if (cursor.isNull(1)) null else cursor.getString(1)
         }
+        if (existing?.first == AccountOwnershipHint.EXTERNAL.name) return null
+        existing?.second?.let { return it }
+        if (!AutomaticAccountPolicy.canResolve(reference, explicitlyExternal = false)) return null
 
-        if (
-            reference.ownershipHint !=
-            AccountOwnershipHint.USER_OWNED
-        ) {
-            return null
-        }
-
-        val mpesaConfirmed =
-            accountStore
-                .listAccounts(
-                    enabledOnly = false
-                )
-                .firstOrNull {
-                    it.id ==
-                        AccountStore
-                            .DEFAULT_MPESA_ID
-                }
-                ?.identifier
-                .isNullOrBlank()
-                .not()
-
-        return when (
-            reference.providerKey
-        ) {
-            "SAFARICOM_MPESA" ->
-                if (mpesaConfirmed) {
-                    AccountStore
-                        .DEFAULT_MPESA_ID
-                } else {
-                    null
-                }
-
-            "NCBA_MSHWARI_SAVINGS",
-            "NCBA_MSHWARI_LOCK_SAVINGS" ->
-                if (mpesaConfirmed) {
-                    accountStore.findOrCreate(
-                        name =
-                            reference.displayName,
-                        type =
-                            reference.accountTypeHint
-                    ).id
-                } else {
-                    null
-                }
-
-            else -> null
-        }
+        return stableOwnedAccountIds[reference.entityKey]
+            ?: accountStore.findOrCreate(
+                name = reference.displayName,
+                type = reference.accountTypeHint
+            ).id
     }
 
     companion object {
@@ -1207,3 +1178,4 @@ class FinancialUnderstandingStore private constructor(
             }
     }
 }
+

@@ -55,7 +55,13 @@ PesaTrack exists to do five jobs well:
    - Needs Attention;
    - identity review;
    - ambiguous duplicates;
-   - uncertain categories.
+   - financial meaning that cannot be resolved from the available evidence.
+
+Unknown spending categories and optional recipient labels are personalization,
+not reasons to exclude a resolved payment or inflate financial attention.
+A resolved owned account must not require a manually entered identifier before
+its transactions and balances can be attached. Repeated names alone do not
+establish ownership; explicit external decisions remain authoritative.
 
 Unsupported parser/message-shape coverage belongs in Data Health and the developer evidence workflow. It must not inflate ordinary user attention counts.
 
@@ -189,3 +195,4 @@ The following preview/superseded screens were removed from source after quaranti
 - older superseded onboarding screens.
 
 Compatibility redirects for restored navigation state are allowed, but these retired features must not be reintroduced without deliberately changing this charter.
+
