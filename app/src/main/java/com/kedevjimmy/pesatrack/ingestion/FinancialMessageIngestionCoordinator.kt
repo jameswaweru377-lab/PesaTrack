@@ -8,6 +8,7 @@ import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.InvestmentStore
 import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
 import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
+import com.kedevjimmy.pesatrack.data.local.PesaTrackDatabase
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionDateResolver
@@ -119,6 +120,32 @@ class FinancialMessageIngestionCoordinator private constructor(
                 ?.map { it.value }
                 ?.toSet()
                 .orEmpty()
+        val canonicalDb =
+            PesaTrackDatabase.get(appContext)
+                .writableDatabase
+        val ownsCanonicalTransaction =
+            !canonicalDb.inTransaction()
+        var canonicalTransactionOpen =
+            ownsCanonicalTransaction
+
+        if (ownsCanonicalTransaction) {
+            canonicalDb.beginTransaction()
+        }
+
+        fun finishCanonicalTransaction(
+            successful: Boolean
+        ) {
+            if (!canonicalTransactionOpen) {
+                return
+            }
+            if (successful) {
+                canonicalDb.setTransactionSuccessful()
+            }
+            canonicalDb.endTransaction()
+            canonicalTransactionOpen = false
+        }
+
+        try {
         val investmentWrite =
             interpretation.semanticAssessment
                 ?.investment
@@ -167,6 +194,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                             .consumesLegacyTransactionParsing &&
                             investmentWrite == null
                 )
+            finishCanonicalTransaction(
+                successful = true
+            )
             recordDiagnostic(
                 title = title,
                 body = body,
@@ -1263,6 +1293,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                 pendingReviewEvents =
                     pendingReviewEvents
             )
+        finishCanonicalTransaction(
+            successful = true
+        )
         recordDiagnostic(
             title = title,
             body = body,
@@ -1281,6 +1314,12 @@ class FinancialMessageIngestionCoordinator private constructor(
                 rebuildPayCycles
         )
         return result
+        } catch (error: Throwable) {
+            finishCanonicalTransaction(
+                successful = false
+            )
+            throw error
+        }
     }
 
     private fun updateIdentityGraph(
