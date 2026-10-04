@@ -9,7 +9,7 @@ data class MonthlyBudget(
 )
 
 class BudgetStore private constructor(context: Context) {
-    private val database = PesaTrackDatabase(context.applicationContext)
+    private val database = PesaTrackDatabase.get(context.applicationContext)
 
     @Synchronized
     fun list(): List<MonthlyBudget> =
