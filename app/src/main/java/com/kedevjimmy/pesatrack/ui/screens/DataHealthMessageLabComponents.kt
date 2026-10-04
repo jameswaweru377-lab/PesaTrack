@@ -31,7 +31,7 @@ import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
 
 @Composable
-internal fun DataHealthDataHealthUnsupportedShapeCard(
+internal fun DataHealthUnsupportedShapeCard(
     shape: UnsupportedMessageShape,
     onConfirmFinancial: () -> Unit,
     onSemanticLabelSelected:
@@ -531,7 +531,7 @@ private fun dataHealthMessageLabRelevanceExplanation(
 }
 
 @Composable
-internal fun DataHealthDataHealthResolvedMessageLabCard(
+internal fun DataHealthResolvedMessageLabCard(
     record: ResolvedMessageLabShape,
     coverageCheck:
         ResolvedCoverageCheck?
@@ -830,7 +830,7 @@ internal fun DataHealthDataHealthResolvedMessageLabCard(
 }
 
 @Composable
-internal fun DataHealthDataHealthIgnoredShapeCard(
+internal fun DataHealthIgnoredShapeCard(
     shape: UnsupportedMessageShape,
     onUndo: () -> Unit
 ) {
