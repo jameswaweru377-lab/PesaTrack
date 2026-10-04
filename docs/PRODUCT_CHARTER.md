@@ -160,6 +160,9 @@ Never auto-activate a parser merely because:
 - No new 2,000–5,000 line files.
 - Split large stores/screens by responsibility before major feature expansion.
 - New persistence should have a repository/domain boundary rather than adding unrelated SQL to giant stores.
+- One app-scoped database owner should coordinate access to the canonical SQLite file; do not keep multiplying independent `SQLiteOpenHelper` instances.
+- A financial write that changes canonical accounting state must have an explicit atomicity contract. Related canonical writes should either commit together or be safely replayable after interruption.
+- `@Synchronized` is not a substitute for a database transaction.
 - New schema versions require migration tests.
 - Core financial logic must have deterministic JVM tests.
 - User journeys require Android/instrumentation coverage as the project matures.
