@@ -4018,3 +4018,47 @@ Guardrail:
 
 Readiness and implementation review remain development-state signals only. They do not activate a parser, create extraction regexes, write ledger rows, change balances/debt, infer ownership, or bypass Message Pack/generic-grammar tests.
 
+## Message Lab parser implementation work packets — 2026-10-04
+
+The evidence workflow now produces a complete developer handoff only after a shape family is explicitly approved **Ready for parser work**.
+
+Implemented:
+
+- Added `MessageLabImplementationPacketGenerator`.
+- Work packets are generated only from implementation-reviewed, evidence-ready families.
+- Each packet contains:
+  - family and representative shape identity;
+  - user-confirmed semantic meaning;
+  - family occurrence and wording-variant counts;
+  - the existing review-only parser draft;
+  - every active sanitized family variant, including exact occurrence count, decision, meaning, relevance score and relevance signals;
+  - a generic implementation checklist;
+  - a semantic-specific validation checklist;
+  - permanent parser/accounting/privacy guardrails.
+- Ignored non-financial variants are excluded from implementation packets.
+- The packet does not generate active regexes, product identities, ownership, ledger rows or parser activation.
+- Semantic-specific checks cover debt drawdown/repayment, transfers, payments, receipts, balances, savings/investments and cash movements.
+- Common validation requirements include:
+  - positive family-variant coverage;
+  - structured extraction;
+  - negative informational/promotional wording;
+  - pending/declined/failed suppression;
+  - duplicate/mirror accounting;
+  - history reprocessing idempotency;
+  - Message Inspector provenance.
+- Data Health now exposes **Copy implementation work packets** beside the existing thinner implementation-ready fixture export.
+- Added regression tests proving:
+  - unapproved evidence cannot produce a packet;
+  - approved packets include all active family variants but exclude ignored noise;
+  - packets remain explicitly manual/non-active;
+  - one representative is emitted per reviewed family+meaning while sibling variants remain inside the packet;
+  - transfer and debt packets carry the appropriate safety validation.
+
+Recommended developer flow:
+
+`real device evidence -> confirm financial -> label meaning -> repeated family evidence -> review-only draft -> Ready for parser work -> implementation work packet -> implement/test parser -> reprocess -> verify device state`
+
+Guardrail:
+
+**Ready for parser work is still not production approval.** The implementation packet is a handoff artifact. Production support still requires reviewed financial mechanics, deterministic extraction/generic grammar, product/account identity only where proven, >=3 sanitized golden fixtures where applicable, and the existing relevance/extraction/duplicate-accounting/reconciliation gates.
+
