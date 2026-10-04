@@ -36,7 +36,7 @@ class InvestmentStore private constructor(
     context: Context
 ) {
     private val appContext = context.applicationContext
-    private val database = PesaTrackDatabase(appContext)
+    private val database = PesaTrackDatabase.get(appContext)
     private val transactionStore =
         TransactionStore.get(appContext)
 

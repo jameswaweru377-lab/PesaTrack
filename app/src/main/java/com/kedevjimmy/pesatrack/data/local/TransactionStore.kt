@@ -50,7 +50,7 @@ data class SalaryHistoryCandidate(
 
 class TransactionStore private constructor(context: Context) {
     private val appContext = context.applicationContext
-    private val database = PesaTrackDatabase(appContext)
+    private val database = PesaTrackDatabase.get(appContext)
 
     /**
      * Provider-neutral entry point for financial movements that were
@@ -535,21 +535,46 @@ class TransactionStore private constructor(context: Context) {
             }
         }
 
-        val rowId = database.writableDatabase.insertWithOnConflict(
-            "transactions",
-            null,
-            values,
-            SQLiteDatabase.CONFLICT_IGNORE
-        )
+        val db = database.writableDatabase
+        val ownsTransaction = !db.inTransaction()
+        if (ownsTransaction) {
+            db.beginTransaction()
+        }
+
+        val rowId =
+            try {
+                val insertedRowId =
+                    db.insertWithOnConflict(
+                        "transactions",
+                        null,
+                        values,
+                        SQLiteDatabase.CONFLICT_IGNORE
+                    )
+
+                if (insertedRowId != -1L) {
+                    attachExternalReferences(
+                        transactionId = insertedRowId,
+                        references =
+                            correlationReferences,
+                        sourceKind = sourceKind,
+                        observedAtEpochMs =
+                            receivedAtEpochMs,
+                        db = db
+                    )
+                }
+
+                if (ownsTransaction) {
+                    db.setTransactionSuccessful()
+                }
+                insertedRowId
+            } finally {
+                if (ownsTransaction) {
+                    db.endTransaction()
+                }
+            }
 
         val inserted = rowId != -1L
         if (inserted) {
-            attachExternalReferences(
-                transactionId = rowId,
-                references = correlationReferences,
-                sourceKind = sourceKind,
-                observedAtEpochMs = receivedAtEpochMs
-            )
             if (correlationReferences.isNotEmpty()) {
                 InvestmentStore.get(appContext)
                     .reconcileTransaction(
@@ -2219,12 +2244,13 @@ class TransactionStore private constructor(context: Context) {
         transactionId: Long,
         references: Set<String>,
         sourceKind: String,
-        observedAtEpochMs: Long
+        observedAtEpochMs: Long,
+        db: SQLiteDatabase =
+            database.writableDatabase
     ) {
         if (references.isEmpty()) {
             return
         }
-        val db = database.writableDatabase
         references.forEach { reference ->
             val values = ContentValues().apply {
                 put("transaction_id", transactionId)

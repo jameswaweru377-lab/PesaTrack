@@ -53,7 +53,7 @@ class RelationshipReviewStore private constructor(
     context: Context
 ) {
     private val appContext = context.applicationContext
-    private val database = PesaTrackDatabase(appContext)
+    private val database = PesaTrackDatabase.get(appContext)
 
     @Synchronized
     fun pendingReviews(): List<RelationshipReviewItem> =

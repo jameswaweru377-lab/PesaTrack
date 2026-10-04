@@ -1515,6 +1515,20 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
     }
 
     companion object {
+        @Volatile
+        private var instance: PesaTrackDatabase? = null
+
+        fun get(context: Context): PesaTrackDatabase =
+            instance
+                ?: synchronized(this) {
+                    instance
+                        ?: PesaTrackDatabase(
+                            context.applicationContext
+                        ).also { created ->
+                            instance = created
+                        }
+                }
+
         private const val DATABASE_NAME = "pesatrack.db"
         private const val DATABASE_VERSION = 31
     }

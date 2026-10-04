@@ -24,7 +24,7 @@ data class PesaCategory(
 )
 
 class CategoryStore private constructor(context: Context) {
-    private val database = PesaTrackDatabase(context.applicationContext)
+    private val database = PesaTrackDatabase.get(context.applicationContext)
 
     fun all(): List<PesaCategory> =
         (BUILT_INS + customCategories())

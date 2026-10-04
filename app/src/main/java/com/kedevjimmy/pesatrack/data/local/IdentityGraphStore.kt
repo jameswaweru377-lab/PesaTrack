@@ -27,7 +27,7 @@ class IdentityGraphStore private constructor(
     context: Context
 ) {
     private val database =
-        PesaTrackDatabase(
+        PesaTrackDatabase.get(
             context.applicationContext
         )
 

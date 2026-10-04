@@ -10,7 +10,7 @@ class EntityEnrichmentCacheStore private constructor(
     context: Context
 ) {
     private val database =
-        PesaTrackDatabase(context.applicationContext)
+        PesaTrackDatabase.get(context.applicationContext)
 
     @Synchronized
     fun get(
