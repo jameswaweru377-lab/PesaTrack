@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.ui
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -218,6 +219,35 @@ fun PesaTrackApp(
                     },
                     openNeedsAttention = true
                 )
+            }
+        }
+
+        // Compatibility-only routes for restored navigation state from older builds.
+        // These destinations do not expose the retired preview features.
+        composable("community") {
+            LaunchedEffect(Unit) {
+                navController.navigate(MainTab.MORE.route) {
+                    popUpTo("community") { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+
+        composable("goals") {
+            LaunchedEffect(Unit) {
+                navController.navigate(MainTab.PLAN.route) {
+                    popUpTo("goals") { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+
+        composable("goal-detail") {
+            LaunchedEffect(Unit) {
+                navController.navigate(MainTab.PLAN.route) {
+                    popUpTo("goal-detail") { inclusive = true }
+                    launchSingleTop = true
+                }
             }
         }
 
