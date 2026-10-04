@@ -170,7 +170,7 @@ fun SettingsScreen(
                         "Salary sources, recurring expenses and transfers",
                         onClick = onSmartRulesClick
                     )
-                    SettingsRow(Icons.Rounded.Notifications, "Notifications", "Alerts and reminders")
+                    SettingsRow(Icons.Rounded.Notifications, "Alerts & reminders", "Planned — not active yet")
                 }
             }
         }
