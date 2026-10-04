@@ -12,11 +12,8 @@ import com.kedevjimmy.pesatrack.ui.components.MainTab
 import com.kedevjimmy.pesatrack.ui.screens.AccountsScreen
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.BudgetScreen
-import com.kedevjimmy.pesatrack.ui.screens.CommunityScreen
-import com.kedevjimmy.pesatrack.ui.screens.GoalDetailScreen
 import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
 import com.kedevjimmy.pesatrack.ui.screens.DataHealthScreen
-import com.kedevjimmy.pesatrack.ui.screens.GoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
 import com.kedevjimmy.pesatrack.ui.screens.IdentityReviewScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
@@ -234,20 +231,6 @@ fun PesaTrackApp(
             }
         }
 
-        composable("community") {
-            AppScaffold(
-                currentTab = MainTab.MORE,
-                onTabSelected = ::navigateToTab
-            ) { padding ->
-                CommunityScreen(
-                    scaffoldPadding = padding,
-                    onProfileClick = {
-                        navController.navigate("profile")
-                    }
-                )
-            }
-        }
-
         composable(MainTab.PLAN.route) {
             AppScaffold(
                 currentTab = MainTab.PLAN,
@@ -259,25 +242,7 @@ fun PesaTrackApp(
                         navController.navigate(
                             "budgets"
                         )
-                    },
-                    onGoalsClick = {
-                        navController.navigate(
-                            "goals"
-                        )
                     }
-                )
-            }
-        }
-
-        composable("goals") {
-            AppScaffold(
-                currentTab = MainTab.PLAN,
-                onTabSelected = ::navigateToTab
-            ) { padding ->
-                GoalsScreen(
-                    scaffoldPadding = padding,
-                    onGoalClick = { navController.navigate("goal-detail") },
-                    onProfileClick = { navController.navigate("profile") }
                 )
             }
         }
@@ -291,11 +256,6 @@ fun PesaTrackApp(
                     scaffoldPadding = padding,
                     onProfileClick = {
                         navController.navigate("profile")
-                    },
-                    onCommunityClick = {
-                        navController.navigate(
-                            "community"
-                        )
                     },
                     onImportClick = {
                         navController.navigate(
@@ -327,18 +287,6 @@ fun PesaTrackApp(
                 TransactionDetailScreen(
                     scaffoldPadding = padding,
                     transactionId = transactionId,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-        }
-
-        composable("goal-detail") {
-            AppScaffold(
-                currentTab = MainTab.PLAN,
-                onTabSelected = ::navigateToTab
-            ) { padding ->
-                GoalDetailScreen(
-                    scaffoldPadding = padding,
                     onBack = { navController.popBackStack() }
                 )
             }
