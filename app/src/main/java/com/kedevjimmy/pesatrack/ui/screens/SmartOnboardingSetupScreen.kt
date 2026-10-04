@@ -2113,7 +2113,7 @@ private fun ImportChoicePage(
         verticalArrangement =
             Arrangement.spacedBy(16.dp)
     ) {
-        SetupHero(
+        SmartSetupHero(
             icon = Icons.Rounded.History,
             title = "Let's find your money messages",
             body =
@@ -2142,7 +2142,7 @@ private fun ImportChoicePage(
                 "Start without reading old SMS"
             )
         ).forEach { option ->
-            SelectableSetupCard(
+            SmartSelectableSetupCard(
                 selected =
                     selectedMonths ==
                         option.first,
@@ -2204,7 +2204,7 @@ private fun SmsPermissionPage(
         verticalArrangement =
             Arrangement.spacedBy(16.dp)
     ) {
-        SetupHero(
+        SmartSetupHero(
             icon = Icons.AutoMirrored.Rounded.Message,
             title = "Allow access to your messages",
             body =
@@ -2591,7 +2591,7 @@ private fun ReviewDiscoveryPage(
         verticalArrangement =
             Arrangement.spacedBy(16.dp)
     ) {
-        SetupHero(
+        SmartSetupHero(
             icon = Icons.Rounded.CheckCircle,
             title = "Here's what we found",
             body =
@@ -3067,7 +3067,7 @@ private fun ManualSalaryPage(
         verticalArrangement =
             Arrangement.spacedBy(16.dp)
     ) {
-        SetupHero(
+        SmartSetupHero(
             icon = Icons.Rounded.Payments,
             title = "Set up your salary history",
             body =
@@ -3160,7 +3160,7 @@ private fun ManualSalaryPage(
                         .onSurface
             )
 
-            SelectableSetupCard(
+            SmartSelectableSetupCard(
                 selected =
                     historyMode ==
                         SalaryHistoryMode
@@ -3179,7 +3179,7 @@ private fun ManualSalaryPage(
                 }
             )
 
-            SelectableSetupCard(
+            SmartSelectableSetupCard(
                 selected =
                     historyMode ==
                         SalaryHistoryMode
@@ -3574,7 +3574,7 @@ private fun MpesaConfirmationPage(
         verticalArrangement =
             Arrangement.spacedBy(16.dp)
     ) {
-    SetupHero(
+    SmartSetupHero(
         icon = Icons.Rounded.PhoneAndroid,
         title = "Is this your M-Pesa number?",
         body =
@@ -3737,7 +3737,7 @@ private fun LiveCapturePage(
         verticalArrangement =
             Arrangement.spacedBy(16.dp)
     ) {
-    SetupHero(
+    SmartSetupHero(
         icon = Icons.Rounded.Notifications,
         title = "Keep PesaTrack updated automatically",
         body =
@@ -3750,14 +3750,14 @@ private fun LiveCapturePage(
             verticalArrangement =
                 Arrangement.spacedBy(14.dp)
         ) {
-            FeatureRow(
+            SmartFeatureRow(
                 icon =
                     Icons.AutoMirrored.Rounded.Message,
                 title = "New money messages",
                 body =
                     "Processed locally when they arrive"
             )
-            FeatureRow(
+            SmartFeatureRow(
                 icon =
                     Icons.Rounded.Shield,
                 title = "No extra daily work",
@@ -4079,165 +4079,6 @@ private fun CompletionRow(
             modifier =
                 Modifier.padding(start = 10.dp)
         )
-    }
-}
-
-@Composable
-private fun SetupHero(
-    icon:
-        androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    body: String
-) {
-    Column(
-        modifier =
-            Modifier.fillMaxWidth(),
-        horizontalAlignment =
-            Alignment.CenterHorizontally
-    ) {
-        IconBubble(
-            icon,
-            size = 58.dp
-        )
-        Text(
-            title,
-            modifier =
-                Modifier.padding(top = 14.dp),
-            style =
-                MaterialTheme.typography
-                    .headlineMedium,
-            color =
-                MaterialTheme.colorScheme
-                    .onBackground,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            body,
-            modifier =
-                Modifier.padding(top = 7.dp),
-            style =
-                MaterialTheme.typography
-                    .bodyLarge,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
-@Composable
-private fun SelectableSetupCard(
-    selected: Boolean,
-    title: String,
-    body: String,
-    icon:
-        androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape =
-            RoundedCornerShape(20.dp),
-        color =
-            if (selected) {
-                MaterialTheme.colorScheme
-                    .primaryContainer
-            } else {
-                MaterialTheme.colorScheme
-                    .surface
-            }
-    ) {
-        Row(
-            modifier =
-                Modifier.padding(16.dp),
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
-            IconBubble(
-                icon,
-                size = 44.dp
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp)
-            ) {
-                Text(
-                    title,
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium,
-                    fontWeight =
-                        FontWeight.SemiBold
-                )
-                Text(
-                    body,
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
-            }
-            Icon(
-                if (selected) {
-                    Icons.Rounded.CheckCircle
-                } else {
-                    Icons.Rounded.History
-                },
-                contentDescription = null,
-                tint =
-                    if (selected) {
-                        MaterialTheme.colorScheme
-                            .primary
-                    } else {
-                        MaterialTheme.colorScheme
-                            .outline
-                    }
-            )
-        }
-    }
-}
-
-@Composable
-private fun FeatureRow(
-    icon:
-        androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    body: String
-) {
-    Row(
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) {
-        IconBubble(
-            icon,
-            size = 44.dp
-        )
-        Column(
-            Modifier.padding(start = 11.dp)
-        ) {
-            Text(
-                title,
-                style =
-                    MaterialTheme.typography
-                        .titleMedium
-            )
-            Text(
-                body,
-                style =
-                    MaterialTheme.typography
-                        .bodySmall,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-            )
-        }
     }
 }
 
