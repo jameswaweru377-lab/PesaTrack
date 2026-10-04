@@ -786,7 +786,7 @@ fun HomeScreen(
                         }
                         ?: "PesaTrack will calculate this from real salary-cycle data.",
                 footer = null,
-                title = "Available this cycle",
+                title = "Available after commitments",
                 spentToday = null,
                 safeToday = null
             )
@@ -1072,9 +1072,9 @@ private fun GreetingBlock(
         Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     }
     val greeting = when (hour) {
-        in 5..11 -> "Good morning,"
-        in 12..16 -> "Good afternoon,"
-        else -> "Good evening,"
+        in 5..11 -> "Good morning"
+        in 12..16 -> "Good afternoon"
+        else -> "Good evening"
     }
 
     Row(
@@ -1105,11 +1105,6 @@ private fun GreetingBlock(
         ) {
             Text(
                 greeting,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                "James",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
