@@ -22,7 +22,7 @@ class PersonalLearningStore private constructor(
     private val appContext =
         context.applicationContext
     private val database =
-        PesaTrackDatabase(appContext)
+        PesaTrackDatabase.get(appContext)
     private val identityGraphStore =
         IdentityGraphStore.get(appContext)
 
