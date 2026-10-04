@@ -181,11 +181,11 @@ For money-affecting changes, require:
 - CI green;
 - real-device validation for user-facing flow changes.
 
-## Current quarantine
+## Retired product surfaces
 
-The following source remains present but is not part of the live product:
+The following preview/superseded screens were removed from source after quarantine and CI verification:
 - Community;
-- Goals/Goal Details with fabricated preview values;
+- Goals / Goal Details with fabricated preview values;
 - older superseded onboarding screens.
 
-Do not reconnect these to navigation without first proving that they satisfy this charter.
+Compatibility redirects for restored navigation state are allowed, but these retired features must not be reintroduced without deliberately changing this charter.
