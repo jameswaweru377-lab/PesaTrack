@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ingestion
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.PesaTrackDatabase
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -19,6 +20,15 @@ class FinancialMessageReplayConsistencyTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         context.deleteDatabase(DATABASE_NAME)
+
+        // Canonical M-Pesa writes are intentionally gated on confirmed
+        // ownership. Mirror the real post-onboarding state instead of
+        // weakening production ownership rules for this test.
+        AccountStore.get(context).updateDetails(
+            id = AccountStore.DEFAULT_MPESA_ID,
+            identifier = TEST_MPESA_NUMBER,
+            openingBalanceMinor = null
+        )
     }
 
     @After
@@ -102,6 +112,7 @@ class FinancialMessageReplayConsistencyTest {
         const val DATABASE_NAME = "pesatrack.db"
         const val TRANSACTION_CODE = "TST12ABC04"
         const val MPESA_BALANCE_MINOR = 765_000L
+        const val TEST_MPESA_NUMBER = "0712345678"
         const val TEST_RECEIVED_AT_EPOCH_MS =
             1_790_611_800_000L
 
