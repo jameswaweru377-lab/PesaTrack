@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
@@ -34,7 +33,6 @@ import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 fun MoreScreen(
     scaffoldPadding: PaddingValues,
     onProfileClick: () -> Unit,
-    onCommunityClick: () -> Unit,
     onImportClick: () -> Unit,
     onDataHealthClick: () -> Unit,
     onSettingsClick: () -> Unit
@@ -59,14 +57,14 @@ fun MoreScreen(
                     style = MaterialTheme.typography.headlineLarge
                 )
                 Text(
-                    "Data, community and app controls.",
+                    "Data, diagnostics and app controls.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
         item {
-            SectionHeader("Data & community")
+            SectionHeader("Data & diagnostics")
         }
         item {
             MoreRow(
@@ -75,15 +73,6 @@ fun MoreScreen(
                 subtitle = "Bring in an older SMS window when you choose",
                 tone = "green",
                 onClick = onImportClick
-            )
-        }
-        item {
-            MoreRow(
-                icon = Icons.Rounded.Groups,
-                title = "Community",
-                subtitle = "Richer Together posts and shared money conversations",
-                tone = "blue",
-                onClick = onCommunityClick
             )
         }
         item {

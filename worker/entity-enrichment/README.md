@@ -81,3 +81,18 @@ Android CI embeds this public endpoint directly into successful `main` APK build
 The health endpoint exposes no provider secret and only reports the service/privacy contract.
 Wrangler is configured with `keep_vars: true` so dashboard-managed Worker variables are not removed by later code deployments. The provider credential should still be stored as a Cloudflare **Secret** named `LOGO_DEV_SECRET_KEY` on the exact `pesatrack` Worker.
 
+
+
+## Abuse and quota protection
+
+The Android app must not embed a reusable secret to authenticate to this Worker. APK secrets are extractable and would not create a meaningful trust boundary.
+
+Because `/v1/entity/resolve` is therefore publicly callable, production deployment should protect provider quota and cost at the Cloudflare edge:
+
+- configure Cloudflare rate limiting / abuse controls for the resolve route;
+- monitor request volume, error rate, and upstream provider usage;
+- keep `LOGO_DEV_SECRET_KEY` only in Cloudflare;
+- never weaken descriptor privacy checks in order to make rate limiting easier;
+- do not send raw SMS, phone numbers, transaction codes, account numbers, or likely personal names.
+
+Rate limiting is deployment infrastructure, not Android accounting logic. If enrichment is throttled or unavailable, PesaTrack must continue with local ledger truth and local entity intelligence.

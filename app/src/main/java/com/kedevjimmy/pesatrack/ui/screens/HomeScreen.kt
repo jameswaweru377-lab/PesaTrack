@@ -66,7 +66,6 @@ import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
-import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
@@ -160,10 +159,6 @@ fun HomeScreen(
     val identityGraphStore =
         remember {
             IdentityGraphStore.get(context)
-        }
-    val messageLabStore =
-        remember {
-            MessageLabStore.get(context)
         }
     val preferences = remember {
         context.getSharedPreferences(
@@ -291,11 +286,6 @@ fun HomeScreen(
                         identityGraphStore
                             .pendingReviewPrompts(
                                 limit = 100
-                            )
-                            .size +
-                        messageLabStore
-                            .recentUnsupported(
-                                100
                             )
                             .size
             )
@@ -1417,14 +1407,22 @@ private fun ManualSalaryEntryDialog(
     onDismiss: () -> Unit,
     onSave: (Long, Long) -> Boolean
 ) {
+    val currentLocale =
+        androidx.compose.ui.platform
+            .LocalConfiguration
+            .current
+            .locales[0]
     var amount by remember(prompt.windowEndEpochMs) {
         mutableStateOf("")
     }
-    var date by remember(prompt.windowEndEpochMs) {
+    var date by remember(
+        prompt.windowEndEpochMs,
+        currentLocale
+    ) {
         mutableStateOf(
             SimpleDateFormat(
                 "dd/MM/yyyy",
-                Locale.getDefault()
+                currentLocale
             ).format(Date(prompt.windowEndEpochMs))
         )
     }

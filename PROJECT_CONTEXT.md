@@ -4178,3 +4178,37 @@ Guardrail:
 
 This comparison is used only to protect evidence retirement. It does not turn user labels into accounting authority and does not create, edit or reclassify ledger state.
 
+
+
+## Repository/product boundary audit — 2026-10-04
+
+Baseline audited: `main@f865f544ad8b9e5f84155df3651b200238d54ec4`.
+
+The repository was re-audited after the Message Lab evidence-to-parser work.
+
+Key conclusions:
+
+- The old unfinished handoff is no longer unfinished. Parser drafts, readiness, implementation review, work packets, Inspector handoff, resolution archive, regression checking and meaning-agreement protection are already on main.
+- No repository task or feature called “price check” exists; it is not part of PesaTrack scope.
+- PesaTrack now has a stable product charter in `docs/PRODUCT_CHARTER.md`.
+- The detailed current audit is in `docs/AUDIT_2026-10-04.md`.
+- README has been reset to current product truth rather than historical feature accumulation.
+- Community and Goals are quarantined from live navigation because they contain preview/fabricated values and are not accounting-backed.
+- Settings now explicitly marks backup/restore and PIN/biometric lock as planned rather than active.
+- Android CI now includes `:app:lintDebug`.
+
+Architecture warnings recorded:
+
+- No Android instrumentation test suite exists yet.
+- Schema is v31 but migration behavior is not covered by an Android migration test matrix.
+- Several UI/store/interpreter files have exceeded a healthy responsibility boundary; do not keep adding features to the giant files without decomposition.
+- Old PRs #43, #45, #77 and #111 were confirmed stale and closed with superseded-work notes during this audit.
+
+Next engineering order:
+
+1. migration + high-value Android smoke tests;
+2. decompose largest files by responsibility;
+3. continue long-tail parser work only from real Message Lab evidence;
+4. use real 30-day Data Health review burden to decide future intelligence work.
+
+Do not invent a Phase 7 merely to keep the roadmap moving.

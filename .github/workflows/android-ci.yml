@@ -45,10 +45,18 @@ jobs:
           node worker/entity-enrichment/test.mjs
           npx --yes wrangler@4 deploy --config wrangler.jsonc --dry-run --outdir /tmp/pesatrack-worker-dry-run
 
-      - name: Unit tests and debug APK
+      - name: Unit tests, lint and debug APK
         env:
           PESATRACK_ENTITY_ENRICHMENT_URL: https://pesatrack.jameswaweru399.workers.dev/v1/entity/resolve
-        run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
+
+      - name: Print lint report on failure
+        if: failure()
+        run: |
+          report="app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt"
+          if [ -f "$report" ]; then
+            cat "$report"
+          fi
 
       - name: Publish rolling debug APK
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'

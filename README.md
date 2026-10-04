@@ -1,53 +1,97 @@
 # PesaTrack
 
-PesaTrack is a private, local-first Android money companion focused on turning Kenyan financial messages into an understandable money ledger: spending, income, transfers, debt relationships, investments, commitments, budgets and payday context.
+PesaTrack is a **private, local-first Android money intelligence app for Kenya**. It turns financial SMS/notification evidence into a trustworthy personal ledger and answers a small set of practical questions:
 
-## Product principle
+- What money came in?
+- What money went out?
+- Which movements were transfers rather than spending?
+- What do I owe, and what changed in my debts?
+- What balances and owned accounts can be trusted?
+- What is already committed before the next payday?
+- Which transactions still need my attention?
 
-PesaTrack is not meant to be another manual expense spreadsheet. Its core question is:
+The product is deliberately not trying to become a bank, social network, investment broker, generic budgeting spreadsheet, or cloud finance platform.
 
-> What is my money doing, what is already committed, and what is actually safe to spend?
+## Product boundary
 
-## Current architecture
+The authoritative product scope is in [docs/PRODUCT_CHARTER.md](docs/PRODUCT_CHARTER.md).
 
-- Kotlin
-- Jetpack Compose + Material 3
-- Android SQLite as the local source of truth
-- provider-agnostic Financial Intelligence V2 for financial-message interpretation
-- notification capture plus optional historical SMS import
-- deterministic smart rules and teach-once review
-- local account, pay-cycle, budget, debt and investment relationship stores
-- privacy-safe Cloudflare Worker boundary for optional merchant/entity enrichment
-- Android CI with unit tests, Worker contract validation and debug APK assembly
+The short version:
 
-The core ledger does not require a cloud account. Financial message interpretation and durable financial state are kept on-device.
+**PesaTrack is**
+- a financial-message understanding engine;
+- a local personal ledger;
+- account, balance, debt and transfer intelligence;
+- budgeting and payday context built from trusted ledger state;
+- explainable review/learning when certainty is insufficient;
+- optional privacy-safe merchant/entity enrichment.
 
-## Privacy boundary
+**PesaTrack is not**
+- a social/community app;
+- a fake savings-goals simulator;
+- a stock-trading/investment execution app;
+- a bank-sync product that pretends to have data it cannot access;
+- an AI chatbot;
+- a cloud-first service;
+- a place for preview cards that look like live financial facts.
 
-Raw financial messages must not be sent to the enrichment service. Online enrichment is limited to a sanitized merchant/entity descriptor and rejects phone numbers, transaction codes, email addresses, long references and likely personal names.
+## Current live user surfaces
 
-Provider credentials stay server-side in Cloudflare and are not embedded in the Android APK.
-
-## Current product status
-
-Connected to real local data:
-
+- Onboarding and guided financial-data setup
 - Home
-- Activity and transaction details
-- Plan/pay-cycle context
+- Activity
+- Transaction details
+- Plan / payday context
+- Budgets and categories
 - Accounts and balances
 - Debts and relationship review
-- Budgets and categories
-- smart onboarding, historical import and M-Pesa connection diagnostics
+- Identity review
+- Historical SMS import
+- Financial notification connection status
+- Data Health
+- Settings / theme / Smart Rules
 
-Intentional preview / unfinished areas:
+Goals and Community source files remain in the repository for now, but they are **quarantined from live navigation** because they contain preview or fabricated values and are not part of the trustworthy ledger product.
 
-- Goals and Goal Details still use preview values. They must only be connected after deliberate savings-allocation semantics exist; unspent cash must not be treated as automatically saved.
-- Community is primarily a presentation/engagement surface and is not part of the financial source-of-truth path.
-- Profile editing, backup/restore, security/PIN/biometric settings and some Settings rows are not yet fully wired.
+## Financial intelligence architecture
 
-## CI and APK
+Financial messages flow through a provider-agnostic pipeline:
 
-Android CI runs the Worker contract tests, Android unit tests and debug APK build. Successful `main` builds publish the current debug APK to the rolling private `ci-apk` prerelease while Actions artifact storage remains unsuitable for the project workflow.
+`capture -> relevance -> normalization -> candidate extraction -> relationship resolution -> canonical financial records -> ledger/correlation -> review/learning`
 
-See [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for the detailed implementation history, safety rules and current handoff state.
+Message Packs are bounded deterministic language evidence. They are not allowed to become a provider-by-provider business-logic maze.
+
+Message Lab and Message Inspector are **developer/diagnostic tools**, not accounting authority. Evidence can suggest parser work, but it cannot silently activate parsing or write ledger state.
+
+## Privacy
+
+SQLite on the device is the source of truth. Raw financial messages are not sent to the optional enrichment service.
+
+The Cloudflare enrichment boundary accepts only a sanitized merchant/entity descriptor and rejects likely:
+- phone numbers;
+- transaction codes;
+- email addresses;
+- long numeric references;
+- likely personal names.
+
+Provider credentials remain server-side.
+
+## Engineering status
+
+Current main schema: **v31**.
+
+Current CI on `main`:
+- Worker syntax/contract checks;
+- Android JVM unit tests;
+- Android lint;
+- debug APK assembly;
+- rolling private `ci-apk` prerelease publication.
+
+Important remaining engineering debt:
+- no Android instrumentation/UI test suite yet;
+- no automated old-schema-to-v31 migration test matrix yet;
+- database ownership is fragmented across many stores and multi-store financial writes do not yet have a proven crash-atomic transaction boundary;
+- several files have grown too large and must be decomposed before substantial new feature work;
+- legacy/preview source should be deleted only after a clean quarantine period and CI confirmation.
+
+See [docs/AUDIT_2026-10-04.md](docs/AUDIT_2026-10-04.md) for the current repository audit and [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for detailed implementation history.

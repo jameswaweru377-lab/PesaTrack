@@ -1898,6 +1898,11 @@ private fun SalaryCandidateCard(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val currentLocale =
+        androidx.compose.ui.platform
+            .LocalConfiguration
+            .current
+            .locales[0]
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -1928,7 +1933,7 @@ private fun SalaryCandidateCard(
                 Text(
                     SimpleDateFormat(
                         "d MMM yyyy",
-                        Locale.getDefault()
+                        currentLocale
                     ).format(
                         Date(candidate.receivedAtEpochMs)
                     ),
