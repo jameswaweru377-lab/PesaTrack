@@ -20,7 +20,7 @@ internal object OwnedMirrorTransferReconciler {
             accounts.filter { it.enabled }.map { it.id }.toSet()
         )
 
-    fun apply(db: SQLiteDatabase, id: Long, transfer: OwnedMirrorTransfer, feeMinor: Long) {
+    fun apply(db: SQLiteDatabase, id: Long, transfer: OwnedMirrorTransfer, feeMinor: Long, accounts: List<MoneyAccount>) {
         val values = ContentValues().apply {
             put("direction", "TRANSFER")
             put("category", "TRANSFER")
@@ -28,6 +28,9 @@ internal object OwnedMirrorTransferReconciler {
             put("account_id", transfer.sourceAccountId)
             put("linked_account_id", transfer.destinationAccountId)
             put("fee_minor", feeMinor)
+            val source = accounts.firstOrNull { it.id == transfer.sourceAccountId }?.name
+            val destination = accounts.firstOrNull { it.id == transfer.destinationAccountId }?.name
+            if (source != null && destination != null) put("counterparty", "$source → $destination")
             put("evidence_source", "owned_mirror_transfer")
             // The legacy transaction balance is a wallet balance, not the bank's balance.
             if (transfer.sourceAccountId != AccountStore.DEFAULT_MPESA_ID) putNull("balance_minor")

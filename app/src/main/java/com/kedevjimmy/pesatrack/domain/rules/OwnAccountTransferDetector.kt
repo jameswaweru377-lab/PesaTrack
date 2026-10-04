@@ -107,14 +107,10 @@ object OwnAccountTransferDetector {
                     }
                 }
 
-                val source = exactSource ?: accounts.firstOrNull { account ->
-                    account.enabled &&
-                        account.id != observedWallet.id &&
-                        account.type != AccountType.CASH &&
-                        parsed.counterparty?.let {
-                            accountNameMatches(account.name, it)
-                        } == true
-                } ?: return null
+                // A receipt from a bank name can be someone else's payment.
+                // Exact owned identifiers work here; bank-name receipts are linked
+                // only when the complementary own-bank observation arrives.
+                val source = exactSource ?: return null
 
                 OwnAccountTransferMatch(
                     sourceAccountId = source.id,
@@ -189,3 +185,4 @@ object OwnAccountTransferDetector {
             .split(Regex("""\s+"""))
             .filter(String::isNotBlank)
 }
+

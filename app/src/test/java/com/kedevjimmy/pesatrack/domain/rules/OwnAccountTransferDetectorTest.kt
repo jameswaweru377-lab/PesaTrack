@@ -62,7 +62,7 @@ class OwnAccountTransferDetectorTest {
     }
 
     @Test
-    fun incomingMpesaFromOwnedBankCanUseBankName() {
+    fun bankNameAloneCannotProveAnOwnAccountTransfer() {
         val match = OwnAccountTransferDetector.matchMpesa(
             parsed = sample(
                 type = MpesaTransactionType.RECEIVED,
@@ -72,9 +72,7 @@ class OwnAccountTransferDetectorTest {
             observedWalletId = "account-mpesa"
         )
 
-        assertEquals("equity", match?.sourceAccountId)
-        assertEquals("account-mpesa", match?.destinationAccountId)
-        assertEquals(OwnTransferEvidence.ACCOUNT_NAME, match?.evidence)
+        assertNull(match)
     }
 
     @Test
@@ -116,3 +114,4 @@ class OwnAccountTransferDetectorTest {
         rawMessage = "sample"
     )
 }
+

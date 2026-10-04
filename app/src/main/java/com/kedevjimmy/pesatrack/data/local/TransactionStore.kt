@@ -424,7 +424,7 @@ class TransactionStore private constructor(context: Context) {
             fun applyMirrorTransfer() {
                 mirrorTransfer?.let {
                     OwnedMirrorTransferReconciler.apply(database.writableDatabase, mirrorCandidate.id, it,
-                        maxOf(mirrorCandidate.feeMinor, parsed.feeMinor))
+                        maxOf(mirrorCandidate.feeMinor, parsed.feeMinor), accounts)
                 }
             }
             attachExternalReferences(
