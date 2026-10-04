@@ -286,7 +286,8 @@ fun HomeScreen(
                             .size +
                         identityGraphStore
                             .pendingReviewPrompts(
-                                limit = 100
+                                limit = 100,
+                                includeOptional = false
                             )
                             .size
             )
@@ -1609,4 +1610,5 @@ private fun formatMoney(minor: Long): String {
 
 private fun formatShortDate(epochMs: Long): String =
     SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(epochMs))
+
 

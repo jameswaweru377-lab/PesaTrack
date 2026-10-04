@@ -60,6 +60,8 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2026.04.01")
     implementation(composeBom)
     androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.activity:activity-compose:1.11.0")
@@ -81,3 +83,4 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestUtil("androidx.test:orchestrator:1.6.1")
 }
+

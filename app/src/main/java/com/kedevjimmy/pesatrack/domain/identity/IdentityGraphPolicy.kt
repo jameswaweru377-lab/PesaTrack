@@ -126,6 +126,10 @@ object IdentityGraphPolicy {
                 IdentityNodeKind.UNKNOWN
         }
 
+    // Naming a recurring recipient is optional personalization, not a financial error.
+    fun requiresFinancialAttention(prompt: IdentityReviewPrompt): Boolean =
+        prompt.promptType != IdentityReviewPromptType.CLASSIFY_COUNTERPARTY
+
     fun shouldPresentReviewPrompt(
         prompt: IdentityReviewPrompt,
         decisions: List<IdentityReviewDecision>
@@ -232,3 +236,4 @@ object IdentityGraphPolicy {
             }
     }
 }
+

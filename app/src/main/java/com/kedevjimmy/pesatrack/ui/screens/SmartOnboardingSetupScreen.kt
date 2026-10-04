@@ -153,7 +153,7 @@ private data class SmartSalaryDraft(
 )
 
 
-private data class DetectedSetupSource(
+internal data class DetectedSetupSource(
     val name: String,
     val type: String,
     val messageCount: Int
@@ -2050,24 +2050,26 @@ fun SmartOnboardingSetupScreen(
 private fun StageProgress(
     stage: SmartSetupStage
 ) {
-    val visibleIndex =
-        when (stage) {
-            SmartSetupStage.IMPORT -> 0
-            SmartSetupStage.SMS_PERMISSION -> 1
-            SmartSetupStage.ANALYZE -> 2
-            SmartSetupStage.REVIEW -> 3
-            SmartSetupStage.SALARY_MANUAL -> 4
-            SmartSetupStage.MPESA_CONFIRM -> 4
-            SmartSetupStage.LIVE_CAPTURE -> 5
-            SmartSetupStage.COMPLETE -> 6
-        }
+    val visibleIndex = when (stage) {
+        SmartSetupStage.IMPORT, SmartSetupStage.SMS_PERMISSION -> 0
+        SmartSetupStage.ANALYZE, SmartSetupStage.REVIEW,
+        SmartSetupStage.SALARY_MANUAL, SmartSetupStage.MPESA_CONFIRM -> 1
+        SmartSetupStage.LIVE_CAPTURE, SmartSetupStage.COMPLETE -> 2
+    }
+    Text(
+        text = "${visibleIndex + 1} of 3 • " + listOf("Choose history", "Discover your money", "Stay updated")[visibleIndex],
+        modifier = Modifier.fillMaxWidth(),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center
+    )
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement =
             Arrangement.Center
     ) {
-        repeat(7) { index ->
+        repeat(3) { index ->
             Surface(
                 modifier = Modifier
                     .padding(horizontal = 3.dp)
@@ -2421,316 +2423,7 @@ private fun AnalysisRow(
 }
 
 @Composable
-private fun ReviewDiscoveryPage(
-    sources: List<DetectedSetupSource>,
-    ownershipCandidates:
-        List<DiscoveredFinancialEntity>,
-    selectedOwnershipEntityKeys:
-        Set<String>,
-    salarySuggestion:
-        OnboardingSalarySuggestion?,
-    salaryAccepted: Boolean,
-    importResult: HistoricalImportResult?,
-    applying: Boolean,
-    onSalaryAccepted: (Boolean) -> Unit,
-    onToggleAccount:
-        (DiscoveredFinancialEntity) -> Unit,
-    onManualSalary: () -> Unit,
-    onContinue: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement =
-            Arrangement.spacedBy(16.dp)
-    ) {
-        SmartSetupHero(
-            icon = Icons.Rounded.CheckCircle,
-            title = "Here's what we found",
-            body =
-                "These are signals from your real messages. Confirm what looks right; PesaTrack will not invent missing accounts."
-        )
-
-        if (sources.isEmpty()) {
-            PesaCard {
-                Column(
-                    Modifier.padding(18.dp)
-                ) {
-                    Text(
-                        "No money accounts confirmed yet",
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurface
-                    )
-                    Text(
-                        if (importResult == null) {
-                            "That's fine. PesaTrack can start empty and learn from future financial activity."
-                        } else {
-                            "PesaTrack imported your history but did not find enough strong sender evidence to safely name an account."
-                        },
-                        modifier =
-                            Modifier.padding(top = 5.dp),
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                }
-            }
-        } else {
-            sources.forEach { source ->
-                DiscoveredSourceCard(source)
-            }
-        }
-
-        if (
-            ownershipCandidates.isNotEmpty()
-        ) {
-            Text(
-                "Confirm accounts you recognize",
-                style =
-                    MaterialTheme.typography
-                        .titleMedium,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurface,
-                fontWeight =
-                    FontWeight.SemiBold
-            )
-            Text(
-                "PesaTrack can identify a bank or savings product without assuming it belongs to you. Confirm only accounts you actually use; anything you skip can be reviewed later in Activity.",
-                style =
-                    MaterialTheme.typography
-                        .bodySmall,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-            )
-
-            ownershipCandidates
-                .forEach { entity ->
-                    OwnershipCandidateCard(
-                        entity = entity,
-                        selected =
-                            entity.entityKey in
-                                selectedOwnershipEntityKeys,
-                        enabled = !applying,
-                        onToggle = {
-                            onToggleAccount(
-                                entity
-                            )
-                        }
-                    )
-                }
-        }
-
-        if (salarySuggestion != null) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onSalaryAccepted(
-                            !salaryAccepted
-                        )
-                    },
-                shape =
-                    RoundedCornerShape(22.dp),
-                color =
-                    if (salaryAccepted) {
-                        pesaToneContainer("amber")
-                    } else {
-                        MaterialTheme.colorScheme
-                            .surface
-                    }
-            ) {
-                Row(
-                    modifier =
-                        Modifier.padding(16.dp),
-                    verticalAlignment =
-                        Alignment.CenterVertically
-                ) {
-                    IconBubble(
-                        Icons.Rounded.Payments,
-                        size = 46.dp,
-                        background =
-                            pesaToneContainer(
-                                "amber"
-                            ),
-                        tint =
-                            pesaToneContent("amber")
-                    )
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 12.dp)
-                    ) {
-                        Text(
-                            "Possible salary",
-                            style =
-                                MaterialTheme.typography
-                                    .labelLarge,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .primary
-                        )
-                        Text(
-                            salarySuggestion.label,
-                            style =
-                                MaterialTheme.typography
-                                    .titleMedium,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurface
-                        )
-                        Text(
-                            salarySuggestion
-                                .monthCount
-                                .toString() +
-                                " months • recent " +
-                                formatSetupMoney(
-                                    salarySuggestion
-                                        .representativeAmountMinor
-                                ),
-                            style =
-                                MaterialTheme.typography
-                                    .bodySmall,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-                    Icon(
-                        if (salaryAccepted) {
-                            Icons.Rounded.CheckCircle
-                        } else {
-                            Icons.Rounded.Payments
-                        },
-                        contentDescription =
-                            if (salaryAccepted) {
-                                "Marked as salary"
-                            } else {
-                                "Not marked as salary"
-                            },
-                        tint =
-                            if (salaryAccepted) {
-                                MaterialTheme.colorScheme
-                                    .primary
-                            } else {
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                            }
-                    )
-                }
-            }
-
-            Text(
-                "Tap the salary card if this is not your pay. PesaTrack creates the salary rule only after your confirmation.",
-                style =
-                    MaterialTheme.typography
-                        .bodySmall,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-            )
-        } else {
-            PesaCard {
-                Row(
-                    Modifier.padding(16.dp),
-                    verticalAlignment =
-                        Alignment.CenterVertically
-                ) {
-                    IconBubble(
-                        Icons.Rounded.Payments,
-                        size = 44.dp
-                    )
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .padding(
-                                start = 11.dp
-                            )
-                    ) {
-                        Text(
-                            "Salary wasn't found",
-                            style =
-                                MaterialTheme.typography
-                                    .titleMedium,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurface
-                        )
-                        Text(
-                            "Some banks don't send a useful salary SMS. Add one recent salary manually so Money In and your current pay cycle start correctly.",
-                            style =
-                                MaterialTheme.typography
-                                    .bodySmall,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-
-        if (
-            salarySuggestion == null ||
-            !salaryAccepted
-        ) {
-            OutlinedButton(
-                onClick = onManualSalary,
-                enabled = !applying,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 54.dp),
-                shape =
-                    RoundedCornerShape(18.dp)
-            ) {
-                Text("Set up salary manually")
-            }
-        }
-
-        Button(
-            onClick = onContinue,
-            enabled = !applying,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp),
-            shape =
-                RoundedCornerShape(18.dp)
-        ) {
-            if (applying) {
-                CircularProgressIndicator(
-                    modifier =
-                        Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
-                Text(
-                    "Saving accounts…",
-                    modifier =
-                        Modifier.padding(
-                            start = 10.dp
-                        )
-                )
-            } else {
-                Text(
-                    if (
-                        salarySuggestion == null
-                    ) {
-                        "Continue without salary"
-                    } else {
-                        "Looks good"
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun OwnershipCandidateCard(
+internal fun OwnershipCandidateCard(
     entity: DiscoveredFinancialEntity,
     selected: Boolean,
     enabled: Boolean,
@@ -2821,7 +2514,7 @@ private fun OwnershipCandidateCard(
 }
 
 @Composable
-private fun DiscoveredSourceCard(
+internal fun DiscoveredSourceCard(
     source: DetectedSetupSource
 ) {
     PesaCard {
@@ -3966,7 +3659,7 @@ private fun maskPhone(
     }
 }
 
-private fun formatSetupMoney(
+internal fun formatSetupMoney(
     amountMinor: Long
 ): String {
     val formatter =
@@ -3989,3 +3682,4 @@ private const val MIN_PROGRESS_STEP_MS =
 
 private const val SEVEN_DAYS_MS =
     7L * 24L * 60L * 60L * 1000L
+

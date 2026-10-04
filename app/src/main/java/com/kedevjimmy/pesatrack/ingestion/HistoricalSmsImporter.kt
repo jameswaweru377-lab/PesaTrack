@@ -218,6 +218,10 @@ class HistoricalSmsImporter(
                 understood += 1
                 if (didInsert) inserted += 1 else duplicates += 1
             }
+        } ?: error("SMS history is temporarily unavailable.")
+
+        if (mode == HistoricalImportMode.IMPORT) {
+            AutomaticHistoryRepair.recordImport(context, sinceEpochMs)
         }
 
         if (rebuildPayCycles) {
@@ -244,3 +248,4 @@ class HistoricalSmsImporter(
             "historical_financial_message"
     }
 }
+

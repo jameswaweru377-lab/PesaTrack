@@ -223,7 +223,8 @@ class IdentityGraphStore private constructor(
 
     @Synchronized
     fun pendingReviewPrompts(
-        limit: Int = 20
+        limit: Int = 20,
+        includeOptional: Boolean = true
     ): List<IdentityReviewPrompt> {
         val db =
             database.readableDatabase
@@ -408,6 +409,7 @@ class IdentityGraphStore private constructor(
             reviewDecisions(db)
 
         return candidates
+            .filter { includeOptional || IdentityGraphPolicy.requiresFinancialAttention(it) }
             .distinctBy {
                 it.promptType to
                     it.identityId
@@ -2107,3 +2109,4 @@ class IdentityGraphStore private constructor(
             }
     }
 }
+
