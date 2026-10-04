@@ -57,7 +57,7 @@ class HistoricalSmsImporter(
         )
 
         context.contentResolver.query(
-            Telephony.Sms.CONTENT_URI,
+            Telephony.Sms.Inbox.CONTENT_URI,
             projection,
             Telephony.Sms.DATE + " >= ?",
             arrayOf(sinceEpochMs.toString()),
