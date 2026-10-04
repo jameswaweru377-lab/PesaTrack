@@ -1808,6 +1808,11 @@ private fun ActivityMonthPickerDialog(
                     selectedMonthEpochMs
             }
         }
+    val currentLocale =
+        androidx.compose.ui.platform
+            .LocalConfiguration
+            .current
+            .locales[0]
     val currentCalendar =
         remember(currentMonthEpochMs) {
             Calendar.getInstance().apply {
@@ -1830,7 +1835,7 @@ private fun ActivityMonthPickerDialog(
         selectedCalendar.get(Calendar.MONTH)
     val currentYear =
         currentCalendar.get(Calendar.YEAR)
-    val monthNames = remember {
+    val monthNames = remember(currentLocale) {
         (0..11).map { month ->
             Calendar.getInstance().apply {
                 clear()
@@ -1838,7 +1843,7 @@ private fun ActivityMonthPickerDialog(
             }.let { calendar ->
                 SimpleDateFormat(
                     "MMM",
-                    Locale.getDefault()
+                    currentLocale
                 ).format(calendar.time)
             }
         }
