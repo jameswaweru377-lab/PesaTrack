@@ -66,7 +66,6 @@ import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
-import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
@@ -160,10 +159,6 @@ fun HomeScreen(
     val identityGraphStore =
         remember {
             IdentityGraphStore.get(context)
-        }
-    val messageLabStore =
-        remember {
-            MessageLabStore.get(context)
         }
     val preferences = remember {
         context.getSharedPreferences(
@@ -293,11 +288,6 @@ fun HomeScreen(
                                 limit = 100
                             )
                             .size +
-                        messageLabStore
-                            .recentUnsupported(
-                                100
-                            )
-                            .size
             )
         }
 
