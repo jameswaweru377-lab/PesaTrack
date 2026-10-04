@@ -1798,11 +1798,6 @@ private fun SetupChoice(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    val currentLocale =
-        androidx.compose.ui.platform
-            .LocalConfiguration
-            .current
-            .locales[0]
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -1903,6 +1898,11 @@ private fun SalaryCandidateCard(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val currentLocale =
+        androidx.compose.ui.platform
+            .LocalConfiguration
+            .current
+            .locales[0]
     Surface(
         modifier = Modifier
             .fillMaxWidth()
