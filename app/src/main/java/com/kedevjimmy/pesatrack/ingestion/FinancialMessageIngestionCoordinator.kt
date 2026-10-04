@@ -502,6 +502,9 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     rebuildPayCycles,
                                 accountIdOverride =
                                     sourceAccountId,
+                                reviewStateOverride =
+                                    ReviewState
+                                        .AUTO_CLASSIFIED,
                                 externalReferences =
                                     correlationReferences
                             )
@@ -619,6 +622,12 @@ class FinancialMessageIngestionCoordinator private constructor(
                                     rebuildPayCycles,
                                 accountIdOverride =
                                     effectiveAccountId,
+                                reviewStateOverride =
+                                    effectiveAccountId
+                                        ?.let {
+                                            ReviewState
+                                                .AUTO_CLASSIFIED
+                                        },
                                 externalReferences =
                                     correlationReferences
                             )
