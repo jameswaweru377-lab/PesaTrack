@@ -3194,9 +3194,8 @@ class TransactionStore private constructor(context: Context) {
         direction = direction,
         planningMonth = planningMonth,
         markTransfer = markTransfer
-    }
-
     )
+    }
 
     fun classifyManually(
         id: Long,
