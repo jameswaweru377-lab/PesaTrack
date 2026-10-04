@@ -19,6 +19,7 @@ class FinancialMessageReplayConsistencyTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        PesaTrackDatabase.resetForTests()
         context.deleteDatabase(DATABASE_NAME)
 
         // Canonical M-Pesa writes are intentionally gated on confirmed
@@ -33,7 +34,7 @@ class FinancialMessageReplayConsistencyTest {
 
     @After
     fun tearDown() {
-        PesaTrackDatabase.get(context).close()
+        PesaTrackDatabase.resetForTests()
         context.deleteDatabase(DATABASE_NAME)
     }
 
