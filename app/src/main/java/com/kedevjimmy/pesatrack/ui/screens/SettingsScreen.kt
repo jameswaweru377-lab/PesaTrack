@@ -180,8 +180,8 @@ fun SettingsScreen(
             Spacer(Modifier.padding(top = 2.dp))
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    SettingsRow(Icons.Rounded.Storage, "Data & storage", "Local data, backup, restore")
-                    SettingsRow(Icons.Rounded.Security, "Security", "PIN and biometric lock")
+                    SettingsRow(Icons.Rounded.Storage, "Backup & restore", "Planned — not active yet")
+                    SettingsRow(Icons.Rounded.Security, "App lock", "Planned — PIN and biometric lock are not active yet")
                     SettingsRow(
                         Icons.Rounded.Upload,
                         "Financial notifications",
