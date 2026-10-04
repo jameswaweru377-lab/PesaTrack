@@ -287,7 +287,7 @@ fun HomeScreen(
                             .pendingReviewPrompts(
                                 limit = 100
                             )
-                            .size +
+                            .size
             )
         }
 
