@@ -1,6 +1,8 @@
 package com.kedevjimmy.pesatrack
 
 import android.os.Bundle
+import android.content.Intent
+import com.kedevjimmy.pesatrack.salary.SalaryReminders
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,8 +17,16 @@ import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 
 class MainActivity : ComponentActivity() {
+    private var salaryOpenRequest by mutableStateOf(0)
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
+        SalaryReminders.schedule(this)
         enableEdgeToEdge()
         AutomaticHistoryRepair.scheduleIfAllowed(this)
         setContent {
@@ -45,6 +55,7 @@ class MainActivity : ComponentActivity() {
 
             PesaTrackTheme(darkTheme = useDark) {
                 PesaTrackApp(
+                    salaryOpenRequest = salaryOpenRequest,
                     themeMode = themeMode,
                     onThemeModeChange = { newMode ->
                         themeMode = newMode
@@ -59,6 +70,7 @@ class MainActivity : ComponentActivity() {
                                 true
                             )
                             .apply()
+                        SalaryReminders.schedule(this)
                         AutomaticHistoryRepair.scheduleIfAllowed(this)
                     }
                 )
@@ -66,4 +78,5 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
 

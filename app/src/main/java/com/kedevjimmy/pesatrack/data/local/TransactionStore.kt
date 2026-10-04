@@ -179,10 +179,10 @@ class TransactionStore private constructor(context: Context) {
             ) {
                 return false
             }
-        } else if (evidence != null) {
+        } else {
             val existing = getByTransactionCode(parsed.transactionCode)
-            if (existing != null) {
-                updateExistingDuplicateWithEvidence(
+            if (existing != null && (evidence != null || existing.sourceKind == "manual_setup")) {
+                if (evidence != null) updateExistingDuplicateWithEvidence(
                     stored = existing,
                     parsed = parsed,
                     matchedRule = matchedRule,
@@ -288,6 +288,37 @@ class TransactionStore private constructor(context: Context) {
             matchedRule?.linkedAccountId ?: when (parsed.type) {
                 MpesaTransactionType.WITHDRAWAL -> AccountStore.DEFAULT_CASH_ID
                 else -> null
+            }
+        }
+
+        if (sourceKind != "manual_setup" && !parsed.transactionCode.isNullOrBlank() &&
+            matchedRule?.startsPayCycle == true && !useOwnTransfer &&
+            classification.direction == MoneyDirection.INCOME && accountId != null &&
+            getByTransactionCode(parsed.transactionCode) == null) {
+            val day = Calendar.getInstance().apply {
+                timeInMillis = occurredAtEpochMs
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            val nextDay = (day.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 1) }
+            val matches = transactionsBetween(day.timeInMillis, nextDay.timeInMillis).filter {
+                it.ruleId == matchedRule.id && it.accountId == accountId &&
+                    it.amountMinor == parsed.amountMinor && it.direction == MoneyDirection.INCOME.name &&
+                    it.reviewState != ReviewState.EXCLUDED.name
+            }
+            val manual = matches.singleOrNull()?.takeIf {
+                it.sourceKind == "manual_setup" && it.transactionCode == null
+            }
+            if (manual != null) {
+                val values = ContentValues().apply {
+                    put("transaction_code", parsed.transactionCode)
+                    // Keep the manual fingerprint and date for repeated form submissions.
+                    // The ingestion coordinator records the message's balance at its real observation time.
+                }
+                database.writableDatabase.update("transactions", values, "id = ?", arrayOf(manual.id.toString()))
+                attachExternalReferences(manual.id, externalReferences + parsed.transactionCode.orEmpty(), sourceKind, receivedAtEpochMs)
+                LedgerUpdateBus.notifyChanged()
+                return false
             }
         }
 
@@ -671,6 +702,14 @@ class TransactionStore private constructor(context: Context) {
     }
     }
 
+    fun latestSalaryReceipt(ruleId: String): StoredTransaction? = synchronized(CanonicalStoreLock.monitor) {
+        database.readableDatabase.rawQuery(
+            BASE_SELECT + " WHERE rule_id = ? AND direction = ? AND review_state != ?" +
+                " AND cycle_candidate_reason IS NULL ORDER BY occurred_at_epoch_ms DESC, id DESC LIMIT 1",
+            arrayOf(ruleId, MoneyDirection.INCOME.name, ReviewState.EXCLUDED.name)
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.toStoredTransaction() else null }
+    }
+
     fun salaryHistoryCandidates(
         payerQuery: String,
         sinceEpochMs: Long,
@@ -788,6 +827,20 @@ class TransactionStore private constructor(context: Context) {
         synchronized(CanonicalStoreLock.monitor) {
         require(amountMinor > 0L) { "Income amount must be greater than zero." }
 
+        if (matchedRule.startsPayCycle && matchedRule.accountId != null) {
+            val day = Calendar.getInstance().apply {
+                timeInMillis = occurredAtEpochMs
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            val end = (day.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 1) }
+            if (transactionsBetween(day.timeInMillis, end.timeInMillis).any {
+                it.ruleId == matchedRule.id && it.accountId == matchedRule.accountId &&
+                    it.amountMinor == amountMinor && it.direction == MoneyDirection.INCOME.name &&
+                    it.reviewState != ReviewState.EXCLUDED.name
+            }) return false
+        }
+
         val parsed = ParsedMpesaTransaction(
             transactionCode = null,
             type = MpesaTransactionType.OTHER,
@@ -801,7 +854,7 @@ class TransactionStore private constructor(context: Context) {
             reversalOfCode = null
         )
 
-        return insertIfNew(
+        val inserted = insertIfNew(
             parsed = parsed,
             sourcePackage = null,
             sourceKind = "manual_setup",
@@ -809,12 +862,21 @@ class TransactionStore private constructor(context: Context) {
             occurredAtEpochMs = occurredAtEpochMs,
             matchedRule = matchedRule,
             rebuildPayCycles =
-                rebuildPayCycles,
+                false,
             runRelationshipReconciliation =
                 false,
             runMirrorCorrelation =
                 false
         )
+        if (inserted && matchedRule.startsPayCycle) {
+            val id = getByFingerprint(TransactionFingerprint.of(parsed, occurredAtEpochMs))!!.id
+            ContentValues().apply {
+                put("cycle_override", PayCycleStore.OVERRIDE_FORCE_START)
+                put("review_state", ReviewState.USER_CLASSIFIED.name)
+            }.also { database.writableDatabase.update("transactions", it, "id = ?", arrayOf(id.toString())) }
+        }
+        if (inserted && rebuildPayCycles) PayCycleStore.get(appContext).rebuild()
+        return inserted
     }
     }
 
@@ -1121,13 +1183,6 @@ class TransactionStore private constructor(context: Context) {
         nowEpochMs: Long = System.currentTimeMillis(),
         timeZone: TimeZone = TimeZone.getDefault()
     ): ActivityLedgerSnapshot {
-        synchronized(CanonicalStoreLock.monitor) {
-        ensureMirrorReconciled()
-        ensureBuiltInRecognitionReconciled()
-        ensureSemanticReviewStateReconciled()
-        ensureRefundsReconciled()
-        reconcileRecentReviewTriage(nowEpochMs, timeZone)
-
         val monthStart = Calendar.getInstance(timeZone).apply {
             timeInMillis = nowEpochMs
             set(Calendar.DAY_OF_MONTH, 1)
@@ -1139,10 +1194,27 @@ class TransactionStore private constructor(context: Context) {
         val nextMonthStart = (monthStart.clone() as Calendar).apply {
             add(Calendar.MONTH, 1)
         }
+        return activitySnapshotBetween(monthStart.timeInMillis, nextMonthStart.timeInMillis, nowEpochMs, timeZone)
+    }
+
+    fun activitySnapshotBetween(
+        startEpochMs: Long,
+        endEpochMsExclusive: Long,
+        nowEpochMs: Long = System.currentTimeMillis(),
+        timeZone: TimeZone = TimeZone.getDefault()
+    ): ActivityLedgerSnapshot {
+        synchronized(CanonicalStoreLock.monitor) {
+        require(endEpochMsExclusive > startEpochMs)
+        ensureMirrorReconciled()
+        ensureBuiltInRecognitionReconciled()
+        ensureSemanticReviewStateReconciled()
+        ensureRefundsReconciled()
+        reconcileRecentReviewTriage(nowEpochMs, timeZone)
+
         val reversedCodes = reversedTransactionCodes()
         val monthTransactions = transactionsBetween(
-            startEpochMs = monthStart.timeInMillis,
-            endEpochMsExclusive = nextMonthStart.timeInMillis
+            startEpochMs = startEpochMs,
+            endEpochMsExclusive = endEpochMsExclusive
         )
         val possibleDuplicates = buildPossibleDuplicateGroups(
             monthTransactions
@@ -1186,8 +1258,8 @@ class TransactionStore private constructor(context: Context) {
 
         val fees = effective.sumOf { it.feeMinor } +
             DebtStore.get(appContext).sumFeesBetween(
-                startEpochMs = monthStart.timeInMillis,
-                endEpochMsExclusive = nextMonthStart.timeInMillis
+                startEpochMs = startEpochMs,
+                endEpochMsExclusive = endEpochMsExclusive
             )
 
         return ActivityLedgerSnapshot(
@@ -3874,4 +3946,5 @@ private fun StoredTransaction.toParsedTransaction(): ParsedMpesaTransaction =
         rawMessage = "",
         reversalOfCode = reversalOfCode
     )
+
 

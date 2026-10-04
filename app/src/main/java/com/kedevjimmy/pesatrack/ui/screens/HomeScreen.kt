@@ -137,7 +137,8 @@ fun HomeScreen(
     onTransactionClick: (Long) -> Unit = {},
     onPlanClick: () -> Unit = {},
     onAccountsClick: () -> Unit = {},
-    onDebtsClick: () -> Unit = {}
+    onDebtsClick: () -> Unit = {},
+    onSalaryClick: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val cycleStore = remember { PayCycleStore.get(context) }
@@ -180,6 +181,9 @@ fun HomeScreen(
                 0L
             )
         )
+    }
+    LaunchedEffect(ledgerUpdateState.revision) {
+        salaryPromptDeferredUntil = preferences.getLong("salary_prompt_deferred_until", 0L)
     }
     var showManualSalaryDialog by remember {
         mutableStateOf(false)
@@ -836,6 +840,12 @@ fun HomeScreen(
             )
         }
 
+        item {
+            androidx.compose.material3.TextButton(onClick = onSalaryClick) {
+                Text(if (cycleSnapshot.cycle == null) "Set up / add salary" else "Salary entries & reminders")
+            }
+        }
+
         cycleSnapshot.pendingSalary?.let {
                 candidate ->
             item {
@@ -870,26 +880,10 @@ fun HomeScreen(
                 ExpectedSalaryCard(
                     prompt =
                         expectedSalaryPrompt,
-                    onAddSalary = {
-                        showManualSalaryDialog =
-                            true
-                    },
+                    onAddSalary = onSalaryClick,
                     onNotPaidYet = {
-                        val deferUntil =
-                            System
-                                .currentTimeMillis() +
-                                24L *
-                                60L *
-                                60L *
-                                1000L
-                        preferences.edit()
-                            .putLong(
-                                "salary_prompt_deferred_until",
-                                deferUntil
-                            )
-                            .apply()
-                        salaryPromptDeferredUntil =
-                            deferUntil
+                        com.kedevjimmy.pesatrack.salary.SalaryReminders.defer(context)
+                        salaryPromptDeferredUntil = preferences.getLong("salary_prompt_deferred_until", 0L)
                     }
                 )
             }
@@ -1272,7 +1266,7 @@ private fun ExpectedSalaryCard(
                     onClick = onNotPaidYet,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Not paid yet")
+                    Text("Not yet received")
                 }
                 Button(
                     onClick = onAddSalary,
@@ -1633,5 +1627,6 @@ private fun formatMoney(minor: Long): String {
 
 private fun formatShortDate(epochMs: Long): String =
     SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(epochMs))
+
 
 

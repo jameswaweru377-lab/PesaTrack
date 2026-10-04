@@ -341,6 +341,16 @@ class PayCycleStore private constructor(context: Context) {
     }
     }
 
+    fun listCycles(): List<PayCycle> = synchronized(CanonicalStoreLock.monitor) {
+        database.readableDatabase.rawQuery(
+            """
+            SELECT id, start_transaction_id, start_epoch_ms, end_epoch_ms,
+                   opening_income_minor, carryover_minor, ending_tracked_minor, state
+            FROM pay_cycles ORDER BY start_epoch_ms DESC, start_transaction_id DESC
+            """.trimIndent(), null
+        ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.toPayCycle()) } }
+    }
+
     fun currentCycle(): PayCycle? =
         database.readableDatabase.rawQuery(
             """
@@ -763,3 +773,4 @@ private fun android.database.Cursor.toPayCycle(): PayCycle =
         endingTrackedMinor = if (isNull(6)) null else getLong(6),
         state = getString(7)
     )
+

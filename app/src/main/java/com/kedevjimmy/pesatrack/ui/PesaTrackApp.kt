@@ -17,6 +17,7 @@ import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
 import com.kedevjimmy.pesatrack.ui.screens.DataHealthScreen
 import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
 import com.kedevjimmy.pesatrack.ui.screens.IdentityReviewScreen
+import com.kedevjimmy.pesatrack.ui.screens.SalaryScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoreScreen
@@ -34,9 +35,14 @@ fun PesaTrackApp(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     setupComplete: Boolean,
-    onSetupComplete: () -> Unit
+    onSetupComplete: () -> Unit,
+    salaryOpenRequest: Int = 0
 ) {
     val navController = rememberNavController()
+
+    LaunchedEffect(salaryOpenRequest, setupComplete) {
+        if (salaryOpenRequest > 0 && setupComplete) navController.navigate("salary") { launchSingleTop = true }
+    }
 
     fun navigateToTab(tab: MainTab) {
         navController.navigate(tab.route) {
@@ -92,6 +98,7 @@ fun PesaTrackApp(
             ) { padding ->
                 HomeScreen(
                     scaffoldPadding = padding,
+                    onSalaryClick = { navController.navigate("salary") },
                     onProfileClick = {
                         navController.navigate("profile")
                     },
@@ -124,6 +131,12 @@ fun PesaTrackApp(
                         )
                     }
                 )
+            }
+        }
+
+        composable("salary") {
+            AppScaffold(currentTab = MainTab.HOME, onTabSelected = ::navigateToTab) { padding ->
+                SalaryScreen(padding, onBack = { navController.popBackStack() })
             }
         }
 
@@ -176,6 +189,7 @@ fun PesaTrackApp(
             ) { padding ->
                 ActivityScreen(
                     scaffoldPadding = padding,
+                    onSalaryClick = { navController.navigate("salary") },
                     onTransactionClick = { id ->
                         navController.navigate(
                             "transaction-detail/$id"
@@ -202,6 +216,7 @@ fun PesaTrackApp(
             ) { padding ->
                 ActivityScreen(
                     scaffoldPadding = padding,
+                    onSalaryClick = { navController.navigate("salary") },
                     onTransactionClick = { id ->
                         navController.navigate(
                             "transaction-detail/$id"
@@ -415,3 +430,4 @@ fun PesaTrackApp(
         }
     }
 }
+
