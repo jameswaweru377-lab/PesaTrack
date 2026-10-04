@@ -866,6 +866,72 @@ fun DataHealthScreen(
                             }
                         }
                 },
+                onCopyParserDraft = {
+                    inspectorSavedShapeId
+                        ?.let {
+                            shapeId ->
+                            messageLabStore
+                                .exportParserDraft(
+                                    shapeId
+                                )
+                                ?.let {
+                                    draft ->
+                                    val clipboard =
+                                        context
+                                            .getSystemService(
+                                                Context
+                                                    .CLIPBOARD_SERVICE
+                                            ) as
+                                            ClipboardManager
+                                    clipboard
+                                        .setPrimaryClip(
+                                            ClipData
+                                                .newPlainText(
+                                                    "PesaTrack review-only parser draft",
+                                                    draft
+                                                )
+                                        )
+                                    Toast.makeText(
+                                        context,
+                                        "Review-only parser draft copied",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                        }
+                },
+                onCopyImplementationPacket = {
+                    inspectorSavedShapeId
+                        ?.let {
+                            shapeId ->
+                            messageLabStore
+                                .exportImplementationWorkPacket(
+                                    shapeId
+                                )
+                                ?.let {
+                                    packet ->
+                                    val clipboard =
+                                        context
+                                            .getSystemService(
+                                                Context
+                                                    .CLIPBOARD_SERVICE
+                                            ) as
+                                            ClipboardManager
+                                    clipboard
+                                        .setPrimaryClip(
+                                            ClipData
+                                                .newPlainText(
+                                                    "PesaTrack parser implementation work packet",
+                                                    packet
+                                                )
+                                        )
+                                    Toast.makeText(
+                                        context,
+                                        "Implementation work packet copied",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                        }
+                },
                 onCopySanitized = {
                     messageInspection
                         ?.let {
@@ -2043,6 +2109,8 @@ private fun MessageInspectorCard(
         Unit,
     onImplementationReviewCleared:
         () -> Unit,
+    onCopyParserDraft: () -> Unit,
+    onCopyImplementationPacket: () -> Unit,
     onCopySanitized: () -> Unit
 ) {
     PesaCard(
@@ -2720,6 +2788,46 @@ private fun MessageInspectorCard(
                                                             .fillMaxWidth()
                                                 )
                                             }
+                                        Button(
+                                            onClick =
+                                                onCopyParserDraft,
+                                            modifier =
+                                                Modifier
+                                                    .fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                "Copy review-only parser draft"
+                                            )
+                                        }
+                                        if (
+                                            shape
+                                                .implementationReview ==
+                                            MessageLabImplementationReviewState
+                                                .READY_FOR_PARSER_WORK
+                                        ) {
+                                            Button(
+                                                onClick =
+                                                    onCopyImplementationPacket,
+                                                modifier =
+                                                    Modifier
+                                                        .fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    "Copy implementation work packet"
+                                                )
+                                            }
+                                            Text(
+                                                "The work packet includes this approved family, all active sanitized variants, the parser draft, and the implementation/test guardrails. It still does not activate a parser.",
+                                                style =
+                                                    MaterialTheme
+                                                        .typography
+                                                        .labelSmall,
+                                                color =
+                                                    MaterialTheme
+                                                        .colorScheme
+                                                        .onSurfaceVariant
+                                            )
+                                        }
                                     }
 
                                     else ->
