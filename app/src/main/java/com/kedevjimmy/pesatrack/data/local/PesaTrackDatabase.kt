@@ -1589,6 +1589,17 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                         }
                 }
 
+        /**
+         * Instrumentation-test lifecycle hook. Production code owns the
+         * app-scoped helper for the process lifetime and must not call this.
+         */
+        internal fun resetForTests() {
+            synchronized(this) {
+                instance?.close()
+                instance = null
+            }
+        }
+
         private const val DATABASE_NAME = "pesatrack.db"
         private const val DATABASE_VERSION = 31
     }
