@@ -62,6 +62,7 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialSourceCoverageSnapshot
 import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
 import com.kedevjimmy.pesatrack.ingestion.MessageLabImplementationReview
 import com.kedevjimmy.pesatrack.ingestion.MessageLabImplementationReviewState
+import com.kedevjimmy.pesatrack.ingestion.MessageInspectorParserHandoffPolicy
 import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadiness
 import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadinessState
 import com.kedevjimmy.pesatrack.ingestion.MessageLabRelevanceExplainer
@@ -2737,6 +2738,11 @@ private fun MessageInspectorCard(
 
                                     MessageLabParserReadinessState
                                         .EVIDENCE_READY -> {
+                                        val handoff =
+                                            MessageInspectorParserHandoffPolicy
+                                                .availabilityFor(
+                                                    shape
+                                                )
                                         Text(
                                             "Implementation review",
                                             style =
@@ -2788,22 +2794,25 @@ private fun MessageInspectorCard(
                                                             .fillMaxWidth()
                                                 )
                                             }
-                                        Button(
-                                            onClick =
-                                                onCopyParserDraft,
-                                            modifier =
-                                                Modifier
-                                                    .fillMaxWidth()
+                                        if (
+                                            handoff
+                                                .parserDraftAvailable
                                         ) {
-                                            Text(
-                                                "Copy review-only parser draft"
-                                            )
+                                            Button(
+                                                onClick =
+                                                    onCopyParserDraft,
+                                                modifier =
+                                                    Modifier
+                                                        .fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    "Copy review-only parser draft"
+                                                )
+                                            }
                                         }
                                         if (
-                                            shape
-                                                .implementationReview ==
-                                            MessageLabImplementationReviewState
-                                                .READY_FOR_PARSER_WORK
+                                            handoff
+                                                .implementationPacketAvailable
                                         ) {
                                             Button(
                                                 onClick =
