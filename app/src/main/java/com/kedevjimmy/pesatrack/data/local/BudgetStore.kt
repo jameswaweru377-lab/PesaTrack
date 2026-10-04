@@ -11,8 +11,7 @@ data class MonthlyBudget(
 class BudgetStore private constructor(context: Context) {
     private val database = PesaTrackDatabase.get(context.applicationContext)
 
-    @Synchronized
-    fun list(): List<MonthlyBudget> =
+    fun list(): List<MonthlyBudget> = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             """
             SELECT category, limit_minor
@@ -32,12 +31,13 @@ class BudgetStore private constructor(context: Context) {
                 }
             }
         }
+    }
 
-    @Synchronized
     fun save(
         categoryId: String,
         limitMinor: Long
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         require(limitMinor > 0L) {
             "Budget amount must be greater than zero."
         }
@@ -64,15 +64,17 @@ class BudgetStore private constructor(context: Context) {
         )
         LedgerUpdateBus.notifyChanged()
     }
+    }
 
-    @Synchronized
     fun delete(categoryId: String) {
+        synchronized(CanonicalStoreLock.monitor) {
         database.writableDatabase.delete(
             "category_budgets",
             "category = ?",
             arrayOf(categoryId)
         )
         LedgerUpdateBus.notifyChanged()
+    }
     }
 
     private val appContext: Context = context.applicationContext

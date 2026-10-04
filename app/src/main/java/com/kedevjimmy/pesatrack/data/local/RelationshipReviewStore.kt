@@ -55,8 +55,7 @@ class RelationshipReviewStore private constructor(
     private val appContext = context.applicationContext
     private val database = PesaTrackDatabase.get(appContext)
 
-    @Synchronized
-    fun pendingReviews(): List<RelationshipReviewItem> =
+    fun pendingReviews(): List<RelationshipReviewItem> = synchronized(CanonicalStoreLock.monitor) {
         (
             pendingFundingReviews() +
                 pendingBalanceReviews() +
@@ -66,12 +65,13 @@ class RelationshipReviewStore private constructor(
             .sortedByDescending {
                 it.occurredAtEpochMs
             }
+    }
 
-    @Synchronized
     fun resolveFunding(
         debtEventId: Long,
         transactionId: Long?
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val item =
             pendingFundingReviews()
                 .firstOrNull {
@@ -144,12 +144,13 @@ class RelationshipReviewStore private constructor(
         }
         return changed
     }
+    }
 
-    @Synchronized
     fun resolveBalance(
         debtEventId: Long,
         observationId: Long?
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val item =
             pendingBalanceReviews()
                 .firstOrNull {
@@ -218,12 +219,13 @@ class RelationshipReviewStore private constructor(
         }
         return changed
     }
+    }
 
-    @Synchronized
     fun resolveLiabilityPayment(
         transactionId: Long,
         debtAccountId: String?
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val item =
             pendingLiabilityPaymentReviews()
                 .firstOrNull {
@@ -298,12 +300,13 @@ class RelationshipReviewStore private constructor(
         }
         return stored
     }
+    }
 
-    @Synchronized
     fun resolveInvestmentSettlement(
         investmentEventId: Long,
         transactionId: Long?
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val item =
             pendingInvestmentSettlementReviews()
                 .firstOrNull {
@@ -326,6 +329,7 @@ class RelationshipReviewStore private constructor(
                 eventId = investmentEventId,
                 transactionId = transactionId
             )
+    }
     }
 
     private fun pendingInvestmentSettlementReviews():

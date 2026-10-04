@@ -30,12 +30,12 @@ class RecurringPatternStore private constructor(
     private val identityGraphStore =
         IdentityGraphStore.get(appContext)
 
-    @Synchronized
     fun suggestions(
         limit: Int = 5,
         nowEpochMs: Long =
             System.currentTimeMillis()
     ): List<RecurringPatternCandidate> {
+        synchronized(CanonicalStoreLock.monitor) {
         val rules =
             ruleStore.listRules(
                 enabledOnly = true
@@ -70,12 +70,13 @@ class RecurringPatternStore private constructor(
                 )
             )
     }
+    }
 
-    @Synchronized
     fun accept(
         candidate:
             RecurringPatternCandidate
     ): SmartRule? {
+        synchronized(CanonicalStoreLock.monitor) {
         val transaction =
             transactionStore.getById(
                 candidate
@@ -156,12 +157,13 @@ class RecurringPatternStore private constructor(
 
         return saved
     }
+    }
 
-    @Synchronized
     fun dismiss(
         candidate:
             RecurringPatternCandidate
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         val values =
             ContentValues().apply {
                 put(
@@ -193,6 +195,7 @@ class RecurringPatternStore private constructor(
             )
 
         LedgerUpdateBus.notifyChanged()
+    }
     }
 
     private fun observation(

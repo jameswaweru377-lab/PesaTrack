@@ -31,10 +31,10 @@ class IdentityGraphStore private constructor(
             context.applicationContext
         )
 
-    @Synchronized
     fun synchronize(
         transactionLimit: Int = 500
     ): Int {
+        synchronized(CanonicalStoreLock.monitor) {
         val db =
             database.writableDatabase
         val now =
@@ -72,11 +72,12 @@ class IdentityGraphStore private constructor(
 
         return observed
     }
+    }
 
-    @Synchronized
     fun synchronizeTransaction(
         transactionId: Long
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val db =
             database.writableDatabase
         val now =
@@ -171,9 +172,10 @@ class IdentityGraphStore private constructor(
 
         return available
     }
+    }
 
-    @Synchronized
     fun snapshot(): IdentityGraphSnapshot {
+        synchronized(CanonicalStoreLock.monitor) {
         val db =
             database.readableDatabase
         return IdentityGraphSnapshot(
@@ -220,12 +222,13 @@ class IdentityGraphStore private constructor(
                 )
         )
     }
+    }
 
-    @Synchronized
     fun pendingReviewPrompts(
         limit: Int = 20,
         includeOptional: Boolean = true
     ): List<IdentityReviewPrompt> {
+        synchronized(CanonicalStoreLock.monitor) {
         val db =
             database.readableDatabase
         val candidates =
@@ -440,11 +443,12 @@ class IdentityGraphStore private constructor(
                 )
             )
     }
+    }
 
-    @Synchronized
     fun confirmIdentityAsSelf(
         identityId: String
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         if (
             identityId ==
             IdentityGraphPolicy.SELF_ID
@@ -547,12 +551,13 @@ class IdentityGraphStore private constructor(
         }
         return true
     }
+    }
 
-    @Synchronized
     fun classifyIdentity(
         identityId: String,
         kind: IdentityNodeKind
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         require(
             kind in setOf(
                 IdentityNodeKind.PERSON,
@@ -613,11 +618,12 @@ class IdentityGraphStore private constructor(
 
         return changed
     }
+    }
 
-    @Synchronized
     fun rejectIdentityAsSelf(
         prompt: IdentityReviewPrompt
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         require(
             prompt.promptType ==
                 IdentityReviewPromptType
@@ -636,23 +642,24 @@ class IdentityGraphStore private constructor(
                     .REJECTED_SELF
         )
     }
+    }
 
-    @Synchronized
     fun deferReviewPrompt(
         prompt: IdentityReviewPrompt
-    ): Boolean =
+    ): Boolean = synchronized(CanonicalStoreLock.monitor) {
         recordReviewDecision(
             prompt = prompt,
             decision =
                 IdentityReviewDecisionType
                     .DEFERRED
         )
+    }
 
-    @Synchronized
     fun resolve(
         name: String?,
         phone: String?
     ): IdentityResolution? {
+        synchronized(CanonicalStoreLock.monitor) {
         val db =
             database.readableDatabase
 
@@ -713,6 +720,7 @@ class IdentityGraphStore private constructor(
 
             else -> null
         }
+    }
     }
 
     private fun synchronizeAccounts(

@@ -25,8 +25,8 @@ class PayCycleStore private constructor(context: Context) {
     private val cycleProtectionStore =
         CycleProtectionStore.get(appContext)
 
-    @Synchronized
     fun rebuild() {
+        synchronized(CanonicalStoreLock.monitor) {
         val db = database.writableDatabase
         db.beginTransaction()
         try {
@@ -208,11 +208,12 @@ class PayCycleStore private constructor(context: Context) {
             db.endTransaction()
         }
     }
+    }
 
-    @Synchronized
     fun snapshot(
         nowEpochMs: Long = System.currentTimeMillis()
     ): PayCycleSnapshot {
+        synchronized(CanonicalStoreLock.monitor) {
         val cycle = currentCycle()
         val pending = pendingSalaryCandidate()
         val paydaySnapshot =
@@ -303,9 +304,10 @@ class PayCycleStore private constructor(context: Context) {
                 userProtectedMinor
         )
     }
+    }
 
-    @Synchronized
     fun confirmNewCycle(transactionId: Long) {
+        synchronized(CanonicalStoreLock.monitor) {
         ContentValues().apply {
             put("cycle_override", OVERRIDE_FORCE_START)
             put("review_state", ReviewState.USER_CLASSIFIED.name)
@@ -319,9 +321,10 @@ class PayCycleStore private constructor(context: Context) {
         }
         rebuild()
     }
+    }
 
-    @Synchronized
     fun keepAsAdditionalIncome(transactionId: Long) {
+        synchronized(CanonicalStoreLock.monitor) {
         ContentValues().apply {
             put("cycle_override", OVERRIDE_ADDITIONAL_INCOME)
             put("review_state", ReviewState.USER_CLASSIFIED.name)
@@ -335,6 +338,7 @@ class PayCycleStore private constructor(context: Context) {
             )
         }
         rebuild()
+    }
     }
 
     fun currentCycle(): PayCycle? =

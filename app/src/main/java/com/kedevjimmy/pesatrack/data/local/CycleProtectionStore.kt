@@ -18,10 +18,9 @@ class CycleProtectionStore private constructor(
             context.applicationContext
         )
 
-    @Synchronized
     fun get(
         cycleStartTransactionId: Long
-    ): CycleProtection? =
+    ): CycleProtection? = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase
             .rawQuery(
                 """
@@ -50,14 +49,15 @@ class CycleProtectionStore private constructor(
                     )
                 }
             }
+    }
 
-    @Synchronized
     fun set(
         cycleStartTransactionId: Long,
         amountMinor: Long,
         label: String =
             "Protected money"
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         require(amountMinor >= 0L) {
             "Protected amount cannot be negative."
         }
@@ -134,11 +134,12 @@ class CycleProtectionStore private constructor(
             )
         LedgerUpdateBus.notifyChanged()
     }
+    }
 
-    @Synchronized
     fun clear(
         cycleStartTransactionId: Long
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         val changed =
             database.writableDatabase
                 .delete(
@@ -153,6 +154,7 @@ class CycleProtectionStore private constructor(
             LedgerUpdateBus
                 .notifyChanged()
         }
+    }
     }
 
     companion object {

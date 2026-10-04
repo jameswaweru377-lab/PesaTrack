@@ -26,12 +26,12 @@ class PersonalLearningStore private constructor(
     private val identityGraphStore =
         IdentityGraphStore.get(appContext)
 
-    @Synchronized
     fun remember(
         transaction: StoredTransaction,
         categoryId: String,
         direction: MoneyDirection
     ): PersonalLearningPreference? {
+        synchronized(CanonicalStoreLock.monitor) {
         if (
             !PersonalLearningPolicy
                 .isLearnableCategory(
@@ -73,11 +73,12 @@ class PersonalLearningStore private constructor(
             direction = direction
         )
     }
+    }
 
-    @Synchronized
     fun preferenceFor(
         transaction: StoredTransaction
     ): PersonalLearningPreference? {
+        synchronized(CanonicalStoreLock.monitor) {
         val identityId =
             applicationFor(transaction.id)
                 ?.identityId
@@ -97,11 +98,12 @@ class PersonalLearningStore private constructor(
             identityId
         )
     }
+    }
 
-    @Synchronized
     fun forgetPreferenceFor(
         transaction: StoredTransaction
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val identityId =
             applicationFor(transaction.id)
                 ?.identityId
@@ -121,13 +123,14 @@ class PersonalLearningStore private constructor(
             identityId
         )
     }
+    }
 
-    @Synchronized
     fun correctLearnedPreference(
         transaction: StoredTransaction,
         categoryId: String,
         direction: MoneyDirection
     ): PersonalLearningPreference? {
+        synchronized(CanonicalStoreLock.monitor) {
         val application =
             applicationFor(
                 transaction.id
@@ -162,11 +165,12 @@ class PersonalLearningStore private constructor(
             }
         }
     }
+    }
 
-    @Synchronized
     fun suggestionFor(
         transaction: StoredTransaction
     ): PersonalLearningSuggestion? {
+        synchronized(CanonicalStoreLock.monitor) {
         if (!isEligibleForLearning(transaction)) {
             return null
         }
@@ -235,11 +239,11 @@ class PersonalLearningStore private constructor(
                 resolution.matchedAlias?.source
         )
     }
+    }
 
-    @Synchronized
     fun applicationFor(
         transactionId: Long
-    ): PersonalLearningApplication? =
+    ): PersonalLearningApplication? = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase
             .rawQuery(
                 """
@@ -295,11 +299,12 @@ class PersonalLearningStore private constructor(
                         cursor.getLong(6)
                 )
             }
+    }
 
-    @Synchronized
     fun explanationFor(
         transaction: StoredTransaction
     ): PersonalLearningExplanation? {
+        synchronized(CanonicalStoreLock.monitor) {
         val application =
             applicationFor(
                 transaction.id
@@ -343,11 +348,12 @@ class PersonalLearningStore private constructor(
                     ?.source
         )
     }
+    }
 
-    @Synchronized
     fun undoAndForget(
         transaction: StoredTransaction
     ): Boolean {
+        synchronized(CanonicalStoreLock.monitor) {
         val application =
             applicationFor(
                 transaction.id
@@ -420,12 +426,13 @@ class PersonalLearningStore private constructor(
 
         return changed
     }
+    }
 
-    @Synchronized
     fun applyHighConfidenceTo(
         transactions: List<StoredTransaction>,
         rebuildPayCycles: Boolean = true
     ): Int {
+        synchronized(CanonicalStoreLock.monitor) {
         val db =
             database.writableDatabase
         val now =
@@ -510,11 +517,12 @@ class PersonalLearningStore private constructor(
 
         return changed
     }
+    }
 
-    @Synchronized
     fun clearApplication(
         transactionId: Long
     ) {
+        synchronized(CanonicalStoreLock.monitor) {
         database.writableDatabase
             .delete(
                 "personal_learning_applications",
@@ -524,18 +532,19 @@ class PersonalLearningStore private constructor(
                 )
             )
     }
+    }
 
-    @Synchronized
-    fun preferenceCount(): Int =
+    fun preferenceCount(): Int = synchronized(CanonicalStoreLock.monitor) {
         scalarCount(
             "SELECT COUNT(*) FROM identity_category_preferences"
         )
+    }
 
-    @Synchronized
-    fun applicationCount(): Int =
+    fun applicationCount(): Int = synchronized(CanonicalStoreLock.monitor) {
         scalarCount(
             "SELECT COUNT(*) FROM personal_learning_applications"
         )
+    }
 
     private fun rememberForIdentity(
         identityId: String,
