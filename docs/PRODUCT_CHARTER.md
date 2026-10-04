@@ -51,12 +51,13 @@ PesaTrack exists to do five jobs well:
    - payday context;
    - “available after commitments”.
 
-5. **Ask for help only when needed**
+5. **Ask for user help only when the user can resolve the uncertainty**
    - Needs Attention;
    - identity review;
    - ambiguous duplicates;
-   - uncertain categories;
-   - unsupported financial evidence.
+   - uncertain categories.
+
+Unsupported parser/message-shape coverage belongs in Data Health and the developer evidence workflow. It must not inflate ordinary user attention counts.
 
 ## Explicit non-goals
 
