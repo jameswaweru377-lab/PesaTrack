@@ -4130,3 +4130,28 @@ Guardrail:
 
 The archive contains no raw SMS body, transaction code, amount, phone number, email, account number or unredacted counterparty. It is diagnostic proof of coverage improvement, not an accounting ledger and not parser activation authority.
 
+## Resolved Message Lab coverage regression checks — 2026-10-04
+
+The sanitized resolution archive can now be replayed against the current interpreter to detect likely coverage regressions after future parser changes.
+
+Implemented:
+
+- Added `MessageLabResolutionRegressionChecker`.
+- Data Health -> Resolved Message Lab evidence now has **Check resolved coverage**.
+- The checker never reconstructs the original SMS. It replaces redacted placeholders with deterministic safe synthetic values such as a fake transaction code, amount, date/time, account reference, phone number and counterparty.
+- Synthetic replay is passed through the existing local `FinancialMessageInspector`; it does not write transactions, balances, debts, Message Lab decisions or history.
+- Archived parser resolutions are classified as:
+  - **Still covered** when the current build still understands the replay through the recorded route/template;
+  - **Covered by a different route** when coverage remains but provenance changed;
+  - **Possible regression** when a previously parser-resolved shape is no longer understood and would return to Message Lab;
+  - **Inconclusive** when sanitized evidence is insufficient to prove either coverage or regression.
+- Shapes archived only because they no longer qualified as unsupported evidence are checked separately:
+  - **Still retired** when they remain outside Message Lab;
+  - **Possible regression** if they would become unsupported financial evidence again.
+- Data Health shows an aggregate stable / possible-regression / inconclusive summary and per-shape current replay status.
+- Added regression tests for deterministic synthetic replay, the real M-Shwari repayment template, relevance-only retirement, route changes and a simulated parser regression.
+
+Guardrail:
+
+A synthetic replay warning is diagnostic evidence only. It is not proof that a real transaction was lost and must not automatically change parser code or accounting state. Any **Possible regression** should be confirmed with a real sanitized device example or Message Inspector evidence before implementation.
+
