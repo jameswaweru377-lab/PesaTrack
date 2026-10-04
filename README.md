@@ -90,6 +90,7 @@ Current CI on `main`:
 Important remaining engineering debt:
 - no Android instrumentation/UI test suite yet;
 - no automated old-schema-to-v31 migration test matrix yet;
+- database ownership is fragmented across many stores and multi-store financial writes do not yet have a proven crash-atomic transaction boundary;
 - several files have grown too large and must be decomposed before substantial new feature work;
 - legacy/preview source should be deleted only after a clean quarantine period and CI confirmation.
 
