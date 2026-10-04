@@ -39,8 +39,9 @@ class MainActivityNavigationSmokeTest {
     @Test
     fun freshStateShowsOnboarding() {
         ActivityScenario.launch(MainActivity::class.java).use {
-            composeRule.onNodeWithText("Get started")
-                .assertExists()
+            composeRule
+                .onNodeWithText("Get started")
+                .fetchSemanticsNode()
         }
     }
 
@@ -65,7 +66,7 @@ class MainActivityNavigationSmokeTest {
                 .onNodeWithText(
                     "Available after commitments"
                 )
-                .assertExists()
+                .fetchSemanticsNode()
         }
     }
 
