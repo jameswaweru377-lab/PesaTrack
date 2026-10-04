@@ -6,10 +6,18 @@
   "keep_vars": true,
   "ratelimits": [
     {
-      "name": "ENTITY_RESOLVE_RATE_LIMITER",
+      "name": "ENTITY_RESOLVE_CLIENT_RATE_LIMITER",
       "namespace_id": "26090401",
       "simple": {
         "limit": 60,
+        "period": 60
+      }
+    },
+    {
+      "name": "ENTITY_RESOLVE_EDGE_RATE_LIMITER",
+      "namespace_id": "26090402",
+      "simple": {
+        "limit": 600,
         "period": 60
       }
     }
