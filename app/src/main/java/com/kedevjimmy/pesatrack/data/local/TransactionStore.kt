@@ -788,6 +788,7 @@ class TransactionStore private constructor(context: Context) {
     fun snapshot(): LedgerSnapshot {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
+        ensureSemanticReviewStateReconciled()
         ensureRefundsReconciled()
         val db = database.readableDatabase
 
@@ -895,6 +896,7 @@ class TransactionStore private constructor(context: Context) {
     ): ReviewBurdenSnapshot {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
+        ensureSemanticReviewStateReconciled()
         ensureRefundsReconciled()
         reconcileRecentReviewTriage(
             nowEpochMs = nowEpochMs
@@ -1051,6 +1053,7 @@ class TransactionStore private constructor(context: Context) {
     fun activityReviewOverview(): ActivityReviewOverview {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
+        ensureSemanticReviewStateReconciled()
         ensureRefundsReconciled()
 
         val transactions = allTransactions()
@@ -1082,6 +1085,7 @@ class TransactionStore private constructor(context: Context) {
     ): ActivityLedgerSnapshot {
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
+        ensureSemanticReviewStateReconciled()
         ensureRefundsReconciled()
         reconcileRecentReviewTriage(nowEpochMs, timeZone)
 
@@ -1257,11 +1261,7 @@ class TransactionStore private constructor(context: Context) {
                 )
                 put(
                     "review_state",
-                    if (oneOff) {
-                        ReviewState.AUTO_CLASSIFIED.name
-                    } else {
-                        ReviewState.NEEDS_REVIEW.name
-                    }
+                    ReviewState.AUTO_CLASSIFIED.name
                 )
             }
 
@@ -1865,6 +1865,62 @@ class TransactionStore private constructor(context: Context) {
         preferences.edit()
             .putBoolean(
                 BUILT_IN_RECOGNITION_RECONCILIATION_KEY,
+                true
+            )
+            .apply()
+    }
+
+    private fun ensureSemanticReviewStateReconciled() {
+        val preferences = appContext.getSharedPreferences(
+            "pesatrack_preferences",
+            Context.MODE_PRIVATE
+        )
+        if (
+            preferences.getBoolean(
+                SEMANTIC_REVIEW_RECONCILIATION_KEY,
+                false
+            )
+        ) {
+            return
+        }
+
+        val values = ContentValues().apply {
+            put(
+                "review_state",
+                ReviewState.AUTO_CLASSIFIED.name
+            )
+        }
+        val changed =
+            database.writableDatabase.update(
+                "transactions",
+                values,
+                """
+                review_state = ?
+                AND rule_id IS NULL
+                AND cycle_candidate_reason IS NULL
+                AND account_id IS NOT NULL
+                AND direction IN (?, ?)
+                AND type IN (?, ?, ?, ?, ?)
+                """.trimIndent(),
+                arrayOf(
+                    ReviewState.NEEDS_REVIEW.name,
+                    MoneyDirection.INCOME.name,
+                    MoneyDirection.EXPENSE.name,
+                    MpesaTransactionType.RECEIVED.name,
+                    MpesaTransactionType.DEPOSIT.name,
+                    MpesaTransactionType.SENT_MONEY.name,
+                    MpesaTransactionType.PAY_BILL.name,
+                    MpesaTransactionType.BUY_GOODS.name
+                )
+            )
+
+        if (changed > 0) {
+            PayCycleStore.get(appContext).rebuild()
+        }
+
+        preferences.edit()
+            .putBoolean(
+                SEMANTIC_REVIEW_RECONCILIATION_KEY,
                 true
             )
             .apply()
@@ -3512,14 +3568,14 @@ class TransactionStore private constructor(context: Context) {
             MpesaTransactionType.DEPOSIT -> Triple(
                 MoneyDirection.INCOME,
                 TransactionCategory.UNCATEGORIZED,
-                ReviewState.NEEDS_REVIEW
+                ReviewState.AUTO_CLASSIFIED
             )
             MpesaTransactionType.SENT_MONEY,
             MpesaTransactionType.PAY_BILL,
             MpesaTransactionType.BUY_GOODS -> Triple(
                 MoneyDirection.EXPENSE,
                 TransactionCategory.UNCATEGORIZED,
-                ReviewState.NEEDS_REVIEW
+                ReviewState.AUTO_CLASSIFIED
             )
             MpesaTransactionType.OTHER -> Triple(
                 MoneyDirection.NEUTRAL,
@@ -3618,6 +3674,8 @@ class TransactionStore private constructor(context: Context) {
             "mirror_transaction_reconciliation_v3"
         private const val BUILT_IN_RECOGNITION_RECONCILIATION_KEY =
             "built_in_recognition_reconciliation_v2"
+        private const val SEMANTIC_REVIEW_RECONCILIATION_KEY =
+            "semantic_review_reconciliation_v1"
         private const val REFUND_RECONCILIATION_KEY =
             "refund_reconciliation_v1"
         const val RELATION_REFUND = "REFUND"

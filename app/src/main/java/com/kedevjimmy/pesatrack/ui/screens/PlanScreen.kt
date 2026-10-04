@@ -53,6 +53,7 @@ import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RecurringPatternStore
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternCandidate
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternConfidence
+import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
@@ -119,6 +120,13 @@ fun PlanScreen(
             loaded.second
     }
 
+    val planningAvailability =
+        PlanningAvailabilityPolicy
+            .from(
+                snapshot
+                    .availableToLiveMinor
+            )
+
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
@@ -142,7 +150,11 @@ fun PlanScreen(
         }
 
         item {
-            PlanHero(snapshot)
+            PlanHero(
+                snapshot = snapshot,
+                planningAvailability =
+                    planningAvailability
+            )
         }
 
         if (onBudgetClick != null) {
@@ -384,7 +396,7 @@ fun PlanScreen(
                                 )
                                 PlanMetric(
                                     "Available",
-                                    formatPlanMoney(snapshot.availableToLiveMinor),
+                                    formatPlanMoney(planningAvailability.availableMinor),
                                     "Free to live",
                                     "violet",
                                     Modifier.weight(1f)
@@ -396,8 +408,34 @@ fun PlanScreen(
                             PlanMetric("Starting funds", formatPlanMoney(snapshot.startingFundsMinor), "Salary + carryover", "green", Modifier.weight(1f))
                             PlanMetric("Committed", formatPlanMoney(snapshot.remainingCommitmentsMinor), "Still protected", "amber", Modifier.weight(1f))
                             PlanMetric("Saved", formatPlanMoney(snapshot.savingsMinor), "Moved to savings", "blue", Modifier.weight(1f))
-                            PlanMetric("Available", formatPlanMoney(snapshot.availableToLiveMinor), "Free to live", "violet", Modifier.weight(1f))
+                            PlanMetric("Available", formatPlanMoney(planningAvailability.availableMinor), "Free to live", "violet", Modifier.weight(1f))
                         }
+                    }
+                }
+            }
+
+            if (
+                planningAvailability
+                    .shortfallMinor > 0L
+            ) {
+                item {
+                    PesaCard {
+                        Text(
+                            "Commitment shortfall: " +
+                                formatPlanMoney(
+                                    planningAvailability
+                                        .shortfallMinor
+                                ) +
+                                ". This is a planning gap, not an account balance.",
+                            modifier =
+                                Modifier.padding(
+                                    16.dp
+                                ),
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -469,7 +507,7 @@ fun PlanScreen(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                                 Text(
-                                    formatPlanMoney(snapshot.availableToLiveMinor),
+                                    formatPlanMoney(planningAvailability.availableMinor),
                                     style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
@@ -483,7 +521,11 @@ fun PlanScreen(
 }
 
 @Composable
-private fun PlanHero(snapshot: PayCycleSnapshot) {
+private fun PlanHero(
+    snapshot: PayCycleSnapshot,
+    planningAvailability:
+        com.kedevjimmy.pesatrack.domain.rules.PlanningAvailability
+) {
     LandscapeBackdrop(
         modifier = Modifier
             .fillMaxWidth()
@@ -542,7 +584,7 @@ private fun PlanHero(snapshot: PayCycleSnapshot) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            formatPlanMoney(snapshot.availableToLiveMinor),
+                            formatPlanMoney(planningAvailability.availableMinor),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold
                         )
