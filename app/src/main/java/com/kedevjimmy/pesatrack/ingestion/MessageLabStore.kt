@@ -543,6 +543,11 @@ class MessageLabStore private constructor(
                         sourceKind
                 )
 
+        val existingShape =
+            shapeById(
+                identity.shapeId
+            )
+
         val current =
             readArray()
         val next =
