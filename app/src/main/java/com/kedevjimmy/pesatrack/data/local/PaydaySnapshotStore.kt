@@ -63,7 +63,7 @@ class PaydaySnapshotStore private constructor(
     private val appContext =
         context.applicationContext
     private val database =
-        PesaTrackDatabase(appContext)
+        PesaTrackDatabase.get(appContext)
     private val accountStore =
         AccountStore.get(appContext)
 
