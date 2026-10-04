@@ -80,11 +80,6 @@ class MessageLabStore private constructor(
             return
         }
 
-        val existingShape =
-            shapeById(
-                identity.shapeId
-            )
-
         val current =
             readArray()
         val next =
