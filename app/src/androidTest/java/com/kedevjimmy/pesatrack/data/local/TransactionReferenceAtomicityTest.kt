@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKind
+import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -48,6 +49,7 @@ class TransactionReferenceAtomicityTest {
         assertThrows(SQLException::class.java) {
             store.insertInterpretedMoneyMovementIfNew(
                 kind = CanonicalFinancialRecordKind.PAYMENT,
+                paymentRouteHint = PaymentRouteHint.MERCHANT,
                 transactionCode = TRANSACTION_CODE,
                 amountMinor = 2_500L,
                 counterparty = "Atomicity fixture",
