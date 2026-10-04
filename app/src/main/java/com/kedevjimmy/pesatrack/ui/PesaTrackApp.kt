@@ -189,11 +189,6 @@ fun PesaTrackApp(
                         navController.navigate(
                             "identity-review"
                         )
-                    },
-                    onDataHealthClick = {
-                        navController.navigate(
-                            "data-health"
-                        )
                     }
                 )
             }
@@ -219,11 +214,6 @@ fun PesaTrackApp(
                     onIdentityReviewClick = {
                         navController.navigate(
                             "identity-review"
-                        )
-                    },
-                    onDataHealthClick = {
-                        navController.navigate(
-                            "data-health"
                         )
                     },
                     openNeedsAttention = true
