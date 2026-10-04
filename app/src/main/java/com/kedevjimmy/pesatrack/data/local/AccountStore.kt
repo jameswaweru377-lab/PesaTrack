@@ -8,7 +8,7 @@ import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import java.util.UUID
 
 class AccountStore private constructor(context: Context) {
-    private val database = PesaTrackDatabase(context)
+    private val database = PesaTrackDatabase.get(context)
 
     @Synchronized
     fun listAccounts(enabledOnly: Boolean = true): List<MoneyAccount> {
