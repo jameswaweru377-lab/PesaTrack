@@ -28,6 +28,53 @@ class OwnedMirrorTransferIntegrationTest {
     @Test fun bankThenWalletRemainsOneTransferAfterReplay() = verifyOrder(true)
     @Test fun walletThenBankRemainsOneTransferAfterReplay() = verifyOrder(false)
 
+    @Test fun oldBankNameOnlyTransferRepairsToWalletIncomeWithCorrectAccount() {
+        val code = "NAMED00001"
+        store.insertInterpretedMoneyMovementIfNew(
+            kind = CanonicalFinancialRecordKind.RECEIPT, transactionCode = code,
+            amountMinor = 20_000L, counterparty = "Example Bank", counterpartyPhone = null,
+            feeMinor = 0L, balanceMinor = null, occurredAtText = null, rawMessage = "Legacy bank-name receipt",
+            sourcePackage = "test.sms", sourceKind = "interpreted_TEST_SMS", receivedAtEpochMs = epoch,
+            rebuildPayCycles = false, accountIdOverride = AccountStore.DEFAULT_MPESA_ID,
+            accountTransferOverride = com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch(
+                bank.id, bank.name, AccountStore.DEFAULT_MPESA_ID, "M-Pesa",
+                com.kedevjimmy.pesatrack.domain.rules.OwnTransferEvidence.ACCOUNT_NAME
+            )
+        )
+        assertEquals("TRANSFER", store.recent().single().direction)
+        store.insertInterpretedMoneyMovementIfNew(
+            kind = CanonicalFinancialRecordKind.RECEIPT, transactionCode = code,
+            amountMinor = 20_000L, counterparty = "Example Bank", counterpartyPhone = null,
+            feeMinor = 0L, balanceMinor = null, occurredAtText = null, rawMessage = "Legacy bank-name receipt",
+            sourcePackage = "test.sms", sourceKind = "interpreted_TEST_SMS", receivedAtEpochMs = epoch,
+            rebuildPayCycles = false, accountIdOverride = AccountStore.DEFAULT_MPESA_ID,
+            directionOverride = MoneyDirection.INCOME
+        )
+        val repaired = store.recent().single()
+        assertEquals("INCOME", repaired.direction)
+        assertEquals(AccountStore.DEFAULT_MPESA_ID, repaired.accountId)
+        assertNull(repaired.linkedAccountId)
+    }
+
+    @Test fun explicitOneOffDecisionSurvivesAConflictingMatchedRuleOnReplay() {
+        insert(false)
+        val original = store.recent().single()
+        store.classifyManually(original.id, TransactionCategory.TRANSFER, MoneyDirection.TRANSFER, markTransfer = true)
+        val rule = SmartRule(id = "test-income-rule", name = "Income", counterpartyContains = "Sample",
+            category = TransactionCategory.INCOME, direction = MoneyDirection.INCOME)
+        store.insertInterpretedMoneyMovementIfNew(
+            kind = CanonicalFinancialRecordKind.RECEIPT, transactionCode = "MPESA00001",
+            amountMinor = 20_000L, counterparty = "Sample Sender", counterpartyPhone = null,
+            feeMinor = 0L, balanceMinor = 80_000L, occurredAtText = null, rawMessage = "Replay",
+            sourcePackage = "test.sms", sourceKind = "interpreted_TEST_SMS", receivedAtEpochMs = epoch,
+            rebuildPayCycles = false, accountIdOverride = AccountStore.DEFAULT_MPESA_ID,
+            matchedRule = rule, directionOverride = MoneyDirection.INCOME
+        )
+        val preserved = store.recent().single()
+        assertEquals(ReviewState.USER_CLASSIFIED.name, preserved.reviewState)
+        assertEquals(MoneyDirection.TRANSFER.name, preserved.direction)
+    }
+
     private fun verifyOrder(bankFirst: Boolean) {
         assertTrue(insert(bankFirst))
         assertFalse(insert(!bankFirst))

@@ -329,10 +329,18 @@ class TransactionStore private constructor(context: Context) {
                             existingFingerprint.reviewState !=
                                 ReviewState.EXCLUDED.name
 
+                    val preservesUserDecision = existingFingerprint.reviewState in setOf(
+                        ReviewState.USER_CLASSIFIED.name, ReviewState.EXCLUDED.name
+                    )
                     if (
-                        (matchedRule != null || safeSemanticOverride) &&
+                        (matchedRule != null || safeSemanticOverride) && !preservesUserDecision &&
                         existingFingerprint.evidenceSource != "owned_mirror_transfer"
                     ) {
+                        if (safeSemanticOverride && accountId != null) {
+                            put("account_id", accountId)
+                            if (linkedAccountId == null) putNull("linked_account_id")
+                            else put("linked_account_id", linkedAccountId)
+                        }
                         put(
                             "direction",
                             classification.direction.name
