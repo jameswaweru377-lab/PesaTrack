@@ -117,6 +117,8 @@ class FinancialTrustRegressionTest {
             ruleStore.save(
                 name = "Salary",
                 counterpartyContains = "",
+                counterpartyExact =
+                    "Employer",
                 category =
                     TransactionCategory.INCOME,
                 direction =
@@ -143,6 +145,8 @@ class FinancialTrustRegressionTest {
         ruleStore.save(
             name = "Rent",
             counterpartyContains = "",
+            counterpartyExact =
+                "Landlord",
             category =
                 TransactionCategory.RENT,
             direction =
@@ -156,6 +160,8 @@ class FinancialTrustRegressionTest {
             name =
                 "Frequent transport recurring",
             counterpartyContains = "",
+            counterpartyExact =
+                "Regular Matatu",
             category =
                 TransactionCategory.TRANSPORT,
             direction =
