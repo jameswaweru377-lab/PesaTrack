@@ -4212,3 +4212,14 @@ Next engineering order:
 4. use real 30-day Data Health review burden to decide future intelligence work.
 
 Do not invent a Phase 7 merely to keep the roadmap moving.
+
+
+## Post-audit cleanup — 2026-10-04
+
+- Audit/product-boundary PR #202 merged to main as `4ece850ca3aeda5a53e641a525464d01b5ea209e`.
+- Post-merge Worker deployment and Android CI both passed.
+- Historical import still exposed a dead Fuliza-specific metric even though the app has moved to provider-neutral financial semantics.
+- The metric was permanently zero and the UI row could never appear.
+- Follow-up cleanup removes that field and row instead of reviving provider-specific accounting UI.
+
+Next priority remains Android migration/crash-consistency/runtime tests, then database-ownership consolidation.
