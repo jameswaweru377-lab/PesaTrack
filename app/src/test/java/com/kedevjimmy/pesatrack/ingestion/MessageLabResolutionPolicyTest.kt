@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ingestion
 
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseProvenance
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseRoute
 import org.junit.Assert.assertEquals
@@ -107,6 +108,34 @@ class MessageLabResolutionPolicyTest {
         )
         assertNull(
             context.templateId
+        )
+    }
+
+    @Test
+    fun realMshwariRepaymentInterpretationResolvesAsLoanRepayment() {
+        val interpretation =
+            FinancialMessageInterpreter
+                .interpret(
+                    title = "MPESA",
+                    body =
+                        "TSTV14M001 Confirmed. Loan of Ksh575.00 repaid from M-PESA on 2/10/26 at 7:33 AM. Loan balance is Ksh0.00. Transaction cost Kshs 0.00"
+                )
+
+        val context =
+            MessageLabResolutionPolicy
+                .contextFor(
+                    interpretation
+                )
+
+        assertTrue(
+            MessageLabSemanticLabel
+                .LOAN_REPAYMENT in
+                context.resolvedSemanticLabels
+        )
+        assertEquals(
+            MessageLabResolutionKind
+                .PARSER_COVERAGE,
+            context.kind
         )
     }
 
