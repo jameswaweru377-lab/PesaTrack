@@ -87,12 +87,19 @@ Wrangler is configured with `keep_vars: true` so dashboard-managed Worker variab
 
 The Android app must not embed a reusable secret to authenticate to this Worker. APK secrets are extractable and would not create a meaningful trust boundary.
 
-Because `/v1/entity/resolve` is therefore publicly callable, production deployment should protect provider quota and cost at the Cloudflare edge:
+Because `/v1/entity/resolve` is publicly callable, the Worker uses Cloudflare's native Rate Limiting binding before it parses the request body or calls the upstream provider.
 
-- configure Cloudflare rate limiting / abuse controls for the resolve route;
-- monitor request volume, error rate, and upstream provider usage;
+Current repository policy:
+- `ENTITY_RESOLVE_RATE_LIMITER` is configured in the root `wrangler.jsonc`;
+- the resolve route is capped at 60 requests per 60 seconds for the stable route key in each Cloudflare edge location;
+- HTTP 429 responses include `Retry-After: 60`;
+- the resolve route fails closed with HTTP 503 if the limiter binding is unexpectedly missing;
+- the health route is not rate limited;
+- IP addresses are deliberately not used as limiter keys because mobile/NAT users may share them;
 - keep `LOGO_DEV_SECRET_KEY` only in Cloudflare;
 - never weaken descriptor privacy checks in order to make rate limiting easier;
 - do not send raw SMS, phone numbers, transaction codes, account numbers, or likely personal names.
 
-Rate limiting is deployment infrastructure, not Android accounting logic. If enrichment is throttled or unavailable, PesaTrack must continue with local ledger truth and local entity intelligence.
+This rate limit protects provider quota and abuse exposure; it is not authentication and is not an accounting control. Cloudflare's Worker limiter is permissive/eventually consistent and local to an edge location, so monitoring upstream usage still matters.
+
+If enrichment is throttled or unavailable, PesaTrack must continue with local ledger truth and local entity intelligence.
