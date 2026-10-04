@@ -9,6 +9,28 @@ function assert(condition, message) {
   }
 }
 
+
+const allowRateLimiter = {
+  async limit({ key }) {
+    assert(
+      key === "v1-entity-resolve",
+      "resolve limiter should use the stable route key"
+    );
+    return { success: true };
+  },
+};
+
+const denyRateLimiter = {
+  async limit() {
+    return { success: false };
+  },
+};
+
+const allowedEnv = {
+  ENTITY_RESOLVE_RATE_LIMITER:
+    allowRateLimiter,
+};
+
 const health = await worker.fetch(
   new Request(
     "https://example.test/v1/entity/health"
@@ -48,7 +70,7 @@ const sensitive = await worker.fetch(
       }),
     }
   ),
-  {}
+  allowedEnv
 );
 assert(
   sensitive.status === 400,
@@ -68,7 +90,7 @@ const person = await worker.fetch(
       }),
     }
   ),
-  {}
+  allowedEnv
 );
 assert(
   person.status === 400,
@@ -88,11 +110,59 @@ const safeWithoutProvider = await worker.fetch(
       }),
     }
   ),
-  {}
+  allowedEnv
 );
 assert(
   safeWithoutProvider.status === 503,
   "safe descriptor should reach provider boundary"
+);
+
+
+const rateLimited = await worker.fetch(
+  new Request(
+    "https://example.test/v1/entity/resolve",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        descriptor: "ACME HARDWARE LTD",
+      }),
+    }
+  ),
+  {
+    ENTITY_RESOLVE_RATE_LIMITER:
+      denyRateLimiter,
+  }
+);
+assert(
+  rateLimited.status === 429,
+  "resolve endpoint should return 429 when rate limited"
+);
+assert(
+  rateLimited.headers.get("retry-after") === "60",
+  "rate-limited responses should tell clients when to retry"
+);
+
+const missingLimiter = await worker.fetch(
+  new Request(
+    "https://example.test/v1/entity/resolve",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        descriptor: "ACME HARDWARE LTD",
+      }),
+    }
+  ),
+  {}
+);
+assert(
+  missingLimiter.status === 503,
+  "resolve endpoint should fail closed when its limiter binding is missing"
 );
 
 assert(
