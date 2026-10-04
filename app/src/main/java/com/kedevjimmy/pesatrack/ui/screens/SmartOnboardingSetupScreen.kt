@@ -200,7 +200,7 @@ fun SmartOnboardingSetupScreen(
         mutableStateOf(3)
     }
     var smsGranted by remember {
-        mutableStateOf(hasSmsPermission(context))
+        mutableStateOf(smartHasSmsPermission(context))
     }
     var smsPromptLaunched by rememberSaveable {
         mutableStateOf(false)
@@ -251,7 +251,7 @@ fun SmartOnboardingSetupScreen(
         mutableStateOf(false)
     }
     var notificationGranted by remember {
-        mutableStateOf(hasNotificationAccess(context))
+        mutableStateOf(smartHasNotificationAccess(context))
     }
     var notificationSettingsVisited by rememberSaveable {
         mutableStateOf(false)
@@ -333,7 +333,7 @@ fun SmartOnboardingSetupScreen(
                 .StartActivityForResult()
         ) {
             smsGranted =
-                hasSmsPermission(context)
+                smartHasSmsPermission(context)
             if (smsGranted) {
                 stage =
                     SmartSetupStage.ANALYZE
@@ -351,7 +351,7 @@ fun SmartOnboardingSetupScreen(
                 .StartActivityForResult()
         ) {
             notificationGranted =
-                hasNotificationAccess(context)
+                smartHasNotificationAccess(context)
             if (notificationGranted) {
                 stage = SmartSetupStage.COMPLETE
             } else {
@@ -367,9 +367,9 @@ fun SmartOnboardingSetupScreen(
                     Lifecycle.Event.ON_RESUME
                 ) {
                     smsGranted =
-                        hasSmsPermission(context)
+                        smartHasSmsPermission(context)
                     notificationGranted =
-                        hasNotificationAccess(
+                        smartHasNotificationAccess(
                             context
                         )
                     if (
@@ -404,7 +404,7 @@ fun SmartOnboardingSetupScreen(
                 stage =
                     SmartSetupStage.ANALYZE
             } else if (
-                isLikelySideloaded(
+                smartIsLikelySideloaded(
                     context
                 ) &&
                 !smsAppInfoVisited
@@ -1551,10 +1551,10 @@ fun SmartOnboardingSetupScreen(
 
             SmartSetupStage.SMS_PERMISSION -> {
                 item {
-                    SmsPermissionPage(
+                    SmartSmsPermissionPage(
                         denied = smsDenied,
                         restrictedHelp =
-                            isLikelySideloaded(
+                            smartIsLikelySideloaded(
                                 context
                             ) &&
                                 (
@@ -1945,17 +1945,17 @@ fun SmartOnboardingSetupScreen(
 
             SmartSetupStage.LIVE_CAPTURE -> {
                 item {
-                    LiveCapturePage(
+                    SmartLiveCapturePage(
                         alreadyEnabled =
                             notificationGranted,
                         settingsVisited =
                             notificationSettingsVisited,
                         restrictedInstall =
-                            isLikelySideloaded(
+                            smartIsLikelySideloaded(
                                 context
                             ),
                         restrictedPrepared =
-                            !isLikelySideloaded(
+                            !smartIsLikelySideloaded(
                                 context
                             ) ||
                                 smsAppInfoVisited,
@@ -1967,7 +1967,7 @@ fun SmartOnboardingSetupScreen(
                                     SmartSetupStage
                                         .COMPLETE
                             } else if (
-                                isLikelySideloaded(
+                                smartIsLikelySideloaded(
                                     context
                                 ) &&
                                 !smsAppInfoVisited
@@ -1988,7 +1988,7 @@ fun SmartOnboardingSetupScreen(
                                 notificationSettingsVisited =
                                     true
                                 settingsLauncher.launch(
-                                    notificationAccessIntent(
+                                    smartNotificationAccessIntent(
                                         context
                                     )
                                 )
@@ -2181,154 +2181,6 @@ private fun ImportChoicePage(
 
         Text(
             "You can import or re-import history later from Settings.",
-            style =
-                MaterialTheme.typography
-                    .bodySmall,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun SmsPermissionPage(
-    denied: Boolean,
-    restrictedHelp: Boolean,
-    onOpenAppInfo: () -> Unit,
-    onTryAgain: () -> Unit,
-    onContinueWithout: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement =
-            Arrangement.spacedBy(16.dp)
-    ) {
-        SmartSetupHero(
-            icon = Icons.AutoMirrored.Rounded.Message,
-            title = "Allow access to your messages",
-            body =
-                "Android controls this permission. PesaTrack uses it only to read the history you chose."
-        )
-
-        PesaCard {
-            Column(
-                Modifier.padding(18.dp),
-                horizontalAlignment =
-                    Alignment.CenterHorizontally,
-                verticalArrangement =
-                    Arrangement.spacedBy(12.dp)
-            ) {
-                IconBubble(
-                    Icons.Rounded.Shield,
-                    size = 56.dp,
-                    background =
-                        pesaToneContainer("green"),
-                    tint =
-                        pesaToneContent("green")
-                )
-                Text(
-                    when {
-                        restrictedHelp ->
-                            "Android blocked SMS access"
-                        denied ->
-                            "SMS access wasn't allowed"
-                        else ->
-                            "Waiting for Android permission"
-                    },
-                    style =
-                        MaterialTheme.typography
-                            .titleLarge,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurface,
-                    textAlign =
-                        TextAlign.Center
-                )
-                Text(
-                    when {
-                        restrictedHelp ->
-                            "This debug APK was installed outside a trusted app store. On this phone, Android requires you to enable “Allow restricted settings” in App info first."
-                        denied ->
-                            "You can try again or continue without importing old messages."
-                        else ->
-                            "The system Allow / Don't allow dialog should appear automatically."
-                    },
-                    textAlign =
-                        TextAlign.Center,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
-            }
-        }
-
-        if (restrictedHelp) {
-            Surface(
-                modifier =
-                    Modifier.fillMaxWidth(),
-                shape =
-                    RoundedCornerShape(18.dp),
-                color =
-                    pesaToneContainer("amber")
-            ) {
-                Column(
-                    Modifier.padding(16.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        "One Android step is required",
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurface
-                    )
-                    Text(
-                        "Open App info → turn on Allow restricted settings → return to PesaTrack. The SMS permission request will open again automatically.",
-                        style =
-                            MaterialTheme.typography
-                                .bodyMedium,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                    Button(
-                        onClick = onOpenAppInfo,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 6.dp)
-                    ) {
-                        Text("Open App info")
-                    }
-                }
-            }
-        } else if (denied) {
-            Button(
-                onClick = onTryAgain,
-                modifier =
-                    Modifier.fillMaxWidth()
-            ) {
-                Text("Try again")
-            }
-        }
-
-        if (denied) {
-            OutlinedButton(
-                onClick =
-                    onContinueWithout,
-                modifier =
-                    Modifier.fillMaxWidth()
-            ) {
-                Text("Continue without import")
-            }
-        }
-
-        Text(
-            "PesaTrack cannot switch Android's restricted-settings protection on by itself. That decision always belongs to you.",
             style =
                 MaterialTheme.typography
                     .bodySmall,
@@ -3723,203 +3575,6 @@ private fun MpesaConfirmationPage(
 }
 
 @Composable
-private fun LiveCapturePage(
-    alreadyEnabled: Boolean,
-    settingsVisited: Boolean,
-    restrictedInstall: Boolean,
-    restrictedPrepared: Boolean,
-    onEnable: () -> Unit,
-    onOpenAppInfo: () -> Unit,
-    onLater: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement =
-            Arrangement.spacedBy(16.dp)
-    ) {
-    SmartSetupHero(
-        icon = Icons.Rounded.Notifications,
-        title = "Keep PesaTrack updated automatically",
-        body =
-            "Notification access lets PesaTrack understand new financial confirmations as they arrive."
-    )
-
-    PesaCard {
-        Column(
-            Modifier.padding(18.dp),
-            verticalArrangement =
-                Arrangement.spacedBy(14.dp)
-        ) {
-            SmartFeatureRow(
-                icon =
-                    Icons.AutoMirrored.Rounded.Message,
-                title = "New money messages",
-                body =
-                    "Processed locally when they arrive"
-            )
-            SmartFeatureRow(
-                icon =
-                    Icons.Rounded.Shield,
-                title = "No extra daily work",
-                body =
-                    "Your Activity view keeps itself current"
-            )
-        }
-    }
-
-    if (alreadyEnabled) {
-        Surface(
-            modifier =
-                Modifier.fillMaxWidth(),
-            shape =
-                RoundedCornerShape(18.dp),
-            color =
-                pesaToneContainer("green")
-        ) {
-            Row(
-                Modifier.padding(15.dp),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Rounded.CheckCircle,
-                    contentDescription = null,
-                    tint =
-                        pesaToneContent(
-                            "green"
-                        )
-                )
-                Text(
-                    "Live tracking is already enabled.",
-                    modifier =
-                        Modifier.padding(
-                            start = 10.dp
-                        )
-                )
-            }
-        }
-    }
-
-    Button(
-        onClick = onEnable,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 56.dp),
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Text(
-            when {
-                alreadyEnabled ->
-                    "Continue"
-                restrictedInstall &&
-                    !restrictedPrepared ->
-                    "Open App info first"
-                else ->
-                    "Enable live tracking"
-            }
-        )
-    }
-
-    if (
-        restrictedInstall &&
-        !restrictedPrepared &&
-        !alreadyEnabled
-    ) {
-        Surface(
-            modifier =
-                Modifier.fillMaxWidth(),
-            shape =
-                RoundedCornerShape(18.dp),
-            color =
-                pesaToneContainer("amber")
-        ) {
-            Column(
-                Modifier.padding(15.dp)
-            ) {
-                Text(
-                    "Debug install protection",
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium
-                )
-                Text(
-                    "Because this APK was installed outside Google Play, Android may block Notification Access until you manually turn on “Allow restricted settings” in App info.",
-                    modifier =
-                        Modifier.padding(top = 4.dp),
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
-            }
-        }
-    }
-
-    if (
-        settingsVisited &&
-        !alreadyEnabled
-    ) {
-        Surface(
-            modifier =
-                Modifier.fillMaxWidth(),
-            shape =
-                RoundedCornerShape(18.dp),
-            color =
-                pesaToneContainer("amber")
-        ) {
-            Column(
-                Modifier.padding(15.dp)
-            ) {
-                Text(
-                    "Still not enabled?",
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium
-                )
-                Text(
-                    "Sideloaded debug builds can require Android's “Allow restricted settings” switch first.",
-                    modifier =
-                        Modifier.padding(top = 4.dp),
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
-                TextButton(
-                    onClick =
-                        onOpenAppInfo
-                ) {
-                    Text("Open App info")
-                }
-            }
-        }
-    }
-
-    OutlinedButton(
-        onClick = onLater,
-        modifier =
-            Modifier.fillMaxWidth()
-    ) {
-        Text("Maybe later")
-    }
-
-    Text(
-        "Live tracking is optional. PesaTrack remains usable without it.",
-        style =
-            MaterialTheme.typography
-                .bodySmall,
-        color =
-            MaterialTheme.colorScheme
-                .onSurfaceVariant
-    )
-    }
-}
-
-@Composable
 private fun SetupCompletePage(
     sources: List<DetectedSetupSource>,
     salaryAccepted: Boolean,
@@ -4287,93 +3942,6 @@ private fun formatSetupDate(
     ).format(
         Date(epochMs)
     )
-
-private fun isLikelySideloaded(
-    context: Context
-): Boolean {
-    val installer =
-        runCatching {
-            if (
-                Build.VERSION.SDK_INT >=
-                Build.VERSION_CODES.R
-            ) {
-                context.packageManager
-                    .getInstallSourceInfo(
-                        context.packageName
-                    )
-                    .installingPackageName
-            } else {
-                @Suppress("DEPRECATION")
-                context.packageManager
-                    .getInstallerPackageName(
-                        context.packageName
-                    )
-            }
-        }.getOrNull()
-
-    return installer
-        ?.contains(
-            "vending",
-            ignoreCase = true
-        ) != true
-}
-
-private fun hasSmsPermission(
-    context: Context
-): Boolean =
-    ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.READ_SMS
-    ) ==
-        PackageManager.PERMISSION_GRANTED
-
-private fun hasNotificationAccess(
-    context: Context
-): Boolean =
-    NotificationManagerCompat
-        .getEnabledListenerPackages(
-            context
-        )
-        .contains(context.packageName)
-
-private fun notificationAccessIntent(
-    context: Context
-): Intent {
-    val component =
-        ComponentName(
-            context,
-            MpesaNotificationListenerService::
-                class.java
-        )
-
-    if (
-        Build.VERSION.SDK_INT >=
-        Build.VERSION_CODES.R
-    ) {
-        val detail =
-            Intent(
-                Settings
-                    .ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS
-            ).putExtra(
-                Settings
-                    .EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
-                component.flattenToString()
-            )
-
-        if (
-            detail.resolveActivity(
-                context.packageManager
-            ) != null
-        ) {
-            return detail
-        }
-    }
-
-    return Intent(
-        Settings
-            .ACTION_NOTIFICATION_LISTENER_SETTINGS
-    )
-}
 
 private fun sourceTypeOrder(
     type: String
