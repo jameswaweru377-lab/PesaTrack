@@ -310,31 +310,31 @@ fun HomeScreen(
             homeLoading = !homeLoaded
             try {
                 do {
-                refreshPending = false
-                val shouldRebuild = rebuildPending
-                rebuildPending = false
-                val loaded =
-                    loadHomeState(
-                        rebuildCycles =
-                            shouldRebuild
-                    )
-                cycleSnapshot =
-                    loaded.cycleSnapshot
-                ledgerSnapshot =
-                    loaded.ledgerSnapshot
-                activitySnapshot =
-                    loaded.activitySnapshot
-                debtAccounts =
-                    loaded.debtAccounts
-                trackedAccounts =
-                    loaded.trackedAccounts
-                confirmedAccountIds =
-                    loaded.confirmedAccountIds
-                salaryRule =
-                    loaded.salaryRule
-                needsAttentionCount =
-                    loaded.needsAttentionCount
-                homeLoaded = true
+                    refreshPending = false
+                    val shouldRebuild = rebuildPending
+                    rebuildPending = false
+                    val loaded =
+                        loadHomeState(
+                            rebuildCycles =
+                                shouldRebuild
+                        )
+                    cycleSnapshot =
+                        loaded.cycleSnapshot
+                    ledgerSnapshot =
+                        loaded.ledgerSnapshot
+                    activitySnapshot =
+                        loaded.activitySnapshot
+                    debtAccounts =
+                        loaded.debtAccounts
+                    trackedAccounts =
+                        loaded.trackedAccounts
+                    confirmedAccountIds =
+                        loaded.confirmedAccountIds
+                    salaryRule =
+                        loaded.salaryRule
+                    needsAttentionCount =
+                        loaded.needsAttentionCount
+                    homeLoaded = true
                 } while (refreshPending)
             } catch (cancelled: CancellationException) {
                 throw cancelled

@@ -104,6 +104,34 @@ class HomeIngestionConcurrencyTest {
     }
 
     @Test
+    fun automaticSalaryReceiptStillCreatesCycle() {
+        RuleStore.get(context).save(
+            name = "Salary",
+            counterpartyContains = "TEST EMPLOYER",
+            category = TransactionCategory.INCOME,
+            direction = MoneyDirection.INCOME,
+            preset = RulePreset.SALARY,
+            startsPayCycle = true,
+            accountId = AccountStore.DEFAULT_MPESA_ID
+        )
+        val result = FinancialMessageIngestionCoordinator.get(context).ingest(
+            title = "MPESA",
+            body = "TSTAUTOSAL Confirmed.You have received Ksh60,000.00 from " +
+                "TEST EMPLOYER 0712345678 on 28/9/26 at 8:20 AM. " +
+                "New M-PESA balance is Ksh60,000.00.",
+            sourcePackage = "com.google.android.apps.messaging",
+            sourceKind = "TEST_SMS",
+            receivedAtEpochMs = 1_790_563_200_000L,
+            diagnosticMode = FinancialDiagnosticMode.RECONCILE_ONLY
+        )
+        assertEquals(1, result.insertedTransactions)
+        val snapshot = PayCycleStore.get(context).snapshot()
+        assertNotNull(snapshot.cycle)
+        assertEquals(6_000_000L, snapshot.cycle!!.openingIncomeMinor)
+        completed = true
+    }
+
+    @Test
     fun manualSalaryStillCreatesCycleAndRemainsIdempotent() {
         val salary = RuleStore.get(context).save(
             name = "Salary",
