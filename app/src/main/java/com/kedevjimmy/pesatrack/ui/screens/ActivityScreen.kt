@@ -117,7 +117,6 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnostic
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticCode
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.HistoricalSmsImporter
-import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -145,8 +144,7 @@ private data class ActivityScreenData(
     val financialDiagnostics: List<FinancialIngestionDiagnostic>,
     val accountsById: Map<String, MoneyAccount>,
     val confirmedAccountIds: Set<String>,
-    val identityReviewCount: Int,
-    val unsupportedShapeCount: Int
+    val identityReviewCount: Int
 )
 
 private fun emptyActivityLedgerSnapshot(): ActivityLedgerSnapshot =
@@ -169,7 +167,6 @@ fun ActivityScreen(
     onTransactionClick: (Long) -> Unit = {},
     onProfileClick: () -> Unit = {},
     onIdentityReviewClick: () -> Unit = {},
-    onDataHealthClick: () -> Unit = {},
     openNeedsAttention: Boolean = false
 ) {
     val context = LocalContext.current
@@ -193,9 +190,6 @@ fun ActivityScreen(
     }
     val identityGraphStore = remember {
         IdentityGraphStore.get(context)
-    }
-    val messageLabStore = remember {
-        MessageLabStore.get(context)
     }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
     val currentMonthEpochMs = remember {
@@ -269,9 +263,6 @@ fun ActivityScreen(
         )
     }
     var identityReviewCount by remember {
-        mutableStateOf(0)
-    }
-    var unsupportedShapeCount by remember {
         mutableStateOf(0)
     }
     var selectedGlobalQueue by
@@ -374,12 +365,6 @@ fun ActivityScreen(
                         .pendingReviewPrompts(
                             limit = 100
                         )
-                        .size,
-                unsupportedShapeCount =
-                    messageLabStore
-                        .recentUnsupported(
-                            100
-                        )
                         .size
             )
         }
@@ -405,8 +390,6 @@ fun ActivityScreen(
             data.confirmedAccountIds
         identityReviewCount =
             data.identityReviewCount
-        unsupportedShapeCount =
-            data.unsupportedShapeCount
     }
 
     val reviewableFinancialEntities =
@@ -677,8 +660,7 @@ fun ActivityScreen(
                     relationshipReviews.size +
                     reviewableFinancialEntities
                         .size +
-                    identityReviewCount +
-                    unsupportedShapeCount
+                    identityReviewCount
 
             item {
                 NeedsAttentionCard(
@@ -778,42 +760,6 @@ fun ActivityScreen(
                     }
                 }
 
-                if (
-                    unsupportedShapeCount > 0
-                ) {
-                    item {
-                        AttentionQuestionHeader(
-                            title =
-                                "Can PesaTrack understand this message?",
-                            subtitle =
-                                "Unsupported financial shapes stay honest and can be reviewed safely in Data Health."
-                        )
-                    }
-                    item {
-                        AttentionNavigationCard(
-                            icon =
-                                Icons.AutoMirrored
-                                    .Rounded
-                                    .HelpOutline,
-                            title =
-                                "$unsupportedShapeCount message format" +
-                                    if (
-                                        unsupportedShapeCount ==
-                                        1
-                                    ) {
-                                        ""
-                                    } else {
-                                        "s"
-                                    } +
-                                    " need coverage",
-                            subtitle =
-                                "Open Data Health to inspect the redacted shape and coverage status.",
-                            tone = "amber",
-                            onClick =
-                                onDataHealthClick
-                        )
-                    }
-                }
 
                 if (
                     globalOverview
