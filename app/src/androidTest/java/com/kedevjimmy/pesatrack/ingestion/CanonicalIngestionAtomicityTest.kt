@@ -20,12 +20,13 @@ class CanonicalIngestionAtomicityTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        PesaTrackDatabase.resetForTests()
         context.deleteDatabase(DATABASE_NAME)
     }
 
     @After
     fun tearDown() {
-        PesaTrackDatabase.get(context).close()
+        PesaTrackDatabase.resetForTests()
         context.deleteDatabase(DATABASE_NAME)
     }
 
