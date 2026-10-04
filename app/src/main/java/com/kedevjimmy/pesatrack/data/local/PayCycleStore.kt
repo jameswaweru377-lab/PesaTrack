@@ -564,8 +564,11 @@ class PayCycleStore private constructor(context: Context) {
                     (
                         direction = ?
                         AND (
-                            planned_amount_minor IS NOT NULL
-                            OR preset IN ('RENT', 'INTERNET', 'ELECTRICITY', 'FAMILY_SUPPORT')
+                            preset IN ('RENT', 'INTERNET', 'ELECTRICITY', 'FAMILY_SUPPORT')
+                            OR (
+                                planned_amount_minor IS NOT NULL
+                                AND category IN ('RENT', 'INTERNET', 'ELECTRICITY', 'WATER', 'FAMILY')
+                            )
                         )
                     )
                     OR (
