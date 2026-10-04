@@ -1,0 +1,922 @@
+package com.kedevjimmy.pesatrack.ui.screens
+
+import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
+import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
+import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.health.ReviewBurdenAnalysis
+import com.kedevjimmy.pesatrack.domain.health.ReviewBurdenSnapshot
+import com.kedevjimmy.pesatrack.domain.identity.IdentityGraphSnapshot
+import com.kedevjimmy.pesatrack.domain.messagepack.KenyaMessagePack
+import com.kedevjimmy.pesatrack.ingestion.FinancialCoverageAnalysis
+import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessFreshness
+import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessReport
+import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessStateStore
+import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessor
+import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
+import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
+import com.kedevjimmy.pesatrack.ingestion.FinancialMessageInspection
+import com.kedevjimmy.pesatrack.ingestion.FinancialMessageInspector
+import com.kedevjimmy.pesatrack.ingestion.FinancialSourceCoverageSnapshot
+import com.kedevjimmy.pesatrack.ingestion.MessageLabStore
+import com.kedevjimmy.pesatrack.ingestion.MessageLabImplementationReview
+import com.kedevjimmy.pesatrack.ingestion.MessageLabImplementationReviewState
+import com.kedevjimmy.pesatrack.ingestion.MessageInspectorParserHandoffPolicy
+import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadiness
+import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadinessState
+import com.kedevjimmy.pesatrack.ingestion.MessageLabRelevanceExplainer
+import com.kedevjimmy.pesatrack.ingestion.MessageLabResolutionKind
+import com.kedevjimmy.pesatrack.ingestion.MessageLabResolutionRegressionChecker
+import com.kedevjimmy.pesatrack.ingestion.ResolvedCoverageCheck
+import com.kedevjimmy.pesatrack.ingestion.ResolvedCoverageCheckState
+import com.kedevjimmy.pesatrack.ingestion.ResolvedMessageLabShape
+import com.kedevjimmy.pesatrack.ingestion.MessageLabSemanticLabel
+import com.kedevjimmy.pesatrack.ingestion.MessageLabUserDecision
+import com.kedevjimmy.pesatrack.ingestion.UnsupportedMessageShape
+import com.kedevjimmy.pesatrack.ui.components.PesaCard
+import com.kedevjimmy.pesatrack.ui.components.SectionHeader
+import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
+
+@Composable
+internal fun DataHealthMessageInspectorCard(
+    title: String,
+    body: String,
+    inspection:
+        FinancialMessageInspection?,
+    evidenceShape:
+        UnsupportedMessageShape?,
+    financialEvidenceSaved: Boolean,
+    onTitleChange: (String) -> Unit,
+    onBodyChange: (String) -> Unit,
+    onAnalyze: () -> Unit,
+    onClear: () -> Unit,
+    onAddFinancialEvidence: () -> Unit,
+    onSemanticLabelSelected:
+        (MessageLabSemanticLabel) -> Unit,
+    onSemanticLabelCleared: () -> Unit,
+    onImplementationReviewSelected:
+        (MessageLabImplementationReviewState) ->
+        Unit,
+    onImplementationReviewCleared:
+        () -> Unit,
+    onCopyParserDraft: () -> Unit,
+    onCopyImplementationPacket: () -> Unit,
+    onCopySanitized: () -> Unit
+) {
+    PesaCard(
+        modifier =
+            Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier =
+                Modifier.padding(
+                    16.dp
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    10.dp
+                )
+        ) {
+            Text(
+                "Test the current PesaTrack brain",
+                style =
+                    MaterialTheme
+                        .typography
+                        .titleLarge
+            )
+            Text(
+                "Paste one problematic SMS here. PesaTrack analyzes it locally with the current Message Pack and Financial Intelligence. The raw text is not saved by this tool.",
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodySmall,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+
+            OutlinedTextField(
+                value = title,
+                onValueChange =
+                    onTitleChange,
+                modifier =
+                    Modifier.fillMaxWidth(),
+                label = {
+                    Text(
+                        "Sender / title (optional)"
+                    )
+                },
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = body,
+                onValueChange =
+                    onBodyChange,
+                modifier =
+                    Modifier.fillMaxWidth(),
+                label = {
+                    Text("Message")
+                },
+                minLines = 4,
+                maxLines = 8
+            )
+
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        8.dp
+                    )
+            ) {
+                Button(
+                    onClick =
+                        onAnalyze,
+                    enabled =
+                        body.isNotBlank(),
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+                    Text("Analyze")
+                }
+                TextButton(
+                    onClick =
+                        onClear,
+                    enabled =
+                        body.isNotBlank() ||
+                            title.isNotBlank() ||
+                            inspection != null,
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+                    Text("Clear")
+                }
+            }
+
+            inspection?.let {
+                result ->
+                val statusText =
+                    when {
+                        result.recognized ->
+                            "Recognized"
+
+                        result
+                            .semanticallyUnderstood ->
+                            "Understood"
+
+                        result
+                            .wouldEnterMessageLab ->
+                            "Not understood"
+
+                        else ->
+                            "Not financial / ignored"
+                    }
+                val statusTone =
+                    when {
+                        result.recognized ->
+                            "green"
+
+                        result
+                            .semanticallyUnderstood ->
+                            "blue"
+
+                        result
+                            .wouldEnterMessageLab ->
+                            "amber"
+
+                        else ->
+                            "blue"
+                    }
+
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Inspection result",
+                        modifier =
+                            Modifier.weight(1f),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleMedium
+                    )
+                    SmallStatusPill(
+                        text =
+                            statusText,
+                        tone =
+                            statusTone
+                    )
+                }
+
+                dataHealthInspectorDetail(
+                    label = "Parse route",
+                    value =
+                        result.parseRoute.name
+                )
+                dataHealthInspectorDetail(
+                    label = "Template",
+                    value =
+                        result.templateId
+                            ?.let {
+                                id ->
+                                id +
+                                    (
+                                        result
+                                            .templateRevision
+                                            ?.let {
+                                                " @r$it"
+                                            }
+                                            ?: ""
+                                        )
+                            }
+                            ?: "No Message Pack template"
+                )
+                dataHealthInspectorDetail(
+                    label =
+                        "Relevance score",
+                    value =
+                        result.relevanceScore
+                            .toString()
+                )
+
+                if (
+                    result
+                        .relevanceSignals
+                        .isNotEmpty()
+                ) {
+                    dataHealthInspectorDetail(
+                        label =
+                            "Relevance signals",
+                        value =
+                            result
+                                .relevanceSignals
+                                .map {
+                                    it.name
+                                        .lowercase()
+                                        .replace(
+                                            "_",
+                                            " "
+                                        )
+                                }
+                                .sorted()
+                                .joinToString()
+                    )
+                }
+
+                if (
+                    result
+                        .extractedFieldNames
+                        .isNotEmpty()
+                ) {
+                    dataHealthInspectorDetail(
+                        label =
+                            "Extracted fields",
+                        value =
+                            result
+                                .extractedFieldNames
+                                .joinToString()
+                    )
+                }
+
+                result.transactionCode
+                    ?.let {
+                        dataHealthInspectorDetail(
+                            label =
+                                "Transaction code",
+                            value = it
+                        )
+                    }
+                result.occurredAtText
+                    ?.let {
+                        dataHealthInspectorDetail(
+                            label =
+                                "Message date/time",
+                            value = it
+                        )
+                    }
+
+                if (
+                    result.eventSummaries
+                        .isNotEmpty()
+                ) {
+                    Text(
+                        "Events",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelLarge,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .primary
+                    )
+                    result.eventSummaries
+                        .forEach {
+                            event ->
+                            Text(
+                                "• $event",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                }
+
+                if (
+                    result.balanceSummaries
+                        .isNotEmpty()
+                ) {
+                    Text(
+                        "Balances",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelLarge,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .primary
+                    )
+                    result.balanceSummaries
+                        .forEach {
+                            balance ->
+                            Text(
+                                "• $balance",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                }
+
+                if (
+                    result.semanticIntents
+                        .isNotEmpty()
+                ) {
+                    dataHealthInspectorDetail(
+                        label =
+                            "Semantic hints",
+                        value =
+                            result
+                                .semanticIntents
+                                .map {
+                                    it.lowercase()
+                                        .replace(
+                                            "_",
+                                            " "
+                                        )
+                                }
+                                .joinToString()
+                    )
+                }
+
+                result.savedUserDecision
+                    ?.let {
+                        decision ->
+                        dataHealthInspectorDetail(
+                            label =
+                                "Saved Message Lab choice",
+                            value =
+                                when (decision) {
+                                    MessageLabUserDecision
+                                        .CONFIRMED_FINANCIAL ->
+                                        "Financial"
+
+                                    MessageLabUserDecision
+                                        .NOT_FINANCIAL ->
+                                        "Not financial"
+                                }
+                        )
+                    }
+
+                result.savedSemanticLabel
+                    ?.let {
+                        label ->
+                        dataHealthInspectorDetail(
+                            label =
+                                "Saved meaning",
+                            value =
+                                label.displayLabel
+                        )
+                    }
+
+                if (
+                    result
+                        .savedDecisionAmbiguous
+                ) {
+                    Text(
+                        "This wording exists in more than one Message Lab source channel, so no saved Financial / Not financial choice was applied to this pasted message.",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
+                Text(
+                    result.provenanceReason,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+
+                Text(
+                    when {
+                        result
+                            .wouldEnterMessageLab ->
+                            "With the current parser and any unambiguous saved Message Lab choice, this message would still enter Message Lab as unsupported financial evidence."
+
+                        result.recognized ||
+                            result
+                                .semanticallyUnderstood ->
+                            "This message should not remain in Message Lab after reconciliation."
+
+                        result.savedUserDecision ==
+                            MessageLabUserDecision
+                                .NOT_FINANCIAL ->
+                            "Your saved Not financial choice suppresses this shape from Message Lab."
+
+                        result
+                            .savedDecisionAmbiguous ->
+                            "No source-specific saved choice was applied because the same wording exists in multiple source channels."
+
+                        else ->
+                            "This message does not currently qualify as unsupported financial evidence."
+                    },
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelMedium,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+
+                if (
+                    result.wouldEnterMessageLab
+                ) {
+                    if (
+                        financialEvidenceSaved ||
+                        result.savedUserDecision ==
+                            MessageLabUserDecision
+                                .CONFIRMED_FINANCIAL
+                    ) {
+                        Text(
+                            "This unsupported wording is already saved as financial evidence. Manual inspector evidence stays at one observation; repeated taps cannot make it parser-ready.",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .labelMedium,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .primary
+                        )
+                        Text(
+                            "What does this message mean?",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .titleSmall
+                        )
+                        Text(
+                            "This meaning is evidence for future parser work only. It does not create, edit, or categorize a ledger transaction.",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                        MessageLabSemanticLabel
+                            .values()
+                            .toList()
+                            .chunked(2)
+                            .forEach {
+                                rowLabels ->
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth(),
+                                    horizontalArrangement =
+                                        Arrangement
+                                            .spacedBy(
+                                                8.dp
+                                            )
+                                ) {
+                                    rowLabels.forEach {
+                                        label ->
+                                        FilterChip(
+                                            selected =
+                                                result
+                                                    .savedSemanticLabel ==
+                                                label,
+                                            onClick = {
+                                                if (
+                                                    result
+                                                        .savedSemanticLabel ==
+                                                    label
+                                                ) {
+                                                    onSemanticLabelCleared()
+                                                } else {
+                                                    onSemanticLabelSelected(
+                                                        label
+                                                    )
+                                                }
+                                            },
+                                            label = {
+                                                Text(
+                                                    label
+                                                        .displayLabel
+                                                )
+                                            },
+                                            modifier =
+                                                Modifier
+                                                    .weight(1f)
+                                        )
+                                    }
+                                    if (
+                                        rowLabels.size ==
+                                        1
+                                    ) {
+                                        Spacer(
+                                            modifier =
+                                                Modifier
+                                                    .weight(1f)
+                                        )
+                                    }
+                                }
+                            }
+                        evidenceShape
+                            ?.takeIf {
+                                result
+                                    .savedSemanticLabel !=
+                                    null
+                            }
+                            ?.let {
+                                shape ->
+                                val readiness =
+                                    MessageLabParserReadiness
+                                        .stateFor(shape)
+                                val readinessText =
+                                    when (readiness) {
+                                        MessageLabParserReadinessState
+                                            .NEEDS_FINANCIAL_CONFIRMATION ->
+                                            "Confirm financial"
+
+                                        MessageLabParserReadinessState
+                                            .NEEDS_MEANING_LABEL ->
+                                            "Needs meaning"
+
+                                        MessageLabParserReadinessState
+                                            .LABELED_SINGLE_OBSERVATION ->
+                                            "Need another real example"
+
+                                        MessageLabParserReadinessState
+                                            .EVIDENCE_READY ->
+                                            "Evidence ready"
+                                    }
+
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth(),
+                                    verticalAlignment =
+                                        Alignment
+                                            .CenterVertically
+                                ) {
+                                    Text(
+                                        "Parser evidence",
+                                        modifier =
+                                            Modifier
+                                                .weight(1f),
+                                        style =
+                                            MaterialTheme
+                                                .typography
+                                                .titleSmall
+                                    )
+                                    SmallStatusPill(
+                                        text =
+                                            readinessText,
+                                        tone =
+                                            if (
+                                                readiness ==
+                                                MessageLabParserReadinessState
+                                                    .EVIDENCE_READY
+                                            ) {
+                                                "green"
+                                            } else {
+                                                "amber"
+                                            }
+                                    )
+                                }
+
+                                Text(
+                                    "Observed " +
+                                        shape.occurrenceCount +
+                                        " time" +
+                                        if (
+                                            shape.occurrenceCount ==
+                                            1
+                                        ) {
+                                            ""
+                                        } else {
+                                            "s"
+                                        } +
+                                        if (
+                                            shape.familyOccurrenceCount >
+                                            shape.occurrenceCount
+                                        ) {
+                                            " · " +
+                                                shape.familyOccurrenceCount +
+                                                " across this format family"
+                                        } else {
+                                            ""
+                                        },
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .labelSmall,
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                )
+
+                                when (readiness) {
+                                    MessageLabParserReadinessState
+                                        .LABELED_SINGLE_OBSERVATION ->
+                                        Text(
+                                            "One real observation is not enough for parser work. A manually pasted sample stays at one observation; wait for another actual occurrence or existing family evidence.",
+                                            style =
+                                                MaterialTheme
+                                                    .typography
+                                                    .bodySmall,
+                                            color =
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .onSurfaceVariant
+                                        )
+
+                                    MessageLabParserReadinessState
+                                        .EVIDENCE_READY -> {
+                                        val handoff =
+                                            MessageInspectorParserHandoffPolicy
+                                                .availabilityFor(
+                                                    shape
+                                                )
+                                        Text(
+                                            "Implementation review",
+                                            style =
+                                                MaterialTheme
+                                                    .typography
+                                                    .titleSmall
+                                        )
+                                        Text(
+                                            "Reviewing evidence still does not activate a parser. It only decides whether development should proceed or wait for more examples.",
+                                            style =
+                                                MaterialTheme
+                                                    .typography
+                                                    .bodySmall,
+                                            color =
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .onSurfaceVariant
+                                        )
+                                        MessageLabImplementationReviewState
+                                            .values()
+                                            .forEach {
+                                                review ->
+                                                FilterChip(
+                                                    selected =
+                                                        shape
+                                                            .implementationReview ==
+                                                        review,
+                                                    onClick = {
+                                                        if (
+                                                            shape
+                                                                .implementationReview ==
+                                                            review
+                                                        ) {
+                                                            onImplementationReviewCleared()
+                                                        } else {
+                                                            onImplementationReviewSelected(
+                                                                review
+                                                            )
+                                                        }
+                                                    },
+                                                    label = {
+                                                        Text(
+                                                            review
+                                                                .displayLabel
+                                                        )
+                                                    },
+                                                    modifier =
+                                                        Modifier
+                                                            .fillMaxWidth()
+                                                )
+                                            }
+                                        if (
+                                            handoff
+                                                .parserDraftAvailable
+                                        ) {
+                                            Button(
+                                                onClick =
+                                                    onCopyParserDraft,
+                                                modifier =
+                                                    Modifier
+                                                        .fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    "Copy review-only parser draft"
+                                                )
+                                            }
+                                        }
+                                        if (
+                                            handoff
+                                                .implementationPacketAvailable
+                                        ) {
+                                            Button(
+                                                onClick =
+                                                    onCopyImplementationPacket,
+                                                modifier =
+                                                    Modifier
+                                                        .fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    "Copy implementation work packet"
+                                                )
+                                            }
+                                            Text(
+                                                "The work packet includes this approved family, all active sanitized variants, the parser draft, and the implementation/test guardrails. It still does not activate a parser.",
+                                                style =
+                                                    MaterialTheme
+                                                        .typography
+                                                        .labelSmall,
+                                                color =
+                                                    MaterialTheme
+                                                        .colorScheme
+                                                        .onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    else ->
+                                        Unit
+                                }
+                            }
+                    } else {
+                        Button(
+                            onClick =
+                                onAddFinancialEvidence,
+                            modifier =
+                                Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "Add as financial evidence"
+                            )
+                        }
+                        Text(
+                            "Only the locally redacted shape is stored. This manual sample counts as one observation and does not create a transaction, balance, parser, or repeated-evidence credit.",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .labelSmall,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                }
+
+                Text(
+                    "The copied diagnostic replaces the sender and interpreter-extracted values with placeholders. It does not copy event amounts, counterparties or account references.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+
+                TextButton(
+                    onClick =
+                        onCopySanitized,
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "Copy sanitized diagnostic"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun dataHealthInspectorDetail(
+    label: String,
+    value: String
+) {
+    Column(
+        verticalArrangement =
+            Arrangement.spacedBy(
+                2.dp
+            )
+    ) {
+        Text(
+            label,
+            style =
+                MaterialTheme
+                    .typography
+                    .labelSmall,
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant
+        )
+        Text(
+            value,
+            style =
+                MaterialTheme
+                    .typography
+                    .bodyMedium
+        )
+    }
+}
