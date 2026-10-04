@@ -67,6 +67,9 @@ import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadiness
 import com.kedevjimmy.pesatrack.ingestion.MessageLabParserReadinessState
 import com.kedevjimmy.pesatrack.ingestion.MessageLabRelevanceExplainer
 import com.kedevjimmy.pesatrack.ingestion.MessageLabResolutionKind
+import com.kedevjimmy.pesatrack.ingestion.MessageLabResolutionRegressionChecker
+import com.kedevjimmy.pesatrack.ingestion.ResolvedCoverageCheck
+import com.kedevjimmy.pesatrack.ingestion.ResolvedCoverageCheckState
 import com.kedevjimmy.pesatrack.ingestion.ResolvedMessageLabShape
 import com.kedevjimmy.pesatrack.ingestion.MessageLabSemanticLabel
 import com.kedevjimmy.pesatrack.ingestion.MessageLabUserDecision
@@ -155,6 +158,14 @@ fun DataHealthScreen(
         mutableStateOf<
             List<ResolvedMessageLabShape>
         >(emptyList())
+    }
+    var resolvedCoverageChecks by remember {
+        mutableStateOf<
+            Map<String, ResolvedCoverageCheck>
+        >(emptyMap())
+    }
+    var checkingResolvedCoverage by remember {
+        mutableStateOf(false)
     }
     var selectedCoverageSource by
         remember {
@@ -323,6 +334,8 @@ fun DataHealthScreen(
             loaded.ignoredUnsupported
         resolvedMessageLab =
             loaded.resolvedMessageLab
+        resolvedCoverageChecks =
+            emptyMap()
         identitySnapshot =
             loaded.identitySnapshot
         identityBackfillCount =
@@ -387,6 +400,36 @@ fun DataHealthScreen(
             }
 
             reprocessingHistory = false
+        }
+    }
+
+    fun runResolvedCoverageCheck() {
+        if (
+            checkingResolvedCoverage ||
+            resolvedMessageLab.isEmpty()
+        ) {
+            return
+        }
+
+        checkingResolvedCoverage = true
+
+        scope.launch {
+            val checks =
+                withContext(
+                    Dispatchers.Default
+                ) {
+                    MessageLabResolutionRegressionChecker
+                        .checkAll(
+                            resolvedMessageLab
+                        )
+                }
+
+            resolvedCoverageChecks =
+                checks.associateBy {
+                    it.shapeId
+                }
+            checkingResolvedCoverage =
+                false
         }
     }
 
@@ -2034,6 +2077,118 @@ fun DataHealthScreen(
                 )
             }
 
+            item {
+                Column(
+                    verticalArrangement =
+                        Arrangement.spacedBy(
+                            8.dp
+                        )
+                ) {
+                    Text(
+                        "Regression checks replay safe synthetic values into the current interpreter. They never recover raw SMS or write accounting state.",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+
+                    Button(
+                        onClick =
+                            ::runResolvedCoverageCheck,
+                        enabled =
+                            !checkingResolvedCoverage,
+                        modifier =
+                            Modifier.fillMaxWidth()
+                    ) {
+                        if (
+                            checkingResolvedCoverage
+                        ) {
+                            CircularProgressIndicator(
+                                modifier =
+                                    Modifier.height(
+                                        20.dp
+                                    ),
+                                strokeWidth =
+                                    2.dp
+                            )
+                            Text(
+                                " Checking…"
+                            )
+                        } else {
+                            Text(
+                                "Check resolved coverage"
+                            )
+                        }
+                    }
+
+                    if (
+                        resolvedCoverageChecks
+                            .isNotEmpty()
+                    ) {
+                        val possibleRegressions =
+                            resolvedCoverageChecks
+                                .values
+                                .count {
+                                    it.state ==
+                                        ResolvedCoverageCheckState
+                                            .POSSIBLE_REGRESSION
+                                }
+                        val inconclusive =
+                            resolvedCoverageChecks
+                                .values
+                                .count {
+                                    it.state ==
+                                        ResolvedCoverageCheckState
+                                            .INCONCLUSIVE
+                                }
+                        val stable =
+                            resolvedCoverageChecks
+                                .size -
+                                possibleRegressions -
+                                inconclusive
+
+                        Text(
+                            stable.toString() +
+                                " stable · " +
+                                possibleRegressions +
+                                " possible regression" +
+                                if (
+                                    possibleRegressions ==
+                                    1
+                                ) {
+                                    ""
+                                } else {
+                                    "s"
+                                } +
+                                " · " +
+                                inconclusive +
+                                " inconclusive",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .labelMedium,
+                            color =
+                                if (
+                                    possibleRegressions >
+                                    0
+                                ) {
+                                    MaterialTheme
+                                        .colorScheme
+                                        .error
+                                } else {
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                                }
+                        )
+                    }
+                }
+            }
+
             items(
                 count =
                     resolvedMessageLab
@@ -2045,9 +2200,14 @@ fun DataHealthScreen(
                             .shapeId
                 }
             ) { index ->
+                val record =
+                    resolvedMessageLab[index]
                 ResolvedMessageLabCard(
-                    record =
-                        resolvedMessageLab[index]
+                    record = record,
+                    coverageCheck =
+                        resolvedCoverageChecks[
+                            record.shapeId
+                        ]
                 )
             }
         }
@@ -4231,7 +4391,9 @@ private fun MessageLabRelevanceExplanation(
 
 @Composable
 private fun ResolvedMessageLabCard(
-    record: ResolvedMessageLabShape
+    record: ResolvedMessageLabShape,
+    coverageCheck:
+        ResolvedCoverageCheck?
 ) {
     PesaCard(
         modifier =
@@ -4402,6 +4564,91 @@ private fun ResolvedMessageLabCard(
                                 .onSurfaceVariant
                     )
                 }
+            coverageCheck?.let {
+                check ->
+                val tone =
+                    when (
+                        check.state
+                    ) {
+                        ResolvedCoverageCheckState
+                            .STILL_COVERED ->
+                            "green"
+
+                        ResolvedCoverageCheckState
+                            .COVERED_DIFFERENT_ROUTE,
+                        ResolvedCoverageCheckState
+                            .STILL_RETIRED ->
+                            "blue"
+
+                        ResolvedCoverageCheckState
+                            .POSSIBLE_REGRESSION ->
+                            "amber"
+
+                        ResolvedCoverageCheckState
+                            .INCONCLUSIVE ->
+                            "blue"
+                    }
+
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Current replay",
+                        modifier =
+                            Modifier.weight(1f),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelLarge
+                    )
+                    SmallStatusPill(
+                        text =
+                            check.state
+                                .displayLabel,
+                        tone =
+                            tone
+                    )
+                }
+
+                Text(
+                    check.explanation,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelSmall,
+                    color =
+                        if (
+                            check.state ==
+                            ResolvedCoverageCheckState
+                                .POSSIBLE_REGRESSION
+                        ) {
+                            MaterialTheme
+                                .colorScheme
+                                .error
+                        } else {
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                        }
+                )
+
+                if (
+                    check.currentTemplateId !=
+                    null &&
+                    check.currentTemplateId !=
+                    record.templateId
+                ) {
+                    InspectionDetail(
+                        label =
+                            "Current template",
+                        value =
+                            check.currentTemplateId
+                    )
+                }
+            }
         }
     }
 }
