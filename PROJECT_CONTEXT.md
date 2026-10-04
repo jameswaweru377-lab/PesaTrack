@@ -4212,3 +4212,16 @@ Next engineering order:
 4. use real 30-day Data Health review burden to decide future intelligence work.
 
 Do not invent a Phase 7 merely to keep the roadmap moving.
+
+
+## Quarantined screen cleanup — 2026-10-04
+
+After the product-boundary audit and multiple green CI/instrumentation runs, the quarantined dead screens were removed from source:
+
+- InitialMoneySetupScreen
+- PermissionSetupScreen
+- CommunityScreen
+- GoalsScreen
+- GoalDetailScreen
+
+These are not pending features. Old navigation destinations may redirect safely to current product surfaces, but the retired preview implementations should not be restored unless the Product Charter is intentionally changed.
