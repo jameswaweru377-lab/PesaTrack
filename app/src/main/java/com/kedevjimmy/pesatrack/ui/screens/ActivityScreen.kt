@@ -46,6 +46,7 @@ import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.ShoppingCart
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -62,6 +63,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -250,6 +252,9 @@ fun ActivityScreen(
     }
     var selectedFilter by remember {
         mutableStateOf("All")
+    }
+    var searchQuery by rememberSaveable {
+        mutableStateOf("")
     }
     var selectedFinancialSource by rememberSaveable {
         mutableStateOf<String?>(null)
@@ -560,20 +565,31 @@ fun ActivityScreen(
             return@filter false
         }
 
-        when (selectedFilter) {
-            "Needs review" ->
-                item.reviewState ==
-                    ReviewState.NEEDS_REVIEW.name
-            "Spending" ->
-                item.direction == MoneyDirection.EXPENSE.name
-            "Income" ->
-                item.direction == MoneyDirection.INCOME.name
-            "Transfers" ->
-                item.direction == MoneyDirection.TRANSFER.name &&
-                    item.relationType !=
-                        TransactionStore.RELATION_REFUND
-            else -> true
-        }
+        val matchesFilter =
+            when (selectedFilter) {
+                "Needs review" ->
+                    item.reviewState ==
+                        ReviewState.NEEDS_REVIEW.name
+                "Spending" ->
+                    item.direction == MoneyDirection.EXPENSE.name
+                "Income" ->
+                    item.direction == MoneyDirection.INCOME.name
+                "Transfers" ->
+                    item.direction == MoneyDirection.TRANSFER.name &&
+                        item.relationType !=
+                            TransactionStore.RELATION_REFUND
+                else -> true
+            }
+
+        val query = searchQuery.trim()
+        val matchesSearch =
+            query.isBlank() ||
+                item.counterparty?.contains(query, ignoreCase = true) == true ||
+                item.evidenceLabel?.contains(query, ignoreCase = true) == true ||
+                categoryStore.labelFor(item.category)
+                    .contains(query, ignoreCase = true)
+
+        matchesFilter && matchesSearch
     }
 
     val groupedFiltered = filtered
@@ -614,6 +630,28 @@ fun ActivityScreen(
                 item {
                     LiveActivityUpdateStatus()
                 }
+            }
+
+            item {
+                Text(
+                    "Activity",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Search transactions") },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.Search, contentDescription = null)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(18.dp)
+                )
             }
 
             item { SpendingPeriodSelector(false, {}, { payCycleMode = true }) }
