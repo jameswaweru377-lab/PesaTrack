@@ -81,6 +81,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private data class PlanReferenceData(
+    val snapshot: PayCycleSnapshot,
+    val recurring: List<RecurringPatternCandidate>,
+    val budgets: List<MonthlyBudget>,
+    val spentByCategory: Map<String, Long>,
+    val goals: List<SmartRule>
+)
+
 @Composable
 fun PlanScreen(
     scaffoldPadding: PaddingValues,
@@ -179,20 +187,19 @@ fun PlanScreen(
                             it.category == TransactionCategory.SAVINGS &&
                                 (it.plannedAmountMinor ?: 0L) > 0L
                         }
-                listOf(cycle, recurring, budgets, spent, goals)
+                PlanReferenceData(
+                    snapshot = cycle,
+                    recurring = recurring,
+                    budgets = budgets,
+                    spentByCategory = spent,
+                    goals = goals
+                )
             }
-        @Suppress("UNCHECKED_CAST")
-        run {
-            snapshot = loaded[0] as PayCycleSnapshot
-            recurringSuggestions =
-                loaded[1] as List<RecurringPatternCandidate>
-            monthlyBudgets =
-                loaded[2] as List<MonthlyBudget>
-            spentByBudgetCategory =
-                loaded[3] as Map<String, Long>
-            savingsGoals =
-                loaded[4] as List<SmartRule>
-        }
+        snapshot = loaded.snapshot
+        recurringSuggestions = loaded.recurring
+        monthlyBudgets = loaded.budgets
+        spentByBudgetCategory = loaded.spentByCategory
+        savingsGoals = loaded.goals
     }
 
     val planningAvailability =
