@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.kedevjimmy.pesatrack.ingestion.MpesaNotificationListenerService
+import com.kedevjimmy.pesatrack.ui.components.ConceptMessagesIllustration
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
@@ -58,6 +59,8 @@ internal fun SmartSmsPermissionPage(
             body =
                 "PesaTrack finds and organises transaction messages from M-Pesa, banks and other supported money sources."
         )
+
+        ConceptMessagesIllustration()
 
         PesaCard {
             Column(
