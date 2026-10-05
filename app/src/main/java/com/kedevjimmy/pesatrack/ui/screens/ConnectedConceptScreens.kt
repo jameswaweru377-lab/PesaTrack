@@ -173,7 +173,8 @@ fun ReportsInsightsScreen(
 @Composable
 fun BillsRemindersScreen(
     scaffoldPadding: PaddingValues,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onPlanClick: () -> Unit
 ) {
     val context = LocalContext.current
     val revision by LedgerUpdateBus.state.collectAsState()
@@ -236,6 +237,17 @@ fun BillsRemindersScreen(
                         Text("PesaTrack keeps bill status tied to real payment activity instead of marking bills paid by a calendar alone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+            }
+        }
+        item {
+            Button(
+                onClick = onPlanClick,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = null)
+                Spacer(Modifier.width(7.dp))
+                Text("Add or manage a bill")
             }
         }
     }
