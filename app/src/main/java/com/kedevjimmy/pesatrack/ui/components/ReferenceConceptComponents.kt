@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Eco
 import androidx.compose.material.icons.rounded.LocalFlorist
+import androidx.compose.material.icons.rounded.Message
+import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -17,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -88,6 +91,80 @@ fun ConceptWalletIllustration(
                 .offset(x = if (compact) 1.dp else 4.dp, y = if (compact) 3.dp else 8.dp)
                 .size(if (compact) 30.dp else 44.dp),
             tint = Color(0xFF2E9E63)
+        )
+    }
+}
+
+@Composable
+fun ConceptMessagesIllustration(
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(185.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            modifier = Modifier
+                .width(118.dp)
+                .height(166.dp)
+                .rotate(-7f),
+            shape = RoundedCornerShape(28.dp),
+            color = Color(0xFFE9F7EF),
+            tonalElevation = 4.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Rounded.PhoneAndroid,
+                    contentDescription = null,
+                    tint = ConceptEmerald,
+                    modifier = Modifier.size(76.dp)
+                )
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .offset(y = (-26).dp)
+                        .width(72.dp)
+                        .height(30.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF48C983)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Rounded.Message,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .offset(y = 26.dp)
+                        .width(66.dp)
+                        .height(26.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color.White
+                ) {}
+            }
+        }
+        ConceptWalletIllustration(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(x = 78.dp, y = 4.dp),
+            compact = true
+        )
+        Icon(
+            Icons.Rounded.Eco,
+            contentDescription = null,
+            tint = Color(0xFF2BA968),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(x = 86.dp, y = 10.dp)
+                .size(34.dp)
+                .rotate(-25f)
         )
     }
 }
@@ -238,8 +315,19 @@ fun ConceptMetricTile(
     modifier: Modifier = Modifier,
     positive: Boolean = true
 ) {
-    val soft = if (positive) Color(0xFFE6F8EC) else Color(0xFFFFEBE8)
-    val accent = if (positive) Color(0xFF2DBE62) else Color(0xFFE2685B)
+    val dark = MaterialTheme.colorScheme.background.luminance() < .45f
+    val soft =
+        if (positive) {
+            if (dark) Color(0xFF0A4B3C) else Color(0xFFE6F8EC)
+        } else {
+            if (dark) Color(0xFF563D34) else Color(0xFFFFEBE8)
+        }
+    val accent =
+        if (positive) {
+            if (dark) Color(0xFF79F2B1) else Color(0xFF2DBE62)
+        } else {
+            if (dark) Color(0xFFFF9D82) else Color(0xFFE2685B)
+        }
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(18.dp),
