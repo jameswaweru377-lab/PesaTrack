@@ -20,7 +20,7 @@ object SmartRuleEngine {
             counterparty = transaction.counterparty,
             counterpartyPhone = transaction.counterpartyPhone,
             amountMinor = transaction.amountMinor,
-            rules = rules
+            rules = rules.filter { !SalaryEvidencePolicy.isSalary(it) || SalaryEvidencePolicy.accepts(transaction) }
         )
 
     fun matchTransaction(
@@ -140,3 +140,4 @@ object SmartRuleEngine {
         }
     }
 }
+

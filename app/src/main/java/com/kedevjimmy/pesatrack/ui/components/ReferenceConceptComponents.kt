@@ -39,60 +39,12 @@ fun ConceptWalletIllustration(
     modifier: Modifier = Modifier,
     compact: Boolean = false
 ) {
-    val width = if (compact) 112.dp else 190.dp
-    val height = if (compact) 92.dp else 150.dp
-    Box(
-        modifier = modifier
-            .size(width = width, height = height),
-        contentAlignment = Alignment.Center
-    ) {
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .width(if (compact) 92.dp else 155.dp)
-                .height(if (compact) 55.dp else 92.dp),
-            shape = RoundedCornerShape(if (compact) 14.dp else 22.dp),
-            color = ConceptEmeraldDeep,
-            tonalElevation = 8.dp
-        ) {}
-        Surface(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .offset(y = if (compact) (-6).dp else (-10).dp)
-                .width(if (compact) 76.dp else 126.dp)
-                .height(if (compact) 42.dp else 67.dp)
-                .rotate(-8f),
-            shape = RoundedCornerShape(if (compact) 9.dp else 14.dp),
-            color = Color(0xFF4AC785)
-        ) {}
-        Surface(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .offset(x = if (compact) 26.dp else 42.dp, y = if (compact) 4.dp else 8.dp)
-                .size(if (compact) 22.dp else 34.dp),
-            shape = CircleShape,
-            color = Color(0xFFC99A4B)
-        ) {}
-        Icon(
-            imageVector = Icons.Rounded.Eco,
-            contentDescription = null,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(x = if (compact) 20.dp else 32.dp)
-                .size(if (compact) 34.dp else 54.dp)
-                .rotate(-18f),
-            tint = Color(0xFF7AE27F)
-        )
-        Icon(
-            imageVector = Icons.Rounded.LocalFlorist,
-            contentDescription = null,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .offset(x = if (compact) 1.dp else 4.dp, y = if (compact) 3.dp else 8.dp)
-                .size(if (compact) 30.dp else 44.dp),
-            tint = Color(0xFF2E9E63)
-        )
-    }
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(com.kedevjimmy.pesatrack.R.drawable.wallet_welcome),
+        contentDescription = "Emerald wallet on a pedestal with leaves",
+        modifier = modifier.size(if (compact) 112.dp else 310.dp),
+        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+    )
 }
 
 @Composable

@@ -11,6 +11,9 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
+import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -28,6 +31,7 @@ import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
+import com.kedevjimmy.pesatrack.ui.components.ConceptLoadError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -51,19 +55,27 @@ fun ProfileScreen(
 ) {
     val context = LocalContext.current
     val revision by LedgerUpdateBus.state.collectAsState()
+    val preferences = remember { context.getSharedPreferences("pesatrack_preferences", 0) }
+    var name by rememberSaveable { mutableStateOf(preferences.getString("profile_name", "").orEmpty()) }
+    var avatar by rememberSaveable { mutableStateOf(preferences.getString("profile_avatar", "🌿") ?: "🌿") }
+    var editProfile by remember { mutableStateOf(false) }
+    var draftName by remember { mutableStateOf("") }
+    var draftAvatar by remember { mutableStateOf(avatar) }
+    fun openEditor() { draftName = name; draftAvatar = avatar; editProfile = true }
     var picture by remember { mutableStateOf(ProfileMoneyPicture()) }
 
-    LaunchedEffect(revision.revision) {
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var retryLoad by remember { mutableIntStateOf(0) }
+    LaunchedEffect(revision.revision, retryLoad) {
+        loadError = null
+        try {
         picture = withContext(Dispatchers.IO) {
-            val rows = TransactionStore.get(context).recent(100)
-                .filter { it.reviewState != ReviewState.EXCLUDED.name }
-            val understood = rows.count {
-                it.reviewState != ReviewState.NEEDS_REVIEW.name &&
-                    it.cycleCandidateReason == null
-            }
-            val accounts = AccountStore.get(context)
-                .listAccounts(enabledOnly = true)
-                .count { it.type != AccountType.CASH }
+            val snapshot = TransactionStore.get(context).activitySnapshot()
+            val rows = snapshot.transactions.filter { it.reviewState != ReviewState.EXCLUDED.name && it.type != "REVERSAL" }
+            val understood = snapshot.trustedTransactions.size
+            val confirmed = FinancialUnderstandingStore.get(context).confirmedAccountIds()
+            val accounts = AccountStore.get(context).listAccounts(true)
+                .count { it.type != AccountType.SAVINGS && AccountDisplayPolicy.isConfirmedOwned(it, confirmed) }
             val goals = RuleStore.get(context)
                 .listRules(enabledOnly = true)
                 .count {
@@ -77,6 +89,12 @@ fun ProfileScreen(
                 goalCount = goals
             )
         }
+
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+        } catch (failure: Exception) {
+            android.util.Log.e("PesaTrackScreens", "Could not load screen", failure)
+            loadError = "Couldn't load this page. Your saved data is unchanged."
+        }
     }
 
     LazyColumn(
@@ -86,6 +104,7 @@ fun ProfileScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        item { ConceptLoadError(loadError) { retryLoad++ } }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
@@ -121,17 +140,13 @@ fun ProfileScreen(
                         ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            Icons.Rounded.Person,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp)
-                        )
+                        Text(avatar, style = MaterialTheme.typography.displaySmall)
+
                     }
                 }
                 Column(Modifier.padding(start = 14.dp)) {
                     Text(
-                        "PesaTrack user",
+                        name.ifBlank { "PesaTrack user" },
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -165,7 +180,7 @@ fun ProfileScreen(
                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = .55f)
                         )
                         Text(
-                            picture.coverage.toString() + "%",
+                            if (picture.receipts == 0) "—" else picture.coverage.toString() + "%",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -186,7 +201,7 @@ fun ProfileScreen(
                                 "Waiting for transaction messages"
                             } else {
                                 picture.understood.toString() + " of " +
-                                    picture.receipts + " recent receipts understood"
+                                    picture.receipts + " recorded entries included this month"
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -222,7 +237,7 @@ fun ProfileScreen(
                     ProfileMenuRow(
                         icon = Icons.Rounded.Person,
                         label = "Personal information",
-                        onClick = onSettingsClick
+                        onClick = ::openEditor
                     )
                     ProfileMenuRow(
                         icon = Icons.Rounded.CreditCard,
@@ -253,6 +268,22 @@ fun ProfileScreen(
             }
         }
     }
+    if (editProfile) AlertDialog(onDismissRequest = { editProfile = false }, title = { Text("Your profile") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(draftName, { draftName = it.take(60) }, label = { Text("Your name") }, singleLine = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("🌿", "😊", "🧑🏾", "👩🏾").forEach { value ->
+                    FilterChip(selected = draftAvatar == value, onClick = { draftAvatar = value }, label = { Text(value) })
+                }
+            }
+        } },
+        confirmButton = { TextButton(onClick = {
+            name = draftName.trim(); avatar = draftAvatar
+            preferences.edit().putString("profile_name", name).putString("profile_avatar", avatar).apply()
+            editProfile = false
+        }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = { editProfile = false }) { Text("Cancel") } })
+
 }
 
 @Composable

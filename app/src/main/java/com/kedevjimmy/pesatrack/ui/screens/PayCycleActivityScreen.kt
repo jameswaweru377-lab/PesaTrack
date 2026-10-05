@@ -46,6 +46,10 @@ internal fun SpendingPeriodSelector(payCycle: Boolean, onCalendar: () -> Unit, o
 internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: () -> Unit,
     onSalaryClick: () -> Unit, onTransactionClick: (Long) -> Unit) {
     val context = LocalContext.current
+    var accountTypes by remember { mutableStateOf<Map<String, com.kedevjimmy.pesatrack.domain.model.AccountType>>(emptyMap()) }
+    LaunchedEffect(Unit) {
+        accountTypes = withContext(Dispatchers.IO) { AccountStore.get(context).listAccounts(false).associate { it.id to it.type } }
+    }
     val revision by LedgerUpdateBus.state.collectAsState()
     var cycles by remember { mutableStateOf(emptyList<PayCycle>()) }
     var selectedStartId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -118,28 +122,21 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
             }
             snapshot?.let { ledger ->
                 item {
-                    val savedMinor = ledger.transactions
-                        .filter {
-                            (categoryLabels[it.category]?.contains("sav", ignoreCase = true) == true) &&
-                                it.reviewState != "EXCLUDED" &&
-                                it.reviewState != "NEEDS_REVIEW"
-                        }
-                        .sumOf { it.amountMinor }
-                    val investedMinor = ledger.transactions
-                        .filter {
-                            (categoryLabels[it.category]?.contains("invest", ignoreCase = true) == true) &&
-                                it.reviewState != "EXCLUDED" &&
-                                it.reviewState != "NEEDS_REVIEW"
-                        }
-                        .sumOf { it.amountMinor }
+                    val transfers = ledger.trustedTransactions.filter {
+                        it.direction == "TRANSFER" && it.relationType != TransactionStore.RELATION_REFUND
+                    }
+                    val savedMinor = transfers.sumOf { ConceptLedgerPolicy.savingsDelta(it, accountTypes) }
+                    val investedMinor = transfers.filter { it.category == "INVESTMENT" }.sumOf { it.amountMinor }
+                    val debtMinor = transfers.filter { it.category == "DEBT_LOAN" }.sumOf { it.amountMinor }
+                    val surplus = ledger.summary.netMinor - savedMinor - investedMinor - debtMinor
 
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         ConceptEmeraldHero(
                             title = "Cycle surplus",
-                            amount = salaryMoney(ledger.summary.netMinor),
-                            subtitle = "After trusted spending and fees",
+                            amount = salaryMoney(surplus),
+                            subtitle = "After spending, fees, savings, investments and debt repayments",
                             artwork = false,
-                            eyebrow = "Current pay cycle",
+                            eyebrow = if (selected.endEpochMs == null) "Current pay cycle" else "Completed pay cycle",
                             footer = if (ledger.summary.needsReviewCount > 0) {
                                 "${ledger.summary.needsReviewCount} pending reviews are excluded from totals"
                             } else {
@@ -190,6 +187,9 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Text("Earlier carryover: " + salaryMoney(selected.carryoverMinor), style = MaterialTheme.typography.labelSmall)
+                        Text("With recorded carryover: " + salaryMoney(selected.carryoverMinor + surplus), style = MaterialTheme.typography.labelSmall)
+                        Text("A planning figure, not an account balance.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         previous?.let { prior ->
                             Text(
                                 "Previous cycle spent " + salaryMoney(prior.summary.spentMinor),

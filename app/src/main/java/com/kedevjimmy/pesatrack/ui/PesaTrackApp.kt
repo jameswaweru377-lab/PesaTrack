@@ -40,12 +40,17 @@ fun PesaTrackApp(
     onThemeModeChange: (ThemeMode) -> Unit,
     setupComplete: Boolean,
     onSetupComplete: () -> Unit,
-    salaryOpenRequest: Int = 0
+    salaryOpenRequest: Int = 0,
+    billsOpenRequest: Int = 0
 ) {
     val navController = rememberNavController()
 
     LaunchedEffect(salaryOpenRequest, setupComplete) {
         if (salaryOpenRequest > 0 && setupComplete) navController.navigate("salary") { launchSingleTop = true }
+    }
+
+    LaunchedEffect(billsOpenRequest, setupComplete) {
+        if (billsOpenRequest > 0 && setupComplete) navController.navigate("bills") { launchSingleTop = true }
     }
 
     fun navigateToTab(tab: MainTab) {
@@ -359,7 +364,7 @@ fun PesaTrackApp(
                 BillsRemindersScreen(
                     scaffoldPadding = padding,
                     onBack = { navController.popBackStack() },
-                    onPlanClick = { navigateToTab(MainTab.PLAN) }
+                    onPlanClick = { navController.navigate("smart-rules") }
                 )
             }
         }
@@ -372,7 +377,7 @@ fun PesaTrackApp(
                 SavingGoalsScreen(
                     scaffoldPadding = padding,
                     onBack = { navController.popBackStack() },
-                    onPlanClick = { navigateToTab(MainTab.PLAN) }
+                    onPlanClick = { navController.navigate("smart-rules") }
                 )
             }
         }

@@ -523,7 +523,7 @@ fun HomeScreen(
             )
 
     val spendSlices = remember(activitySnapshot) {
-        activitySnapshot.transactions
+        activitySnapshot.trustedTransactions
             .filter {
                 it.reviewState != ReviewState.EXCLUDED.name &&
                     it.reviewState != ReviewState.NEEDS_REVIEW.name &&
@@ -595,7 +595,7 @@ fun HomeScreen(
 
         maxOf(
             0L,
-            activitySnapshot.transactions
+            activitySnapshot.trustedTransactions
                 .filter {
                     it.occurredAtEpochMs >=
                         startOfToday &&
@@ -667,7 +667,7 @@ fun HomeScreen(
             }
             .toSet()
     val recentCanonicalTransactions =
-        activitySnapshot.transactions
+        activitySnapshot.trustedTransactions
             .asSequence()
             .filter {
                 it.reviewState !=
@@ -687,7 +687,7 @@ fun HomeScreen(
     val monthlyBudgetCategoryIds =
         monthlyBudgets.map { it.categoryId }.toSet()
     val monthlyBudgetSpentMinor =
-        activitySnapshot.transactions
+        activitySnapshot.trustedTransactions
             .filter {
                 it.direction == MoneyDirection.EXPENSE.name &&
                     it.reviewState != ReviewState.EXCLUDED.name &&

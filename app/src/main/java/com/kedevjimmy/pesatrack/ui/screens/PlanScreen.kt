@@ -150,7 +150,7 @@ fun PlanScreen(
                     recurringStore.suggestions(limit = 3)
                 val budgets = budgetStore.list()
                 val activity = transactionStore.activitySnapshot()
-                val spent = activity.transactions
+                val spent = activity.trustedTransactions
                     .filter {
                         it.direction == MoneyDirection.EXPENSE.name &&
                             it.reviewState != ReviewState.EXCLUDED.name &&
@@ -182,7 +182,7 @@ fun PlanScreen(
                                     0L
                                 }
                             } else {
-                                row.amountMinor + row.feeMinor
+                                row.amountMinor
                             }
                         }.coerceAtLeast(0L)
                     }

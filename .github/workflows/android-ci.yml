@@ -12,8 +12,6 @@ concurrency:
 
 permissions:
   contents: write
-  issues: write
-  pull-requests: write
 
 jobs:
   build:
@@ -54,26 +52,6 @@ jobs:
         run: |
           set -o pipefail
           gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace 2>&1 | tee /tmp/pesatrack-build.log
-
-      - name: Comment build failure diagnostics
-        if: failure() && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          {
-            echo '<!-- pesatrack-ci-diagnostic -->'
-            echo '### Android CI build failure'
-            echo
-            echo 'Latest failure excerpt from the PR build:'
-            echo
-            echo '\`\`\`text'
-            tail -n 160 /tmp/pesatrack-build.log 2>/dev/null || echo 'Build log was not created.'
-            echo '\`\`\`'
-          } > /tmp/pesatrack-ci-comment.md
-          gh pr comment "$PR_NUMBER" --body-file /tmp/pesatrack-ci-comment.md
 
       - name: Print lint report on failure
         if: failure()

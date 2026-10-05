@@ -68,7 +68,8 @@ data class ActivityLedgerSnapshot(
     val transactions: List<StoredTransaction>,
     val summary: ActivitySummary,
     val reviewGroups: List<ReviewGroup> = emptyList(),
-    val possibleDuplicates: List<PossibleDuplicateGroup> = emptyList()
+    val possibleDuplicates: List<PossibleDuplicateGroup> = emptyList(),
+    val trustedTransactions: List<StoredTransaction> = emptyList()
 )
 
 data class PossibleDuplicateGroup(
@@ -90,3 +91,4 @@ data class ActivityReviewOverview(
     val reviewGroups: List<ReviewGroup>,
     val possibleDuplicates: List<PossibleDuplicateGroup>
 )
+

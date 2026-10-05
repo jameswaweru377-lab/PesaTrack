@@ -196,3 +196,8 @@ The following preview/superseded screens were removed from source after quaranti
 
 Compatibility redirects for restored navigation state are allowed, but these retired features must not be reintroduced without deliberately changing this charter.
 
+
+
+## Approved connected goals and reminders (5 October 2026)
+
+The owner explicitly approved the 20-screen concept implementation, including real savings targets and bill reminders. This deliberately revises the retired-goals restriction only for goals backed by stored savings rules and trusted recorded transfers. Fabricated preview balances and unrelated trading/social features remain prohibited. Reminder schedules and profile preferences are local metadata; they never insert payments or change ledger balances. Savings goal progress is per matching rule and net of identified returns, with internal savings-to-lock movements excluded from new saving.

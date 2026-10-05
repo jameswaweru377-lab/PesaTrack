@@ -53,7 +53,7 @@ internal fun SalaryAccountGrid(accounts: List<MoneyAccount>, selectedId: String,
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SalaryReceiptDateButton(date: Long, enabled: Boolean, onDate: (Long) -> Unit) {
+internal fun SalaryReceiptDateButton(date: Long, enabled: Boolean, label: String = "Received on", allowFuture: Boolean = false, onDate: (Long) -> Unit) {
     var open by remember { mutableStateOf(false) }
     OutlinedButton(onClick = { open = true }, enabled = enabled,
         modifier = Modifier.fillMaxWidth().testTag("salary-receipt-date"), shape = RoundedCornerShape(14.dp),
@@ -61,7 +61,7 @@ internal fun SalaryReceiptDateButton(date: Long, enabled: Boolean, onDate: (Long
         Icon(Icons.Rounded.CalendarMonth, contentDescription = null)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
-            Text("Received on", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(salaryDisplayDate(date), style = MaterialTheme.typography.bodyLarge)
         }
         Text("Choose", style = MaterialTheme.typography.labelLarge)
@@ -70,7 +70,7 @@ internal fun SalaryReceiptDateButton(date: Long, enabled: Boolean, onDate: (Long
         val today = remember { SalaryDatePickerPolicy.toPickerMillis(System.currentTimeMillis()) }
         val state = rememberDatePickerState(initialSelectedDateMillis = SalaryDatePickerPolicy.toPickerMillis(date),
             selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= today
+                override fun isSelectableDate(utcTimeMillis: Long) = allowFuture || utcTimeMillis <= today
             })
         DatePickerDialog(onDismissRequest = { open = false },
             confirmButton = { TextButton(enabled = state.selectedDateMillis != null, onClick = {
@@ -78,7 +78,7 @@ internal fun SalaryReceiptDateButton(date: Long, enabled: Boolean, onDate: (Long
                 open = false
             }, modifier = Modifier.testTag("salary-date-confirm")) { Text("Use date") } },
             dismissButton = { TextButton(onClick = { open = false }) { Text("Cancel") } }) {
-            DatePicker(state = state, showModeToggle = false, title = { Text("Receipt date", Modifier.padding(start = 24.dp, top = 16.dp)) })
+            DatePicker(state = state, showModeToggle = false, title = { Text(if (allowFuture) "Due date" else "Receipt date", Modifier.padding(start = 24.dp, top = 16.dp)) })
         }
     }
 }
@@ -93,3 +93,4 @@ internal fun SalarySection(title: String, highlighted: Boolean = false, content:
         }
     }
 }
+

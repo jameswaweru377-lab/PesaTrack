@@ -23,17 +23,19 @@ import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.ui.components.*
+import com.kedevjimmy.pesatrack.ui.components.ConceptLoadError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import com.kedevjimmy.pesatrack.planning.*
 import java.util.Date
 import java.util.Locale
 import kotlin.math.max
 
 private fun conceptMoney(minor: Long): String {
-    val f = NumberFormat.getNumberInstance(Locale.US).apply { maximumFractionDigits = 0 }
+    val f = NumberFormat.getNumberInstance(Locale.US).apply { minimumFractionDigits = 2; maximumFractionDigits = 2 }
     return (if (minor < 0) "-KES " else "KES ") + f.format(kotlin.math.abs(minor) / 100.0)
 }
 
@@ -58,7 +60,7 @@ private fun SpendingDonut(
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             var start = -90f
-            spending.take(6).forEachIndexed { index, entry ->
+            spending.forEachIndexed { index, entry ->
                 val sweep =
                     if (total <= 0L) 0f
                     else 360f * entry.second.toFloat() / total.toFloat()
@@ -149,7 +151,11 @@ fun ReportsInsightsScreen(
     var snapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
     var labels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
 
-    LaunchedEffect(revision.revision, period) {
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var retryLoad by remember { mutableIntStateOf(0) }
+    LaunchedEffect(revision.revision, period, retryLoad) {
+        loadError = null
+        try {
         val loaded = withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
             val cal = Calendar.getInstance().apply { timeInMillis = now }
@@ -179,14 +185,20 @@ fun ReportsInsightsScreen(
         }
         snapshot = loaded.first
         labels = loaded.second
+
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+        } catch (failure: Exception) {
+            android.util.Log.e("PesaTrackScreens", "Could not load screen", failure)
+            loadError = "Couldn't load this page. Your saved data is unchanged."
+        }
     }
 
     val data = snapshot
     val spending = remember(data, labels) {
-        data?.transactions
+        data?.trustedTransactions
             ?.filter { it.direction == MoneyDirection.EXPENSE.name && it.reviewState != "EXCLUDED" && it.reviewState != "NEEDS_REVIEW" }
             ?.groupBy { it.category }
-            ?.map { (category, rows) -> (labels[category] ?: category.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }) to rows.sumOf { it.amountMinor + it.feeMinor } }
+            ?.map { (category, rows) -> (labels[category] ?: category.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }) to rows.sumOf { it.amountMinor } }
             ?.sortedByDescending { it.second }
             .orEmpty()
     }
@@ -197,6 +209,7 @@ fun ReportsInsightsScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        item { ConceptLoadError(loadError) { retryLoad++ } }
         item { ConceptInnerHeader("Reports & insights", onBack) }
         item {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -288,7 +301,7 @@ fun ReportsInsightsScreen(
             if (period == "Month" && data != null) {
                 item {
                     val weeks = (1..4).map { week ->
-                        data.transactions
+                        data.trustedTransactions
                             .filter {
                                 it.direction == MoneyDirection.EXPENSE.name &&
                                     it.reviewState != "EXCLUDED" &&
@@ -298,7 +311,7 @@ fun ReportsInsightsScreen(
                                     }.get(Calendar.WEEK_OF_MONTH)
                                         .coerceIn(1, 4) == week
                             }
-                            .sumOf { it.amountMinor + it.feeMinor }
+                            .sumOf { it.amountMinor }
                     }
                     PesaCard {
                         Column(Modifier.padding(16.dp)) {
@@ -334,6 +347,7 @@ fun ReportsInsightsScreen(
                 }
             }
         }
+        item { ReportExportButton(data?.trustedTransactions.orEmpty()) }
     }
 }
 
@@ -346,10 +360,22 @@ fun BillsRemindersScreen(
     val context = LocalContext.current
     val revision by LedgerUpdateBus.state.collectAsState()
     var snapshot by remember { mutableStateOf<PayCycleSnapshot?>(null) }
-    LaunchedEffect(revision.revision) {
-        snapshot = withContext(Dispatchers.IO) { PayCycleStore.get(context).snapshot() }
+    var bills by remember { mutableStateOf<List<ScheduledBill>>(emptyList()) }
+    var reminder by remember { mutableStateOf<ScheduledBill?>(null) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var retryLoad by remember { mutableIntStateOf(0) }
+    LaunchedEffect(revision.revision, retryLoad) {
+        loadError = null
+        try {
+        bills = withContext(Dispatchers.IO) { BillSchedules(context).list() }
+
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+        } catch (failure: Exception) {
+            android.util.Log.e("PesaTrackScreens", "Could not load screen", failure)
+            loadError = "Couldn't load this page. Your saved data is unchanged."
+        }
     }
-    val commitments = snapshot?.commitments.orEmpty()
+    val commitments = bills.map { CommitmentProgress(it.rule.id,it.rule.displayLabel ?: it.rule.name,it.rule.category.name,it.rule.plannedAmountMinor ?: 0, (it.rule.plannedAmountMinor ?: 0)-it.remainingMinor,it.remainingMinor) }
     val comingUp = commitments.sumOf { it.remainingMinor }
 
     LazyColumn(
@@ -357,6 +383,7 @@ fun BillsRemindersScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        item { ConceptLoadError(loadError) { retryLoad++ } }
         item { ConceptInnerHeader("Bills & reminders", onBack) }
         item {
             val today = Calendar.getInstance()
@@ -416,9 +443,9 @@ fun BillsRemindersScreen(
             ConceptEmeraldHero(
                 title = "Coming up",
                 amount = conceptMoney(comingUp),
-                subtitle = if (commitments.isEmpty()) "No protected commitments in this cycle" else "${commitments.count { it.remainingMinor > 0L }} commitments still reserved",
+                subtitle = if (commitments.isEmpty()) "No monthly bills configured" else "${commitments.count { it.remainingMinor > 0L }} bills awaiting payment this month",
                 artwork = false,
-                eyebrow = snapshot?.cycle?.let { "This pay cycle" } ?: "Planning"
+                eyebrow = "This month"
             )
         }
         item { ConceptSectionTitle("Upcoming bills") }
@@ -432,19 +459,26 @@ fun BillsRemindersScreen(
                 }
             }
         } else {
-            items(commitments, key = { it.name }) { entry ->
+            items(commitments, key = { it.ruleId }) { entry ->
                 PesaCard {
+                    Column {
                     Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconBubble(if (entry.remainingMinor == 0L) Icons.Rounded.CheckCircle else Icons.Rounded.ReceiptLong, size = 42.dp)
                         Column(Modifier.weight(1f).padding(start = 11.dp)) {
                             Text(entry.name, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                if (entry.remainingMinor == 0L) "Paid in this cycle" else "${conceptMoney(entry.remainingMinor)} still reserved",
+                                if (entry.remainingMinor == 0L) "Paid this month" else "${conceptMoney(entry.remainingMinor)} remaining",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Text(conceptMoney(entry.plannedMinor), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    }
+                    bills.firstOrNull { it.rule.id == entry.ruleId }?.let { bill ->
+                        TextButton(onClick = { reminder = bill }, modifier = Modifier.padding(horizontal = 12.dp)) {
+                            Text(if (bill.dueDay == null) "Set due date & reminder" else "Due day ${bill.dueDay} · " + if (bill.reminders) "Reminder on" else "Reminder off")
+                        }
+                    }
                     }
                 }
             }
@@ -472,6 +506,7 @@ fun BillsRemindersScreen(
             }
         }
     }
+    reminder?.let { BillReminderSettings(it) { reminder = null } }
 }
 
 @Composable
@@ -481,23 +516,38 @@ fun SavingGoalsScreen(
     onPlanClick: () -> Unit
 ) {
     val context = LocalContext.current
+    var goalEditor by remember { mutableStateOf(false) }
+    var editingGoal by remember { mutableStateOf<com.kedevjimmy.pesatrack.domain.model.SmartRule?>(null) }
     val revision by LedgerUpdateBus.state.collectAsState()
     var rules by remember { mutableStateOf(emptyList<com.kedevjimmy.pesatrack.domain.model.SmartRule>()) }
-    var savedThisMonth by remember { mutableLongStateOf(0L) }
+    var savingsByRule by remember { mutableStateOf<Map<String?, Long>>(emptyMap()) }
 
-    LaunchedEffect(revision.revision) {
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var retryLoad by remember { mutableIntStateOf(0) }
+    LaunchedEffect(revision.revision, retryLoad) {
+        loadError = null
+        try {
         val loaded = withContext(Dispatchers.IO) {
             val savedRules = RuleStore.get(context).listRules(true).filter {
                 it.category == TransactionCategory.SAVINGS && (it.plannedAmountMinor ?: 0L) > 0L
             }
             val activity = TransactionStore.get(context).activitySnapshot()
-            val saved = activity.transactions
+            val types = AccountStore.get(context).listAccounts(false).associate { it.id to it.type }
+            val saved = activity.trustedTransactions
                 .filter { it.category == TransactionCategory.SAVINGS.name && it.reviewState != "EXCLUDED" && it.reviewState != "NEEDS_REVIEW" }
-                .sumOf { it.amountMinor }
+                .filter { it.direction == MoneyDirection.TRANSFER.name }
+                .groupBy { it.ruleId }
+                .mapValues { (_, rows) -> rows.sumOf { ConceptLedgerPolicy.savingsDelta(it, types) }.coerceAtLeast(0) }
             savedRules to saved
         }
         rules = loaded.first
-        savedThisMonth = loaded.second
+        savingsByRule = loaded.second
+
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+        } catch (failure: Exception) {
+            android.util.Log.e("PesaTrackScreens", "Could not load screen", failure)
+            loadError = "Couldn't load this page. Your saved data is unchanged."
+        }
     }
 
     LazyColumn(
@@ -505,6 +555,7 @@ fun SavingGoalsScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        item { ConceptLoadError(loadError) { retryLoad++ } }
         item { ConceptInnerHeader("Your goals", onBack) }
         item {
             Surface(
@@ -552,7 +603,7 @@ fun SavingGoalsScreen(
                         }
                     }
                     Button(
-                        onClick = onPlanClick,
+                        onClick = { editingGoal = null; goalEditor = true },
                         modifier = Modifier.padding(top = 14.dp)
                     ) {
                         Text("Create a goal")
@@ -574,7 +625,7 @@ fun SavingGoalsScreen(
         } else {
             items(rules, key = { it.id }) { rule ->
                 val target = rule.plannedAmountMinor ?: 0L
-                val progressMinor = minOf(savedThisMonth, target)
+                val progressMinor = minOf(savingsByRule[rule.id] ?: 0L, target)
                 ConceptProgressCard(
                     title = rule.displayLabel ?: rule.name,
                     amount = conceptMoney(progressMinor),
@@ -582,9 +633,11 @@ fun SavingGoalsScreen(
                     progress = if (target <= 0L) 0f else progressMinor.toFloat() / target.toFloat(),
                     icon = Icons.Rounded.Savings
                 )
+                TextButton(onClick = { editingGoal = rule; goalEditor = true }) { Text("Edit goal") }
             }
         }
     }
+    if (goalEditor) SavingGoalEditor(editingGoal) { goalEditor = false }
 }
 
 @Composable
@@ -601,26 +654,37 @@ fun AccountDetailsScreen(
     var rows by remember { mutableStateOf(emptyList<StoredTransaction>()) }
     var detailTab by remember { mutableStateOf("Transactions") }
 
-    LaunchedEffect(revision.revision, accountId) {
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var retryLoad by remember { mutableIntStateOf(0) }
+    LaunchedEffect(revision.revision, accountId, retryLoad) {
+        loadError = null
+        try {
         val loaded = withContext(Dispatchers.IO) {
             val a = AccountStore.get(context).listAccounts(false).firstOrNull { it.id == accountId }
             val b = a?.let { PaydaySnapshotStore.get(context).currentAccountSnapshot(it) }
-            val t = TransactionStore.get(context).recent(250).filter { it.accountId == accountId || it.linkedAccountId == accountId }
+            val t = TransactionStore.get(context).activitySnapshot().trustedTransactions.filter { it.accountId == accountId || it.linkedAccountId == accountId }
             Triple(a, b, t)
         }
         account = loaded.first
         balance = loaded.second
         rows = loaded.third
+
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+        } catch (failure: Exception) {
+            android.util.Log.e("PesaTrackScreens", "Could not load screen", failure)
+            loadError = "Couldn't load this page. Your saved data is unchanged."
+        }
     }
 
     val moneyIn = rows.filter { it.direction == MoneyDirection.INCOME.name }.sumOf { it.amountMinor }
-    val moneyOut = rows.filter { it.direction == MoneyDirection.EXPENSE.name }.sumOf { it.amountMinor + it.feeMinor }
+    val moneyOut = rows.filter { it.direction == MoneyDirection.EXPENSE.name }.sumOf { it.amountMinor }
 
     LazyColumn(
         modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        item { ConceptLoadError(loadError) { retryLoad++ } }
         item { ConceptInnerHeader(account?.name ?: "Account", onBack) }
         item {
             ConceptEmeraldHero(
@@ -651,7 +715,7 @@ fun AccountDetailsScreen(
                 }
             }
         }
-        item { ConceptSectionTitle("Recent activity") }
+        item { ConceptSectionTitle("This month’s activity") }
         val visibleRows =
             rows.filter {
                 if (detailTab == "Transfers") {

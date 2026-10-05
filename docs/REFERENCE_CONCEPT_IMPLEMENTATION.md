@@ -50,3 +50,20 @@ The main bottom tabs remain Home, Activity, Plan, Accounts and More. The concept
 ## Visual assets
 
 The wallet, leaf and supporting emerald artwork are implemented as Compose components in `ReferenceConceptComponents.kt`. This keeps the asset scalable across Redmi-class screens, supports light/dark variants, and avoids coupling financial screens to static mock screenshot data.
+
+## Completion audit — 5 October 2026
+
+The follow-up retains the connected PR #237 design and fixes gaps found before release:
+
+- The welcome wallet/pedestal/leaves now use the bundled generated WebP illustration, not a rough placeholder. The original generated asset was optimized to 58 KB for the APK.
+- Activity exposes its exact trusted transaction set to Home, Reports, account detail and goals. Reversed/excluded/possible-duplicate entries cannot inflate charts independently of Activity totals. Reports export that same set to CSV through Android's document picker.
+- Goals have a focused create/edit/remove form, recurring monthly targets and per-rule progress; one savings total is not copied onto every goal. Moving existing savings into locked savings is not new saving.
+- Bills have monthly due-day selection, explicit reminder opt-in, background notifications and a deep link back to Bills. Payments must match the bill's actual ledger rule. The three-day reminder window is approximate WorkManager scheduling, not an exact alarm.
+- Profile name/avatar preferences can be edited locally. Coverage is the share of recorded entries included in the selected month's totals, not a financial-health score.
+- Pay-cycle surplus separates current income/outflows/allocations from recorded carryover. No future salary or screenshot balance is invented.
+- Employer-matching rules cannot turn a recognized outgoing merchant payment into salary. Existing automatic outgoing salary matches are repaired atomically; explicit user classifications are preserved.
+- Connected screens show retryable errors instead of an endless loading state.
+
+### Verification status
+
+Implementation is under verification. Do not treat this branch as a published APK until Android build, tests, lint and release publication are confirmed. The resumed GitHub run `37371181018` failed before any runner steps; its log endpoints returned BlobNotFound. A local Android build is being used to separate source errors from CI infrastructure failures. No checks have been disabled to force a merge.
