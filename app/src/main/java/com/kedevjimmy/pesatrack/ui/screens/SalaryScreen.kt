@@ -7,15 +7,27 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.model.*
 import com.kedevjimmy.pesatrack.salary.SalaryReminders
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,7 +36,9 @@ import java.util.Calendar
 import java.util.Locale
 
 internal fun salaryDate(epoch: Long): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(epoch)
-internal fun salaryMoney(minor: Long): String = "KES " + java.text.NumberFormat.getNumberInstance().format(minor / 100.0)
+internal fun salaryMoney(minor: Long): String = "KES " + java.text.NumberFormat.getNumberInstance(Locale.US).apply {
+    minimumFractionDigits = 2; maximumFractionDigits = 2
+}.format(minor / 100.0)
 internal fun parseSalaryDate(text: String): Long? = runCatching {
     require(text.matches(Regex("\\d{4}-\\d{2}-\\d{2}")))
     val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
@@ -38,8 +52,11 @@ internal fun parseSalaryAmount(text: String): Long? = runCatching {
 fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    val repository = remember { SalaryReceiptRepository(context) }
     var rule by remember { mutableStateOf<SmartRule?>(null) }
     var accounts by remember { mutableStateOf(emptyList<MoneyAccount>()) }
+    var receipts by remember { mutableStateOf(emptyList<SalaryReceipt>()) }
     var candidates by remember { mutableStateOf(emptyList<SalaryHistoryCandidate>()) }
     var payer by rememberSaveable { mutableStateOf("") }
     var accountId by rememberSaveable { mutableStateOf("") }
@@ -47,166 +64,281 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
     var endDay by rememberSaveable { mutableStateOf("28") }
     var amount by rememberSaveable { mutableStateOf("") }
     var receiptDate by rememberSaveable { mutableStateOf(salaryDate(System.currentTimeMillis())) }
+    var tab by rememberSaveable { mutableStateOf("Overview") }
+    var editPayday by rememberSaveable { mutableStateOf(false) }
+    var showCandidates by rememberSaveable { mutableStateOf(false) }
+    var visibleReceipts by rememberSaveable { mutableIntStateOf(3) }
     var ready by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var failure by remember { mutableStateOf(false) }
+    var removal by remember { mutableStateOf<SalaryReceipt?>(null) }
     var reminders by remember { mutableStateOf(SalaryReminders.preferences(context).getBoolean("salary_reminders_enabled", false)) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         reminders = granted
         SalaryReminders.setEnabled(context, granted)
-        if (!granted) message = "Phone notifications are disabled. You can still record salary here."
+        if (!granted) { message = "Notifications are off. You can still record salary here."; failure = true }
     }
-    suspend fun loadCandidates(active: SmartRule?) {
-        candidates = withContext(Dispatchers.IO) {
-            if (active == null) emptyList() else TransactionStore.get(context).salaryHistoryCandidates(
-                payerQuery = active.counterpartyExact.ifBlank { active.counterpartyContains.ifBlank { active.displayLabel ?: active.name } },
-                sinceEpochMs = Calendar.getInstance().apply { add(Calendar.MONTH, -3) }.timeInMillis,
-                accountId = active.accountId, limit = 100)
+    suspend fun loadReceipts(active: SmartRule?) {
+        val data = withContext(Dispatchers.IO) {
+            if (active == null) emptyList<SalaryReceipt>() to emptyList<SalaryHistoryCandidate>() else {
+                val saved = repository.receipts(active.id)
+                val hidden = saved.map { it.transactionId }.toSet() + repository.removedReceiptIds()
+                saved to TransactionStore.get(context).salaryHistoryCandidates(
+                    payerQuery = active.counterpartyExact.ifBlank { active.counterpartyContains.ifBlank { active.displayLabel ?: active.name } },
+                    sinceEpochMs = Calendar.getInstance().apply { add(Calendar.MONTH, -3) }.timeInMillis,
+                    accountId = active.accountId, limit = 100).filterNot { it.transactionId in hidden }
+            }
         }
+        receipts = data.first; candidates = data.second
     }
     LaunchedEffect(Unit) {
-        runCatching {
+        try {
             val data = withContext(Dispatchers.IO) {
                 RuleStore.get(context).listRules(true).firstOrNull { it.startsPayCycle } to AccountStore.get(context).listAccounts()
             }
             rule = data.first; accounts = data.second
             rule?.let {
-                payer = it.counterpartyExact.ifBlank { it.counterpartyContains.ifBlank { it.displayLabel ?: it.name } }
+                payer = it.displayLabel ?: it.counterpartyExact.ifBlank { it.counterpartyContains.ifBlank { it.name } }
                 accountId = it.accountId.orEmpty()
                 startDay = (it.payWindowStartDay ?: 24).toString(); endDay = (it.payWindowEndDay ?: 28).toString()
             }
-            loadCandidates(rule)
-        }.onFailure { message = "Could not load salary settings. Reopen this screen to retry." }
-        ready = true
+            if (accountId.isBlank()) accountId = accounts.firstOrNull()?.id.orEmpty()
+            if (rule == null) tab = "Source"
+            loadReceipts(rule)
+        } catch (cancelled: CancellationException) { throw cancelled
+        } catch (error: Exception) {
+            android.util.Log.e("PesaTrackSalary", "Could not load salary", error)
+            message = "Couldn't load salary. Reopen this page to retry."; failure = true
+        } finally { ready = true }
     }
+    LaunchedEffect(tab) { listState.scrollToItem(0) }
     fun perform(action: suspend () -> Unit) {
-        busy = true; message = null
+        if (busy) return
+        busy = true; message = null; failure = false
         scope.launch {
-            try { action() } catch (e: Exception) { message = e.message ?: "Could not save. Please try again." }
-            finally { busy = false }
+            try { action()
+            } catch (cancelled: CancellationException) { throw cancelled
+            } catch (error: IllegalArgumentException) { message = error.message ?: "Please check your entry."; failure = true
+            } catch (error: Exception) {
+                android.util.Log.e("PesaTrackSalary", "Could not update salary", error)
+                message = "Couldn't save this change. Please try again."; failure = true
+            } finally { busy = false }
         }
     }
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(scaffoldPadding),
-        contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            TextButton(onClick = onBack) { Text("Back") }
-            Text("Salary & payday", style = MaterialTheme.typography.headlineSmall)
-            Text("Confirm the source once. Matching receipts can start future pay cycles automatically. When a message is missing, record only money you actually received.")
+    fun confirm(candidate: SalaryHistoryCandidate) = perform {
+        val active = rule ?: return@perform
+        withContext(Dispatchers.IO) {
+            require(TransactionStore.get(context).applyRuleToTransaction(candidate.transactionId, active)) { "This receipt could not be updated." }
+            PayCycleStore.get(context).confirmNewCycle(candidate.transactionId)
         }
-        if (!ready) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+        SalaryReminders.receiptRecorded(context); loadReceipts(active)
+        message = "Salary recorded from the existing payment."
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(scaffoldPadding).testTag("salary-page"),
+        state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            OutlinedTextField(payer, { payer = it }, label = { Text("Employer / salary source") }, modifier = Modifier.fillMaxWidth(), enabled = !busy && ready)
-            Text("Use the source name shown on the receipt, for example XYZ School.", style = MaterialTheme.typography.bodySmall)
-        }
-        item {
-            Text("Receiving account")
-            accounts.forEach { account ->
-                Row { RadioButton(selected = accountId == account.id, onClick = { if (!busy) accountId = account.id })
-                    TextButton(onClick = { if (!busy) accountId = account.id }) { Text(account.name) } }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
+                Column {
+                    Text("Salary & payday", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("Your pay, kept up to date.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            if (accounts.isEmpty() && ready) Text("Add your receiving account in Accounts first.")
         }
         item {
-            Text("Expected payday window (days of the month)")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(startDay, { startDay = it }, label = { Text("From day") }, modifier = Modifier.weight(1f), enabled = !busy)
-                OutlinedTextField(endDay, { endDay = it }, label = { Text("Through day") }, modifier = Modifier.weight(1f), enabled = !busy)
+            TabRow(selectedTabIndex = listOf("Overview", "Add salary", "Source").indexOf(tab)) {
+                listOf("Overview", "Add salary", "Source").forEach { label ->
+                    Tab(selected = tab == label, onClick = { if (!busy) { tab = label; message = null } },
+                        enabled = ready && !busy, text = { Text(label) }, modifier = Modifier.testTag("salary-tab-$label"))
+                }
             }
-            Text("For payday on the 28th, enter 28 in both fields. A window such as 28–2 crosses into the next month. Short months use their last day.", style = MaterialTheme.typography.bodySmall)
-            Button(enabled = !busy && ready, onClick = {
-                val from = startDay.toIntOrNull(); val through = endDay.toIntOrNull()
-                if (payer.isBlank() || accountId.isBlank() || from !in 1..31 || through !in 1..31) {
-                    message = "Enter the salary source, receiving account and days from 1 to 31."
-                } else perform {
-                    val saved = withContext(Dispatchers.IO) {
-                        val old = rule
-                        val unchangedSource = old != null && payer.trim() == old.counterpartyExact.ifBlank {
-                            old.counterpartyContains.ifBlank { old.displayLabel ?: old.name }
+        }
+        if (!ready || busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+        message?.let { status -> item {
+            Surface(color = if (failure) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                Text(status, Modifier.padding(12.dp), color = if (failure) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+        } }
+        if (ready && tab == "Overview") {
+            val latest = receipts.firstOrNull()
+            item {
+                SalarySection(if (latest == null) "No salary recorded yet" else "Latest salary", highlighted = true) {
+                    if (latest != null) {
+                        Text(salaryMoney(latest.amountMinor), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                        Text(salaryDisplayDate(latest.receivedAtEpochMs), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    rule?.let { active ->
+                        Text((active.displayLabel ?: active.name) + " · " + (accounts.firstOrNull { it.id == active.accountId }?.name ?: "Receiving account"), style = MaterialTheme.typography.bodyMedium)
+                        Text("Payday ${active.payWindowStartDay ?: 24}–${active.payWindowEndDay ?: 28}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { tab = if (rule == null) "Source" else "Add salary" }, modifier = Modifier.weight(1f), enabled = !busy) {
+                            Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                            Text(if (rule == null) "Set up salary" else "Add salary")
                         }
-                        val savedRule = RuleStore.get(context).save(name = old?.name ?: "Salary",
-                            counterpartyContains = if (unchangedSource) old!!.counterpartyContains else "",
-                            counterpartyExact = if (unchangedSource) old!!.counterpartyExact else payer.trim(),
-                            counterpartyPhoneEquals = if (unchangedSource) old!!.counterpartyPhoneEquals else "",
-                            notificationTitleContains = if (unchangedSource) old!!.notificationTitleContains else "",
-                            messageContains = if (unchangedSource) old!!.messageContains else "",
-                            maximumAmountMinor = old?.maximumAmountMinor, plannedAmountMinor = old?.plannedAmountMinor,
-                            planningMonthOffset = old?.planningMonthOffset ?: 0,
-                            category = TransactionCategory.INCOME,
-                            direction = MoneyDirection.INCOME, preset = RulePreset.SALARY, startsPayCycle = true,
-                            displayLabel = payer.trim(), accountId = accountId, payWindowStartDay = from,
-                            payWindowEndDay = through, id = old?.id ?: java.util.UUID.randomUUID().toString())
-                        PayCycleStore.get(context).rebuild()
-                        LedgerUpdateBus.notifyChanged()
-                        savedRule
+                        OutlinedButton(onClick = { tab = "Source" }, enabled = !busy) { Icon(Icons.Rounded.Edit, "Edit salary source", Modifier.size(18.dp)) }
                     }
-                    rule = saved; loadCandidates(saved)
-                    SalaryReminders.checkSoon(context)
-                    message = "Salary source saved. Confirm an existing receipt below or add a missing receipt."
                 }
-            }) { Text("Save salary source") }
-        }
-        item {
-            Row {
-                Switch(checked = reminders, enabled = ready && !busy && rule != null, onCheckedChange = { enabled ->
-                    if (enabled && Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else {
-                        reminders = enabled
-                        SalaryReminders.setEnabled(context, enabled)
-                    }
-                })
-                Text("Ask me if salary is missing after payday", modifier = Modifier.padding(12.dp))
             }
-            Text("Checks run in the background after the window ends. ‘Not yet received’ postpones the next check for three days. You can turn these reminders off here.", style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { SalaryReminders.defer(context); message = "Okay. Salary is still pending; the next check is in three days." }) { Text("Not yet received") }
-        }
-        item {
-            HorizontalDivider()
-            Text("Add a missing salary receipt", style = MaterialTheme.typography.titleLarge)
-            rule?.let { saved ->
-                Text("Saved source: " + (saved.displayLabel ?: saved.name) + " · " +
-                    (accounts.firstOrNull { it.id == saved.accountId }?.name ?: "Receiving account"))
-            }
-            Text("Use the actual amount and receipt date. You can enter earlier months separately. Manual entries start at the beginning of the selected date. If the receipt is listed below, confirm it instead.")
-            OutlinedTextField(amount, { amount = it }, label = { Text("Amount (KES)") }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
-            OutlinedTextField(receiptDate, { receiptDate = it }, label = { Text("Received on (yyyy-MM-dd)") }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
-            Button(enabled = !busy && rule != null, onClick = {
-                val minor = parseSalaryAmount(amount); val date = parseSalaryDate(receiptDate); val active = rule
-                if (minor == null || date == null || date > System.currentTimeMillis() || active == null) {
-                    message = "Enter a positive amount and a valid receipt date that is not in the future."
-                } else perform {
-                    val inserted = withContext(Dispatchers.IO) {
-                        val store = TransactionStore.get(context)
-                        val end = Calendar.getInstance().apply { timeInMillis = date; add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
-                        val existing = store.salaryHistoryCandidates(active.counterpartyExact.ifBlank { active.counterpartyContains.ifBlank { active.displayLabel ?: active.name } }, date, active.accountId, 100)
-                            .any { it.occurredAtEpochMs < end && it.amountMinor == minor }
-                        require(!existing) { "A matching receipt already exists. Confirm it below instead." }
-                        store.insertManualIncome(minor, date, active.displayLabel ?: active.name, active)
-                    }
-                    require(inserted) { "This receipt is already recorded." }
-                    SalaryReminders.receiptRecorded(context); loadCandidates(active); amount = ""
-                    message = "Salary recorded. Your pay-cycle spending now starts on its receipt date."
+            if (receipts.isNotEmpty()) {
+                item { Text("Salary history", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+                items(receipts.take(visibleReceipts), key = { it.transactionId }) { receipt ->
+                    SalaryReceiptRow(receipt, accounts.firstOrNull { it.id == receipt.accountId }?.name,
+                        enabled = !busy, onRemove = { removal = receipt })
                 }
-            }) { Text("Record received salary") }
+                if (receipts.size > visibleReceipts) item {
+                    TextButton(onClick = { visibleReceipts += 5 }) { Text("Show more salary entries") }
+                }
+            }
+            if (candidates.isNotEmpty()) {
+                item { TextButton(onClick = { showCandidates = !showCandidates }) {
+                    Text(if (showCandidates) "Hide matching payments" else "Matching payments (${candidates.size})")
+                } }
+                if (showCandidates) items(candidates.take(5), key = { "candidate-${it.transactionId}" }) { candidate ->
+                    SalarySection(salaryMoney(candidate.amountMinor)) {
+                        Text((candidate.counterparty ?: "Payment") + " · " + salaryDisplayDate(candidate.occurredAtEpochMs), style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = { confirm(candidate) }, enabled = !busy) { Text("Use as salary") }
+                    }
+                }
+            }
         }
-        message?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
-        if (busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-        item { Text("Recent receipts from this source", style = MaterialTheme.typography.titleLarge)
-            Text("Past three months. Confirming uses the existing transaction; it does not add income again.") }
-        items(candidates, key = { it.transactionId }) { candidate ->
-            ElevatedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp)) {
-                    Text(salaryDate(candidate.occurredAtEpochMs) + " · " + salaryMoney(candidate.amountMinor))
-                    Text(candidate.counterparty ?: "Salary")
-                    Button(enabled = !busy && rule != null, onClick = { perform {
-                        withContext(Dispatchers.IO) {
-                            val store = TransactionStore.get(context)
-                            require(store.applyRuleToTransaction(candidate.transactionId, rule!!)) { "Receipt could not be updated." }
-                            PayCycleStore.get(context).confirmNewCycle(candidate.transactionId)
+        if (ready && tab == "Source") {
+            item {
+                SalarySection("Salary source") {
+                    OutlinedTextField(payer, { payer = it }, label = { Text("Employer / salary source") },
+                        supportingText = { Text("Use the name shown in your payment message.") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth(), enabled = !busy)
+                    Text("Receiving account", style = MaterialTheme.typography.labelLarge)
+                    SalaryAccountGrid(accounts, accountId, !busy) { accountId = it }
+                    if (accounts.isEmpty()) Text("Add a receiving account in Accounts first.")
+                }
+            }
+            item {
+                SalarySection("Payday & reminders") {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Expected payday", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Days $startDay–$endDay each month", style = MaterialTheme.typography.bodyLarge)
                         }
-                        SalaryReminders.receiptRecorded(context); loadCandidates(rule)
-                        message = "Receipt confirmed as salary. Pay cycles updated."
-                    } }) { Text("Confirm as salary") }
+                        TextButton(onClick = { editPayday = !editPayday }, enabled = !busy) { Text(if (editPayday) "Done" else "Change") }
+                    }
+                    if (editPayday) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(startDay, { startDay = it.filter(Char::isDigit).take(2) }, label = { Text("From day") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), enabled = !busy)
+                            OutlinedTextField(endDay, { endDay = it.filter(Char::isDigit).take(2) }, label = { Text("Through day") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), enabled = !busy)
+                        }
+                        Text("Use 28–28 for one payday, or 28–2 across two months.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Missing-salary reminder", style = MaterialTheme.typography.bodyMedium)
+                            Text("After your payday window", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(reminders, onCheckedChange = { enabled ->
+                            if (enabled && Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            else { reminders = enabled; SalaryReminders.setEnabled(context, enabled) }
+                        }, enabled = !busy && rule != null)
+                    }
                 }
+            }
+            item {
+                Button(enabled = !busy && accounts.isNotEmpty(), modifier = Modifier.fillMaxWidth(), onClick = {
+                    val from = startDay.toIntOrNull(); val through = endDay.toIntOrNull()
+                    if (payer.isBlank() || accountId.isBlank() || from !in 1..31 || through !in 1..31) {
+                        message = "Enter your employer, receiving account and payday days from 1 to 31."; failure = true
+                    } else perform {
+                        val saved = withContext(Dispatchers.IO) {
+                            val old = rule
+                            val unchangedSource = old != null && payer.trim() == (old.displayLabel ?: old.counterpartyExact.ifBlank { old.counterpartyContains.ifBlank { old.name } })
+                            val savedRule = RuleStore.get(context).save(name = old?.name ?: "Salary",
+                                counterpartyContains = if (unchangedSource) old!!.counterpartyContains else "",
+                                counterpartyExact = if (unchangedSource) old!!.counterpartyExact else payer.trim(),
+                                counterpartyPhoneEquals = if (unchangedSource) old!!.counterpartyPhoneEquals else "",
+                                notificationTitleContains = if (unchangedSource) old!!.notificationTitleContains else "",
+                                messageContains = if (unchangedSource) old!!.messageContains else "",
+                                maximumAmountMinor = old?.maximumAmountMinor, plannedAmountMinor = old?.plannedAmountMinor,
+                                planningMonthOffset = old?.planningMonthOffset ?: 0,
+                                category = TransactionCategory.INCOME, direction = MoneyDirection.INCOME,
+                                preset = RulePreset.SALARY, startsPayCycle = true, displayLabel = payer.trim(), accountId = accountId,
+                                payWindowStartDay = from, payWindowEndDay = through, id = old?.id ?: java.util.UUID.randomUUID().toString())
+                            PayCycleStore.get(context).rebuild(); LedgerUpdateBus.notifyChanged()
+                            savedRule
+                        }
+                        rule = saved; loadReceipts(saved); SalaryReminders.checkSoon(context)
+                        tab = "Overview"; editPayday = false; message = "Salary source saved for future matching messages."
+                    }
+                }) { Text("Save salary source") }
+            }
+        }
+        if (ready && tab == "Add salary") {
+            val active = rule
+            item {
+                SalarySection("Record received salary") {
+                    if (active == null) {
+                        Text("Set your salary source once to get started.")
+                        Button(onClick = { tab = "Source" }) { Text("Set up salary source") }
+                    } else {
+                        Text((active.displayLabel ?: active.name) + " · " + (accounts.firstOrNull { it.id == active.accountId }?.name ?: "Receiving account"), style = MaterialTheme.typography.labelLarge)
+                        Text("Only record money you actually received.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedTextField(amount, { amount = it }, label = { Text("Amount") }, prefix = { Text("KES ") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("salary-amount"), enabled = !busy)
+                        SalaryReceiptDateButton(parseSalaryDate(receiptDate) ?: System.currentTimeMillis(), !busy) { receiptDate = salaryDate(it) }
+                        Button(enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("salary-record"), onClick = {
+                            val minor = parseSalaryAmount(amount); val date = parseSalaryDate(receiptDate)
+                            if (minor == null || date == null || date > System.currentTimeMillis()) {
+                                message = "Enter a positive amount and select its receipt date."; failure = true
+                            } else perform {
+                                val inserted = withContext(Dispatchers.IO) {
+                                    repository.recordManualSalary(minor, date, active)
+                                }
+                                require(inserted) { "This salary is already recorded." }
+                                SalaryReminders.receiptRecorded(context); loadReceipts(active); amount = ""; tab = "Overview"
+                                message = "Salary recorded. Your pay cycle is updated."
+                            }
+                        }) { Text(if (busy) "Saving…" else "Record received salary") }
+                        TextButton(enabled = !busy, onClick = { SalaryReminders.defer(context); message = "We'll check again in three days." }) { Text("Not yet received") }
+                    }
+                }
+            }
+        }
+    }
+    removal?.let { receipt ->
+        AlertDialog(onDismissRequest = { if (!busy) removal = null },
+            title = { Text("Remove salary?") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(salaryMoney(receipt.amountMinor) + " · " + salaryDisplayDate(receipt.receivedAtEpochMs), fontWeight = FontWeight.SemiBold)
+                Text(if (receipt.manualOnly) "This entry will be removed from your totals. Your pay cycle will be recalculated."
+                    else "This payment will stay in Activity as ordinary income. It will no longer start a salary cycle.")
+                Text("Your saved employer will still detect future matching messages.", style = MaterialTheme.typography.bodySmall)
+                if (failure) message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            } },
+            dismissButton = { TextButton(enabled = !busy, onClick = { removal = null }) { Text("Cancel") } },
+            confirmButton = { TextButton(enabled = !busy, modifier = Modifier.testTag("salary-remove-confirm"), onClick = { perform {
+                val active = rule ?: return@perform
+                require(withContext(Dispatchers.IO) { repository.removeSalary(receipt.transactionId, active.id) }) { "This salary has already changed. Reopen the page to refresh it." }
+                removal = null; loadReceipts(active); SalaryReminders.checkSoon(context)
+                message = "Salary removed. Your pay cycle is updated."
+            } }) { Text(if (busy) "Removing…" else "Remove", color = MaterialTheme.colorScheme.error) } }
+        )
+    }
+}
+
+@Composable
+private fun SalaryReceiptRow(receipt: SalaryReceipt, accountName: String?, enabled: Boolean, onRemove: () -> Unit) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Row(Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(salaryMoney(receipt.amountMinor), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(salaryDisplayDate(receipt.receivedAtEpochMs) + (accountName?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (receipt.manualOnly) "Added manually" else "From a payment message", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(enabled = enabled, onClick = onRemove, modifier = Modifier.testTag("salary-remove-${receipt.transactionId}")) {
+                Icon(Icons.Rounded.DeleteOutline, contentDescription = "Remove salary entry")
             }
         }
     }

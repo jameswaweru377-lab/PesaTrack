@@ -1012,17 +1012,6 @@ fun HomeScreen(
         }
 
         item {
-            HomeWhereMoneyWentCard(
-                items =
-                    homeSpendingItems,
-                totalMinor =
-                    totalTrustedSpendingMinor,
-                onPlanClick =
-                    onPlanClick
-            )
-        }
-
-        item {
             val mpesaAccount =
                 trackedAccounts
                     .firstOrNull {
@@ -1054,6 +1043,17 @@ fun HomeScreen(
                     onAccountsClick,
                 onDebtsClick =
                     onDebtsClick
+            )
+        }
+
+        item {
+            HomeWhereMoneyWentCard(
+                items =
+                    homeSpendingItems,
+                totalMinor =
+                    totalTrustedSpendingMinor,
+                onPlanClick =
+                    onPlanClick
             )
         }
 
@@ -1627,6 +1627,7 @@ private fun formatMoney(minor: Long): String {
 
 private fun formatShortDate(epochMs: Long): String =
     SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(epochMs))
+
 
 
 
