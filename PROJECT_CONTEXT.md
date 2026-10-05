@@ -4225,3 +4225,10 @@ After the product-boundary audit and multiple green CI/instrumentation runs, the
 - GoalDetailScreen
 
 These are not pending features. Old navigation destinations may redirect safely to current product surfaces, but the retired preview implementations should not be restored unless the Product Charter is intentionally changed.
+
+
+## 20-screen connected reference UI — 2026-10-05
+
+Implementation is in PR #237 on branch `ui/20-concept-connected-reference`. The approved 20 concept screens are mapped to live routes and existing deterministic stores; screenshot amounts and account identities are not copied as fake user data. The wallet/leaf visual language is implemented in Compose. New connected routes cover Reports & insights, Bills & reminders, Saving goals and account details. Welcome/import/ready, salary, Home, Activity, Pay cycle, Plan, Accounts and Profile were aligned to the reference hierarchy, with the dark palette shifted to emerald. See `docs/REFERENCE_CONCEPT_IMPLEMENTATION.md` for the screen-by-screen mapping and integrity rules.
+
+Do not revive the old `design/reference-ui` branch as a base: it substantially predates the current ledger/pay-cycle/intelligence architecture. Continue from main/PR #237 and preserve current salary corrections, review-state filtering, account ownership evidence and provider-neutral message interpretation.
