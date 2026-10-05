@@ -4236,3 +4236,10 @@ Do not revive the old `design/reference-ui` branch as a base: it substantially p
 ### PR #237 completion and CI recovery in progress
 
 Continue `ui/20-concept-connected-reference`; do not merge a competing redesign. The 20 concepts are in PR #237, based on main d472486. The completion pass replaces placeholder wallet art, adds focused goal editing, actual bill reminders and profile preferences, fixes trusted report/goal/account aggregates and pay-cycle allocation/carryover presentation, and guards outgoing employer payments from salary matching. See docs/REFERENCE_CONCEPT_IMPLEMENTATION.md. No verified APK release yet: the latest resumed GitHub jobs had no executed steps and missing logs; local Android compilation is being investigated. Preserve existing debt, review and salary correction flows and do not bypass failing gates.
+
+
+## Resumed reference UI verification — 6 October 2026 (Nairobi)
+
+Continue PR #237 (`ui/20-concept-connected-reference`), not a competing redesign. App source commit `8aa0d4623c2f1cf38a92db6136e08546e6e6265b` passed local JDK 17 / Gradle 9.5 / SDK 36 unit tests, lint, debug APK and Android-test APK build: 541 tests, zero failures, zero lint errors (51 warnings / 15 hints). Worker contract tests also passed. The bundled wallet illustration, trusted summaries, salary evidence protection, confirmed account picker, atomic goal/bill editing, reminders, CSV export and profile editing are pushed.
+
+Release remains blocked: GitHub run 37377366823 build/instrumentation jobs failed with no assigned runner and zero steps; connector exposes no precise reason or usable logs. Local software Android 35 emulator did not boot in an approximately eleven-minute attempt and was stopped, so instrumentation/UI journeys and screenshot review have not passed. Keep PR draft/unmerged until device verification and CI are resolved. Do not claim the rolling APK contains this work. Get the run page's error banner to identify the Actions account/service blocker, then rerun the normal gates; do not disable them.

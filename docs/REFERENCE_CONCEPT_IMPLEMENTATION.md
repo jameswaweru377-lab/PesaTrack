@@ -66,4 +66,13 @@ The follow-up retains the connected PR #237 design and fixes gaps found before r
 
 ### Verification status
 
-Implementation is under verification. Do not treat this branch as a published APK until Android build, tests, lint and release publication are confirmed. The resumed GitHub run `37371181018` failed before any runner steps; its log endpoints returned BlobNotFound. A local Android build is being used to separate source errors from CI infrastructure failures. No checks have been disabled to force a merge.
+At commit `8aa0d4623c2f1cf38a92db6136e08546e6e6265b`:
+
+- Local Android build passed: `:app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest` using JDK 17, Gradle 9.5.0, Android SDK 36 and build tools 36.0.0.
+- 541 unit tests passed, with no failures, errors or skipped tests.
+- Lint has zero errors (51 warnings and 15 hints remain).
+- Worker JavaScript syntax and entity-enrichment contract tests passed.
+- Android instrumentation execution remains unverified. The local Android 35 software emulator did not finish booting during an approximately eleven-minute attempt and was stopped. This environment has no hardware acceleration; compiling the test APK does not prove the device journeys pass.
+- GitHub run `37377366823` failed before execution. Jobs `111989915234` (build) and `111989915752` (instrumentation) have no assigned runner and zero steps. Earlier run log endpoints returned BlobNotFound. The precise account/service reason is not available through the connector.
+
+The PR remains draft and unmerged. No checks have been disabled, and no new rolling APK publication is claimed.
