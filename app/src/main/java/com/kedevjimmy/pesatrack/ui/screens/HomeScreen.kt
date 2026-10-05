@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivitySummary
+import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.CycleProtectionStore
 import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
@@ -59,6 +60,7 @@ import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
 import com.kedevjimmy.pesatrack.data.local.LedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
+import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RelationshipReviewStore
@@ -76,6 +78,7 @@ import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
 import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
 import com.kedevjimmy.pesatrack.ui.components.ConceptMetricTile
+import com.kedevjimmy.pesatrack.ui.components.ConceptProgressCard
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -101,6 +104,7 @@ private data class HomeLoadedState(
     val activitySnapshot: ActivityLedgerSnapshot,
     val debtAccounts: List<DebtAccountSnapshot>,
     val trackedAccounts: List<MoneyAccount>,
+    val monthlyBudgets: List<MonthlyBudget>,
     val confirmedAccountIds: Set<String>,
     val salaryRule: SmartRule?,
     val needsAttentionCount: Int
@@ -157,6 +161,7 @@ fun HomeScreen(
     val accountStore = remember { AccountStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
     val debtStore = remember { DebtStore.get(context) }
+    val budgetStore = remember { BudgetStore.get(context) }
     val cycleProtectionStore =
         remember {
             CycleProtectionStore.get(context)
@@ -244,6 +249,9 @@ fun HomeScreen(
             List<MoneyAccount>
         >(emptyList())
     }
+    var monthlyBudgets by remember {
+        mutableStateOf<List<MonthlyBudget>>(emptyList())
+    }
     var confirmedAccountIds by remember {
         mutableStateOf<Set<String>>(
             emptySet()
@@ -279,6 +287,8 @@ fun HomeScreen(
                     accountStore.listAccounts(
                         enabledOnly = true
                     ),
+                monthlyBudgets =
+                    budgetStore.list(),
                 confirmedAccountIds =
                     financialStore
                         .confirmedAccountIds(),
@@ -343,6 +353,8 @@ fun HomeScreen(
                         loaded.debtAccounts
                     trackedAccounts =
                         loaded.trackedAccounts
+                    monthlyBudgets =
+                        loaded.monthlyBudgets
                     confirmedAccountIds =
                         loaded.confirmedAccountIds
                     salaryRule =
@@ -670,6 +682,21 @@ fun HomeScreen(
             }
             .take(5)
             .toList()
+    val monthlyBudgetTotalMinor =
+        monthlyBudgets.sumOf { it.limitMinor }
+    val monthlyBudgetCategoryIds =
+        monthlyBudgets.map { it.categoryId }.toSet()
+    val monthlyBudgetSpentMinor =
+        activitySnapshot.transactions
+            .filter {
+                it.direction == MoneyDirection.EXPENSE.name &&
+                    it.reviewState != ReviewState.EXCLUDED.name &&
+                    it.reviewState != ReviewState.NEEDS_REVIEW.name &&
+                    categoryStore.canonicalId(it.category) in monthlyBudgetCategoryIds
+            }
+            .sumOf { it.amountMinor + it.feeMinor }
+            .coerceAtLeast(0L)
+
     val activeDebtOutstandingMinor =
         activeDebtAccounts.sumOf {
             it.outstandingMinor
@@ -866,6 +893,27 @@ fun HomeScreen(
                     label = "Reports",
                     modifier = Modifier.weight(1f),
                     onClick = onReportsClick
+                )
+            }
+        }
+
+        if (monthlyBudgetTotalMinor > 0L) {
+            item {
+                ConceptProgressCard(
+                    title = "Monthly plan",
+                    amount = formatMoney(
+                        (monthlyBudgetTotalMinor - monthlyBudgetSpentMinor)
+                            .coerceAtLeast(0L)
+                    ) + " left",
+                    helper =
+                        formatMoney(monthlyBudgetSpentMinor) + " of " +
+                            formatMoney(monthlyBudgetTotalMinor) + " used",
+                    progress =
+                        (monthlyBudgetSpentMinor.toFloat() /
+                            monthlyBudgetTotalMinor.toFloat())
+                            .coerceIn(0f, 1f),
+                    modifier = Modifier.clickable(onClick = onPlanClick),
+                    icon = Icons.Rounded.TrackChanges
                 )
             }
         }
