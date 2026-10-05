@@ -1425,11 +1425,7 @@ fun SmartOnboardingSetupScreen(
     }
 
     fun nextAfterIdentitySetup(): SmartSetupStage =
-        if (notificationGranted) {
-            SmartSetupStage.COMPLETE
-        } else {
-            SmartSetupStage.LIVE_CAPTURE
-        }
+        SmartSetupStage.COMPLETE
 
     val onboardingBusy =
         reviewSaving ||
@@ -1495,8 +1491,15 @@ fun SmartOnboardingSetupScreen(
 
                 SmartSetupStage
                     .COMPLETE ->
-                    SmartSetupStage
-                        .LIVE_CAPTURE
+                    if (
+                        mpesaPhoneSuggestion !=
+                        null
+                    ) {
+                        SmartSetupStage
+                            .MPESA_CONFIRM
+                    } else {
+                        SmartSetupStage.REVIEW
+                    }
 
                 SmartSetupStage.IMPORT ->
                     SmartSetupStage.SMS_PERMISSION
