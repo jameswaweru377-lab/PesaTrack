@@ -16,7 +16,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.SouthWest
+import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material.icons.automirrored.rounded.FactCheck
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
@@ -68,6 +74,8 @@ import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
 import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
+import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
+import com.kedevjimmy.pesatrack.ui.components.ConceptMetricTile
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -138,7 +146,10 @@ fun HomeScreen(
     onPlanClick: () -> Unit = {},
     onAccountsClick: () -> Unit = {},
     onDebtsClick: () -> Unit = {},
-    onSalaryClick: () -> Unit = {}
+    onSalaryClick: () -> Unit = {},
+    onBillsClick: () -> Unit = {},
+    onGoalsClick: () -> Unit = {},
+    onReportsClick: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val cycleStore = remember { PayCycleStore.get(context) }
@@ -777,72 +788,85 @@ fun HomeScreen(
         }
 
         item {
-            AvailableToLiveHero(
+            ConceptEmeraldHero(
+                title = "Tracked funds",
                 amount =
-                    if (
-                        cycleSnapshot.cycle ==
-                        null
-                    ) {
+                    if (cycleSnapshot.cycle == null) {
                         "Waiting for salary"
                     } else {
-                        formatMoney(
-                            planningAvailability
-                                .availableMinor
-                        )
+                        formatMoney(planningAvailability.availableMinor)
                     },
                 subtitle =
-                    if (
-                        planningAvailability
-                            .shortfallMinor > 0L
-                    ) {
-                        "Tracked commitments exceed cycle funds by " +
-                            formatMoney(
-                                planningAvailability
-                                    .shortfallMinor
-                            ) +
-                            ". This is a planning shortfall, not your account balance."
+                    if (planningAvailability.shortfallMinor > 0L) {
+                        "Planning shortfall " + formatMoney(planningAvailability.shortfallMinor)
+                    } else if (cycleSnapshot.cycle != null) {
+                        "Available after commitments • updated from your real activity"
                     } else {
-                        cycleSnapshot.cycle
-                            ?.let { cycle ->
-                                buildString {
-                                append(
-                                    "Since "
-                                )
-                                append(
-                                    formatShortDate(
-                                        cycle.startEpochMs
-                                    )
-                                )
-                                cycleSnapshot
-                                    .estimatedDaysRemaining
-                                    ?.let { days ->
-                                        append(" • ")
-                                        append(days)
-                                        append(
-                                            if (
-                                                days ==
-                                                1
-                                            ) {
-                                                " day remaining"
-                                            } else {
-                                                " days remaining"
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                            ?: "PesaTrack will calculate this from real salary-cycle data."
+                        "PesaTrack will calculate this after your first salary is recorded."
                     },
-                footer = null,
-                title = "Available after commitments",
-                spentToday = null,
-                safeToday = null
+                eyebrow = visibleAccountGroups.size.toString() + " tracked account" +
+                    if (visibleAccountGroups.size == 1) "" else "s"
             )
         }
 
         item {
-            androidx.compose.material3.TextButton(onClick = onSalaryClick) {
-                Text(if (cycleSnapshot.cycle == null) "Set up / add salary" else "Salary entries & reminders")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ConceptMetricTile(
+                    icon = Icons.Rounded.SouthWest,
+                    label = "Money in",
+                    value = formatMoney(activitySnapshot.summary.incomeMinor),
+                    modifier = Modifier.weight(1f),
+                    positive = true
+                )
+                ConceptMetricTile(
+                    icon = Icons.Rounded.NorthEast,
+                    label = "Spent",
+                    value = formatMoney(
+                        maxOf(
+                            0L,
+                            activitySnapshot.summary.spentMinor +
+                                activitySnapshot.summary.feesMinor -
+                                activitySnapshot.summary.refundMinor
+                        )
+                    ),
+                    modifier = Modifier.weight(1f),
+                    positive = false
+                )
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                HomeConceptAction(
+                    icon = Icons.Rounded.AddCircle,
+                    label = "Add salary",
+                    modifier = Modifier.weight(1f),
+                    onClick = onSalaryClick
+                )
+                HomeConceptAction(
+                    icon = Icons.Rounded.ReceiptLong,
+                    label = "Bills",
+                    modifier = Modifier.weight(1f),
+                    onClick = onBillsClick
+                )
+                HomeConceptAction(
+                    icon = Icons.Rounded.TrackChanges,
+                    label = "Goals",
+                    modifier = Modifier.weight(1f),
+                    onClick = onGoalsClick
+                )
+                HomeConceptAction(
+                    icon = Icons.Rounded.Insights,
+                    label = "Reports",
+                    modifier = Modifier.weight(1f),
+                    onClick = onReportsClick
+                )
             }
         }
 
@@ -1100,6 +1124,38 @@ private fun refundCountsInTrustedTotals(
         original.type !=
             com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
                 .REVERSAL.name
+}
+
+@Composable
+private fun HomeConceptAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            IconBubble(
+                icon = icon,
+                size = 38.dp,
+                background = MaterialTheme.colorScheme.primaryContainer,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                label,
+                modifier = Modifier.padding(top = 6.dp),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1
+            )
+        }
+    }
 }
 
 @Composable
