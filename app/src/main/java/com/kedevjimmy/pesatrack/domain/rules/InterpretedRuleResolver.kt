@@ -23,7 +23,7 @@ object InterpretedRuleResolver {
             amountMinor = transaction.amountMinor,
             title = title,
             body = body,
-            rules = rules
+            rules = rules.filter { !SalaryEvidencePolicy.isSalary(it) || SalaryEvidencePolicy.accepts(transaction) }
         )
 
     fun match(
@@ -46,3 +46,4 @@ object InterpretedRuleResolver {
             rules = rules
         )
 }
+

@@ -23,7 +23,7 @@ This branch implements the approved 20-screen UI direction while preserving Pesa
 17. **Accounts light** — confirmed accounts and evidence-based balances with a spending-accounts hero.
 18. **M-Pesa/account details** — generic connected account-detail route; M-Pesa gets wallet artwork and all accounts use real balance evidence and linked activity.
 19. **Saving goals** — connected savings-target route backed by savings smart rules and actual savings activity.
-20. **Bills & reminders** — connected commitment route backed by the current pay-cycle commitment model.
+20. **Bills & reminders** — connected monthly commitments, matched payments and optional due-day reminders.
 
 ## Navigation
 
@@ -43,13 +43,13 @@ The main bottom tabs remain Home, Activity, Plan, Accounts and More. The concept
 - Pay-cycle boundaries continue to be rebuilt from salary receipt evidence.
 - Needs-review and unresolved duplicate items stay outside trusted totals.
 - Reports use the canonical Activity snapshot logic.
-- Bills use pay-cycle commitments and matching activity.
+- Bills use configured monthly commitments and trusted activity matched to each bill rule.
 - Savings goals use configured savings rules plus observed savings activity.
 - Financial message processing remains local-first; the UI pass does not change the provider-neutral interpretation architecture.
 
 ## Visual assets
 
-The wallet, leaf and supporting emerald artwork are implemented as Compose components in `ReferenceConceptComponents.kt`. This keeps the asset scalable across Redmi-class screens, supports light/dark variants, and avoids coupling financial screens to static mock screenshot data.
+The welcome wallet, round pedestal and leaves are bundled in `drawable-nodpi/wallet_welcome.webp` and rendered by `ReferenceConceptComponents.kt`. Supporting cards and charts remain native Compose components driven by real data.
 
 ## Completion audit — 5 October 2026
 

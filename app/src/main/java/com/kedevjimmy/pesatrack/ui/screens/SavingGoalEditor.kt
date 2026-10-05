@@ -17,9 +17,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-internal fun SavingGoalEditor(rule:SmartRule?,onDismiss:()->Unit) {
+internal fun SavingGoalEditor(rule:SmartRule?,bill:Boolean=false,onDismiss:()->Unit) {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
+    val noun = if (bill) "bill" else "goal"
     var name by remember {mutableStateOf(rule?.displayLabel ?: rule?.name.orEmpty())}
     var payee by remember {mutableStateOf(rule?.counterpartyExact?.ifBlank {rule.counterpartyContains}.orEmpty())}
     var target by remember {mutableStateOf(rule?.plannedAmountMinor?.let {java.math.BigDecimal.valueOf(it,2).toPlainString()}.orEmpty())}
@@ -29,24 +30,23 @@ internal fun SavingGoalEditor(rule:SmartRule?,onDismiss:()->Unit) {
     fun save(delete:Boolean=false) {scope.launch {
         busy=true
         try {withContext(Dispatchers.IO) {
-            if(delete&&rule!=null) RuleStore.get(context).setEnabled(rule.id,false)
+            if(delete&&rule!=null) PlanningRuleRepository(context).disable(rule.id)
             else {
-                require(name.isNotBlank() && payee.isNotBlank()) {"Add a goal name and the payee shown in its savings receipts."}
+                require(name.isNotBlank() && payee.isNotBlank()) {"Add a name and the payee shown in its receipts."}
                 val minor=requireNotNull(parseSalaryAmount(target)) {"Enter a positive monthly target."}
-                RuleStore.get(context).save(name=name.trim(),counterpartyContains="",counterpartyExact=payee.trim(),category=TransactionCategory.SAVINGS,direction=MoneyDirection.TRANSFER,displayLabel=name.trim(),preset=RulePreset.SAVINGS,plannedAmountMinor=minor,accountId=rule?.accountId,linkedAccountId=rule?.linkedAccountId,id=rule?.id ?: java.util.UUID.randomUUID().toString())
+                PlanningRuleRepository(context).save(name,payee,minor,bill,rule)
             }
-            PayCycleStore.get(context).rebuild();LedgerUpdateBus.notifyChanged()
         };onDismiss()}catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}catch(failure:Exception){error=failure.message ?: "Couldn't save. Please try again."}finally{busy=false}
     }}
-    AlertDialog(onDismissRequest={if(!busy)onDismiss()},title={Text(if(remove)"Remove this goal?" else if(rule==null)"New saving goal" else "Edit saving goal")},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        if(remove) Text("This stops the savings target and its matching rule. Existing transactions and balances stay unchanged.")
+    AlertDialog(onDismissRequest={if(!busy)onDismiss()},title={Text(if(remove)"Remove this $noun?" else if(rule==null)if (bill) "New bill" else "New saving goal" else "Edit $noun")},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        if(remove) Text("This stops the $noun and its matching rule. Existing transactions and balances stay unchanged.")
         else {
-            OutlinedTextField(name,{name=it},label={Text("Goal name")},singleLine=true)
-            OutlinedTextField(target,{target=it},label={Text("Monthly target (KES)")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
-            OutlinedTextField(payee,{payee=it},label={Text("Savings payee on receipts")},singleLine=true)
-            Text("Only trusted transfers matched to this goal count toward its monthly progress. This does not move money.",style=MaterialTheme.typography.bodySmall)
-            if(rule!=null)TextButton(enabled=!busy,onClick={remove=true}){Text("Remove goal")}
+            OutlinedTextField(name,{name=it},label={Text(if (bill) "Bill name" else "Goal name")},singleLine=true)
+            OutlinedTextField(target,{target=it},label={Text(if (bill) "Monthly amount (KES)" else "Monthly target (KES)")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
+            OutlinedTextField(payee,{payee=it},label={Text(if (bill) "Payee on receipts" else "Savings payee on receipts")},singleLine=true)
+            Text(if (bill) "Matching payment receipts reduce this monthly bill automatically. This does not make payments." else "Only trusted transfers matched to this goal count toward its monthly progress. This does not move money.",style=MaterialTheme.typography.bodySmall)
+            if(rule!=null)TextButton(enabled=!busy,onClick={remove=true}){Text("Remove $noun")}
         }
         error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
-    }},confirmButton={TextButton(enabled=!busy,onClick={save(remove)}){Text(if(remove)"Remove" else "Save goal")}},dismissButton={TextButton(enabled=!busy,onClick={if(remove)remove=false else onDismiss()}){Text("Cancel")}})
+    }},confirmButton={TextButton(enabled=!busy,onClick={save(remove)}){Text(if(remove)"Remove" else "Save $noun")}},dismissButton={TextButton(enabled=!busy,onClick={if(remove)remove=false else onDismiss()}){Text("Cancel")}})
 }

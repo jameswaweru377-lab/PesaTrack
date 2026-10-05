@@ -88,6 +88,7 @@ object SmartRuleEngine {
         return rules
             .asSequence()
             .filter(SmartRule::enabled)
+            .filter { !SalaryEvidencePolicy.isSalary(it) || SalaryEvidencePolicy.hasCreditEvidence(body) }
             .filter { rule ->
                 rule.notificationTitleContains.isNotBlank() ||
                     rule.messageContains.isNotBlank()

@@ -1215,7 +1215,7 @@ class TransactionStore private constructor(context: Context) {
               AND direction = 'INCOME' AND review_state != 'USER_CLASSIFIED' AND review_state != 'EXCLUDED'
               AND cycle_override IS NULL AND rule_id IN (SELECT id FROM smart_rules WHERE starts_pay_cycle = 1)
         """.trimIndent()).use { it.executeUpdateDelete() }
-        if (correctedSalary > 0) PayCycleStore.get(appContext).rebuild()
+        if (correctedSalary > 0) { PayCycleStore.get(appContext).rebuild(); LedgerUpdateBus.notifyChanged() }
         salaryDb.setTransactionSuccessful()
         } finally { salaryDb.endTransaction() }
         ensureMirrorReconciled()

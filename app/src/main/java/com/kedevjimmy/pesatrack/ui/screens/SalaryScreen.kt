@@ -96,7 +96,11 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
     LaunchedEffect(Unit) {
         try {
             val data = withContext(Dispatchers.IO) {
-                RuleStore.get(context).listRules(true).firstOrNull { it.startsPayCycle } to AccountStore.get(context).listAccounts()
+                val active = RuleStore.get(context).listRules(true).firstOrNull { it.startsPayCycle }
+                val owned = FinancialUnderstandingStore.get(context).confirmedAccountIds() + listOfNotNull(active?.accountId)
+                active to AccountStore.get(context).listAccounts().filter {
+                    com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy.isConfirmedOwned(it, owned, includeCash = true)
+                }
             }
             rule = data.first; accounts = data.second
             rule?.let {

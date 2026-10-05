@@ -81,7 +81,7 @@ private fun SpendingDonut(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "Spent",
+                "Before refunds",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -358,6 +358,8 @@ fun BillsRemindersScreen(
     onPlanClick: () -> Unit
 ) {
     val context = LocalContext.current
+    var billEditor by remember { mutableStateOf(false) }
+    var editingBill by remember { mutableStateOf<com.kedevjimmy.pesatrack.domain.model.SmartRule?>(null) }
     val revision by LedgerUpdateBus.state.collectAsState()
     var snapshot by remember { mutableStateOf<PayCycleSnapshot?>(null) }
     var bills by remember { mutableStateOf<List<ScheduledBill>>(emptyList()) }
@@ -395,7 +397,7 @@ fun BillsRemindersScreen(
             PesaCard {
                 Column(Modifier.padding(12.dp)) {
                     Text(
-                        SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+                        SimpleDateFormat("MMMM yyyy", androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
                             .format(today.time),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
@@ -419,7 +421,7 @@ fun BillsRemindersScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
-                                        SimpleDateFormat("EEE", Locale.getDefault())
+                                        SimpleDateFormat("EEE", androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
                                             .format(day.time)
                                             .take(1),
                                         style = MaterialTheme.typography.labelSmall,
@@ -475,6 +477,7 @@ fun BillsRemindersScreen(
                         Text(conceptMoney(entry.plannedMinor), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     }
                     bills.firstOrNull { it.rule.id == entry.ruleId }?.let { bill ->
+                        TextButton(onClick = { editingBill = bill.rule; billEditor = true }) { Text("Edit bill") }
                         TextButton(onClick = { reminder = bill }, modifier = Modifier.padding(horizontal = 12.dp)) {
                             Text(if (bill.dueDay == null) "Set due date & reminder" else "Due day ${bill.dueDay} · " + if (bill.reminders) "Reminder on" else "Reminder off")
                         }
@@ -496,7 +499,7 @@ fun BillsRemindersScreen(
         }
         item {
             Button(
-                onClick = onPlanClick,
+                onClick = { editingBill = null; billEditor = true },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp)
             ) {
@@ -507,6 +510,7 @@ fun BillsRemindersScreen(
         }
     }
     reminder?.let { BillReminderSettings(it) { reminder = null } }
+    if (billEditor) SavingGoalEditor(editingBill, bill = true) { billEditor = false }
 }
 
 @Composable
