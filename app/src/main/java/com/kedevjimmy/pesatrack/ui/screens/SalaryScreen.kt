@@ -164,7 +164,7 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
         if (ready && tab == "Overview") {
             val latest = receipts.firstOrNull()
             item {
-                SalarySection(if (latest == null) "No salary recorded yet" else "Latest salary") {
+                SalarySection(if (latest == null) "No salary recorded yet" else "Latest salary", highlighted = true) {
                     if (latest != null) {
                         Text(salaryMoney(latest.amountMinor), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                         Text(salaryDisplayDate(latest.receivedAtEpochMs), color = MaterialTheme.colorScheme.onSurfaceVariant)

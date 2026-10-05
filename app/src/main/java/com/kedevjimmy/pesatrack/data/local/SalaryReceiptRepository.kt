@@ -62,7 +62,7 @@ class SalaryReceiptRepository(context: Context) {
                     put("review_state", if (manualOnly) ReviewState.EXCLUDED.name else ReviewState.USER_CLASSIFIED.name)
                     if (!manualOnly) {
                         putNull("rule_id")
-                        put("category", TransactionCategory.UNCATEGORIZED.name)
+                        put("category", TransactionCategory.INCOME.name)
                     }
                     put("cycle_override", REMOVED_SALARY)
                     putNull("cycle_candidate_reason")

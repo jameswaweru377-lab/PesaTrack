@@ -11,6 +11,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.SouthWest
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -176,7 +179,8 @@ private fun CycleTransactionRow(transaction: StoredTransaction, category: String
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val income = transaction.direction == "INCOME"
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-                Text(if (income) "↙" else if (transaction.direction == "TRANSFER") "⇄" else "↗", Modifier.padding(10.dp), style = MaterialTheme.typography.titleMedium)
+                Icon(if (income) Icons.Rounded.SouthWest else if (transaction.direction == "TRANSFER") Icons.Rounded.SwapHoriz else Icons.Rounded.NorthEast,
+                    contentDescription = null, modifier = Modifier.padding(10.dp).size(20.dp), tint = MaterialTheme.colorScheme.primary)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(transaction.counterparty?.takeIf { it.isNotBlank() && it != transaction.category } ?: category,

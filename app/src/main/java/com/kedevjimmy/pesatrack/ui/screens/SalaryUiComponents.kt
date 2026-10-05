@@ -84,9 +84,9 @@ internal fun SalaryReceiptDateButton(date: Long, enabled: Boolean, onDate: (Long
 }
 
 @Composable
-internal fun SalarySection(title: String, content: @Composable ColumnScope.() -> Unit) {
+internal fun SalarySection(title: String, highlighted: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        colors = CardDefaults.cardColors(containerColor = if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             content()
