@@ -182,6 +182,7 @@ fun ActivityScreen(
     val activityScope =
         rememberCoroutineScope()
     val store = remember { TransactionStore.get(context) }
+    val categoryStore = remember { CategoryStore.get(context) }
     val financialStore = remember {
         FinancialUnderstandingStore.get(context)
     }
