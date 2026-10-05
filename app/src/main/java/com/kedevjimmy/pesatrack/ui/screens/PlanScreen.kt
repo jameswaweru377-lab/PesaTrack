@@ -54,6 +54,7 @@ import com.kedevjimmy.pesatrack.data.local.RecurringPatternStore
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternCandidate
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternConfidence
 import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
+import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
@@ -136,12 +137,12 @@ fun PlanScreen(
     ) {
         item {
             Column {
-                Text("Plan", style = MaterialTheme.typography.headlineLarge)
+                Text("Plan your month", style = MaterialTheme.typography.headlineLarge)
                 Text(
                     if (snapshot.cycle == null) {
                         "Your plan will begin when PesaTrack recognizes a salary."
                     } else {
-                        "Protected commitments for your current pay cycle."
+                        "Budget, commitments and goals for your current pay cycle."
                     },
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -526,80 +527,69 @@ private fun PlanHero(
     planningAvailability:
         com.kedevjimmy.pesatrack.domain.rules.PlanningAvailability
 ) {
-    LandscapeBackdrop(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(if (snapshot.cycle == null) 230.dp else 260.dp)
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(18.dp)
-        ) {
-            Text(
-                if (snapshot.cycle == null) "No active pay cycle" else "Current pay cycle",
-                style = MaterialTheme.typography.titleLarge
+    if (snapshot.cycle == null) {
+        ConceptEmeraldHero(
+            title = "Monthly plan",
+            amount = "Waiting for salary",
+            subtitle = "Your plan starts from a real salary receipt, not an expected payday.",
+            artwork = true
+        )
+    } else {
+        val usedMinor =
+            snapshot.spentMinor +
+                snapshot.feesMinor +
+                snapshot.savingsMinor
+        val starting = maxOf(
+            1L,
+            snapshot.startingFundsMinor +
+                snapshot.additionalIncomeMinor
+        )
+        val progress =
+            (usedMinor.toFloat() / starting.toFloat())
+                .coerceIn(0f, 1f)
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            ConceptEmeraldHero(
+                title = "Monthly plan",
+                amount = formatPlanMoney(planningAvailability.availableMinor),
+                subtitle = "Available after commitments",
+                eyebrow = formatPlanDate(snapshot.cycle.startEpochMs) + " → next salary",
+                footer =
+                    (progress * 100).toInt().toString() +
+                        "% of starting funds allocated, spent or saved",
+                artwork = true
             )
-
-            if (snapshot.cycle == null) {
-                Text(
-                    "Create a Salary smart rule and let a matching salary message start the cycle. No fixed payday is required.",
-                    modifier = Modifier.padding(top = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                return@LandscapeBackdrop
-            }
-
-            Text(
-                formatPlanDate(snapshot.cycle.startEpochMs) + " → next accepted salary",
-                modifier = Modifier.padding(top = 4.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(Modifier.weight(1f))
-
             Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = .96f)
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface
             ) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(15.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.TrendingUp,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .padding(start = 11.dp)
+                Column(Modifier.padding(14.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "Available to Live",
-                            style = MaterialTheme.typography.bodySmall,
+                            "Safe today",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            formatPlanMoney(planningAvailability.availableMinor),
-                            style = MaterialTheme.typography.headlineMedium,
+                            snapshot.safeTodayMinor?.let(::formatPlanMoney)
+                                ?: "Learning",
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            "Safe today",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            snapshot.safeTodayMinor?.let(::formatPlanMoney) ?: "Learning",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp)
+                            .height(8.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 }
             }
         }
