@@ -358,7 +358,8 @@ fun PesaTrackApp(
             ) { padding ->
                 BillsRemindersScreen(
                     scaffoldPadding = padding,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onPlanClick = { navigateToTab(MainTab.PLAN) }
                 )
             }
         }
