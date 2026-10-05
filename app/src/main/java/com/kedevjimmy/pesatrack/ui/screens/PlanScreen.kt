@@ -132,6 +132,9 @@ fun PlanScreen(
     var savingsGoals by remember {
         mutableStateOf<List<SmartRule>>(emptyList())
     }
+    var showPlanDetails by remember {
+        mutableStateOf(false)
+    }
 
     LaunchedEffect(
         ledgerUpdateState.revision,
@@ -450,7 +453,7 @@ fun PlanScreen(
             }
         }
 
-        if (onBudgetClick != null) {
+        if (onBudgetClick != null && monthlyBudgets.isEmpty()) {
             item {
                 PesaCard(
                     modifier = Modifier
@@ -521,7 +524,7 @@ fun PlanScreen(
             }
         }
 
-        if (onGoalsClick != null) {
+        if (onGoalsClick != null && savingsGoals.isEmpty()) {
             item {
                 PesaCard(
                     modifier = Modifier
@@ -659,54 +662,6 @@ fun PlanScreen(
         }
 
         if (snapshot.cycle != null) {
-            item {
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    if (maxWidth < 600.dp) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                PlanMetric(
-                                    "Starting funds",
-                                    formatPlanMoney(snapshot.startingFundsMinor),
-                                    "Salary + carryover",
-                                    "green",
-                                    Modifier.weight(1f)
-                                )
-                                PlanMetric(
-                                    "Committed",
-                                    formatPlanMoney(snapshot.remainingCommitmentsMinor),
-                                    "Still protected",
-                                    "amber",
-                                    Modifier.weight(1f)
-                                )
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                PlanMetric(
-                                    "Saved",
-                                    formatPlanMoney(snapshot.savingsMinor),
-                                    "Moved to savings",
-                                    "blue",
-                                    Modifier.weight(1f)
-                                )
-                                PlanMetric(
-                                    "Available",
-                                    formatPlanMoney(planningAvailability.availableMinor),
-                                    "Free to live",
-                                    "violet",
-                                    Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    } else {
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            PlanMetric("Starting funds", formatPlanMoney(snapshot.startingFundsMinor), "Salary + carryover", "green", Modifier.weight(1f))
-                            PlanMetric("Committed", formatPlanMoney(snapshot.remainingCommitmentsMinor), "Still protected", "amber", Modifier.weight(1f))
-                            PlanMetric("Saved", formatPlanMoney(snapshot.savingsMinor), "Moved to savings", "blue", Modifier.weight(1f))
-                            PlanMetric("Available", formatPlanMoney(planningAvailability.availableMinor), "Free to live", "violet", Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
-
             if (
                 planningAvailability
                     .shortfallMinor > 0L
@@ -740,71 +695,160 @@ fun PlanScreen(
             }
 
             item {
-                SectionHeader("Committed this cycle")
-                Text(
-                    "A recurring bill is protected as soon as the pay cycle starts. Its actual payment message reduces the remaining commitment.",
-                    modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (snapshot.commitments.isEmpty()) {
-                item {
-                    PesaCard {
-                        Column(Modifier.padding(18.dp)) {
-                            IconBubble(Icons.Rounded.Shield, size = 46.dp)
-                            Text(
-                                "No recurring commitments yet",
-                                modifier = Modifier.padding(top = 10.dp),
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                "Create Rent, Internet, Electricity or another recurring rule. Add an expected amount, or let PesaTrack learn it from a matched payment.",
-                                modifier = Modifier.padding(top = 4.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            } else {
-                items(snapshot.commitments.size) { index ->
-                    PlanCommitment(snapshot.commitments[index])
-                }
-            }
-
-            item {
-                SectionHeader("Cycle accounting")
-                Spacer(Modifier.height(6.dp))
-                PesaCard {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        AccountingRow("Salary + carryover", snapshot.startingFundsMinor)
-                        AccountingRow("Other income", snapshot.additionalIncomeMinor)
-                        AccountingRow("Spent", -snapshot.spentMinor)
-                        AccountingRow("Fees", -snapshot.feesMinor)
-                        AccountingRow("Savings allocations", -snapshot.savingsMinor)
-                        AccountingRow("Still committed", -snapshot.remainingCommitmentsMinor)
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer
+                PesaCard(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showPlanDetails =
+                                    !showPlanDetails
+                            }
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                Modifier.padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            IconBubble(
+                                Icons.Rounded.BarChart,
+                                size = 42.dp,
+                                background = pesaToneContainer("blue"),
+                                tint = pesaToneContent("blue")
+                            )
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .padding(start = 11.dp)
                             ) {
                                 Text(
-                                    "Available to Live",
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    "Plan details",
+                                    style = MaterialTheme.typography.titleMedium
                                 )
                                 Text(
-                                    formatPlanMoney(planningAvailability.availableMinor),
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    "Cycle totals and accounting",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            Icon(
+                                if (showPlanDetails)
+                                    Icons.Rounded.ExpandLess
+                                else
+                                    Icons.Rounded.ExpandMore,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (showPlanDetails) {
+                            Spacer(Modifier.height(14.dp))
+                            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                                if (maxWidth < 600.dp) {
+                                    Column(
+                                        verticalArrangement =
+                                            Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Row(
+                                            horizontalArrangement =
+                                                Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            PlanMetric(
+                                                "Starting funds",
+                                                formatPlanMoney(snapshot.startingFundsMinor),
+                                                "Salary + carryover",
+                                                "green",
+                                                Modifier.weight(1f)
+                                            )
+                                            PlanMetric(
+                                                "Committed",
+                                                formatPlanMoney(snapshot.remainingCommitmentsMinor),
+                                                "Still protected",
+                                                "amber",
+                                                Modifier.weight(1f)
+                                            )
+                                        }
+                                        Row(
+                                            horizontalArrangement =
+                                                Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            PlanMetric(
+                                                "Saved",
+                                                formatPlanMoney(snapshot.savingsMinor),
+                                                "Moved to savings",
+                                                "blue",
+                                                Modifier.weight(1f)
+                                            )
+                                            PlanMetric(
+                                                "Available",
+                                                formatPlanMoney(planningAvailability.availableMinor),
+                                                "Free to live",
+                                                "violet",
+                                                Modifier.weight(1f)
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Row(
+                                        horizontalArrangement =
+                                            Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        PlanMetric(
+                                            "Starting funds",
+                                            formatPlanMoney(snapshot.startingFundsMinor),
+                                            "Salary + carryover",
+                                            "green",
+                                            Modifier.weight(1f)
+                                        )
+                                        PlanMetric(
+                                            "Committed",
+                                            formatPlanMoney(snapshot.remainingCommitmentsMinor),
+                                            "Still protected",
+                                            "amber",
+                                            Modifier.weight(1f)
+                                        )
+                                        PlanMetric(
+                                            "Saved",
+                                            formatPlanMoney(snapshot.savingsMinor),
+                                            "Moved to savings",
+                                            "blue",
+                                            Modifier.weight(1f)
+                                        )
+                                        PlanMetric(
+                                            "Available",
+                                            formatPlanMoney(planningAvailability.availableMinor),
+                                            "Free to live",
+                                            "violet",
+                                            Modifier.weight(1f)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(14.dp))
+                            AccountingRow(
+                                "Salary + carryover",
+                                snapshot.startingFundsMinor
+                            )
+                            AccountingRow(
+                                "Other income",
+                                snapshot.additionalIncomeMinor
+                            )
+                            AccountingRow(
+                                "Spent",
+                                -snapshot.spentMinor
+                            )
+                            AccountingRow(
+                                "Fees",
+                                -snapshot.feesMinor
+                            )
+                            AccountingRow(
+                                "Savings allocations",
+                                -snapshot.savingsMinor
+                            )
+                            AccountingRow(
+                                "Still committed",
+                                -snapshot.remainingCommitmentsMinor
+                            )
                         }
                     }
                 }
