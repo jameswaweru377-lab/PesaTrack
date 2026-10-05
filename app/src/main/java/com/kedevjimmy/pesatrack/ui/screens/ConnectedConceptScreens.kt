@@ -192,6 +192,60 @@ fun BillsRemindersScreen(
     ) {
         item { ConceptInnerHeader("Bills & reminders", onBack) }
         item {
+            val today = Calendar.getInstance()
+            val days = (0 until 7).map { offset ->
+                (today.clone() as Calendar).apply {
+                    add(Calendar.DAY_OF_MONTH, offset)
+                }
+            }
+            PesaCard {
+                Column(Modifier.padding(12.dp)) {
+                    Text(
+                        SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+                            .format(today.time),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        days.forEachIndexed { index, day ->
+                            Surface(
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                color =
+                                    if (index == 0)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        SimpleDateFormat("EEE", Locale.getDefault())
+                                            .format(day.time)
+                                            .take(1),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        day.get(Calendar.DAY_OF_MONTH).toString(),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight =
+                                            if (index == 0) FontWeight.Bold
+                                            else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
             ConceptEmeraldHero(
                 title = "Coming up",
                 amount = conceptMoney(comingUp),
@@ -294,12 +348,50 @@ fun SavingGoalsScreen(
                 Column(Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Build your better days", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            Text("Set a savings target in Plan and PesaTrack will use real savings activity to show progress.", Modifier.padding(top = 5.dp), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text(
+                                "Build your better days",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "Set goals, stay consistent and make progress.",
+                                Modifier.padding(top = 5.dp),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                         }
-                        Icon(Icons.Rounded.Eco, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(58.dp))
+                        Box(
+                            modifier = Modifier.size(92.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(74.dp),
+                                shape = RoundedCornerShape(24.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = .72f)
+                            ) {}
+                            Icon(
+                                Icons.Rounded.Savings,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(50.dp)
+                            )
+                            Icon(
+                                Icons.Rounded.Eco,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(36.dp)
+                            )
+                        }
                     }
-                    Button(onClick = onPlanClick, modifier = Modifier.padding(top = 14.dp)) { Text("Create a goal") }
+                    Button(
+                        onClick = onPlanClick,
+                        modifier = Modifier.padding(top = 14.dp)
+                    ) {
+                        Text("Create a goal")
+                        Spacer(Modifier.width(6.dp))
+                        Icon(Icons.Rounded.Add, contentDescription = null)
+                    }
                 }
             }
         }
@@ -340,6 +432,7 @@ fun AccountDetailsScreen(
     var account by remember { mutableStateOf<com.kedevjimmy.pesatrack.domain.model.MoneyAccount?>(null) }
     var balance by remember { mutableStateOf<PaydayAccountSnapshot?>(null) }
     var rows by remember { mutableStateOf(emptyList<StoredTransaction>()) }
+    var detailTab by remember { mutableStateOf("Transactions") }
 
     LaunchedEffect(revision.revision, accountId) {
         val loaded = withContext(Dispatchers.IO) {
@@ -376,11 +469,45 @@ fun AccountDetailsScreen(
                 ConceptMetricTile(Icons.Rounded.NorthEast, "Money out", conceptMoney(moneyOut), Modifier.weight(1f), false)
             }
         }
+        item {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Transactions", "Transfers").forEach { label ->
+                    FilterChip(
+                        selected = detailTab == label,
+                        onClick = { detailTab = label },
+                        label = { Text(label) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
         item { ConceptSectionTitle("Recent activity") }
-        if (rows.isEmpty()) {
-            item { PesaCard { Text("No activity linked to this account yet.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+        val visibleRows =
+            rows.filter {
+                if (detailTab == "Transfers") {
+                    it.direction == MoneyDirection.TRANSFER.name
+                } else {
+                    it.direction != MoneyDirection.TRANSFER.name
+                }
+            }
+        if (visibleRows.isEmpty()) {
+            item {
+                PesaCard {
+                    Text(
+                        if (detailTab == "Transfers")
+                            "No transfers linked to this account yet."
+                        else
+                            "No transactions linked to this account yet.",
+                        Modifier.padding(18.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         } else {
-            items(rows.take(20), key = { it.id }) { transaction ->
+            items(visibleRows.take(20), key = { it.id }) { transaction ->
                 PesaCard(modifier = Modifier.fillMaxWidth().clickable { onTransactionClick(transaction.id) }) {
                     Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconBubble(
