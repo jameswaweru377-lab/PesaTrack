@@ -96,7 +96,7 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
         if (!loading && error == null && selected == null) item {
             SalarySection("Start your first pay cycle") {
                 Text("Add a salary you've received. Future matching messages can start the next cycle automatically.")
-                Button(onClick = onSalaryClick) { Text("Set up / add salary") }
+                Button(onClick = onSalaryClick) { Text("Add salary") }
             }
         }
         if (selected != null && !loading && error == null) {
