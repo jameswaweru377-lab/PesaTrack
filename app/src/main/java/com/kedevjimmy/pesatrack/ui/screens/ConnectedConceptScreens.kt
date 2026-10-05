@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +39,94 @@ private fun conceptMoney(minor: Long): String {
 
 private fun conceptDate(epoch: Long): String =
     SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(epoch))
+
+
+@Composable
+private fun SpendingDonut(
+    spending: List<Pair<String, Long>>,
+    total: Long,
+    modifier: Modifier = Modifier
+) {
+    val palette = listOf(
+        Color(0xFF087A58),
+        Color(0xFF2F9E73),
+        Color(0xFF67B993),
+        Color(0xFFA3D9BE),
+        Color(0xFFCCECDD),
+        Color(0xFF4F8D70)
+    )
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            var start = -90f
+            spending.take(6).forEachIndexed { index, entry ->
+                val sweep =
+                    if (total <= 0L) 0f
+                    else 360f * entry.second.toFloat() / total.toFloat()
+                drawArc(
+                    color = palette[index % palette.size],
+                    startAngle = start,
+                    sweepAngle = sweep,
+                    useCenter = false,
+                    style = Stroke(width = size.minDimension * .16f)
+                )
+                start += sweep
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                conceptMoney(total),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Spent",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeeklySpendingBars(
+    weeks: List<Long>,
+    modifier: Modifier = Modifier
+) {
+    val maxValue = (weeks.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        weeks.forEachIndexed { index, amount ->
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    conceptMoney(amount).removePrefix("KES "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(
+                            (28 + 68 * amount.toFloat() / maxValue.toFloat()).dp
+                        ),
+                    shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+                    color = MaterialTheme.colorScheme.primary
+                ) {}
+                Text(
+                    "Week ${index + 1}",
+                    modifier = Modifier.padding(top = 5.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun ConceptInnerHeader(title: String, onBack: () -> Unit) {
@@ -132,6 +223,48 @@ fun ReportsInsightsScreen(
                 PesaCard { Text("No trusted spending in this period yet.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         } else {
+            item {
+                PesaCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SpendingDonut(
+                            spending = spending,
+                            total = spending.sumOf { it.second },
+                            modifier = Modifier.size(150.dp)
+                        )
+                        Column(
+                            modifier = Modifier.weight(1f).padding(start = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            spending.take(4).forEachIndexed { index, entry ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        modifier = Modifier.size(9.dp),
+                                        shape = androidx.compose.foundation.shape.CircleShape,
+                                        color = listOf(
+                                            Color(0xFF087A58),
+                                            Color(0xFF2F9E73),
+                                            Color(0xFF67B993),
+                                            Color(0xFFA3D9BE)
+                                        )[index]
+                                    ) {}
+                                    Text(
+                                        entry.first,
+                                        modifier = Modifier.weight(1f).padding(start = 7.dp),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text(
+                                        ((entry.second * 100) / total).toString() + "%",
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             item { ConceptSectionTitle("Where your money went") }
             items(spending.take(6), key = { it.first }) { (label, amount) ->
                 val progress = amount.toFloat() / total.toFloat()
@@ -148,6 +281,40 @@ fun ReportsInsightsScreen(
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                         Text("${(progress * 100).toInt()}% of trusted spending", Modifier.padding(top = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            if (period == "Month" && data != null) {
+                item {
+                    val weeks = (1..4).map { week ->
+                        data.transactions
+                            .filter {
+                                it.direction == MoneyDirection.EXPENSE.name &&
+                                    it.reviewState != "EXCLUDED" &&
+                                    it.reviewState != "NEEDS_REVIEW" &&
+                                    Calendar.getInstance().apply {
+                                        timeInMillis = it.occurredAtEpochMs
+                                    }.get(Calendar.WEEK_OF_MONTH)
+                                        .coerceIn(1, 4) == week
+                            }
+                            .sumOf { it.amountMinor + it.feeMinor }
+                    }
+                    PesaCard {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(
+                                "Weekly spending",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            WeeklySpendingBars(
+                                weeks = weeks,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(150.dp)
+                                    .padding(top = 12.dp)
+                            )
+                        }
                     }
                 }
             }
