@@ -197,7 +197,7 @@ fun SmartOnboardingSetupScreen(
         }
 
     var stage by rememberSaveable {
-        mutableStateOf(SmartSetupStage.IMPORT)
+        mutableStateOf(SmartSetupStage.SMS_PERMISSION)
     }
     var importMonths by rememberSaveable {
         mutableStateOf(3)
@@ -325,9 +325,6 @@ fun SmartOnboardingSetupScreen(
         ) { granted ->
             smsGranted = granted
             smsDenied = !granted
-            if (granted) {
-                stage = SmartSetupStage.ANALYZE
-            }
         }
 
     val appInfoLauncher =
@@ -337,12 +334,10 @@ fun SmartOnboardingSetupScreen(
         ) {
             smsGranted =
                 smartHasSmsPermission(context)
-            if (smsGranted) {
-                stage =
-                    SmartSetupStage.ANALYZE
-            } else if (
+            if (
+                !smsGranted &&
                 stage ==
-                SmartSetupStage.SMS_PERMISSION
+                    SmartSetupStage.SMS_PERMISSION
             ) {
                 smsPromptLaunched = false
             }
@@ -355,9 +350,17 @@ fun SmartOnboardingSetupScreen(
         ) {
             notificationGranted =
                 smartHasNotificationAccess(context)
-            if (notificationGranted) {
-                stage = SmartSetupStage.COMPLETE
-            } else {
+            if (
+                stage ==
+                    SmartSetupStage.LIVE_CAPTURE
+            ) {
+                if (notificationGranted) {
+                    stage =
+                        SmartSetupStage.COMPLETE
+                } else {
+                    notificationSettingsVisited = true
+                }
+            } else if (!notificationGranted) {
                 notificationSettingsVisited = true
             }
         }
@@ -404,8 +407,8 @@ fun SmartOnboardingSetupScreen(
             SmartSetupStage.SMS_PERMISSION
         ) {
             if (smsGranted) {
-                stage =
-                    SmartSetupStage.ANALYZE
+                // Stay on the Connect Messages concept
+                // until the user chooses Continue.
             } else if (
                 smartIsLikelySideloaded(
                     context
