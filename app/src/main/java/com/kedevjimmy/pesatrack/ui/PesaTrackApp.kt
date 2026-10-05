@@ -429,7 +429,9 @@ fun PesaTrackApp(
                 ProfileScreen(
                     scaffoldPadding = padding,
                     onBack = { navController.popBackStack() },
-                    onSettingsClick = { navController.navigate("settings") }
+                    onSettingsClick = { navController.navigate("settings") },
+                    onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },
+                    onDataHealthClick = { navController.navigate("data-health") }
                 )
             }
         }
