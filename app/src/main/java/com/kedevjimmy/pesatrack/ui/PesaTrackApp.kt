@@ -133,6 +133,15 @@ fun PesaTrackApp(
                         navController.navigate(
                             "debts"
                         )
+                    },
+                    onBillsClick = {
+                        navController.navigate("bills")
+                    },
+                    onGoalsClick = {
+                        navController.navigate("saving-goals")
+                    },
+                    onReportsClick = {
+                        navController.navigate("reports")
                     }
                 )
             }
