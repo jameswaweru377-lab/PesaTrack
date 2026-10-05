@@ -61,6 +61,11 @@ class SalaryReceiptRepositoryTest {
         assertNull(kept.ruleId); assertNull(PayCycleStore.get(context).currentCycle())
         assertNull(store.latestSalaryReceipt(salary.id))
         assertEquals(6000000L, store.activitySnapshotBetween(at("2025-09-01 00:00"), at("2025-10-01 00:00")).summary.incomeMinor)
+        try {
+            repository.recordManualSalary(6000000, at("2025-09-28 00:00"), salary)
+            fail("A removed captured salary must not become duplicate manual income")
+        } catch (_: IllegalArgumentException) { }
+        assertEquals(1, store.snapshot().transactionCount)
         assertFalse(sms("SALARYSEP", "2025-09-28 10:00", salary))
         assertNull(store.getById(id)!!.ruleId)
         assertTrue(sms("SALARYOCT", "2025-10-28 10:00", salary))

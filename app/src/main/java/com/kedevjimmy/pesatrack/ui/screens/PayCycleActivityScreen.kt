@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.*
@@ -175,6 +176,7 @@ private fun CycleMetric(label: String, minor: Long, modifier: Modifier) {
 
 @Composable
 private fun CycleTransactionRow(transaction: StoredTransaction, category: String, onClick: () -> Unit) {
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.US
     Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val income = transaction.direction == "INCOME"
@@ -185,7 +187,7 @@ private fun CycleTransactionRow(transaction: StoredTransaction, category: String
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(transaction.counterparty?.takeIf { it.isNotBlank() && it != transaction.category } ?: category,
                     style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Text(category + " · " + SimpleDateFormat("HH:mm", Locale.getDefault()).format(transaction.occurredAtEpochMs),
+                Text(category + " · " + SimpleDateFormat("HH:mm", locale).format(transaction.occurredAtEpochMs),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (transaction.reviewState == "EXCLUDED") Text("Excluded", style = MaterialTheme.typography.labelSmall)
                 else if (transaction.reviewState == "NEEDS_REVIEW" || transaction.cycleCandidateReason != null) Text("Needs review", style = MaterialTheme.typography.labelSmall)

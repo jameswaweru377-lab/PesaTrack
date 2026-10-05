@@ -100,6 +100,17 @@ class SalaryReceiptRepository(context: Context) {
                 arrayOf(rule.id, rule.accountId.orEmpty(), amountMinor.toString(), day.timeInMillis.toString(), next.timeInMillis.toString())
             ).use { it.moveToFirst() }
             if (!active) {
+                val payer = rule.counterpartyExact.ifBlank { rule.counterpartyContains.ifBlank { rule.displayLabel ?: rule.name } }
+                val capturedMatch = db.rawQuery(
+                    """SELECT 1 FROM transactions WHERE direction = 'INCOME' AND review_state != 'EXCLUDED'
+                       AND account_id = ? AND amount_minor = ?
+                       AND occurred_at_epoch_ms >= ? AND occurred_at_epoch_ms < ?
+                       AND (rule_id = ? OR instr(lower(COALESCE(counterparty, '')), lower(?)) > 0) LIMIT 1""",
+                    arrayOf(rule.accountId.orEmpty(), amountMinor.toString(), day.timeInMillis.toString(), next.timeInMillis.toString(), rule.id, payer)
+                ).use { it.moveToFirst() }
+                require(!capturedMatch) {
+                    "A matching payment already exists. Open it in Activity to mark it as salary."
+                }
                 val removedId = db.rawQuery(
                     """SELECT id FROM transactions WHERE rule_id = ? AND occurred_at_epoch_ms = ? AND amount_minor = ?
                        AND account_id = ? AND source_kind = 'manual_setup' AND transaction_code IS NULL

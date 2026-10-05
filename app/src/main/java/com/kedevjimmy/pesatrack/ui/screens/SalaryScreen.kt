@@ -294,11 +294,6 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
                                 message = "Enter a positive amount and select its receipt date."; failure = true
                             } else perform {
                                 val inserted = withContext(Dispatchers.IO) {
-                                    val end = Calendar.getInstance().apply { timeInMillis = date; add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
-                                    val removedIds = repository.removedReceiptIds()
-                                    val exists = TransactionStore.get(context).salaryHistoryCandidates(active.counterpartyExact.ifBlank { active.counterpartyContains.ifBlank { active.displayLabel ?: active.name } }, date, active.accountId, 100)
-                                        .any { it.occurredAtEpochMs < end && it.amountMinor == minor && it.transactionId !in removedIds }
-                                    require(!exists) { "A matching payment already exists. Use it as salary from Overview." }
                                     repository.recordManualSalary(minor, date, active)
                                 }
                                 require(inserted) { "This salary is already recorded." }
