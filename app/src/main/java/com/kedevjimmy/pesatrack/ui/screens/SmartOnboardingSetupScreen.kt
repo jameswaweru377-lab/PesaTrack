@@ -1424,6 +1424,13 @@ fun SmartOnboardingSetupScreen(
         }
     }
 
+    fun nextAfterIdentitySetup(): SmartSetupStage =
+        if (notificationGranted) {
+            SmartSetupStage.COMPLETE
+        } else {
+            SmartSetupStage.LIVE_CAPTURE
+        }
+
     val onboardingBusy =
         reviewSaving ||
             mpesaConfirmationBusy ||
@@ -1719,8 +1726,7 @@ fun SmartOnboardingSetupScreen(
                                         SmartSetupStage
                                             .MPESA_CONFIRM
                                     } else {
-                                        SmartSetupStage
-                                            .LIVE_CAPTURE
+                                        nextAfterIdentitySetup()
                                     }
                             }
                         }
@@ -1868,8 +1874,7 @@ fun SmartOnboardingSetupScreen(
                                                     SmartSetupStage
                                                         .MPESA_CONFIRM
                                                 } else {
-                                                    SmartSetupStage
-                                                        .LIVE_CAPTURE
+                                                    nextAfterIdentitySetup()
                                                 }
                                         }
                                     } catch (
@@ -1893,8 +1898,7 @@ fun SmartOnboardingSetupScreen(
                                     SmartSetupStage
                                         .MPESA_CONFIRM
                                 } else {
-                                    SmartSetupStage
-                                        .LIVE_CAPTURE
+                                    nextAfterIdentitySetup()
                                 }
                         }
                     )
@@ -1936,8 +1940,7 @@ fun SmartOnboardingSetupScreen(
                                         ) {
                                             applySalaryIfConfirmed()
                                             stage =
-                                                SmartSetupStage
-                                                    .LIVE_CAPTURE
+                                                nextAfterIdentitySetup()
                                         }
                                     } finally {
                                         mpesaConfirmationBusy =
@@ -1964,8 +1967,7 @@ fun SmartOnboardingSetupScreen(
                                         ) {
                                             applySalaryIfConfirmed()
                                             stage =
-                                                SmartSetupStage
-                                                    .LIVE_CAPTURE
+                                                nextAfterIdentitySetup()
                                         }
                                     } finally {
                                         mpesaConfirmationBusy =
@@ -1978,8 +1980,7 @@ fun SmartOnboardingSetupScreen(
                             setupScope.launch {
                                     applySalaryIfConfirmed()
                                     stage =
-                                        SmartSetupStage
-                                            .LIVE_CAPTURE
+                                        nextAfterIdentitySetup()
                                 }
                         }
                     )
