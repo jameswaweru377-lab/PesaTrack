@@ -2094,13 +2094,15 @@ private fun StageProgress(
     stage: SmartSetupStage
 ) {
     val visibleIndex = when (stage) {
-        SmartSetupStage.IMPORT, SmartSetupStage.SMS_PERMISSION -> 0
-        SmartSetupStage.ANALYZE, SmartSetupStage.REVIEW,
-        SmartSetupStage.SALARY_MANUAL, SmartSetupStage.MPESA_CONFIRM -> 1
+        SmartSetupStage.SMS_PERMISSION -> 0
+        SmartSetupStage.IMPORT, SmartSetupStage.ANALYZE,
+        SmartSetupStage.REVIEW, SmartSetupStage.SALARY_MANUAL,
+        SmartSetupStage.MPESA_CONFIRM -> 1
         SmartSetupStage.LIVE_CAPTURE, SmartSetupStage.COMPLETE -> 2
     }
     Text(
-        text = "${visibleIndex + 1} of 3 • " + listOf("Import history", "Match your money", "Ready")[visibleIndex],
+        text = "${visibleIndex + 1} of 3 • " +
+            listOf("Connect messages", "Import history", "Ready")[visibleIndex],
         modifier = Modifier.fillMaxWidth(),
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
