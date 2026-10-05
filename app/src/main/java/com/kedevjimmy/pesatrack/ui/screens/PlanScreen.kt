@@ -46,11 +46,20 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.BudgetStore
+import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.CommitmentProgress
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
+import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RecurringPatternStore
+import com.kedevjimmy.pesatrack.data.local.RuleStore
+import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.ReviewState
+import com.kedevjimmy.pesatrack.domain.model.SmartRule
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternCandidate
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternConfidence
 import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
@@ -85,6 +94,10 @@ fun PlanScreen(
     val recurringStore = remember {
         RecurringPatternStore.get(context)
     }
+    val budgetStore = remember { BudgetStore.get(context) }
+    val categoryStore = remember { CategoryStore.get(context) }
+    val transactionStore = remember { TransactionStore.get(context) }
+    val ruleStore = remember { RuleStore.get(context) }
     val planScope =
         rememberCoroutineScope()
     val ledgerUpdateState by
@@ -102,6 +115,15 @@ fun PlanScreen(
     var localRefresh by remember {
         mutableStateOf(0)
     }
+    var monthlyBudgets by remember {
+        mutableStateOf<List<MonthlyBudget>>(emptyList())
+    }
+    var spentByBudgetCategory by remember {
+        mutableStateOf<Map<String, Long>>(emptyMap())
+    }
+    var savingsGoals by remember {
+        mutableStateOf<List<SmartRule>>(emptyList())
+    }
 
     LaunchedEffect(
         ledgerUpdateState.revision,
@@ -110,15 +132,67 @@ fun PlanScreen(
         val loaded =
             withContext(Dispatchers.IO) {
                 store.rebuild()
-                store.snapshot() to
-                    recurringStore
-                        .suggestions(
-                            limit = 3
-                        )
+                val cycle = store.snapshot()
+                val recurring =
+                    recurringStore.suggestions(limit = 3)
+                val budgets = budgetStore.list()
+                val activity = transactionStore.activitySnapshot()
+                val spent = activity.transactions
+                    .filter {
+                        it.direction == MoneyDirection.EXPENSE.name &&
+                            it.reviewState != ReviewState.EXCLUDED.name &&
+                            it.reviewState != ReviewState.NEEDS_REVIEW.name
+                    }
+                    .groupBy {
+                        categoryStore.canonicalId(it.category)
+                    }
+                    .mapValues { (_, rows) ->
+                        rows.sumOf { row ->
+                            if (
+                                row.relationType ==
+                                TransactionStore.RELATION_REFUND
+                            ) {
+                                val original =
+                                    row.relatedTransactionId
+                                        ?.let(transactionStore::getById)
+                                if (
+                                    original != null &&
+                                    original.direction ==
+                                        MoneyDirection.EXPENSE.name &&
+                                    original.reviewState !=
+                                        ReviewState.EXCLUDED.name &&
+                                    original.reviewState !=
+                                        ReviewState.NEEDS_REVIEW.name
+                                ) {
+                                    -row.amountMinor
+                                } else {
+                                    0L
+                                }
+                            } else {
+                                row.amountMinor + row.feeMinor
+                            }
+                        }.coerceAtLeast(0L)
+                    }
+                val goals =
+                    ruleStore.listRules(enabledOnly = true)
+                        .filter {
+                            it.category == TransactionCategory.SAVINGS &&
+                                (it.plannedAmountMinor ?: 0L) > 0L
+                        }
+                listOf(cycle, recurring, budgets, spent, goals)
             }
-        snapshot = loaded.first
-        recurringSuggestions =
-            loaded.second
+        @Suppress("UNCHECKED_CAST")
+        run {
+            snapshot = loaded[0] as PayCycleSnapshot
+            recurringSuggestions =
+                loaded[1] as List<RecurringPatternCandidate>
+            monthlyBudgets =
+                loaded[2] as List<MonthlyBudget>
+            spentByBudgetCategory =
+                loaded[3] as Map<String, Long>
+            savingsGoals =
+                loaded[4] as List<SmartRule>
+        }
     }
 
     val planningAvailability =
@@ -156,6 +230,217 @@ fun PlanScreen(
                 planningAvailability =
                     planningAvailability
             )
+        }
+
+        if (monthlyBudgets.isNotEmpty()) {
+            item {
+                val totalBudget = monthlyBudgets.sumOf { it.limitMinor }
+                val totalSpent = monthlyBudgets.sumOf {
+                    spentByBudgetCategory[it.categoryId] ?: 0L
+                }
+                val left = (totalBudget - totalSpent).coerceAtLeast(0L)
+                PesaCard {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconBubble(
+                                Icons.Rounded.TrackChanges,
+                                size = 44.dp,
+                                background = pesaToneContainer("green"),
+                                tint = pesaToneContent("green")
+                            )
+                            Column(Modifier.weight(1f).padding(start = 11.dp)) {
+                                Text(
+                                    "Monthly budget",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    formatPlanMoney(totalBudget),
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                formatPlanMoney(left) + " left",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = {
+                                if (totalBudget <= 0L) 0f
+                                else (totalSpent.toFloat() / totalBudget.toFloat())
+                                    .coerceIn(0f, 1f)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp)
+                                .height(9.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        Text(
+                            formatPlanMoney(totalSpent) + " used",
+                            modifier = Modifier.padding(top = 6.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            item {
+                SectionHeader("Category budgets")
+            }
+
+            items(monthlyBudgets.take(5).size) { index ->
+                val budget = monthlyBudgets[index]
+                val spent = spentByBudgetCategory[budget.categoryId] ?: 0L
+                val progress =
+                    if (budget.limitMinor <= 0L) 0f
+                    else (spent.toFloat() / budget.limitMinor.toFloat())
+                        .coerceIn(0f, 1f)
+                PesaCard(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onBudgetClick?.invoke()
+                            }
+                ) {
+                    Column(Modifier.padding(14.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                categoryStore.labelFor(budget.categoryId),
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                formatPlanMoney(spent) + " / " +
+                                    formatPlanMoney(budget.limitMinor),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 9.dp)
+                                .height(8.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        if (snapshot.commitments.isNotEmpty()) {
+            item {
+                SectionHeader("Upcoming bills")
+            }
+            items(snapshot.commitments.take(3).size) { index ->
+                val commitment = snapshot.commitments[index]
+                PesaCard {
+                    Row(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            if (commitment.remainingMinor == 0L)
+                                Icons.Rounded.CheckCircle
+                            else
+                                Icons.Rounded.CalendarMonth,
+                            size = 42.dp,
+                            background =
+                                pesaToneContainer(
+                                    if (commitment.remainingMinor == 0L)
+                                        "green"
+                                    else
+                                        "amber"
+                                ),
+                            tint =
+                                pesaToneContent(
+                                    if (commitment.remainingMinor == 0L)
+                                        "green"
+                                    else
+                                        "amber"
+                                )
+                        )
+                        Column(Modifier.weight(1f).padding(start = 11.dp)) {
+                            Text(
+                                commitment.name,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                if (commitment.remainingMinor == 0L)
+                                    "Paid this cycle"
+                                else
+                                    formatPlanMoney(commitment.remainingMinor) +
+                                        " still reserved",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            formatPlanMoney(commitment.plannedMinor),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
+                }
+            }
+        }
+
+        if (savingsGoals.isNotEmpty()) {
+            item {
+                SectionHeader("Goals")
+            }
+            items(savingsGoals.take(3).size) { index ->
+                val goal = savingsGoals[index]
+                PesaCard(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onGoalsClick?.invoke()
+                            }
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            Icons.Rounded.Savings,
+                            size = 42.dp,
+                            background = pesaToneContainer("green"),
+                            tint = pesaToneContent("green")
+                        )
+                        Column(Modifier.weight(1f).padding(start = 11.dp)) {
+                            Text(
+                                goal.displayLabel ?: goal.name,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "Target " +
+                                    formatPlanMoney(goal.plannedAmountMinor ?: 0L),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Rounded.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
 
         if (onBudgetClick != null) {
