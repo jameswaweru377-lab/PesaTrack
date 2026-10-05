@@ -54,9 +54,9 @@ internal fun SmartSmsPermissionPage(
     ) {
         SmartSetupHero(
             icon = Icons.AutoMirrored.Rounded.Message,
-            title = "Allow access to your messages",
+            title = "Let your messages do the work",
             body =
-                "Android controls this permission. PesaTrack uses it only to read the history you chose."
+                "PesaTrack finds and organises transaction messages from M-Pesa, banks and other supported money sources."
         )
 
         PesaCard {
@@ -67,9 +67,19 @@ internal fun SmartSmsPermissionPage(
                 verticalArrangement =
                     Arrangement.spacedBy(12.dp)
             ) {
+                SmartFeatureRow(
+                    icon = Icons.AutoMirrored.Rounded.Message,
+                    title = "Read transaction messages",
+                    body = "Find and extract transaction details from the history you choose"
+                )
+                SmartFeatureRow(
+                    icon = Icons.Rounded.Notifications,
+                    title = "Keep tracking in the background",
+                    body = "Live notification access is offered before setup finishes"
+                )
                 IconBubble(
                     Icons.Rounded.Shield,
-                    size = 56.dp,
+                    size = 48.dp,
                     background =
                         pesaToneContainer("green"),
                     tint =
@@ -204,9 +214,9 @@ internal fun SmartLiveCapturePage(
     ) {
     SmartSetupHero(
         icon = Icons.Rounded.Notifications,
-        title = "Keep PesaTrack updated automatically",
+        title = "Keep your money picture current",
         body =
-            "Notification access lets PesaTrack understand new financial confirmations as they arrive."
+            "Notification access lets PesaTrack understand new financial confirmations as they arrive, without reading them again manually."
     )
 
     PesaCard {
