@@ -78,7 +78,8 @@ private data class AccountBalancePresentation(
 fun AccountsScreen(
     scaffoldPadding: PaddingValues,
     onBack: (() -> Unit)? = null,
-    onDebtsClick: (() -> Unit)? = null
+    onDebtsClick: (() -> Unit)? = null,
+    onAccountClick: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val accountStore =
@@ -396,7 +397,17 @@ fun AccountsScreen(
                 AccountBalanceCard(
                     presentation =
                         presentations[index],
-                    tone = index
+                    tone = index,
+                    onClick =
+                        onAccountClick?.let { callback ->
+                            {
+                                presentations[index]
+                                    .group.accounts
+                                    .firstOrNull()
+                                    ?.id
+                                    ?.let(callback)
+                            }
+                        }
                 )
             }
         }
@@ -665,14 +676,26 @@ private fun DetailPageHeader(
 private fun AccountBalanceCard(
     presentation:
         AccountBalancePresentation,
-    tone: Int
+    tone: Int,
+    onClick: (() -> Unit)? = null
 ) {
     val group =
         presentation.group
     val accent =
         premiumCategoryColor(tone)
 
-    PesaCard {
+    PesaCard(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .then(
+                    if (onClick != null) {
+                        Modifier.clickable(onClick = onClick)
+                    } else {
+                        Modifier
+                    }
+                )
+    ) {
         Row(
             modifier =
                 Modifier.padding(15.dp),
