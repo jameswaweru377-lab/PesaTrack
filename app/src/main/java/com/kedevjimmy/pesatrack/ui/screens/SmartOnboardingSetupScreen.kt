@@ -1440,7 +1440,7 @@ fun SmartOnboardingSetupScreen(
     BackHandler(
         enabled =
             stage !=
-                SmartSetupStage.IMPORT
+                SmartSetupStage.SMS_PERMISSION
     ) {
         if (onboardingBusy) {
             return@BackHandler
@@ -1450,7 +1450,7 @@ fun SmartOnboardingSetupScreen(
             when (stage) {
                 SmartSetupStage
                     .SMS_PERMISSION ->
-                    SmartSetupStage.IMPORT
+                    SmartSetupStage.SMS_PERMISSION
 
                 SmartSetupStage
                     .ANALYZE -> {
@@ -1492,7 +1492,7 @@ fun SmartOnboardingSetupScreen(
                         .LIVE_CAPTURE
 
                 SmartSetupStage.IMPORT ->
-                    SmartSetupStage.IMPORT
+                    SmartSetupStage.SMS_PERMISSION
             }
     }
 
@@ -1558,15 +1558,19 @@ fun SmartOnboardingSetupScreen(
             SmartSetupStage.SMS_PERMISSION -> {
                 item {
                     SmartSmsPermissionPage(
+                        smsGranted = smsGranted,
                         denied = smsDenied,
                         restrictedHelp =
-                            smartIsLikelySideloaded(
-                                context
-                            ) &&
+                            !smsGranted &&
+                                smartIsLikelySideloaded(
+                                    context
+                                ) &&
                                 (
                                     !smsAppInfoVisited ||
                                         smsDenied
                                     ),
+                        notificationEnabled =
+                            notificationGranted,
                         onOpenAppInfo = {
                             smsAppInfoVisited =
                                 true
@@ -1591,11 +1595,44 @@ fun SmartOnboardingSetupScreen(
                                         .READ_SMS
                                 )
                         },
+                        onEnableNotifications = {
+                            if (notificationGranted) {
+                                Unit
+                            } else if (
+                                smartIsLikelySideloaded(
+                                    context
+                                ) &&
+                                !smsAppInfoVisited
+                            ) {
+                                smsAppInfoVisited = true
+                                appInfoLauncher.launch(
+                                    Intent(
+                                        Settings
+                                            .ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        Uri.parse(
+                                            "package:" +
+                                                context.packageName
+                                        )
+                                    )
+                                )
+                            } else {
+                                notificationSettingsVisited =
+                                    true
+                                settingsLauncher.launch(
+                                    smartNotificationAccessIntent(
+                                        context
+                                    )
+                                )
+                            }
+                        },
+                        onContinue = {
+                            stage =
+                                SmartSetupStage.IMPORT
+                        },
                         onContinueWithout = {
                             importMonths = 0
                             stage =
-                                SmartSetupStage
-                                    .ANALYZE
+                                SmartSetupStage.IMPORT
                         }
                     )
                 }
