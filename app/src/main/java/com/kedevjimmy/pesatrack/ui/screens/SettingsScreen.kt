@@ -111,7 +111,12 @@ fun SettingsScreen(
             SectionHeader("Appearance")
             Spacer(Modifier.padding(top = 2.dp))
             PesaCard {
-                Column(Modifier.padding(16.dp)) {
+                Column(
+                    Modifier.padding(
+                        horizontal = 16.dp,
+                        vertical = 13.dp
+                    )
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Rounded.Palette,
@@ -163,14 +168,12 @@ fun SettingsScreen(
             Spacer(Modifier.padding(top = 2.dp))
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    SettingsRow(Icons.Rounded.AccountBalanceWallet, "Income & plan", "Salary, budgets, categories")
                     SettingsRow(
                         Icons.Rounded.Tune,
                         "Smart rules",
                         "Salary sources, recurring expenses and transfers",
                         onClick = onSmartRulesClick
                     )
-                    SettingsRow(Icons.Rounded.Notifications, "Alerts & reminders", "Planned — not active yet")
                 }
             }
         }
@@ -180,8 +183,6 @@ fun SettingsScreen(
             Spacer(Modifier.padding(top = 2.dp))
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    SettingsRow(Icons.Rounded.Storage, "Backup & restore", "Planned — not active yet")
-                    SettingsRow(Icons.Rounded.Security, "App lock", "Planned — PIN and biometric lock are not active yet")
                     SettingsRow(
                         Icons.Rounded.Upload,
                         "Financial notifications",
