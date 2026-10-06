@@ -23,8 +23,8 @@ class ConnectedConceptJourneyTest {
         compose.setContent {PesaTrackTheme {SavingGoalsScreen(PaddingValues(),{}, {})}}
         compose.onNodeWithText("Create a goal").performScrollTo().performClick()
         compose.onNodeWithText("Goal name").performTextInput("Emergency fund")
-        compose.onNodeWithText("Monthly target (KES)").performTextInput("5000")
-        compose.onNodeWithText("Savings payee on receipts").performTextInput("Savings provider")
+        compose.onNodeWithText("Monthly saving target (KES)").performTextInput("5000")
+        compose.onNodeWithText("Where will you save this money?").performTextInput("Savings provider")
         compose.onNodeWithText("Save goal").performClick()
         compose.waitUntil(10000){RuleStore.get(context).listRules(true).any{it.name=="Emergency fund"}}
         assertEquals(0,TransactionStore.get(context).snapshot().transactionCount)
