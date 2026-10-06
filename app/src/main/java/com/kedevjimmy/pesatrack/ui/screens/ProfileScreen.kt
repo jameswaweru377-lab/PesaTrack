@@ -75,7 +75,12 @@ fun ProfileScreen(
             val understood = snapshot.trustedTransactions.size
             val confirmed = FinancialUnderstandingStore.get(context).confirmedAccountIds()
             val accounts = AccountStore.get(context).listAccounts(true)
-                .count { it.type != AccountType.SAVINGS && AccountDisplayPolicy.isConfirmedOwned(it, confirmed) }
+                .count {
+                    AccountDisplayPolicy.isConfirmedOwned(
+                        it,
+                        confirmed
+                    )
+                }
             val goals = RuleStore.get(context)
                 .listRules(enabledOnly = true)
                 .count {
@@ -192,7 +197,7 @@ fun ProfileScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Receipt coverage",
+                            "Money-data coverage",
                             modifier = Modifier.padding(top = 7.dp),
                             style = MaterialTheme.typography.labelLarge
                         )
@@ -219,7 +224,7 @@ fun ProfileScreen(
                 ProfileMetricCard(
                     icon = Icons.Rounded.AccountBalanceWallet,
                     value = picture.accountCount.toString(),
-                    label = "spending accounts",
+                    label = "confirmed accounts",
                     modifier = Modifier.weight(1f)
                 )
                 ProfileMetricCard(
