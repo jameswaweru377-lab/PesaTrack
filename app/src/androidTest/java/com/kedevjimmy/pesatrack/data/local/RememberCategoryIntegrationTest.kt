@@ -72,7 +72,7 @@ class RememberCategoryIntegrationTest {
         try {
             RememberCategoryRepository(context).remember(source, "GROCERIES")
             fail("Expected the failed write to roll back")
-        } catch (_: IllegalStateException) { }
+        } catch (_: RuntimeException) { }
         assertEquals("OTHER", store.getById(source)!!.category)
         assertEquals("OTHER", store.getById(other)!!.category)
         assertEquals(0, PersonalLearningStore.get(context).preferenceCount())

@@ -34,7 +34,11 @@ class RememberCategoryRepository(context: Context) {
             }
             // Keep the original name/phone on the source row for future exact matching.
             store.classifyManually(source.id, categoryId, direction)
-            changed = learning.applyHighConfidenceTo(store.categoryLearningCandidates(), rebuildPayCycles = false)
+            val matching = store.categoryLearningCandidates().filter {
+                RememberedCategoryMatchPolicy.matches(source.counterparty, source.counterpartyPhone,
+                    it.counterparty, it.counterpartyPhone)
+            }
+            changed = learning.applyHighConfidenceTo(matching, rebuildPayCycles = false)
             PayCycleStore.get(context).rebuild()
             db.setTransactionSuccessful()
         } finally {
