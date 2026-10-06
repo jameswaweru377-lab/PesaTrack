@@ -285,7 +285,7 @@ class BillSchedules(private val context: Context) {
 
                     occurrenceDates(
                         config,
-                        monthReference
+                        now.timeInMillis
                     )
                         .drop(paidOccurrences)
                         .forEach { dueEpochMs ->
