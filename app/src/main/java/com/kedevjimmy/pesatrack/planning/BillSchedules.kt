@@ -103,7 +103,8 @@ class BillSchedules(private val context: Context) {
             .filter {
                 it.direction == MoneyDirection.EXPENSE &&
                     it.preset == RulePreset.OTHER_RECURRING &&
-                    (it.plannedAmountMinor ?: 0L) > 0L
+                    (it.plannedAmountMinor ?: 0L) > 0L &&
+                    isExplicitBill(it.id)
             }
             .map { rule ->
                 buildScheduledBill(
@@ -156,6 +157,10 @@ class BillSchedules(private val context: Context) {
         }
 
         prefs.edit()
+            .putBoolean(
+                "bill:$ruleId",
+                true
+            )
             .putString(
                 "cadence:$ruleId",
                 cadence.name
@@ -211,6 +216,7 @@ class BillSchedules(private val context: Context) {
 
     fun remove(ruleId: String) {
         prefs.edit()
+            .remove("bill:$ruleId")
             .remove("cadence:$ruleId")
             .remove("day:$ruleId")
             .remove("weekday:$ruleId")
@@ -254,23 +260,14 @@ class BillSchedules(private val context: Context) {
         }
 
         val now = Calendar.getInstance()
-        val nextMonth =
-            (now.clone() as Calendar).apply {
-                add(Calendar.MONTH, 1)
-                set(Calendar.DAY_OF_MONTH, 1)
-            }
 
-        listOf(
-            now.timeInMillis,
-            nextMonth.timeInMillis
-        ).forEach { monthReference ->
-            list(monthReference)
-                .filter {
-                    it.reminders &&
-                        it.dueThisMonth &&
-                        it.remainingMinor > 0L
-                }
-                .forEach { bill ->
+        list(now.timeInMillis)
+            .filter {
+                it.reminders &&
+                    it.dueThisMonth &&
+                    it.remainingMinor > 0L
+            }
+            .forEach { bill ->
                     val planned =
                         bill.rule.plannedAmountMinor
                             ?: return@forEach
@@ -377,9 +374,22 @@ class BillSchedules(private val context: Context) {
                                 )
                                 .apply()
                         }
-                }
-        }
+            }
     }
+
+    private fun isExplicitBill(
+        ruleId: String
+    ): Boolean =
+        prefs.getBoolean(
+            "bill:$ruleId",
+            false
+        ) ||
+            prefs.contains(
+                "day:$ruleId"
+            ) ||
+            prefs.contains(
+                "weekday:$ruleId"
+            )
 
     private fun buildScheduledBill(
         rule: SmartRule,
