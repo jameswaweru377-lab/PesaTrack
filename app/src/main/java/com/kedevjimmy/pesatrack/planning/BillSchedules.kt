@@ -16,6 +16,7 @@ import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.RulePreset
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
+import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -401,9 +402,24 @@ class BillSchedules(private val context: Context) {
         val paid =
             trusted
                 .filter {
-                    it.ruleId == rule.id &&
-                        it.direction ==
-                        MoneyDirection.EXPENSE.name
+                    it.direction ==
+                        MoneyDirection.EXPENSE.name &&
+                        (
+                            it.ruleId == rule.id ||
+                                SmartRuleEngine
+                                    .matchTransaction(
+                                        counterparty =
+                                            it.counterparty,
+                                        counterpartyPhone =
+                                            it.counterpartyPhone,
+                                        amountMinor =
+                                            it.amountMinor,
+                                        rules =
+                                            listOf(rule)
+                                    )
+                                    ?.id ==
+                                rule.id
+                            )
                 }
                 .sumOf {
                     it.amountMinor
