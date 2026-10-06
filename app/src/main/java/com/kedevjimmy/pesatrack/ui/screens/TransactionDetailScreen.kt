@@ -1583,95 +1583,340 @@ private fun RefundLinkCard(
 private fun ClassificationCard(
     item: StoredTransaction,
     appliedRule: SmartRule?,
+    learningPreferenceActive: Boolean,
+    canRemember: Boolean,
+    confidenceLabel: String,
+    onRememberChanged: (Boolean) -> Unit,
     onDisableRule: (SmartRule) -> Unit
 ) {
-    val context = LocalContext.current
-    val categoryStore = remember { CategoryStore.get(context) }
-    val needsReview = item.reviewState == ReviewState.NEEDS_REVIEW.name
-    val excluded = item.reviewState == ReviewState.EXCLUDED.name
-    val categoryLabel = categoryStore.labelFor(item.category)
-
-    val tone = when {
-        needsReview -> "amber"
-        excluded -> "red"
-        item.direction == MoneyDirection.INCOME.name -> "green"
-        item.direction == MoneyDirection.TRANSFER.name -> "blue"
-        else -> "green"
-    }
+    val context =
+        LocalContext.current
+    val categoryStore =
+        remember {
+            CategoryStore.get(context)
+        }
+    val categoryId =
+        categoryStore.canonicalId(
+            item.category
+        )
+    val visual =
+        categoryVisual(
+            categoryId
+        )
+    val needsReview =
+        item.reviewState ==
+            ReviewState.NEEDS_REVIEW.name
+    val excluded =
+        item.reviewState ==
+            ReviewState.EXCLUDED.name
+    val categoryLabel =
+        categoryStore.labelFor(
+            categoryId
+        )
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = pesaToneContainer(tone)
+        modifier =
+            Modifier.fillMaxWidth(),
+        shape =
+            RoundedCornerShape(
+                22.dp
+            ),
+        color =
+            MaterialTheme
+                .colorScheme
+                .surfaceVariant
+                .copy(alpha = .72f),
+        border =
+            BorderStroke(
+                1.dp,
+                MaterialTheme
+                    .colorScheme
+                    .outlineVariant
+                    .copy(alpha = .42f)
+            )
     ) {
         Column {
             Row(
-                Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier =
+                    Modifier.padding(
+                        start = 16.dp,
+                        end = 12.dp,
+                        top = 16.dp,
+                        bottom = 12.dp
+                    ),
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
-            IconBubble(
-                if (needsReview) {
-                    Icons.Rounded.Tune
-                } else {
-                    Icons.Rounded.CheckCircle
-                },
-                size = 46.dp,
-                background =
-                    MaterialTheme.colorScheme.surface.copy(alpha = .7f),
-                tint = pesaToneContent(tone)
-            )
-            Column(
-                Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp)
-            ) {
-                Text(
-                    when {
-                        needsReview -> "Needs review"
-                        excluded -> "Excluded from budget"
-                        else -> categoryLabel
-                    },
-                    style = MaterialTheme.typography.titleLarge
-                )
-                Text(
-                    when {
-                        needsReview ->
-                            "Choose what this transaction was. PesaTrack will not guess."
-                        item.ruleId != null &&
-                            appliedRule != null ->
-                            SmartRuleDecisionExplanation
-                                .describe(
-                                    appliedRule
+                Surface(
+                    shape =
+                        CircleShape,
+                    color =
+                        visual.color
+                            .copy(
+                                alpha = .17f
+                            ),
+                    border =
+                        BorderStroke(
+                            2.dp,
+                            visual.color
+                                .copy(
+                                    alpha = .85f
                                 )
-                        item.ruleId != null ->
-                            "Automatically classified by a saved smart rule. The original rule record is no longer available."
-                        item.reviewState ==
-                            ReviewState.USER_CLASSIFIED.name ->
-                            "Classified by you."
-                        item.evidenceSource
-                            ?.startsWith(
-                                "entity_intelligence:"
-                            ) == true ->
-                            "Auto-reviewed from a high-confidence entity match. You can change this category at any time."
-                        else ->
-                            "Classified automatically."
-                    },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (item.ruleId != null) {
-                SmallStatusPill(
-                    if (
-                        appliedRule?.enabled ==
-                        false
+                        )
+                ) {
+                    Icon(
+                        visual.icon,
+                        contentDescription =
+                            null,
+                        modifier =
+                            Modifier.padding(
+                                13.dp
+                            ),
+                        tint =
+                            visual.color
+                    )
+                }
+
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(
+                                start = 14.dp
+                            )
+                ) {
+                    Text(
+                        when {
+                            needsReview ->
+                                "Needs review"
+                            excluded ->
+                                "Excluded"
+                            else ->
+                                categoryLabel
+                        },
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleLarge,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                    Text(
+                        when {
+                            needsReview ->
+                                "Choose the category that best fits this transaction."
+                            item.reviewState ==
+                                ReviewState
+                                    .USER_CLASSIFIED
+                                    .name ->
+                                "Classified by you."
+                            appliedRule != null ->
+                                "Classified by your saved rule."
+                            item.evidenceSource
+                                ?.startsWith(
+                                    "entity_intelligence:"
+                                ) == true ->
+                                "Classified from a recognized merchant match."
+                            else ->
+                                "Classified automatically."
+                        },
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodyMedium,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
+                if (!needsReview) {
+                    Surface(
+                        shape =
+                            RoundedCornerShape(
+                                50.dp
+                            ),
+                        color =
+                            Color(0xFF0C765B)
+                                .copy(
+                                    alpha = .52f
+                                ),
+                        border =
+                            BorderStroke(
+                                1.dp,
+                                Color(
+                                    0xFF62EAB2
+                                ).copy(
+                                    alpha = .45f
+                                )
+                            )
                     ) {
-                        "Rule disabled"
-                    } else {
-                        "Smart rule"
+                        Row(
+                            modifier =
+                                Modifier.padding(
+                                    horizontal = 10.dp,
+                                    vertical = 7.dp
+                                ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Rounded
+                                    .CheckCircle,
+                                contentDescription =
+                                    null,
+                                modifier =
+                                    Modifier.size(
+                                        17.dp
+                                    ),
+                                tint =
+                                    Color(
+                                        0xFF6FF0B7
+                                    )
+                            )
+                            Text(
+                                confidenceLabel,
+                                modifier =
+                                    Modifier.padding(
+                                        start = 5.dp
+                                    ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelMedium
+                            )
+                        }
                     }
+                }
+
+                Icon(
+                    Icons.Rounded
+                        .ChevronRight,
+                    contentDescription =
+                        null,
+                    modifier =
+                        Modifier.padding(
+                            start = 7.dp
+                        ),
+                    tint =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
                 )
             }
-        }
+
+            if (
+                canRemember &&
+                !needsReview &&
+                !excluded
+            ) {
+                Surface(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                start = 14.dp,
+                                end = 14.dp,
+                                bottom = 14.dp
+                            ),
+                    shape =
+                        RoundedCornerShape(
+                            16.dp
+                        ),
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .surface
+                            .copy(
+                                alpha = .42f
+                            )
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.padding(
+                                horizontal = 12.dp,
+                                vertical = 10.dp
+                            ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape =
+                                CircleShape,
+                            color =
+                                Color(
+                                    0xFF1C8A6A
+                                ).copy(
+                                    alpha = .22f
+                                )
+                        ) {
+                            Icon(
+                                Icons.Rounded
+                                    .TrendingUp,
+                                contentDescription =
+                                    null,
+                                modifier =
+                                    Modifier.padding(
+                                        8.dp
+                                    ),
+                                tint =
+                                    Color(
+                                        0xFF6CE8B2
+                                    )
+                            )
+                        }
+                        Column(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .padding(
+                                        horizontal =
+                                            10.dp
+                                    )
+                        ) {
+                            Text(
+                                if (
+                                    learningPreferenceActive
+                                ) {
+                                    "We'll remember this choice"
+                                } else {
+                                    "Remember this choice"
+                                },
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleSmall,
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                            Text(
+                                if (
+                                    learningPreferenceActive
+                                ) {
+                                    "Similar ${item.counterparty ?: "merchant"} transactions may be suggested as $categoryLabel."
+                                } else {
+                                    "Turn this on to teach PesaTrack for future similar transactions."
+                                },
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked =
+                                learningPreferenceActive,
+                            onCheckedChange =
+                                onRememberChanged
+                        )
+                    }
+                }
+            }
 
             if (
                 appliedRule != null &&
@@ -1688,35 +1933,13 @@ private fun ClassificationCard(
                             .fillMaxWidth()
                             .padding(
                                 horizontal = 8.dp,
-                                vertical = 4.dp
+                                vertical = 2.dp
                             )
                 ) {
                     Text(
-                        "Disable rule for future"
+                        "Disable saved rule for future"
                     )
                 }
-            } else if (
-                item.ruleId != null &&
-                appliedRule?.enabled ==
-                false
-            ) {
-                Text(
-                    "This saved rule is disabled. You can still change this transaction manually.",
-                    modifier =
-                        Modifier.padding(
-                            start = 16.dp,
-                            end = 16.dp,
-                            bottom = 14.dp
-                        ),
-                    style =
-                        MaterialTheme
-                            .typography
-                            .bodySmall,
-                    color =
-                        MaterialTheme
-                            .colorScheme
-                            .onSurfaceVariant
-                )
             }
         }
     }
