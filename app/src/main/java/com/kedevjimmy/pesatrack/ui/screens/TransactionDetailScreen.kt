@@ -112,7 +112,9 @@ import java.util.Locale
 fun TransactionDetailScreen(
     scaffoldPadding: PaddingValues,
     transactionId: Long,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onTransactionClick: (Long) -> Unit = {},
+    onAccountClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val store = remember { TransactionStore.get(context) }
@@ -122,6 +124,50 @@ fun TransactionDetailScreen(
     var learningError by remember(transactionId) { mutableStateOf<String?>(null) }
     val ruleStore = remember { RuleStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
+    val annotationStore =
+        remember {
+            TransactionAnnotationStore.get(context)
+        }
+    val accountStore =
+        remember {
+            AccountStore.get(context)
+        }
+    var annotation by remember(transactionId) {
+        mutableStateOf(
+            annotationStore.get(transactionId)
+        )
+    }
+    var showAnnotationDialog by remember(transactionId) {
+        mutableStateOf(false)
+    }
+    var showMerchantHistory by remember(transactionId) {
+        mutableStateOf(false)
+    }
+    var showMoreMenu by remember(transactionId) {
+        mutableStateOf(false)
+    }
+    val receiptPicker =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) {
+                runCatching {
+                    context.contentResolver
+                        .takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                }
+                annotationStore.saveReceipt(
+                    transactionId,
+                    uri.toString()
+                )
+                annotation =
+                    annotationStore.get(
+                        transactionId
+                    )
+            }
+        }
     val personalLearningStore =
         remember {
             PersonalLearningStore.get(context)
