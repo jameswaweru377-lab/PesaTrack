@@ -8,14 +8,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.kedevjimmy.pesatrack.ingestion.AutomaticHistoryRepair
 import com.kedevjimmy.pesatrack.ui.PesaTrackApp
+import com.kedevjimmy.pesatrack.ui.screens.StartupSplashScreen
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private var salaryOpenRequest by mutableStateOf(0)
@@ -51,6 +54,14 @@ class MainActivity : ComponentActivity() {
             var setupComplete by remember {
                 mutableStateOf(preferences.getBoolean("setup_complete", false))
             }
+            var showLaunchSplash by remember {
+                mutableStateOf(true)
+            }
+            LaunchedEffect(Unit) {
+                delay(650)
+                showLaunchSplash = false
+            }
+
             val systemDark = isSystemInDarkTheme()
             val useDark = when (themeMode) {
                 ThemeMode.SYSTEM -> systemDark
@@ -59,7 +70,10 @@ class MainActivity : ComponentActivity() {
             }
 
             PesaTrackTheme(darkTheme = useDark) {
-                PesaTrackApp(
+                if (showLaunchSplash) {
+                    StartupSplashScreen()
+                } else {
+                    PesaTrackApp(
                     salaryOpenRequest = salaryOpenRequest,
                     billsOpenRequest = billsOpenRequest,
                     themeMode = themeMode,
@@ -81,6 +95,7 @@ class MainActivity : ComponentActivity() {
                         AutomaticHistoryRepair.scheduleIfAllowed(this)
                     }
                 )
+                }
             }
         }
     }
