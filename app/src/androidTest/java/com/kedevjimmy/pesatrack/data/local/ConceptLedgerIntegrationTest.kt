@@ -20,8 +20,11 @@ class ConceptLedgerIntegrationTest {
     }
     @Test fun reportsExposeExactlyTrustedRowsAndBillsUseMatchingRuleOnly() {
         val rules=RuleStore.get(context)
-        val rent=rules.save("Rent","Example",TransactionCategory.RENT,MoneyDirection.EXPENSE,plannedAmountMinor=1000000)
-        val internet=rules.save("Internet","ISP",TransactionCategory.INTERNET,MoneyDirection.EXPENSE,plannedAmountMinor=200000)
+        val rent=rules.save("Rent","Example",TransactionCategory.RENT,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=1000000)
+        val internet=rules.save("Internet","ISP",TransactionCategory.INTERNET,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=200000)
+        val repeatedButNotABill=rules.save("Coffee","Cafe",TransactionCategory.FOOD_DINING,MoneyDirection.EXPENSE,plannedAmountMinor=50000)
+        BillSchedules(context).save(rent.id,31,false)
+        BillSchedules(context).save(internet.id,15,false)
         insert("RENT001",400000,rent,MoneyDirection.EXPENSE,TransactionCategory.RENT)
         insert("EXCLUDED001",900000,null,MoneyDirection.EXPENSE,TransactionCategory.OTHER,ReviewState.EXCLUDED)
         val snapshot=TransactionStore.get(context).activitySnapshot()
@@ -30,8 +33,8 @@ class ConceptLedgerIntegrationTest {
         val bills=BillSchedules(context).list().associateBy {it.rule.id}
         assertEquals(600000L,bills[rent.id]!!.remainingMinor)
         assertEquals(200000L,bills[internet.id]!!.remainingMinor)
-        BillSchedules(context).save(rent.id,31,false)
-        assertEquals(31,BillSchedules(context).list().first {it.rule.id==rent.id}.dueDay)
+        assertFalse(bills.containsKey(repeatedButNotABill.id))
+        assertEquals(31,bills[rent.id]!!.dueDay)
     }
     @Test fun savingsWithdrawalAndInternalLockMovementAreNotNewSavings() {
         insert("TRANSFER001",100000,null,MoneyDirection.TRANSFER,TransactionCategory.SAVINGS)
