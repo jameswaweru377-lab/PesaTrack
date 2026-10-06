@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -111,8 +112,6 @@ fun AccountsScreen(
         remember {
             mutableStateOf(emptyList())
         }
-    var settledDebts by remember { mutableStateOf<List<DebtAccountSnapshot>>(emptyList()) }
-    var showSettled by remember { mutableStateOf(false) }
     var activeDebts:
         List<DebtAccountSnapshot> by
         remember {
@@ -161,9 +160,7 @@ fun AccountsScreen(
     LaunchedEffect(revision) {
         activeDebts =
             withContext(Dispatchers.IO) {
-                debtStore.accounts().also { accounts ->
-                    settledDebts = accounts.filter { it.outstandingMinor == 0L && !it.hasUnresolvedDrawdown }
-                }
+                debtStore.accounts()
                     .filter {
                         it.outstandingMinor >
                             0L
@@ -405,6 +402,8 @@ fun DebtsScreen(
     val revision =
         ledgerUpdateState.revision
 
+    var settledDebts by remember { mutableStateOf<List<DebtAccountSnapshot>>(emptyList()) }
+    var showSettled by remember { mutableStateOf(false) }
     var activeDebts:
         List<DebtAccountSnapshot> by
         remember {
@@ -414,7 +413,9 @@ fun DebtsScreen(
     LaunchedEffect(revision) {
         activeDebts =
             withContext(Dispatchers.IO) {
-                debtStore.accounts()
+                debtStore.accounts().also { accounts ->
+                    settledDebts = accounts.filter { it.outstandingMinor == 0L && !it.hasUnresolvedDrawdown && it.lastRepaymentAtEpochMs != null }
+                }
                     .filter {
                         it.outstandingMinor > 0L ||
                             it.hasUnresolvedDrawdown

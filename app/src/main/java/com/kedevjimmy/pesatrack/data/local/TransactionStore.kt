@@ -1811,7 +1811,7 @@ class TransactionStore private constructor(context: Context) {
             BASE_SELECT + """
              WHERE direction = 'EXPENSE' AND rule_id IS NULL AND relation_type IS NULL
                AND type != 'REVERSAL' AND reversal_of_code IS NULL
-               AND category IN ('OTHER', 'UNCATEGORIZED')
+               AND category NOT IN ('DEBT_LOAN', 'SAVINGS', 'INVESTMENT', 'TRANSFER', 'INCOME', 'CASH')
                AND review_state IN ('NEEDS_REVIEW', 'AUTO_CLASSIFIED')
                AND id NOT IN (SELECT linked_transaction_id FROM debt_events
                    WHERE linked_transaction_id IS NOT NULL AND event_type = 'REPAYMENT')

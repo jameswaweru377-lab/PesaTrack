@@ -208,6 +208,7 @@ class PersonalLearningStore private constructor(
             return null
         }
 
+        if (transaction.category == preference.categoryId && transaction.direction == preference.direction.name) return null
         val source = TransactionStore.get(appContext).getById(preference.sourceTransactionId)
             ?: return null
         if (!RememberedCategoryMatchPolicy.matches(source.counterparty, source.counterpartyPhone,
@@ -480,23 +481,16 @@ class PersonalLearningStore private constructor(
                     AND relation_type IS NULL
                     AND direction = ?
                     AND type != 'REVERSAL' AND reversal_of_code IS NULL
-                    AND category IN ('OTHER', 'UNCATEGORIZED')
+                    AND category NOT IN ('DEBT_LOAN', 'SAVINGS', 'INVESTMENT', 'TRANSFER', 'INCOME', 'CASH')
                     AND id NOT IN (SELECT linked_transaction_id FROM debt_events
                         WHERE linked_transaction_id IS NOT NULL AND event_type = 'REPAYMENT')
-                    AND (
-                        review_state = ?
-                        OR (
-                            review_state = ?
-                            AND category IN (?, 'UNCATEGORIZED')
-                        )
-                    )
+                    AND review_state IN (?, ?)
                     """.trimIndent(),
                     arrayOf(
                         transaction.id.toString(),
                         MoneyDirection.EXPENSE.name,
                         ReviewState.NEEDS_REVIEW.name,
-                        ReviewState.AUTO_CLASSIFIED.name,
-                        TransactionCategory.OTHER.name
+                        ReviewState.AUTO_CLASSIFIED.name
                     )
                 )
 
@@ -712,7 +706,7 @@ class PersonalLearningStore private constructor(
         transaction.ruleId == null && transaction.relationType == null &&
             transaction.direction == MoneyDirection.EXPENSE.name &&
             transaction.type != "REVERSAL" && transaction.reversalOfCode == null &&
-            transaction.category in setOf(TransactionCategory.OTHER.name, TransactionCategory.UNCATEGORIZED.name) &&
+            transaction.category !in setOf("DEBT_LOAN", "SAVINGS", "INVESTMENT", "TRANSFER", "INCOME", "CASH") &&
             transaction.reviewState in setOf(ReviewState.NEEDS_REVIEW.name, ReviewState.AUTO_CLASSIFIED.name)
 
     private fun recordApplication(

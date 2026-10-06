@@ -1297,6 +1297,7 @@ class DebtStore private constructor(context: Context) {
                 WHERE id = ?
                   AND event_type = ?
                   AND related_debt_event_id IS NULL
+                  AND funding_link_user_decision IS NULL
                 LIMIT 1
                 """.trimIndent(),
                 arrayOf(

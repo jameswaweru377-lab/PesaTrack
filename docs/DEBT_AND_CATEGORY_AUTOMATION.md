@@ -10,7 +10,7 @@
 ## Categories
 
 - When an eligible uncategorized outgoing payment has two or more other matching records, choosing a learnable category offers Remember or Only this one.
-- Remember updates matching uncategorized records across every imported month, with no 500-row cap, and applies to subsequent imports. It supports normal/custom expense categories and explicit Investments allocation.
+- Remember updates matching automatically classified or uncategorized expense records across every imported month, with no 500-row cap, and applies to subsequent imports. It supports normal/custom expense categories and explicit Investments allocation.
 - Match the exact normalized counterparty name, or the same normalized phone number when present. Never search arbitrary SMS substrings; a conflicting or missing phone does not broaden a phone-based preference.
 - Preserve manual/excluded records, incoming funds, rules, structural transfers/refunds, and linked debt repayments. Account identity, amounts and dates remain unchanged.
 - Preference, source classification, history application and provenance are saved transactionally. The dialog reports the number updated and retains errors for retry.

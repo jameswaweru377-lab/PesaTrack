@@ -276,7 +276,7 @@ fun TransactionDetailScreen(
             title = { Text("Remember this category?") },
             text = { Column {
                 Text("Use “${current.counterparty ?: current.counterpartyPhone}” as ${categoryStore.labelFor(categoryId)}? " +
-                    "This updates $pendingMatchCount other matching uncategorized transactions across all imported months, " +
+                    "This updates $pendingMatchCount other matching transactions across all imported months, " +
                     "and remembers future matches. Your other manual categories stay unchanged.")
                 learningError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },

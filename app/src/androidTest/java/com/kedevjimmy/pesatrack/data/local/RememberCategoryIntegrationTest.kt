@@ -35,9 +35,11 @@ class RememberCategoryIntegrationTest {
         val refund = insert(508, relation = "REFUND")
         val excluded = insert(509, review = "EXCLUDED")
         val unrelated = insert(510, name = "ZD OTHER")
+        val automaticCategory = insert(512, category = "TRANSPORT")
         val repo = RememberCategoryRepository(context)
-        assertEquals(505, repo.matchingCount(store.getById(source)!!))
-        assertEquals(505, repo.remember(source, TransactionCategory.INVESTMENT.name))
+        assertEquals(506, repo.matchingCount(store.getById(source)!!))
+        assertEquals(506, repo.remember(source, TransactionCategory.INVESTMENT.name))
+        assertEquals("INVESTMENT", store.getById(automaticCategory)!!.category)
         assertEquals("INVESTMENT", store.getById(source)!!.category)
         assertEquals("TRANSFER", store.getById(source)!!.direction)
         assertEquals("GROCERIES", store.getById(manual)!!.category)
@@ -76,6 +78,19 @@ class RememberCategoryIntegrationTest {
         assertEquals("OTHER", store.getById(source)!!.category)
         assertEquals("OTHER", store.getById(other)!!.category)
         assertEquals(0, PersonalLearningStore.get(context).preferenceCount())
+    }
+
+    @Test fun debtRefreshKeepsUserDecisionAndRejectsSafaricomOverlap() {
+        insert(0, "Safaricom")
+        val reviews = RelationshipReviewStore.get(context)
+        assertTrue(reviews.pendingReviews().none { it.kind == RelationshipReviewKind.LIABILITY_PAYMENT })
+        db.execSQL("INSERT INTO debt_accounts(id,provider_key,name,created_at_epoch_ms,updated_at_epoch_ms) VALUES('other','OTHER_LOAN','Other loan',1,1)")
+        db.execSQL("INSERT INTO debt_events(event_key,debt_account_id,event_type,amount_minor,funding_account_key,source_kind,occurred_at_epoch_ms,created_at_epoch_ms) VALUES('draw','other','DRAWDOWN',2000,'wallet','TEST',10000,10000)")
+        db.execSQL("INSERT INTO debt_events(event_key,debt_account_id,event_type,amount_minor,funding_account_key,funding_link_user_decision,funding_link_reason,source_kind,occurred_at_epoch_ms,created_at_epoch_ms) VALUES('repay','debt-fuliza-mpesa','REPAYMENT',2000,'wallet','REJECTED','User decision','TEST',10000,10000)")
+        DebtStore.get(context).refreshPendingRepaymentLinks()
+        db.rawQuery("SELECT related_debt_event_id,funding_link_reason FROM debt_events WHERE event_key='repay'", null).use {
+            assertTrue(it.moveToFirst()); assertTrue(it.isNull(0)); assertEquals("User decision", it.getString(1))
+        }
     }
 
 }
