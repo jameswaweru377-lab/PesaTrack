@@ -12,21 +12,187 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.kedevjimmy.pesatrack.planning.*
-import java.util.Calendar
+import com.kedevjimmy.pesatrack.planning.BillCadence
+import com.kedevjimmy.pesatrack.planning.BillSchedules
+import com.kedevjimmy.pesatrack.planning.ScheduledBill
+import java.text.DateFormatSymbols
+import java.util.Locale
 
 @Composable
-internal fun BillReminderSettings(bill:ScheduledBill,onDismiss:()->Unit) {
-    val context=LocalContext.current
-    var date by remember(bill.rule.id) {mutableLongStateOf(Calendar.getInstance().apply {set(Calendar.DAY_OF_MONTH,minOf(bill.dueDay ?: 1,getActualMaximum(Calendar.DAY_OF_MONTH)))}.timeInMillis)}
-    var enabled by remember(bill.rule.id) {mutableStateOf(bill.reminders)}
-    var denied by remember {mutableStateOf(false)}
-    val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {granted->enabled=granted;denied=!granted}
-    AlertDialog(onDismissRequest=onDismiss,title={Text(bill.rule.displayLabel ?: bill.rule.name)},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("Choose the monthly due day. Short months use their last day.")
-        SalaryReceiptDateButton(date,true,label="Monthly due day",allowFuture=true){date=it}
-        Row {Text("Remind me before it is due",Modifier.weight(1f));Switch(enabled,onCheckedChange={on->if(on&&Build.VERSION.SDK_INT>=33)permission.launch(Manifest.permission.POST_NOTIFICATIONS) else enabled=on})}
-        Text("A reminder runs in the background within three days of the due date. Matching payments reduce the amount still due.",style=MaterialTheme.typography.bodySmall)
-        if(denied)Text("Allow notifications in Android Settings to receive reminders.",color=MaterialTheme.colorScheme.error)
-    }},confirmButton={TextButton(onClick={BillSchedules(context).save(bill.rule.id,Calendar.getInstance().apply{timeInMillis=date}.get(Calendar.DAY_OF_MONTH),enabled);onDismiss()}){Text("Save reminder")}},dismissButton={TextButton(onClick=onDismiss){Text("Cancel")}})
+internal fun BillReminderSettings(
+    bill: ScheduledBill,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var enabled by remember(bill.rule.id) {
+        mutableStateOf(bill.reminders)
+    }
+    var denied by remember {
+        mutableStateOf(false)
+    }
+
+    val hasSchedule =
+        when (bill.cadence) {
+            BillCadence.MONTHLY ->
+                bill.dueDay != null
+            BillCadence.WEEKLY ->
+                bill.dueDayOfWeek != null
+        }
+
+    val permission =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts
+                .RequestPermission()
+        ) { granted ->
+            enabled =
+                granted &&
+                    hasSchedule
+            denied = !granted
+        }
+
+    AlertDialog(
+        onDismissRequest =
+            onDismiss,
+        title = {
+            Text(
+                bill.rule.displayLabel
+                    ?: bill.rule.name
+            )
+        },
+        text = {
+            Column(
+                Modifier.verticalScroll(
+                    rememberScrollState()
+                ),
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        12.dp
+                    )
+            ) {
+                Text(
+                    if (hasSchedule) {
+                        billScheduleText(
+                            bill
+                        )
+                    } else {
+                        "No due schedule yet. Edit this bill first to choose when it repeats."
+                    },
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodyMedium
+                )
+
+                Row {
+                    Text(
+                        "Remind me before it is due",
+                        Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked =
+                            enabled &&
+                                hasSchedule,
+                        enabled =
+                            hasSchedule,
+                        onCheckedChange = {
+                                on ->
+                            if (
+                                on &&
+                                Build.VERSION.SDK_INT >=
+                                33
+                            ) {
+                                permission.launch(
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                )
+                            } else {
+                                enabled =
+                                    on &&
+                                        hasSchedule
+                            }
+                        }
+                    )
+                }
+
+                Text(
+                    "PesaTrack checks the trusted ledger before reminding you. A bill already paid in the current month is not shown as still due.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+
+                if (denied) {
+                    Text(
+                        "Allow notifications in Android Settings to receive bill reminders.",
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (hasSchedule) {
+                        BillSchedules(
+                            context
+                        ).saveSchedule(
+                            ruleId =
+                                bill.rule.id,
+                            cadence =
+                                bill.cadence,
+                            dueDay =
+                                bill.dueDay,
+                            dueDayOfWeek =
+                                bill.dueDayOfWeek,
+                            enabled =
+                                enabled
+                        )
+                    }
+                    onDismiss()
+                }
+            ) {
+                Text(
+                    if (hasSchedule) {
+                        "Save reminder"
+                    } else {
+                        "Done"
+                    }
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
 }
+
+private fun billScheduleText(
+    bill: ScheduledBill
+): String =
+    when (bill.cadence) {
+        BillCadence.MONTHLY ->
+            "Monthly • due on day " +
+                bill.dueDay
+        BillCadence.WEEKLY -> {
+            val names =
+                DateFormatSymbols(
+                    Locale.getDefault()
+                ).weekdays
+            "Weekly • due every " +
+                names[
+                    bill.dueDayOfWeek
+                        ?: 1
+                ]
+        }
+    }

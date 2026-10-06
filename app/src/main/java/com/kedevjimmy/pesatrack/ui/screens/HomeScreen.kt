@@ -75,6 +75,8 @@ import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
 import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
+import com.kedevjimmy.pesatrack.planning.BillSchedules
+import com.kedevjimmy.pesatrack.planning.ScheduledBill
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
 import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
 import com.kedevjimmy.pesatrack.ui.components.ConceptMetricTile
@@ -107,6 +109,7 @@ private data class HomeLoadedState(
     val monthlyBudgets: List<MonthlyBudget>,
     val confirmedAccountIds: Set<String>,
     val salaryRule: SmartRule?,
+    val upcomingBills: List<ScheduledBill>,
     val needsAttentionCount: Int
 )
 
@@ -162,6 +165,7 @@ fun HomeScreen(
     val categoryStore = remember { CategoryStore.get(context) }
     val debtStore = remember { DebtStore.get(context) }
     val budgetStore = remember { BudgetStore.get(context) }
+    val billSchedules = remember { BillSchedules(context) }
     val cycleProtectionStore =
         remember {
             CycleProtectionStore.get(context)
@@ -262,6 +266,9 @@ fun HomeScreen(
             null
         )
     }
+    var upcomingBills by remember {
+        mutableStateOf<List<ScheduledBill>>(emptyList())
+    }
     var needsAttentionCount by remember {
         mutableStateOf(0)
     }
@@ -300,6 +307,9 @@ fun HomeScreen(
                         .firstOrNull {
                             it.startsPayCycle
                         },
+                upcomingBills =
+                    billSchedules
+                        .upcomingThisMonth(),
                 needsAttentionCount =
                     transactionStore
                         .activityReviewOverview()
@@ -359,6 +369,8 @@ fun HomeScreen(
                         loaded.confirmedAccountIds
                     salaryRule =
                         loaded.salaryRule
+                    upcomingBills =
+                        loaded.upcomingBills
                     needsAttentionCount =
                         loaded.needsAttentionCount
                     homeLoaded = true
@@ -701,12 +713,6 @@ fun HomeScreen(
         activeDebtAccounts.sumOf {
             it.outstandingMinor
         }
-    val remainingCommitmentCount =
-        cycleSnapshot.commitments
-            .count {
-                it.remainingMinor > 0L
-            }
-
     val activeSalaryRule =
         salaryRule
     if (
@@ -1068,11 +1074,6 @@ fun HomeScreen(
                 safeTodayMinor =
                     cycleSnapshot
                         .safeTodayMinor,
-                remainingCommitmentsMinor =
-                    cycleSnapshot
-                        .remainingCommitmentsMinor,
-                remainingCommitmentCount =
-                    remainingCommitmentCount,
                 activeCycle =
                     cycleSnapshot.cycle !=
                         null,
@@ -1080,6 +1081,15 @@ fun HomeScreen(
                     showProtectionDialog =
                         true
                 }
+            )
+        }
+
+        item {
+            HomeUpcomingBillsCard(
+                bills =
+                    upcomingBills,
+                onBillsClick =
+                    onBillsClick
             )
         }
 

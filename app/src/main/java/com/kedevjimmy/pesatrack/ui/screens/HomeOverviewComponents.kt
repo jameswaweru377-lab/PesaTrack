@@ -14,7 +14,7 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Paid
-import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material.icons.rounded.TrendingDown
@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
+import com.kedevjimmy.pesatrack.planning.ScheduledBill
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
@@ -42,6 +43,7 @@ import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -56,8 +58,6 @@ data class HomeSpendingItem(
 fun HomeTodayCard(
     spentTodayMinor: Long,
     safeTodayMinor: Long?,
-    remainingCommitmentsMinor: Long,
-    remainingCommitmentCount: Int,
     activeCycle: Boolean,
     onProtectMoney: () -> Unit
 ) {
@@ -146,95 +146,6 @@ fun HomeTodayCard(
                 )
             }
 
-            if (
-                activeCycle &&
-                (
-                    remainingCommitmentsMinor >
-                        0L ||
-                        remainingCommitmentCount >
-                        0
-                )
-            ) {
-                Surface(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-                    shape =
-                        RoundedCornerShape(16.dp),
-                    color =
-                        MaterialTheme
-                            .colorScheme
-                            .surfaceVariant
-                            .copy(alpha = .52f)
-                ) {
-                    Row(
-                        modifier =
-                            Modifier.padding(
-                                horizontal = 13.dp,
-                                vertical = 11.dp
-                            ),
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Rounded.Shield,
-                            contentDescription = null,
-                            tint =
-                                MaterialTheme
-                                    .colorScheme
-                                    .primary
-                        )
-                        Column(
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .padding(
-                                        start = 10.dp
-                                    )
-                        ) {
-                            Text(
-                                "Still protected",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .labelLarge
-                            )
-                            Text(
-                                remainingCommitmentCount
-                                    .toString() +
-                                    " commitment" +
-                                    if (
-                                        remainingCommitmentCount ==
-                                        1
-                                    ) {
-                                        ""
-                                    } else {
-                                        "s"
-                                    },
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                        }
-                        Text(
-                            formatHomeMoney(
-                                remainingCommitmentsMinor
-                            ),
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .titleMedium,
-                            fontWeight =
-                                FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
             if (activeCycle) {
                 OutlinedButton(
                     onClick = onProtectMoney,
@@ -307,6 +218,262 @@ private fun HomeMetricTile(
                     TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@Composable
+fun HomeUpcomingBillsCard(
+    bills: List<ScheduledBill>,
+    onBillsClick: () -> Unit
+) {
+    PesaCard(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(
+                    onClick =
+                        onBillsClick
+                )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                IconBubble(
+                    Icons.Rounded.CalendarMonth,
+                    size = 42.dp,
+                    background =
+                        pesaToneContainer("amber"),
+                    tint =
+                        pesaToneContent("amber")
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(
+                                start = 11.dp
+                            )
+                ) {
+                    Text(
+                        "Upcoming bills",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleLarge
+                    )
+                    Text(
+                        "Still due this month",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+                Icon(
+                    Icons.Rounded.ChevronRight,
+                    contentDescription =
+                        "Open bills",
+                    tint =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+            }
+
+            if (bills.isEmpty()) {
+                Text(
+                    "Nothing else is due this month.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodyMedium,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+            } else {
+                bills.take(3)
+                    .forEachIndexed {
+                            index,
+                            bill ->
+                        if (index > 0) {
+                            HorizontalDivider()
+                        }
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(
+                                        vertical =
+                                            6.dp
+                                    ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .padding(
+                                            end = 10.dp
+                                        )
+                            ) {
+                                Text(
+                                    bill.rule
+                                        .displayLabel
+                                        ?: bill.rule.name,
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .titleSmall,
+                                    maxLines = 2,
+                                    overflow =
+                                        TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    billDueLabel(
+                                        bill.nextDueEpochMs
+                                    ),
+                                    modifier =
+                                        Modifier.padding(
+                                            top = 2.dp
+                                        ),
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                )
+                            }
+                            BillAmountPill(
+                                formatHomeMoney(
+                                    bill.remainingMinor
+                                )
+                            )
+                        }
+                    }
+
+                if (bills.size > 3) {
+                    Text(
+                        (bills.size - 3)
+                            .toString() +
+                            " more this month",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelMedium,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .primary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BillAmountPill(
+    text: String
+) {
+    Surface(
+        shape =
+            RoundedCornerShape(12.dp),
+        color =
+            pesaToneContainer("amber")
+    ) {
+        Text(
+            text,
+            modifier =
+                Modifier.padding(
+                    horizontal = 11.dp,
+                    vertical = 7.dp
+                ),
+            style =
+                MaterialTheme
+                    .typography
+                    .labelLarge,
+            color =
+                pesaToneContent("amber"),
+            fontWeight =
+                FontWeight.Bold,
+            maxLines = 1
+        )
+    }
+}
+
+private fun billDueLabel(
+    dueEpochMs: Long?
+): String {
+    if (dueEpochMs == null) {
+        return "Due this month"
+    }
+
+    val today =
+        Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    val tomorrow =
+        (today.clone() as Calendar)
+            .apply {
+                add(
+                    Calendar.DAY_OF_MONTH,
+                    1
+                )
+            }
+    val dueDay =
+        Calendar.getInstance().apply {
+            timeInMillis = dueEpochMs
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+    return when {
+        dueDay.timeInMillis <
+            today.timeInMillis ->
+            "Overdue • " +
+                SimpleDateFormat(
+                    "d MMM",
+                    Locale.getDefault()
+                ).format(
+                    Date(dueEpochMs)
+                )
+        dueDay.timeInMillis ==
+            today.timeInMillis ->
+            "Due today"
+        dueDay.timeInMillis ==
+            tomorrow.timeInMillis ->
+            "Due tomorrow"
+        else ->
+            "Due " +
+                SimpleDateFormat(
+                    "d MMM",
+                    Locale.getDefault()
+                ).format(
+                    Date(dueEpochMs)
+                )
     }
 }
 

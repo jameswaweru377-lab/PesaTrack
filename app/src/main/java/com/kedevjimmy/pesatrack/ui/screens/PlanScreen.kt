@@ -65,6 +65,8 @@ import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternCandidate
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternConfidence
 import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
+import com.kedevjimmy.pesatrack.planning.BillSchedules
+import com.kedevjimmy.pesatrack.planning.ScheduledBill
 import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
@@ -88,7 +90,8 @@ private data class PlanReferenceData(
     val recurring: List<RecurringPatternCandidate>,
     val budgets: List<MonthlyBudget>,
     val spentByCategory: Map<String, Long>,
-    val goals: List<SmartRule>
+    val goals: List<SmartRule>,
+    val bills: List<ScheduledBill>
 )
 
 @Composable
@@ -108,6 +111,7 @@ fun PlanScreen(
     val categoryStore = remember { CategoryStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
     val ruleStore = remember { RuleStore.get(context) }
+    val billSchedules = remember { BillSchedules(context) }
     val planScope =
         rememberCoroutineScope()
     val ledgerUpdateState by
@@ -133,6 +137,9 @@ fun PlanScreen(
     }
     var savingsGoals by remember {
         mutableStateOf<List<SmartRule>>(emptyList())
+    }
+    var upcomingBills by remember {
+        mutableStateOf<List<ScheduledBill>>(emptyList())
     }
     var showPlanDetails by remember {
         mutableStateOf(false)
@@ -197,7 +204,8 @@ fun PlanScreen(
                     recurring = recurring,
                     budgets = budgets,
                     spentByCategory = spent,
-                    goals = goals
+                    goals = goals,
+                    bills = billSchedules.upcomingThisMonth()
                 )
             }
         snapshot = loaded.snapshot
@@ -205,6 +213,7 @@ fun PlanScreen(
         monthlyBudgets = loaded.budgets
         spentByBudgetCategory = loaded.spentByCategory
         savingsGoals = loaded.goals
+        upcomingBills = loaded.bills
     }
 
     val planningAvailability =
@@ -353,56 +362,124 @@ fun PlanScreen(
             }
         }
 
-        if (snapshot.commitments.isNotEmpty()) {
+        item {
+            SectionHeader("Upcoming bills")
+        }
+        if (upcomingBills.isEmpty()) {
             item {
-                SectionHeader("Upcoming bills")
-            }
-            items(snapshot.commitments.take(3).size) { index ->
-                val commitment = snapshot.commitments[index]
                 PesaCard {
                     Row(
-                        Modifier.fillMaxWidth().padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(15.dp),
+                        verticalAlignment =
+                            Alignment.CenterVertically
                     ) {
                         IconBubble(
-                            if (commitment.remainingMinor == 0L)
-                                Icons.Rounded.CheckCircle
-                            else
-                                Icons.Rounded.CalendarMonth,
+                            Icons.Rounded.CalendarMonth,
                             size = 42.dp,
                             background =
                                 pesaToneContainer(
-                                    if (commitment.remainingMinor == 0L)
-                                        "green"
-                                    else
-                                        "amber"
+                                    "green"
                                 ),
                             tint =
                                 pesaToneContent(
-                                    if (commitment.remainingMinor == 0L)
-                                        "green"
-                                    else
-                                        "amber"
+                                    "green"
                                 )
                         )
-                        Column(Modifier.weight(1f).padding(start = 11.dp)) {
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .padding(
+                                    start = 11.dp
+                                )
+                        ) {
                             Text(
-                                commitment.name,
-                                style = MaterialTheme.typography.titleMedium
+                                "Nothing else due this month",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium
                             )
                             Text(
-                                if (commitment.remainingMinor == 0L)
-                                    "Paid this cycle"
-                                else
-                                    formatPlanMoney(commitment.remainingMinor) +
-                                        " still reserved",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                "Paid bills disappear from this list until their next scheduled month.",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
                             )
                         }
-                        Text(
-                            formatPlanMoney(commitment.plannedMinor),
-                            style = MaterialTheme.typography.titleSmall
+                    }
+                }
+            }
+        } else {
+            items(
+                upcomingBills
+                    .take(3)
+                    .size
+            ) { index ->
+                val bill =
+                    upcomingBills[index]
+                PesaCard {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            Icons.Rounded.CalendarMonth,
+                            size = 42.dp,
+                            background =
+                                pesaToneContainer(
+                                    "amber"
+                                ),
+                            tint =
+                                pesaToneContent(
+                                    "amber"
+                                )
+                        )
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .padding(
+                                    start = 11.dp,
+                                    end = 10.dp
+                                )
+                        ) {
+                            Text(
+                                bill.rule
+                                    .displayLabel
+                                    ?: bill.rule.name,
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium,
+                                maxLines = 2
+                            )
+                            Text(
+                                planBillDueLabel(
+                                    bill.nextDueEpochMs
+                                ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                        BillAmountPill(
+                            formatPlanMoney(
+                                bill.remainingMinor
+                            )
                         )
                     }
                 }
@@ -1220,6 +1297,80 @@ private fun AccountingRow(
             formatSignedPlanMoney(value),
             style = MaterialTheme.typography.titleSmall
         )
+    }
+}
+
+private fun planBillDueLabel(
+    dueEpochMs: Long?
+): String {
+    if (dueEpochMs == null) {
+        return "Due this month"
+    }
+
+    val today =
+        java.util.Calendar
+            .getInstance()
+            .apply {
+                set(
+                    java.util.Calendar.HOUR_OF_DAY,
+                    0
+                )
+                set(
+                    java.util.Calendar.MINUTE,
+                    0
+                )
+                set(
+                    java.util.Calendar.SECOND,
+                    0
+                )
+                set(
+                    java.util.Calendar.MILLISECOND,
+                    0
+                )
+            }
+    val due =
+        java.util.Calendar
+            .getInstance()
+            .apply {
+                timeInMillis =
+                    dueEpochMs
+                set(
+                    java.util.Calendar.HOUR_OF_DAY,
+                    0
+                )
+                set(
+                    java.util.Calendar.MINUTE,
+                    0
+                )
+                set(
+                    java.util.Calendar.SECOND,
+                    0
+                )
+                set(
+                    java.util.Calendar.MILLISECOND,
+                    0
+                )
+            }
+
+    return if (
+        due.timeInMillis <
+        today.timeInMillis
+    ) {
+        "Overdue • " +
+            SimpleDateFormat(
+                "d MMM",
+                Locale.getDefault()
+            ).format(
+                Date(dueEpochMs)
+            )
+    } else {
+        "Due " +
+            SimpleDateFormat(
+                "d MMM",
+                Locale.getDefault()
+            ).format(
+                Date(dueEpochMs)
+            )
     }
 }
 
