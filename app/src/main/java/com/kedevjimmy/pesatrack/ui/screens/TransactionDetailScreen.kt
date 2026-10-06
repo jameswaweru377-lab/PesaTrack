@@ -1,5 +1,35 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.DirectionsBus
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.rounded.ShoppingBag
+import androidx.compose.material.icons.rounded.ShoppingCart
+import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material3.Switch
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.TransactionAnnotation
+import com.kedevjimmy.pesatrack.data.local.TransactionAnnotationStore
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -83,7 +113,9 @@ import java.util.Locale
 fun TransactionDetailScreen(
     scaffoldPadding: PaddingValues,
     transactionId: Long,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onTransactionClick: (Long) -> Unit = {},
+    onAccountClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val store = remember { TransactionStore.get(context) }
@@ -93,6 +125,47 @@ fun TransactionDetailScreen(
     var learningError by remember(transactionId) { mutableStateOf<String?>(null) }
     val ruleStore = remember { RuleStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
+    val annotationStore =
+        remember {
+            TransactionAnnotationStore.get(context)
+        }
+    val accountStore =
+        remember {
+            AccountStore.get(context)
+        }
+    var annotation by remember(transactionId) {
+        mutableStateOf(
+            annotationStore.get(transactionId)
+        )
+    }
+    var showAnnotationDialog by remember(transactionId) {
+        mutableStateOf(false)
+    }
+    var showMerchantHistory by remember(transactionId) {
+        mutableStateOf(false)
+    }
+    val receiptPicker =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) {
+                runCatching {
+                    context.contentResolver
+                        .takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                }
+                annotationStore.saveReceipt(
+                    transactionId,
+                    uri.toString()
+                )
+                annotation =
+                    annotationStore.get(
+                        transactionId
+                    )
+            }
+        }
     val personalLearningStore =
         remember {
             PersonalLearningStore.get(context)
@@ -312,29 +385,124 @@ fun TransactionDetailScreen(
         )
     }
 
+    if (current != null && showAnnotationDialog) {
+        TransactionAnnotationDialog(
+            transaction = current,
+            annotation = annotation,
+            onDismiss = {
+                showAnnotationDialog = false
+            },
+            onSaveNote = { note ->
+                annotationStore.saveNote(
+                    current.id,
+                    note
+                )
+                annotation =
+                    annotationStore.get(
+                        current.id
+                    )
+                showAnnotationDialog =
+                    false
+            },
+            onAttachReceipt = {
+                receiptPicker.launch(
+                    arrayOf(
+                        "image/*",
+                        "application/pdf"
+                    )
+                )
+            },
+            onRemoveReceipt = {
+                annotationStore.saveReceipt(
+                    current.id,
+                    null
+                )
+                annotation =
+                    annotationStore.get(
+                        current.id
+                    )
+            }
+        )
+    }
+
+    if (current != null && showMerchantHistory) {
+        MerchantHistoryDialog(
+            merchant =
+                current.counterparty
+                    ?: pretty(current.type),
+            transactions =
+                store.recent(250)
+                    .filter {
+                        it.id != current.id &&
+                            sameMerchant(
+                                current,
+                                it
+                            )
+                    }
+                    .take(12),
+            onDismiss = {
+                showMerchantHistory = false
+            },
+            onTransactionClick = {
+                showMerchantHistory = false
+                onTransactionClick(it)
+            }
+        )
+    }
+
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .background(
+                MaterialTheme
+                    .colorScheme
+                    .background
+            ),
+        contentPadding =
+            PaddingValues(
+                horizontal = 16.dp,
+                vertical = 12.dp
+            ),
+        verticalArrangement =
+            Arrangement.spacedBy(
+                16.dp
+            )
     ) {
         item {
-            if (learningBusy) Text("Updating category…")
-            if (pendingCategoryId == null) learningError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onBack
+                ) {
+                    Icon(
+                        Icons.AutoMirrored
+                            .Rounded
+                            .ArrowBack,
+                        contentDescription =
+                            "Back"
+                    )
                 }
                 Text(
                     "Transaction details",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.headlineMedium
+                    modifier =
+                        Modifier.weight(1f),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .headlineMedium,
+                    fontWeight =
+                        FontWeight.Bold
                 )
-                IconButton(onClick = ::refresh) {
-                    Icon(Icons.Rounded.Refresh, contentDescription = "Refresh")
+                IconButton(
+                    onClick = ::refresh
+                ) {
+                    Icon(
+                        Icons.Rounded.MoreVert,
+                        contentDescription =
+                            "Refresh transaction"
+                    )
                 }
             }
         }
@@ -344,8 +512,14 @@ fun TransactionDetailScreen(
                 PesaCard {
                     Text(
                         "This transaction is no longer available.",
-                        modifier = Modifier.padding(20.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        modifier =
+                            Modifier.padding(
+                                20.dp
+                            ),
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
                     )
                 }
             }
@@ -356,7 +530,9 @@ fun TransactionDetailScreen(
             TransactionHero(current)
         }
 
-        if (current.fulizaFinancedMinor > 0L) {
+        if (
+            current.fulizaFinancedMinor > 0L
+        ) {
             item {
                 FulizaFundingCard(current)
             }
@@ -369,18 +545,108 @@ fun TransactionDetailScreen(
             item {
                 RefundLinkCard(
                     item = current,
-                    original = linkedRefundOriginal
+                    original =
+                        linkedRefundOriginal
                 )
             }
         }
 
         item {
-            SectionHeader("Classification")
-            Spacer(Modifier.height(8.dp))
+            val canonicalCategory =
+                categoryStore.canonicalId(
+                    current.category
+                )
+            val categoryDirection =
+                categoryStore.directionFor(
+                    canonicalCategory,
+                    runCatching {
+                        MoneyDirection
+                            .valueOf(
+                                current.direction
+                            )
+                    }.getOrDefault(
+                        MoneyDirection.NEUTRAL
+                    )
+                )
+            val canRemember =
+                canLearnIdentity(current) &&
+                    PersonalLearningPolicy
+                        .isLearnableCategory(
+                            canonicalCategory,
+                            categoryDirection
+                        )
+
             ClassificationCard(
                 item = current,
-                appliedRule = appliedRule,
-                onDisableRule = { rule ->
+                appliedRule =
+                    appliedRule,
+                learningPreferenceActive =
+                    learningPreference != null,
+                canRemember =
+                    canRemember,
+                confidenceLabel =
+                    classificationConfidenceLabel(
+                        current,
+                        learningExplanation,
+                        appliedRule
+                    ),
+                onRememberChanged = {
+                        rememberChoice ->
+                    if (
+                        !learningBusy &&
+                        canRemember
+                    ) {
+                        learningBusy = true
+                        learningError = null
+                        scope.launch {
+                        try {
+                            if (rememberChoice) {
+                                val changed =
+                                    withContext(
+                                        Dispatchers.IO
+                                    ) {
+                                        learningRepository
+                                            .remember(
+                                                current.id,
+                                                canonicalCategory
+                                            )
+                                    }
+                                learnedMessage =
+                                    if (changed > 0) {
+                                        "Remembered • $changed similar transactions updated."
+                                    } else {
+                                        "Remembered for future similar transactions."
+                                    }
+                            } else {
+                                personalLearningStore
+                                    .forgetPreferenceFor(
+                                        current
+                                    )
+                                learnedMessage =
+                                    "Future suggestions for this merchant were turned off."
+                            }
+                            refresh()
+                        } catch (
+                            cancelled:
+                                kotlinx.coroutines
+                                    .CancellationException
+                        ) {
+                            throw cancelled
+                        } catch (
+                            failure: Exception
+                        ) {
+                            learningError =
+                                failure.message
+                                    ?: "Could not update learning."
+                        } finally {
+                            learningBusy =
+                                false
+                        }
+                    }
+                    }
+                },
+                onDisableRule = {
+                        rule ->
                     if (
                         ruleStore.setEnabled(
                             id = rule.id,
@@ -388,214 +654,193 @@ fun TransactionDetailScreen(
                         )
                     ) {
                         learnedMessage =
-                            "Smart rule disabled for future transactions. This transaction keeps its current classification."
+                            "Smart rule disabled for future transactions."
+                        refresh()
                     }
                 }
             )
         }
 
-        learnedMessage?.let { message ->
+        learnedMessage?.let {
+                message ->
             item {
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    color = pesaToneContainer("green")
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    shape =
+                        RoundedCornerShape(
+                            16.dp
+                        ),
+                    color =
+                        pesaToneContainer(
+                            "green"
+                        )
                 ) {
                     Row(
-                        Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier.padding(
+                                12.dp
+                            ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Rounded.CheckCircle,
-                            contentDescription = null,
-                            tint = pesaToneContent("green")
+                            Icons.Rounded
+                                .CheckCircle,
+                            contentDescription =
+                                null,
+                            tint =
+                                pesaToneContent(
+                                    "green"
+                                )
                         )
                         Text(
                             message,
-                            modifier = Modifier.padding(start = 10.dp),
-                            color = MaterialTheme.colorScheme.onSurface
+                            modifier =
+                                Modifier.padding(
+                                    start = 10.dp
+                                ),
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall
                         )
                     }
                 }
             }
         }
 
-        learningExplanation
-            ?.let { explanation ->
+        if (
+            pendingCategoryId == null
+        ) {
+            learningError?.let {
+                    message ->
                 item {
-                    PesaCard {
-                        Column(
-                            Modifier.padding(
-                                16.dp
-                            ),
-                            verticalArrangement =
-                                Arrangement.spacedBy(
-                                    10.dp
-                                )
-                        ) {
-                            Row(
-                                verticalAlignment =
-                                    Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Learned by PesaTrack",
-                                    modifier =
-                                        Modifier.weight(1f),
-                                    style =
-                                        MaterialTheme
-                                            .typography
-                                            .titleMedium
-                                )
-                                SmallStatusPill(
-                                    if (
-                                        learningPreference !=
-                                        null
-                                    ) {
-                                        "Auto-applied"
-                                    } else {
-                                        "Learning off"
-                                    },
-                                    if (
-                                        learningPreference !=
-                                        null
-                                    ) {
-                                        "green"
-                                    } else {
-                                        "amber"
-                                    }
-                                )
-                            }
-                            Text(
-                                buildString {
-                                    append(
-                                        categoryStore
-                                            .labelFor(
-                                                explanation
-                                                    .application
-                                                    .categoryId
-                                            )
-                                    )
-                                    append(
-                                        " was applied automatically because "
-                                    )
-                                    append(
-                                        explanation
-                                            .identityLabel
-                                    )
-                                    append(
-                                        " matched a learned identity."
-                                    )
-                                },
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                            Text(
-                                buildString {
-                                    append(
-                                        learningMatchReason(
-                                            explanation
-                                                .matchedAliasType,
-                                            explanation
-                                                .matchedAliasSource
-                                        )
-                                    )
-                                    append(" • ")
-                                    append(
-                                        explanation
-                                            .application
-                                            .confidence
-                                            .name
-                                            .lowercase()
-                                            .replaceFirstChar {
-                                                it.uppercase()
-                                            }
-                                    )
-                                    append(" confidence")
-                                    append(" • ")
-                                    append(
-                                        explanation
-                                            .application
-                                            .confirmationCount
-                                    )
-                                    append(
-                                        if (
-                                            explanation
-                                                .application
-                                                .confirmationCount ==
-                                            1
-                                        ) {
-                                            " confirmation"
-                                        } else {
-                                            " confirmations"
-                                        }
-                                    )
-                                },
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                            OutlinedButton(
-                                onClick = {
-                                    if (
-                                        personalLearningStore
-                                            .undoAndForget(
-                                                current
-                                            )
-                                    ) {
-                                        learnedMessage =
-                                            "Learned classification undone. This identity will not be auto-classified from that preference again."
-                                    }
-                                    refresh()
-                                },
-                                modifier =
-                                    Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    "Undo & forget"
-                                )
-                            }
-                            if (
-                                learningPreference != null
-                            ) {
-                                TextButton(
-                                    onClick = {
-                                        if (
-                                            personalLearningStore
-                                                .forgetPreferenceFor(
-                                                    current
-                                                )
-                                        ) {
-                                            learnedMessage =
-                                                "Future learning for this identity was removed. This transaction stays unchanged."
-                                        }
-                                        refresh()
-                                    },
-                                    modifier =
-                                        Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        "Keep this, forget future learning"
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    Text(
+                        message,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .error
+                    )
                 }
             }
+        }
+
+        if (
+            current.relationType !=
+            TransactionStore.RELATION_REFUND
+        ) {
+            item {
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    verticalAlignment =
+                        Alignment.Bottom
+                ) {
+                    Column(
+                        modifier =
+                            Modifier.weight(1f)
+                    ) {
+                        Text(
+                            "Choose a category",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .titleLarge,
+                            fontWeight =
+                                FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        if (
+                            learningPreference !=
+                            null
+                        ) {
+                            "Same merchant? We'll\nsuggest it next time."
+                        } else {
+                            "Tap any category\nto change it."
+                        },
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
+                Spacer(
+                    Modifier.height(10.dp)
+                )
+
+                CategoryGrid(
+                    currentCategoryId =
+                        categoryStore
+                            .canonicalId(
+                                current.category
+                            ),
+                    onSelected =
+                        ::applyCategory
+                )
+            }
+        }
+
+        item {
+            TransactionQuickActions(
+                merchant =
+                    current.counterparty
+                        ?: pretty(
+                            current.type
+                        ),
+                annotation =
+                    annotation,
+                accountLabel =
+                    current.accountId
+                        ?.let {
+                                accountId ->
+                            accountStore
+                                .listAccounts(
+                                    enabledOnly =
+                                        false
+                                )
+                                .firstOrNull {
+                                    it.id ==
+                                        accountId
+                                }
+                                ?.name
+                        }
+                        ?: "Account",
+                hasAccount =
+                    !current.accountId
+                        .isNullOrBlank(),
+                onMerchantHistory = {
+                    showMerchantHistory =
+                        true
+                },
+                onAnnotation = {
+                    showAnnotationDialog =
+                        true
+                },
+                onAccount = {
+                    current.accountId
+                        ?.let(
+                            onAccountClick
+                        )
+                }
+            )
+        }
 
         learningSuggestion
             ?.takeIf {
                 it.action ==
-                    PersonalLearningAction.SUGGEST
+                    PersonalLearningAction
+                        .SUGGEST
             }
-            ?.let { suggestion ->
+            ?.let {
+                    suggestion ->
                 item {
                     PesaCard {
                         Column(
@@ -605,12 +850,15 @@ fun TransactionDetailScreen(
                         ) {
                             Row(
                                 verticalAlignment =
-                                    Alignment.CenterVertically
+                                    Alignment
+                                        .CenterVertically
                             ) {
                                 Text(
                                     "PesaTrack suggestion",
                                     modifier =
-                                        Modifier.weight(1f),
+                                        Modifier.weight(
+                                            1f
+                                        ),
                                     style =
                                         MaterialTheme
                                             .typography
@@ -625,15 +873,11 @@ fun TransactionDetailScreen(
                                 "You previously taught " +
                                     suggestion.identityLabel +
                                     " as " +
-                                    categoryStore.labelFor(
-                                        suggestion.categoryId
-                                    ) +
-                                    ". " +
-                                    learningMatchReason(
-                                        suggestion.matchedAliasType,
-                                        suggestion.matchedAliasSource
-                                    ) +
-                                    " is only medium confidence, so PesaTrack is asking before changing the transaction.",
+                                    categoryStore
+                                        .labelFor(
+                                            suggestion.categoryId
+                                        ) +
+                                    ". Confirm before PesaTrack changes this transaction.",
                                 modifier =
                                     Modifier.padding(
                                         top = 6.dp
@@ -647,7 +891,8 @@ fun TransactionDetailScreen(
                                 onClick = {
                                     classifyOnly(
                                         current,
-                                        suggestion.categoryId
+                                        suggestion
+                                            .categoryId
                                     )
                                     learningSuggestion =
                                         null
@@ -659,9 +904,11 @@ fun TransactionDetailScreen(
                             ) {
                                 Text(
                                     "Use " +
-                                        categoryStore.labelFor(
-                                            suggestion.categoryId
-                                        )
+                                        categoryStore
+                                            .labelFor(
+                                                suggestion
+                                                    .categoryId
+                                            )
                                 )
                             }
                         }
@@ -669,159 +916,165 @@ fun TransactionDetailScreen(
                 }
             }
 
-        if (
-            current.relationType !=
-            TransactionStore.RELATION_REFUND
-        ) {
-            item {
-                SectionHeader("Choose a category")
-                Spacer(Modifier.height(8.dp))
-                CategoryGrid(
-                    currentCategoryId =
-                        categoryStore.canonicalId(current.category),
-                    onSelected = ::applyCategory
-                )
-            }
-        }
-
         item {
-            SectionHeader("Transaction information")
-            Spacer(Modifier.height(8.dp))
+            SectionHeader(
+                "Transaction information"
+            )
+            Spacer(
+                Modifier.height(8.dp)
+            )
             PesaCard {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    DetailRow(Icons.Rounded.AccountCircle, "Name", current.counterparty ?: "Not identified")
-                    current.evidenceLabel?.let { evidenceLabel ->
-                        val entityIntelligence =
-                            current.evidenceSource
-                                ?.startsWith(
-                                    "entity_intelligence:"
-                                ) == true
-                        DetailRow(
-                            Icons.Rounded.Tune,
-                            when {
-                                entityIntelligence ->
-                                    "Recognized entity"
-                                current.counterparty ==
-                                    evidenceLabel ->
-                                    "Identified from nearby message"
-                                else ->
-                                    "Possible match"
-                            },
-                            evidenceLabel
+                Column(
+                    Modifier.padding(
+                        horizontal = 14.dp,
+                        vertical = 4.dp
+                    )
+                ) {
+                    DetailRow(
+                        Icons.Rounded.AccountCircle,
+                        "Name",
+                        current.counterparty
+                            ?: "Not identified"
+                    )
+                    DetailRow(
+                        Icons.AutoMirrored
+                            .Rounded
+                            .ReceiptLong,
+                        "Type",
+                        pretty(
+                            current.type
                         )
-                        DetailRow(
-                            Icons.Rounded.Tune,
-                            "Evidence",
-                            buildString {
-                                if (entityIntelligence) {
-                                    append(
-                                        "PesaTrack entity intelligence"
-                                    )
-                                } else {
-                                    append(
-                                        current.evidenceSource
-                                            ?: "Nearby financial message"
-                                    )
-                                }
-                                current.evidenceConfidence?.let {
-                                    append(" • ")
-                                    append(
-                                        it.lowercase()
-                                            .replace('_', ' ')
-                                    )
-                                }
-                                current.evidenceTimeDeltaMs?.let {
-                                    append(" • ")
-                                    append(it / 1000)
-                                    append("s apart")
-                                }
-                            }
+                    )
+                    DetailRow(
+                        Icons.AutoMirrored
+                            .Rounded
+                            .ReceiptLong,
+                        "M-Pesa code",
+                        current.transactionCode
+                            ?: "Not provided"
+                    )
+                    DetailRow(
+                        Icons.Rounded.CalendarMonth,
+                        "Transaction date",
+                        formatDateTime(
+                            current
+                                .occurredAtEpochMs
                         )
-                    }
-                    DetailRow(Icons.AutoMirrored.Rounded.ReceiptLong, "Type", pretty(current.type))
-                    DetailRow(Icons.AutoMirrored.Rounded.ReceiptLong, "M-Pesa code", current.transactionCode ?: "Not provided")
-                    DetailRow(Icons.Rounded.CalendarMonth, "Transaction date", formatDateTime(current.occurredAtEpochMs))
-                    if (current.receivedAtEpochMs != current.occurredAtEpochMs) {
-                        DetailRow(Icons.Rounded.CalendarMonth, "Message received", formatDateTime(current.receivedAtEpochMs))
-                    }
-                    DetailRow(Icons.Rounded.Paid, "M-Pesa fee", formatMoney(current.feeMinor))
-                    if (current.fulizaAccessFeeMinor > 0L) {
-                        DetailRow(
-                            Icons.Rounded.Paid,
-                            "Fuliza access fee",
-                            formatMoney(current.fulizaAccessFeeMinor)
+                    )
+                    DetailRow(
+                        Icons.Rounded.Paid,
+                        "Transaction fee",
+                        formatMoney(
+                            current.feeMinor +
+                                current
+                                    .fulizaAccessFeeMinor
                         )
-                    }
-                    current.fulizaOutstandingMinor?.let { outstanding ->
-                        DetailRow(
-                            Icons.Rounded.Paid,
-                            "Fuliza outstanding after",
-                            formatMoney(outstanding)
+                    )
+                    current.balanceMinor
+                        ?.let {
+                            DetailRow(
+                                Icons.Rounded.Paid,
+                                "Balance after",
+                                formatMoney(it)
+                            )
+                        }
+                    DetailRow(
+                        Icons.Rounded.Tune,
+                        "Source",
+                        pretty(
+                            current.sourceKind
                         )
-                    }
-                    current.planningMonth?.let {
-                        DetailRow(Icons.Rounded.CalendarMonth, "Planning month", it)
-                    }
-                    DetailRow(Icons.Rounded.Tune, "Source", pretty(current.sourceKind))
+                    )
                 }
             }
         }
 
         item {
             SectionHeader("Actions")
-            Spacer(Modifier.height(8.dp))
+            Spacer(
+                Modifier.height(8.dp)
+            )
             PesaCard {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
+                Column(
+                    Modifier.padding(
+                        horizontal = 14.dp,
+                        vertical = 4.dp
+                    )
+                ) {
                     if (
-                        current.counterparty.isNullOrBlank() &&
-                        !current.evidenceLabel.isNullOrBlank()
+                        current.counterparty
+                            .isNullOrBlank() &&
+                        !current.evidenceLabel
+                            .isNullOrBlank()
                     ) {
                         ActionRow(
-                            icon = Icons.Rounded.CheckCircle,
-                            label = "Use suggested identity",
+                            icon =
+                                Icons.Rounded
+                                    .CheckCircle,
+                            label =
+                                "Use suggested identity",
                             onClick = {
-                                store.acceptEvidenceIdentity(current.id)
-                                refresh()
-                            }
-                        )
-                    }
-                    if (
-                        current.relationType ==
-                        TransactionStore.RELATION_REFUND
-                    ) {
-                        ActionRow(
-                            icon = Icons.Rounded.SwapHoriz,
-                            label = "This was not a refund",
-                            onClick = {
-                                store.unlinkRefund(current.id)
-                                refresh()
-                            }
-                        )
-                    }
-                    if (
-                        current.relationType !=
-                        TransactionStore.RELATION_REFUND
-                    ) {
-                        ActionRow(
-                            icon = Icons.Rounded.SwapHoriz,
-                            label = "Mark as own-account transfer",
-                            onClick = {
-                                store.classifyManually(
-                                    id = current.id,
-                                    category = TransactionCategory.TRANSFER,
-                                    direction = MoneyDirection.TRANSFER,
-                                    markTransfer = true
+                                store.acceptEvidenceIdentity(
+                                    current.id
                                 )
                                 refresh()
                             }
                         )
                     }
+
+                    if (
+                        current.relationType ==
+                        TransactionStore
+                            .RELATION_REFUND
+                    ) {
+                        ActionRow(
+                            icon =
+                                Icons.Rounded
+                                    .SwapHoriz,
+                            label =
+                                "This was not a refund",
+                            onClick = {
+                                store.unlinkRefund(
+                                    current.id
+                                )
+                                refresh()
+                            }
+                        )
+                    } else {
+                        ActionRow(
+                            icon =
+                                Icons.Rounded
+                                    .SwapHoriz,
+                            label =
+                                "Mark as own-account transfer",
+                            onClick = {
+                                store.classifyManually(
+                                    id =
+                                        current.id,
+                                    category =
+                                        TransactionCategory
+                                            .TRANSFER,
+                                    direction =
+                                        MoneyDirection
+                                            .TRANSFER,
+                                    markTransfer =
+                                        true
+                                )
+                                refresh()
+                            }
+                        )
+                    }
+
                     ActionRow(
-                        icon = Icons.Rounded.Block,
-                        label = "Exclude from budget",
+                        icon =
+                            Icons.Rounded.Block,
+                        label =
+                            "Exclude from budget",
                         tintError = true,
                         onClick = {
-                            store.excludeFromBudget(current.id)
+                            store.excludeFromBudget(
+                                current.id
+                            )
                             refresh()
                         }
                     )
@@ -832,83 +1085,290 @@ fun TransactionDetailScreen(
 }
 
 @Composable
-private fun TransactionHero(item: StoredTransaction) {
-    val currentLocale =
+private fun TransactionHero(
+    item: StoredTransaction
+) {
+    val context =
+        LocalContext.current
+    val locale =
         androidx.compose.ui.platform
             .LocalConfiguration
             .current
             .locales[0]
-    val direction = runCatching {
-        MoneyDirection.valueOf(item.direction)
-    }.getOrDefault(MoneyDirection.NEUTRAL)
-
-    LandscapeBackdrop(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(210.dp),
-        showSun = false
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(18.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconBubble(Icons.Rounded.AccountCircle, size = 54.dp)
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp)
-                ) {
-                    Text(
-                        item.counterparty ?: pretty(item.type),
-                        style = MaterialTheme.typography.titleLarge
+    val accountLabel =
+        item.accountId
+            ?.let {
+                    accountId ->
+                AccountStore.get(context)
+                    .listAccounts(
+                        enabledOnly = false
                     )
-                    Text(
-                        pretty(item.type),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Text(
-                    signedMoney(item.amountMinor, direction, item.type),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = when {
-                        direction == MoneyDirection.INCOME ||
-                            item.type == MpesaTransactionType.REVERSAL.name ->
-                            MaterialTheme.colorScheme.primary
-                        direction == MoneyDirection.EXPENSE ->
-                            MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurface
+                    .firstOrNull {
+                        it.id == accountId
                     }
+                    ?.name
+            }
+            ?: if (
+                item.accountId ==
+                AccountStore.DEFAULT_MPESA_ID
+            ) {
+                "M-PESA"
+            } else {
+                pretty(
+                    item.sourceKind
                 )
             }
 
-            Spacer(Modifier.weight(1f))
+    val status =
+        when (
+            item.reviewState
+        ) {
+            ReviewState.EXCLUDED.name ->
+                "Excluded"
+            ReviewState.NEEDS_REVIEW.name ->
+                "Review"
+            else ->
+                "Completed"
+        }
+
+    LandscapeBackdrop(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(272.dp),
+        showSun = false
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp)
+        ) {
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                IconBubble(
+                    Icons.Rounded.AccountCircle,
+                    size = 62.dp,
+                    background =
+                        Color(0xFF0B6C55),
+                    tint =
+                        Color(0xFF73F2BC)
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(
+                                start = 14.dp
+                            )
+                ) {
+                    Text(
+                        item.counterparty
+                            ?: pretty(
+                                item.type
+                            ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .headlineSmall,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                    Text(
+                        pretty(
+                            item.type
+                        ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleMedium,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                    Surface(
+                        modifier =
+                            Modifier.padding(
+                                top = 8.dp
+                            ),
+                        shape =
+                            RoundedCornerShape(
+                                12.dp
+                            ),
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .surface
+                                .copy(
+                                    alpha = .38f
+                                )
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier.padding(
+                                    horizontal = 10.dp,
+                                    vertical = 6.dp
+                                ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Rounded.SwapHoriz,
+                                contentDescription =
+                                    null,
+                                modifier =
+                                    Modifier.size(
+                                        15.dp
+                                    ),
+                                tint =
+                                    Color(
+                                        0xFF77E8B6
+                                    )
+                            )
+                            Text(
+                                accountLabel,
+                                modifier =
+                                    Modifier.padding(
+                                        start = 6.dp
+                                    ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelMedium
+                            )
+                        }
+                    }
+                }
+
+                Column(
+                    horizontalAlignment =
+                        Alignment.End
+                ) {
+                    Surface(
+                        shape =
+                            CircleShape,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .surface
+                                .copy(
+                                    alpha = .32f
+                                )
+                    ) {
+                        Icon(
+                            Icons.Rounded.Send,
+                            contentDescription =
+                                null,
+                            modifier =
+                                Modifier.padding(
+                                    12.dp
+                                ),
+                            tint =
+                                Color(
+                                    0xFF74F1B9
+                                )
+                        )
+                    }
+                    Text(
+                        "Amount",
+                        modifier =
+                            Modifier.padding(
+                                top = 8.dp
+                            ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                    Text(
+                        formatMoney(
+                            item.amountMinor
+                        ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .headlineLarge,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(
+                Modifier.weight(1f)
+            )
 
             Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = .96f)
+                modifier =
+                    Modifier.fillMaxWidth(),
+                shape =
+                    RoundedCornerShape(
+                        20.dp
+                    ),
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .surface
+                        .copy(
+                            alpha = .92f
+                        )
             ) {
                 Row(
-                    Modifier.padding(14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier =
+                        Modifier.padding(
+                            horizontal = 12.dp,
+                            vertical = 14.dp
+                        ),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            8.dp
+                        )
                 ) {
                     HeroMetric(
-                        "Code",
-                        item.transactionCode ?: "—",
-                        Icons.AutoMirrored.Rounded.ReceiptLong,
-                        Modifier.weight(1f)
+                        "Transaction code",
+                        item.transactionCode
+                            ?: "—",
+                        Icons.AutoMirrored
+                            .Rounded
+                            .ReceiptLong,
+                        Modifier.weight(
+                            1.15f
+                        )
                     )
                     HeroMetric(
                         "Fees",
-                        formatMoney(item.feeMinor + item.fulizaAccessFeeMinor),
+                        formatMoney(
+                            item.feeMinor +
+                                item
+                                    .fulizaAccessFeeMinor
+                        ),
                         Icons.Rounded.Paid,
                         Modifier.weight(1f)
                     )
                     HeroMetric(
                         "Transaction date",
-                        SimpleDateFormat("d MMM", currentLocale).format(Date(item.occurredAtEpochMs)),
+                        SimpleDateFormat(
+                            "d MMM",
+                            locale
+                        ).format(
+                            Date(
+                                item.occurredAtEpochMs
+                            )
+                        ),
                         Icons.Rounded.CalendarMonth,
+                        Modifier.weight(1f)
+                    )
+                    HeroMetric(
+                        "Status",
+                        status,
+                        Icons.Rounded.CheckCircle,
                         Modifier.weight(1f)
                     )
                 }
@@ -924,20 +1384,50 @@ private fun HeroMetric(
     icon: ImageVector,
     modifier: Modifier
 ) {
-    Column(modifier) {
+    Column(
+        modifier =
+            modifier.padding(
+                horizontal = 2.dp
+            )
+    ) {
         Icon(
             icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(19.dp)
+            tint =
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant,
+            modifier =
+                Modifier.size(
+                    19.dp
+                )
         )
         Text(
             label,
-            modifier = Modifier.padding(top = 4.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            modifier =
+                Modifier.padding(
+                    top = 4.dp
+                ),
+            style =
+                MaterialTheme
+                    .typography
+                    .labelSmall,
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .onSurfaceVariant,
+            maxLines = 2
         )
-        Text(value, style = MaterialTheme.typography.titleSmall, maxLines = 2)
+        Text(
+            value,
+            style =
+                MaterialTheme
+                    .typography
+                    .titleSmall,
+            fontWeight =
+                FontWeight.SemiBold,
+            maxLines = 2
+        )
     }
 }
 
@@ -1089,95 +1579,340 @@ private fun RefundLinkCard(
 private fun ClassificationCard(
     item: StoredTransaction,
     appliedRule: SmartRule?,
+    learningPreferenceActive: Boolean,
+    canRemember: Boolean,
+    confidenceLabel: String,
+    onRememberChanged: (Boolean) -> Unit,
     onDisableRule: (SmartRule) -> Unit
 ) {
-    val context = LocalContext.current
-    val categoryStore = remember { CategoryStore.get(context) }
-    val needsReview = item.reviewState == ReviewState.NEEDS_REVIEW.name
-    val excluded = item.reviewState == ReviewState.EXCLUDED.name
-    val categoryLabel = categoryStore.labelFor(item.category)
-
-    val tone = when {
-        needsReview -> "amber"
-        excluded -> "red"
-        item.direction == MoneyDirection.INCOME.name -> "green"
-        item.direction == MoneyDirection.TRANSFER.name -> "blue"
-        else -> "green"
-    }
+    val context =
+        LocalContext.current
+    val categoryStore =
+        remember {
+            CategoryStore.get(context)
+        }
+    val categoryId =
+        categoryStore.canonicalId(
+            item.category
+        )
+    val visual =
+        categoryVisual(
+            categoryId
+        )
+    val needsReview =
+        item.reviewState ==
+            ReviewState.NEEDS_REVIEW.name
+    val excluded =
+        item.reviewState ==
+            ReviewState.EXCLUDED.name
+    val categoryLabel =
+        categoryStore.labelFor(
+            categoryId
+        )
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = pesaToneContainer(tone)
+        modifier =
+            Modifier.fillMaxWidth(),
+        shape =
+            RoundedCornerShape(
+                22.dp
+            ),
+        color =
+            MaterialTheme
+                .colorScheme
+                .surfaceVariant
+                .copy(alpha = .72f),
+        border =
+            BorderStroke(
+                1.dp,
+                MaterialTheme
+                    .colorScheme
+                    .outlineVariant
+                    .copy(alpha = .42f)
+            )
     ) {
         Column {
             Row(
-                Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier =
+                    Modifier.padding(
+                        start = 16.dp,
+                        end = 12.dp,
+                        top = 16.dp,
+                        bottom = 12.dp
+                    ),
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
-            IconBubble(
-                if (needsReview) {
-                    Icons.Rounded.Tune
-                } else {
-                    Icons.Rounded.CheckCircle
-                },
-                size = 46.dp,
-                background =
-                    MaterialTheme.colorScheme.surface.copy(alpha = .7f),
-                tint = pesaToneContent(tone)
-            )
-            Column(
-                Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp)
-            ) {
-                Text(
-                    when {
-                        needsReview -> "Needs review"
-                        excluded -> "Excluded from budget"
-                        else -> categoryLabel
-                    },
-                    style = MaterialTheme.typography.titleLarge
-                )
-                Text(
-                    when {
-                        needsReview ->
-                            "Choose what this transaction was. PesaTrack will not guess."
-                        item.ruleId != null &&
-                            appliedRule != null ->
-                            SmartRuleDecisionExplanation
-                                .describe(
-                                    appliedRule
+                Surface(
+                    shape =
+                        CircleShape,
+                    color =
+                        visual.color
+                            .copy(
+                                alpha = .17f
+                            ),
+                    border =
+                        BorderStroke(
+                            2.dp,
+                            visual.color
+                                .copy(
+                                    alpha = .85f
                                 )
-                        item.ruleId != null ->
-                            "Automatically classified by a saved smart rule. The original rule record is no longer available."
-                        item.reviewState ==
-                            ReviewState.USER_CLASSIFIED.name ->
-                            "Classified by you."
-                        item.evidenceSource
-                            ?.startsWith(
-                                "entity_intelligence:"
-                            ) == true ->
-                            "Auto-reviewed from a high-confidence entity match. You can change this category at any time."
-                        else ->
-                            "Classified automatically."
-                    },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (item.ruleId != null) {
-                SmallStatusPill(
-                    if (
-                        appliedRule?.enabled ==
-                        false
+                        )
+                ) {
+                    Icon(
+                        visual.icon,
+                        contentDescription =
+                            null,
+                        modifier =
+                            Modifier.padding(
+                                13.dp
+                            ),
+                        tint =
+                            visual.color
+                    )
+                }
+
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(
+                                start = 14.dp
+                            )
+                ) {
+                    Text(
+                        when {
+                            needsReview ->
+                                "Needs review"
+                            excluded ->
+                                "Excluded"
+                            else ->
+                                categoryLabel
+                        },
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleLarge,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                    Text(
+                        when {
+                            needsReview ->
+                                "Choose the category that best fits this transaction."
+                            item.reviewState ==
+                                ReviewState
+                                    .USER_CLASSIFIED
+                                    .name ->
+                                "Classified by you."
+                            appliedRule != null ->
+                                "Classified by your saved rule."
+                            item.evidenceSource
+                                ?.startsWith(
+                                    "entity_intelligence:"
+                                ) == true ->
+                                "Classified from a recognized merchant match."
+                            else ->
+                                "Classified automatically."
+                        },
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodyMedium,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
+                if (!needsReview) {
+                    Surface(
+                        shape =
+                            RoundedCornerShape(
+                                50.dp
+                            ),
+                        color =
+                            Color(0xFF0C765B)
+                                .copy(
+                                    alpha = .52f
+                                ),
+                        border =
+                            BorderStroke(
+                                1.dp,
+                                Color(
+                                    0xFF62EAB2
+                                ).copy(
+                                    alpha = .45f
+                                )
+                            )
                     ) {
-                        "Rule disabled"
-                    } else {
-                        "Smart rule"
+                        Row(
+                            modifier =
+                                Modifier.padding(
+                                    horizontal = 10.dp,
+                                    vertical = 7.dp
+                                ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Rounded
+                                    .CheckCircle,
+                                contentDescription =
+                                    null,
+                                modifier =
+                                    Modifier.size(
+                                        17.dp
+                                    ),
+                                tint =
+                                    Color(
+                                        0xFF6FF0B7
+                                    )
+                            )
+                            Text(
+                                confidenceLabel,
+                                modifier =
+                                    Modifier.padding(
+                                        start = 5.dp
+                                    ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelMedium
+                            )
+                        }
                     }
+                }
+
+                Icon(
+                    Icons.Rounded
+                        .ChevronRight,
+                    contentDescription =
+                        null,
+                    modifier =
+                        Modifier.padding(
+                            start = 7.dp
+                        ),
+                    tint =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
                 )
             }
-        }
+
+            if (
+                canRemember &&
+                !needsReview &&
+                !excluded
+            ) {
+                Surface(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                start = 14.dp,
+                                end = 14.dp,
+                                bottom = 14.dp
+                            ),
+                    shape =
+                        RoundedCornerShape(
+                            16.dp
+                        ),
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .surface
+                            .copy(
+                                alpha = .42f
+                            )
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.padding(
+                                horizontal = 12.dp,
+                                vertical = 10.dp
+                            ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape =
+                                CircleShape,
+                            color =
+                                Color(
+                                    0xFF1C8A6A
+                                ).copy(
+                                    alpha = .22f
+                                )
+                        ) {
+                            Icon(
+                                Icons.Rounded
+                                    .TrendingUp,
+                                contentDescription =
+                                    null,
+                                modifier =
+                                    Modifier.padding(
+                                        8.dp
+                                    ),
+                                tint =
+                                    Color(
+                                        0xFF6CE8B2
+                                    )
+                            )
+                        }
+                        Column(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .padding(
+                                        horizontal =
+                                            10.dp
+                                    )
+                        ) {
+                            Text(
+                                if (
+                                    learningPreferenceActive
+                                ) {
+                                    "We'll remember this choice"
+                                } else {
+                                    "Remember this choice"
+                                },
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleSmall,
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                            Text(
+                                if (
+                                    learningPreferenceActive
+                                ) {
+                                    "Similar ${item.counterparty ?: "merchant"} transactions may be suggested as $categoryLabel."
+                                } else {
+                                    "Turn this on to teach PesaTrack for future similar transactions."
+                                },
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked =
+                                learningPreferenceActive,
+                            onCheckedChange =
+                                onRememberChanged
+                        )
+                    }
+                }
+            }
 
             if (
                 appliedRule != null &&
@@ -1194,35 +1929,13 @@ private fun ClassificationCard(
                             .fillMaxWidth()
                             .padding(
                                 horizontal = 8.dp,
-                                vertical = 4.dp
+                                vertical = 2.dp
                             )
                 ) {
                     Text(
-                        "Disable rule for future"
+                        "Disable saved rule for future"
                     )
                 }
-            } else if (
-                item.ruleId != null &&
-                appliedRule?.enabled ==
-                false
-            ) {
-                Text(
-                    "This saved rule is disabled. You can still change this transaction manually.",
-                    modifier =
-                        Modifier.padding(
-                            start = 16.dp,
-                            end = 16.dp,
-                            bottom = 14.dp
-                        ),
-                    style =
-                        MaterialTheme
-                            .typography
-                            .bodySmall,
-                    color =
-                        MaterialTheme
-                            .colorScheme
-                            .onSurfaceVariant
-                )
             }
         }
     }
@@ -1335,57 +2048,959 @@ private fun CategoryGrid(
 
 @Composable
 private fun CategoryGridRows(
-    categories: List<com.kedevjimmy.pesatrack.data.local.PesaCategory>,
+    categories:
+        List<
+            com.kedevjimmy
+                .pesatrack
+                .data
+                .local
+                .PesaCategory
+            >,
     columns: Int,
     currentCategoryId: String,
     onSelected: (String) -> Unit
 ) {
-    categories.chunked(columns).forEach { rowItems ->
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            rowItems.forEach { category ->
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onSelected(category.id) },
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (
-                        currentCategoryId == category.id
-                    ) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    }
-                ) {
-                    Text(
-                        category.label,
-                        modifier = Modifier.padding(
-                            horizontal = if (columns == 3) {
-                                10.dp
+    categories.chunked(columns)
+        .forEach {
+                rowItems ->
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        8.dp
+                    )
+            ) {
+                rowItems.forEach {
+                        category ->
+                    val selected =
+                        currentCategoryId ==
+                            category.id
+                    val visual =
+                        categoryVisual(
+                            category.id
+                        )
+
+                    Surface(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .clickable {
+                                    onSelected(
+                                        category.id
+                                    )
+                                },
+                        shape =
+                            RoundedCornerShape(
+                                18.dp
+                            ),
+                        color =
+                            if (selected) {
+                                Color(
+                                    0xFF0B6E55
+                                )
+                                    .copy(
+                                        alpha = .78f
+                                    )
                             } else {
-                                12.dp
+                                MaterialTheme
+                                    .colorScheme
+                                    .surfaceVariant
+                                    .copy(
+                                        alpha = .62f
+                                    )
                             },
-                            vertical = 12.dp
-                        ),
-                        style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1,
-                        color = if (
-                            currentCategoryId == category.id
+                        border =
+                            BorderStroke(
+                                if (selected) {
+                                    2.dp
+                                } else {
+                                    1.dp
+                                },
+                                if (selected) {
+                                    Color(
+                                        0xFF65F0B3
+                                    )
+                                } else {
+                                    MaterialTheme
+                                        .colorScheme
+                                        .outlineVariant
+                                        .copy(
+                                            alpha = .34f
+                                        )
+                                }
+                            )
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier.padding(
+                                    horizontal =
+                                        if (
+                                            columns ==
+                                            3
+                                        ) {
+                                            9.dp
+                                        } else {
+                                            12.dp
+                                        },
+                                    vertical = 11.dp
+                                ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
                         ) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
+                            Surface(
+                                shape =
+                                    RoundedCornerShape(
+                                        12.dp
+                                    ),
+                                color =
+                                    visual.color
+                                        .copy(
+                                            alpha = .17f
+                                        )
+                            ) {
+                                Icon(
+                                    visual.icon,
+                                    contentDescription =
+                                        null,
+                                    modifier =
+                                        Modifier.padding(
+                                            7.dp
+                                        ),
+                                    tint =
+                                        visual.color
+                                )
+                            }
+                            Text(
+                                category.label,
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .padding(
+                                            start = 8.dp
+                                        ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelLarge,
+                                fontWeight =
+                                    FontWeight.SemiBold,
+                                maxLines = 1,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurface
+                            )
+                            if (selected) {
+                                Icon(
+                                    Icons.Rounded
+                                        .CheckCircle,
+                                    contentDescription =
+                                        "Selected",
+                                    modifier =
+                                        Modifier.size(
+                                            18.dp
+                                        ),
+                                    tint =
+                                        Color(
+                                            0xFF77F3BA
+                                        )
+                                )
+                            }
                         }
+                    }
+                }
+
+                repeat(
+                    columns -
+                        rowItems.size
+                ) {
+                    Spacer(
+                        Modifier.weight(1f)
                     )
                 }
             }
 
-            repeat(columns - rowItems.size) {
-                Spacer(Modifier.weight(1f))
+            Spacer(
+                Modifier.height(8.dp)
+            )
+        }
+}
+
+private data class CategoryVisual(
+    val icon: ImageVector,
+    val color: Color
+)
+
+private fun categoryVisual(
+    categoryId: String
+): CategoryVisual =
+    when (categoryId) {
+        TransactionCategory
+            .GROCERIES.name ->
+            CategoryVisual(
+                Icons.Rounded
+                    .ShoppingCart,
+                Color(0xFF68F0B4)
+            )
+
+        TransactionCategory
+            .EATING_OUT.name ->
+            CategoryVisual(
+                Icons.Rounded
+                    .Restaurant,
+                Color(0xFFFFB24D)
+            )
+
+        TransactionCategory
+            .TRANSPORT.name ->
+            CategoryVisual(
+                Icons.Rounded
+                    .DirectionsBus,
+                Color(0xFF75A8FF)
+            )
+
+        TransactionCategory
+            .RENT.name ->
+            CategoryVisual(
+                Icons.Rounded.Home,
+                Color(0xFFFF7B8C)
+            )
+
+        TransactionCategory
+            .ELECTRICITY.name ->
+            CategoryVisual(
+                Icons.Rounded.Bolt,
+                Color(0xFFFFD54A)
+            )
+
+        TransactionCategory
+            .WATER.name ->
+            CategoryVisual(
+                Icons.Rounded.WaterDrop,
+                Color(0xFF78D8FF)
+            )
+
+        TransactionCategory
+            .INTERNET.name,
+        TransactionCategory
+            .PHONE_AND_DATA.name ->
+            CategoryVisual(
+                Icons.Rounded.Wifi,
+                Color(0xFF9B8CFF)
+            )
+
+        TransactionCategory
+            .SHOPPING.name ->
+            CategoryVisual(
+                Icons.Rounded.ShoppingBag,
+                Color(0xFFFF81AE)
+            )
+
+        TransactionCategory
+            .HEALTH.name,
+        TransactionCategory
+            .PERSONAL_CARE.name,
+        TransactionCategory
+            .FAMILY.name ->
+            CategoryVisual(
+                Icons.Rounded.Favorite,
+                Color(0xFFFF7A7A)
+            )
+
+        TransactionCategory
+            .EDUCATION.name ->
+            CategoryVisual(
+                Icons.Rounded.School,
+                Color(0xFFA78BFA)
+            )
+
+        TransactionCategory
+            .FEES.name,
+        TransactionCategory
+            .DEBT_LOAN.name ->
+            CategoryVisual(
+                Icons.AutoMirrored
+                    .Rounded
+                    .ReceiptLong,
+                Color(0xFFFFC36A)
+            )
+
+        TransactionCategory
+            .SAVINGS.name ->
+            CategoryVisual(
+                Icons.Rounded.Savings,
+                Color(0xFFFFD78A)
+            )
+
+        TransactionCategory
+            .INVESTMENT.name ->
+            CategoryVisual(
+                Icons.Rounded.TrendingUp,
+                Color(0xFF82E8A8)
+            )
+
+        TransactionCategory
+            .INCOME.name ->
+            CategoryVisual(
+                Icons.Rounded.Paid,
+                Color(0xFF75EE9B)
+            )
+
+        TransactionCategory
+            .HOME_HOUSEHOLD.name ->
+            CategoryVisual(
+                Icons.Rounded.Home,
+                Color(0xFF66D5C8)
+            )
+
+        else ->
+            CategoryVisual(
+                Icons.Rounded.MoreHoriz,
+                Color(0xFFB3C7C2)
+            )
+    }
+
+@Composable
+private fun TransactionQuickActions(
+    merchant: String,
+    annotation: TransactionAnnotation,
+    accountLabel: String,
+    hasAccount: Boolean,
+    onMerchantHistory: () -> Unit,
+    onAnnotation: () -> Unit,
+    onAccount: () -> Unit
+) {
+    Column(
+        verticalArrangement =
+            Arrangement.spacedBy(
+                10.dp
+            )
+    ) {
+        Row(
+            modifier =
+                Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.spacedBy(
+                    10.dp
+                )
+        ) {
+            TransactionActionCard(
+                icon =
+                    Icons.Rounded
+                        .TrendingUp,
+                title =
+                    "Merchant history",
+                subtitle =
+                    "View past transactions\nwith $merchant",
+                modifier =
+                    Modifier.weight(1f),
+                onClick =
+                    onMerchantHistory
+            )
+            TransactionActionCard(
+                icon =
+                    Icons.Rounded
+                        .AttachFile,
+                title =
+                    if (
+                        annotation.note
+                            .isNotBlank() ||
+                        annotation.receiptUri !=
+                        null
+                    ) {
+                        "Note or receipt"
+                    } else {
+                        "Add note or receipt"
+                    },
+                subtitle =
+                    when {
+                        annotation.receiptUri !=
+                            null &&
+                            annotation.note
+                                .isNotBlank() ->
+                            "Note and receipt saved"
+                        annotation.receiptUri !=
+                            null ->
+                            "Receipt attached"
+                        annotation.note
+                            .isNotBlank() ->
+                            "Note saved"
+                        else ->
+                            "Save a note or photo"
+                    },
+                modifier =
+                    Modifier.weight(1f),
+                onClick =
+                    onAnnotation
+            )
+        }
+
+        TransactionActionCard(
+            icon =
+                Icons.Rounded
+                    .AccountCircle,
+            title =
+                "Linked account",
+            subtitle =
+                if (hasAccount) {
+                    accountLabel
+                } else {
+                    "No linked account"
+                },
+            modifier =
+                Modifier.fillMaxWidth(),
+            enabled =
+                hasAccount,
+            onClick =
+                onAccount
+        )
+    }
+}
+
+@Composable
+private fun TransactionActionCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier =
+            modifier.clickable(
+                enabled = enabled,
+                onClick = onClick
+            ),
+        shape =
+            RoundedCornerShape(
+                18.dp
+            ),
+        color =
+            MaterialTheme
+                .colorScheme
+                .surfaceVariant
+                .copy(alpha = .64f),
+        border =
+            BorderStroke(
+                1.dp,
+                MaterialTheme
+                    .colorScheme
+                    .outlineVariant
+                    .copy(alpha = .35f)
+            )
+    ) {
+        Row(
+            modifier =
+                Modifier.padding(
+                    14.dp
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            Surface(
+                shape =
+                    CircleShape,
+                color =
+                    Color(0xFF168263)
+                        .copy(
+                            alpha = .2f
+                        )
+            ) {
+                Icon(
+                    icon,
+                    contentDescription =
+                        null,
+                    modifier =
+                        Modifier.padding(
+                            9.dp
+                        ),
+                    tint =
+                        Color(
+                            0xFF8ADFC0
+                        )
+                )
+            }
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(
+                            start = 10.dp
+                        )
+            ) {
+                Text(
+                    title,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleSmall,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
+                Text(
+                    subtitle,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant,
+                    maxLines = 2
+                )
+            }
+            Icon(
+                Icons.Rounded
+                    .ChevronRight,
+                contentDescription =
+                    null,
+                tint =
+                    if (enabled) {
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                    } else {
+                        MaterialTheme
+                            .colorScheme
+                            .outline
+                    }
+            )
+        }
+    }
+}
+
+@Composable
+private fun TransactionAnnotationDialog(
+    transaction: StoredTransaction,
+    annotation: TransactionAnnotation,
+    onDismiss: () -> Unit,
+    onSaveNote: (String) -> Unit,
+    onAttachReceipt: () -> Unit,
+    onRemoveReceipt: () -> Unit
+) {
+    val context =
+        LocalContext.current
+    var note by remember(
+        transaction.id,
+        annotation.note
+    ) {
+        mutableStateOf(
+            annotation.note
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest =
+            onDismiss,
+        title = {
+            Text(
+                "Note or receipt"
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        12.dp
+                    )
+            ) {
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = {
+                        note = it
+                    },
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    label = {
+                        Text(
+                            "Personal note"
+                        )
+                    },
+                    placeholder = {
+                        Text(
+                            "What was this payment for?"
+                        )
+                    },
+                    minLines = 3,
+                    maxLines = 5
+                )
+
+                if (
+                    annotation.receiptUri !=
+                    null
+                ) {
+                    Surface(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        shape =
+                            RoundedCornerShape(
+                                14.dp
+                            ),
+                        color =
+                            pesaToneContainer(
+                                "green"
+                            )
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier.padding(
+                                    12.dp
+                                ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Rounded
+                                    .AttachFile,
+                                contentDescription =
+                                    null
+                            )
+                            Text(
+                                "Receipt attached",
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .padding(
+                                            start = 8.dp
+                                        )
+                            )
+                            TextButton(
+                                onClick = {
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(
+                                                Intent.ACTION_VIEW,
+                                                android.net.Uri
+                                                    .parse(
+                                                        annotation
+                                                            .receiptUri
+                                                    )
+                                            ).apply {
+                                                addFlags(
+                                                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            ) {
+                                Text("Open")
+                            }
+                            TextButton(
+                                onClick =
+                                    onRemoveReceipt
+                            ) {
+                                Text("Remove")
+                            }
+                        }
+                    }
+                }
+
+                OutlinedButton(
+                    onClick =
+                        onAttachReceipt,
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Rounded
+                            .AttachFile,
+                        contentDescription =
+                            null
+                    )
+                    Text(
+                        if (
+                            annotation.receiptUri !=
+                            null
+                        ) {
+                            "Replace receipt"
+                        } else {
+                            "Attach receipt"
+                        },
+                        modifier =
+                            Modifier.padding(
+                                start = 8.dp
+                            )
+                    )
+                }
+
+                Text(
+                    "Notes and receipt links stay on this device with your PesaTrack data.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick =
+                    onDismiss
+            ) {
+                Text("Cancel")
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSaveNote(
+                        note
+                    )
+                }
+            ) {
+                Text("Save")
             }
         }
+    )
+}
+
+@Composable
+private fun MerchantHistoryDialog(
+    merchant: String,
+    transactions:
+        List<StoredTransaction>,
+    onDismiss: () -> Unit,
+    onTransactionClick: (Long) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest =
+            onDismiss,
+        title = {
+            Text(
+                "Merchant history"
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        8.dp
+                    )
+            ) {
+                Text(
+                    merchant,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleMedium,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .primary
+                )
+
+                if (
+                    transactions.isEmpty()
+                ) {
+                    Text(
+                        "No other recent transactions with this merchant.",
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                } else {
+                    transactions.take(8)
+                        .forEach {
+                                item ->
+                            Surface(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onTransactionClick(
+                                                item.id
+                                            )
+                                        },
+                                shape =
+                                    RoundedCornerShape(
+                                        14.dp
+                                    ),
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .surfaceVariant
+                                        .copy(
+                                            alpha = .6f
+                                        )
+                            ) {
+                                Row(
+                                    modifier =
+                                        Modifier.padding(
+                                            11.dp
+                                        ),
+                                    verticalAlignment =
+                                        Alignment.CenterVertically
+                                ) {
+                                    Column(
+                                        modifier =
+                                            Modifier
+                                                .weight(
+                                                    1f
+                                                )
+                                    ) {
+                                        Text(
+                                            formatMoney(
+                                                item.amountMinor
+                                            ),
+                                            style =
+                                                MaterialTheme
+                                                    .typography
+                                                    .titleSmall
+                                        )
+                                        Text(
+                                            formatDateTime(
+                                                item.occurredAtEpochMs
+                                            ),
+                                            style =
+                                                MaterialTheme
+                                                    .typography
+                                                    .bodySmall,
+                                            color =
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .onSurfaceVariant
+                                        )
+                                    }
+                                    Text(
+                                        pretty(
+                                            item.category
+                                        ),
+                                        style =
+                                            MaterialTheme
+                                                .typography
+                                                .labelMedium
+                                    )
+                                    Icon(
+                                        Icons.Rounded
+                                            .ChevronRight,
+                                        contentDescription =
+                                            null
+                                    )
+                                }
+                            }
+                        }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick =
+                    onDismiss
+            ) {
+                Text("Done")
+            }
+        }
+    )
+}
+
+private fun sameMerchant(
+    first: StoredTransaction,
+    second: StoredTransaction
+): Boolean {
+    val firstPhone =
+        first.counterpartyPhone
+            ?.filter(Char::isDigit)
+            .orEmpty()
+    val secondPhone =
+        second.counterpartyPhone
+            ?.filter(Char::isDigit)
+            .orEmpty()
+    if (
+        firstPhone.isNotBlank() &&
+        secondPhone.isNotBlank()
+    ) {
+        return firstPhone ==
+            secondPhone
+    }
+
+    val firstName =
+        first.counterparty
+            ?.trim()
+            ?.lowercase()
+            .orEmpty()
+    val secondName =
+        second.counterparty
+            ?.trim()
+            ?.lowercase()
+            .orEmpty()
+
+    return firstName.isNotBlank() &&
+        firstName == secondName
+}
+
+private fun classificationConfidenceLabel(
+    item: StoredTransaction,
+    learningExplanation:
+        com.kedevjimmy.pesatrack
+            .domain.learning
+            .PersonalLearningExplanation?,
+    appliedRule: SmartRule?
+): String {
+    if (
+        item.reviewState ==
+        ReviewState.USER_CLASSIFIED.name
+    ) {
+        return "100% match"
+    }
+
+    learningExplanation
+        ?.application
+        ?.confidence
+        ?.let {
+            return when (it) {
+                com.kedevjimmy.pesatrack
+                    .domain.learning
+                    .PersonalLearningConfidence
+                    .HIGH ->
+                    "95% match"
+                com.kedevjimmy.pesatrack
+                    .domain.learning
+                    .PersonalLearningConfidence
+                    .MEDIUM ->
+                    "75% match"
+                com.kedevjimmy.pesatrack
+                    .domain.learning
+                    .PersonalLearningConfidence
+                    .LOW ->
+                    "55% match"
+            }
+        }
+
+    item.evidenceConfidence
+        ?.uppercase()
+        ?.let {
+            return when (it) {
+                "HIGH" ->
+                    "90% match"
+                "MEDIUM" ->
+                    "70% match"
+                "LOW" ->
+                    "50% match"
+                else ->
+                    "Auto match"
+            }
+        }
+
+    if (appliedRule != null) {
+        return "Rule match"
+    }
+
+    return if (
+        item.reviewState ==
+        ReviewState.NEEDS_REVIEW.name
+    ) {
+        "Needs review"
+    } else {
+        "Auto match"
     }
 }
 
