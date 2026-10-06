@@ -46,6 +46,15 @@ class ConceptLedgerIntegrationTest {
         assertEquals(0L,BillSchedules(context).list().first {it.rule.id==rent.id}.remainingMinor)
     }
 
+    @Test fun legacyTrustedPaymentWithoutRuleIdCanStillMarkExplicitBillPaid() {
+        val rent=RuleStore.get(context).save("Rent","Example",TransactionCategory.RENT,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=1000000)
+        BillSchedules(context).save(rent.id,5,false)
+        insert("LEGACY-RENT",1000000,null,MoneyDirection.EXPENSE,TransactionCategory.RENT)
+        val bill=BillSchedules(context).list().first {it.rule.id==rent.id}
+        assertEquals(0L,bill.remainingMinor)
+        assertTrue(BillSchedules(context).upcomingThisMonth().none {it.rule.id==rent.id})
+    }
+
     @Test fun weeklyBillUsesOnlyOccurrencesInsideCurrentMonth() {
         val rule=RuleStore.get(context).save("Weekly service","Service",TransactionCategory.OTHER,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=10000)
         BillSchedules(context).saveSchedule(rule.id,BillCadence.WEEKLY,dueDayOfWeek=Calendar.MONDAY,enabled=false)
