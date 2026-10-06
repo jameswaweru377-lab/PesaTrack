@@ -81,9 +81,9 @@ fun HomeTodayCard(
                 )
                 Column(
                     modifier =
-                        Modifier.padding(
-                            start = 11.dp
-                        )
+                        Modifier
+                            .weight(1f)
+                            .padding(start = 11.dp)
                 ) {
                     Text(
                         "Today",
@@ -96,7 +96,7 @@ fun HomeTodayCard(
                         if (activeCycle) {
                             "A quick daily pace check."
                         } else {
-                            "Daily spending from the current month."
+                            "Daily pace starts after a salary begins your pay cycle."
                         },
                         style =
                             MaterialTheme
@@ -110,43 +110,39 @@ fun HomeTodayCard(
                 }
             }
 
-            Row(
-                modifier =
-                    Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(10.dp)
-            ) {
-                HomeMetricTile(
-                    label = "Spent today",
-                    value =
-                        formatHomeMoney(
-                            spentTodayMinor
-                        ),
-                    helper =
-                        "Trusted spending",
-                    modifier =
-                        Modifier.weight(1f)
-                )
-                HomeMetricTile(
-                    label = "Safe daily pace",
-                    value =
-                        safeTodayMinor
-                            ?.let(
-                                ::formatHomeMoney
-                            )
-                            ?: "—",
-                    helper =
-                        if (activeCycle) {
-                            "Based on money available"
-                        } else {
-                            "Starts with a pay cycle"
-                        },
-                    modifier =
-                        Modifier.weight(1f)
-                )
-            }
-
             if (activeCycle) {
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(10.dp)
+                ) {
+                    HomeMetricTile(
+                        label = "Spent today",
+                        value =
+                            formatHomeMoney(
+                                spentTodayMinor
+                            ),
+                        helper =
+                            "Trusted spending",
+                        modifier =
+                            Modifier.weight(1f)
+                    )
+                    HomeMetricTile(
+                        label = "Safe daily pace",
+                        value =
+                            safeTodayMinor
+                                ?.let(
+                                    ::formatHomeMoney
+                                )
+                                ?: "—",
+                        helper =
+                            "Based on money available",
+                        modifier =
+                            Modifier.weight(1f)
+                    )
+                }
+
                 OutlinedButton(
                     onClick = onProtectMoney,
                     modifier =
@@ -154,6 +150,18 @@ fun HomeTodayCard(
                 ) {
                     Text("Protect extra money")
                 }
+            } else {
+                Text(
+                    "Your spending is still tracked, but PesaTrack will not invent a daily allowance before salary is confirmed.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodyMedium,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
             }
         }
     }
@@ -481,7 +489,8 @@ private fun billDueLabel(
 fun HomeWhereMoneyWentCard(
     items: List<HomeSpendingItem>,
     totalMinor: Long,
-    onPlanClick: () -> Unit
+    onPlanClick: () -> Unit,
+    onReviewClick: () -> Unit = {}
 ) {
     PesaCard {
         Column(
@@ -556,6 +565,74 @@ fun HomeWhereMoneyWentCard(
                     items.sumOf {
                         it.amountMinor
                     }.coerceAtLeast(1L)
+                val needsBetterCategories =
+                    items
+                        .filter {
+                            it.label.equals(
+                                "Other",
+                                ignoreCase = true
+                            ) ||
+                                it.label.equals(
+                                    "Uncategorized",
+                                    ignoreCase = true
+                                )
+                        }
+                        .sumOf {
+                            it.amountMinor
+                        } * 100L /
+                        denominator >= 70L
+
+                if (needsBetterCategories) {
+                    Surface(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                        shape =
+                            RoundedCornerShape(16.dp),
+                        color =
+                            pesaToneContainer("amber")
+                                .copy(alpha = .45f)
+                    ) {
+                        Column(
+                            Modifier.padding(13.dp)
+                        ) {
+                            Text(
+                                "Most spending still needs categorization",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleSmall,
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                            Text(
+                                "Review Other and Uncategorized transactions to make this breakdown more useful.",
+                                modifier =
+                                    Modifier.padding(
+                                        top = 3.dp
+                                    ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                            OutlinedButton(
+                                onClick = onReviewClick,
+                                modifier =
+                                    Modifier.padding(
+                                        top = 9.dp
+                                    )
+                            ) {
+                                Text("Review spending")
+                            }
+                        }
+                    }
+                }
 
                 items.take(3)
                     .forEachIndexed {
