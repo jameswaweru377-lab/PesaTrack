@@ -56,15 +56,19 @@ class RelationshipReviewStore private constructor(
     private val database = PesaTrackDatabase.get(appContext)
 
     fun pendingReviews(): List<RelationshipReviewItem> = synchronized(CanonicalStoreLock.monitor) {
+        DebtStore.get(appContext).refreshPendingRepaymentLinks()
         (
-            pendingFundingReviews() +
-                pendingBalanceReviews() +
-                pendingLiabilityPaymentReviews() +
+            pendingLiabilityPaymentReviews() +
                 pendingInvestmentSettlementReviews()
             )
             .sortedByDescending {
                 it.occurredAtEpochMs
             }
+    }
+
+    // Optional provenance links are diagnostics, not unresolved money.
+    fun pendingEvidenceLinks(): List<RelationshipReviewItem> = synchronized(CanonicalStoreLock.monitor) {
+        (pendingFundingReviews() + pendingBalanceReviews()).sortedByDescending { it.occurredAtEpochMs }
     }
 
     fun resolveFunding(
@@ -1245,3 +1249,4 @@ class RelationshipReviewStore private constructor(
                 }
     }
 }
+

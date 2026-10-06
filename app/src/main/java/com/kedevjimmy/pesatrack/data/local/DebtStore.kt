@@ -48,7 +48,9 @@ data class DebtAccountSnapshot(
     val observedAtEpochMs: Long?,
     val availableCreditMinor: Long?,
     val availableCreditObservedAtEpochMs: Long?,
-    val hasUnresolvedDrawdown: Boolean = false
+    val hasUnresolvedDrawdown: Boolean = false,
+    val lastRepaymentMinor: Long? = null,
+    val lastRepaymentAtEpochMs: Long? = null
 )
 
 data class DebtEventRecord(
@@ -1493,6 +1495,23 @@ class DebtStore private constructor(context: Context) {
     }
     }
 
+    /** Retry only missing links; explicit user decisions remain authoritative. */
+    fun refreshPendingRepaymentLinks() = synchronized(CanonicalStoreLock.monitor) {
+        val ids = database.readableDatabase.rawQuery("""
+            SELECT id FROM debt_events WHERE event_type = 'REPAYMENT'
+              AND ((linked_transaction_id IS NULL AND funding_link_user_decision IS NULL)
+                OR (resulting_balance_observation_id IS NULL AND balance_link_user_decision IS NULL))
+            ORDER BY occurred_at_epoch_ms, id
+        """.trimIndent(), null).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.getLong(0)) }
+        }
+        ids.forEach { id ->
+            reconcileRepaymentFromDebtProceeds(id)
+            reconcileRepaymentEvent(id)
+            reconcileRepaymentBalance(id)
+        }
+    }
+
     private fun ensureEventChainsReconciled() {
         val preferences =
             appContext.getSharedPreferences(
@@ -1635,7 +1654,11 @@ class DebtStore private constructor(context: Context) {
                              AND debt_accounts.last_observed_at_epoch_ms >=
                                  drawdown.occurred_at_epoch_ms
                          )
-                   ) AS has_unresolved_drawdown
+                   ) AS has_unresolved_drawdown,
+                   (SELECT amount_minor FROM debt_events e WHERE e.debt_account_id = debt_accounts.id
+                     AND e.event_type = 'REPAYMENT' ORDER BY occurred_at_epoch_ms DESC, id DESC LIMIT 1),
+                   (SELECT occurred_at_epoch_ms FROM debt_events e WHERE e.debt_account_id = debt_accounts.id
+                     AND e.event_type = 'REPAYMENT' ORDER BY occurred_at_epoch_ms DESC, id DESC LIMIT 1)
             FROM debt_accounts
             ORDER BY name COLLATE NOCASE
             """.trimIndent(),
@@ -1675,7 +1698,9 @@ class DebtStore private constructor(context: Context) {
                                     cursor.getLong(7)
                                 },
                             hasUnresolvedDrawdown =
-                                cursor.getInt(8) == 1
+                                cursor.getInt(8) == 1,
+                            lastRepaymentMinor = if (cursor.isNull(9)) null else cursor.getLong(9),
+                            lastRepaymentAtEpochMs = if (cursor.isNull(10)) null else cursor.getLong(10)
                         )
                     )
                 }
@@ -2838,3 +2863,4 @@ class DebtStore private constructor(context: Context) {
             }
     }
 }
+
