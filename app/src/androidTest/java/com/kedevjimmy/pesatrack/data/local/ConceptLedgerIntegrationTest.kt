@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.domain.model.*
+import com.kedevjimmy.pesatrack.planning.BillCadence
 import com.kedevjimmy.pesatrack.planning.BillSchedules
+import java.util.Calendar
 import org.junit.*
 import org.junit.Assert.*
 import org.junit.runner.RunWith
@@ -36,6 +38,29 @@ class ConceptLedgerIntegrationTest {
         assertFalse(bills.containsKey(repeatedButNotABill.id))
         assertEquals(31,bills[rent.id]!!.dueDay)
     }
+    @Test fun fullyPaidCurrentMonthBillIsNotUpcoming() {
+        val rent=RuleStore.get(context).save("Rent","Landlord",TransactionCategory.RENT,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=1000000)
+        BillSchedules(context).save(rent.id,5,false)
+        insert("RENT-PAID",1000000,rent,MoneyDirection.EXPENSE,TransactionCategory.RENT)
+        assertTrue(BillSchedules(context).upcomingThisMonth().none {it.rule.id==rent.id})
+        assertEquals(0L,BillSchedules(context).list().first {it.rule.id==rent.id}.remainingMinor)
+    }
+
+    @Test fun weeklyBillUsesOnlyOccurrencesInsideCurrentMonth() {
+        val rule=RuleStore.get(context).save("Weekly service","Service",TransactionCategory.OTHER,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=10000)
+        BillSchedules(context).saveSchedule(rule.id,BillCadence.WEEKLY,dueDayOfWeek=Calendar.MONDAY,enabled=false)
+        val month=Calendar.getInstance().apply {set(Calendar.DAY_OF_MONTH,1)}
+        val targetMonth=month.get(Calendar.MONTH)
+        var mondays=0
+        while(month.get(Calendar.MONTH)==targetMonth) {
+            if(month.get(Calendar.DAY_OF_WEEK)==Calendar.MONDAY) mondays++
+            month.add(Calendar.DAY_OF_MONTH,1)
+        }
+        val bill=BillSchedules(context).list().first {it.rule.id==rule.id}
+        assertEquals(mondays*10000L,bill.expectedMinor)
+        assertEquals(bill.expectedMinor,bill.remainingMinor)
+    }
+
     @Test fun savingsWithdrawalAndInternalLockMovementAreNotNewSavings() {
         insert("TRANSFER001",100000,null,MoneyDirection.TRANSFER,TransactionCategory.SAVINGS)
         val row=TransactionStore.get(context).activitySnapshot().trustedTransactions.single()
