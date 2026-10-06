@@ -582,8 +582,6 @@ fun TransactionDetailScreen(
                 item = current,
                 appliedRule =
                     appliedRule,
-                learningExplanation =
-                    learningExplanation,
                 learningPreferenceActive =
                     learningPreference != null,
                 canRemember =
