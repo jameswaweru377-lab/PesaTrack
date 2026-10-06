@@ -378,7 +378,7 @@ fun BillsRemindersScreen(
         }
     }
     val commitments = bills.map { CommitmentProgress(it.rule.id,it.rule.displayLabel ?: it.rule.name,it.rule.category.name,it.rule.plannedAmountMinor ?: 0, (it.rule.plannedAmountMinor ?: 0)-it.remainingMinor,it.remainingMinor) }
-    val comingUp = commitments.sumOf { it.remainingMinor }
+    val comingUp = bills.filter { it.dueThisMonth }.sumOf { it.remainingMinor }
 
     LazyColumn(
         modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
@@ -445,18 +445,18 @@ fun BillsRemindersScreen(
             ConceptEmeraldHero(
                 title = "Coming up",
                 amount = conceptMoney(comingUp),
-                subtitle = if (commitments.isEmpty()) "No monthly bills configured" else "${commitments.count { it.remainingMinor > 0L }} bills awaiting payment this month",
+                subtitle = if (bills.isEmpty()) "No bills configured" else "${bills.count { it.dueThisMonth && it.remainingMinor > 0L }} bills awaiting payment this month",
                 artwork = false,
                 eyebrow = "This month"
             )
         }
-        item { ConceptSectionTitle("Upcoming bills") }
+        item { ConceptSectionTitle("Your bills") }
         if (commitments.isEmpty()) {
             item {
                 PesaCard {
                     Column(Modifier.padding(18.dp)) {
-                        Text("No bills protected yet", style = MaterialTheme.typography.titleMedium)
-                        Text("Add recurring commitments in Plan. Matching payment messages can update them automatically.", Modifier.padding(top = 5.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("No bills added yet", style = MaterialTheme.typography.titleMedium)
+                        Text("Add only the bills you want PesaTrack to track. Matching trusted payments update their status automatically.", Modifier.padding(top = 5.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -468,19 +468,32 @@ fun BillsRemindersScreen(
                         IconBubble(if (entry.remainingMinor == 0L) Icons.Rounded.CheckCircle else Icons.Rounded.ReceiptLong, size = 42.dp)
                         Column(Modifier.weight(1f).padding(start = 11.dp)) {
                             Text(entry.name, style = MaterialTheme.typography.titleMedium)
+                            val bill = bills.firstOrNull { it.rule.id == entry.ruleId }
                             Text(
-                                if (entry.remainingMinor == 0L) "Paid this month" else "${conceptMoney(entry.remainingMinor)} remaining",
+                                when {
+                                    bill == null -> "Bill schedule unavailable"
+                                    !bill.dueThisMonth -> billManagementScheduleLabel(bill)
+                                    entry.remainingMinor == 0L -> "Paid this month"
+                                    else -> conceptMoney(entry.remainingMinor) + " remaining • " + billManagementScheduleLabel(bill)
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Text(conceptMoney(entry.plannedMinor), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        BillAmountPill(
+                            if (entry.remainingMinor > 0L) {
+                                conceptMoney(entry.remainingMinor)
+                            } else {
+                                conceptMoney(entry.plannedMinor)
+                            }
+                        )
                     }
                     bills.firstOrNull { it.rule.id == entry.ruleId }?.let { bill ->
                         TextButton(onClick = { editingBill = bill.rule; billEditor = true }) { Text("Edit bill") }
                         TextButton(onClick = { reminder = bill }, modifier = Modifier.padding(horizontal = 12.dp)) {
-                            Text(if (bill.dueDay == null) "Set due date & reminder" else "Due day ${bill.dueDay} · " + if (bill.reminders) "Reminder on" else "Reminder off")
+                            Text(if (bill.reminders) "Reminder on" else "Reminder settings")
                         }
+                    }
                     }
                     }
                 }
@@ -512,6 +525,29 @@ fun BillsRemindersScreen(
     reminder?.let { BillReminderSettings(it) { reminder = null } }
     if (billEditor) SavingGoalEditor(editingBill, bill = true) { billEditor = false }
 }
+
+private fun billManagementScheduleLabel(
+    bill: ScheduledBill
+): String =
+    when (bill.cadence) {
+        BillCadence.MONTHLY ->
+            bill.dueDay
+                ?.let {
+                    "Due day " + it
+                }
+                ?: "Choose a monthly due day"
+        BillCadence.WEEKLY -> {
+            val names =
+                java.text.DateFormatSymbols(
+                    Locale.getDefault()
+                ).weekdays
+            bill.dueDayOfWeek
+                ?.let {
+                    "Every " + names[it]
+                }
+                ?: "Choose a weekly due day"
+        }
+    }
 
 @Composable
 fun SavingGoalsScreen(
