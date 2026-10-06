@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -401,6 +402,8 @@ fun DebtsScreen(
     val revision =
         ledgerUpdateState.revision
 
+    var settledDebts by remember { mutableStateOf<List<DebtAccountSnapshot>>(emptyList()) }
+    var showSettled by remember { mutableStateOf(false) }
     var activeDebts:
         List<DebtAccountSnapshot> by
         remember {
@@ -410,7 +413,9 @@ fun DebtsScreen(
     LaunchedEffect(revision) {
         activeDebts =
             withContext(Dispatchers.IO) {
-                debtStore.accounts()
+                debtStore.accounts().also { accounts ->
+                    settledDebts = accounts.filter { it.outstandingMinor == 0L && !it.hasUnresolvedDrawdown && it.lastRepaymentAtEpochMs != null }
+                }
                     .filter {
                         it.outstandingMinor > 0L ||
                             it.hasUnresolvedDrawdown
@@ -584,6 +589,15 @@ fun DebtsScreen(
                 )
             }
         }
+        if (settledDebts.isNotEmpty()) {
+            item { TextButton(onClick = { showSettled = !showSettled }) {
+                Text(if (showSettled) "Hide settled debts" else "Settled debts (${settledDebts.size})")
+            } }
+            if (showSettled) items(settledDebts.size) { index ->
+                DebtAccountCard(settledDebts[index], index)
+            }
+        }
+
     }
 }
 
@@ -925,6 +939,10 @@ private fun DebtAccountCard(
                         MaterialTheme.colorScheme
                             .onSurfaceVariant
                 )
+                if (debt.lastRepaymentMinor != null && debt.lastRepaymentAtEpochMs != null) {
+                    Text("Last repayment ${formatDetailMoney(debt.lastRepaymentMinor)} • ${formatDetailDateTime(debt.lastRepaymentAtEpochMs)}",
+                        style = MaterialTheme.typography.bodySmall)
+                }
                 debt.observedAtEpochMs
                     ?.let {
                         Text(
@@ -1140,3 +1158,4 @@ private fun formatDetailDateTime(
     ).format(
         Date(epochMs)
     )
+

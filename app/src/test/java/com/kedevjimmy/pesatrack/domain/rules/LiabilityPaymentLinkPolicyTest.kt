@@ -184,6 +184,13 @@ class LiabilityPaymentLinkPolicyTest {
         )
     }
 
+    @Test fun providerOverlapIsNotARepayment() {
+        val fuliza = candidate("fuliza", "Fuliza M-PESA", "SAFARICOM_FULIZA", 50000L, true)
+        assertEquals(emptyList<LiabilityPaymentMatch>(), LiabilityPaymentLinkPolicy.candidates("Safaricom", 2000L, listOf(fuliza)))
+        assertEquals(emptyList<LiabilityPaymentMatch>(), LiabilityPaymentLinkPolicy.candidates("M-PESA", 2000L, listOf(fuliza)))
+        assertNull(LiabilityPaymentLinkPolicy.chooseAutomatic("Safaricom", 2000L, listOf(fuliza)))
+    }
+
     private fun candidate(
         id: String,
         name: String,
@@ -201,3 +208,4 @@ class LiabilityPaymentLinkPolicyTest {
                 observed
         )
 }
+

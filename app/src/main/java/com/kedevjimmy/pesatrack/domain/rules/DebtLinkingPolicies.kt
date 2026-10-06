@@ -418,43 +418,12 @@ object LiabilityPaymentLinkPolicy {
 
         val matches =
             candidates.mapNotNull { candidate ->
-                val identityVariants =
-                    listOf(
-                        identityTokens(
-                            candidate.displayName
-                        ),
-                        identityTokens(
-                            candidate.providerKey
-                                .removePrefix(
-                                    "discovered:"
-                                )
-                        )
-                    )
-                        .filter(Set<String>::isNotEmpty)
-
-                val exactIdentity =
-                    identityVariants.any {
-                        it == counterpartyTokens
-                    }
-                val containedIdentity =
-                    identityVariants.any { identity ->
-                        identity.isNotEmpty() &&
-                            (
-                                identity.all(
-                                    counterpartyTokens::contains
-                                ) ||
-                                counterpartyTokens.all(
-                                    identity::contains
-                                )
-                                )
-                    }
-
-                if (
-                    !exactIdentity &&
-                    !containedIdentity
-                ) {
-                    return@mapNotNull null
-                }
+                // Product identity, never the institution prefix in an internal key.
+                // SAFARICOM_FULIZA must not turn a Safaricom airtime purchase
+                // into a proposed repayment.
+                val identity = identityTokens(candidate.displayName)
+                val exactIdentity = identity.isNotEmpty() && identity == counterpartyTokens
+                if (!exactIdentity) return@mapNotNull null
 
                 val amountFitsObservedDebt =
                     candidate.hasObservedOutstanding &&
@@ -564,3 +533,4 @@ object LiabilityPaymentLinkPolicy {
             "SERVICES"
         )
 }
+

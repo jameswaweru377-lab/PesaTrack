@@ -45,6 +45,9 @@ object PersonalLearningPolicy {
         categoryId: String,
         direction: MoneyDirection
     ): Boolean {
+        if (categoryId == TransactionCategory.INVESTMENT.name) {
+            return direction == MoneyDirection.TRANSFER
+        }
         if (direction != MoneyDirection.EXPENSE) {
             return false
         }
@@ -81,3 +84,4 @@ object PersonalLearningPolicy {
             TransactionCategory.CASH.name
         )
 }
+

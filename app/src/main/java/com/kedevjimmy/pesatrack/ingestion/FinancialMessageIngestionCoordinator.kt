@@ -1353,9 +1353,7 @@ class FinancialMessageIngestionCoordinator private constructor(
                 )
             personalLearningStore
                 .applyHighConfidenceTo(
-                    transactionStore.recent(
-                        limit = 100
-                    ),
+                    transactionStore.recentlyInsertedForLearning(),
                     rebuildPayCycles =
                         rebuildPayCycles
                 )
@@ -2032,4 +2030,5 @@ class FinancialMessageIngestionCoordinator private constructor(
             }
     }
 }
+
 

@@ -986,6 +986,14 @@ class TransactionStore private constructor(context: Context) {
         }
     }
 
+    /** Import order, not message date: old SMS arriving now must receive saved categories. */
+    fun recentlyInsertedForLearning(limit: Int = 100): List<StoredTransaction> = synchronized(CanonicalStoreLock.monitor) {
+        database.readableDatabase.rawQuery(BASE_SELECT + " ORDER BY id DESC LIMIT ?",
+            arrayOf(limit.coerceIn(1, 500).toString())).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.toStoredTransaction()) }
+        }
+    }
+
     fun reviewBurdenSnapshot(
         nowEpochMs: Long =
             System.currentTimeMillis()
@@ -1796,6 +1804,21 @@ class TransactionStore private constructor(context: Context) {
                 while (cursor.moveToNext()) add(cursor.toStoredTransaction())
             }
         }
+
+    /** All imported months; category learning never changes structural ledger events. */
+    fun categoryLearningCandidates(): List<StoredTransaction> = synchronized(CanonicalStoreLock.monitor) {
+        database.readableDatabase.rawQuery(
+            BASE_SELECT + """
+             WHERE direction = 'EXPENSE' AND rule_id IS NULL AND relation_type IS NULL
+               AND type != 'REVERSAL' AND reversal_of_code IS NULL
+               AND category NOT IN ('DEBT_LOAN', 'SAVINGS', 'INVESTMENT', 'TRANSFER', 'INCOME', 'CASH')
+               AND review_state IN ('NEEDS_REVIEW', 'AUTO_CLASSIFIED')
+               AND id NOT IN (SELECT linked_transaction_id FROM debt_events
+                   WHERE linked_transaction_id IS NOT NULL AND event_type = 'REPAYMENT')
+             ORDER BY occurred_at_epoch_ms DESC, id DESC
+            """.trimIndent(), null
+        ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.toStoredTransaction()) } }
+    }
 
     fun reconcileMirrorDuplicates(): Int {
         synchronized(CanonicalStoreLock.monitor) {
@@ -3960,6 +3983,7 @@ private fun StoredTransaction.toParsedTransaction(): ParsedMpesaTransaction =
         rawMessage = "",
         reversalOfCode = reversalOfCode
     )
+
 
 
 

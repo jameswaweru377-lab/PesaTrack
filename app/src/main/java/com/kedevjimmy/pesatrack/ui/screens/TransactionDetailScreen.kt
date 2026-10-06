@@ -40,6 +40,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.kedevjimmy.pesatrack.data.local.RememberCategoryRepository
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +87,10 @@ fun TransactionDetailScreen(
 ) {
     val context = LocalContext.current
     val store = remember { TransactionStore.get(context) }
+    val learningRepository = remember { RememberCategoryRepository(context) }
+    val scope = rememberCoroutineScope()
+    var learningBusy by remember(transactionId) { mutableStateOf(false) }
+    var learningError by remember(transactionId) { mutableStateOf<String?>(null) }
     val ruleStore = remember { RuleStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
     val personalLearningStore =
@@ -213,63 +222,35 @@ fun TransactionDetailScreen(
         refresh()
     }
 
-    fun learningRule(
-        current: StoredTransaction,
-        category: TransactionCategory,
-        id: String = "preview"
-    ): SmartRule {
-        val direction = categoryStore.directionFor(
-            categoryId = category.name,
-            existingDirection = runCatching {
-                MoneyDirection.valueOf(current.direction)
-            }.getOrDefault(MoneyDirection.NEUTRAL)
-        )
-        return SmartRule(
-            id = id,
-            counterpartyContains = "",
-            counterpartyExact = current.counterparty.orEmpty(),
-            counterpartyPhoneEquals = current.counterpartyPhone.orEmpty(),
-            category = category,
-            direction = direction,
-            name = current.counterparty?.let {
-                "Always classify " + it
-            } ?: "Learned rule",
-            displayLabel = current.counterparty,
-            accountId = current.accountId
-        )
-    }
-
     fun applyCategory(categoryId: String) {
         val current = transaction ?: return
+        if (learningBusy) return
         val canonicalId = categoryStore.canonicalId(categoryId)
-        val builtIn = runCatching {
-            TransactionCategory.valueOf(canonicalId)
-        }.getOrNull()
-
-        val teachableState =
-            current.reviewState == ReviewState.NEEDS_REVIEW.name ||
-                (
-                    current.reviewState ==
-                        ReviewState.AUTO_CLASSIFIED.name &&
-                        current.category ==
-                            TransactionCategory.OTHER.name
-                )
-        val shouldOfferLearning =
-            builtIn != null &&
-                current.ruleId == null &&
-                teachableState &&
-                builtIn != TransactionCategory.UNCATEGORIZED &&
-                canLearnIdentity(current)
-
-        if (shouldOfferLearning) {
-            val preview = learningRule(current, builtIn)
-            pendingMatchCount = store.matchingPendingCount(
-                rule = preview,
-                excludingId = current.id
-            )
-            pendingCategoryId = canonicalId
-        } else {
-            classifyOnly(current, canonicalId)
+        val direction = categoryStore.directionFor(canonicalId, MoneyDirection.EXPENSE)
+        learningBusy = true
+        learningError = null
+        scope.launch {
+            try {
+                val count = withContext(Dispatchers.IO) {
+                    if (current.ruleId == null && current.relationType == null &&
+                        current.direction == MoneyDirection.EXPENSE.name &&
+                        current.category in setOf(TransactionCategory.OTHER.name, TransactionCategory.UNCATEGORIZED.name) &&
+                        current.reviewState in setOf(ReviewState.NEEDS_REVIEW.name, ReviewState.AUTO_CLASSIFIED.name) &&
+                        PersonalLearningPolicy.isLearnableCategory(canonicalId, direction) && canLearnIdentity(current)) {
+                        learningRepository.matchingCount(current)
+                    } else 0
+                }
+                if (count >= 2) {
+                    pendingMatchCount = count
+                    pendingCategoryId = canonicalId
+                } else {
+                    withContext(Dispatchers.IO) { classifyOnly(current, canonicalId) }
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                learningError = failure.message ?: "Could not update this category. Please try again."
+            } finally { learningBusy = false }
         }
     }
 
@@ -290,127 +271,45 @@ fun TransactionDetailScreen(
 
     if (current != null && pendingCategoryId != null) {
         val categoryId = pendingCategoryId!!
-        val category = runCatching {
-            TransactionCategory.valueOf(categoryId)
-        }.getOrNull()
-        if (category != null) {
         AlertDialog(
-            onDismissRequest = { pendingCategoryId = null },
-            title = {
-                Text("Remember this for next time?")
-            },
-            text = {
-                Text(
-                    buildString {
-                        append("Use “")
-                        append(current.counterparty ?: current.counterpartyPhone ?: "this identity")
-                        append("” as ")
-                        append(categoryStore.labelFor(categoryId))
-                        append(".")
-                        if (pendingMatchCount > 0) {
-                            append(" This can also classify ")
-                            append(pendingMatchCount)
-                            append(" matching transaction")
-                            if (pendingMatchCount != 1) append("s")
-                            append(" already in your history.")
-                        }
-                    }
-                )
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(
-                    onClick = {
-                        classifyOnly(current, categoryId)
+            onDismissRequest = { if (!learningBusy) pendingCategoryId = null },
+            title = { Text("Remember this category?") },
+            text = { Column {
+                Text("Use “${current.counterparty ?: current.counterpartyPhone}” as ${categoryStore.labelFor(categoryId)}? " +
+                    "This updates $pendingMatchCount other matching transactions across all imported months, " +
+                    "and remembers future matches. Your other manual categories stay unchanged.")
+                learningError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            } },
+            dismissButton = { TextButton(enabled = !learningBusy, onClick = {
+                learningBusy = true
+                scope.launch {
+                    try {
+                        withContext(Dispatchers.IO) { classifyOnly(current, categoryId) }
                         pendingCategoryId = null
-                    }
-                ) {
-                    Text("Only this one")
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        learningError = failure.message ?: "Could not save. Please try again."
+                    } finally { learningBusy = false }
                 }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val direction = categoryStore.directionFor(
-                            categoryId = category.name,
-                            existingDirection = runCatching {
-                                MoneyDirection.valueOf(current.direction)
-                            }.getOrDefault(MoneyDirection.NEUTRAL)
-                        )
-                        store.classifyManually(
-                            id = current.id,
-                            category = category,
-                            direction = direction,
-                            markTransfer = category == TransactionCategory.TRANSFER
-                        )
-                        val savedRule = ruleStore.save(
-                            name = current.counterparty?.let { "Remember " + it } ?: "Learned rule",
-                            counterpartyContains = "",
-                            counterpartyExact = current.counterparty.orEmpty(),
-                            counterpartyPhoneEquals = current.counterpartyPhone.orEmpty(),
-                            category = category,
-                            direction = direction,
-                            displayLabel = current.counterparty,
-                            accountId = current.accountId
-                        )
-                        val preference =
-                            personalLearningStore
-                                .remember(
-                                    transaction =
-                                        current,
-                                    categoryId =
-                                        category.name,
-                                    direction =
-                                        direction
-                                )
-                        val exactChanged =
-                            store.reapplyRule(
-                                savedRule
-                            )
-                        val identityChanged =
-                            if (
-                                preference != null
-                            ) {
-                                personalLearningStore
-                                    .applyHighConfidenceTo(
-                                        store.recent(
-                                            limit = 500
-                                        )
-                                    )
-                            } else {
-                                0
-                            }
-                        val changed =
-                            exactChanged +
-                                identityChanged
-                        learnedMessage =
-                            when {
-                                changed > 0 ->
-                                    "Remembered • " +
-                                        changed +
-                                        " matching transaction" +
-                                        if (
-                                            changed == 1
-                                        ) {
-                                            " classified."
-                                        } else {
-                                            "s classified."
-                                        }
-
-                                preference != null ->
-                                    "Remembered for this identity and future matching transactions."
-
-                                else ->
-                                    "Rule saved for future exact matches."
-                            }
+            }) { Text("Only this one") } },
+            confirmButton = { Button(enabled = !learningBusy, onClick = {
+                learningBusy = true
+                learningError = null
+                scope.launch {
+                    try {
+                        val changed = withContext(Dispatchers.IO) { learningRepository.remember(current.id, categoryId) }
+                        learnedMessage = "Remembered • $changed other transactions updated across imported months."
                         pendingCategoryId = null
                         refresh()
-                    }
-                ) {
-                    Text("Remember")
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        learningError = failure.message ?: "Could not save. Please try again."
+                    } finally { learningBusy = false }
                 }
-            }
+            }) { Text(if (learningBusy) "Saving…" else "Remember") } }
         )
-        }
     }
 
     LazyColumn(
@@ -420,6 +319,10 @@ fun TransactionDetailScreen(
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        item {
+            if (learningBusy) Text("Updating category…")
+            if (pendingCategoryId == null) learningError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
@@ -1658,8 +1561,7 @@ private fun canLearnIdentity(item: StoredTransaction): Boolean {
     val name = item.counterparty?.trim().orEmpty()
     if (name.isBlank()) return false
 
-    val tokenCount = name.split(Regex("""\s+""")).count { it.isNotBlank() }
-    val merchantLike = item.type == "PAY_BILL" || item.type == "BUY_GOODS"
+    return name.length >= 2
 
-    return tokenCount >= 2 || merchantLike
 }
+

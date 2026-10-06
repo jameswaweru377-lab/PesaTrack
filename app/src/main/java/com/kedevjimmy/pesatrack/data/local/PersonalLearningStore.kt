@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import com.kedevjimmy.pesatrack.domain.learning.RememberedCategoryMatchPolicy
 import com.kedevjimmy.pesatrack.domain.identity.IdentityNodeKind
 import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningAction
 import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningApplication
@@ -207,15 +208,13 @@ class PersonalLearningStore private constructor(
             return null
         }
 
-        val confidence =
-            PersonalLearningPolicy
-                .confidenceFor(
-                    identityConfidence =
-                        resolution.confidence,
-                    identityUserConfirmed =
-                        resolution.node
-                            .userConfirmed
-                )
+        if (transaction.category == preference.categoryId && transaction.direction == preference.direction.name) return null
+        val source = TransactionStore.get(appContext).getById(preference.sourceTransactionId)
+            ?: return null
+        if (!RememberedCategoryMatchPolicy.matches(source.counterparty, source.counterpartyPhone,
+                transaction.counterparty, transaction.counterpartyPhone)) return null
+        // The user explicitly approved this exact identity. Repetition is not consent.
+        val confidence = PersonalLearningConfidence.HIGH
         val action =
             PersonalLearningPolicy
                 .actionFor(confidence)
@@ -433,12 +432,15 @@ class PersonalLearningStore private constructor(
         rebuildPayCycles: Boolean = true
     ): Int {
         synchronized(CanonicalStoreLock.monitor) {
+        if (preferenceCount() == 0) return 0
         val db =
             database.writableDatabase
         val now =
             System.currentTimeMillis()
         var changed = 0
 
+        db.beginTransaction()
+        try {
         transactions.forEach { transaction ->
             val suggestion =
                 suggestionFor(transaction)
@@ -478,20 +480,17 @@ class PersonalLearningStore private constructor(
                     AND rule_id IS NULL
                     AND relation_type IS NULL
                     AND direction = ?
-                    AND (
-                        review_state = ?
-                        OR (
-                            review_state = ?
-                            AND category = ?
-                        )
-                    )
+                    AND type != 'REVERSAL' AND reversal_of_code IS NULL
+                    AND category NOT IN ('DEBT_LOAN', 'SAVINGS', 'INVESTMENT', 'TRANSFER', 'INCOME', 'CASH')
+                    AND id NOT IN (SELECT linked_transaction_id FROM debt_events
+                        WHERE linked_transaction_id IS NOT NULL AND event_type = 'REPAYMENT')
+                    AND review_state IN (?, ?)
                     """.trimIndent(),
                     arrayOf(
                         transaction.id.toString(),
                         MoneyDirection.EXPENSE.name,
                         ReviewState.NEEDS_REVIEW.name,
-                        ReviewState.AUTO_CLASSIFIED.name,
-                        TransactionCategory.OTHER.name
+                        ReviewState.AUTO_CLASSIFIED.name
                     )
                 )
 
@@ -506,6 +505,9 @@ class PersonalLearningStore private constructor(
                 changed += updated
             }
         }
+
+        db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
 
         if (changed > 0) {
             if (rebuildPayCycles) {
@@ -700,29 +702,12 @@ class PersonalLearningStore private constructor(
                 )
             }
 
-    private fun isEligibleForLearning(
-        transaction: StoredTransaction
-    ): Boolean {
-        if (
-            transaction.ruleId != null ||
-            transaction.relationType != null ||
-            transaction.direction !=
-                MoneyDirection.EXPENSE.name
-        ) {
-            return false
-        }
-
-        return transaction.reviewState ==
-            ReviewState.NEEDS_REVIEW.name ||
-            (
-                transaction.reviewState ==
-                    ReviewState
-                        .AUTO_CLASSIFIED
-                        .name &&
-                    transaction.category ==
-                    TransactionCategory.OTHER.name
-            )
-    }
+    private fun isEligibleForLearning(transaction: StoredTransaction): Boolean =
+        transaction.ruleId == null && transaction.relationType == null &&
+            transaction.direction == MoneyDirection.EXPENSE.name &&
+            transaction.type != "REVERSAL" && transaction.reversalOfCode == null &&
+            transaction.category !in setOf("DEBT_LOAN", "SAVINGS", "INVESTMENT", "TRANSFER", "INCOME", "CASH") &&
+            transaction.reviewState in setOf(ReviewState.NEEDS_REVIEW.name, ReviewState.AUTO_CLASSIFIED.name)
 
     private fun recordApplication(
         db: SQLiteDatabase,
@@ -763,12 +748,12 @@ class PersonalLearningStore private constructor(
                 )
             }
 
-        db.insertWithOnConflict(
+        check(db.insertWithOnConflict(
             "personal_learning_applications",
             null,
             values,
             SQLiteDatabase.CONFLICT_REPLACE
-        )
+        ) != -1L) { "Could not save category provenance." }
     }
 
     private fun scalarCount(
@@ -804,3 +789,4 @@ class PersonalLearningStore private constructor(
             }
     }
 }
+
