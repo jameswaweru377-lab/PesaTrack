@@ -305,6 +305,11 @@ fun PesaTrackApp(
                         navController.navigate(
                             "saving-goals"
                         )
+                    },
+                    onSalaryClick = {
+                        navController.navigate(
+                            "salary"
+                        )
                     }
                 )
             }
@@ -351,7 +356,16 @@ fun PesaTrackApp(
             ) { padding ->
                 ReportsInsightsScreen(
                     scaffoldPadding = padding,
-                    onBack = { navController.popBackStack() }
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onReviewClick = {
+                        navController.navigate(
+                            MainTab.ACTIVITY.route
+                        ) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
         }

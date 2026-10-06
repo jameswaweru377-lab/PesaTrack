@@ -35,8 +35,28 @@ import java.util.Locale
 import kotlin.math.max
 
 private fun conceptMoney(minor: Long): String {
-    val f = NumberFormat.getNumberInstance(Locale.US).apply { minimumFractionDigits = 2; maximumFractionDigits = 2 }
-    return (if (minor < 0) "-KES " else "KES ") + f.format(kotlin.math.abs(minor) / 100.0)
+    val hasCents =
+        kotlin.math.abs(minor) % 100L != 0L
+    val f =
+        NumberFormat
+            .getNumberInstance(Locale.US)
+            .apply {
+                minimumFractionDigits =
+                    if (hasCents) 2 else 0
+                maximumFractionDigits =
+                    if (hasCents) 2 else 0
+            }
+    return (
+        if (minor < 0) {
+            "-KES "
+        } else {
+            "KES "
+        }
+        ) +
+        f.format(
+            kotlin.math.abs(minor) /
+                100.0
+        )
 }
 
 private fun conceptDate(epoch: Long): String =
@@ -143,7 +163,8 @@ private fun ConceptInnerHeader(title: String, onBack: () -> Unit) {
 @Composable
 fun ReportsInsightsScreen(
     scaffoldPadding: PaddingValues,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onReviewClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val revision by LedgerUpdateBus.state.collectAsState()
@@ -203,6 +224,26 @@ fun ReportsInsightsScreen(
             .orEmpty()
     }
     val total = max(1L, spending.sumOf { it.second })
+    val lowQualityMinor =
+        spending
+            .filter {
+                it.first.equals(
+                    "Other",
+                    ignoreCase = true
+                ) ||
+                    it.first.equals(
+                        "Uncategorized",
+                        ignoreCase = true
+                    )
+            }
+            .sumOf { it.second }
+    val lowQualityShare =
+        if (spending.isEmpty()) {
+            0
+        } else {
+            ((lowQualityMinor * 100L) / total)
+                .toInt()
+        }
 
     LazyColumn(
         modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
@@ -236,6 +277,71 @@ fun ReportsInsightsScreen(
                 PesaCard { Text("No trusted spending in this period yet.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         } else {
+            if (lowQualityShare >= 70) {
+                item {
+                    PesaCard {
+                        Column(
+                            Modifier.padding(16.dp)
+                        ) {
+                            Row(
+                                verticalAlignment =
+                                    Alignment.CenterVertically
+                            ) {
+                                IconBubble(
+                                    Icons.Rounded.Info,
+                                    size = 42.dp,
+                                    background =
+                                        pesaToneContainer(
+                                            "amber"
+                                        ),
+                                    tint =
+                                        pesaToneContent(
+                                            "amber"
+                                        )
+                                )
+                                Column(
+                                    Modifier
+                                        .weight(1f)
+                                        .padding(
+                                            start = 11.dp
+                                        )
+                                ) {
+                                    Text(
+                                        "Your spending picture needs a little cleanup",
+                                        style =
+                                            MaterialTheme
+                                                .typography
+                                                .titleMedium,
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
+                                    Text(
+                                        lowQualityShare.toString() +
+                                            "% is still Other or Uncategorized.",
+                                        style =
+                                            MaterialTheme
+                                                .typography
+                                                .bodySmall,
+                                        color =
+                                            MaterialTheme
+                                                .colorScheme
+                                                .onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Button(
+                                onClick = onReviewClick,
+                                modifier =
+                                    Modifier.padding(
+                                        top = 12.dp
+                                    )
+                            ) {
+                                Text("Review spending")
+                            }
+                        }
+                    }
+                }
+            }
             item {
                 PesaCard {
                     Row(
@@ -406,6 +512,7 @@ fun BillsRemindersScreen(
     ) {
         item { ConceptLoadError(loadError) { retryLoad++ } }
         item { ConceptInnerHeader("Bills & reminders", onBack) }
+        if (bills.isNotEmpty()) {
         item {
             val today = Calendar.getInstance()
             val days = (0 until 7).map { offset ->
@@ -470,12 +577,91 @@ fun BillsRemindersScreen(
             )
         }
         item { ConceptSectionTitle("Your bills") }
+        }
         if (commitments.isEmpty()) {
             item {
                 PesaCard {
-                    Column(Modifier.padding(18.dp)) {
-                        Text("No bills added yet", style = MaterialTheme.typography.titleMedium)
-                        Text("Add only the bills you want PesaTrack to track. Matching trusted payments update their status automatically.", Modifier.padding(top = 5.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(
+                        Modifier.padding(18.dp)
+                    ) {
+                        Row(
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            IconBubble(
+                                Icons.Rounded.ReceiptLong,
+                                size = 44.dp,
+                                background =
+                                    pesaToneContainer(
+                                        "amber"
+                                    ),
+                                tint =
+                                    pesaToneContent(
+                                        "amber"
+                                    )
+                            )
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .padding(
+                                        start = 12.dp
+                                    )
+                            ) {
+                                Text(
+                                    "No bills yet",
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .titleMedium,
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+                                Text(
+                                    "Add only the recurring payments you want PesaTrack to track.",
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                )
+                            }
+                        }
+                        Text(
+                            "Matching trusted payments will update the bill automatically. PesaTrack never invents or pays a bill.",
+                            modifier =
+                                Modifier.padding(
+                                    top = 12.dp
+                                ),
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                        Button(
+                            onClick = {
+                                editingBill = null
+                                billEditor = true
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(
+                                        top = 14.dp
+                                    )
+                        ) {
+                            Icon(
+                                Icons.Rounded.Add,
+                                contentDescription =
+                                    null
+                            )
+                            Spacer(
+                                Modifier.width(7.dp)
+                            )
+                            Text("Add your first bill")
+                        }
                     }
                 }
             }
@@ -517,26 +703,73 @@ fun BillsRemindersScreen(
                 }
             }
         }
-        item {
-            PesaCard {
-                Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Column(Modifier.padding(start = 12.dp)) {
-                        Text("Message-aware reminders", style = MaterialTheme.typography.titleSmall)
-                        Text("PesaTrack keeps bill status tied to real payment activity instead of marking bills paid by a calendar alone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (bills.isNotEmpty()) {
+            item {
+                PesaCard {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(15.dp),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Rounded.NotificationsActive,
+                            contentDescription = null,
+                            tint =
+                                MaterialTheme
+                                    .colorScheme
+                                    .primary
+                        )
+                        Column(
+                            Modifier.padding(
+                                start = 12.dp
+                            )
+                        ) {
+                            Text(
+                                "Message-aware reminders",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleSmall
+                            )
+                            Text(
+                                "PesaTrack checks real payment activity before treating a bill as paid.",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
-        }
-        item {
-            Button(
-                onClick = { editingBill = null; billEditor = true },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp)
-            ) {
-                Icon(Icons.Rounded.Add, contentDescription = null)
-                Spacer(Modifier.width(7.dp))
-                Text("Add or manage a bill")
+            item {
+                Button(
+                    onClick = {
+                        editingBill = null
+                        billEditor = true
+                    },
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    shape =
+                        RoundedCornerShape(
+                            18.dp
+                        )
+                ) {
+                    Icon(
+                        Icons.Rounded.Add,
+                        contentDescription = null
+                    )
+                    Spacer(
+                        Modifier.width(7.dp)
+                    )
+                    Text("Add another bill")
+                }
             }
         }
     }
@@ -673,12 +906,22 @@ fun SavingGoalsScreen(
         }
         if (rules.isEmpty()) {
             item {
-                PesaCard {
-                    Column(Modifier.padding(18.dp)) {
-                        Text("No savings goals yet", style = MaterialTheme.typography.titleMedium)
-                        Text("Planned savings rules become goals here. Nothing is invented when you have not set a target.", Modifier.padding(top = 5.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
+                Text(
+                    "Goals you create will appear here. PesaTrack only tracks goals you explicitly set.",
+                    modifier =
+                        Modifier.padding(
+                            horizontal = 6.dp,
+                            vertical = 2.dp
+                        ),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodyMedium,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
             }
         } else {
             items(rules, key = { it.id }) { rule ->

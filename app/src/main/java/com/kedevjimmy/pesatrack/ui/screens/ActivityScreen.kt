@@ -2612,6 +2612,8 @@ private fun ActivitySummaryCard(
                     current = summary.incomeMinor,
                     previous = previous.incomeMinor,
                     positiveWhenUp = true,
+                    zeroComparisonLabel =
+                        "No income recorded this month",
                     modifier = Modifier.weight(1f)
                 )
                 SummaryAmountWithChange(
@@ -2713,6 +2715,7 @@ private fun SummaryAmountWithChange(
     current: Long,
     previous: Long,
     positiveWhenUp: Boolean,
+    zeroComparisonLabel: String? = null,
     modifier: Modifier = Modifier
 ) {
     Column(modifier) {
@@ -2732,7 +2735,9 @@ private fun SummaryAmountWithChange(
         SummaryComparison(
             current = current,
             previous = previous,
-            positiveWhenUp = positiveWhenUp
+            positiveWhenUp = positiveWhenUp,
+            zeroComparisonLabel =
+                zeroComparisonLabel
         )
     }
 }
@@ -2741,8 +2746,31 @@ private fun SummaryAmountWithChange(
 private fun SummaryComparison(
     current: Long,
     previous: Long,
-    positiveWhenUp: Boolean
+    positiveWhenUp: Boolean,
+    zeroComparisonLabel: String? = null
 ) {
+    if (
+        current == 0L &&
+        zeroComparisonLabel != null
+    ) {
+        Text(
+            zeroComparisonLabel,
+            modifier =
+                Modifier.padding(
+                    top = 4.dp
+                ),
+            style =
+                MaterialTheme
+                    .typography
+                    .labelSmall,
+            color =
+                Color.White.copy(
+                    alpha = .68f
+                )
+        )
+        return
+    }
+
     val percent = percentageChange(
         current = current,
         previous = previous

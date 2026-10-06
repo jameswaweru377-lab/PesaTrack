@@ -177,6 +177,10 @@ fun AccountsScreen(
                 it.balanceMinor
             }
             .sum()
+    val knownBalanceCount =
+        presentations.count {
+            it.balanceMinor != null
+        }
     val debtOutstandingMinor =
         activeDebts.sumOf {
             it.outstandingMinor
@@ -208,19 +212,25 @@ fun AccountsScreen(
 
         item {
             ConceptEmeraldHero(
-                title = "Spending accounts",
+                title = "Known balances",
                 amount =
-                    if (presentations.any { it.balanceMinor != null }) {
+                    if (knownBalanceCount > 0) {
                         formatDetailMoney(knownTotalMinor)
                     } else {
                         "Waiting for balances"
                     },
                 subtitle =
-                    if (presentations.isEmpty()) {
-                        "Accounts appear here after PesaTrack can match them with evidence."
-                    } else {
-                        "Total from " + presentations.size + " confirmed account" +
-                            if (presentations.size == 1) "" else "s"
+                    when {
+                        presentations.isEmpty() ->
+                            "Accounts appear here after PesaTrack can match them with evidence."
+                        knownBalanceCount == 0 ->
+                            presentations.size.toString() +
+                                " confirmed accounts • no balance observed yet"
+                        else ->
+                            knownBalanceCount.toString() +
+                                " of " +
+                                presentations.size +
+                                " confirmed accounts currently have a known balance"
                     },
                 artwork = true,
                 footer = "Missing balances are never guessed."

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -98,7 +99,8 @@ private data class PlanReferenceData(
 fun PlanScreen(
     scaffoldPadding: PaddingValues,
     onBudgetClick: (() -> Unit)? = null,
-    onGoalsClick: (() -> Unit)? = null
+    onGoalsClick: (() -> Unit)? = null,
+    onSalaryClick: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val store = remember {
@@ -251,6 +253,35 @@ fun PlanScreen(
                 planningAvailability =
                     planningAvailability
             )
+        }
+
+        if (
+            snapshot.cycle == null &&
+            onSalaryClick != null
+        ) {
+            item {
+                Button(
+                    onClick = onSalaryClick,
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    shape =
+                        RoundedCornerShape(
+                            18.dp
+                        )
+                ) {
+                    Icon(
+                        Icons.Rounded.Paid,
+                        contentDescription =
+                            null
+                    )
+                    Spacer(
+                        Modifier.width(8.dp)
+                    )
+                    Text(
+                        "Add salary to start your plan"
+                    )
+                }
+            }
         }
 
         if (monthlyBudgets.isNotEmpty()) {

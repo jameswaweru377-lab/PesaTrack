@@ -63,7 +63,7 @@ fun MoreScreen(
                     style = MaterialTheme.typography.headlineLarge
                 )
                 Text(
-                    "Data, diagnostics and app controls.",
+                    "Money tools, profile and app controls.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -108,7 +108,28 @@ fun MoreScreen(
             }
         }
         item {
-            SectionHeader("Data & diagnostics")
+            SectionHeader("Account & app")
+        }
+        item {
+            MoreRow(
+                icon = Icons.Rounded.Person,
+                title = "Profile",
+                subtitle = "Your money profile and account overview",
+                tone = "blue",
+                onClick = onProfileClick
+            )
+        }
+        item {
+            MoreRow(
+                icon = Icons.Rounded.Settings,
+                title = "Settings",
+                subtitle = "Theme, permissions and smart rules",
+                tone = "violet",
+                onClick = onSettingsClick
+            )
+        }
+        item {
+            SectionHeader("Advanced tools")
         }
         item {
             MoreRow(
@@ -120,33 +141,12 @@ fun MoreScreen(
             )
         }
         item {
-            SectionHeader("Account & app")
-        }
-        item {
             MoreRow(
                 icon = Icons.Rounded.Info,
-                title = "Data Health",
-                subtitle = "Message coverage, fallbacks and unsupported shapes",
+                title = "Data health",
+                subtitle = "Message coverage and items PesaTrack could not understand",
                 tone = "amber",
                 onClick = onDataHealthClick
-            )
-        }
-        item {
-            MoreRow(
-                icon = Icons.Rounded.Person,
-                title = "Profile",
-                subtitle = "Personal finance profile",
-                tone = "blue",
-                onClick = onProfileClick
-            )
-        }
-        item {
-            MoreRow(
-                icon = Icons.Rounded.Settings,
-                title = "Settings",
-                subtitle = "Theme, permissions, data and smart rules",
-                tone = "violet",
-                onClick = onSettingsClick
             )
         }
     }

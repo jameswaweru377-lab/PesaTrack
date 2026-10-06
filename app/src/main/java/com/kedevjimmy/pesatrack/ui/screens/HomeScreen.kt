@@ -1135,7 +1135,9 @@ fun HomeScreen(
                 totalMinor =
                     totalTrustedSpendingMinor,
                 onPlanClick =
-                    onPlanClick
+                    onPlanClick,
+                onReviewClick =
+                    onActivityClick
             )
         }
 
