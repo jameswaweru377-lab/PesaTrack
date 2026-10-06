@@ -713,12 +713,6 @@ fun HomeScreen(
         activeDebtAccounts.sumOf {
             it.outstandingMinor
         }
-    val remainingCommitmentCount =
-        cycleSnapshot.commitments
-            .count {
-                it.remainingMinor > 0L
-            }
-
     val activeSalaryRule =
         salaryRule
     if (
