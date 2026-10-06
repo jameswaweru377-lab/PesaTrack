@@ -24,7 +24,7 @@ class ConceptLedgerIntegrationTest {
         val rules=RuleStore.get(context)
         val rent=rules.save("Rent","Example",TransactionCategory.RENT,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=1000000)
         val internet=rules.save("Internet","ISP",TransactionCategory.INTERNET,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=200000)
-        val repeatedButNotABill=rules.save("Coffee","Cafe",TransactionCategory.FOOD_DINING,MoneyDirection.EXPENSE,plannedAmountMinor=50000)
+        val repeatedButNotABill=rules.save("Coffee","Cafe",TransactionCategory.EATING_OUT,MoneyDirection.EXPENSE,plannedAmountMinor=50000)
         BillSchedules(context).save(rent.id,31,false)
         BillSchedules(context).save(internet.id,15,false)
         insert("RENT001",400000,rent,MoneyDirection.EXPENSE,TransactionCategory.RENT)
