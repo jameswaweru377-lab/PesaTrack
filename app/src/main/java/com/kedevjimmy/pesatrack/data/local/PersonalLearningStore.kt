@@ -431,6 +431,7 @@ class PersonalLearningStore private constructor(
         rebuildPayCycles: Boolean = true
     ): Int {
         synchronized(CanonicalStoreLock.monitor) {
+        if (preferenceCount() == 0) return 0
         val db =
             database.writableDatabase
         val now =

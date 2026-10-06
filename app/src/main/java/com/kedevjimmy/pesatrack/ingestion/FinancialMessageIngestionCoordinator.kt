@@ -1353,7 +1353,7 @@ class FinancialMessageIngestionCoordinator private constructor(
                 )
             personalLearningStore
                 .applyHighConfidenceTo(
-                    transactionStore.categoryLearningCandidates(),
+                    transactionStore.recentlyInsertedForLearning(),
                     rebuildPayCycles =
                         rebuildPayCycles
                 )

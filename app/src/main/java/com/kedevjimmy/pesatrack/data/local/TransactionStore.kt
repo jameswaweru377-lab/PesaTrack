@@ -986,6 +986,14 @@ class TransactionStore private constructor(context: Context) {
         }
     }
 
+    /** Import order, not message date: old SMS arriving now must receive saved categories. */
+    fun recentlyInsertedForLearning(limit: Int = 100): List<StoredTransaction> = synchronized(CanonicalStoreLock.monitor) {
+        database.readableDatabase.rawQuery(BASE_SELECT + " ORDER BY id DESC LIMIT ?",
+            arrayOf(limit.coerceIn(1, 500).toString())).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.toStoredTransaction()) }
+        }
+    }
+
     fun reviewBurdenSnapshot(
         nowEpochMs: Long =
             System.currentTimeMillis()
