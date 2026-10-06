@@ -387,29 +387,124 @@ fun TransactionDetailScreen(
         )
     }
 
+    if (current != null && showAnnotationDialog) {
+        TransactionAnnotationDialog(
+            transaction = current,
+            annotation = annotation,
+            onDismiss = {
+                showAnnotationDialog = false
+            },
+            onSaveNote = { note ->
+                annotationStore.saveNote(
+                    current.id,
+                    note
+                )
+                annotation =
+                    annotationStore.get(
+                        current.id
+                    )
+                showAnnotationDialog =
+                    false
+            },
+            onAttachReceipt = {
+                receiptPicker.launch(
+                    arrayOf(
+                        "image/*",
+                        "application/pdf"
+                    )
+                )
+            },
+            onRemoveReceipt = {
+                annotationStore.saveReceipt(
+                    current.id,
+                    null
+                )
+                annotation =
+                    annotationStore.get(
+                        current.id
+                    )
+            }
+        )
+    }
+
+    if (current != null && showMerchantHistory) {
+        MerchantHistoryDialog(
+            merchant =
+                current.counterparty
+                    ?: pretty(current.type),
+            transactions =
+                store.recent(250)
+                    .filter {
+                        it.id != current.id &&
+                            sameMerchant(
+                                current,
+                                it
+                            )
+                    }
+                    .take(12),
+            onDismiss = {
+                showMerchantHistory = false
+            },
+            onTransactionClick = {
+                showMerchantHistory = false
+                onTransactionClick(it)
+            }
+        )
+    }
+
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .background(
+                MaterialTheme
+                    .colorScheme
+                    .background
+            ),
+        contentPadding =
+            PaddingValues(
+                horizontal = 16.dp,
+                vertical = 12.dp
+            ),
+        verticalArrangement =
+            Arrangement.spacedBy(
+                16.dp
+            )
     ) {
         item {
-            if (learningBusy) Text("Updating category…")
-            if (pendingCategoryId == null) learningError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onBack
+                ) {
+                    Icon(
+                        Icons.AutoMirrored
+                            .Rounded
+                            .ArrowBack,
+                        contentDescription =
+                            "Back"
+                    )
                 }
                 Text(
                     "Transaction details",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.headlineMedium
+                    modifier =
+                        Modifier.weight(1f),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .headlineMedium,
+                    fontWeight =
+                        FontWeight.Bold
                 )
-                IconButton(onClick = ::refresh) {
-                    Icon(Icons.Rounded.Refresh, contentDescription = "Refresh")
+                IconButton(
+                    onClick = ::refresh
+                ) {
+                    Icon(
+                        Icons.Rounded.MoreVert,
+                        contentDescription =
+                            "Refresh transaction"
+                    )
                 }
             }
         }
@@ -419,8 +514,14 @@ fun TransactionDetailScreen(
                 PesaCard {
                     Text(
                         "This transaction is no longer available.",
-                        modifier = Modifier.padding(20.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        modifier =
+                            Modifier.padding(
+                                20.dp
+                            ),
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
                     )
                 }
             }
@@ -431,7 +532,9 @@ fun TransactionDetailScreen(
             TransactionHero(current)
         }
 
-        if (current.fulizaFinancedMinor > 0L) {
+        if (
+            current.fulizaFinancedMinor > 0L
+        ) {
             item {
                 FulizaFundingCard(current)
             }
@@ -444,18 +547,111 @@ fun TransactionDetailScreen(
             item {
                 RefundLinkCard(
                     item = current,
-                    original = linkedRefundOriginal
+                    original =
+                        linkedRefundOriginal
                 )
             }
         }
 
         item {
-            SectionHeader("Classification")
-            Spacer(Modifier.height(8.dp))
+            val canonicalCategory =
+                categoryStore.canonicalId(
+                    current.category
+                )
+            val categoryDirection =
+                categoryStore.directionFor(
+                    canonicalCategory,
+                    runCatching {
+                        MoneyDirection
+                            .valueOf(
+                                current.direction
+                            )
+                    }.getOrDefault(
+                        MoneyDirection.NEUTRAL
+                    )
+                )
+            val canRemember =
+                canLearnIdentity(current) &&
+                    PersonalLearningPolicy
+                        .isLearnableCategory(
+                            canonicalCategory,
+                            categoryDirection
+                        )
+
             ClassificationCard(
                 item = current,
-                appliedRule = appliedRule,
-                onDisableRule = { rule ->
+                appliedRule =
+                    appliedRule,
+                learningExplanation =
+                    learningExplanation,
+                learningPreferenceActive =
+                    learningPreference != null,
+                canRemember =
+                    canRemember,
+                confidenceLabel =
+                    classificationConfidenceLabel(
+                        current,
+                        learningExplanation,
+                        appliedRule
+                    ),
+                onRememberChanged = {
+                        rememberChoice ->
+                    if (
+                        learningBusy ||
+                        !canRemember
+                    ) {
+                        return@ClassificationCard
+                    }
+                    learningBusy = true
+                    learningError = null
+                    scope.launch {
+                        try {
+                            if (rememberChoice) {
+                                val changed =
+                                    withContext(
+                                        Dispatchers.IO
+                                    ) {
+                                        learningRepository
+                                            .remember(
+                                                current.id,
+                                                canonicalCategory
+                                            )
+                                    }
+                                learnedMessage =
+                                    if (changed > 0) {
+                                        "Remembered • $changed similar transactions updated."
+                                    } else {
+                                        "Remembered for future similar transactions."
+                                    }
+                            } else {
+                                personalLearningStore
+                                    .forgetPreferenceFor(
+                                        current
+                                    )
+                                learnedMessage =
+                                    "Future suggestions for this merchant were turned off."
+                            }
+                            refresh()
+                        } catch (
+                            cancelled:
+                                kotlinx.coroutines
+                                    .CancellationException
+                        ) {
+                            throw cancelled
+                        } catch (
+                            failure: Exception
+                        ) {
+                            learningError =
+                                failure.message
+                                    ?: "Could not update learning."
+                        } finally {
+                            learningBusy =
+                                false
+                        }
+                    }
+                },
+                onDisableRule = {
+                        rule ->
                     if (
                         ruleStore.setEnabled(
                             id = rule.id,
@@ -463,214 +659,193 @@ fun TransactionDetailScreen(
                         )
                     ) {
                         learnedMessage =
-                            "Smart rule disabled for future transactions. This transaction keeps its current classification."
+                            "Smart rule disabled for future transactions."
+                        refresh()
                     }
                 }
             )
         }
 
-        learnedMessage?.let { message ->
+        learnedMessage?.let {
+                message ->
             item {
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    color = pesaToneContainer("green")
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    shape =
+                        RoundedCornerShape(
+                            16.dp
+                        ),
+                    color =
+                        pesaToneContainer(
+                            "green"
+                        )
                 ) {
                     Row(
-                        Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier.padding(
+                                12.dp
+                            ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Rounded.CheckCircle,
-                            contentDescription = null,
-                            tint = pesaToneContent("green")
+                            Icons.Rounded
+                                .CheckCircle,
+                            contentDescription =
+                                null,
+                            tint =
+                                pesaToneContent(
+                                    "green"
+                                )
                         )
                         Text(
                             message,
-                            modifier = Modifier.padding(start = 10.dp),
-                            color = MaterialTheme.colorScheme.onSurface
+                            modifier =
+                                Modifier.padding(
+                                    start = 10.dp
+                                ),
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall
                         )
                     }
                 }
             }
         }
 
-        learningExplanation
-            ?.let { explanation ->
+        if (
+            pendingCategoryId == null
+        ) {
+            learningError?.let {
+                    message ->
                 item {
-                    PesaCard {
-                        Column(
-                            Modifier.padding(
-                                16.dp
-                            ),
-                            verticalArrangement =
-                                Arrangement.spacedBy(
-                                    10.dp
-                                )
-                        ) {
-                            Row(
-                                verticalAlignment =
-                                    Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Learned by PesaTrack",
-                                    modifier =
-                                        Modifier.weight(1f),
-                                    style =
-                                        MaterialTheme
-                                            .typography
-                                            .titleMedium
-                                )
-                                SmallStatusPill(
-                                    if (
-                                        learningPreference !=
-                                        null
-                                    ) {
-                                        "Auto-applied"
-                                    } else {
-                                        "Learning off"
-                                    },
-                                    if (
-                                        learningPreference !=
-                                        null
-                                    ) {
-                                        "green"
-                                    } else {
-                                        "amber"
-                                    }
-                                )
-                            }
-                            Text(
-                                buildString {
-                                    append(
-                                        categoryStore
-                                            .labelFor(
-                                                explanation
-                                                    .application
-                                                    .categoryId
-                                            )
-                                    )
-                                    append(
-                                        " was applied automatically because "
-                                    )
-                                    append(
-                                        explanation
-                                            .identityLabel
-                                    )
-                                    append(
-                                        " matched a learned identity."
-                                    )
-                                },
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                            Text(
-                                buildString {
-                                    append(
-                                        learningMatchReason(
-                                            explanation
-                                                .matchedAliasType,
-                                            explanation
-                                                .matchedAliasSource
-                                        )
-                                    )
-                                    append(" • ")
-                                    append(
-                                        explanation
-                                            .application
-                                            .confidence
-                                            .name
-                                            .lowercase()
-                                            .replaceFirstChar {
-                                                it.uppercase()
-                                            }
-                                    )
-                                    append(" confidence")
-                                    append(" • ")
-                                    append(
-                                        explanation
-                                            .application
-                                            .confirmationCount
-                                    )
-                                    append(
-                                        if (
-                                            explanation
-                                                .application
-                                                .confirmationCount ==
-                                            1
-                                        ) {
-                                            " confirmation"
-                                        } else {
-                                            " confirmations"
-                                        }
-                                    )
-                                },
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                            OutlinedButton(
-                                onClick = {
-                                    if (
-                                        personalLearningStore
-                                            .undoAndForget(
-                                                current
-                                            )
-                                    ) {
-                                        learnedMessage =
-                                            "Learned classification undone. This identity will not be auto-classified from that preference again."
-                                    }
-                                    refresh()
-                                },
-                                modifier =
-                                    Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    "Undo & forget"
-                                )
-                            }
-                            if (
-                                learningPreference != null
-                            ) {
-                                TextButton(
-                                    onClick = {
-                                        if (
-                                            personalLearningStore
-                                                .forgetPreferenceFor(
-                                                    current
-                                                )
-                                        ) {
-                                            learnedMessage =
-                                                "Future learning for this identity was removed. This transaction stays unchanged."
-                                        }
-                                        refresh()
-                                    },
-                                    modifier =
-                                        Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        "Keep this, forget future learning"
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    Text(
+                        message,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .error
+                    )
                 }
             }
+        }
+
+        if (
+            current.relationType !=
+            TransactionStore.RELATION_REFUND
+        ) {
+            item {
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    verticalAlignment =
+                        Alignment.Bottom
+                ) {
+                    Column(
+                        modifier =
+                            Modifier.weight(1f)
+                    ) {
+                        Text(
+                            "Choose a category",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .titleLarge,
+                            fontWeight =
+                                FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        if (
+                            learningPreference !=
+                            null
+                        ) {
+                            "Same merchant? We'll\nsuggest it next time."
+                        } else {
+                            "Tap any category\nto change it."
+                        },
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
+                Spacer(
+                    Modifier.height(10.dp)
+                )
+
+                CategoryGrid(
+                    currentCategoryId =
+                        categoryStore
+                            .canonicalId(
+                                current.category
+                            ),
+                    onSelected =
+                        ::applyCategory
+                )
+            }
+        }
+
+        item {
+            TransactionQuickActions(
+                merchant =
+                    current.counterparty
+                        ?: pretty(
+                            current.type
+                        ),
+                annotation =
+                    annotation,
+                accountLabel =
+                    current.accountId
+                        ?.let {
+                                accountId ->
+                            accountStore
+                                .listAccounts(
+                                    enabledOnly =
+                                        false
+                                )
+                                .firstOrNull {
+                                    it.id ==
+                                        accountId
+                                }
+                                ?.name
+                        }
+                        ?: "Account",
+                hasAccount =
+                    !current.accountId
+                        .isNullOrBlank(),
+                onMerchantHistory = {
+                    showMerchantHistory =
+                        true
+                },
+                onAnnotation = {
+                    showAnnotationDialog =
+                        true
+                },
+                onAccount = {
+                    current.accountId
+                        ?.let(
+                            onAccountClick
+                        )
+                }
+            )
+        }
 
         learningSuggestion
             ?.takeIf {
                 it.action ==
-                    PersonalLearningAction.SUGGEST
+                    PersonalLearningAction
+                        .SUGGEST
             }
-            ?.let { suggestion ->
+            ?.let {
+                    suggestion ->
                 item {
                     PesaCard {
                         Column(
@@ -680,12 +855,15 @@ fun TransactionDetailScreen(
                         ) {
                             Row(
                                 verticalAlignment =
-                                    Alignment.CenterVertically
+                                    Alignment
+                                        .CenterVertically
                             ) {
                                 Text(
                                     "PesaTrack suggestion",
                                     modifier =
-                                        Modifier.weight(1f),
+                                        Modifier.weight(
+                                            1f
+                                        ),
                                     style =
                                         MaterialTheme
                                             .typography
@@ -700,15 +878,11 @@ fun TransactionDetailScreen(
                                 "You previously taught " +
                                     suggestion.identityLabel +
                                     " as " +
-                                    categoryStore.labelFor(
-                                        suggestion.categoryId
-                                    ) +
-                                    ". " +
-                                    learningMatchReason(
-                                        suggestion.matchedAliasType,
-                                        suggestion.matchedAliasSource
-                                    ) +
-                                    " is only medium confidence, so PesaTrack is asking before changing the transaction.",
+                                    categoryStore
+                                        .labelFor(
+                                            suggestion.categoryId
+                                        ) +
+                                    ". Confirm before PesaTrack changes this transaction.",
                                 modifier =
                                     Modifier.padding(
                                         top = 6.dp
@@ -722,7 +896,8 @@ fun TransactionDetailScreen(
                                 onClick = {
                                     classifyOnly(
                                         current,
-                                        suggestion.categoryId
+                                        suggestion
+                                            .categoryId
                                     )
                                     learningSuggestion =
                                         null
@@ -734,9 +909,11 @@ fun TransactionDetailScreen(
                             ) {
                                 Text(
                                     "Use " +
-                                        categoryStore.labelFor(
-                                            suggestion.categoryId
-                                        )
+                                        categoryStore
+                                            .labelFor(
+                                                suggestion
+                                                    .categoryId
+                                            )
                                 )
                             }
                         }
@@ -744,159 +921,165 @@ fun TransactionDetailScreen(
                 }
             }
 
-        if (
-            current.relationType !=
-            TransactionStore.RELATION_REFUND
-        ) {
-            item {
-                SectionHeader("Choose a category")
-                Spacer(Modifier.height(8.dp))
-                CategoryGrid(
-                    currentCategoryId =
-                        categoryStore.canonicalId(current.category),
-                    onSelected = ::applyCategory
-                )
-            }
-        }
-
         item {
-            SectionHeader("Transaction information")
-            Spacer(Modifier.height(8.dp))
+            SectionHeader(
+                "Transaction information"
+            )
+            Spacer(
+                Modifier.height(8.dp)
+            )
             PesaCard {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    DetailRow(Icons.Rounded.AccountCircle, "Name", current.counterparty ?: "Not identified")
-                    current.evidenceLabel?.let { evidenceLabel ->
-                        val entityIntelligence =
-                            current.evidenceSource
-                                ?.startsWith(
-                                    "entity_intelligence:"
-                                ) == true
-                        DetailRow(
-                            Icons.Rounded.Tune,
-                            when {
-                                entityIntelligence ->
-                                    "Recognized entity"
-                                current.counterparty ==
-                                    evidenceLabel ->
-                                    "Identified from nearby message"
-                                else ->
-                                    "Possible match"
-                            },
-                            evidenceLabel
+                Column(
+                    Modifier.padding(
+                        horizontal = 14.dp,
+                        vertical = 4.dp
+                    )
+                ) {
+                    DetailRow(
+                        Icons.Rounded.AccountCircle,
+                        "Name",
+                        current.counterparty
+                            ?: "Not identified"
+                    )
+                    DetailRow(
+                        Icons.AutoMirrored
+                            .Rounded
+                            .ReceiptLong,
+                        "Type",
+                        pretty(
+                            current.type
                         )
-                        DetailRow(
-                            Icons.Rounded.Tune,
-                            "Evidence",
-                            buildString {
-                                if (entityIntelligence) {
-                                    append(
-                                        "PesaTrack entity intelligence"
-                                    )
-                                } else {
-                                    append(
-                                        current.evidenceSource
-                                            ?: "Nearby financial message"
-                                    )
-                                }
-                                current.evidenceConfidence?.let {
-                                    append(" • ")
-                                    append(
-                                        it.lowercase()
-                                            .replace('_', ' ')
-                                    )
-                                }
-                                current.evidenceTimeDeltaMs?.let {
-                                    append(" • ")
-                                    append(it / 1000)
-                                    append("s apart")
-                                }
-                            }
+                    )
+                    DetailRow(
+                        Icons.AutoMirrored
+                            .Rounded
+                            .ReceiptLong,
+                        "M-Pesa code",
+                        current.transactionCode
+                            ?: "Not provided"
+                    )
+                    DetailRow(
+                        Icons.Rounded.CalendarMonth,
+                        "Transaction date",
+                        formatDateTime(
+                            current
+                                .occurredAtEpochMs
                         )
-                    }
-                    DetailRow(Icons.AutoMirrored.Rounded.ReceiptLong, "Type", pretty(current.type))
-                    DetailRow(Icons.AutoMirrored.Rounded.ReceiptLong, "M-Pesa code", current.transactionCode ?: "Not provided")
-                    DetailRow(Icons.Rounded.CalendarMonth, "Transaction date", formatDateTime(current.occurredAtEpochMs))
-                    if (current.receivedAtEpochMs != current.occurredAtEpochMs) {
-                        DetailRow(Icons.Rounded.CalendarMonth, "Message received", formatDateTime(current.receivedAtEpochMs))
-                    }
-                    DetailRow(Icons.Rounded.Paid, "M-Pesa fee", formatMoney(current.feeMinor))
-                    if (current.fulizaAccessFeeMinor > 0L) {
-                        DetailRow(
-                            Icons.Rounded.Paid,
-                            "Fuliza access fee",
-                            formatMoney(current.fulizaAccessFeeMinor)
+                    )
+                    DetailRow(
+                        Icons.Rounded.Paid,
+                        "Transaction fee",
+                        formatMoney(
+                            current.feeMinor +
+                                current
+                                    .fulizaAccessFeeMinor
                         )
-                    }
-                    current.fulizaOutstandingMinor?.let { outstanding ->
-                        DetailRow(
-                            Icons.Rounded.Paid,
-                            "Fuliza outstanding after",
-                            formatMoney(outstanding)
+                    )
+                    current.balanceMinor
+                        ?.let {
+                            DetailRow(
+                                Icons.Rounded.Paid,
+                                "Balance after",
+                                formatMoney(it)
+                            )
+                        }
+                    DetailRow(
+                        Icons.Rounded.Tune,
+                        "Source",
+                        pretty(
+                            current.sourceKind
                         )
-                    }
-                    current.planningMonth?.let {
-                        DetailRow(Icons.Rounded.CalendarMonth, "Planning month", it)
-                    }
-                    DetailRow(Icons.Rounded.Tune, "Source", pretty(current.sourceKind))
+                    )
                 }
             }
         }
 
         item {
             SectionHeader("Actions")
-            Spacer(Modifier.height(8.dp))
+            Spacer(
+                Modifier.height(8.dp)
+            )
             PesaCard {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
+                Column(
+                    Modifier.padding(
+                        horizontal = 14.dp,
+                        vertical = 4.dp
+                    )
+                ) {
                     if (
-                        current.counterparty.isNullOrBlank() &&
-                        !current.evidenceLabel.isNullOrBlank()
+                        current.counterparty
+                            .isNullOrBlank() &&
+                        !current.evidenceLabel
+                            .isNullOrBlank()
                     ) {
                         ActionRow(
-                            icon = Icons.Rounded.CheckCircle,
-                            label = "Use suggested identity",
+                            icon =
+                                Icons.Rounded
+                                    .CheckCircle,
+                            label =
+                                "Use suggested identity",
                             onClick = {
-                                store.acceptEvidenceIdentity(current.id)
-                                refresh()
-                            }
-                        )
-                    }
-                    if (
-                        current.relationType ==
-                        TransactionStore.RELATION_REFUND
-                    ) {
-                        ActionRow(
-                            icon = Icons.Rounded.SwapHoriz,
-                            label = "This was not a refund",
-                            onClick = {
-                                store.unlinkRefund(current.id)
-                                refresh()
-                            }
-                        )
-                    }
-                    if (
-                        current.relationType !=
-                        TransactionStore.RELATION_REFUND
-                    ) {
-                        ActionRow(
-                            icon = Icons.Rounded.SwapHoriz,
-                            label = "Mark as own-account transfer",
-                            onClick = {
-                                store.classifyManually(
-                                    id = current.id,
-                                    category = TransactionCategory.TRANSFER,
-                                    direction = MoneyDirection.TRANSFER,
-                                    markTransfer = true
+                                store.acceptEvidenceIdentity(
+                                    current.id
                                 )
                                 refresh()
                             }
                         )
                     }
+
+                    if (
+                        current.relationType ==
+                        TransactionStore
+                            .RELATION_REFUND
+                    ) {
+                        ActionRow(
+                            icon =
+                                Icons.Rounded
+                                    .SwapHoriz,
+                            label =
+                                "This was not a refund",
+                            onClick = {
+                                store.unlinkRefund(
+                                    current.id
+                                )
+                                refresh()
+                            }
+                        )
+                    } else {
+                        ActionRow(
+                            icon =
+                                Icons.Rounded
+                                    .SwapHoriz,
+                            label =
+                                "Mark as own-account transfer",
+                            onClick = {
+                                store.classifyManually(
+                                    id =
+                                        current.id,
+                                    category =
+                                        TransactionCategory
+                                            .TRANSFER,
+                                    direction =
+                                        MoneyDirection
+                                            .TRANSFER,
+                                    markTransfer =
+                                        true
+                                )
+                                refresh()
+                            }
+                        )
+                    }
+
                     ActionRow(
-                        icon = Icons.Rounded.Block,
-                        label = "Exclude from budget",
+                        icon =
+                            Icons.Rounded.Block,
+                        label =
+                            "Exclude from budget",
                         tintError = true,
                         onClick = {
-                            store.excludeFromBudget(current.id)
+                            store.excludeFromBudget(
+                                current.id
+                            )
                             refresh()
                         }
                     )
