@@ -1353,7 +1353,14 @@ class FinancialMessageIngestionCoordinator private constructor(
                 )
             personalLearningStore
                 .applyHighConfidenceTo(
-                    transactionStore.recentlyInsertedForLearning(),
+                    // The ingest monitor prevents another message from inserting here,
+                    // so the newest N rows are exactly this message's new ledger rows.
+                    // Do not rescan the previous 100 rows for every historical SMS:
+                    // that makes multi-month imports progressively expensive once a
+                    // remembered category exists.
+                    transactionStore.recentlyInsertedForLearning(
+                        limit = result.insertedTransactions
+                    ),
                     rebuildPayCycles =
                         rebuildPayCycles
                 )
