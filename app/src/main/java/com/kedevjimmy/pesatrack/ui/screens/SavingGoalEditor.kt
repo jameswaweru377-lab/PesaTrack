@@ -228,49 +228,99 @@ internal fun SavingGoalEditor(
         }
     }
 
-    AlertDialog(
+    val sheetState =
+        rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        )
+
+    ModalBottomSheet(
         onDismissRequest = {
             if (!busy) {
                 onDismiss()
             }
         },
-        title = {
+        sheetState = sheetState,
+        containerColor =
+            MaterialTheme.colorScheme.surface,
+        shape =
+            RoundedCornerShape(
+                topStart = 30.dp,
+                topEnd = 30.dp
+            )
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(
+                        horizontal = 20.dp
+                    )
+        ) {
+            Text(
+                when {
+                    remove ->
+                        "Remove this $noun?"
+                    rule == null && bill ->
+                        "New bill"
+                    rule == null ->
+                        "New saving goal"
+                    else ->
+                        "Edit $noun"
+                },
+                style =
+                    MaterialTheme
+                        .typography
+                        .headlineSmall
+            )
+
             Text(
                 if (remove) {
-                    "Remove this $noun?"
-                } else if (rule == null) {
-                    if (bill) {
-                        "New bill"
-                    } else {
-                        "New saving goal"
-                    }
+                    "This stops the $noun and its matching rule. Existing transactions and balances stay unchanged."
+                } else if (bill) {
+                    "Set the bill once. PesaTrack will use real payment activity to keep its status current."
                 } else {
-                    "Edit $noun"
-                }
-            )
-        },
-        text = {
-            Column(
-                Modifier
-                    .verticalScroll(
-                        rememberScrollState()
+                    "Create a goal PesaTrack can match to real savings transfers."
+                },
+                modifier =
+                    Modifier.padding(
+                        top = 5.dp
                     ),
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodyMedium,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            top = 18.dp
+                        )
+                        .verticalScroll(
+                            rememberScrollState()
+                        ),
                 verticalArrangement =
                     Arrangement.spacedBy(
-                        12.dp
+                        13.dp
                     )
             ) {
-                if (remove) {
-                    Text(
-                        "This stops the $noun and its matching rule. Existing transactions and balances stay unchanged."
-                    )
-                } else {
+                if (!remove) {
                     OutlinedTextField(
-                        name,
-                        {
+                        value = name,
+                        onValueChange = {
                             name = it
                             error = null
                         },
+                        modifier =
+                            Modifier.fillMaxWidth(),
                         label = {
                             Text(
                                 if (bill) {
@@ -292,6 +342,8 @@ internal fun SavingGoalEditor(
                                     .labelLarge
                         )
                         Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
                             horizontalArrangement =
                                 Arrangement.spacedBy(
                                     8.dp
@@ -307,7 +359,9 @@ internal fun SavingGoalEditor(
                                 },
                                 label = {
                                     Text("Monthly")
-                                }
+                                },
+                                modifier =
+                                    Modifier.weight(1f)
                             )
                             FilterChip(
                                 selected =
@@ -319,7 +373,9 @@ internal fun SavingGoalEditor(
                                 },
                                 label = {
                                     Text("Weekly")
-                                }
+                                },
+                                modifier =
+                                    Modifier.weight(1f)
                             )
                         }
 
@@ -339,8 +395,18 @@ internal fun SavingGoalEditor(
                                 monthlyDueDate =
                                     it
                             }
+                            val dueDay =
+                                Calendar
+                                    .getInstance()
+                                    .apply {
+                                        timeInMillis =
+                                            monthlyDueDate
+                                    }
+                                    .get(
+                                        Calendar.DAY_OF_MONTH
+                                    )
                             Text(
-                                "Only the day number repeats each month. Short months use their last day.",
+                                "Repeats on day $dueDay of each month. Short months use their last day.",
                                 style =
                                     MaterialTheme
                                         .typography
@@ -367,20 +433,13 @@ internal fun SavingGoalEditor(
                                     )
                             ) {
                                 listOf(
-                                    Calendar.MONDAY to
-                                        "M",
-                                    Calendar.TUESDAY to
-                                        "T",
-                                    Calendar.WEDNESDAY to
-                                        "W",
-                                    Calendar.THURSDAY to
-                                        "T",
-                                    Calendar.FRIDAY to
-                                        "F",
-                                    Calendar.SATURDAY to
-                                        "S",
-                                    Calendar.SUNDAY to
-                                        "S"
+                                    Calendar.MONDAY to "M",
+                                    Calendar.TUESDAY to "T",
+                                    Calendar.WEDNESDAY to "W",
+                                    Calendar.THURSDAY to "T",
+                                    Calendar.FRIDAY to "F",
+                                    Calendar.SATURDAY to "S",
+                                    Calendar.SUNDAY to "S"
                                 ).forEach {
                                         (
                                             day,
@@ -409,24 +468,24 @@ internal fun SavingGoalEditor(
                     }
 
                     OutlinedTextField(
-                        target,
-                        {
+                        value = target,
+                        onValueChange = {
                             target = it
                             error = null
                         },
+                        modifier =
+                            Modifier.fillMaxWidth(),
                         label = {
                             Text(
-                                if (bill) {
-                                    if (
+                                when {
+                                    bill &&
                                         cadence ==
-                                        BillCadence.WEEKLY
-                                    ) {
+                                        BillCadence.WEEKLY ->
                                         "Amount each week (KES)"
-                                    } else {
+                                    bill ->
                                         "Monthly amount (KES)"
-                                    }
-                                } else {
-                                    "Monthly target (KES)"
+                                    else ->
+                                        "Monthly saving target (KES)"
                                 }
                             )
                         },
@@ -439,38 +498,67 @@ internal fun SavingGoalEditor(
                     )
 
                     OutlinedTextField(
-                        payee,
-                        {
+                        value = payee,
+                        onValueChange = {
                             payee = it
                             error = null
                         },
+                        modifier =
+                            Modifier.fillMaxWidth(),
                         label = {
                             Text(
                                 if (bill) {
-                                    "Payee on receipts"
+                                    "Who do you pay?"
                                 } else {
-                                    "Savings payee on receipts"
+                                    "Where will you save this money?"
+                                }
+                            )
+                        },
+                        supportingText = {
+                            Text(
+                                if (bill) {
+                                    "Use the payee/name that appears in the payment message."
+                                } else {
+                                    "Use the name that appears in transfers, for example M-Shwari, SACCO or a savings account."
                                 }
                             )
                         },
                         singleLine = true
                     )
 
-                    Text(
-                        if (bill) {
-                            "Bills are added only when you choose them. Matching trusted payments mark the current month's bill as paid; PesaTrack never creates or pays a bill automatically."
-                        } else {
-                            "Only trusted transfers matched to this goal count toward its monthly progress. This does not move money."
-                        },
-                        style =
-                            MaterialTheme
-                                .typography
-                                .bodySmall,
+                    Surface(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        shape =
+                            RoundedCornerShape(
+                                16.dp
+                            ),
                         color =
                             MaterialTheme
                                 .colorScheme
-                                .onSurfaceVariant
-                    )
+                                .surfaceVariant
+                                .copy(alpha = .55f)
+                    ) {
+                        Text(
+                            if (bill) {
+                                "Bills are added only when you choose them. Matching trusted payments mark the current month's bill as paid; PesaTrack never creates or pays a bill automatically."
+                            } else {
+                                "Only trusted transfers matched to this goal count toward progress. Creating a goal never moves money."
+                            },
+                            modifier =
+                                Modifier.padding(
+                                    13.dp
+                                ),
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
 
                     if (rule != null) {
                         TextButton(
@@ -480,7 +568,11 @@ internal fun SavingGoalEditor(
                             }
                         ) {
                             Text(
-                                "Remove $noun"
+                                "Remove $noun",
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .error
                             )
                         }
                     }
@@ -496,36 +588,51 @@ internal fun SavingGoalEditor(
                     )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = !busy,
-                onClick = {
-                    save(remove)
-                }
+
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            top = 20.dp,
+                            bottom = 18.dp
+                        ),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        10.dp
+                    )
             ) {
-                Text(
-                    if (remove) {
-                        "Remove"
-                    } else {
-                        "Save $noun"
-                    }
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(
-                enabled = !busy,
-                onClick = {
-                    if (remove) {
-                        remove = false
-                    } else {
-                        onDismiss()
-                    }
+                OutlinedButton(
+                    enabled = !busy,
+                    onClick = {
+                        if (remove) {
+                            remove = false
+                        } else {
+                            onDismiss()
+                        }
+                    },
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+                    Text("Cancel")
                 }
-            ) {
-                Text("Cancel")
+                Button(
+                    enabled = !busy,
+                    onClick = {
+                        save(remove)
+                    },
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+                    Text(
+                        if (remove) {
+                            "Remove"
+                        } else {
+                            "Save $noun"
+                        }
+                    )
+                }
             }
         }
-    )
+    }
 }
