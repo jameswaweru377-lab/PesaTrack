@@ -14,52 +14,565 @@ import androidx.work.*
 import com.kedevjimmy.pesatrack.MainActivity
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.RulePreset
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
-data class ScheduledBill(val rule: SmartRule,val remainingMinor: Long,val dueDay: Int?,val reminders: Boolean)
+enum class BillCadence {
+    MONTHLY,
+    WEEKLY
+}
 
-/** Preferences describe reminders only. Payment status still comes from the canonical ledger. */
-class BillSchedules(private val context:Context) {
-    private val prefs=context.getSharedPreferences("bill_schedules",Context.MODE_PRIVATE)
-    fun list(now:Long=System.currentTimeMillis()):List<ScheduledBill> {
-        val trusted=TransactionStore.get(context).activitySnapshot(now).trustedTransactions
-        return RuleStore.get(context).listRules(true).filter {it.direction==MoneyDirection.EXPENSE && (it.plannedAmountMinor ?: 0)>0}.map {rule ->
-            val paid=trusted.filter {it.ruleId==rule.id && it.direction=="EXPENSE"}.sumOf {it.amountMinor}
-            ScheduledBill(rule,((rule.plannedAmountMinor ?: 0)-paid).coerceAtLeast(0),prefs.getInt("day:${rule.id}",0).takeIf {it in 1..31},prefs.getBoolean("enabled:${rule.id}",false))
+data class BillScheduleConfig(
+    val cadence: BillCadence,
+    val dueDay: Int?,
+    val dueDayOfWeek: Int?,
+    val reminders: Boolean
+)
+
+data class ScheduledBill(
+    val rule: SmartRule,
+    val remainingMinor: Long,
+    val dueDay: Int?,
+    val reminders: Boolean,
+    val cadence: BillCadence = BillCadence.MONTHLY,
+    val dueDayOfWeek: Int? = null,
+    val expectedMinor: Long = 0L,
+    val paidMinor: Long = 0L,
+    val dueThisMonth: Boolean = false,
+    val nextDueEpochMs: Long? = null
+)
+
+/**
+ * User-defined bill schedules.
+ *
+ * A repeated transaction is not a bill by itself. Only rules explicitly accepted
+ * as OTHER_RECURRING are eligible, and a due schedule is required before the bill
+ * appears in Upcoming bills. Payment status is always derived from the trusted
+ * ledger for the calendar month being viewed.
+ */
+class BillSchedules(private val context: Context) {
+    private val prefs =
+        context.getSharedPreferences(
+            "bill_schedules",
+            Context.MODE_PRIVATE
+        )
+
+    fun config(ruleId: String): BillScheduleConfig {
+        val cadence =
+            runCatching {
+                BillCadence.valueOf(
+                    prefs.getString(
+                        "cadence:$ruleId",
+                        BillCadence.MONTHLY.name
+                    ) ?: BillCadence.MONTHLY.name
+                )
+            }.getOrDefault(BillCadence.MONTHLY)
+
+        return BillScheduleConfig(
+            cadence = cadence,
+            dueDay =
+                prefs.getInt("day:$ruleId", 0)
+                    .takeIf { it in 1..31 },
+            dueDayOfWeek =
+                prefs.getInt("weekday:$ruleId", 0)
+                    .takeIf {
+                        it in Calendar.SUNDAY..Calendar.SATURDAY
+                    },
+            reminders =
+                prefs.getBoolean(
+                    "enabled:$ruleId",
+                    false
+                )
+        )
+    }
+
+    /** All user-defined bills, with status calculated for the month containing [now]. */
+    fun list(
+        now: Long = System.currentTimeMillis()
+    ): List<ScheduledBill> {
+        val trusted =
+            TransactionStore.get(context)
+                .activitySnapshot(now)
+                .trustedTransactions
+
+        return RuleStore.get(context)
+            .listRules(true)
+            .filter {
+                it.direction == MoneyDirection.EXPENSE &&
+                    it.preset == RulePreset.OTHER_RECURRING &&
+                    (it.plannedAmountMinor ?: 0L) > 0L
+            }
+            .map { rule ->
+                buildScheduledBill(
+                    rule = rule,
+                    trusted = trusted,
+                    monthReference = now
+                )
+            }
+            .sortedWith(
+                compareBy<ScheduledBill> {
+                    it.nextDueEpochMs
+                        ?: Long.MAX_VALUE
+                }.thenBy {
+                    it.rule.displayLabel
+                        ?: it.rule.name
+                }
+            )
+    }
+
+    /** Bills that are scheduled in the current month and still have money due. */
+    fun upcomingThisMonth(
+        now: Long = System.currentTimeMillis()
+    ): List<ScheduledBill> =
+        list(now).filter {
+            it.dueThisMonth &&
+                it.remainingMinor > 0L
         }
+
+    fun saveSchedule(
+        ruleId: String,
+        cadence: BillCadence,
+        dueDay: Int? = null,
+        dueDayOfWeek: Int? = null,
+        enabled: Boolean
+    ) {
+        when (cadence) {
+            BillCadence.MONTHLY ->
+                require(dueDay in 1..31) {
+                    "Choose a monthly due day."
+                }
+            BillCadence.WEEKLY ->
+                require(
+                    dueDayOfWeek in
+                        Calendar.SUNDAY..
+                            Calendar.SATURDAY
+                ) {
+                    "Choose a weekly due day."
+                }
+        }
+
+        prefs.edit()
+            .putString(
+                "cadence:$ruleId",
+                cadence.name
+            )
+            .apply {
+                if (cadence == BillCadence.MONTHLY) {
+                    putInt(
+                        "day:$ruleId",
+                        requireNotNull(dueDay)
+                    )
+                    remove("weekday:$ruleId")
+                } else {
+                    putInt(
+                        "weekday:$ruleId",
+                        requireNotNull(
+                            dueDayOfWeek
+                        )
+                    )
+                    remove("day:$ruleId")
+                }
+            }
+            .putBoolean(
+                "enabled:$ruleId",
+                enabled
+            )
+            .apply()
+
+        if (!enabled) {
+            (
+                context.getSystemService(
+                    Context.NOTIFICATION_SERVICE
+                ) as NotificationManager
+            ).cancel(ruleId, 921)
+        }
+
+        schedule(context)
+        LedgerUpdateBus.notifyChanged()
     }
-    fun save(ruleId:String,day:Int,enabled:Boolean) {
-        require(day in 1..31)
-        prefs.edit().putInt("day:$ruleId",day).putBoolean("enabled:$ruleId",enabled).apply()
-        if(!enabled)(context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(ruleId,921)
-        schedule(context);LedgerUpdateBus.notifyChanged()
+
+    /** Backward-compatible monthly reminder save. */
+    fun save(
+        ruleId: String,
+        day: Int,
+        enabled: Boolean
+    ) {
+        saveSchedule(
+            ruleId = ruleId,
+            cadence = BillCadence.MONTHLY,
+            dueDay = day,
+            enabled = enabled
+        )
     }
+
+    fun remove(ruleId: String) {
+        prefs.edit()
+            .remove("cadence:$ruleId")
+            .remove("day:$ruleId")
+            .remove("weekday:$ruleId")
+            .remove("enabled:$ruleId")
+            .apply()
+        (
+            context.getSystemService(
+                Context.NOTIFICATION_SERVICE
+            ) as NotificationManager
+        ).cancel(ruleId, 921)
+        LedgerUpdateBus.notifyChanged()
+    }
+
     fun notifyDue() {
-        if(Build.VERSION.SDK_INT>=33 && ContextCompat.checkSelfPermission(context,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return
-        val manager=context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if(!manager.areNotificationsEnabled())return
-        if(Build.VERSION.SDK_INT>=26)manager.createNotificationChannel(NotificationChannel("bills","Bill reminders",NotificationManager.IMPORTANCE_DEFAULT))
-        val now=Calendar.getInstance()
-        val next=(now.clone() as Calendar).apply {add(Calendar.MONTH,1)}
-        (list(now.timeInMillis).map {it to now}+list(next.timeInMillis).map {it to next}).forEach { (bill,month) ->
-            if(!bill.reminders || bill.dueDay==null || bill.remainingMinor==0L)return@forEach
-            val due=(month.clone() as Calendar).apply {set(Calendar.DAY_OF_MONTH,minOf(bill.dueDay,getActualMaximum(Calendar.DAY_OF_MONTH)));set(Calendar.HOUR_OF_DAY,23);set(Calendar.MINUTE,59);set(Calendar.SECOND,59)}
-            val delta=due.timeInMillis-now.timeInMillis
-            if(delta !in 0..TimeUnit.DAYS.toMillis(3))return@forEach
-            val key="sent:${bill.rule.id}:${month.get(Calendar.YEAR)}:${month.get(Calendar.MONTH)}"
-            if(prefs.getBoolean(key,false))return@forEach
-            val open=PendingIntent.getActivity(context,921,Intent(context,MainActivity::class.java).putExtra(OPEN_BILLS,true).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-            manager.notify(bill.rule.id,921,NotificationCompat.Builder(context,"bills").setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle("${bill.rule.displayLabel ?: bill.rule.name} is coming up").setContentText("Open PesaTrack to check your bill plan.").setContentIntent(open).setAutoCancel(true).setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build())
-            prefs.edit().putBoolean(key,true).apply()
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val manager =
+            context.getSystemService(
+                Context.NOTIFICATION_SERVICE
+            ) as NotificationManager
+        if (!manager.areNotificationsEnabled()) {
+            return
+        }
+
+        if (Build.VERSION.SDK_INT >= 26) {
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    "bills",
+                    "Bill reminders",
+                    NotificationManager.IMPORTANCE_DEFAULT
+                )
+            )
+        }
+
+        val now = Calendar.getInstance()
+        val nextMonth =
+            (now.clone() as Calendar).apply {
+                add(Calendar.MONTH, 1)
+                set(Calendar.DAY_OF_MONTH, 1)
+            }
+
+        listOf(
+            now.timeInMillis,
+            nextMonth.timeInMillis
+        ).forEach { monthReference ->
+            list(monthReference)
+                .filter {
+                    it.reminders &&
+                        it.dueThisMonth &&
+                        it.remainingMinor > 0L
+                }
+                .forEach { bill ->
+                    val planned =
+                        bill.rule.plannedAmountMinor
+                            ?: return@forEach
+                    val config =
+                        config(bill.rule.id)
+                    val paidOccurrences =
+                        if (planned > 0L) {
+                            (
+                                bill.paidMinor /
+                                    planned
+                                ).toInt()
+                        } else {
+                            0
+                        }
+
+                    occurrenceDates(
+                        config,
+                        monthReference
+                    )
+                        .drop(paidOccurrences)
+                        .forEach { dueEpochMs ->
+                            val delta =
+                                dueEpochMs -
+                                    now.timeInMillis
+                            if (
+                                delta !in
+                                0..
+                                    TimeUnit.DAYS
+                                        .toMillis(3)
+                            ) {
+                                return@forEach
+                            }
+
+                            val key =
+                                "sent:" +
+                                    bill.rule.id +
+                                    ":" +
+                                    dueEpochMs
+                            if (
+                                prefs.getBoolean(
+                                    key,
+                                    false
+                                )
+                            ) {
+                                return@forEach
+                            }
+
+                            val open =
+                                PendingIntent
+                                    .getActivity(
+                                        context,
+                                        921,
+                                        Intent(
+                                            context,
+                                            MainActivity::class.java
+                                        )
+                                            .putExtra(
+                                                OPEN_BILLS,
+                                                true
+                                            )
+                                            .addFlags(
+                                                Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                            ),
+                                        PendingIntent.FLAG_IMMUTABLE or
+                                            PendingIntent.FLAG_UPDATE_CURRENT
+                                    )
+
+                            manager.notify(
+                                bill.rule.id +
+                                    dueEpochMs,
+                                921,
+                                NotificationCompat
+                                    .Builder(
+                                        context,
+                                        "bills"
+                                    )
+                                    .setSmallIcon(
+                                        android.R.drawable.ic_dialog_info
+                                    )
+                                    .setContentTitle(
+                                        (
+                                            bill.rule
+                                                .displayLabel
+                                                ?: bill.rule.name
+                                            ) +
+                                            " is coming up"
+                                    )
+                                    .setContentText(
+                                        "Open PesaTrack to check this bill."
+                                    )
+                                    .setContentIntent(
+                                        open
+                                    )
+                                    .setAutoCancel(true)
+                                    .setVisibility(
+                                        NotificationCompat.VISIBILITY_PRIVATE
+                                    )
+                                    .build()
+                            )
+                            prefs.edit()
+                                .putBoolean(
+                                    key,
+                                    true
+                                )
+                                .apply()
+                        }
+                }
         }
     }
+
+    private fun buildScheduledBill(
+        rule: SmartRule,
+        trusted:
+            List<StoredTransaction>,
+        monthReference: Long
+    ): ScheduledBill {
+        val config = config(rule.id)
+        val occurrenceDates =
+            occurrenceDates(
+                config,
+                monthReference
+            )
+        val planned =
+            rule.plannedAmountMinor
+                ?: 0L
+        val expected =
+            planned *
+                occurrenceDates.size
+        val paid =
+            trusted
+                .filter {
+                    it.ruleId == rule.id &&
+                        it.direction ==
+                        MoneyDirection.EXPENSE.name
+                }
+                .sumOf {
+                    it.amountMinor
+                }
+        val remaining =
+            (expected - paid)
+                .coerceAtLeast(0L)
+
+        val paidOccurrences =
+            if (planned > 0L) {
+                (paid / planned)
+                    .toInt()
+                    .coerceAtMost(
+                        occurrenceDates.size
+                    )
+            } else {
+                0
+            }
+
+        return ScheduledBill(
+            rule = rule,
+            remainingMinor = remaining,
+            dueDay = config.dueDay,
+            reminders = config.reminders,
+            cadence = config.cadence,
+            dueDayOfWeek =
+                config.dueDayOfWeek,
+            expectedMinor = expected,
+            paidMinor = paid,
+            dueThisMonth =
+                occurrenceDates
+                    .isNotEmpty(),
+            nextDueEpochMs =
+                occurrenceDates
+                    .drop(
+                        paidOccurrences
+                    )
+                    .firstOrNull()
+        )
+    }
+
+    private fun occurrenceDates(
+        config: BillScheduleConfig,
+        monthReference: Long
+    ): List<Long> {
+        val month =
+            Calendar.getInstance()
+                .apply {
+                    timeInMillis =
+                        monthReference
+                    set(
+                        Calendar.DAY_OF_MONTH,
+                        1
+                    )
+                    set(
+                        Calendar.HOUR_OF_DAY,
+                        23
+                    )
+                    set(
+                        Calendar.MINUTE,
+                        59
+                    )
+                    set(
+                        Calendar.SECOND,
+                        0
+                    )
+                    set(
+                        Calendar.MILLISECOND,
+                        0
+                    )
+                }
+
+        return when (
+            config.cadence
+        ) {
+            BillCadence.MONTHLY -> {
+                val dueDay =
+                    config.dueDay
+                        ?: return emptyList()
+                listOf(
+                    (
+                        month.clone()
+                            as Calendar
+                        ).apply {
+                            set(
+                                Calendar.DAY_OF_MONTH,
+                                minOf(
+                                    dueDay,
+                                    getActualMaximum(
+                                        Calendar.DAY_OF_MONTH
+                                    )
+                                )
+                            )
+                        }.timeInMillis
+                )
+            }
+
+            BillCadence.WEEKLY -> {
+                val dayOfWeek =
+                    config.dueDayOfWeek
+                        ?: return emptyList()
+                val dates =
+                    mutableListOf<Long>()
+                val cursor =
+                    month.clone()
+                        as Calendar
+                val targetMonth =
+                    month.get(
+                        Calendar.MONTH
+                    )
+                while (
+                    cursor.get(
+                        Calendar.MONTH
+                    ) == targetMonth
+                ) {
+                    if (
+                        cursor.get(
+                            Calendar.DAY_OF_WEEK
+                        ) == dayOfWeek
+                    ) {
+                        dates +=
+                            cursor
+                                .timeInMillis
+                    }
+                    cursor.add(
+                        Calendar.DAY_OF_MONTH,
+                        1
+                    )
+                }
+                dates
+            }
+        }
+    }
+
     companion object {
-        const val OPEN_BILLS="open_bills"
-        fun schedule(context:Context) {WorkManager.getInstance(context).enqueueUniquePeriodicWork("bill-reminders",ExistingPeriodicWorkPolicy.KEEP,PeriodicWorkRequestBuilder<BillReminderWorker>(12,TimeUnit.HOURS).build())}
+        const val OPEN_BILLS =
+            "open_bills"
+
+        fun schedule(
+            context: Context
+        ) {
+            WorkManager
+                .getInstance(context)
+                .enqueueUniquePeriodicWork(
+                    "bill-reminders",
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    PeriodicWorkRequestBuilder<
+                        BillReminderWorker
+                        >(
+                        12,
+                        TimeUnit.HOURS
+                    ).build()
+                )
+        }
     }
 }
-class BillReminderWorker(context:Context,params:WorkerParameters):Worker(context,params) {
-    override fun doWork():Result=try {BillSchedules(applicationContext).notifyDue();Result.success()}catch(e:Exception){Result.retry()}
+
+class BillReminderWorker(
+    context: Context,
+    params: WorkerParameters
+) : Worker(context, params) {
+    override fun doWork(): Result =
+        try {
+            BillSchedules(
+                applicationContext
+            ).notifyDue()
+            Result.success()
+        } catch (
+            e: Exception
+        ) {
+            Result.retry()
+        }
 }
