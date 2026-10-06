@@ -2366,6 +2366,649 @@ private fun categoryVisual(
     }
 
 @Composable
+private fun TransactionQuickActions(
+    merchant: String,
+    annotation: TransactionAnnotation,
+    accountLabel: String,
+    hasAccount: Boolean,
+    onMerchantHistory: () -> Unit,
+    onAnnotation: () -> Unit,
+    onAccount: () -> Unit
+) {
+    Column(
+        verticalArrangement =
+            Arrangement.spacedBy(
+                10.dp
+            )
+    ) {
+        Row(
+            modifier =
+                Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.spacedBy(
+                    10.dp
+                )
+        ) {
+            TransactionActionCard(
+                icon =
+                    Icons.Rounded
+                        .TrendingUp,
+                title =
+                    "Merchant history",
+                subtitle =
+                    "View past transactions\nwith $merchant",
+                modifier =
+                    Modifier.weight(1f),
+                onClick =
+                    onMerchantHistory
+            )
+            TransactionActionCard(
+                icon =
+                    Icons.Rounded
+                        .AttachFile,
+                title =
+                    if (
+                        annotation.note
+                            .isNotBlank() ||
+                        annotation.receiptUri !=
+                        null
+                    ) {
+                        "Note or receipt"
+                    } else {
+                        "Add note or receipt"
+                    },
+                subtitle =
+                    when {
+                        annotation.receiptUri !=
+                            null &&
+                            annotation.note
+                                .isNotBlank() ->
+                            "Note and receipt saved"
+                        annotation.receiptUri !=
+                            null ->
+                            "Receipt attached"
+                        annotation.note
+                            .isNotBlank() ->
+                            "Note saved"
+                        else ->
+                            "Save a note or photo"
+                    },
+                modifier =
+                    Modifier.weight(1f),
+                onClick =
+                    onAnnotation
+            )
+        }
+
+        TransactionActionCard(
+            icon =
+                Icons.Rounded
+                    .AccountCircle,
+            title =
+                "Linked account",
+            subtitle =
+                if (hasAccount) {
+                    accountLabel
+                } else {
+                    "No linked account"
+                },
+            modifier =
+                Modifier.fillMaxWidth(),
+            enabled =
+                hasAccount,
+            onClick =
+                onAccount
+        )
+    }
+}
+
+@Composable
+private fun TransactionActionCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier =
+            modifier.clickable(
+                enabled = enabled,
+                onClick = onClick
+            ),
+        shape =
+            RoundedCornerShape(
+                18.dp
+            ),
+        color =
+            MaterialTheme
+                .colorScheme
+                .surfaceVariant
+                .copy(alpha = .64f),
+        border =
+            BorderStroke(
+                1.dp,
+                MaterialTheme
+                    .colorScheme
+                    .outlineVariant
+                    .copy(alpha = .35f)
+            )
+    ) {
+        Row(
+            modifier =
+                Modifier.padding(
+                    14.dp
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            Surface(
+                shape =
+                    CircleShape,
+                color =
+                    Color(0xFF168263)
+                        .copy(
+                            alpha = .2f
+                        )
+            ) {
+                Icon(
+                    icon,
+                    contentDescription =
+                        null,
+                    modifier =
+                        Modifier.padding(
+                            9.dp
+                        ),
+                    tint =
+                        Color(
+                            0xFF8ADFC0
+                        )
+                )
+            }
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(
+                            start = 10.dp
+                        )
+            ) {
+                Text(
+                    title,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleSmall,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
+                Text(
+                    subtitle,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant,
+                    maxLines = 2
+                )
+            }
+            Icon(
+                Icons.Rounded
+                    .ChevronRight,
+                contentDescription =
+                    null,
+                tint =
+                    if (enabled) {
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                    } else {
+                        MaterialTheme
+                            .colorScheme
+                            .outline
+                    }
+            )
+        }
+    }
+}
+
+@Composable
+private fun TransactionAnnotationDialog(
+    transaction: StoredTransaction,
+    annotation: TransactionAnnotation,
+    onDismiss: () -> Unit,
+    onSaveNote: (String) -> Unit,
+    onAttachReceipt: () -> Unit,
+    onRemoveReceipt: () -> Unit
+) {
+    val context =
+        LocalContext.current
+    var note by remember(
+        transaction.id,
+        annotation.note
+    ) {
+        mutableStateOf(
+            annotation.note
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest =
+            onDismiss,
+        title = {
+            Text(
+                "Note or receipt"
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        12.dp
+                    )
+            ) {
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = {
+                        note = it
+                    },
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    label = {
+                        Text(
+                            "Personal note"
+                        )
+                    },
+                    placeholder = {
+                        Text(
+                            "What was this payment for?"
+                        )
+                    },
+                    minLines = 3,
+                    maxLines = 5
+                )
+
+                if (
+                    annotation.receiptUri !=
+                    null
+                ) {
+                    Surface(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        shape =
+                            RoundedCornerShape(
+                                14.dp
+                            ),
+                        color =
+                            pesaToneContainer(
+                                "green"
+                            )
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier.padding(
+                                    12.dp
+                                ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Rounded
+                                    .AttachFile,
+                                contentDescription =
+                                    null
+                            )
+                            Text(
+                                "Receipt attached",
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .padding(
+                                            start = 8.dp
+                                        )
+                            )
+                            TextButton(
+                                onClick = {
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(
+                                                Intent.ACTION_VIEW,
+                                                android.net.Uri
+                                                    .parse(
+                                                        annotation
+                                                            .receiptUri
+                                                    )
+                                            ).apply {
+                                                addFlags(
+                                                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            ) {
+                                Text("Open")
+                            }
+                            TextButton(
+                                onClick =
+                                    onRemoveReceipt
+                            ) {
+                                Text("Remove")
+                            }
+                        }
+                    }
+                }
+
+                OutlinedButton(
+                    onClick =
+                        onAttachReceipt,
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Rounded
+                            .AttachFile,
+                        contentDescription =
+                            null
+                    )
+                    Text(
+                        if (
+                            annotation.receiptUri !=
+                            null
+                        ) {
+                            "Replace receipt"
+                        } else {
+                            "Attach receipt"
+                        },
+                        modifier =
+                            Modifier.padding(
+                                start = 8.dp
+                            )
+                    )
+                }
+
+                Text(
+                    "Notes and receipt links stay on this device with your PesaTrack data.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick =
+                    onDismiss
+            ) {
+                Text("Cancel")
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSaveNote(
+                        note
+                    )
+                }
+            ) {
+                Text("Save")
+            }
+        }
+    )
+}
+
+@Composable
+private fun MerchantHistoryDialog(
+    merchant: String,
+    transactions:
+        List<StoredTransaction>,
+    onDismiss: () -> Unit,
+    onTransactionClick: (Long) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest =
+            onDismiss,
+        title = {
+            Text(
+                "Merchant history"
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        8.dp
+                    )
+            ) {
+                Text(
+                    merchant,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleMedium,
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .primary
+                )
+
+                if (
+                    transactions.isEmpty()
+                ) {
+                    Text(
+                        "No other recent transactions with this merchant.",
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                } else {
+                    transactions.take(8)
+                        .forEach {
+                                item ->
+                            Surface(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onTransactionClick(
+                                                item.id
+                                            )
+                                        },
+                                shape =
+                                    RoundedCornerShape(
+                                        14.dp
+                                    ),
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .surfaceVariant
+                                        .copy(
+                                            alpha = .6f
+                                        )
+                            ) {
+                                Row(
+                                    modifier =
+                                        Modifier.padding(
+                                            11.dp
+                                        ),
+                                    verticalAlignment =
+                                        Alignment.CenterVertically
+                                ) {
+                                    Column(
+                                        modifier =
+                                            Modifier
+                                                .weight(
+                                                    1f
+                                                )
+                                    ) {
+                                        Text(
+                                            formatMoney(
+                                                item.amountMinor
+                                            ),
+                                            style =
+                                                MaterialTheme
+                                                    .typography
+                                                    .titleSmall
+                                        )
+                                        Text(
+                                            formatDateTime(
+                                                item.occurredAtEpochMs
+                                            ),
+                                            style =
+                                                MaterialTheme
+                                                    .typography
+                                                    .bodySmall,
+                                            color =
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .onSurfaceVariant
+                                        )
+                                    }
+                                    Text(
+                                        pretty(
+                                            item.category
+                                        ),
+                                        style =
+                                            MaterialTheme
+                                                .typography
+                                                .labelMedium
+                                    )
+                                    Icon(
+                                        Icons.Rounded
+                                            .ChevronRight,
+                                        contentDescription =
+                                            null
+                                    )
+                                }
+                            }
+                        }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick =
+                    onDismiss
+            ) {
+                Text("Done")
+            }
+        }
+    )
+}
+
+private fun sameMerchant(
+    first: StoredTransaction,
+    second: StoredTransaction
+): Boolean {
+    val firstPhone =
+        first.counterpartyPhone
+            ?.filter(Char::isDigit)
+            .orEmpty()
+    val secondPhone =
+        second.counterpartyPhone
+            ?.filter(Char::isDigit)
+            .orEmpty()
+    if (
+        firstPhone.isNotBlank() &&
+        secondPhone.isNotBlank()
+    ) {
+        return firstPhone ==
+            secondPhone
+    }
+
+    val firstName =
+        first.counterparty
+            ?.trim()
+            ?.lowercase()
+            .orEmpty()
+    val secondName =
+        second.counterparty
+            ?.trim()
+            ?.lowercase()
+            .orEmpty()
+
+    return firstName.isNotBlank() &&
+        firstName == secondName
+}
+
+private fun classificationConfidenceLabel(
+    item: StoredTransaction,
+    learningExplanation:
+        com.kedevjimmy.pesatrack
+            .domain.learning
+            .PersonalLearningExplanation?,
+    appliedRule: SmartRule?
+): String {
+    if (
+        item.reviewState ==
+        ReviewState.USER_CLASSIFIED.name
+    ) {
+        return "100% match"
+    }
+
+    learningExplanation
+        ?.application
+        ?.confidence
+        ?.let {
+            return when (it) {
+                com.kedevjimmy.pesatrack
+                    .domain.learning
+                    .PersonalLearningConfidence
+                    .HIGH ->
+                    "95% match"
+                com.kedevjimmy.pesatrack
+                    .domain.learning
+                    .PersonalLearningConfidence
+                    .MEDIUM ->
+                    "75% match"
+                com.kedevjimmy.pesatrack
+                    .domain.learning
+                    .PersonalLearningConfidence
+                    .LOW ->
+                    "55% match"
+            }
+        }
+
+    item.evidenceConfidence
+        ?.uppercase()
+        ?.let {
+            return when (it) {
+                "HIGH" ->
+                    "90% match"
+                "MEDIUM" ->
+                    "70% match"
+                "LOW" ->
+                    "50% match"
+                else ->
+                    "Auto match"
+            }
+        }
+
+    if (appliedRule != null) {
+        return "Rule match"
+    }
+
+    return if (
+        item.reviewState ==
+        ReviewState.NEEDS_REVIEW.name
+    ) {
+        "Needs review"
+    } else {
+        "Auto match"
+    }
+}
+
+@Composable
 private fun DetailRow(
     icon: ImageVector,
     label: String,
