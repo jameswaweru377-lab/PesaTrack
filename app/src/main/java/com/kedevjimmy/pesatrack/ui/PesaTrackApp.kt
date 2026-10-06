@@ -422,7 +422,19 @@ fun PesaTrackApp(
                 TransactionDetailScreen(
                     scaffoldPadding = padding,
                     transactionId = transactionId,
-                    onBack = { navController.popBackStack() }
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onTransactionClick = { id ->
+                        navController.navigate(
+                            "transaction-detail/$id"
+                        )
+                    },
+                    onAccountClick = { accountId ->
+                        navController.navigate(
+                            "account-detail/$accountId"
+                        )
+                    }
                 )
             }
         }
