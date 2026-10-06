@@ -98,7 +98,8 @@ private data class PlanReferenceData(
 fun PlanScreen(
     scaffoldPadding: PaddingValues,
     onBudgetClick: (() -> Unit)? = null,
-    onGoalsClick: (() -> Unit)? = null
+    onGoalsClick: (() -> Unit)? = null,
+    onSalaryClick: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val store = remember {
@@ -251,6 +252,35 @@ fun PlanScreen(
                 planningAvailability =
                     planningAvailability
             )
+        }
+
+        if (
+            snapshot.cycle == null &&
+            onSalaryClick != null
+        ) {
+            item {
+                Button(
+                    onClick = onSalaryClick,
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    shape =
+                        RoundedCornerShape(
+                            18.dp
+                        )
+                ) {
+                    Icon(
+                        Icons.Rounded.Paid,
+                        contentDescription =
+                            null
+                    )
+                    Spacer(
+                        Modifier.width(8.dp)
+                    )
+                    Text(
+                        "Add salary to start your plan"
+                    )
+                }
+            }
         }
 
         if (monthlyBudgets.isNotEmpty()) {
