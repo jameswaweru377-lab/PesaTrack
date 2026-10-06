@@ -462,7 +462,7 @@ class FinancialMessageIngestionCoordinator private constructor(
                                 event.amountMinor,
                             title = title,
                             body = body,
-                            rules = rules
+                            rules = rules.filter { !it.startsPayCycle && it.preset != com.kedevjimmy.pesatrack.domain.model.RulePreset.SALARY }
                         )
 
                     val inserted =
@@ -2032,3 +2032,4 @@ class FinancialMessageIngestionCoordinator private constructor(
             }
     }
 }
+

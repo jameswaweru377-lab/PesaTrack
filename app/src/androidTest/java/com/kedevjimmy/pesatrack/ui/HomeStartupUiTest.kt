@@ -34,7 +34,7 @@ class HomeStartupUiTest {
 
     @Test fun emptyHistoryLoadsHomeWithoutStayingOnSpinner() {
         showHome()
-        waitForText("Available after commitments")
+        waitForText("Tracked funds")
         compose.onNodeWithText("Preparing your money picture").assertDoesNotExist()
     }
 
@@ -50,7 +50,7 @@ class HomeStartupUiTest {
         compose.onNodeWithText("Preparing your money picture").assertDoesNotExist()
         db.execSQL(createTransactions)
         compose.onNodeWithText("Try again").performClick()
-        waitForText("Available after commitments")
+        waitForText("Tracked funds")
         compose.onNodeWithText("Your money picture could not load").assertDoesNotExist()
     }
 

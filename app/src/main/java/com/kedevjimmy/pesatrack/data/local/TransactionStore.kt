@@ -1205,6 +1205,19 @@ class TransactionStore private constructor(context: Context) {
     ): ActivityLedgerSnapshot {
         synchronized(CanonicalStoreLock.monitor) {
         require(endEpochMsExclusive > startEpochMs)
+        val salaryDb = database.writableDatabase
+        salaryDb.beginTransaction()
+        try {
+        val correctedSalary = database.writableDatabase.compileStatement("""
+            UPDATE transactions SET direction = 'EXPENSE', category = 'UNCATEGORIZED', rule_id = NULL,
+                cycle_candidate_reason = NULL, pay_cycle_id = NULL, review_state = 'AUTO_CLASSIFIED'
+            WHERE type IN ('PAY_BILL','BUY_GOODS','AIRTIME','SENT_MONEY')
+              AND direction = 'INCOME' AND review_state != 'USER_CLASSIFIED' AND review_state != 'EXCLUDED'
+              AND cycle_override IS NULL AND rule_id IN (SELECT id FROM smart_rules WHERE starts_pay_cycle = 1)
+        """.trimIndent()).use { it.executeUpdateDelete() }
+        if (correctedSalary > 0) { PayCycleStore.get(appContext).rebuild(); LedgerUpdateBus.notifyChanged() }
+        salaryDb.setTransactionSuccessful()
+        } finally { salaryDb.endTransaction() }
         ensureMirrorReconciled()
         ensureBuiltInRecognitionReconciled()
         ensureSemanticReviewStateReconciled()
@@ -1284,7 +1297,8 @@ class TransactionStore private constructor(context: Context) {
                     it.id in possibleDuplicateIds
                 }
             ),
-            possibleDuplicates = possibleDuplicates
+            possibleDuplicates = possibleDuplicates,
+            trustedTransactions = effective
         )
     }
     }
@@ -3946,5 +3960,6 @@ private fun StoredTransaction.toParsedTransaction(): ParsedMpesaTransaction =
         rawMessage = "",
         reversalOfCode = reversalOfCode
     )
+
 
 

@@ -19,6 +19,8 @@ import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Paid
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.Savings
@@ -46,14 +48,24 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.BudgetStore
+import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.CommitmentProgress
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
+import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RecurringPatternStore
+import com.kedevjimmy.pesatrack.data.local.RuleStore
+import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.ReviewState
+import com.kedevjimmy.pesatrack.domain.model.SmartRule
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternCandidate
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternConfidence
 import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
+import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
 import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
@@ -71,6 +83,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private data class PlanReferenceData(
+    val snapshot: PayCycleSnapshot,
+    val recurring: List<RecurringPatternCandidate>,
+    val budgets: List<MonthlyBudget>,
+    val spentByCategory: Map<String, Long>,
+    val goals: List<SmartRule>
+)
+
 @Composable
 fun PlanScreen(
     scaffoldPadding: PaddingValues,
@@ -84,6 +104,10 @@ fun PlanScreen(
     val recurringStore = remember {
         RecurringPatternStore.get(context)
     }
+    val budgetStore = remember { BudgetStore.get(context) }
+    val categoryStore = remember { CategoryStore.get(context) }
+    val transactionStore = remember { TransactionStore.get(context) }
+    val ruleStore = remember { RuleStore.get(context) }
     val planScope =
         rememberCoroutineScope()
     val ledgerUpdateState by
@@ -101,6 +125,18 @@ fun PlanScreen(
     var localRefresh by remember {
         mutableStateOf(0)
     }
+    var monthlyBudgets by remember {
+        mutableStateOf<List<MonthlyBudget>>(emptyList())
+    }
+    var spentByBudgetCategory by remember {
+        mutableStateOf<Map<String, Long>>(emptyMap())
+    }
+    var savingsGoals by remember {
+        mutableStateOf<List<SmartRule>>(emptyList())
+    }
+    var showPlanDetails by remember {
+        mutableStateOf(false)
+    }
 
     LaunchedEffect(
         ledgerUpdateState.revision,
@@ -109,15 +145,66 @@ fun PlanScreen(
         val loaded =
             withContext(Dispatchers.IO) {
                 store.rebuild()
-                store.snapshot() to
-                    recurringStore
-                        .suggestions(
-                            limit = 3
-                        )
+                val cycle = store.snapshot()
+                val recurring =
+                    recurringStore.suggestions(limit = 3)
+                val budgets = budgetStore.list()
+                val activity = transactionStore.activitySnapshot()
+                val spent = activity.trustedTransactions
+                    .filter {
+                        it.direction == MoneyDirection.EXPENSE.name &&
+                            it.reviewState != ReviewState.EXCLUDED.name &&
+                            it.reviewState != ReviewState.NEEDS_REVIEW.name
+                    }
+                    .groupBy {
+                        categoryStore.canonicalId(it.category)
+                    }
+                    .mapValues { (_, rows) ->
+                        rows.sumOf { row ->
+                            if (
+                                row.relationType ==
+                                TransactionStore.RELATION_REFUND
+                            ) {
+                                val original =
+                                    row.relatedTransactionId
+                                        ?.let(transactionStore::getById)
+                                if (
+                                    original != null &&
+                                    original.direction ==
+                                        MoneyDirection.EXPENSE.name &&
+                                    original.reviewState !=
+                                        ReviewState.EXCLUDED.name &&
+                                    original.reviewState !=
+                                        ReviewState.NEEDS_REVIEW.name
+                                ) {
+                                    -row.amountMinor
+                                } else {
+                                    0L
+                                }
+                            } else {
+                                row.amountMinor
+                            }
+                        }.coerceAtLeast(0L)
+                    }
+                val goals =
+                    ruleStore.listRules(enabledOnly = true)
+                        .filter {
+                            it.category == TransactionCategory.SAVINGS &&
+                                (it.plannedAmountMinor ?: 0L) > 0L
+                        }
+                PlanReferenceData(
+                    snapshot = cycle,
+                    recurring = recurring,
+                    budgets = budgets,
+                    spentByCategory = spent,
+                    goals = goals
+                )
             }
-        snapshot = loaded.first
-        recurringSuggestions =
-            loaded.second
+        snapshot = loaded.snapshot
+        recurringSuggestions = loaded.recurring
+        monthlyBudgets = loaded.budgets
+        spentByBudgetCategory = loaded.spentByCategory
+        savingsGoals = loaded.goals
     }
 
     val planningAvailability =
@@ -136,12 +223,12 @@ fun PlanScreen(
     ) {
         item {
             Column {
-                Text("Plan", style = MaterialTheme.typography.headlineLarge)
+                Text("Plan your month", style = MaterialTheme.typography.headlineLarge)
                 Text(
                     if (snapshot.cycle == null) {
                         "Your plan will begin when PesaTrack recognizes a salary."
                     } else {
-                        "Protected commitments for your current pay cycle."
+                        "Budget, commitments and goals for your current pay cycle."
                     },
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -157,7 +244,218 @@ fun PlanScreen(
             )
         }
 
-        if (onBudgetClick != null) {
+        if (monthlyBudgets.isNotEmpty()) {
+            item {
+                val totalBudget = monthlyBudgets.sumOf { it.limitMinor }
+                val totalSpent = monthlyBudgets.sumOf {
+                    spentByBudgetCategory[it.categoryId] ?: 0L
+                }
+                val left = (totalBudget - totalSpent).coerceAtLeast(0L)
+                PesaCard {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconBubble(
+                                Icons.Rounded.TrackChanges,
+                                size = 44.dp,
+                                background = pesaToneContainer("green"),
+                                tint = pesaToneContent("green")
+                            )
+                            Column(Modifier.weight(1f).padding(start = 11.dp)) {
+                                Text(
+                                    "Monthly budget",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    formatPlanMoney(totalBudget),
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                formatPlanMoney(left) + " left",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = {
+                                if (totalBudget <= 0L) 0f
+                                else (totalSpent.toFloat() / totalBudget.toFloat())
+                                    .coerceIn(0f, 1f)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp)
+                                .height(9.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        Text(
+                            formatPlanMoney(totalSpent) + " used",
+                            modifier = Modifier.padding(top = 6.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            item {
+                SectionHeader("Category budgets")
+            }
+
+            items(monthlyBudgets.take(5).size) { index ->
+                val budget = monthlyBudgets[index]
+                val spent = spentByBudgetCategory[budget.categoryId] ?: 0L
+                val progress =
+                    if (budget.limitMinor <= 0L) 0f
+                    else (spent.toFloat() / budget.limitMinor.toFloat())
+                        .coerceIn(0f, 1f)
+                PesaCard(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onBudgetClick?.invoke()
+                            }
+                ) {
+                    Column(Modifier.padding(14.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                categoryStore.labelFor(budget.categoryId),
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                formatPlanMoney(spent) + " / " +
+                                    formatPlanMoney(budget.limitMinor),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 9.dp)
+                                .height(8.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        if (snapshot.commitments.isNotEmpty()) {
+            item {
+                SectionHeader("Upcoming bills")
+            }
+            items(snapshot.commitments.take(3).size) { index ->
+                val commitment = snapshot.commitments[index]
+                PesaCard {
+                    Row(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            if (commitment.remainingMinor == 0L)
+                                Icons.Rounded.CheckCircle
+                            else
+                                Icons.Rounded.CalendarMonth,
+                            size = 42.dp,
+                            background =
+                                pesaToneContainer(
+                                    if (commitment.remainingMinor == 0L)
+                                        "green"
+                                    else
+                                        "amber"
+                                ),
+                            tint =
+                                pesaToneContent(
+                                    if (commitment.remainingMinor == 0L)
+                                        "green"
+                                    else
+                                        "amber"
+                                )
+                        )
+                        Column(Modifier.weight(1f).padding(start = 11.dp)) {
+                            Text(
+                                commitment.name,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                if (commitment.remainingMinor == 0L)
+                                    "Paid this cycle"
+                                else
+                                    formatPlanMoney(commitment.remainingMinor) +
+                                        " still reserved",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            formatPlanMoney(commitment.plannedMinor),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
+                }
+            }
+        }
+
+        if (savingsGoals.isNotEmpty()) {
+            item {
+                SectionHeader("Goals")
+            }
+            items(savingsGoals.take(3).size) { index ->
+                val goal = savingsGoals[index]
+                PesaCard(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onGoalsClick?.invoke()
+                            }
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            Icons.Rounded.Savings,
+                            size = 42.dp,
+                            background = pesaToneContainer("green"),
+                            tint = pesaToneContent("green")
+                        )
+                        Column(Modifier.weight(1f).padding(start = 11.dp)) {
+                            Text(
+                                goal.displayLabel ?: goal.name,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "Target " +
+                                    formatPlanMoney(goal.plannedAmountMinor ?: 0L),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Rounded.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        if (onBudgetClick != null && monthlyBudgets.isEmpty()) {
             item {
                 PesaCard(
                     modifier = Modifier
@@ -228,7 +526,7 @@ fun PlanScreen(
             }
         }
 
-        if (onGoalsClick != null) {
+        if (onGoalsClick != null && savingsGoals.isEmpty()) {
             item {
                 PesaCard(
                     modifier = Modifier
@@ -366,54 +664,6 @@ fun PlanScreen(
         }
 
         if (snapshot.cycle != null) {
-            item {
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    if (maxWidth < 600.dp) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                PlanMetric(
-                                    "Starting funds",
-                                    formatPlanMoney(snapshot.startingFundsMinor),
-                                    "Salary + carryover",
-                                    "green",
-                                    Modifier.weight(1f)
-                                )
-                                PlanMetric(
-                                    "Committed",
-                                    formatPlanMoney(snapshot.remainingCommitmentsMinor),
-                                    "Still protected",
-                                    "amber",
-                                    Modifier.weight(1f)
-                                )
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                PlanMetric(
-                                    "Saved",
-                                    formatPlanMoney(snapshot.savingsMinor),
-                                    "Moved to savings",
-                                    "blue",
-                                    Modifier.weight(1f)
-                                )
-                                PlanMetric(
-                                    "Available",
-                                    formatPlanMoney(planningAvailability.availableMinor),
-                                    "Free to live",
-                                    "violet",
-                                    Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    } else {
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            PlanMetric("Starting funds", formatPlanMoney(snapshot.startingFundsMinor), "Salary + carryover", "green", Modifier.weight(1f))
-                            PlanMetric("Committed", formatPlanMoney(snapshot.remainingCommitmentsMinor), "Still protected", "amber", Modifier.weight(1f))
-                            PlanMetric("Saved", formatPlanMoney(snapshot.savingsMinor), "Moved to savings", "blue", Modifier.weight(1f))
-                            PlanMetric("Available", formatPlanMoney(planningAvailability.availableMinor), "Free to live", "violet", Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
-
             if (
                 planningAvailability
                     .shortfallMinor > 0L
@@ -447,71 +697,160 @@ fun PlanScreen(
             }
 
             item {
-                SectionHeader("Committed this cycle")
-                Text(
-                    "A recurring bill is protected as soon as the pay cycle starts. Its actual payment message reduces the remaining commitment.",
-                    modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (snapshot.commitments.isEmpty()) {
-                item {
-                    PesaCard {
-                        Column(Modifier.padding(18.dp)) {
-                            IconBubble(Icons.Rounded.Shield, size = 46.dp)
-                            Text(
-                                "No recurring commitments yet",
-                                modifier = Modifier.padding(top = 10.dp),
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                "Create Rent, Internet, Electricity or another recurring rule. Add an expected amount, or let PesaTrack learn it from a matched payment.",
-                                modifier = Modifier.padding(top = 4.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            } else {
-                items(snapshot.commitments.size) { index ->
-                    PlanCommitment(snapshot.commitments[index])
-                }
-            }
-
-            item {
-                SectionHeader("Cycle accounting")
-                Spacer(Modifier.height(6.dp))
-                PesaCard {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        AccountingRow("Salary + carryover", snapshot.startingFundsMinor)
-                        AccountingRow("Other income", snapshot.additionalIncomeMinor)
-                        AccountingRow("Spent", -snapshot.spentMinor)
-                        AccountingRow("Fees", -snapshot.feesMinor)
-                        AccountingRow("Savings allocations", -snapshot.savingsMinor)
-                        AccountingRow("Still committed", -snapshot.remainingCommitmentsMinor)
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer
+                PesaCard(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showPlanDetails =
+                                    !showPlanDetails
+                            }
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                Modifier.padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            IconBubble(
+                                Icons.Rounded.BarChart,
+                                size = 42.dp,
+                                background = pesaToneContainer("blue"),
+                                tint = pesaToneContent("blue")
+                            )
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .padding(start = 11.dp)
                             ) {
                                 Text(
-                                    "Available to Live",
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    "Plan details",
+                                    style = MaterialTheme.typography.titleMedium
                                 )
                                 Text(
-                                    formatPlanMoney(planningAvailability.availableMinor),
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    "Cycle totals and accounting",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            Icon(
+                                if (showPlanDetails)
+                                    Icons.Rounded.ExpandLess
+                                else
+                                    Icons.Rounded.ExpandMore,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (showPlanDetails) {
+                            Spacer(Modifier.height(14.dp))
+                            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                                if (maxWidth < 600.dp) {
+                                    Column(
+                                        verticalArrangement =
+                                            Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Row(
+                                            horizontalArrangement =
+                                                Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            PlanMetric(
+                                                "Starting funds",
+                                                formatPlanMoney(snapshot.startingFundsMinor),
+                                                "Salary + carryover",
+                                                "green",
+                                                Modifier.weight(1f)
+                                            )
+                                            PlanMetric(
+                                                "Committed",
+                                                formatPlanMoney(snapshot.remainingCommitmentsMinor),
+                                                "Still protected",
+                                                "amber",
+                                                Modifier.weight(1f)
+                                            )
+                                        }
+                                        Row(
+                                            horizontalArrangement =
+                                                Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            PlanMetric(
+                                                "Saved",
+                                                formatPlanMoney(snapshot.savingsMinor),
+                                                "Moved to savings",
+                                                "blue",
+                                                Modifier.weight(1f)
+                                            )
+                                            PlanMetric(
+                                                "Available",
+                                                formatPlanMoney(planningAvailability.availableMinor),
+                                                "Free to live",
+                                                "violet",
+                                                Modifier.weight(1f)
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Row(
+                                        horizontalArrangement =
+                                            Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        PlanMetric(
+                                            "Starting funds",
+                                            formatPlanMoney(snapshot.startingFundsMinor),
+                                            "Salary + carryover",
+                                            "green",
+                                            Modifier.weight(1f)
+                                        )
+                                        PlanMetric(
+                                            "Committed",
+                                            formatPlanMoney(snapshot.remainingCommitmentsMinor),
+                                            "Still protected",
+                                            "amber",
+                                            Modifier.weight(1f)
+                                        )
+                                        PlanMetric(
+                                            "Saved",
+                                            formatPlanMoney(snapshot.savingsMinor),
+                                            "Moved to savings",
+                                            "blue",
+                                            Modifier.weight(1f)
+                                        )
+                                        PlanMetric(
+                                            "Available",
+                                            formatPlanMoney(planningAvailability.availableMinor),
+                                            "Free to live",
+                                            "violet",
+                                            Modifier.weight(1f)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(14.dp))
+                            AccountingRow(
+                                "Salary + carryover",
+                                snapshot.startingFundsMinor
+                            )
+                            AccountingRow(
+                                "Other income",
+                                snapshot.additionalIncomeMinor
+                            )
+                            AccountingRow(
+                                "Spent",
+                                -snapshot.spentMinor
+                            )
+                            AccountingRow(
+                                "Fees",
+                                -snapshot.feesMinor
+                            )
+                            AccountingRow(
+                                "Savings allocations",
+                                -snapshot.savingsMinor
+                            )
+                            AccountingRow(
+                                "Still committed",
+                                -snapshot.remainingCommitmentsMinor
+                            )
                         }
                     }
                 }
@@ -526,80 +865,69 @@ private fun PlanHero(
     planningAvailability:
         com.kedevjimmy.pesatrack.domain.rules.PlanningAvailability
 ) {
-    LandscapeBackdrop(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(if (snapshot.cycle == null) 230.dp else 260.dp)
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(18.dp)
-        ) {
-            Text(
-                if (snapshot.cycle == null) "No active pay cycle" else "Current pay cycle",
-                style = MaterialTheme.typography.titleLarge
+    if (snapshot.cycle == null) {
+        ConceptEmeraldHero(
+            title = "Monthly plan",
+            amount = "Waiting for salary",
+            subtitle = "Your plan starts from a real salary receipt, not an expected payday.",
+            artwork = true
+        )
+    } else {
+        val usedMinor =
+            snapshot.spentMinor +
+                snapshot.feesMinor +
+                snapshot.savingsMinor
+        val starting = maxOf(
+            1L,
+            snapshot.startingFundsMinor +
+                snapshot.additionalIncomeMinor
+        )
+        val progress =
+            (usedMinor.toFloat() / starting.toFloat())
+                .coerceIn(0f, 1f)
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            ConceptEmeraldHero(
+                title = "Monthly plan",
+                amount = formatPlanMoney(planningAvailability.availableMinor),
+                subtitle = "Available after commitments",
+                eyebrow = formatPlanDate(snapshot.cycle.startEpochMs) + " → next salary",
+                footer =
+                    (progress * 100).toInt().toString() +
+                        "% of starting funds allocated, spent or saved",
+                artwork = true
             )
-
-            if (snapshot.cycle == null) {
-                Text(
-                    "Create a Salary smart rule and let a matching salary message start the cycle. No fixed payday is required.",
-                    modifier = Modifier.padding(top = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                return@LandscapeBackdrop
-            }
-
-            Text(
-                formatPlanDate(snapshot.cycle.startEpochMs) + " → next accepted salary",
-                modifier = Modifier.padding(top = 4.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(Modifier.weight(1f))
-
             Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = .96f)
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface
             ) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(15.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.TrendingUp,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .padding(start = 11.dp)
+                Column(Modifier.padding(14.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "Available to Live",
-                            style = MaterialTheme.typography.bodySmall,
+                            "Safe today",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            formatPlanMoney(planningAvailability.availableMinor),
-                            style = MaterialTheme.typography.headlineMedium,
+                            snapshot.safeTodayMinor?.let(::formatPlanMoney)
+                                ?: "Learning",
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            "Safe today",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            snapshot.safeTodayMinor?.let(::formatPlanMoney) ?: "Learning",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp)
+                            .height(8.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 }
             }
         }

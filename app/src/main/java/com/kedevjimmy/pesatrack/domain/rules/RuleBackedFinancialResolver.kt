@@ -18,6 +18,7 @@ object RuleBackedFinancialResolver {
         body: String,
         rule: SmartRule
     ): ParsedMpesaTransaction? {
+        if (SalaryEvidencePolicy.isSalary(rule) && !SalaryEvidencePolicy.hasCreditEvidence(body)) return null
         val normalized =
             FinancialMessageNormalizer.normalize(
                 title = title,
@@ -69,3 +70,4 @@ object RuleBackedFinancialResolver {
         )
     }
 }
+

@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.kedevjimmy.pesatrack.ingestion.MpesaNotificationListenerService
+import com.kedevjimmy.pesatrack.ui.components.ConceptMessagesIllustration
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
@@ -41,10 +42,14 @@ import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 
 @Composable
 internal fun SmartSmsPermissionPage(
+    smsGranted: Boolean,
     denied: Boolean,
     restrictedHelp: Boolean,
+    notificationEnabled: Boolean,
     onOpenAppInfo: () -> Unit,
     onTryAgain: () -> Unit,
+    onEnableNotifications: () -> Unit,
+    onContinue: () -> Unit,
     onContinueWithout: () -> Unit
 ) {
     Column(
@@ -54,10 +59,12 @@ internal fun SmartSmsPermissionPage(
     ) {
         SmartSetupHero(
             icon = Icons.AutoMirrored.Rounded.Message,
-            title = "Allow access to your messages",
+            title = "Let your messages do the work",
             body =
-                "Android controls this permission. PesaTrack uses it only to read the history you chose."
+                "PesaTrack finds and organises transaction messages from M-Pesa, banks and other supported money sources."
         )
+
+        ConceptMessagesIllustration()
 
         PesaCard {
             Column(
@@ -67,9 +74,27 @@ internal fun SmartSmsPermissionPage(
                 verticalArrangement =
                     Arrangement.spacedBy(12.dp)
             ) {
+                PermissionFeatureRow(
+                    icon = Icons.AutoMirrored.Rounded.Message,
+                    title = "Read transaction messages",
+                    body = "Find and extract transaction details from the history you choose",
+                    enabled = smsGranted,
+                    actionLabel =
+                        if (restrictedHelp) "Open App info" else "Enable",
+                    onAction =
+                        if (restrictedHelp) onOpenAppInfo else onTryAgain
+                )
+                PermissionFeatureRow(
+                    icon = Icons.Rounded.Notifications,
+                    title = "Keep tracking in the background",
+                    body = "Keep your money picture current as new confirmations arrive",
+                    enabled = notificationEnabled,
+                    actionLabel = "Enable",
+                    onAction = onEnableNotifications
+                )
                 IconBubble(
                     Icons.Rounded.Shield,
-                    size = 56.dp,
+                    size = 48.dp,
                     background =
                         pesaToneContainer("green"),
                     tint =
@@ -79,6 +104,8 @@ internal fun SmartSmsPermissionPage(
                     when {
                         restrictedHelp ->
                             "Android blocked SMS access"
+                        smsGranted ->
+                            "Message access is ready"
                         denied ->
                             "SMS access wasn't allowed"
                         else ->
@@ -97,6 +124,8 @@ internal fun SmartSmsPermissionPage(
                     when {
                         restrictedHelp ->
                             "This debug APK was installed outside a trusted app store. On this phone, Android requires you to enable “Allow restricted settings” in App info first."
+                        smsGranted ->
+                            "You can continue to choose how much recent history PesaTrack should import."
                         denied ->
                             "You can try again or continue without importing old messages."
                         else ->
@@ -164,12 +193,20 @@ internal fun SmartSmsPermissionPage(
             }
         }
 
-        if (denied) {
+        if (smsGranted) {
+            Button(
+                onClick = onContinue,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Text("Continue")
+            }
+        } else if (denied || restrictedHelp) {
             OutlinedButton(
-                onClick =
-                    onContinueWithout,
-                modifier =
-                    Modifier.fillMaxWidth()
+                onClick = onContinueWithout,
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Continue without import")
             }
@@ -184,6 +221,49 @@ internal fun SmartSmsPermissionPage(
                 MaterialTheme.colorScheme
                     .onSurfaceVariant
         )
+    }
+}
+
+@Composable
+private fun PermissionFeatureRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    body: String,
+    enabled: Boolean,
+    actionLabel: String,
+    onAction: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconBubble(icon, size = 42.dp)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 10.dp)
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text(
+                body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (enabled) {
+            Icon(
+                Icons.Rounded.CheckCircle,
+                contentDescription = "Enabled",
+                tint = pesaToneContent("green")
+            )
+        } else {
+            TextButton(onClick = onAction) {
+                Text(actionLabel)
+            }
+        }
     }
 }
 
@@ -204,9 +284,9 @@ internal fun SmartLiveCapturePage(
     ) {
     SmartSetupHero(
         icon = Icons.Rounded.Notifications,
-        title = "Keep PesaTrack updated automatically",
+        title = "Keep your money picture current",
         body =
-            "Notification access lets PesaTrack understand new financial confirmations as they arrive."
+            "Notification access lets PesaTrack understand new financial confirmations as they arrive, without reading them again manually."
     )
 
     PesaCard {

@@ -26,16 +26,16 @@ class SalaryEntryPointUiTest {
     @Test fun homeOffersSalaryEntryBeforeFirstPayCycle() {
         var opened = false
         compose.setContent { PesaTrackTheme { HomeScreen(PaddingValues(), onSalaryClick = { opened = true }) } }
-        compose.waitUntil(10000) { compose.onAllNodesWithText("Set up / add salary").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Set up / add salary").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Add salary").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Add salary").performClick()
         assertTrue(opened)
     }
     @Test fun payCycleViewHasExplicitEmptyStateAndCalendarSwitch() {
         compose.setContent { PesaTrackTheme { ActivityScreen(PaddingValues()) } }
         compose.onNodeWithText("Pay cycle").performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithText("Set up / add salary").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Pay-cycle spending").assertIsDisplayed()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Add salary").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("This pay cycle").assertIsDisplayed()
         compose.onNodeWithText("Calendar month").performClick()
-        compose.onNodeWithText("Pay-cycle spending").assertDoesNotExist()
+        compose.onNodeWithText("This pay cycle").assertDoesNotExist()
     }
 }

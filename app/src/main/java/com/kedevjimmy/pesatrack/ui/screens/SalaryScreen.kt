@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.*
@@ -95,7 +96,11 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
     LaunchedEffect(Unit) {
         try {
             val data = withContext(Dispatchers.IO) {
-                RuleStore.get(context).listRules(true).firstOrNull { it.startsPayCycle } to AccountStore.get(context).listAccounts()
+                val active = RuleStore.get(context).listRules(true).firstOrNull { it.startsPayCycle }
+                val owned = FinancialUnderstandingStore.get(context).confirmedAccountIds() + listOfNotNull(active?.accountId)
+                active to AccountStore.get(context).listAccounts().filter {
+                    com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy.isConfirmedOwned(it, owned, includeCash = true)
+                }
             }
             rule = data.first; accounts = data.second
             rule?.let {
@@ -140,10 +145,30 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
-                Column {
-                    Text("Salary & payday", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("Your pay, kept up to date.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (tab == "Overview") "Salary" else "Add salary",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        when (tab) {
+                            "Source" -> "1 of 2 • Salary source"
+                            "Add salary" -> "2 of 2 • Salary receipt"
+                            else -> "Your pay, kept up to date"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
+            }
+            if (tab == "Source" || tab == "Add salary") {
+                LinearProgressIndicator(
+                    progress = { if (tab == "Source") .5f else 1f },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(6.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             }
         }
         item {
@@ -164,21 +189,65 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
         if (ready && tab == "Overview") {
             val latest = receipts.firstOrNull()
             item {
-                SalarySection(if (latest == null) "No salary recorded yet" else "Latest salary", highlighted = true) {
+                SalarySection(if (latest == null) "No salary recorded yet" else "Salary recorded", highlighted = true) {
                     if (latest != null) {
-                        Text(salaryMoney(latest.amountMinor), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                        Text(salaryDisplayDate(latest.receivedAtEpochMs), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(72.dp),
+                                shape = androidx.compose.foundation.shape.CircleShape,
+                                color = MaterialTheme.colorScheme.primary
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Rounded.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(44.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                salaryMoney(latest.amountMinor),
+                                modifier = Modifier.padding(top = 10.dp),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            rule?.let { active ->
+                                Text(
+                                    (active.displayLabel ?: active.name) + " • " +
+                                        (accounts.firstOrNull { it.id == active.accountId }?.name ?: "Receiving account"),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                            Text(
+                                salaryDisplayDate(latest.receivedAtEpochMs),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        Text(
+                            "Add the salary you actually received. PesaTrack never creates income from an expected payday.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     rule?.let { active ->
-                        Text((active.displayLabel ?: active.name) + " · " + (accounts.firstOrNull { it.id == active.accountId }?.name ?: "Receiving account"), style = MaterialTheme.typography.bodyMedium)
-                        Text("Payday ${active.payWindowStartDay ?: 24}–${active.payWindowEndDay ?: 28}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "Pay cycle • expected days ${active.payWindowStartDay ?: 24}–${active.payWindowEndDay ?: 28}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { tab = if (rule == null) "Source" else "Add salary" }, modifier = Modifier.weight(1f), enabled = !busy) {
                             Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
                             Text(if (rule == null) "Set up salary" else "Add salary")
                         }
-                        OutlinedButton(onClick = { tab = "Source" }, enabled = !busy) { Icon(Icons.Rounded.Edit, "Edit salary source", Modifier.size(18.dp)) }
+                        OutlinedButton(onClick = { tab = "Source" }, enabled = !busy) {
+                            Icon(Icons.Rounded.Edit, "Edit salary source", Modifier.size(18.dp))
+                        }
                     }
                 }
             }
@@ -206,8 +275,8 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
         }
         if (ready && tab == "Source") {
             item {
-                SalarySection("Salary source") {
-                    OutlinedTextField(payer, { payer = it }, label = { Text("Employer / salary source") },
+                SalarySection("Where does your salary come from?") {
+                    OutlinedTextField(payer, { payer = it }, label = { Text("Employer") },
                         supportingText = { Text("Use the name shown in your payment message.") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth(), enabled = !busy)
                     Text("Receiving account", style = MaterialTheme.typography.labelLarge)
@@ -269,7 +338,7 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
                             savedRule
                         }
                         rule = saved; loadReceipts(saved); SalaryReminders.checkSoon(context)
-                        tab = "Overview"; editPayday = false; message = "Salary source saved for future matching messages."
+                        tab = "Add salary"; editPayday = false; message = "Salary source saved. Record the salary you actually received."
                     }
                 }) { Text("Save salary source") }
             }
@@ -277,7 +346,7 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
         if (ready && tab == "Add salary") {
             val active = rule
             item {
-                SalarySection("Record received salary") {
+                SalarySection("What did you receive?") {
                     if (active == null) {
                         Text("Set your salary source once to get started.")
                         Button(onClick = { tab = "Source" }) { Text("Set up salary source") }

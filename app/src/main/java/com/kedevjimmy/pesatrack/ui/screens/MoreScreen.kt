@@ -13,7 +13,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +38,10 @@ fun MoreScreen(
     onProfileClick: () -> Unit,
     onImportClick: () -> Unit,
     onDataHealthClick: () -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onReportsClick: (() -> Unit)? = null,
+    onBillsClick: (() -> Unit)? = null,
+    onGoalsClick: (() -> Unit)? = null
 ) {
     LazyColumn(
         modifier = Modifier
@@ -60,6 +66,44 @@ fun MoreScreen(
                     "Data, diagnostics and app controls.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (onReportsClick != null || onBillsClick != null || onGoalsClick != null) {
+            item {
+                SectionHeader("Money tools")
+            }
+        }
+        if (onReportsClick != null) {
+            item {
+                MoreRow(
+                    icon = Icons.Rounded.Insights,
+                    title = "Reports & insights",
+                    subtitle = "Week, month and year views from trusted activity",
+                    tone = "green",
+                    onClick = onReportsClick
+                )
+            }
+        }
+        if (onGoalsClick != null) {
+            item {
+                MoreRow(
+                    icon = Icons.Rounded.Savings,
+                    title = "Saving goals",
+                    subtitle = "Targets backed by your real savings plan",
+                    tone = "blue",
+                    onClick = onGoalsClick
+                )
+            }
+        }
+        if (onBillsClick != null) {
+            item {
+                MoreRow(
+                    icon = Icons.Rounded.NotificationsActive,
+                    title = "Bills & reminders",
+                    subtitle = "Protected commitments and payment status",
+                    tone = "amber",
+                    onClick = onBillsClick
                 )
             }
         }

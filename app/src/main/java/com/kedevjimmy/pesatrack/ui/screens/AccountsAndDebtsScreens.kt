@@ -48,6 +48,7 @@ import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
+import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.premiumCategoryColor
@@ -78,7 +79,8 @@ private data class AccountBalancePresentation(
 fun AccountsScreen(
     scaffoldPadding: PaddingValues,
     onBack: (() -> Unit)? = null,
-    onDebtsClick: (() -> Unit)? = null
+    onDebtsClick: (() -> Unit)? = null,
+    onAccountClick: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val accountStore =
@@ -196,61 +198,32 @@ fun AccountsScreen(
     ) {
         item {
             DetailPageHeader(
-                title = "Accounts",
+                title = "Your accounts",
                 subtitle =
-                    "Wallets, banks, savings and debt PesaTrack can support with evidence.",
+                    "Matched from your messages and confirmed account evidence.",
                 onBack = onBack
             )
         }
 
         item {
-            PesaCard {
-                Column(
-                    modifier =
-                        Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        "Known balances",
-                        style =
-                            MaterialTheme.typography
-                                .labelLarge,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                    Text(
-                        if (
-                            presentations.any {
-                                it.balanceMinor != null
-                            }
-                        ) {
-                            formatDetailMoney(
-                                knownTotalMinor
-                            )
-                        } else {
-                            "Waiting for balance observations"
-                        },
-                        modifier =
-                            Modifier.padding(top = 4.dp),
-                        style =
-                            MaterialTheme.typography
-                                .headlineMedium,
-                        fontWeight =
-                            FontWeight.Bold
-                    )
-                    Text(
-                        "Balances are based on the latest account observations PesaTrack has actually seen. Missing balances are not guessed.",
-                        modifier =
-                            Modifier.padding(top = 5.dp),
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                }
-            }
+            ConceptEmeraldHero(
+                title = "Spending accounts",
+                amount =
+                    if (presentations.any { it.balanceMinor != null }) {
+                        formatDetailMoney(knownTotalMinor)
+                    } else {
+                        "Waiting for balances"
+                    },
+                subtitle =
+                    if (presentations.isEmpty()) {
+                        "Accounts appear here after PesaTrack can match them with evidence."
+                    } else {
+                        "Total from " + presentations.size + " confirmed account" +
+                            if (presentations.size == 1) "" else "s"
+                    },
+                artwork = true,
+                footer = "Missing balances are never guessed."
+            )
         }
 
         if (onDebtsClick != null) {
@@ -396,7 +369,17 @@ fun AccountsScreen(
                 AccountBalanceCard(
                     presentation =
                         presentations[index],
-                    tone = index
+                    tone = index,
+                    onClick =
+                        onAccountClick?.let { callback ->
+                            {
+                                presentations[index]
+                                    .group.accounts
+                                    .firstOrNull()
+                                    ?.id
+                                    ?.let(callback)
+                            }
+                        }
                 )
             }
         }
@@ -665,14 +648,26 @@ private fun DetailPageHeader(
 private fun AccountBalanceCard(
     presentation:
         AccountBalancePresentation,
-    tone: Int
+    tone: Int,
+    onClick: (() -> Unit)? = null
 ) {
     val group =
         presentation.group
     val accent =
         premiumCategoryColor(tone)
 
-    PesaCard {
+    PesaCard(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .then(
+                    if (onClick != null) {
+                        Modifier.clickable(onClick = onClick)
+                    } else {
+                        Modifier
+                    }
+                )
+    ) {
         Row(
             modifier =
                 Modifier.padding(15.dp),

@@ -10,8 +10,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kedevjimmy.pesatrack.ui.components.AppScaffold
 import com.kedevjimmy.pesatrack.ui.components.MainTab
+import com.kedevjimmy.pesatrack.ui.screens.AccountDetailsScreen
 import com.kedevjimmy.pesatrack.ui.screens.AccountsScreen
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
+import com.kedevjimmy.pesatrack.ui.screens.BillsRemindersScreen
 import com.kedevjimmy.pesatrack.ui.screens.BudgetScreen
 import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
 import com.kedevjimmy.pesatrack.ui.screens.DataHealthScreen
@@ -25,6 +27,8 @@ import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
 import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
 import com.kedevjimmy.pesatrack.ui.screens.ProfileScreen
+import com.kedevjimmy.pesatrack.ui.screens.ReportsInsightsScreen
+import com.kedevjimmy.pesatrack.ui.screens.SavingGoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.SettingsScreen
 import com.kedevjimmy.pesatrack.ui.screens.SmartOnboardingSetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.TransactionDetailScreen
@@ -36,12 +40,17 @@ fun PesaTrackApp(
     onThemeModeChange: (ThemeMode) -> Unit,
     setupComplete: Boolean,
     onSetupComplete: () -> Unit,
-    salaryOpenRequest: Int = 0
+    salaryOpenRequest: Int = 0,
+    billsOpenRequest: Int = 0
 ) {
     val navController = rememberNavController()
 
     LaunchedEffect(salaryOpenRequest, setupComplete) {
         if (salaryOpenRequest > 0 && setupComplete) navController.navigate("salary") { launchSingleTop = true }
+    }
+
+    LaunchedEffect(billsOpenRequest, setupComplete) {
+        if (billsOpenRequest > 0 && setupComplete) navController.navigate("bills") { launchSingleTop = true }
     }
 
     fun navigateToTab(tab: MainTab) {
@@ -129,6 +138,15 @@ fun PesaTrackApp(
                         navController.navigate(
                             "debts"
                         )
+                    },
+                    onBillsClick = {
+                        navController.navigate("bills")
+                    },
+                    onGoalsClick = {
+                        navController.navigate("saving-goals")
+                    },
+                    onReportsClick = {
+                        navController.navigate("reports")
                     }
                 )
             }
@@ -150,6 +168,11 @@ fun PesaTrackApp(
                     onDebtsClick = {
                         navController.navigate(
                             "debts"
+                        )
+                    },
+                    onAccountClick = { accountId ->
+                        navController.navigate(
+                            "account-detail/$accountId"
                         )
                     }
                 )
@@ -250,7 +273,7 @@ fun PesaTrackApp(
 
         composable("goals") {
             LaunchedEffect(Unit) {
-                navController.navigate(MainTab.PLAN.route) {
+                navController.navigate("saving-goals") {
                     popUpTo("goals") { inclusive = true }
                     launchSingleTop = true
                 }
@@ -277,6 +300,11 @@ fun PesaTrackApp(
                         navController.navigate(
                             "budgets"
                         )
+                    },
+                    onGoalsClick = {
+                        navController.navigate(
+                            "saving-goals"
+                        )
                     }
                 )
             }
@@ -302,6 +330,78 @@ fun PesaTrackApp(
                     },
                     onSettingsClick = {
                         navController.navigate("settings")
+                    },
+                    onReportsClick = {
+                        navController.navigate("reports")
+                    },
+                    onBillsClick = {
+                        navController.navigate("bills")
+                    },
+                    onGoalsClick = {
+                        navController.navigate("saving-goals")
+                    }
+                )
+            }
+        }
+
+        composable("reports") {
+            AppScaffold(
+                currentTab = MainTab.MORE,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                ReportsInsightsScreen(
+                    scaffoldPadding = padding,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable("bills") {
+            AppScaffold(
+                currentTab = MainTab.MORE,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                BillsRemindersScreen(
+                    scaffoldPadding = padding,
+                    onBack = { navController.popBackStack() },
+                    onPlanClick = { navController.navigate("smart-rules") }
+                )
+            }
+        }
+
+        composable("saving-goals") {
+            AppScaffold(
+                currentTab = MainTab.PLAN,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                SavingGoalsScreen(
+                    scaffoldPadding = padding,
+                    onBack = { navController.popBackStack() },
+                    onPlanClick = { navController.navigate("smart-rules") }
+                )
+            }
+        }
+
+        composable(
+            route = "account-detail/{accountId}",
+            arguments = listOf(
+                navArgument("accountId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val accountId =
+                backStackEntry.arguments
+                    ?.getString("accountId")
+                    ?: return@composable
+            AppScaffold(
+                currentTab = MainTab.ACCOUNTS,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                AccountDetailsScreen(
+                    scaffoldPadding = padding,
+                    accountId = accountId,
+                    onBack = { navController.popBackStack() },
+                    onTransactionClick = { id ->
+                        navController.navigate("transaction-detail/$id")
                     }
                 )
             }
@@ -335,7 +435,9 @@ fun PesaTrackApp(
                 ProfileScreen(
                     scaffoldPadding = padding,
                     onBack = { navController.popBackStack() },
-                    onSettingsClick = { navController.navigate("settings") }
+                    onSettingsClick = { navController.navigate("settings") },
+                    onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },
+                    onDataHealthClick = { navController.navigate("data-health") }
                 )
             }
         }

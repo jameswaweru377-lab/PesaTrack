@@ -12,8 +12,10 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.SouthWest
 import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -24,6 +26,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.*
+import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
+import com.kedevjimmy.pesatrack.ui.components.ConceptMetricTile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,6 +46,10 @@ internal fun SpendingPeriodSelector(payCycle: Boolean, onCalendar: () -> Unit, o
 internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: () -> Unit,
     onSalaryClick: () -> Unit, onTransactionClick: (Long) -> Unit) {
     val context = LocalContext.current
+    var accountTypes by remember { mutableStateOf<Map<String, com.kedevjimmy.pesatrack.domain.model.AccountType>>(emptyMap()) }
+    LaunchedEffect(Unit) {
+        accountTypes = withContext(Dispatchers.IO) { AccountStore.get(context).listAccounts(false).associate { it.id to it.type } }
+    }
     val revision by LedgerUpdateBus.state.collectAsState()
     var cycles by remember { mutableStateOf(emptyList<PayCycle>()) }
     var selectedStartId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -81,8 +89,8 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Pay-cycle spending", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("Since your salary arrived", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("This pay cycle", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("From one salary receipt to the next", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(onClick = { showHelp = true }) { Icon(Icons.Rounded.Info, "How pay cycles work") }
             }
@@ -92,7 +100,7 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
         if (!loading && error == null && selected == null) item {
             SalarySection("Start your first pay cycle") {
                 Text("Add a salary you've received. Future matching messages can start the next cycle automatically.")
-                Button(onClick = onSalaryClick) { Text("Set up / add salary") }
+                Button(onClick = onSalaryClick) { Text("Add salary") }
             }
         }
         if (selected != null && !loading && error == null) {
@@ -114,21 +122,80 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
             }
             snapshot?.let { ledger ->
                 item {
-                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Money spent", style = MaterialTheme.typography.labelLarge)
-                            Text(salaryMoney(ledger.summary.spentMinor), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                            Text("Fees separately: " + salaryMoney(ledger.summary.feesMinor), style = MaterialTheme.typography.bodySmall)
-                            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .15f))
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                CycleMetric("Money in", ledger.summary.incomeMinor, Modifier.weight(1f))
-                                CycleMetric("Transfers", ledger.summary.transferMinor, Modifier.weight(1f))
+                    val transfers = ledger.trustedTransactions.filter {
+                        it.direction == "TRANSFER" && it.relationType != TransactionStore.RELATION_REFUND
+                    }
+                    val savedMinor = transfers.sumOf { ConceptLedgerPolicy.savingsDelta(it, accountTypes) }
+                    val investedMinor = transfers.filter { it.category == "INVESTMENT" }.sumOf { it.amountMinor }
+                    val debtMinor = transfers.filter { it.category == "DEBT_LOAN" }.sumOf { it.amountMinor }
+                    val surplus = ledger.summary.netMinor - savedMinor - investedMinor - debtMinor
+
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ConceptEmeraldHero(
+                            title = "Cycle surplus",
+                            amount = salaryMoney(surplus),
+                            subtitle = "After spending, fees, savings, investments and debt repayments",
+                            artwork = false,
+                            eyebrow = if (selected.endEpochMs == null) "Current pay cycle" else "Completed pay cycle",
+                            footer = if (ledger.summary.needsReviewCount > 0) {
+                                "${ledger.summary.needsReviewCount} pending reviews are excluded from totals"
+                            } else {
+                                "Transfers between your own accounts stay separate"
                             }
-                            previous?.let { prior ->
-                                Text("Previous cycle: " + salaryMoney(prior.summary.spentMinor) + if (selected.endEpochMs == null) " · This cycle is ongoing" else "", style = MaterialTheme.typography.labelSmall)
-                            }
-                            if (ledger.summary.needsReviewCount > 0) Text("${ledger.summary.needsReviewCount} pending reviews • excluded from totals", style = MaterialTheme.typography.labelSmall)
+                        )
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            ConceptMetricTile(
+                                Icons.Rounded.SouthWest,
+                                "Money in",
+                                salaryMoney(ledger.summary.incomeMinor),
+                                Modifier.weight(1f),
+                                true
+                            )
+                            ConceptMetricTile(
+                                Icons.Rounded.NorthEast,
+                                "Spent",
+                                salaryMoney(ledger.summary.spentMinor),
+                                Modifier.weight(1f),
+                                false
+                            )
+                        }
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            ConceptMetricTile(
+                                Icons.Rounded.Savings,
+                                "Saved",
+                                salaryMoney(savedMinor),
+                                Modifier.weight(1f),
+                                true
+                            )
+                            ConceptMetricTile(
+                                Icons.Rounded.TrendingUp,
+                                "Invested",
+                                salaryMoney(investedMinor),
+                                Modifier.weight(1f),
+                                true
+                            )
+                        }
+                        Text(
+                            "Fees " + salaryMoney(ledger.summary.feesMinor) +
+                                " • Transfers " + salaryMoney(ledger.summary.transferMinor),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text("Earlier carryover: " + salaryMoney(selected.carryoverMinor), style = MaterialTheme.typography.labelSmall)
+                        Text("With recorded carryover: " + salaryMoney(selected.carryoverMinor + surplus), style = MaterialTheme.typography.labelSmall)
+                        Text("A planning figure, not an account balance.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        previous?.let { prior ->
+                            Text(
+                                "Previous cycle spent " + salaryMoney(prior.summary.spentMinor),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }

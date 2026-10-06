@@ -35,8 +35,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.automirrored.rounded.Message
@@ -194,7 +197,7 @@ fun SmartOnboardingSetupScreen(
         }
 
     var stage by rememberSaveable {
-        mutableStateOf(SmartSetupStage.IMPORT)
+        mutableStateOf(SmartSetupStage.SMS_PERMISSION)
     }
     var importMonths by rememberSaveable {
         mutableStateOf(3)
@@ -322,9 +325,6 @@ fun SmartOnboardingSetupScreen(
         ) { granted ->
             smsGranted = granted
             smsDenied = !granted
-            if (granted) {
-                stage = SmartSetupStage.ANALYZE
-            }
         }
 
     val appInfoLauncher =
@@ -334,12 +334,10 @@ fun SmartOnboardingSetupScreen(
         ) {
             smsGranted =
                 smartHasSmsPermission(context)
-            if (smsGranted) {
-                stage =
-                    SmartSetupStage.ANALYZE
-            } else if (
+            if (
+                !smsGranted &&
                 stage ==
-                SmartSetupStage.SMS_PERMISSION
+                    SmartSetupStage.SMS_PERMISSION
             ) {
                 smsPromptLaunched = false
             }
@@ -352,9 +350,17 @@ fun SmartOnboardingSetupScreen(
         ) {
             notificationGranted =
                 smartHasNotificationAccess(context)
-            if (notificationGranted) {
-                stage = SmartSetupStage.COMPLETE
-            } else {
+            if (
+                stage ==
+                    SmartSetupStage.LIVE_CAPTURE
+            ) {
+                if (notificationGranted) {
+                    stage =
+                        SmartSetupStage.COMPLETE
+                } else {
+                    notificationSettingsVisited = true
+                }
+            } else if (!notificationGranted) {
                 notificationSettingsVisited = true
             }
         }
@@ -401,8 +407,8 @@ fun SmartOnboardingSetupScreen(
             SmartSetupStage.SMS_PERMISSION
         ) {
             if (smsGranted) {
-                stage =
-                    SmartSetupStage.ANALYZE
+                // Stay on the Connect Messages concept
+                // until the user chooses Continue.
             } else if (
                 smartIsLikelySideloaded(
                     context
@@ -1418,6 +1424,9 @@ fun SmartOnboardingSetupScreen(
         }
     }
 
+    fun nextAfterIdentitySetup(): SmartSetupStage =
+        SmartSetupStage.COMPLETE
+
     val onboardingBusy =
         reviewSaving ||
             mpesaConfirmationBusy ||
@@ -1434,7 +1443,7 @@ fun SmartOnboardingSetupScreen(
     BackHandler(
         enabled =
             stage !=
-                SmartSetupStage.IMPORT
+                SmartSetupStage.SMS_PERMISSION
     ) {
         if (onboardingBusy) {
             return@BackHandler
@@ -1444,7 +1453,7 @@ fun SmartOnboardingSetupScreen(
             when (stage) {
                 SmartSetupStage
                     .SMS_PERMISSION ->
-                    SmartSetupStage.IMPORT
+                    SmartSetupStage.SMS_PERMISSION
 
                 SmartSetupStage
                     .ANALYZE -> {
@@ -1482,11 +1491,18 @@ fun SmartOnboardingSetupScreen(
 
                 SmartSetupStage
                     .COMPLETE ->
-                    SmartSetupStage
-                        .LIVE_CAPTURE
+                    if (
+                        mpesaPhoneSuggestion !=
+                        null
+                    ) {
+                        SmartSetupStage
+                            .MPESA_CONFIRM
+                    } else {
+                        SmartSetupStage.REVIEW
+                    }
 
                 SmartSetupStage.IMPORT ->
-                    SmartSetupStage.IMPORT
+                    SmartSetupStage.SMS_PERMISSION
             }
     }
 
@@ -1552,15 +1568,19 @@ fun SmartOnboardingSetupScreen(
             SmartSetupStage.SMS_PERMISSION -> {
                 item {
                     SmartSmsPermissionPage(
+                        smsGranted = smsGranted,
                         denied = smsDenied,
                         restrictedHelp =
-                            smartIsLikelySideloaded(
-                                context
-                            ) &&
+                            !smsGranted &&
+                                smartIsLikelySideloaded(
+                                    context
+                                ) &&
                                 (
                                     !smsAppInfoVisited ||
                                         smsDenied
                                     ),
+                        notificationEnabled =
+                            notificationGranted,
                         onOpenAppInfo = {
                             smsAppInfoVisited =
                                 true
@@ -1585,11 +1605,44 @@ fun SmartOnboardingSetupScreen(
                                         .READ_SMS
                                 )
                         },
+                        onEnableNotifications = {
+                            if (notificationGranted) {
+                                Unit
+                            } else if (
+                                smartIsLikelySideloaded(
+                                    context
+                                ) &&
+                                !smsAppInfoVisited
+                            ) {
+                                smsAppInfoVisited = true
+                                appInfoLauncher.launch(
+                                    Intent(
+                                        Settings
+                                            .ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        Uri.parse(
+                                            "package:" +
+                                                context.packageName
+                                        )
+                                    )
+                                )
+                            } else {
+                                notificationSettingsVisited =
+                                    true
+                                settingsLauncher.launch(
+                                    smartNotificationAccessIntent(
+                                        context
+                                    )
+                                )
+                            }
+                        },
+                        onContinue = {
+                            stage =
+                                SmartSetupStage.IMPORT
+                        },
                         onContinueWithout = {
                             importMonths = 0
                             stage =
-                                SmartSetupStage
-                                    .ANALYZE
+                                SmartSetupStage.IMPORT
                         }
                     )
                 }
@@ -1676,8 +1729,7 @@ fun SmartOnboardingSetupScreen(
                                         SmartSetupStage
                                             .MPESA_CONFIRM
                                     } else {
-                                        SmartSetupStage
-                                            .LIVE_CAPTURE
+                                        nextAfterIdentitySetup()
                                     }
                             }
                         }
@@ -1825,8 +1877,7 @@ fun SmartOnboardingSetupScreen(
                                                     SmartSetupStage
                                                         .MPESA_CONFIRM
                                                 } else {
-                                                    SmartSetupStage
-                                                        .LIVE_CAPTURE
+                                                    nextAfterIdentitySetup()
                                                 }
                                         }
                                     } catch (
@@ -1850,8 +1901,7 @@ fun SmartOnboardingSetupScreen(
                                     SmartSetupStage
                                         .MPESA_CONFIRM
                                 } else {
-                                    SmartSetupStage
-                                        .LIVE_CAPTURE
+                                    nextAfterIdentitySetup()
                                 }
                         }
                     )
@@ -1893,8 +1943,7 @@ fun SmartOnboardingSetupScreen(
                                         ) {
                                             applySalaryIfConfirmed()
                                             stage =
-                                                SmartSetupStage
-                                                    .LIVE_CAPTURE
+                                                nextAfterIdentitySetup()
                                         }
                                     } finally {
                                         mpesaConfirmationBusy =
@@ -1921,8 +1970,7 @@ fun SmartOnboardingSetupScreen(
                                         ) {
                                             applySalaryIfConfirmed()
                                             stage =
-                                                SmartSetupStage
-                                                    .LIVE_CAPTURE
+                                                nextAfterIdentitySetup()
                                         }
                                     } finally {
                                         mpesaConfirmationBusy =
@@ -1935,8 +1983,7 @@ fun SmartOnboardingSetupScreen(
                             setupScope.launch {
                                     applySalaryIfConfirmed()
                                     stage =
-                                        SmartSetupStage
-                                            .LIVE_CAPTURE
+                                        nextAfterIdentitySetup()
                                 }
                         }
                     )
@@ -2051,13 +2098,15 @@ private fun StageProgress(
     stage: SmartSetupStage
 ) {
     val visibleIndex = when (stage) {
-        SmartSetupStage.IMPORT, SmartSetupStage.SMS_PERMISSION -> 0
-        SmartSetupStage.ANALYZE, SmartSetupStage.REVIEW,
-        SmartSetupStage.SALARY_MANUAL, SmartSetupStage.MPESA_CONFIRM -> 1
+        SmartSetupStage.SMS_PERMISSION -> 0
+        SmartSetupStage.IMPORT, SmartSetupStage.ANALYZE,
+        SmartSetupStage.REVIEW, SmartSetupStage.SALARY_MANUAL,
+        SmartSetupStage.MPESA_CONFIRM -> 1
         SmartSetupStage.LIVE_CAPTURE, SmartSetupStage.COMPLETE -> 2
     }
     Text(
-        text = "${visibleIndex + 1} of 3 • " + listOf("Choose history", "Discover your money", "Stay updated")[visibleIndex],
+        text = "${visibleIndex + 1} of 3 • " +
+            listOf("Connect messages", "Import history", "Ready")[visibleIndex],
         modifier = Modifier.fillMaxWidth(),
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2112,83 +2161,120 @@ private fun ImportChoicePage(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement =
-            Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         SmartSetupHero(
             icon = Icons.Rounded.History,
-            title = "Let's find your money messages",
-            body =
-                "Choose how much recent history PesaTrack should use to understand your accounts and patterns."
+            title = "Start with your recent money",
+            body = "We'll identify transactions and match the accounts already visible in your messages."
         )
 
-        listOf(
-            Triple(
-                3,
-                "Last 3 months",
-                "Recommended for the clearest picture"
-            ),
-            Triple(
-                2,
-                "Last 2 months",
-                "A balanced amount of recent history"
-            ),
-            Triple(
-                1,
-                "Last 1 month",
-                "A quick way to get started"
-            ),
-            Triple(
-                0,
-                "Not now",
-                "Start without reading old SMS"
-            )
-        ).forEach { option ->
-            SmartSelectableSetupCard(
-                selected =
-                    selectedMonths ==
-                        option.first,
-                title = option.second,
-                body = option.third,
-                icon =
-                    if (option.first == 0) {
-                        Icons.Rounded.Lock
-                    } else {
-                        Icons.Rounded.History
-                    },
-                onClick = {
-                    onSelected(option.first)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(1, 2, 3).forEach { months ->
+                val selected = selectedMonths == months
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 92.dp)
+                        .clickable { onSelected(months) },
+                    shape = RoundedCornerShape(18.dp),
+                    color =
+                        if (selected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surface,
+                    border =
+                        androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant
+                        )
+                ) {
+                    Column(
+                        Modifier.padding(horizontal = 8.dp, vertical = 14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            months.toString(),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color =
+                                if (selected) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            if (months == 1) "month" else "months",
+                            style = MaterialTheme.typography.bodySmall,
+                            color =
+                                if (selected) MaterialTheme.colorScheme.onPrimary.copy(alpha = .82f)
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (selected) {
+                            Icon(
+                                Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                modifier = Modifier.padding(top = 5.dp).size(18.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
                 }
-            )
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Row(
+                Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Rounded.CalendarMonth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    if (selectedMonths > 0) {
+                        "We'll scan messages from the last $selectedMonths " +
+                            if (selectedMonths == 1) "month." else "months."
+                    } else {
+                        "History import is off. You can start fresh."
+                    },
+                    modifier = Modifier.padding(start = 10.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+
+        OutlinedButton(
+            onClick = { onSelected(0) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Text(if (selectedMonths == 0) "Starting fresh" else "Not now — start fresh")
         }
 
         Button(
             onClick = onContinue,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp),
-            shape =
-                RoundedCornerShape(18.dp)
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            shape = RoundedCornerShape(18.dp)
         ) {
-            Text("Continue")
+            Text(if (selectedMonths == 0) "Continue" else "Scan my messages")
             Icon(
                 Icons.AutoMirrored.Rounded.ArrowForward,
                 contentDescription = null,
-                modifier =
-                    Modifier.padding(
-                        start = 8.dp
-                    )
+                modifier = Modifier.padding(start = 8.dp)
             )
         }
 
         Text(
-            "You can import or re-import history later from Settings.",
-            style =
-                MaterialTheme.typography
-                    .bodySmall,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
+            "You can change the history window later. Raw message text is not kept as your ledger.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -3279,128 +3365,104 @@ private fun SetupCompletePage(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 18.dp),
-        horizontalAlignment =
-            Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Surface(
-            modifier = Modifier.size(92.dp),
+            modifier = Modifier.size(104.dp),
             shape = CircleShape,
-            color =
-                pesaToneContainer("green")
+            color = pesaToneContainer("green")
         ) {
-            Box(
-                contentAlignment =
-                    Alignment.Center
-            ) {
+            Box(contentAlignment = Alignment.Center) {
                 Icon(
                     Icons.Rounded.CheckCircle,
                     contentDescription = null,
-                    tint =
-                        pesaToneContent(
-                            "green"
-                        ),
-                    modifier =
-                        Modifier.size(54.dp)
+                    tint = pesaToneContent("green"),
+                    modifier = Modifier.size(62.dp)
                 )
             }
         }
+
         Text(
-            "All set!",
-            modifier =
-                Modifier.padding(top = 18.dp),
-            style =
-                MaterialTheme.typography
-                    .headlineLarge,
-            color =
-                MaterialTheme.colorScheme
-                    .onBackground,
-            fontWeight = FontWeight.Bold
+            "Your money picture\nis ready",
+            modifier = Modifier.padding(top = 18.dp),
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
         )
         Text(
-            "PesaTrack is ready to turn your financial messages into one clear money picture.",
-            modifier =
-                Modifier.padding(
-                    top = 7.dp,
-                    bottom = 18.dp
-                ),
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant,
+            "We've matched what PesaTrack can prove from your transaction messages.",
+            modifier = Modifier.padding(top = 7.dp, bottom = 16.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
 
-        PesaCard {
-            Column(
-                Modifier.padding(16.dp),
-                verticalArrangement =
-                    Arrangement.spacedBy(12.dp)
-            ) {
-                CompletionRow(
-                    if (sources.isEmpty()) {
-                        "Accounts will be learned as you use PesaTrack"
-                    } else {
-                        sources.size
-                            .toString() +
-                            " money source" +
-                            if (
-                                sources.size == 1
-                            ) {
-                                ""
-                            } else {
-                                "s"
-                            } +
-                            " detected"
+        if (sources.isNotEmpty()) {
+            PesaCard {
+                Column(
+                    Modifier.padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    sources.take(4).forEach { source ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconBubble(
+                                if (source.type.contains("BANK", true)) Icons.Rounded.AccountBalance
+                                else Icons.Rounded.AccountBalanceWallet,
+                                size = 40.dp
+                            )
+                            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                                Text(source.name, style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    source.messageCount.toString() + " matching message" +
+                                        if (source.messageCount == 1) "" else "s",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                Icons.Rounded.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
-                )
-                if (salaryAccepted) {
-                    CompletionRow(
-                        "Salary pattern confirmed"
-                    )
                 }
-                CompletionRow(
-                    if (
-                        notificationEnabled
-                    ) {
-                        "Live tracking enabled"
-                    } else {
-                        "Live tracking can be enabled later"
-                    }
-                )
+            }
+        } else {
+            PesaCard {
+                CompletionRow("Accounts will be learned as messages arrive")
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CompletionRow(if (salaryAccepted) "Salary source matched" else "Salary can be added later")
+                CompletionRow(if (notificationEnabled) "Live tracking enabled" else "Live tracking can be enabled later")
             }
         }
 
         Button(
             onClick = onHome,
             enabled = !navigating,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 20.dp)
-                .heightIn(min = 56.dp),
-            shape =
-                RoundedCornerShape(18.dp)
+            modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 56.dp),
+            shape = RoundedCornerShape(18.dp)
         ) {
             if (navigating) {
-                CircularProgressIndicator(
-                    modifier =
-                        Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
-                Text(
-                    "Opening Home…",
-                    modifier =
-                        Modifier.padding(
-                            start = 10.dp
-                        )
-                )
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                Text("Opening dashboard…", modifier = Modifier.padding(start = 10.dp))
             } else {
-                Text("Go to Home")
+                Text("Open my dashboard")
                 Icon(
                     Icons.AutoMirrored.Rounded.ArrowForward,
                     contentDescription = null,
-                    modifier =
-                        Modifier.padding(
-                            start = 8.dp
-                        )
+                    modifier = Modifier.padding(start = 8.dp)
                 )
             }
         }

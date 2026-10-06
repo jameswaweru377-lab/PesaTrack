@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack
 import android.os.Bundle
 import android.content.Intent
 import com.kedevjimmy.pesatrack.salary.SalaryReminders
+import com.kedevjimmy.pesatrack.planning.BillSchedules
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -18,15 +19,19 @@ import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 
 class MainActivity : ComponentActivity() {
     private var salaryOpenRequest by mutableStateOf(0)
+    private var billsOpenRequest by mutableStateOf(0)
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
+        if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
+        if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
         SalaryReminders.schedule(this)
+        BillSchedules.schedule(this)
         enableEdgeToEdge()
         AutomaticHistoryRepair.scheduleIfAllowed(this)
         setContent {
@@ -56,6 +61,7 @@ class MainActivity : ComponentActivity() {
             PesaTrackTheme(darkTheme = useDark) {
                 PesaTrackApp(
                     salaryOpenRequest = salaryOpenRequest,
+                    billsOpenRequest = billsOpenRequest,
                     themeMode = themeMode,
                     onThemeModeChange = { newMode ->
                         themeMode = newMode
@@ -71,6 +77,7 @@ class MainActivity : ComponentActivity() {
                             )
                             .apply()
                         SalaryReminders.schedule(this)
+        BillSchedules.schedule(this)
                         AutomaticHistoryRepair.scheduleIfAllowed(this)
                     }
                 )
@@ -78,5 +85,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
 
 
