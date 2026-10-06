@@ -144,9 +144,6 @@ fun TransactionDetailScreen(
     var showMerchantHistory by remember(transactionId) {
         mutableStateOf(false)
     }
-    var showMoreMenu by remember(transactionId) {
-        mutableStateOf(false)
-    }
     val receiptPicker =
         rememberLauncherForActivityResult(
             ActivityResultContracts.OpenDocument()
@@ -596,14 +593,12 @@ fun TransactionDetailScreen(
                 onRememberChanged = {
                         rememberChoice ->
                     if (
-                        learningBusy ||
-                        !canRemember
+                        !learningBusy &&
+                        canRemember
                     ) {
-                        return@ClassificationCard
-                    }
-                    learningBusy = true
-                    learningError = null
-                    scope.launch {
+                        learningBusy = true
+                        learningError = null
+                        scope.launch {
                         try {
                             if (rememberChoice) {
                                 val changed =
@@ -647,6 +642,7 @@ fun TransactionDetailScreen(
                             learningBusy =
                                 false
                         }
+                    }
                     }
                 },
                 onDisableRule = {
