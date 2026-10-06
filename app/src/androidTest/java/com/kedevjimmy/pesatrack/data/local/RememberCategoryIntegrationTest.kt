@@ -65,4 +65,17 @@ class RememberCategoryIntegrationTest {
         PersonalLearningStore.get(context).applyHighConfidenceTo(store.categoryLearningCandidates())
         assertEquals("OTHER", store.getById(untouched)!!.category)
     }
+    @Test fun failedHistoryWriteRollsBackPreferenceAndSourceCategory() {
+        val source = insert(0)
+        val other = insert(1)
+        db.execSQL("CREATE TRIGGER fail_learning BEFORE INSERT ON personal_learning_applications BEGIN SELECT RAISE(ABORT, 'test failure'); END")
+        try {
+            RememberCategoryRepository(context).remember(source, "GROCERIES")
+            fail("Expected the failed write to roll back")
+        } catch (_: IllegalStateException) { }
+        assertEquals("OTHER", store.getById(source)!!.category)
+        assertEquals("OTHER", store.getById(other)!!.category)
+        assertEquals(0, PersonalLearningStore.get(context).preferenceCount())
+    }
+
 }

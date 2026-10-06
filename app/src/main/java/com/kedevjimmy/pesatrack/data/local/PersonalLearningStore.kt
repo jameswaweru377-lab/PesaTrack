@@ -753,12 +753,12 @@ class PersonalLearningStore private constructor(
                 )
             }
 
-        db.insertWithOnConflict(
+        check(db.insertWithOnConflict(
             "personal_learning_applications",
             null,
             values,
             SQLiteDatabase.CONFLICT_REPLACE
-        )
+        ) != -1L) { "Could not save category provenance." }
     }
 
     private fun scalarCount(

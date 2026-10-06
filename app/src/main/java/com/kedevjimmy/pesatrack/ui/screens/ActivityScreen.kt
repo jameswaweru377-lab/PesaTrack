@@ -241,6 +241,13 @@ fun ActivityScreen(
             )
         )
     }
+    var showEvidenceLinks by remember { mutableStateOf(false) }
+    var optionalEvidenceLinks by remember { mutableStateOf<List<RelationshipReviewItem>>(emptyList()) }
+    LaunchedEffect(showEvidenceLinks, ledgerUpdateState.revision) {
+        optionalEvidenceLinks = if (showEvidenceLinks) withContext(Dispatchers.IO) {
+            relationshipReviewStore.pendingEvidenceLinks()
+        } else emptyList()
+    }
     var relationshipReviews by remember {
         mutableStateOf<List<RelationshipReviewItem>>(
             emptyList()
@@ -922,8 +929,15 @@ fun ActivityScreen(
                     }
                 }
 
+                item {
+                    TextButton(onClick = { showEvidenceLinks = !showEvidenceLinks }) {
+                        Text(if (showEvidenceLinks) "Hide optional repayment links" else "Show optional repayment links")
+                    }
+                    if (showEvidenceLinks) Text("These repayments are already recorded. Linking their supporting messages is optional.")
+                }
+                val displayedRelationshipReviews = relationshipReviews + optionalEvidenceLinks
                 if (
-                    relationshipReviews
+                    displayedRelationshipReviews
                         .isNotEmpty()
                 ) {
                     item {
@@ -936,16 +950,16 @@ fun ActivityScreen(
                     }
                     items(
                         count =
-                            relationshipReviews.size,
+                            displayedRelationshipReviews.size,
                         key = { index ->
                             "attention-link-" +
-                                relationshipReviews[
+                                displayedRelationshipReviews[
                                     index
                                 ].key
                         }
                     ) { index ->
                         val review =
-                            relationshipReviews[
+                            displayedRelationshipReviews[
                                 index
                             ]
                         RelationshipReviewRow(
@@ -3831,5 +3845,6 @@ private fun ActivityRow(
         }
     }
 }
+
 
 
