@@ -377,7 +377,26 @@ fun BillsRemindersScreen(
             loadError = "Couldn't load this page. Your saved data is unchanged."
         }
     }
-    val commitments = bills.map { CommitmentProgress(it.rule.id,it.rule.displayLabel ?: it.rule.name,it.rule.category.name,it.rule.plannedAmountMinor ?: 0, (it.rule.plannedAmountMinor ?: 0)-it.remainingMinor,it.remainingMinor) }
+    val commitments = bills.map { bill ->
+        val configuredAmount =
+            bill.rule.plannedAmountMinor
+                ?: 0L
+        val periodTarget =
+            bill.expectedMinor
+                .takeIf { it > 0L }
+                ?: configuredAmount
+        CommitmentProgress(
+            bill.rule.id,
+            bill.rule.displayLabel
+                ?: bill.rule.name,
+            bill.rule.category.name,
+            periodTarget,
+            (periodTarget -
+                bill.remainingMinor)
+                .coerceAtLeast(0L),
+            bill.remainingMinor
+        )
+    }
     val comingUp = bills.filter { it.dueThisMonth }.sumOf { it.remainingMinor }
 
     LazyColumn(
@@ -493,7 +512,6 @@ fun BillsRemindersScreen(
                         TextButton(onClick = { reminder = bill }, modifier = Modifier.padding(horizontal = 12.dp)) {
                             Text(if (bill.reminders) "Reminder on" else "Reminder settings")
                         }
-                    }
                     }
                     }
                 }
