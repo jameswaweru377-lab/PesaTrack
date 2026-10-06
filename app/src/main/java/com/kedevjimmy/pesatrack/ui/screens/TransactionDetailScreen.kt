@@ -2052,59 +2052,318 @@ private fun CategoryGrid(
 
 @Composable
 private fun CategoryGridRows(
-    categories: List<com.kedevjimmy.pesatrack.data.local.PesaCategory>,
+    categories:
+        List<
+            com.kedevjimmy
+                .pesatrack
+                .data
+                .local
+                .PesaCategory
+            >,
     columns: Int,
     currentCategoryId: String,
     onSelected: (String) -> Unit
 ) {
-    categories.chunked(columns).forEach { rowItems ->
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            rowItems.forEach { category ->
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onSelected(category.id) },
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (
-                        currentCategoryId == category.id
-                    ) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    }
-                ) {
-                    Text(
-                        category.label,
-                        modifier = Modifier.padding(
-                            horizontal = if (columns == 3) {
-                                10.dp
+    categories.chunked(columns)
+        .forEach {
+                rowItems ->
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        8.dp
+                    )
+            ) {
+                rowItems.forEach {
+                        category ->
+                    val selected =
+                        currentCategoryId ==
+                            category.id
+                    val visual =
+                        categoryVisual(
+                            category.id
+                        )
+
+                    Surface(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .clickable {
+                                    onSelected(
+                                        category.id
+                                    )
+                                },
+                        shape =
+                            RoundedCornerShape(
+                                18.dp
+                            ),
+                        color =
+                            if (selected) {
+                                Color(
+                                    0xFF0B6E55
+                                )
+                                    .copy(
+                                        alpha = .78f
+                                    )
                             } else {
-                                12.dp
+                                MaterialTheme
+                                    .colorScheme
+                                    .surfaceVariant
+                                    .copy(
+                                        alpha = .62f
+                                    )
                             },
-                            vertical = 12.dp
-                        ),
-                        style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1,
-                        color = if (
-                            currentCategoryId == category.id
+                        border =
+                            BorderStroke(
+                                if (selected) {
+                                    2.dp
+                                } else {
+                                    1.dp
+                                },
+                                if (selected) {
+                                    Color(
+                                        0xFF65F0B3
+                                    )
+                                } else {
+                                    MaterialTheme
+                                        .colorScheme
+                                        .outlineVariant
+                                        .copy(
+                                            alpha = .34f
+                                        )
+                                }
+                            )
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier.padding(
+                                    horizontal =
+                                        if (
+                                            columns ==
+                                            3
+                                        ) {
+                                            9.dp
+                                        } else {
+                                            12.dp
+                                        },
+                                    vertical = 11.dp
+                                ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
                         ) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
+                            Surface(
+                                shape =
+                                    RoundedCornerShape(
+                                        12.dp
+                                    ),
+                                color =
+                                    visual.color
+                                        .copy(
+                                            alpha = .17f
+                                        )
+                            ) {
+                                Icon(
+                                    visual.icon,
+                                    contentDescription =
+                                        null,
+                                    modifier =
+                                        Modifier.padding(
+                                            7.dp
+                                        ),
+                                    tint =
+                                        visual.color
+                                )
+                            }
+                            Text(
+                                category.label,
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .padding(
+                                            start = 8.dp
+                                        ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelLarge,
+                                fontWeight =
+                                    FontWeight.SemiBold,
+                                maxLines = 1,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurface
+                            )
+                            if (selected) {
+                                Icon(
+                                    Icons.Rounded
+                                        .CheckCircle,
+                                    contentDescription =
+                                        "Selected",
+                                    modifier =
+                                        Modifier.size(
+                                            18.dp
+                                        ),
+                                    tint =
+                                        Color(
+                                            0xFF77F3BA
+                                        )
+                                )
+                            }
                         }
+                    }
+                }
+
+                repeat(
+                    columns -
+                        rowItems.size
+                ) {
+                    Spacer(
+                        Modifier.weight(1f)
                     )
                 }
             }
 
-            repeat(columns - rowItems.size) {
-                Spacer(Modifier.weight(1f))
-            }
+            Spacer(
+                Modifier.height(8.dp)
+            )
         }
-    }
 }
+
+private data class CategoryVisual(
+    val icon: ImageVector,
+    val color: Color
+)
+
+private fun categoryVisual(
+    categoryId: String
+): CategoryVisual =
+    when (categoryId) {
+        TransactionCategory
+            .GROCERIES.name ->
+            CategoryVisual(
+                Icons.Rounded
+                    .ShoppingCart,
+                Color(0xFF68F0B4)
+            )
+
+        TransactionCategory
+            .EATING_OUT.name ->
+            CategoryVisual(
+                Icons.Rounded
+                    .Restaurant,
+                Color(0xFFFFB24D)
+            )
+
+        TransactionCategory
+            .TRANSPORT.name ->
+            CategoryVisual(
+                Icons.Rounded
+                    .DirectionsBus,
+                Color(0xFF75A8FF)
+            )
+
+        TransactionCategory
+            .RENT.name ->
+            CategoryVisual(
+                Icons.Rounded.Home,
+                Color(0xFFFF7B8C)
+            )
+
+        TransactionCategory
+            .ELECTRICITY.name ->
+            CategoryVisual(
+                Icons.Rounded.Bolt,
+                Color(0xFFFFD54A)
+            )
+
+        TransactionCategory
+            .WATER.name ->
+            CategoryVisual(
+                Icons.Rounded.WaterDrop,
+                Color(0xFF78D8FF)
+            )
+
+        TransactionCategory
+            .INTERNET.name,
+        TransactionCategory
+            .PHONE_AND_DATA.name ->
+            CategoryVisual(
+                Icons.Rounded.Wifi,
+                Color(0xFF9B8CFF)
+            )
+
+        TransactionCategory
+            .SHOPPING.name ->
+            CategoryVisual(
+                Icons.Rounded.ShoppingBag,
+                Color(0xFFFF81AE)
+            )
+
+        TransactionCategory
+            .HEALTH.name,
+        TransactionCategory
+            .PERSONAL_CARE.name,
+        TransactionCategory
+            .FAMILY.name ->
+            CategoryVisual(
+                Icons.Rounded.Favorite,
+                Color(0xFFFF7A7A)
+            )
+
+        TransactionCategory
+            .EDUCATION.name ->
+            CategoryVisual(
+                Icons.Rounded.School,
+                Color(0xFFA78BFA)
+            )
+
+        TransactionCategory
+            .FEES.name,
+        TransactionCategory
+            .DEBT_LOAN.name ->
+            CategoryVisual(
+                Icons.AutoMirrored
+                    .Rounded
+                    .ReceiptLong,
+                Color(0xFFFFC36A)
+            )
+
+        TransactionCategory
+            .SAVINGS.name ->
+            CategoryVisual(
+                Icons.Rounded.Savings,
+                Color(0xFFFFD78A)
+            )
+
+        TransactionCategory
+            .INVESTMENT.name ->
+            CategoryVisual(
+                Icons.Rounded.TrendingUp,
+                Color(0xFF82E8A8)
+            )
+
+        TransactionCategory
+            .INCOME.name ->
+            CategoryVisual(
+                Icons.Rounded.Paid,
+                Color(0xFF75EE9B)
+            )
+
+        TransactionCategory
+            .HOME_HOUSEHOLD.name ->
+            CategoryVisual(
+                Icons.Rounded.Home,
+                Color(0xFF66D5C8)
+            )
+
+        else ->
+            CategoryVisual(
+                Icons.Rounded.MoreHoriz,
+                Color(0xFFB3C7C2)
+            )
+    }
 
 @Composable
 private fun DetailRow(
