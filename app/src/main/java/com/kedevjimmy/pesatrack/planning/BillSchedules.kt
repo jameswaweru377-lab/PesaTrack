@@ -140,12 +140,13 @@ class BillSchedules(private val context: Context) {
     ) {
         when (cadence) {
             BillCadence.MONTHLY ->
-                require(dueDay in 1..31) {
+                require(dueDay != null && dueDay in 1..31) {
                     "Choose a monthly due day."
                 }
             BillCadence.WEEKLY ->
                 require(
-                    dueDayOfWeek in
+                    dueDayOfWeek != null &&
+                        dueDayOfWeek in
                         Calendar.SUNDAY..
                             Calendar.SATURDAY
                 ) {
