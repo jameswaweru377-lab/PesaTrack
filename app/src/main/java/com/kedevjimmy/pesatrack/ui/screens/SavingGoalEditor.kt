@@ -213,7 +213,7 @@ internal fun SavingGoalEditor(
                 onDismiss()
             } catch (
                 cancelled:
-                    kotlin.coroutines.cancellation.CancellationException
+                    kotlinx.coroutines.CancellationException
             ) {
                 throw cancelled
             } catch (
@@ -328,7 +328,7 @@ internal fun SavingGoalEditor(
                             BillCadence.MONTHLY
                         ) {
                             SalaryReceiptDateButton(
-                                dateEpochMs =
+                                date =
                                     monthlyDueDate,
                                 enabled = !busy,
                                 label =
