@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.AttachFile
@@ -2008,40 +2009,83 @@ private fun CategoryGrid(
         )
     }
 
-    val compactCategories = categories.filter {
-        it.label.length <= 11
-    }
-    val wideCategories = categories.filter {
-        it.label.length > 11
-    }
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        val narrowScreen =
+            maxWidth < 430.dp
+        val compactCategories =
+            categories.filter {
+                it.label.length <= 10
+            }
+        val wideCategories =
+            categories.filter {
+                it.label.length > 10
+            }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        CategoryGridRows(
-            categories = compactCategories,
-            columns = 3,
-            currentCategoryId = currentCategoryId,
-            onSelected = onSelected
-        )
-
-        if (wideCategories.isNotEmpty()) {
-            CategoryGridRows(
-                categories = wideCategories,
-                columns = 2,
-                currentCategoryId = currentCategoryId,
-                onSelected = onSelected
-            )
-        }
-
-        OutlinedButton(
-            onClick = { showAddCategory = true },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
+        Column(
+            verticalArrangement =
+                Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Rounded.Add, contentDescription = null)
-            Text(
-                "Add category",
-                modifier = Modifier.padding(start = 6.dp)
-            )
+            if (narrowScreen) {
+                CategoryGridRows(
+                    categories = categories,
+                    columns = 2,
+                    currentCategoryId =
+                        currentCategoryId,
+                    onSelected = onSelected
+                )
+            } else {
+                CategoryGridRows(
+                    categories =
+                        compactCategories,
+                    columns = 3,
+                    currentCategoryId =
+                        currentCategoryId,
+                    onSelected = onSelected
+                )
+
+                if (
+                    wideCategories
+                        .isNotEmpty()
+                ) {
+                    CategoryGridRows(
+                        categories =
+                            wideCategories,
+                        columns = 2,
+                        currentCategoryId =
+                            currentCategoryId,
+                        onSelected =
+                            onSelected
+                    )
+                }
+            }
+
+            OutlinedButton(
+                onClick = {
+                    showAddCategory =
+                        true
+                },
+                modifier =
+                    Modifier.fillMaxWidth(),
+                shape =
+                    RoundedCornerShape(
+                        16.dp
+                    )
+            ) {
+                Icon(
+                    Icons.Rounded.Add,
+                    contentDescription =
+                        null
+                )
+                Text(
+                    "Add category",
+                    modifier =
+                        Modifier.padding(
+                            start = 6.dp
+                        )
+                )
+            }
         }
     }
 }
