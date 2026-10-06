@@ -46,9 +46,9 @@ class RememberCategoryIntegrationTest {
         listOf(incoming, refund, excluded, unrelated).forEach { assertEquals("OTHER", store.getById(it)!!.category) }
         val future = insert(511)
         val learning = PersonalLearningStore.get(context)
-        assertEquals(1, learning.applyHighConfidenceTo(store.categoryLearningCandidates()))
+        assertEquals(1, learning.applyHighConfidenceTo(store.recentlyInsertedForLearning(limit = 1)))
         assertEquals("INVESTMENT", store.getById(future)!!.category)
-        assertEquals(0, learning.applyHighConfidenceTo(store.categoryLearningCandidates()))
+        assertEquals(0, learning.applyHighConfidenceTo(store.recentlyInsertedForLearning(limit = 1)))
     }
     @Test fun manualChoiceDoesNotTeachAndConflictingPhonesStaySeparate() {
         val source = insert(0, "James", "0712345678")
