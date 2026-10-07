@@ -27,9 +27,9 @@ enum class MainTab(
     val icon: ImageVector
 ) {
     HOME("home", "Home", Icons.Rounded.Home),
-    ACTIVITY("activity", "Activity", Icons.AutoMirrored.Rounded.ReceiptLong),
-    PLAN("plan", "Plan", Icons.Rounded.CalendarMonth),
     ACCOUNTS("accounts", "Accounts", Icons.Rounded.AccountBalanceWallet),
+    ACTIVITY("activity", "Transactions", Icons.AutoMirrored.Rounded.ReceiptLong),
+    PLAN("plan", "Plan", Icons.Rounded.CalendarMonth),
     MORE("more", "More", Icons.Rounded.MoreHoriz)
 }
 
