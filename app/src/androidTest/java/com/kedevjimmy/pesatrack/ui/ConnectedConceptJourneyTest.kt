@@ -21,7 +21,7 @@ class ConnectedConceptJourneyTest {
     @After fun cleanup(){compose.runOnIdle{};PesaTrackDatabase.resetForTests();context.deleteDatabase("pesatrack.db")}
     @Test fun goalCanBeCreatedEditedAndRemovedWithoutFabricatingMoney() {
         compose.setContent {PesaTrackTheme {SavingGoalsScreen(PaddingValues(),{}, {})}}
-        compose.onNodeWithText("Create a goal").performScrollTo().performClick()
+        compose.onNodeWithText("Create Goal").performScrollTo().performClick()
         compose.onNodeWithText("Goal name").performTextInput("Emergency fund")
         compose.onNodeWithText("Monthly saving target (KES)").performTextInput("5000")
         compose.onNodeWithText("Overall goal target (KES)").performScrollTo().performTextInput("50000")
@@ -37,13 +37,21 @@ class ConnectedConceptJourneyTest {
         assertEquals(0,TransactionStore.get(context).snapshot().transactionCount)
         compose.waitForIdle()
         compose.onNodeWithTag("saving-goals-list")
-            .performScrollToIndex(3)
+            .performScrollToNode(
+                hasText("Emergency fund")
+            )
         compose.waitUntil(10000) {
-            compose.onAllNodesWithText("Edit goal")
-                .fetchSemanticsNodes()
+            compose.onAllNodesWithText(
+                "Emergency fund"
+            ).fetchSemanticsNodes()
                 .isNotEmpty()
         }
-        compose.onNodeWithText("Edit goal").performClick()
+        compose.onNodeWithText(
+            "Emergency fund"
+        ).performClick()
+        compose.onNodeWithText(
+            "Edit goal"
+        ).performClick()
         compose.onNodeWithText("Remove goal").performScrollTo().performClick()
         compose.onNodeWithText("Remove this goal?").assertIsDisplayed()
         compose.onNodeWithText("Cancel").performClick()
