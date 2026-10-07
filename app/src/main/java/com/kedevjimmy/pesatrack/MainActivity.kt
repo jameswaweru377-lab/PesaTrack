@@ -3,7 +3,7 @@ package com.kedevjimmy.pesatrack
 import android.os.Bundle
 import android.os.Build
 import android.os.CancellationSignal
-import android.app.BiometricPrompt
+import android.hardware.biometrics.BiometricPrompt
 import android.app.KeyguardManager
 import android.hardware.biometrics.BiometricManager
 import android.content.pm.PackageManager
