@@ -81,6 +81,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
+import com.kedevjimmy.pesatrack.data.local.EntityEnrichmentPreferences
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
@@ -194,6 +195,12 @@ fun SmartOnboardingSetupScreen(
     val entityEnrichmentClient =
         remember {
             EntityEnrichmentHttpClient()
+        }
+    val onlineEntityLookupEnabled =
+        remember {
+            EntityEnrichmentPreferences
+                .get(context)
+                .isOnlineLookupEnabled()
         }
 
     var stage by rememberSaveable {
@@ -669,7 +676,9 @@ fun SmartOnboardingSetupScreen(
                                     observations
                                 ),
                         client =
-                            entityEnrichmentClient
+                            entityEnrichmentClient,
+                        onlineLookupEnabled =
+                            onlineEntityLookupEnabled
                     ),
                     if (
                         existingMpesaNumber
@@ -1405,7 +1414,9 @@ fun SmartOnboardingSetupScreen(
                                     observations
                                 ),
                         client =
-                            entityEnrichmentClient
+                            entityEnrichmentClient,
+                        onlineLookupEnabled =
+                            onlineEntityLookupEnabled
                     )
                 }
 
@@ -3525,10 +3536,15 @@ private fun ownedSetupAccounts(
 
 private fun verifiedSalarySuggestion(
     local: OnboardingSalarySuggestion?,
-    client: EntityEnrichmentHttpClient
+    client: EntityEnrichmentHttpClient,
+    onlineLookupEnabled: Boolean
 ): OnboardingSalarySuggestion? {
     val suggestion =
         local ?: return null
+    if (!onlineLookupEnabled) {
+        return suggestion
+    }
+
     val descriptor =
         EntityDescriptorPrivacyPolicy
             .sanitize(
