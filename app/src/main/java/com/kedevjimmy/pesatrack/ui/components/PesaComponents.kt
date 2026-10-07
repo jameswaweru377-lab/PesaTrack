@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -124,8 +125,19 @@ fun PesaCard(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(
+                alpha = if (isPesaDarkTheme()) .34f else .58f
+            )
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isPesaDarkTheme()) 0.dp else 2.dp
+        )
     ) {
         content()
     }
@@ -199,11 +211,11 @@ fun LandscapeBackdrop(
     content: @Composable () -> Unit
 ) {
     val useDark = dark ?: isPesaDarkTheme()
-    val base = if (useDark) Color(0xFF073C34) else Color(0xFFE6F5EE)
-    val hill1 = if (useDark) Color(0xFF0B5E4C) else Color(0xFFC8EADD)
-    val hill2 = if (useDark) Color(0xFF0D7459) else Color(0xFFA9DDC8)
-    val hill3 = if (useDark) Color(0xFF0A4B40) else Color(0xFF82C8AF)
-    val sun = if (useDark) Color(0xFFB7D56D).copy(alpha = .24f) else Color(0xFFFFE9B6)
+    val base = if (useDark) Color(0xFF17162C) else Color(0xFFF0EFFF)
+    val hill1 = if (useDark) Color(0xFF25214B) else Color(0xFFDED9FF)
+    val hill2 = if (useDark) Color(0xFF332B68) else Color(0xFFC8C0FF)
+    val hill3 = if (useDark) Color(0xFF1A3150) else Color(0xFFA9DDF2)
+    val sun = if (useDark) Color(0xFF55E6D1).copy(alpha = .18f) else Color(0xFFFFE6B0)
 
     Box(
         modifier = modifier
