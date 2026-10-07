@@ -60,26 +60,84 @@ class SecurityIntegrationTest {
             lock.isEnabled()
         )
 
-        lock.setPin("2468")
+        lock.setPin("246810")
 
         assertTrue(
             lock.isEnabled()
         )
         assertTrue(
-            lock.verifyPin("2468")
+            lock.verifyPin("246810")
         )
         assertFalse(
-            lock.verifyPin("1357")
+            lock.verifyPin("135790")
         )
         assertFalse(
-            lock.disable("1357")
+            lock.disable("135790")
         )
         assertTrue(
-            lock.disable("2468")
+            lock.disable("246810")
         )
         assertFalse(
             lock.isEnabled()
         )
+    }
+
+    @Test
+    fun appLockThrottlesRepeatedFailures() {
+        val lock =
+            AppLockManager(context)
+        lock.setPin("246810")
+
+        val start = 10_000L
+        assertFalse(
+            lock.verifyPin(
+                "135790",
+                start
+            )
+        )
+        assertFalse(
+            lock.verifyPin(
+                "135790",
+                start + 1L
+            )
+        )
+        assertFalse(
+            lock.verifyPin(
+                "135790",
+                start + 2L
+            )
+        )
+        assertTrue(
+            lock.remainingLockoutMs(
+                start + 2L
+            ) >= 2_000L
+        )
+        assertFalse(
+            lock.verifyPin(
+                "246810",
+                start + 1_000L
+            )
+        )
+        assertTrue(
+            lock.verifyPin(
+                "246810",
+                start + 2_002L
+            )
+        )
+        assertTrue(
+            lock.remainingLockoutMs(
+                start + 2_002L
+            ) == 0L
+        )
+    }
+
+    @Test(
+        expected =
+            IllegalArgumentException::class
+    )
+    fun appLockRejectsNewFourDigitPins() {
+        AppLockManager(context)
+            .setPin("2468")
     }
 
     @Test
@@ -100,7 +158,7 @@ class SecurityIntegrationTest {
             )
         val lock =
             AppLockManager(context)
-        lock.setPin("2468")
+        lock.setPin("246810")
 
         val backup =
             PesaBackupManager(
@@ -115,7 +173,7 @@ class SecurityIntegrationTest {
                 false
             )
         )
-        lock.setPin("5678")
+        lock.setPin("567890")
 
         PesaBackupManager(
             context
@@ -134,11 +192,43 @@ class SecurityIntegrationTest {
         )
         assertTrue(
             AppLockManager(context)
-                .verifyPin("5678")
+                .verifyPin("567890")
         )
         assertFalse(
             AppLockManager(context)
-                .verifyPin("2468")
+                .verifyPin("246810")
+        )
+    }
+
+    @Test
+    fun encryptedBackupCanBePreviewedBeforeRestore() {
+        val backup =
+            PesaBackupManager(
+                context
+            ).exportEncryptedBytes(
+                "strong-passphrase"
+            )
+
+        val preview =
+            PesaBackupManager(
+                context
+            ).previewEncryptedBytes(
+                encrypted = backup,
+                passphrase =
+                    "strong-passphrase"
+            )
+
+        assertTrue(
+            preview.createdAtEpochMs > 0L
+        )
+        assertTrue(
+            preview.schemaVersion > 0
+        )
+        assertTrue(
+            preview.tableCount > 0
+        )
+        assertTrue(
+            preview.rowCount >= 0
         )
     }
 

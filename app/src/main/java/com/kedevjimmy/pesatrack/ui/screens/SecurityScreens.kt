@@ -1,6 +1,8 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import android.app.Activity
+import android.content.Context
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -52,6 +56,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.security.AppLockManager
+import com.kedevjimmy.pesatrack.security.BackupPreview
 import com.kedevjimmy.pesatrack.security.PesaBackupManager
 import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +71,7 @@ import java.util.Locale
 fun AppLockScreen(
     biometricAvailable: Boolean,
     onPinUnlock: (String) -> Boolean,
+    pinLockoutRemainingMs: () -> Long,
     onBiometricUnlock: () -> Unit
 ) {
     var pin by remember {
@@ -219,8 +225,18 @@ fun AppLockScreen(
                     pin = ""
                     error = null
                 } else {
+                    val remainingMs =
+                        pinLockoutRemainingMs()
                     error =
-                        "That PIN is not correct."
+                        if (remainingMs > 0L) {
+                            "Too many attempts. Try again in " +
+                                lockoutSeconds(
+                                    remainingMs
+                                ) +
+                                " seconds."
+                        } else {
+                            "That PIN is not correct."
+                        }
                 }
             },
             enabled =
@@ -369,7 +385,7 @@ fun AppLockSettingsSheet(
                 if (enabled) {
                     "A PIN is required after PesaTrack has been in the background for 30 seconds. You can also use device biometrics where available."
                 } else {
-                    "Add a local PIN so opening PesaTrack requires authentication after it has been in the background."
+                    "Add a 6–8 digit local PIN so opening PesaTrack requires authentication after it has been in the background."
                 },
                 color =
                     MaterialTheme
@@ -441,11 +457,20 @@ fun AppLockSettingsSheet(
                                 currentPin
                             )
                         ) {
+                            syncSecureWindow(
+                                context = context,
+                                enabled = false
+                            )
                             onChanged()
                             onDismiss()
                         } else {
                             error =
-                                "Enter the current PIN before disabling app lock."
+                                lockoutError(
+                                    manager =
+                                        manager,
+                                    fallback =
+                                        "Enter the current PIN before disabling app lock."
+                                )
                         }
                     },
                     modifier =
@@ -465,7 +490,12 @@ fun AppLockSettingsSheet(
                             )
                         ) {
                             error =
-                                "The current PIN is not correct."
+                                lockoutError(
+                                    manager =
+                                        manager,
+                                    fallback =
+                                        "The current PIN is not correct."
+                                )
                             return@Button
                         }
                         if (
@@ -482,6 +512,10 @@ fun AppLockSettingsSheet(
                             )
                         manager.setPin(
                             newPin
+                        )
+                        syncSecureWindow(
+                            context = context,
+                            enabled = true
                         )
                         onChanged()
                         onDismiss()
@@ -519,6 +553,51 @@ fun AppLockSettingsSheet(
                         .onSurfaceVariant
             )
         }
+    }
+}
+
+private fun lockoutSeconds(
+    remainingMs: Long
+): Long =
+    (
+        remainingMs +
+            999L
+        ) / 1_000L
+
+private fun lockoutError(
+    manager: AppLockManager,
+    fallback: String
+): String {
+    val remainingMs =
+        manager.remainingLockoutMs()
+    return if (remainingMs > 0L) {
+        "Too many attempts. Try again in " +
+            lockoutSeconds(
+                remainingMs
+            ) +
+            " seconds."
+    } else {
+        fallback
+    }
+}
+
+private fun syncSecureWindow(
+    context: Context,
+    enabled: Boolean
+) {
+    val activity =
+        context as? Activity
+            ?: return
+    if (enabled) {
+        activity.window.addFlags(
+            WindowManager.LayoutParams
+                .FLAG_SECURE
+        )
+    } else {
+        activity.window.clearFlags(
+            WindowManager.LayoutParams
+                .FLAG_SECURE
+        )
     }
 }
 
@@ -564,6 +643,10 @@ fun BackupRestoreSheet(
 ) {
     val context =
         LocalContext.current
+    val locale =
+        LocalConfiguration
+            .current
+            .locales[0]
     val scope =
         rememberCoroutineScope()
     val manager =
@@ -588,6 +671,12 @@ fun BackupRestoreSheet(
     }
     var error by remember {
         mutableStateOf<String?>(null)
+    }
+    var pendingRestoreUri by remember {
+        mutableStateOf<android.net.Uri?>(null)
+    }
+    var pendingRestorePreview by remember {
+        mutableStateOf<BackupPreview?>(null)
     }
 
     val createBackup =
@@ -642,29 +731,136 @@ fun BackupRestoreSheet(
                     withContext(
                         Dispatchers.IO
                     ) {
-                        manager.restoreEncrypted(
-                            uri =
-                                uri,
+                        manager.previewEncrypted(
+                            uri = uri,
                             passphrase =
                                 pendingPassphrase
                         )
                     }
                 }.onSuccess {
-                    message =
-                        "Restore complete • " +
-                            it.rowCount +
-                            " financial records restored."
+                    pendingRestoreUri = uri
+                    pendingRestorePreview = it
+                    message = null
                     error = null
-                    delay(450)
-                    (
-                        context as? Activity
-                        )?.recreate()
                 }.onFailure {
+                    pendingRestoreUri = null
+                    pendingRestorePreview = null
                     error =
                         it.message
-                            ?: "Could not restore this backup."
+                            ?: "Could not inspect this backup."
                 }
                 busy = false
+            }
+        }
+
+    pendingRestorePreview
+        ?.let { preview ->
+            val restoreUri =
+                pendingRestoreUri
+            if (restoreUri != null) {
+                AlertDialog(
+                    onDismissRequest = {
+                        if (!busy) {
+                            pendingRestoreUri =
+                                null
+                            pendingRestorePreview =
+                                null
+                        }
+                    },
+                    title = {
+                        Text(
+                            "Restore this backup?"
+                        )
+                    },
+                    text = {
+                        val created =
+                            if (
+                                preview.createdAtEpochMs >
+                                0L
+                            ) {
+                                SimpleDateFormat(
+                                    "d MMM yyyy, HH:mm",
+                                    locale
+                                ).format(
+                                    Date(
+                                        preview
+                                            .createdAtEpochMs
+                                    )
+                                )
+                            } else {
+                                "Unknown"
+                            }
+                        Text(
+                            "Created: " +
+                                created +
+                                "\nSchema: v" +
+                                preview.schemaVersion +
+                                "\nRecords: " +
+                                preview.rowCount +
+                                "\n\nRestoring replaces the current local PesaTrack database and backed-up preferences. Your app-lock PIN stays on this device."
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            enabled = !busy,
+                            onClick = {
+                                pendingRestoreUri =
+                                    null
+                                pendingRestorePreview =
+                                    null
+                                busy = true
+                                scope.launch {
+                                    runCatching {
+                                        withContext(
+                                            Dispatchers.IO
+                                        ) {
+                                            manager
+                                                .restoreEncrypted(
+                                                    uri =
+                                                        restoreUri,
+                                                    passphrase =
+                                                        pendingPassphrase
+                                                )
+                                        }
+                                    }.onSuccess {
+                                        message =
+                                            "Restore complete • " +
+                                                it.rowCount +
+                                                " financial records restored."
+                                        error = null
+                                        delay(450)
+                                        (
+                                            context as?
+                                                Activity
+                                            )?.recreate()
+                                    }.onFailure {
+                                        error =
+                                            it.message
+                                                ?: "Could not restore this backup."
+                                    }
+                                    busy = false
+                                }
+                            }
+                        ) {
+                            Text(
+                                "Restore and replace data"
+                            )
+                        }
+                    },
+                    dismissButton = {
+                        OutlinedButton(
+                            enabled = !busy,
+                            onClick = {
+                                pendingRestoreUri =
+                                    null
+                                pendingRestorePreview =
+                                    null
+                            }
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
 
@@ -871,13 +1067,13 @@ fun BackupRestoreSheet(
                         Modifier.width(8.dp)
                     )
                     Text(
-                        "Restore from backup"
+                        "Preview backup to restore"
                     )
                 }
             }
 
             Text(
-                "Keep the passphrase somewhere safe. PesaTrack cannot decrypt the backup without it.",
+                "Restore always shows backup details and asks for confirmation before replacing local data. Files larger than 64 MB are rejected. Keep the passphrase somewhere safe; PesaTrack cannot decrypt the backup without it.",
                 modifier =
                     Modifier.padding(
                         bottom = 16.dp

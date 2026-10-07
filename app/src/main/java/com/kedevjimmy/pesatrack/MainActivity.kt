@@ -8,6 +8,7 @@ import android.app.KeyguardManager
 import android.hardware.biometrics.BiometricManager
 import android.content.pm.PackageManager
 import android.content.Intent
+import android.view.WindowManager
 import com.kedevjimmy.pesatrack.salary.SalaryReminders
 import com.kedevjimmy.pesatrack.security.AppLockManager
 import com.kedevjimmy.pesatrack.planning.BillSchedules
@@ -46,6 +47,7 @@ class MainActivity : ComponentActivity() {
             AppLockManager(this)
         appLocked =
             appLockManager.isEnabled()
+        updateSecureWindowState()
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
         if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
         SalaryReminders.schedule(this)
@@ -106,6 +108,10 @@ class MainActivity : ComponentActivity() {
                             }
                             unlocked
                         },
+                        pinLockoutRemainingMs = {
+                            appLockManager
+                                .remainingLockoutMs()
+                        },
                         onBiometricUnlock = {
                             requestBiometricUnlock()
                         }
@@ -140,6 +146,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        updateSecureWindowState()
         if (
             ::appLockManager
                 .isInitialized &&
@@ -160,6 +167,42 @@ class MainActivity : ComponentActivity() {
                 .markBackgrounded()
         }
         super.onStop()
+    }
+
+    override fun onWindowFocusChanged(
+        hasFocus: Boolean
+    ) {
+        super.onWindowFocusChanged(
+            hasFocus
+        )
+        if (
+            hasFocus &&
+            ::appLockManager.isInitialized
+        ) {
+            updateSecureWindowState()
+        }
+    }
+
+    private fun updateSecureWindowState() {
+        if (
+            !::appLockManager
+                .isInitialized
+        ) {
+            return
+        }
+        if (
+            appLockManager.isEnabled()
+        ) {
+            window.addFlags(
+                WindowManager.LayoutParams
+                    .FLAG_SECURE
+            )
+        } else {
+            window.clearFlags(
+                WindowManager.LayoutParams
+                    .FLAG_SECURE
+            )
+        }
     }
 
     private fun canUseBiometrics(): Boolean {
