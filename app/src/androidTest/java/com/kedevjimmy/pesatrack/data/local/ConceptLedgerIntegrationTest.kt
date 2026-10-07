@@ -70,6 +70,76 @@ class ConceptLedgerIntegrationTest {
         assertEquals(bill.expectedMinor,bill.remainingMinor)
     }
 
+
+    @Test fun savingGoalMetadataRoundTripsOptionalTotalAndDate() {
+        val rule =
+            RuleStore.get(context).save(
+                "Land",
+                "SACCO",
+                TransactionCategory.SAVINGS,
+                MoneyDirection.TRANSFER,
+                preset = RulePreset.SAVINGS,
+                plannedAmountMinor = 1500000
+            )
+        val targetDate =
+            System.currentTimeMillis() +
+                180L * 24L * 60L * 60L * 1000L
+        val store =
+            SavingGoalMetadataStore.get(context)
+
+        store.save(
+            ruleId = rule.id,
+            totalTargetMinor = 80000000L,
+            targetDateEpochMs = targetDate
+        )
+
+        val metadata =
+            store.get(rule.id)
+        assertNotNull(metadata)
+        assertEquals(
+            80000000L,
+            metadata!!.totalTargetMinor
+        )
+        assertEquals(
+            targetDate,
+            metadata.targetDateEpochMs
+        )
+
+        store.delete(rule.id)
+        assertNull(store.get(rule.id))
+    }
+
+    @Test fun moneyPictureHealthFlagsBroadCategorization() {
+        insert(
+            "OTHER-SPEND",
+            100000,
+            null,
+            MoneyDirection.EXPENSE,
+            TransactionCategory.OTHER
+        )
+
+        val health =
+            MoneyPictureHealthEvaluator(
+                context
+            ).evaluate()
+
+        assertEquals(
+            100,
+            health.lowQualitySpendingShare
+        )
+        assertTrue(
+            health.issues.any {
+                it.type ==
+                    MoneyPictureIssueType
+                        .CATEGORIZATION
+            }
+        )
+        assertTrue(
+            health.score in 0..100
+        )
+    }
+
+
     @Test fun savingsWithdrawalAndInternalLockMovementAreNotNewSavings() {
         insert("TRANSFER001",100000,null,MoneyDirection.TRANSFER,TransactionCategory.SAVINGS)
         val row=TransactionStore.get(context).activitySnapshot().trustedTransactions.single()

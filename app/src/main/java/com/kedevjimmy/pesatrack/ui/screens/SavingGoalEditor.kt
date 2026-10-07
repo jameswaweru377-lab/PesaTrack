@@ -30,7 +30,20 @@ internal fun SavingGoalEditor(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val schedules = remember { BillSchedules(context) }
+    val goalMetadataStore =
+        remember {
+            SavingGoalMetadataStore.get(context)
+        }
     val noun = if (bill) "bill" else "goal"
+
+    val existingGoalMetadata =
+        remember(rule?.id, bill) {
+            if (!bill && rule != null) {
+                goalMetadataStore.get(rule.id)
+            } else {
+                null
+            }
+        }
 
     val existingSchedule =
         remember(rule?.id, bill) {
@@ -65,6 +78,47 @@ internal fun SavingGoalEditor(
                         .toPlainString()
                 }
                 .orEmpty()
+        )
+    }
+    var totalTarget by remember(
+        rule?.id,
+        bill
+    ) {
+        mutableStateOf(
+            existingGoalMetadata
+                ?.totalTargetMinor
+                ?.let {
+                    java.math.BigDecimal
+                        .valueOf(it, 2)
+                        .toPlainString()
+                }
+                .orEmpty()
+        )
+    }
+    var hasTargetDate by remember(
+        rule?.id,
+        bill
+    ) {
+        mutableStateOf(
+            existingGoalMetadata
+                ?.targetDateEpochMs != null
+        )
+    }
+    var targetDateEpochMs by remember(
+        rule?.id,
+        bill
+    ) {
+        val calendar =
+            Calendar.getInstance().apply {
+                add(
+                    Calendar.MONTH,
+                    6
+                )
+            }
+        mutableLongStateOf(
+            existingGoalMetadata
+                ?.targetDateEpochMs
+                ?: calendar.timeInMillis
         )
     }
     var cadence by remember(rule?.id, bill) {
@@ -128,6 +182,10 @@ internal fun SavingGoalEditor(
                             schedules.remove(
                                 rule.id
                             )
+                        } else {
+                            goalMetadataStore.delete(
+                                rule.id
+                            )
                         }
                     } else {
                         require(
@@ -150,6 +208,43 @@ internal fun SavingGoalEditor(
                                 }
                             }
 
+                        val overallTargetMinor =
+                            if (!bill) {
+                                totalTarget
+                                    .trim()
+                                    .takeIf {
+                                        it.isNotBlank()
+                                    }
+                                    ?.let {
+                                        requireNotNull(
+                                            parseSalaryAmount(
+                                                it
+                                            )
+                                        ) {
+                                            "Enter a positive total goal amount."
+                                        }
+                                    }
+                            } else {
+                                null
+                            }
+
+                        val targetDate =
+                            if (
+                                !bill &&
+                                hasTargetDate
+                            ) {
+                                require(
+                                    targetDateEpochMs >
+                                        System
+                                            .currentTimeMillis()
+                                ) {
+                                    "Choose a target date in the future."
+                                }
+                                targetDateEpochMs
+                            } else {
+                                null
+                            }
+
                         val saved =
                             PlanningRuleRepository(
                                 context
@@ -160,6 +255,16 @@ internal fun SavingGoalEditor(
                                 bill,
                                 rule
                             )
+
+                        if (!bill) {
+                            goalMetadataStore.save(
+                                ruleId = saved.id,
+                                totalTargetMinor =
+                                    overallTargetMinor,
+                                targetDateEpochMs =
+                                    targetDate
+                            )
+                        }
 
                         if (bill) {
                             // Link safe historical matches so a bill already
@@ -303,6 +408,10 @@ internal fun SavingGoalEditor(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .weight(
+                            1f,
+                            fill = false
+                        )
                         .padding(
                             top = 18.dp
                         )
@@ -498,6 +607,92 @@ internal fun SavingGoalEditor(
                                     KeyboardType.Decimal
                             )
                     )
+
+                    if (!bill) {
+                        OutlinedTextField(
+                            value = totalTarget,
+                            onValueChange = {
+                                totalTarget = it
+                                error = null
+                            },
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            label = {
+                                Text(
+                                    "Overall goal target (KES)"
+                                )
+                            },
+                            supportingText = {
+                                Text(
+                                    "Optional. Use this for a goal such as land, emergency fund or a large purchase."
+                                )
+                            },
+                            singleLine = true,
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType =
+                                        KeyboardType.Decimal
+                                )
+                        )
+
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            verticalAlignment =
+                                androidx.compose.ui.Alignment
+                                    .CenterVertically
+                        ) {
+                            Column(
+                                modifier =
+                                    Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    "Target date",
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .titleSmall
+                                )
+                                Text(
+                                    if (hasTargetDate) {
+                                        "Give this goal a deadline."
+                                    } else {
+                                        "Optional — save at your own pace."
+                                    },
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked =
+                                    hasTargetDate,
+                                onCheckedChange = {
+                                    hasTargetDate =
+                                        it
+                                }
+                            )
+                        }
+
+                        if (hasTargetDate) {
+                            SalaryReceiptDateButton(
+                                date =
+                                    targetDateEpochMs,
+                                enabled = !busy,
+                                label =
+                                    "Goal target date",
+                                allowFuture = true
+                            ) {
+                                targetDateEpochMs =
+                                    it
+                            }
+                        }
+                    }
 
                     OutlinedTextField(
                         value = payee,

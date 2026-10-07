@@ -30,6 +30,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createEntityEnrichmentCacheTable(db)
         createPaydaySnapshotTables(db)
         createCycleProtectionTable(db)
+        createSavingGoalMetadataTable(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -476,6 +477,10 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 31) {
             createRecurringPatternTables(db)
+        }
+
+        if (oldVersion < 32) {
+            createSavingGoalMetadataTable(db)
         }
 
         createIndexes(db)
@@ -1354,6 +1359,22 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createSavingGoalMetadataTable(
+        db: SQLiteDatabase
+    ) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS saving_goal_metadata (
+                rule_id TEXT PRIMARY KEY,
+                total_target_minor INTEGER,
+                target_date_epoch_ms INTEGER,
+                created_at_epoch_ms INTEGER NOT NULL,
+                updated_at_epoch_ms INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun createCycleProtectionTable(
         db: SQLiteDatabase
     ) {
@@ -1601,6 +1622,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 31
+        private const val DATABASE_VERSION = 32
     }
 }

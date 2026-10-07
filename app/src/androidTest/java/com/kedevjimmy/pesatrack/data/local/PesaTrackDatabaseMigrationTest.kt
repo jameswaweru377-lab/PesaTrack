@@ -34,6 +34,7 @@ class PesaTrackDatabaseMigrationTest {
             assertEquals(CURRENT_VERSION, db.version)
             assertTrue(db.hasTable("transactions"))
             assertTrue(db.hasTable("recurring_pattern_decisions"))
+            assertTrue(db.hasTable("saving_goal_metadata"))
             assertTrue(db.hasIndex("idx_transactions_code"))
             assertTrue(db.hasTrigger("trg_sync_refund_category"))
         }
@@ -48,6 +49,7 @@ class PesaTrackDatabaseMigrationTest {
 
             assertEquals(CURRENT_VERSION, db.version)
             assertTrue(db.hasTable("recurring_pattern_decisions"))
+            assertTrue(db.hasTable("saving_goal_metadata"))
             assertTrue(db.hasColumn("smart_rules", "preset"))
             assertTrue(db.hasColumn("smart_rules", "counterparty_exact"))
             assertTrue(db.hasColumn("money_accounts", "identifier"))
@@ -60,7 +62,7 @@ class PesaTrackDatabaseMigrationTest {
     }
 
     @Test
-    fun version30UpgradePreservesLedgerAndCreatesVersion31Schema() {
+    fun version30UpgradePreservesLedgerAndCreatesCurrentSchema() {
         seedVersion30Database()
 
         PesaTrackDatabase(context).use { helper ->
@@ -68,10 +70,24 @@ class PesaTrackDatabaseMigrationTest {
 
             assertEquals(CURRENT_VERSION, db.version)
             assertTrue(db.hasTable("recurring_pattern_decisions"))
+            assertTrue(db.hasTable("saving_goal_metadata"))
 
             val storedAmount = db.storedAmount(V30_FINGERPRINT)
 
             assertEquals(TEST_AMOUNT_MINOR, storedAmount)
+        }
+    }
+
+    @Test
+    fun version31UpgradeCreatesSavingGoalMetadata() {
+        seedVersion31Database()
+
+        PesaTrackDatabase(context).use { helper ->
+            val db = helper.writableDatabase
+
+            assertEquals(CURRENT_VERSION, db.version)
+            assertTrue(db.hasTable("saving_goal_metadata"))
+            assertTrue(db.hasTable("recurring_pattern_decisions"))
         }
     }
 
@@ -185,11 +201,22 @@ class PesaTrackDatabaseMigrationTest {
                 )
             )
 
-            // Schema v31 adds recurring-pattern decisions. Build a faithful
-            // v30 fixture from the current schema by removing only that
-            // v31 table and downgrading SQLite's user_version.
+            // Build a faithful v30 fixture from the current schema by
+            // removing the v31 and v32 additions before downgrading.
             db.execSQL("DROP TABLE IF EXISTS recurring_pattern_decisions")
+            db.execSQL("DROP TABLE IF EXISTS saving_goal_metadata")
             db.version = 30
+        }
+    }
+
+    private fun seedVersion31Database() {
+        PesaTrackDatabase(context).use { helper ->
+            val db = helper.writableDatabase
+
+            db.execSQL(
+                "DROP TABLE IF EXISTS saving_goal_metadata"
+            )
+            db.version = 31
         }
     }
 
@@ -260,7 +287,7 @@ class PesaTrackDatabaseMigrationTest {
 
     private companion object {
         const val DATABASE_NAME = "pesatrack.db"
-        const val CURRENT_VERSION = 31
+        const val CURRENT_VERSION = 32
         const val V1_FINGERPRINT = "migration-fixture-v1"
         const val V30_FINGERPRINT = "migration-fixture-v30"
         const val TEST_AMOUNT_MINOR = 12_345L

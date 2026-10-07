@@ -61,6 +61,10 @@ import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
 import com.kedevjimmy.pesatrack.data.local.LedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
+import com.kedevjimmy.pesatrack.data.local.PaydaySnapshotStore
+import com.kedevjimmy.pesatrack.data.local.PaydayAccountSnapshot
+import com.kedevjimmy.pesatrack.data.local.MoneyPictureHealthEvaluator
+import com.kedevjimmy.pesatrack.data.local.MoneyPictureHealth
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RelationshipReviewStore
@@ -110,7 +114,11 @@ private data class HomeLoadedState(
     val confirmedAccountIds: Set<String>,
     val salaryRule: SmartRule?,
     val upcomingBills: List<ScheduledBill>,
-    val needsAttentionCount: Int
+    val needsAttentionCount: Int,
+    val accountBalanceSnapshots:
+        List<PaydayAccountSnapshot>,
+    val moneyPictureHealth:
+        MoneyPictureHealth
 )
 
 private fun emptyPayCycleSnapshot() =
@@ -272,6 +280,26 @@ fun HomeScreen(
     var needsAttentionCount by remember {
         mutableStateOf(0)
     }
+    var accountBalanceSnapshots by remember {
+        mutableStateOf<
+            List<PaydayAccountSnapshot>
+        >(emptyList())
+    }
+    var moneyPictureHealth by remember {
+        mutableStateOf(
+            MoneyPictureHealth(
+                score = 0,
+                understoodTransactions = 0,
+                consideredTransactions = 0,
+                needsReviewCount = 0,
+                lowQualitySpendingShare = 0,
+                confirmedAccountCount = 0,
+                knownBalanceAccountCount = 0,
+                salaryCycleActive = false,
+                issues = emptyList()
+            )
+        )
+    }
 
     suspend fun loadHomeState(
         rebuildCycles: Boolean
@@ -280,6 +308,20 @@ fun HomeScreen(
             if (rebuildCycles) {
                 cycleStore.rebuild()
             }
+            val referenceEpochMs =
+                System.currentTimeMillis()
+            val accounts =
+                accountStore.listAccounts(
+                    enabledOnly = true
+                )
+            val balanceSnapshots =
+                PaydaySnapshotStore
+                    .get(context)
+                    .currentAccountSnapshots(
+                        accounts = accounts,
+                        nowEpochMs =
+                            referenceEpochMs
+                    )
             HomeLoadedState(
                 cycleSnapshot =
                     cycleStore.snapshot(),
@@ -287,13 +329,14 @@ fun HomeScreen(
                     transactionStore.snapshot(),
                 activitySnapshot =
                     transactionStore
-                        .activitySnapshot(),
+                        .activitySnapshot(
+                            nowEpochMs =
+                                referenceEpochMs
+                        ),
                 debtAccounts =
                     debtStore.accounts(),
                 trackedAccounts =
-                    accountStore.listAccounts(
-                        enabledOnly = true
-                    ),
+                    accounts,
                 monthlyBudgets =
                     budgetStore.list(),
                 confirmedAccountIds =
@@ -330,7 +373,16 @@ fun HomeScreen(
                                 limit = 100,
                                 includeOptional = false
                             )
-                            .size
+                            .size,
+                accountBalanceSnapshots =
+                    balanceSnapshots,
+                moneyPictureHealth =
+                    MoneyPictureHealthEvaluator(
+                        context
+                    ).evaluate(
+                        nowEpochMs =
+                            referenceEpochMs
+                    )
             )
         }
 
@@ -373,6 +425,11 @@ fun HomeScreen(
                         loaded.upcomingBills
                     needsAttentionCount =
                         loaded.needsAttentionCount
+                    accountBalanceSnapshots =
+                        loaded
+                            .accountBalanceSnapshots
+                    moneyPictureHealth =
+                        loaded.moneyPictureHealth
                     homeLoaded = true
                 } while (refreshPending)
             } catch (cancelled: CancellationException) {
@@ -1110,13 +1167,27 @@ fun HomeScreen(
                         }
                         ?: "M-Pesa",
                 knownBalanceMinor =
-                    ledgerSnapshot
-                        .latestBalanceMinor,
+                    accountBalanceSnapshots
+                        .firstOrNull {
+                            it.accountId ==
+                                AccountStore
+                                    .DEFAULT_MPESA_ID
+                        }
+                        ?.balanceMinor,
                 balanceObservedAtEpochMs =
-                    ledgerSnapshot
-                        .latestBalanceObservedAtEpochMs,
+                    accountBalanceSnapshots
+                        .firstOrNull {
+                            it.accountId ==
+                                AccountStore
+                                    .DEFAULT_MPESA_ID
+                        }
+                        ?.referenceEpochMs,
                 accountCount =
                     visibleAccountGroups.size,
+                confidenceScore =
+                    moneyPictureHealth.score,
+                confidenceLabel =
+                    moneyPictureHealth.label,
                 debtOutstandingMinor =
                     activeDebtOutstandingMinor,
                 debtAccountCount =
