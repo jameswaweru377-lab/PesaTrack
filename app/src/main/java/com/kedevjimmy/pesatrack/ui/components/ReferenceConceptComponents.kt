@@ -185,73 +185,155 @@ fun ConceptEmeraldHero(
     eyebrow: String? = null,
     footer: String? = null
 ) {
+    val dark =
+        MaterialTheme.colorScheme.background
+            .luminance() < .45f
+    val foreground =
+        if (dark) {
+            Color(0xFF0B1507)
+        } else {
+            Color.White
+        }
+    val secondaryForeground =
+        foreground.copy(
+            alpha = .78f
+        )
+    val gradient =
+        if (dark) {
+            listOf(
+                Color(0xFFDDFB5E),
+                Color(0xFFC8F43D),
+                Color(0xFFA8D81F)
+            )
+        } else {
+            listOf(
+                Color(0xFF0A5A43),
+                Color(0xFF08724F),
+                Color(0xFF0A8A5C)
+            )
+        }
+
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = ConceptEmeraldDeep
+        modifier =
+            modifier.fillMaxWidth(),
+        shape =
+            RoundedCornerShape(
+                22.dp
+            ),
+        color =
+            if (dark) {
+                MaterialTheme
+                    .colorScheme
+                    .primary
+            } else {
+                ConceptEmeraldDeep
+            }
     ) {
         Box(
-            modifier = Modifier
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            Color(0xFF0A5A43),
-                            Color(0xFF08724F),
-                            Color(0xFF0A8A5C)
+            modifier =
+                Modifier
+                    .background(
+                        Brush.linearGradient(
+                            gradient
                         )
                     )
-                )
-                .padding(16.dp)
+                    .padding(16.dp)
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(end = if (artwork) 104.dp else 0.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            end =
+                                if (artwork) {
+                                    104.dp
+                                } else {
+                                    0.dp
+                                }
+                        )
             ) {
                 eyebrow?.let {
                     Text(
                         it,
-                        color = Color.White.copy(alpha = .82f),
-                        style = MaterialTheme.typography.labelMedium
+                        color =
+                            secondaryForeground,
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelMedium
                     )
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(
+                        Modifier.height(
+                            3.dp
+                        )
+                    )
                 }
                 Text(
                     title,
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    color = foreground,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleMedium,
+                    fontWeight =
+                        FontWeight.SemiBold
                 )
                 Text(
                     amount,
-                    modifier = Modifier.padding(top = 4.dp),
-                    color = Color.White,
+                    modifier =
+                        Modifier.padding(
+                            top = 4.dp
+                        ),
+                    color = foreground,
                     fontSize = 30.sp,
                     lineHeight = 34.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight =
+                        FontWeight.ExtraBold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow =
+                        TextOverflow.Ellipsis
                 )
                 Text(
                     subtitle,
-                    modifier = Modifier.padding(top = 3.dp),
-                    color = Color.White.copy(alpha = .8f),
-                    style = MaterialTheme.typography.bodySmall
+                    modifier =
+                        Modifier.padding(
+                            top = 3.dp
+                        ),
+                    color =
+                        secondaryForeground,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall
                 )
                 footer?.let {
                     Text(
                         it,
-                        modifier = Modifier.padding(top = 6.dp),
-                        color = Color.White.copy(alpha = .72f),
-                        style = MaterialTheme.typography.labelSmall
+                        modifier =
+                            Modifier.padding(
+                                top = 6.dp
+                            ),
+                        color =
+                            foreground.copy(
+                                alpha = .66f
+                            ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelSmall
                     )
                 }
             }
             if (artwork) {
                 ConceptWalletIllustration(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .offset(x = 14.dp),
+                    modifier =
+                        Modifier
+                            .align(
+                                Alignment.CenterEnd
+                            )
+                            .offset(
+                                x = 14.dp
+                            ),
                     compact = true
                 )
             }
