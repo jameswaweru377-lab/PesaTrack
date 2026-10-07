@@ -27,10 +27,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val ConceptEmerald = Color(0xFF087A58)
-private val ConceptEmeraldDeep = Color(0xFF053D32)
-private val ConceptEmeraldDarker = Color(0xFF032E27)
-private val ConceptMint = Color(0xFF72F1B3)
+private val ConceptEmerald = Color(0xFF23C483)
+private val ConceptEmeraldDeep = Color(0xFF0A5F45)
+private val ConceptEmeraldDarker = Color(0xFF151D1A)
+private val ConceptMint = Color(0xFF8DE7BF)
 private val ConceptMintSoft = Color(0xFFE8F8EF)
 private val ConceptCream = Color(0xFFF7F7F2)
 
@@ -195,9 +195,9 @@ fun ConceptEmeraldHero(
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            Color(0xFF0A6F50),
-                            Color(0xFF066344),
-                            Color(0xFF0A8560)
+                            Color(0xFF0A5A43),
+                            Color(0xFF08724F),
+                            Color(0xFF0A8A5C)
                         )
                     )
                 )
@@ -269,16 +269,18 @@ fun ConceptMetricTile(
 ) {
     val dark = MaterialTheme.colorScheme.background.luminance() < .45f
     val soft =
-        if (positive) {
-            if (dark) Color(0xFF0A4B3C) else Color(0xFFE6F8EC)
+        if (dark) {
+            MaterialTheme.colorScheme.surface
+        } else if (positive) {
+            Color(0xFFE6F8EC)
         } else {
-            if (dark) Color(0xFF563D34) else Color(0xFFFFEBE8)
+            Color(0xFFFFEBE8)
         }
     val accent =
         if (positive) {
-            if (dark) Color(0xFF79F2B1) else Color(0xFF2DBE62)
+            if (dark) Color(0xFF23C483) else Color(0xFF2DBE62)
         } else {
-            if (dark) Color(0xFFFF9D82) else Color(0xFFE2685B)
+            if (dark) Color(0xFFF87171) else Color(0xFFE2685B)
         }
     Surface(
         modifier = modifier,
@@ -337,8 +339,13 @@ fun ConceptProgressCard(
                     .fillMaxWidth()
                     .padding(top = 12.dp)
                     .height(9.dp),
-                color = Color(0xFF31BE73),
-                trackColor = Color(0xFFD8F1E2)
+                color = MaterialTheme.colorScheme.primary,
+                trackColor =
+                    if (MaterialTheme.colorScheme.background.luminance() < .45f) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        Color(0xFFD8F1E2)
+                    }
             )
             Text(
                 helper,
@@ -372,7 +379,7 @@ fun ConceptDarkPanel(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        color = ConceptEmeraldDarker
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(Modifier.padding(15.dp), content = content)
     }
