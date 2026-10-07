@@ -24,6 +24,10 @@ val PesaShapes = Shapes(
     extraLarge = RoundedCornerShape(30.dp)
 )
 
+private val ColorTokensLightSecondary = Color(0xFF087E73)
+private val ColorTokensLightSecondaryDeep = Color(0xFF07564F)
+private val ColorTokensLightErrorDeep = Color(0xFF7A2538)
+
 private val LightColors = lightColorScheme(
     primary = AuroraIndigo,
     onPrimary = SurfaceLight,
@@ -75,10 +79,6 @@ private val DarkColors = darkColorScheme(
     errorContainer = NightRoseSurface,
     onErrorContainer = NightRoseText
 )
-
-private val ColorTokensLightSecondary = Color(0xFF087E73)
-private val ColorTokensLightSecondaryDeep = Color(0xFF07564F)
-private val ColorTokensLightErrorDeep = Color(0xFF7A2538)
 
 @Composable
 fun PesaTrackTheme(
