@@ -1132,37 +1132,52 @@ private fun TransactionHero(
                 "Completed"
         }
 
-    LandscapeBackdrop(
+    val visual =
+        categoryVisual(item.category)
+    val amountTint =
+        when (item.direction) {
+            MoneyDirection.INCOME.name ->
+                MaterialTheme
+                    .colorScheme
+                    .primary
+            MoneyDirection.EXPENSE.name ->
+                MaterialTheme
+                    .colorScheme
+                    .error
+            else ->
+                MaterialTheme
+                    .colorScheme
+                    .onSurface
+        }
+
+    PesaCard(
         modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(272.dp),
-        showSun = false
+            Modifier.fillMaxWidth()
     ) {
         Column(
             modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp)
+                Modifier.padding(18.dp)
         ) {
             Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
                 IconBubble(
-                    Icons.Rounded.AccountCircle,
-                    size = 62.dp,
+                    visual.icon,
+                    size = 58.dp,
                     background =
-                        Color(0xFF0B6C55),
-                    tint =
-                        Color(0xFF73F2BC)
+                        visual.color
+                            .copy(alpha = .16f),
+                    tint = visual.color
                 )
                 Column(
                     modifier =
                         Modifier
                             .weight(1f)
                             .padding(
-                                start = 14.dp
+                                start = 13.dp
                             )
                 ) {
                     Text(
@@ -1173,111 +1188,18 @@ private fun TransactionHero(
                         style =
                             MaterialTheme
                                 .typography
-                                .headlineSmall,
+                                .titleLarge,
                         fontWeight =
-                            FontWeight.Bold
+                            FontWeight.Bold,
+                        maxLines = 2
                     )
                     Text(
                         pretty(
                             item.type
                         ),
-                        style =
-                            MaterialTheme
-                                .typography
-                                .titleMedium,
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .onSurfaceVariant
-                    )
-                    Surface(
                         modifier =
                             Modifier.padding(
-                                top = 8.dp
-                            ),
-                        shape =
-                            RoundedCornerShape(
-                                12.dp
-                            ),
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .surface
-                                .copy(
-                                    alpha = .38f
-                                )
-                    ) {
-                        Row(
-                            modifier =
-                                Modifier.padding(
-                                    horizontal = 10.dp,
-                                    vertical = 6.dp
-                                ),
-                            verticalAlignment =
-                                Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Rounded.SwapHoriz,
-                                contentDescription =
-                                    null,
-                                modifier =
-                                    Modifier.size(
-                                        15.dp
-                                    ),
-                                tint =
-                                    Color(
-                                        0xFF77E8B6
-                                    )
-                            )
-                            Text(
-                                accountLabel,
-                                modifier =
-                                    Modifier.padding(
-                                        start = 6.dp
-                                    ),
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .labelMedium
-                            )
-                        }
-                    }
-                }
-
-                Column(
-                    horizontalAlignment =
-                        Alignment.End
-                ) {
-                    Surface(
-                        shape =
-                            CircleShape,
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .surface
-                                .copy(
-                                    alpha = .32f
-                                )
-                    ) {
-                        Icon(
-                            Icons.Rounded.Send,
-                            contentDescription =
-                                null,
-                            modifier =
-                                Modifier.padding(
-                                    12.dp
-                                ),
-                            tint =
-                                Color(
-                                    0xFF74F1B9
-                                )
-                        )
-                    }
-                    Text(
-                        "Amount",
-                        modifier =
-                            Modifier.padding(
-                                top = 8.dp
+                                top = 2.dp
                             ),
                         style =
                             MaterialTheme
@@ -1288,91 +1210,168 @@ private fun TransactionHero(
                                 .colorScheme
                                 .onSurfaceVariant
                     )
-                    Text(
-                        formatMoney(
-                            item.amountMinor
+                }
+                SmallStatusPill(
+                    text = status,
+                    tone =
+                        when (status) {
+                            "Review" ->
+                                "amber"
+                            "Excluded" ->
+                                "red"
+                            else ->
+                                "green"
+                        }
+                )
+            }
+
+            Text(
+                formatMoney(
+                    item.amountMinor
+                ),
+                modifier =
+                    Modifier.padding(
+                        top = 18.dp
+                    ),
+                style =
+                    MaterialTheme
+                        .typography
+                        .headlineLarge,
+                fontWeight =
+                    FontWeight.ExtraBold,
+                color = amountTint
+            )
+            Text(
+                SimpleDateFormat(
+                    "EEE, d MMM • HH:mm",
+                    locale
+                ).format(
+                    Date(
+                        item.occurredAtEpochMs
+                    )
+                ),
+                modifier =
+                    Modifier.padding(
+                        top = 2.dp
+                    ),
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodySmall,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+
+            Surface(
+                modifier =
+                    Modifier.padding(
+                        top = 12.dp
+                    ),
+                shape =
+                    RoundedCornerShape(
+                        12.dp
+                    ),
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .surfaceVariant
+            ) {
+                Row(
+                    modifier =
+                        Modifier.padding(
+                            horizontal = 10.dp,
+                            vertical = 7.dp
                         ),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Rounded.SwapHoriz,
+                        contentDescription =
+                            null,
+                        modifier =
+                            Modifier.size(
+                                15.dp
+                            ),
+                        tint =
+                            MaterialTheme
+                                .colorScheme
+                                .primary
+                    )
+                    Text(
+                        accountLabel,
+                        modifier =
+                            Modifier.padding(
+                                start = 6.dp
+                            ),
                         style =
                             MaterialTheme
                                 .typography
-                                .headlineLarge,
-                        fontWeight =
-                            FontWeight.Bold
+                                .labelMedium
                     )
                 }
             }
 
             Spacer(
-                Modifier.weight(1f)
+                Modifier.height(16.dp)
             )
-
-            Surface(
+            Box(
                 modifier =
-                    Modifier.fillMaxWidth(),
-                shape =
-                    RoundedCornerShape(
-                        20.dp
-                    ),
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .surface
-                        .copy(
-                            alpha = .92f
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(
+                            MaterialTheme
+                                .colorScheme
+                                .outline
+                                .copy(
+                                    alpha = .55f
+                                )
                         )
+            )
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            top = 14.dp
+                        ),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        12.dp
+                    )
             ) {
-                Row(
-                    modifier =
-                        Modifier.padding(
-                            horizontal = 12.dp,
-                            vertical = 14.dp
+                HeroMetric(
+                    "Transaction code",
+                    item.transactionCode
+                        ?: "—",
+                    Icons.AutoMirrored
+                        .Rounded
+                        .ReceiptLong,
+                    Modifier.weight(1.2f)
+                )
+                HeroMetric(
+                    "Fees",
+                    formatMoney(
+                        item.feeMinor +
+                            item
+                                .fulizaAccessFeeMinor
+                    ),
+                    Icons.Rounded.Paid,
+                    Modifier.weight(1f)
+                )
+                HeroMetric(
+                    "Category",
+                    CategoryStore
+                        .get(context)
+                        .labelFor(
+                            item.category
                         ),
-                    horizontalArrangement =
-                        Arrangement.spacedBy(
-                            8.dp
-                        )
-                ) {
-                    HeroMetric(
-                        "Transaction code",
-                        item.transactionCode
-                            ?: "—",
-                        Icons.AutoMirrored
-                            .Rounded
-                            .ReceiptLong,
-                        Modifier.weight(
-                            1.15f
-                        )
-                    )
-                    HeroMetric(
-                        "Fees",
-                        formatMoney(
-                            item.feeMinor +
-                                item
-                                    .fulizaAccessFeeMinor
-                        ),
-                        Icons.Rounded.Paid,
-                        Modifier.weight(1f)
-                    )
-                    HeroMetric(
-                        "Transaction date",
-                        SimpleDateFormat(
-                            "d MMM",
-                            locale
-                        ).format(
-                            Date(
-                                item.occurredAtEpochMs
-                            )
-                        ),
-                        Icons.Rounded.CalendarMonth,
-                        Modifier.weight(1f)
-                    )
-                    HeroMetric(
-                        "Status",
-                        status,
-                        Icons.Rounded.CheckCircle,
-                        Modifier.weight(1f)
-                    )
-                }
+                    visual.icon,
+                    Modifier.weight(1f)
+                )
             }
         }
     }
