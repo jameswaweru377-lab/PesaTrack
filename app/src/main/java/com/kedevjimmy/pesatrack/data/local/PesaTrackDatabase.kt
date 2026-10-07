@@ -1367,7 +1367,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             CREATE TABLE IF NOT EXISTS saving_goal_metadata (
                 rule_id TEXT PRIMARY KEY,
                 total_target_minor INTEGER,
-                target_date_epoch_day INTEGER,
+                target_date_epoch_ms INTEGER,
                 created_at_epoch_ms INTEGER NOT NULL,
                 updated_at_epoch_ms INTEGER NOT NULL
             )
