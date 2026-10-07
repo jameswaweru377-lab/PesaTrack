@@ -37,6 +37,14 @@ data class RestoreSummary(
     val preferenceFileCount: Int
 )
 
+data class BackupPreview(
+    val createdAtEpochMs: Long,
+    val schemaVersion: Int,
+    val tableCount: Int,
+    val rowCount: Int,
+    val preferenceFileCount: Int
+)
+
 class PesaBackupManager(
     context: Context
 ) {
@@ -114,16 +122,21 @@ class PesaBackupManager(
         requirePassphrase(passphrase)
 
         val encrypted =
-            app.contentResolver
-                .openInputStream(uri)
-                ?.use {
-                    it.readBytes()
-                }
-                ?: error(
-                    "Could not open the selected backup file."
-                )
+            readEncryptedBackup(uri)
         return restoreEncryptedBytes(
             encrypted = encrypted,
+            passphrase = passphrase
+        )
+    }
+
+    fun previewEncrypted(
+        uri: Uri,
+        passphrase: String
+    ): BackupPreview {
+        requirePassphrase(passphrase)
+        return previewEncryptedBytes(
+            encrypted =
+                readEncryptedBackup(uri),
             passphrase = passphrase
         )
     }
@@ -149,16 +162,118 @@ class PesaBackupManager(
         )
     }
 
+    internal fun previewEncryptedBytes(
+        encrypted: ByteArray,
+        passphrase: String
+    ): BackupPreview {
+        requirePassphrase(passphrase)
+        val payload =
+            parseEncryptedPayload(
+                encrypted = encrypted,
+                passphrase = passphrase
+            )
+        return backupPreview(
+            payload
+        )
+    }
+
     internal fun restoreEncryptedBytes(
         encrypted: ByteArray,
         passphrase: String
     ): RestoreSummary {
         requirePassphrase(passphrase)
+        val payload =
+            parseEncryptedPayload(
+                encrypted = encrypted,
+                passphrase = passphrase
+            )
+        validateBackupSchema(
+            payload
+        )
+
+        return synchronized(
+            CanonicalStoreLock.monitor
+        ) {
+            restorePayload(
+                payload
+            )
+        }
+    }
+
+    private fun readEncryptedBackup(
+        uri: Uri
+    ): ByteArray {
+        val knownLength =
+            runCatching {
+                app.contentResolver
+                    .openAssetFileDescriptor(
+                        uri,
+                        "r"
+                    )
+                    ?.use {
+                        it.length
+                    }
+            }.getOrNull()
+                ?: -1L
+
+        require(
+            knownLength < 0L ||
+                knownLength <=
+                MAX_ENCRYPTED_BACKUP_BYTES
+        ) {
+            "This backup is too large to restore safely."
+        }
+
+        val input =
+            app.contentResolver
+                .openInputStream(uri)
+                ?: error(
+                    "Could not open the selected backup file."
+                )
+
+        return input.use {
+            val output =
+                ByteArrayOutputStream()
+            val buffer =
+                ByteArray(8 * 1024)
+            var total = 0L
+            while (true) {
+                val read =
+                    it.read(buffer)
+                if (read < 0) {
+                    break
+                }
+                total += read
+                require(
+                    total <=
+                        MAX_ENCRYPTED_BACKUP_BYTES
+                ) {
+                    "This backup is too large to restore safely."
+                }
+                output.write(
+                    buffer,
+                    0,
+                    read
+                )
+            }
+            output.toByteArray()
+        }
+    }
+
+    private fun parseEncryptedPayload(
+        encrypted: ByteArray,
+        passphrase: String
+    ): JsonObject {
+        require(
+            encrypted.size.toLong() <=
+                MAX_ENCRYPTED_BACKUP_BYTES
+        ) {
+            "This backup is too large to restore safely."
+        }
         val plain =
             decrypt(
                 encrypted = encrypted,
-                passphrase =
-                    passphrase
+                passphrase = passphrase
             )
         val payload =
             runCatching {
@@ -187,13 +302,79 @@ class PesaBackupManager(
         ) {
             "This backup format is not supported."
         }
+        return payload
+    }
 
-        return synchronized(
-            CanonicalStoreLock.monitor
-        ) {
-            restorePayload(
-                payload
+    private fun backupPreview(
+        payload: JsonObject
+    ): BackupPreview {
+        validateBackupSchema(
+            payload
+        )
+        val tables =
+            payload.getAsJsonObject(
+                "tables"
+            ) ?: JsonObject()
+        val preferences =
+            payload.getAsJsonObject(
+                "preferences"
+            ) ?: JsonObject()
+        var rows = 0
+        tables.entrySet()
+            .forEach {
+                rows +=
+                    runCatching {
+                        it.value
+                            .asJsonArray
+                            .size()
+                    }.getOrElse {
+                        throw IllegalArgumentException(
+                            "This backup contains damaged table data."
+                        )
+                    }
+            }
+
+        return BackupPreview(
+            createdAtEpochMs =
+                payload.get(
+                    "createdAtEpochMs"
+                )
+                    ?.asLong
+                    ?: 0L,
+            schemaVersion =
+                payload.get(
+                    "schemaVersion"
+                )
+                    ?.asInt
+                    ?: 0,
+            tableCount =
+                tables.size(),
+            rowCount = rows,
+            preferenceFileCount =
+                preferences.size()
+        )
+    }
+
+    private fun validateBackupSchema(
+        payload: JsonObject
+    ) {
+        val currentSchema =
+            PesaTrackDatabase
+                .get(app)
+                .readableDatabase
+                .version
+        val backupSchema =
+            payload.get(
+                "schemaVersion"
             )
+                ?.asInt
+                ?: 0
+        require(
+            backupSchema > 0 &&
+                backupSchema <=
+                currentSchema
+        ) {
+            "This backup was created by a newer PesaTrack version."
         }
     }
 
@@ -250,17 +431,9 @@ class PesaBackupManager(
             PesaTrackDatabase
                 .get(app)
                 .writableDatabase
-        val backupSchema =
-            root.get("schemaVersion")
-                ?.asInt
-                ?: 0
-        require(
-            backupSchema > 0 &&
-                backupSchema <=
-                database.version
-        ) {
-            "This backup was created by a newer PesaTrack version."
-        }
+        validateBackupSchema(
+            root
+        )
 
         val currentTables =
             userTableNames(
@@ -1053,6 +1226,8 @@ class PesaBackupManager(
             12
         private const val GCM_TAG_BITS =
             128
+        private const val MAX_ENCRYPTED_BACKUP_BYTES =
+            64L * 1024L * 1024L
         private val MAGIC =
             "PESABK01"
                 .toByteArray(
