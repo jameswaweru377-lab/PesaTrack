@@ -87,6 +87,7 @@ import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentClientIdentity
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentFetchResult
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentHttpClient
 import com.kedevjimmy.pesatrack.domain.model.AccountType
@@ -194,7 +195,11 @@ fun SmartOnboardingSetupScreen(
         }
     val entityEnrichmentClient =
         remember {
-            EntityEnrichmentHttpClient()
+            EntityEnrichmentHttpClient(
+                clientId =
+                    EntityEnrichmentClientIdentity
+                        .get(context)
+            )
         }
     val onlineEntityLookupEnabled =
         remember {
