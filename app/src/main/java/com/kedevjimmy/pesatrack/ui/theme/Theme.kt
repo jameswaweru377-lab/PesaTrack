@@ -34,12 +34,12 @@ private val LightColors = lightColorScheme(
 )
 
 private val DarkColors = darkColorScheme(
-    primary = NightGreen,
-    onPrimary = Color(0xFF06100D),
+    primary = NightLime,
+    onPrimary = Color(0xFF0A1305),
     primaryContainer = NightMintSurface,
-    onPrimaryContainer = NightMint,
-    secondary = PremiumGold,
-    onSecondary = Color(0xFF171006),
+    onPrimaryContainer = NightLimeBright,
+    secondary = NightEmerald,
+    onSecondary = Color(0xFF03120C),
     secondaryContainer = NightAmberSurface,
     onSecondaryContainer = NightAmberText,
     tertiary = PremiumPurple,
