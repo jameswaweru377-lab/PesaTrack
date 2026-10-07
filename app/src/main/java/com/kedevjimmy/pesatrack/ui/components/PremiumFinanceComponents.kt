@@ -109,24 +109,8 @@ fun AvailableToLiveHero(
     safeToday: String? = null
 ) {
     val dark = isPesaDarkTheme()
-    val start =
-        if (dark) {
-            Color(0xFFE7F7B5)
-        } else {
-            Color(0xFF087A5B)
-        }
-    val end =
-        if (dark) {
-            Color(0xFFABC34C)
-        } else {
-            Color(0xFF0A9B73)
-        }
-    val heroForeground =
-        if (dark) {
-            Color(0xFF101700)
-        } else {
-            Color.White
-        }
+    val start = if (dark) Color(0xFF09563F) else Color(0xFF087A5B)
+    val end = if (dark) Color(0xFF0A865B) else Color(0xFF0A9B73)
     val showDailyMetrics =
         !spentToday.isNullOrBlank() ||
             !safeToday.isNullOrBlank()
@@ -146,7 +130,7 @@ fun AvailableToLiveHero(
     ) {
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(
-                color = heroForeground.copy(alpha = .045f),
+                color = Color.White.copy(alpha = .045f),
                 radius = size.minDimension * .46f,
                 center = Offset(size.width * .98f, size.height * .08f)
             )
@@ -161,14 +145,14 @@ fun AvailableToLiveHero(
                     size.height * .42f
                 )
             drawLine(
-                color = heroForeground.copy(alpha = .16f),
+                color = Color.White.copy(alpha = .16f),
                 start = stemStart,
                 end = stemEnd,
                 strokeWidth = 3.2f,
                 cap = StrokeCap.Round
             )
             drawOval(
-                color = heroForeground.copy(alpha = .07f),
+                color = Color.White.copy(alpha = .07f),
                 topLeft =
                     Offset(
                         size.width * .79f,
@@ -194,7 +178,7 @@ fun AvailableToLiveHero(
                     )
             )
             drawOval(
-                color = heroForeground.copy(alpha = .055f),
+                color = Color.White.copy(alpha = .055f),
                 topLeft =
                     Offset(
                         size.width * .87f,
@@ -219,7 +203,7 @@ fun AvailableToLiveHero(
                     MaterialTheme.typography
                         .titleMedium,
                 color =
-                    heroForeground.copy(alpha = .88f)
+                    Color.White.copy(alpha = .88f)
             )
             Text(
                 amount,
@@ -228,7 +212,7 @@ fun AvailableToLiveHero(
                     MaterialTheme.typography
                         .displaySmall,
                 fontWeight = FontWeight.Bold,
-                color = heroForeground
+                color = Color.White
             )
             Text(
                 subtitle,
@@ -237,7 +221,7 @@ fun AvailableToLiveHero(
                     MaterialTheme.typography
                         .bodyMedium,
                 color =
-                    heroForeground.copy(alpha = .78f),
+                    Color.White.copy(alpha = .82f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -253,14 +237,12 @@ fun AvailableToLiveHero(
                         label = "Spent today",
                         amount = spentToday ?: "—",
                         icon = Icons.AutoMirrored.Rounded.TrendingDown,
-                        foreground = heroForeground,
                         modifier = Modifier.weight(1f)
                     )
                     DailyHeroMetric(
                         label = "Safe today",
                         amount = safeToday ?: "—",
                         icon = Icons.Rounded.Shield,
-                        foreground = heroForeground,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -271,7 +253,7 @@ fun AvailableToLiveHero(
                         MaterialTheme.typography
                             .bodySmall,
                     color =
-                        heroForeground.copy(alpha = .68f),
+                        Color.White.copy(alpha = .72f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -285,7 +267,6 @@ private fun DailyHeroMetric(
     label: String,
     amount: String,
     icon: ImageVector,
-    foreground: Color = Color.White,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -303,14 +284,14 @@ private fun DailyHeroMetric(
             Surface(
                 modifier = Modifier.size(34.dp),
                 shape = CircleShape,
-                color = foreground.copy(alpha = .12f)
+                color = Color.White.copy(alpha = .10f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         icon,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
-                        tint = foreground
+                        tint = Color.White
                     )
                 }
             }
@@ -323,7 +304,7 @@ private fun DailyHeroMetric(
                         MaterialTheme.typography
                             .labelSmall,
                     color =
-                        foreground.copy(alpha = .72f),
+                        Color.White.copy(alpha = .72f),
                     maxLines = 1
                 )
                 Text(
@@ -332,7 +313,7 @@ private fun DailyHeroMetric(
                         MaterialTheme.typography
                             .titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = foreground,
+                    color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
