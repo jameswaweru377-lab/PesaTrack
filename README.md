@@ -86,6 +86,7 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 - [Contributing rules](CONTRIBUTING.md)
 - [Privacy policy source](docs/PRIVACY_POLICY.md)
 - [Google Play release checklist](docs/PLAY_RELEASE_CHECKLIST.md)
+- [Signed release process](docs/RELEASE_PROCESS.md)
 
 ## Current hardening priorities
 
