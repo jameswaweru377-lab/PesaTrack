@@ -1,13 +1,86 @@
 const MAX_DESCRIPTOR_LENGTH = 80;
 
-function json(body, status = 200) {
+function json(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
+      ...extraHeaders,
     },
   });
+}
+
+const CLIENT_ID_PATTERN =
+  /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+
+function resolveClientRateKey(request) {
+  const raw = request.headers
+    .get("x-pesatrack-client-id")
+    ?.trim();
+
+  if (!raw || !CLIENT_ID_PATTERN.test(raw)) {
+    return "client:anonymous";
+  }
+
+  return `client:${raw.toLowerCase()}`;
+}
+
+async function enforceResolveRateLimit(
+  request,
+  env,
+) {
+  const clientLimiter =
+    env.ENTITY_RESOLVE_CLIENT_RATE_LIMITER;
+  const edgeLimiter =
+    env.ENTITY_RESOLVE_EDGE_RATE_LIMITER;
+
+  if (
+    !clientLimiter ||
+    typeof clientLimiter.limit !== "function" ||
+    !edgeLimiter ||
+    typeof edgeLimiter.limit !== "function"
+  ) {
+    return json(
+      { error: "Rate limiter is not configured." },
+      503,
+    );
+  }
+
+  try {
+    const edgeResult =
+      await edgeLimiter.limit({
+        key: "v1-entity-resolve",
+      });
+
+    if (!edgeResult.success) {
+      return json(
+        { error: "Enrichment is temporarily busy." },
+        429,
+        { "retry-after": "60" },
+      );
+    }
+
+    const clientResult =
+      await clientLimiter.limit({
+        key: resolveClientRateKey(request),
+      });
+
+    if (!clientResult.success) {
+      return json(
+        { error: "Too many enrichment requests." },
+        429,
+        { "retry-after": "60" },
+      );
+    }
+  } catch {
+    return json(
+      { error: "Rate limiter is temporarily unavailable." },
+      503,
+    );
+  }
+
+  return null;
 }
 
 function normalizeWhitespace(value) {
@@ -435,6 +508,15 @@ export default {
         { error: "Not found." },
         404,
       );
+    }
+
+    const limited =
+      await enforceResolveRateLimit(
+        request,
+        env,
+      );
+    if (limited) {
+      return limited;
     }
 
     let payload;
