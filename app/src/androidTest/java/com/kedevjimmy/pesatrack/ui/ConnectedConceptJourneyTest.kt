@@ -27,7 +27,11 @@ class ConnectedConceptJourneyTest {
         compose.onNodeWithText("Overall goal target (KES)").performScrollTo().performTextInput("50000")
         compose.onNodeWithText("Where will you save this money?").performScrollTo().performTextInput("Savings provider")
         compose.onNodeWithText("Save goal").performClick()
-        compose.waitUntil(10000){RuleStore.get(context).listRules(true).any{it.name=="Emergency fund"}}
+        compose.waitUntil(10000){
+            val created=RuleStore.get(context).listRules(true).firstOrNull{it.name=="Emergency fund"}
+            created != null &&
+                SavingGoalMetadataStore.get(context).get(created.id)?.totalTargetMinor == 5000000L
+        }
         val created=RuleStore.get(context).listRules(true).first{it.name=="Emergency fund"}
         assertEquals(5000000L,SavingGoalMetadataStore.get(context).get(created.id)?.totalTargetMinor)
         assertEquals(0,TransactionStore.get(context).snapshot().transactionCount)

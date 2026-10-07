@@ -27,9 +27,9 @@ enum class MainTab(
     val icon: ImageVector
 ) {
     HOME("home", "Home", Icons.Rounded.Home),
-    ACTIVITY("activity", "Activity", Icons.AutoMirrored.Rounded.ReceiptLong),
-    PLAN("plan", "Plan", Icons.Rounded.CalendarMonth),
     ACCOUNTS("accounts", "Accounts", Icons.Rounded.AccountBalanceWallet),
+    ACTIVITY("activity", "Transactions", Icons.AutoMirrored.Rounded.ReceiptLong),
+    PLAN("plan", "Plan", Icons.Rounded.CalendarMonth),
     MORE("more", "More", Icons.Rounded.MoreHoriz)
 }
 
@@ -43,8 +43,9 @@ fun AppScaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = NavigationBarDefaults.Elevation
+                containerColor =
+                    MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp
             ) {
                 MainTab.entries.forEach { tab ->
                     NavigationBarItem(
@@ -54,7 +55,7 @@ fun AppScaffold(
                             Icon(
                                 tab.icon,
                                 contentDescription = tab.label,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(21.dp)
                             )
                         },
                         label = {
@@ -66,7 +67,11 @@ fun AppScaffold(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            indicatorColor =
+                                MaterialTheme
+                                    .colorScheme
+                                    .primary
+                                    .copy(alpha = .13f),
                             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )

@@ -72,14 +72,13 @@ private fun SpendingDonut(
     total: Long,
     modifier: Modifier = Modifier
 ) {
-    val palette = listOf(
-        Color(0xFF087A58),
-        Color(0xFF2F9E73),
-        Color(0xFF67B993),
-        Color(0xFFA3D9BE),
-        Color(0xFFCCECDD),
-        Color(0xFF4F8D70)
-    )
+    val palette =
+        List(6) {
+            index ->
+            premiumCategoryColor(
+                index
+            )
+        }
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             var start = -90f
@@ -377,13 +376,17 @@ fun ReportsInsightsScreen(
             }
         }
         item {
-            ConceptEmeraldHero(
+            ConceptNeutralHero(
                 title = "Money spent",
-                amount = conceptMoney(data?.summary?.spentMinor ?: 0L),
+                amount =
+                    conceptMoney(
+                        data?.summary?.spentMinor
+                            ?: 0L
+                    ),
                 subtitle =
                     if (
-                        (data?.summary?.feesMinor ?: 0L) >
-                        0L
+                        (data?.summary?.feesMinor
+                            ?: 0L) > 0L
                     ) {
                         conceptMoney(
                             data?.summary?.feesMinor
@@ -393,7 +396,9 @@ fun ReportsInsightsScreen(
                     } else {
                         "Fees are tracked separately from spending"
                     },
-                eyebrow = period
+                eyebrow = period,
+                icon = Icons.Rounded.BarChart,
+                tone = "green"
             )
         }
         item {
@@ -638,12 +643,10 @@ fun ReportsInsightsScreen(
                                     Surface(
                                         modifier = Modifier.size(9.dp),
                                         shape = androidx.compose.foundation.shape.CircleShape,
-                                        color = listOf(
-                                            Color(0xFF087A58),
-                                            Color(0xFF2F9E73),
-                                            Color(0xFF67B993),
-                                            Color(0xFFA3D9BE)
-                                        )[index]
+                                        color =
+                                            premiumCategoryColor(
+                                                index
+                                            )
                                     ) {}
                                     Text(
                                         entry.first,
@@ -895,12 +898,20 @@ fun BillsRemindersScreen(
             }
         }
         item {
-            ConceptEmeraldHero(
+            ConceptNeutralHero(
                 title = "Coming up",
-                amount = conceptMoney(comingUp),
-                subtitle = if (bills.isEmpty()) "No bills configured" else "${bills.count { it.dueThisMonth && it.remainingMinor > 0L }} bills awaiting payment this month",
-                artwork = false,
-                eyebrow = "This month"
+                amount =
+                    conceptMoney(comingUp),
+                subtitle =
+                    if (bills.isEmpty()) {
+                        "No bills configured"
+                    } else {
+                        "${bills.count { it.dueThisMonth && it.remainingMinor > 0L }} bills awaiting payment this month"
+                    },
+                eyebrow = "This month",
+                icon =
+                    Icons.Rounded.CalendarMonth,
+                tone = "amber"
             )
         }
         item { ConceptSectionTitle("Your bills") }
@@ -1280,7 +1291,7 @@ fun SavingGoalsScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.primaryContainer
+                color = MaterialTheme.colorScheme.surface
             ) {
                 Column(Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1293,7 +1304,7 @@ fun SavingGoalsScreen(
                             Text(
                                 "Set goals, stay consistent and make progress.",
                                 Modifier.padding(top = 5.dp),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Box(

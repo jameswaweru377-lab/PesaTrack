@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -42,6 +43,8 @@ import com.kedevjimmy.pesatrack.ui.theme.NightAmberSurface
 import com.kedevjimmy.pesatrack.ui.theme.NightAmberText
 import com.kedevjimmy.pesatrack.ui.theme.NightBlueSurface
 import com.kedevjimmy.pesatrack.ui.theme.NightBlueText
+import com.kedevjimmy.pesatrack.ui.theme.NightElevated
+import com.kedevjimmy.pesatrack.ui.theme.NightSurfaceHigh
 import com.kedevjimmy.pesatrack.ui.theme.NightMintSurface
 import com.kedevjimmy.pesatrack.ui.theme.NightMintText
 import com.kedevjimmy.pesatrack.ui.theme.NightRoseSurface
@@ -121,11 +124,37 @@ fun PesaCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
+    val dark = isPesaDarkTheme()
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(
+            PesaDesignTokens.cardRadius
+        ),
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    MaterialTheme
+                        .colorScheme
+                        .surface
+            ),
+        border =
+            if (dark) {
+                BorderStroke(
+                    PesaDesignTokens
+                        .cardBorderWidth,
+                    MaterialTheme
+                        .colorScheme
+                        .outline
+                        .copy(alpha = .72f)
+                )
+            } else {
+                null
+            },
+        elevation =
+            CardDefaults.cardElevation(
+                defaultElevation =
+                    if (dark) 0.dp else 1.dp
+            )
     ) {
         content()
     }
@@ -199,11 +228,38 @@ fun LandscapeBackdrop(
     content: @Composable () -> Unit
 ) {
     val useDark = dark ?: isPesaDarkTheme()
-    val base = if (useDark) Color(0xFF073C34) else Color(0xFFE6F5EE)
-    val hill1 = if (useDark) Color(0xFF0B5E4C) else Color(0xFFC8EADD)
-    val hill2 = if (useDark) Color(0xFF0D7459) else Color(0xFFA9DDC8)
-    val hill3 = if (useDark) Color(0xFF0A4B40) else Color(0xFF82C8AF)
-    val sun = if (useDark) Color(0xFFB7D56D).copy(alpha = .24f) else Color(0xFFFFE9B6)
+    val base =
+        if (useDark) {
+            MaterialTheme.colorScheme.surface
+        } else {
+            Color(0xFFE6F5EE)
+        }
+    val hill1 =
+        if (useDark) {
+            NightElevated
+        } else {
+            Color(0xFFC8EADD)
+        }
+    val hill2 =
+        if (useDark) {
+            NightSurfaceHigh
+        } else {
+            Color(0xFFA9DDC8)
+        }
+    val hill3 =
+        if (useDark) {
+            MaterialTheme.colorScheme.primary
+                .copy(alpha = .18f)
+        } else {
+            Color(0xFF82C8AF)
+        }
+    val sun =
+        if (useDark) {
+            MaterialTheme.colorScheme.primary
+                .copy(alpha = .08f)
+        } else {
+            Color(0xFFFFE9B6)
+        }
 
     Box(
         modifier = modifier
@@ -274,12 +330,10 @@ fun MetricCell(
         IconBubble(
             icon = icon,
             size = 34.dp,
-            background = when (tone) {
-                "amber" -> AmberSoft
-                "blue" -> SkySoft
-                "violet" -> VioletSoft
-                else -> MintSoft
-            }
+            background =
+                pesaToneContainer(tone),
+            tint =
+                pesaToneContent(tone)
         )
         Spacer(Modifier.height(7.dp))
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
