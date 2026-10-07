@@ -1164,9 +1164,9 @@ private fun TransactionHero(
                     Icons.Rounded.AccountCircle,
                     size = 62.dp,
                     background =
-                        Color(0xFF0B6C55),
+                        Color(0xFF4F46D8),
                     tint =
-                        Color(0xFF73F2BC)
+                        Color(0xFF55E6D1)
                 )
                 Column(
                     modifier =
@@ -1746,7 +1746,7 @@ private fun ClassificationCard(
                                 50.dp
                             ),
                         color =
-                            Color(0xFF0C765B)
+                            Color(0xFF3933A8)
                                 .copy(
                                     alpha = .52f
                                 ),
@@ -2296,7 +2296,7 @@ private fun categoryVisual(
             CategoryVisual(
                 Icons.Rounded
                     .ShoppingCart,
-                Color(0xFF68F0B4)
+                Color(0xFFA69CFF)
             )
 
         TransactionCategory
@@ -2312,7 +2312,7 @@ private fun categoryVisual(
             CategoryVisual(
                 Icons.Rounded
                     .DirectionsBus,
-                Color(0xFF75A8FF)
+                Color(0xFF57C7FF)
             )
 
         TransactionCategory
@@ -2392,21 +2392,21 @@ private fun categoryVisual(
             .INVESTMENT.name ->
             CategoryVisual(
                 Icons.Rounded.TrendingUp,
-                Color(0xFF82E8A8)
+                Color(0xFF55E6D1)
             )
 
         TransactionCategory
             .INCOME.name ->
             CategoryVisual(
                 Icons.Rounded.Paid,
-                Color(0xFF75EE9B)
+                Color(0xFFA69CFF)
             )
 
         TransactionCategory
             .HOME_HOUSEHOLD.name ->
             CategoryVisual(
                 Icons.Rounded.Home,
-                Color(0xFF66D5C8)
+                Color(0xFF55E6D1)
             )
 
         else ->
@@ -2558,7 +2558,7 @@ private fun TransactionActionCard(
                 shape =
                     CircleShape,
                 color =
-                    Color(0xFF168263)
+                    Color(0xFF14B8A6)
                         .copy(
                             alpha = .2f
                         )
