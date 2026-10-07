@@ -2775,7 +2775,9 @@ private fun SummaryComparison(
         if (dark) {
             MaterialTheme.colorScheme.onSurfaceVariant
         } else {
-            neutralText
+            Color.White.copy(
+                alpha = .68f
+            )
         }
     if (
         current == 0L &&
@@ -2792,9 +2794,7 @@ private fun SummaryComparison(
                     .typography
                     .labelSmall,
             color =
-                Color.White.copy(
-                    alpha = .68f
-                )
+                neutralText
         )
         return
     }
