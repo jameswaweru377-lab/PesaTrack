@@ -260,6 +260,96 @@ fun ConceptEmeraldHero(
 }
 
 @Composable
+fun ConceptNeutralHero(
+    title: String,
+    amount: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    eyebrow: String? = null,
+    icon: ImageVector = Icons.Rounded.AccountBalanceWallet,
+    tone: String = "green"
+) {
+    PesaCard(modifier) {
+        Column(
+            modifier =
+                Modifier.padding(16.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                IconBubble(
+                    icon = icon,
+                    size = 42.dp,
+                    background =
+                        pesaToneContainer(
+                            tone
+                        ),
+                    tint =
+                        pesaToneContent(
+                            tone
+                        )
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(
+                                start = 11.dp
+                            )
+                ) {
+                    eyebrow?.let {
+                        Text(
+                            it,
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .labelMedium,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .primary
+                        )
+                    }
+                    Text(
+                        title,
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleMedium,
+                        fontWeight =
+                            FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Text(
+                amount,
+                style =
+                    MaterialTheme
+                        .typography
+                        .headlineLarge,
+                fontWeight =
+                    FontWeight.ExtraBold
+            )
+            Text(
+                subtitle,
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodySmall,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
 fun ConceptMetricTile(
     icon: ImageVector,
     label: String,
