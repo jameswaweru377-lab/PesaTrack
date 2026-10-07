@@ -122,6 +122,38 @@ class PesaBackupManager(
                 ?: error(
                     "Could not open the selected backup file."
                 )
+        return restoreEncryptedBytes(
+            encrypted = encrypted,
+            passphrase = passphrase
+        )
+    }
+
+    internal fun exportEncryptedBytes(
+        passphrase: String
+    ): ByteArray {
+        requirePassphrase(passphrase)
+        val payload =
+            synchronized(
+                CanonicalStoreLock.monitor
+            ) {
+                buildPayload()
+            }
+        return encrypt(
+            plain =
+                payload.toString()
+                    .toByteArray(
+                        Charsets.UTF_8
+                    ),
+            passphrase =
+                passphrase
+        )
+    }
+
+    internal fun restoreEncryptedBytes(
+        encrypted: ByteArray,
+        passphrase: String
+    ): RestoreSummary {
+        requirePassphrase(passphrase)
         val plain =
             decrypt(
                 encrypted = encrypted,
