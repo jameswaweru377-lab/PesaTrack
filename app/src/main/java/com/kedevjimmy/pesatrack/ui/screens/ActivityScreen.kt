@@ -2550,17 +2550,24 @@ private fun ActivitySummaryCard(
     val previousSavingsMinor =
         monthSavings(previousSnapshot)
     val dark = isPesaDarkTheme()
-    val gradient = if (dark) {
-        listOf(
-            Color(0xFF06453E),
-            Color(0xFF0A6A59)
-        )
-    } else {
-        listOf(
-            Color(0xFF087A5B),
-            Color(0xFF0A9B73)
-        )
-    }
+    val gradient =
+        if (dark) {
+            listOf(
+                MaterialTheme.colorScheme.surface,
+                MaterialTheme.colorScheme.surfaceVariant
+            )
+        } else {
+            listOf(
+                Color(0xFF087A5B),
+                Color(0xFF0A9B73)
+            )
+        }
+    val summaryForeground =
+        if (dark) {
+            MaterialTheme.colorScheme.onSurface
+        } else {
+            Color.White
+        }
 
     Box(
         modifier = Modifier
@@ -2595,7 +2602,7 @@ private fun ActivitySummaryCard(
                     modifier = Modifier.padding(start = 10.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = summaryForeground
                 )
             }
 
@@ -2718,18 +2725,32 @@ private fun SummaryAmountWithChange(
     zeroComparisonLabel: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val dark = isPesaDarkTheme()
+    val primaryText =
+        if (dark) {
+            MaterialTheme.colorScheme.onSurface
+        } else {
+            Color.White
+        }
+    val secondaryText =
+        if (dark) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            Color.White.copy(alpha = .72f)
+        }
+
     Column(modifier) {
         Text(
             label,
             style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = .72f)
+            color = secondaryText
         )
         Text(
             value,
             modifier = Modifier.padding(top = 2.dp),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = primaryText,
             maxLines = 1
         )
         SummaryComparison(
@@ -2749,6 +2770,13 @@ private fun SummaryComparison(
     positiveWhenUp: Boolean,
     zeroComparisonLabel: String? = null
 ) {
+    val dark = isPesaDarkTheme()
+    val neutralText =
+        if (dark) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            neutralText
+        }
     if (
         current == 0L &&
         zeroComparisonLabel != null
@@ -2785,7 +2813,7 @@ private fun SummaryComparison(
             },
             modifier = Modifier.padding(top = 4.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = .68f)
+            color = neutralText
         )
         return
     }
@@ -2794,11 +2822,11 @@ private fun SummaryComparison(
     val favorable =
         if (positiveWhenUp) up else !up
     val tint = if (percent == 0) {
-        Color.White.copy(alpha = .66f)
+        neutralText
     } else if (favorable) {
-        Color(0xFF8CF2C6)
+        MaterialTheme.colorScheme.primary
     } else {
-        Color(0xFFFFA0AA)
+        MaterialTheme.colorScheme.error
     }
 
     Row(
