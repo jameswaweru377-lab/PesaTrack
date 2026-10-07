@@ -188,6 +188,31 @@ class PaydaySnapshotStore private constructor(
         )
     }
 
+    /**
+     * Reads several account balances against one database view and one
+     * reference timestamp. Screens that show a total plus account rows should
+     * use this instead of requesting each balance independently.
+     */
+    fun currentAccountSnapshots(
+        accounts: List<MoneyAccount>,
+        nowEpochMs: Long =
+            System.currentTimeMillis()
+    ): List<PaydayAccountSnapshot> =
+        synchronized(
+            CanonicalStoreLock.monitor
+        ) {
+            val db =
+                database.readableDatabase
+            accounts.map { account ->
+                accountSnapshotAt(
+                    db = db,
+                    account = account,
+                    snapshotEpochMs =
+                        nowEpochMs
+                )
+            }
+        }
+
     private fun rebuildSnapshot(
         db: SQLiteDatabase,
         anchor: PaydaySalaryAnchor
