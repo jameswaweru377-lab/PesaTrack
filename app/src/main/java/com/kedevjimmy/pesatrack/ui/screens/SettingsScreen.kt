@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.EntityEnrichmentPreferences
 import com.kedevjimmy.pesatrack.security.AppLockManager
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
@@ -66,6 +68,18 @@ fun SettingsScreen(
     val appLockManager =
         remember {
             AppLockManager(context)
+        }
+    val enrichmentPreferences =
+        remember {
+            EntityEnrichmentPreferences
+                .get(context)
+        }
+    var onlineEntityLookupEnabled by
+        remember {
+            mutableStateOf(
+                enrichmentPreferences
+                    .isOnlineLookupEnabled()
+            )
         }
     var appLockEnabled by remember {
         mutableStateOf(
@@ -230,6 +244,22 @@ fun SettingsScreen(
             Spacer(Modifier.padding(top = 2.dp))
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
+                    SettingsSwitchRow(
+                        icon = Icons.Rounded.Storage,
+                        title = "Online merchant lookup",
+                        subtitle =
+                            "Off by default. When enabled, only a sanitized business label may be sent. Amounts, balances, phone/account numbers, transaction codes and full SMS are never sent.",
+                        checked =
+                            onlineEntityLookupEnabled,
+                        onCheckedChange = {
+                            onlineEntityLookupEnabled =
+                                it
+                            enrichmentPreferences
+                                .setOnlineLookupEnabled(
+                                    it
+                                )
+                        }
+                    )
                     SettingsRow(
                         Icons.Rounded.Security,
                         "App lock",
@@ -259,7 +289,7 @@ fun SettingsScreen(
                     )
                     SettingsRow(
                         Icons.Rounded.Storage,
-                        "Import M-Pesa SMS history",
+                        "Import financial SMS history",
                         "Grant SMS access and backfill this month or up to 90 days",
                         onClick = onHistoricalImportClick
                     )
@@ -273,10 +303,87 @@ fun SettingsScreen(
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
                     SettingsRow(Icons.Rounded.Info, "About PesaTrack", "Private, local-first money companion")
-                    SettingsRow(Icons.Rounded.Lock, "Privacy", "Core records stay local; enrichment uses sanitized business descriptors")
+                    SettingsRow(
+                        Icons.Rounded.Lock,
+                        "Privacy",
+                        "Core records stay local. Online enrichment is optional and off by default."
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onCheckedChange(!checked)
+                }
+                .padding(vertical = 12.dp),
+        verticalAlignment =
+            Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = RoundedCornerShape(13.dp),
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .surfaceVariant
+        ) {
+            androidx.compose.foundation.layout.Box(
+                contentAlignment =
+                    Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint =
+                        MaterialTheme
+                            .colorScheme
+                            .primary
+                )
+            }
+        }
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(horizontal = 12.dp)
+        ) {
+            Text(
+                title,
+                style =
+                    MaterialTheme
+                        .typography
+                        .titleMedium
+            )
+            Text(
+                subtitle,
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodySmall,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange =
+                onCheckedChange
+        )
     }
 }
 
