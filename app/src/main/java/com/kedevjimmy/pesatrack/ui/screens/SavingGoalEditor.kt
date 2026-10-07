@@ -408,6 +408,10 @@ internal fun SavingGoalEditor(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .weight(
+                            1f,
+                            fill = false
+                        )
                         .padding(
                             top = 18.dp
                         )
