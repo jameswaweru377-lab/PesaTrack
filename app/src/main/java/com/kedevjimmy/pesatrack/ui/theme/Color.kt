@@ -46,6 +46,8 @@ val NightGreen = NightLime
 val NightMint = NightLimeBright
 
 val NightMintSurface = Color(0xFF253311)
+val NightEmeraldSurface = Color(0xFF0E3024)
+val NightEmeraldText = Color(0xFF78E6B8)
 val NightAmberSurface = Color(0xFF332A12)
 val NightBlueSurface = Color(0xFF14283A)
 val NightVioletSurface = Color(0xFF271F3A)
