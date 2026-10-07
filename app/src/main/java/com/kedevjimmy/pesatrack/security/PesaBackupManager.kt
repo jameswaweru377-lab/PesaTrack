@@ -1018,13 +1018,17 @@ class PesaBackupManager(
 
     private fun quoteIdentifier(
         value: String
-    ): String =
-        """ +
+    ): String {
+        val quote =
+            34.toChar()
+                .toString()
+        return quote +
             value.replace(
-                """,
-                """"
+                quote,
+                quote + quote
             ) +
-            """
+            quote
+    }
 
     private fun requirePassphrase(
         passphrase: String
