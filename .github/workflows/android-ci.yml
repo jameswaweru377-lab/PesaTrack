@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -61,37 +61,14 @@ jobs:
             cat "$report"
           fi
 
-      - name: Publish rolling debug APK
-        if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          apk="app/build/outputs/apk/debug/app-debug.apk"
-
-          if [[ ! -f "$apk" ]]; then
-            echo "Expected APK not found at $apk"
-            exit 1
-          fi
-
-          if ! gh release view ci-apk >/dev/null 2>&1; then
-            gh release create ci-apk \
-              --target "$GITHUB_SHA" \
-              --title "PesaTrack Rolling CI APK" \
-              --notes "Rolling prerelease containing the latest successful PesaTrack debug APK from main. The attached PesaTrack-debug.apk is authoritative; the release source archive remains tied to the original ci-apk tag." \
-              --prerelease
-          fi
-
-          cp "$apk" PesaTrack-debug.apk
-
-          # Remove the first workaround asset if it exists under the Gradle filename.
-          gh release delete-asset ci-apk app-debug.apk --yes >/dev/null 2>&1 || true
-
-          gh release upload ci-apk \
-            PesaTrack-debug.apk \
-            --clobber
+      - name: Upload debug APK for gated publication
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pesatrack-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 3
 
 
   instrumentation:
@@ -134,3 +111,49 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: gradle :app:connectedDebugAndroidTest --stacktrace
+
+  publish:
+    needs: [build, instrumentation]
+    if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download tested debug APK
+        uses: actions/download-artifact@v4
+        with:
+          name: pesatrack-debug-apk
+          path: dist
+
+      - name: Publish rolling debug APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          apk="dist/app-debug.apk"
+
+          if [[ ! -f "$apk" ]]; then
+            echo "Expected tested APK not found at $apk"
+            exit 1
+          fi
+
+          if ! gh release view ci-apk >/dev/null 2>&1; then
+            gh release create ci-apk \
+              --target "$GITHUB_SHA" \
+              --title "PesaTrack Rolling CI APK" \
+              --notes "Rolling prerelease containing the latest PesaTrack debug APK from main that passed build, lint, unit tests and Android instrumentation. The attached PesaTrack-debug.apk is authoritative; the release source archive remains tied to the original ci-apk tag." \
+              --prerelease
+          fi
+
+          cp "$apk" PesaTrack-debug.apk
+
+          gh release delete-asset ci-apk app-debug.apk --yes >/dev/null 2>&1 || true
+
+          gh release upload ci-apk \
+            PesaTrack-debug.apk \
+            --clobber
+
