@@ -87,12 +87,22 @@ Wrangler is configured with `keep_vars: true` so dashboard-managed Worker variab
 
 The Android app must not embed a reusable secret to authenticate to this Worker. APK secrets are extractable and would not create a meaningful trust boundary.
 
-Because `/v1/entity/resolve` is therefore publicly callable, production deployment should protect provider quota and cost at the Cloudflare edge:
+Because `/v1/entity/resolve` is publicly callable, the Worker uses Cloudflare's native Rate Limiting binding before it parses the request body or calls the upstream provider.
 
-- configure Cloudflare rate limiting / abuse controls for the resolve route;
-- monitor request volume, error rate, and upstream provider usage;
+Current repository policy:
+- the Android app generates a random install-scoped UUID and sends it only as `X-PesaTrack-Client-Id` for rate-limit partitioning;
+- the identifier is not an authentication credential and must never contain a phone number, account identifier, SMS content, transaction code, or other ledger data;
+- `ENTITY_RESOLVE_CLIENT_RATE_LIMITER` allows 60 requests per 60 seconds per valid install ID in each Cloudflare edge location;
+- old or malformed clients fall into a shared `anonymous` client bucket rather than bypassing the limiter;
+- `ENTITY_RESOLVE_EDGE_RATE_LIMITER` adds a larger 600 requests per 60 seconds route-wide safety cap per Cloudflare edge location;
+- HTTP 429 responses include `Retry-After: 60`;
+- the resolve route fails closed with HTTP 503 if either limiter binding is missing or limiter evaluation fails;
+- the health route is not rate limited;
+- IP addresses are deliberately not used as limiter keys because mobile/NAT users may share them;
 - keep `LOGO_DEV_SECRET_KEY` only in Cloudflare;
 - never weaken descriptor privacy checks in order to make rate limiting easier;
 - do not send raw SMS, phone numbers, transaction codes, account numbers, or likely personal names.
 
-Rate limiting is deployment infrastructure, not Android accounting logic. If enrichment is throttled or unavailable, PesaTrack must continue with local ledger truth and local entity intelligence.
+The install ID improves fairness but is client-generated and therefore not trusted identity. The larger edge-wide cap remains necessary to limit abuse from clients that rotate IDs. These rate limits protect provider quota and abuse exposure; they are not authentication and are not accounting controls. Cloudflare's Worker limiter is permissive/eventually consistent and local to an edge location, so monitoring upstream usage still matters.
+
+If enrichment is throttled or unavailable, PesaTrack must continue with local ledger truth and local entity intelligence.
