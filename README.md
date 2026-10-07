@@ -79,12 +79,20 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 - Migration coverage includes fresh v32 plus selected historical upgrades including v1, v30 and v31 to v32.
 - App lock, biometric unlock and passphrase-encrypted backup/restore are implemented.
 
+## Release and security documents
+
+- [Current engineering state](CURRENT_STATE.md)
+- [Security policy](SECURITY.md)
+- [Contributing rules](CONTRIBUTING.md)
+- [Privacy policy source](docs/PRIVACY_POLICY.md)
+- [Google Play release checklist](docs/PLAY_RELEASE_CHECKLIST.md)
+
 ## Current hardening priorities
 
 Before public release, the project is prioritizing:
-- branch protection and repository hygiene;
-- release signing/versioning and reproducible wrapper/tooling;
-- explicit privacy and Play Store permission documentation;
+- branch protection and stale-branch cleanup;
+- release signing/versioning and a committed Gradle wrapper;
+- publishing the privacy policy and completing Play Console declarations;
 - real-device Redmi/Xiaomi acceptance;
 - performance work for long-history import and large ledgers;
 - decomposition of the largest stores and Compose screens;
