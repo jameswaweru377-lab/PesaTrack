@@ -20,23 +20,16 @@ object PesaDesignTokens {
         8.dp
 
     val cardRadius =
-        20.dp
-    val elevatedRadius =
         24.dp
+    val elevatedRadius =
+        28.dp
     val innerRadius =
-        14.dp
-    val controlRadius =
         16.dp
+    val controlRadius =
+        18.dp
     val iconRadius =
         13.dp
 
     val iconBubble =
         42.dp
-
-    val navRadius =
-        18.dp
-    val heroRadius =
-        20.dp
-    val cardBorderWidth =
-        1.dp
 }
