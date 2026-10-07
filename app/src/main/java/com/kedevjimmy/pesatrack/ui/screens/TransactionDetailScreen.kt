@@ -83,6 +83,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
+import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
@@ -126,6 +127,7 @@ fun TransactionDetailScreen(
     var learningError by remember(transactionId) { mutableStateOf<String?>(null) }
     val ruleStore = remember { RuleStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
+    val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
     val annotationStore =
         remember {
             TransactionAnnotationStore.get(context)
@@ -227,6 +229,13 @@ fun TransactionDetailScreen(
                 personalLearningStore::
                     preferenceFor
             )
+    }
+
+    LaunchedEffect(
+        transactionId,
+        ledgerUpdateState.revision
+    ) {
+        refresh()
     }
 
     fun classifyOnly(
@@ -441,6 +450,7 @@ fun TransactionDetailScreen(
                             )
                     }
                     .take(12),
+            categoryStore = categoryStore,
             onDismiss = {
                 showMerchantHistory = false
             },
@@ -2811,6 +2821,7 @@ private fun MerchantHistoryDialog(
     merchant: String,
     transactions:
         List<StoredTransaction>,
+    categoryStore: CategoryStore,
     onDismiss: () -> Unit,
     onTransactionClick: (Long) -> Unit
 ) {
@@ -2915,8 +2926,10 @@ private fun MerchantHistoryDialog(
                                         )
                                     }
                                     Text(
-                                        pretty(
-                                            item.category
+                                        categoryStore.labelFor(
+                                            categoryStore.canonicalId(
+                                                item.category
+                                            )
                                         ),
                                         style =
                                             MaterialTheme
