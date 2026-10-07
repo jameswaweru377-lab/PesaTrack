@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.CancellationSignal
 import android.app.BiometricPrompt
 import android.app.KeyguardManager
+import android.hardware.biometrics.BiometricManager
 import android.content.pm.PackageManager
 import android.content.Intent
 import com.kedevjimmy.pesatrack.salary.SalaryReminders
@@ -172,17 +173,31 @@ class MainActivity : ComponentActivity() {
             getSystemService(
                 KeyguardManager::class.java
             )
-        return keyguard
-            ?.isKeyguardSecure == true &&
-            (
-                packageManager
-                    .hasSystemFeature(
-                        PackageManager
-                            .FEATURE_FINGERPRINT
-                    ) ||
-                    Build.VERSION.SDK_INT >=
-                    Build.VERSION_CODES.Q
+        if (
+            keyguard
+                ?.isKeyguardSecure !=
+                true
+        ) {
+            return false
+        }
+
+        return if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.Q
+        ) {
+            getSystemService(
+                BiometricManager::class.java
+            )
+                ?.canAuthenticate() ==
+                BiometricManager
+                    .BIOMETRIC_SUCCESS
+        } else {
+            packageManager
+                .hasSystemFeature(
+                    PackageManager
+                        .FEATURE_FINGERPRINT
                 )
+        }
     }
 
     private fun requestBiometricUnlock() {
