@@ -1,0 +1,9 @@
+# Default owner for review-sensitive changes.
+* @jameswaweru377-lab
+
+# Security, release and data-ingestion surfaces.
+.github/ @jameswaweru377-lab
+app/src/main/java/com/kedevjimmy/pesatrack/security/ @jameswaweru377-lab
+app/src/main/java/com/kedevjimmy/pesatrack/ingestion/ @jameswaweru377-lab
+worker/ @jameswaweru377-lab
+wrangler.jsonc @jameswaweru377-lab
