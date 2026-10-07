@@ -141,17 +141,32 @@ fun AccountsScreen(
                                 )
                         }
                     }
+                val referenceEpochMs =
+                    System.currentTimeMillis()
+                val allSnapshots =
+                    balanceStore
+                        .currentAccountSnapshots(
+                            accounts =
+                                groups.flatMap {
+                                    it.accounts
+                                },
+                            nowEpochMs =
+                                referenceEpochMs
+                        )
+                        .associateBy {
+                            it.accountId
+                        }
                 groups.map { group ->
                     accountBalancePresentation(
                         group = group,
                         snapshots =
-                            group.accounts.map {
-                                account ->
-                                balanceStore
-                                    .currentAccountSnapshot(
-                                        account
-                                    )
-                            }
+                            group.accounts
+                                .mapNotNull {
+                                    account ->
+                                    allSnapshots[
+                                        account.id
+                                    ]
+                                }
                     )
                 }
             }
