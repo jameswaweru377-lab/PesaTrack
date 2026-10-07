@@ -60,13 +60,14 @@ The next test expansion should add scheduled API-level coverage, broader migrati
 - `SECURITY.md`, `CONTRIBUTING.md` and `CODEOWNERS` define review/privacy expectations.
 - The repository contains a privacy-policy source and a Play release checklist.
 - SMS-permission surfaces provide an explicit disclosure before requesting historical SMS access.
+- Release builds accept explicit version code/name inputs and a manual signed AAB/APK workflow is defined; signing material remains outside the repository and the first signed run is still a release gate.
 
 ## Release status
 
 Not yet public-store ready. Remaining release blockers include:
 - protect `main` with required CI checks;
 - clean stale branches;
-- signed/versioned release workflow and committed Gradle wrapper;
+- configure signing secrets, prove the signed release workflow end-to-end, and commit the Gradle wrapper;
 - publish the privacy policy at a stable HTTPS URL and complete Google Play READ_SMS / Financial features declarations;
 - Redmi/Xiaomi real-history acceptance;
 - performance hardening for long imports/large ledgers;

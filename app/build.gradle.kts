@@ -14,6 +14,78 @@ val entityEnrichmentUrl = providers
     .get()
 
 
+val appVersionCode =
+    providers
+        .gradleProperty(
+            "PESATRACK_VERSION_CODE"
+        )
+        .orElse(
+            providers.environmentVariable(
+                "PESATRACK_VERSION_CODE"
+            )
+        )
+        .orElse("1")
+        .get()
+        .toIntOrNull()
+        ?: error(
+            "PESATRACK_VERSION_CODE must be an integer."
+        )
+
+val appVersionName =
+    providers
+        .gradleProperty(
+            "PESATRACK_VERSION_NAME"
+        )
+        .orElse(
+            providers.environmentVariable(
+                "PESATRACK_VERSION_NAME"
+            )
+        )
+        .orElse("0.1.0")
+        .get()
+
+val releaseStoreFilePath =
+    providers
+        .environmentVariable(
+            "PESATRACK_RELEASE_KEYSTORE"
+        )
+        .orNull
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+
+val releaseStorePassword =
+    providers
+        .environmentVariable(
+            "PESATRACK_RELEASE_STORE_PASSWORD"
+        )
+        .orNull
+        ?.takeIf { it.isNotEmpty() }
+
+val releaseKeyAlias =
+    providers
+        .environmentVariable(
+            "PESATRACK_RELEASE_KEY_ALIAS"
+        )
+        .orNull
+        ?.takeIf { it.isNotEmpty() }
+
+val releaseKeyPassword =
+    providers
+        .environmentVariable(
+            "PESATRACK_RELEASE_KEY_PASSWORD"
+        )
+        .orNull
+        ?.takeIf { it.isNotEmpty() }
+
+val releaseSigningConfigured =
+    listOf(
+        releaseStoreFilePath,
+        releaseStorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword
+    ).all { it != null }
+
+
 android {
     namespace = "com.kedevjimmy.pesatrack"
     compileSdk = 36
@@ -29,9 +101,44 @@ android {
         )
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile =
+                    file(
+                        requireNotNull(
+                            releaseStoreFilePath
+                        )
+                    )
+                storePassword =
+                    requireNotNull(
+                        releaseStorePassword
+                    )
+                keyAlias =
+                    requireNotNull(
+                        releaseKeyAlias
+                    )
+                keyPassword =
+                    requireNotNull(
+                        releaseKeyPassword
+                    )
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (releaseSigningConfigured) {
+                signingConfig =
+                    signingConfigs
+                        .getByName("release")
+            }
+        }
     }
 
     buildFeatures {

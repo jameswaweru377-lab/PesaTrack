@@ -1,0 +1,130 @@
+name: Signed Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Release version name, for example 0.2.0"
+        required: true
+        type: string
+      version_code:
+        description: "Monotonically increasing Android version code"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PESATRACK_VERSION_NAME: ${{ inputs.version_name }}
+      PESATRACK_VERSION_CODE: ${{ inputs.version_code }}
+      PESATRACK_ENTITY_ENRICHMENT_URL: https://pesatrack.jameswaweru399.workers.dev/v1/entity/resolve
+      PESATRACK_RELEASE_KEYSTORE_BASE64: ${{ secrets.PESATRACK_RELEASE_KEYSTORE_BASE64 }}
+      PESATRACK_RELEASE_STORE_PASSWORD: ${{ secrets.PESATRACK_RELEASE_STORE_PASSWORD }}
+      PESATRACK_RELEASE_KEY_ALIAS: ${{ secrets.PESATRACK_RELEASE_KEY_ALIAS }}
+      PESATRACK_RELEASE_KEY_PASSWORD: ${{ secrets.PESATRACK_RELEASE_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          gradle-version: "9.5.0"
+
+      - name: Validate release inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${PESATRACK_VERSION_CODE}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "version_code must be a positive integer."
+            exit 1
+          fi
+
+          if [[ ! "${PESATRACK_VERSION_NAME}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "version_name must look like 0.2.0 or 0.2.0-rc.1."
+            exit 1
+          fi
+
+          for name in             PESATRACK_RELEASE_KEYSTORE_BASE64             PESATRACK_RELEASE_STORE_PASSWORD             PESATRACK_RELEASE_KEY_ALIAS             PESATRACK_RELEASE_KEY_PASSWORD
+          do
+            if [[ -z "${!name}" ]]; then
+              echo "Missing required repository secret: ${name}"
+              exit 1
+            fi
+          done
+
+      - name: Materialize release keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          keystore="${RUNNER_TEMP}/pesatrack-release.jks"
+          printf '%s' "${PESATRACK_RELEASE_KEYSTORE_BASE64}"             | base64 --decode > "${keystore}"
+
+          if [[ ! -s "${keystore}" ]]; then
+            echo "Decoded release keystore is empty."
+            exit 1
+          fi
+
+          chmod 600 "${keystore}"
+          echo "PESATRACK_RELEASE_KEYSTORE=${keystore}" >> "${GITHUB_ENV}"
+
+      - name: Validate Worker contract
+        run: |
+          node --check worker/entity-enrichment/src/index.js
+          node worker/entity-enrichment/test.mjs
+          npx --yes wrangler@4.148.0 deploy --config wrangler.jsonc --dry-run --outdir /tmp/pesatrack-worker-dry-run
+
+      - name: Test, lint and build signed release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle             :app:testDebugUnitTest             :app:lintRelease             :app:bundleRelease             :app:assembleRelease             --stacktrace
+
+      - name: Verify signatures and package artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          aab="app/build/outputs/bundle/release/app-release.aab"
+          apk="app/build/outputs/apk/release/app-release.apk"
+
+          test -s "${aab}"
+          test -s "${apk}"
+
+          jarsigner -verify -strict "${aab}"
+          "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --verbose "${apk}"
+
+          mkdir -p dist
+          cp "${aab}" "dist/PesaTrack-${PESATRACK_VERSION_NAME}.aab"
+          cp "${apk}" "dist/PesaTrack-${PESATRACK_VERSION_NAME}.apk"
+          (
+            cd dist
+            sha256sum ./* > SHA256SUMS.txt
+          )
+
+      - name: Upload signed release artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pesatrack-release-${{ inputs.version_name }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
