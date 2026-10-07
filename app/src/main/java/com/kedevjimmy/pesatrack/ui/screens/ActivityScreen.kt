@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -1327,14 +1328,19 @@ fun ActivityScreen(
                                 )
                             }
                             items(
-                                count =
-                                    transactions.size,
-                                key = { index ->
-                                    transactions[index].id
+                                items = transactions,
+                                key = { transaction ->
+                                    buildString {
+                                        append(transaction.id)
+                                        append(':')
+                                        append(transaction.category)
+                                        append(':')
+                                        append(transaction.direction)
+                                        append(':')
+                                        append(transaction.reviewState)
+                                    }
                                 }
-                            ) { index ->
-                                val transaction =
-                                    transactions[index]
+                            ) { transaction ->
                                 ActivityRow(
                                     item = transaction,
                                     accountName =

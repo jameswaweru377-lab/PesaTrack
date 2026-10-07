@@ -50,6 +50,25 @@ class RememberCategoryIntegrationTest {
         assertEquals("INVESTMENT", store.getById(future)!!.category)
         assertEquals(0, learning.applyHighConfidenceTo(store.recentlyInsertedForLearning(limit = 1)))
     }
+    @Test fun rememberedEatingOutIsImmediatelyVisibleInActivityRows() {
+        val source = insert(0, name = "Elizabeth", category = "UNCATEGORIZED")
+        insert(1, name = "Elizabeth", category = "UNCATEGORIZED")
+        insert(2, name = "Elizabeth", category = "UNCATEGORIZED")
+        val repo = RememberCategoryRepository(context)
+        assertEquals(2, repo.matchingCount(store.getById(source)!!))
+        assertEquals(2, repo.remember(source, TransactionCategory.EATING_OUT.name))
+
+        val snapshot = store.activitySnapshot(nowEpochMs = 1760000000000L)
+        val elizabethRows = snapshot.transactions.filter { it.counterparty == "Elizabeth" }
+        assertEquals(3, elizabethRows.size)
+        assertTrue(elizabethRows.all { it.category == TransactionCategory.EATING_OUT.name })
+        assertTrue(
+            elizabethRows.all {
+                CategoryStore.get(context).labelFor(it.category) == "Eating out"
+            }
+        )
+    }
+
     @Test fun manualChoiceDoesNotTeachAndConflictingPhonesStaySeparate() {
         val source = insert(0, "James", "0712345678")
         val same = insert(1, "James", "+254712345678")
