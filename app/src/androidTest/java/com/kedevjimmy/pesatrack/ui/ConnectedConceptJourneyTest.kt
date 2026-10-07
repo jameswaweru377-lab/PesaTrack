@@ -24,9 +24,12 @@ class ConnectedConceptJourneyTest {
         compose.onNodeWithText("Create a goal").performScrollTo().performClick()
         compose.onNodeWithText("Goal name").performTextInput("Emergency fund")
         compose.onNodeWithText("Monthly saving target (KES)").performTextInput("5000")
-        compose.onNodeWithText("Where will you save this money?").performTextInput("Savings provider")
-        compose.onNodeWithText("Save goal").performClick()
+        compose.onNodeWithText("Overall goal target (KES)").performScrollTo().performTextInput("50000")
+        compose.onNodeWithText("Where will you save this money?").performScrollTo().performTextInput("Savings provider")
+        compose.onNodeWithText("Save goal").performScrollTo().performClick()
         compose.waitUntil(10000){RuleStore.get(context).listRules(true).any{it.name=="Emergency fund"}}
+        val created=RuleStore.get(context).listRules(true).first{it.name=="Emergency fund"}
+        assertEquals(5000000L,SavingGoalMetadataStore.get(context).get(created.id)?.totalTargetMinor)
         assertEquals(0,TransactionStore.get(context).snapshot().transactionCount)
         compose.onNodeWithText("Edit goal").performScrollTo().performClick()
         compose.onNodeWithText("Remove goal").performScrollTo().performClick()
@@ -34,7 +37,7 @@ class ConnectedConceptJourneyTest {
         compose.onNodeWithText("Cancel").performClick()
         assertTrue(RuleStore.get(context).listRules(true).any{it.name=="Emergency fund"})
         compose.onNodeWithText("Remove goal").performScrollTo().performClick()
-        compose.onNodeWithText("Remove",useUnmergedTree=true).performClick()
+        compose.onNodeWithText("Remove",useUnmergedTree=true).performScrollTo().performClick()
         compose.waitUntil(10000){RuleStore.get(context).listRules(true).none{it.name=="Emergency fund"}}
     }
     @Test fun profileNameIsEditableAndPersisted() {
