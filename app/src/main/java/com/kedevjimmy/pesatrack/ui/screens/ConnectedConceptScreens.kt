@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.*
@@ -1138,6 +1139,10 @@ fun SavingGoalsScreen(
     onPlanClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val locale =
+        LocalConfiguration
+            .current
+            .locales[0]
     var goalEditor by remember { mutableStateOf(false) }
     var editingGoal by remember { mutableStateOf<com.kedevjimmy.pesatrack.domain.model.SmartRule?>(null) }
     val revision by LedgerUpdateBus.state.collectAsState()
@@ -1382,7 +1387,7 @@ fun SavingGoalsScreen(
                         ?.let {
                             SimpleDateFormat(
                                 "d MMM yyyy",
-                                Locale.getDefault()
+                                locale
                             ).format(
                                 Date(it)
                             )
