@@ -35,11 +35,11 @@ private val LightColors = lightColorScheme(
 
 private val DarkColors = darkColorScheme(
     primary = NightGreen,
-    onPrimary = Color(0xFF101700),
+    onPrimary = Color(0xFF06100D),
     primaryContainer = NightMintSurface,
     onPrimaryContainer = NightMint,
     secondary = PremiumGold,
-    onSecondary = Color(0xFF181300),
+    onSecondary = Color(0xFF171006),
     secondaryContainer = NightAmberSurface,
     onSecondaryContainer = NightAmberText,
     tertiary = PremiumPurple,
@@ -54,7 +54,7 @@ private val DarkColors = darkColorScheme(
     onSurfaceVariant = NightMuted,
     surfaceTint = Color.Transparent,
     outline = NightOutline,
-    outlineVariant = NightOutline.copy(alpha = .62f),
+    outlineVariant = NightOutline.copy(alpha = .65f),
     error = PremiumExpense,
     onError = Color(0xFF180606),
     errorContainer = NightRoseSurface,
