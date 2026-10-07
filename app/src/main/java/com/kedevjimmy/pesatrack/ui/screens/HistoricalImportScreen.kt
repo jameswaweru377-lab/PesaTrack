@@ -32,6 +32,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.ingestion.HistoricalImportProgress
 import com.kedevjimmy.pesatrack.ingestion.HistoricalImportResult
 import com.kedevjimmy.pesatrack.ingestion.HistoricalSmsImporter
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
@@ -50,6 +52,7 @@ import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import java.util.Calendar
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 private enum class ImportWindow {
     THIS_MONTH,
@@ -69,8 +72,15 @@ fun HistoricalImportScreen(
     var permissionDenied by remember { mutableStateOf(false) }
     var selectedWindow by remember { mutableStateOf(ImportWindow.THIS_MONTH) }
     var importing by remember { mutableStateOf(false) }
+    var stopping by remember { mutableStateOf(false) }
+    var progress by remember {
+        mutableStateOf<HistoricalImportProgress?>(null)
+    }
     var result by remember { mutableStateOf<HistoricalImportResult?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    val cancelRequested = remember {
+        AtomicBoolean(false)
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -82,6 +92,9 @@ fun HistoricalImportScreen(
     fun runImport() {
         if (!permissionGranted || importing) return
         importing = true
+        stopping = false
+        cancelRequested.set(false)
+        progress = null
         error = null
         result = null
 
@@ -91,11 +104,24 @@ fun HistoricalImportScreen(
 
         executor.execute {
             val outcome = runCatching {
-                HistoricalSmsImporter(context.applicationContext).importSince(since)
+                HistoricalSmsImporter(
+                    context.applicationContext
+                ).importSince(
+                    sinceEpochMs = since,
+                    onProgress = { update ->
+                        mainHandler.post {
+                            progress = update
+                        }
+                    },
+                    isCancelled = {
+                        cancelRequested.get()
+                    }
+                )
             }
 
             mainHandler.post {
                 importing = false
+                stopping = false
                 outcome.onSuccess {
                     result = it
                 }.onFailure {
@@ -289,13 +315,72 @@ fun HistoricalImportScreen(
                                 .padding(end = 8.dp),
                             strokeWidth = 2.dp
                         )
-                        Text("Importing…")
+                        Text(
+                            progress?.let {
+                                "Scanning ${it.scanned} of ${it.total}…"
+                            } ?: "Preparing import…"
+                        )
                     } else {
                         Icon(Icons.Rounded.History, contentDescription = null)
                         Text(
                             "Import selected history",
                             modifier = Modifier.padding(start = 8.dp)
                         )
+                    }
+                }
+            }
+
+            if (importing) {
+                item {
+                    PesaCard {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement =
+                                Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                progress?.let {
+                                    "${it.scanned} of ${it.total} SMS scanned"
+                                } ?: "Reading the selected SMS history…",
+                                style =
+                                    MaterialTheme.typography
+                                        .titleMedium
+                            )
+                            progress?.let {
+                                Text(
+                                    "${it.matched} money messages matched • ${it.inserted} new records • ${it.duplicates} duplicates",
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
+                                )
+                            }
+                            Text(
+                                "You can stop safely. Records already added stay valid, and running the import again will skip duplicates.",
+                                style =
+                                    MaterialTheme.typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .onSurfaceVariant
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    stopping = true
+                                    cancelRequested.set(true)
+                                },
+                                enabled = !stopping,
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    if (stopping) {
+                                        "Stopping…"
+                                    } else {
+                                        "Stop import"
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -315,6 +400,17 @@ fun HistoricalImportScreen(
                         ImportResultRow("New transactions added", importResult.inserted)
                         ImportResultRow("Duplicates skipped", importResult.duplicates)
                         ImportResultRow("Unrelated messages ignored", importResult.ignored)
+                        if (importResult.cancelled) {
+                            Text(
+                                "Import stopped before the selected history was fully scanned. Records already added were kept. Run the import again when ready; duplicates will be skipped.",
+                                style =
+                                    MaterialTheme.typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

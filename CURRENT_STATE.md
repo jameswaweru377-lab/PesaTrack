@@ -61,6 +61,7 @@ The next test expansion should add scheduled API-level coverage, broader migrati
 - The repository contains a privacy-policy source and a Play release checklist.
 - SMS-permission surfaces provide an explicit disclosure before requesting historical SMS access.
 - Release builds accept explicit version code/name inputs and a manual signed AAB/APK workflow is defined; signing material remains outside the repository and the first signed run is still a release gate.
+- Historical SMS import now reports scan/match/insert progress and supports cooperative user cancellation; persistent checkpoint/resume and deeper batching/performance work remain.
 
 ## Release status
 
