@@ -208,19 +208,8 @@ internal fun SavingGoalEditor(
                                 }
                             }
 
-                        val saved =
-                            PlanningRuleRepository(
-                                context
-                            ).save(
-                                name,
-                                payee,
-                                minor,
-                                bill,
-                                rule
-                            )
-
-                        if (!bill) {
-                            val overallTargetMinor =
+                        val overallTargetMinor =
+                            if (!bill) {
                                 totalTarget
                                     .trim()
                                     .takeIf {
@@ -235,21 +224,39 @@ internal fun SavingGoalEditor(
                                             "Enter a positive total goal amount."
                                         }
                                     }
+                            } else {
+                                null
+                            }
 
-                            val targetDate =
-                                if (hasTargetDate) {
-                                    require(
-                                        targetDateEpochMs >
-                                            System
-                                                .currentTimeMillis()
-                                    ) {
-                                        "Choose a target date in the future."
-                                    }
-                                    targetDateEpochMs
-                                } else {
-                                    null
+                        val targetDate =
+                            if (
+                                !bill &&
+                                hasTargetDate
+                            ) {
+                                require(
+                                    targetDateEpochMs >
+                                        System
+                                            .currentTimeMillis()
+                                ) {
+                                    "Choose a target date in the future."
                                 }
+                                targetDateEpochMs
+                            } else {
+                                null
+                            }
 
+                        val saved =
+                            PlanningRuleRepository(
+                                context
+                            ).save(
+                                name,
+                                payee,
+                                minor,
+                                bill,
+                                rule
+                            )
+
+                        if (!bill) {
                             goalMetadataStore.save(
                                 ruleId = saved.id,
                                 totalTargetMinor =
