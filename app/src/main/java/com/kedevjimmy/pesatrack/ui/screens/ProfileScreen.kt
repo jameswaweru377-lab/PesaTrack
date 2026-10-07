@@ -39,11 +39,11 @@ private data class ProfileMoneyPicture(
     val receipts: Int = 0,
     val understood: Int = 0,
     val accountCount: Int = 0,
-    val goalCount: Int = 0
-) {
-    val coverage: Int
-        get() = if (receipts == 0) 0 else ((understood * 100.0) / receipts).toInt().coerceIn(0, 100)
-}
+    val goalCount: Int = 0,
+    val healthScore: Int = 0,
+    val healthLabel: String = "Getting started",
+    val issueCount: Int = 0
+)
 
 @Composable
 fun ProfileScreen(
@@ -87,11 +87,21 @@ fun ProfileScreen(
                     it.category == TransactionCategory.SAVINGS &&
                         (it.plannedAmountMinor ?: 0L) > 0L
                 }
+            val health =
+                MoneyPictureHealthEvaluator(
+                    context
+                ).evaluate()
             ProfileMoneyPicture(
                 receipts = rows.size,
                 understood = understood,
                 accountCount = accounts,
-                goalCount = goals
+                goalCount = goals,
+                healthScore =
+                    health.score,
+                healthLabel =
+                    health.label,
+                issueCount =
+                    health.issues.size
             )
         }
 
@@ -178,14 +188,25 @@ fun ProfileScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
-                            progress = { picture.coverage / 100f },
+                            progress = {
+                                picture.healthScore /
+                                    100f
+                            },
                             modifier = Modifier.fillMaxSize(),
                             strokeWidth = 11.dp,
                             color = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surface.copy(alpha = .55f)
                         )
                         Text(
-                            if (picture.receipts == 0) "—" else picture.coverage.toString() + "%",
+                            if (
+                                picture.receipts == 0
+                            ) {
+                                "—"
+                            } else {
+                                picture.healthScore
+                                    .toString() +
+                                    "%"
+                            },
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -197,7 +218,7 @@ fun ProfileScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Money-data coverage",
+                            "Money picture confidence",
                             modifier = Modifier.padding(top = 7.dp),
                             style = MaterialTheme.typography.labelLarge
                         )
@@ -205,8 +226,31 @@ fun ProfileScreen(
                             if (picture.receipts == 0) {
                                 "Waiting for transaction messages"
                             } else {
-                                picture.understood.toString() + " of " +
-                                    picture.receipts + " recorded entries included this month"
+                                picture.healthLabel +
+                                    " • " +
+                                    picture.understood +
+                                    " of " +
+                                    picture.receipts +
+                                    " entries understood" +
+                                    if (
+                                        picture.issueCount >
+                                        0
+                                    ) {
+                                        " • " +
+                                            picture.issueCount +
+                                            " item" +
+                                            if (
+                                                picture.issueCount ==
+                                                1
+                                            ) {
+                                                ""
+                                            } else {
+                                                "s"
+                                            } +
+                                            " to improve"
+                                    } else {
+                                        ""
+                                    }
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
