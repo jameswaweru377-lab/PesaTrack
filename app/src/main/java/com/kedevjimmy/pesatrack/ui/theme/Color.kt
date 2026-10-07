@@ -2,52 +2,85 @@ package com.kedevjimmy.pesatrack.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Emerald = Color(0xFF008A67)
-val EmeraldDeep = Color(0xFF055F50)
-val EmeraldDarker = Color(0xFF064F45)
-val Mint = Color(0xFF00A879)
-val MintSoft = Color(0xFFE9F8F2)
-val MintMist = Color(0xFFF3FBF7)
+/*
+ * Midnight Aurora
+ *
+ * The application now uses indigo as its brand color, aqua for positive/active
+ * financial states, amber for attention, and coral for destructive/negative
+ * states. The legacy token names are kept as aliases so older screens inherit
+ * the new visual language without needing one-off palettes.
+ */
 
-val Navy = Color(0xFF081E33)
-val Ink = Color(0xFF122033)
-val Slate = Color(0xFF66736F)
-val WarmIvory = Color(0xFFF7F8F3)
+// Brand
+val AuroraIndigo = Color(0xFF5B55E7)
+val AuroraIndigoDeep = Color(0xFF3933A8)
+val AuroraIndigoDark = Color(0xFF26216F)
+val AuroraViolet = Color(0xFF7C6FF2)
+val AuroraAqua = Color(0xFF14B8A6)
+val AuroraAquaBright = Color(0xFF55E6D1)
+
+// Light surfaces
+val Porcelain = Color(0xFFF6F7FB)
 val SurfaceLight = Color(0xFFFFFFFF)
-val SurfaceSoft = Color(0xFFF1F4EE)
-val OutlineLight = Color(0xFFE5E8E2)
+val SurfaceSoft = Color(0xFFEEF1F7)
+val SurfaceRaised = Color(0xFFF9FAFD)
+val OutlineLight = Color(0xFFD9DEEA)
+val Ink = Color(0xFF171B2C)
+val Navy = Color(0xFF11162A)
+val Slate = Color(0xFF667085)
 
-val Amber = Color(0xFFE7B84A)
-val AmberSoft = Color(0xFFFFF3D3)
-val Rose = Color(0xFFE95D67)
-val RoseSoft = Color(0xFFFFECEE)
-val Sky = Color(0xFF4387E8)
+// Dark surfaces
+val Midnight = Color(0xFF090D18)
+val MidnightSurface = Color(0xFF111827)
+val MidnightSurfaceHigh = Color(0xFF182235)
+val MidnightSurfaceRaised = Color(0xFF202B42)
+val MidnightOutline = Color(0xFF31405B)
+val MidnightText = Color(0xFFF5F7FC)
+val MidnightMuted = Color(0xFFA9B4C9)
+val MidnightPrimary = Color(0xFFA69CFF)
+
+// Semantic colors
+val Amber = Color(0xFFF0B74A)
+val AmberSoft = Color(0xFFFFF2CF)
+val Rose = Color(0xFFEF5F78)
+val RoseSoft = Color(0xFFFFE9EE)
+val Sky = Color(0xFF3D8DFF)
 val SkySoft = Color(0xFFEAF2FF)
-val Violet = Color(0xFF8975FF)
-val VioletSoft = Color(0xFFF0EDFF)
+val Violet = AuroraViolet
+val VioletSoft = Color(0xFFEEEAFE)
+val AquaSoft = Color(0xFFDDF8F3)
 
-val Night = Color(0xFF02241F)
-val NightSurface = Color(0xFF063A32)
-val NightSurfaceHigh = Color(0xFF0A5144)
-val NightOutline = Color(0xFF227461)
-val NightText = Color(0xFFF7FAFF)
-val NightMuted = Color(0xFFB5CCC4)
-val NightGreen = Color(0xFF79F2B1)
+// Legacy aliases used throughout existing screens.
+val Emerald = AuroraIndigo
+val EmeraldDeep = AuroraIndigoDeep
+val EmeraldDarker = AuroraIndigoDark
+val Mint = AuroraAqua
+val MintSoft = VioletSoft
+val MintMist = Color(0xFFF7F5FF)
+val WarmIvory = Porcelain
 
-val NightMintSurface = Color(0xFF0A4B3C)
-val NightAmberSurface = Color(0xFF2C2516)
-val NightBlueSurface = Color(0xFF0C403B)
+val Night = Midnight
+val NightSurface = MidnightSurface
+val NightSurfaceHigh = MidnightSurfaceHigh
+val NightOutline = MidnightOutline
+val NightText = MidnightText
+val NightMuted = MidnightMuted
+val NightGreen = MidnightPrimary
+
+val NightMintSurface = Color(0xFF272342)
+val NightAmberSurface = Color(0xFF352B19)
+val NightBlueSurface = Color(0xFF162C49)
 val NightVioletSurface = Color(0xFF29244A)
 val NightRoseSurface = Color(0xFF3A1D2A)
 
-val NightMintText = Color(0xFF62F3D2)
-val NightAmberText = Color(0xFFF6C65B)
-val NightBlueText = Color(0xFF70C7FF)
-val NightVioletText = Color(0xFFB6A7FF)
-val NightRoseText = Color(0xFFFF8798)
+val NightMintText = Color(0xFFB8B0FF)
+val NightAmberText = Color(0xFFF8CC72)
+val NightBlueText = Color(0xFF7CC8FF)
+val NightVioletText = Color(0xFFC5BCFF)
+val NightRoseText = Color(0xFFFF92A3)
 
-val PremiumTeal = Color(0xFF79F2B1)
-val PremiumCyan = Color(0xFF27B6FF)
-val PremiumPurple = Color(0xFF8975FF)
-val PremiumGold = Color(0xFFF6C65B)
-val PremiumExpense = Color(0xFFFF5A70)
+val PremiumTeal = AuroraAquaBright
+val PremiumCyan = Color(0xFF57C7FF)
+val PremiumPurple = MidnightPrimary
+val PremiumGold = Color(0xFFF4C768)
+val PremiumExpense = Color(0xFFFF6B82)
