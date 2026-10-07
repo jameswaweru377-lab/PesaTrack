@@ -161,6 +161,27 @@ private fun ConceptInnerHeader(title: String, onBack: () -> Unit) {
     }
 }
 
+private data class ReportLoadedState(
+    val current: ActivityLedgerSnapshot,
+    val previous: ActivityLedgerSnapshot,
+    val labels: Map<String, String>,
+    val health: MoneyPictureHealth
+)
+
+private fun reportChangePercent(
+    current: Long,
+    previous: Long
+): Int? {
+    if (previous <= 0L) {
+        return null
+    }
+    return (
+        ((current - previous) * 100.0) /
+            previous.toDouble()
+        )
+        .toInt()
+}
+
 @Composable
 fun ReportsInsightsScreen(
     scaffoldPadding: PaddingValues,
@@ -171,7 +192,11 @@ fun ReportsInsightsScreen(
     val revision by LedgerUpdateBus.state.collectAsState()
     var period by remember { mutableStateOf("Month") }
     var snapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
+    var previousSnapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
     var labels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var moneyHealth by remember {
+        mutableStateOf<MoneyPictureHealth?>(null)
+    }
 
     var loadError by remember { mutableStateOf<String?>(null) }
     var retryLoad by remember { mutableIntStateOf(0) }
@@ -195,18 +220,83 @@ fun ReportsInsightsScreen(
                     cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
                 }
             }
-            val end = (cal.clone() as Calendar).apply {
-                when (period) {
-                    "Week" -> add(Calendar.DAY_OF_MONTH, 7)
-                    "Year" -> add(Calendar.YEAR, 1)
-                    else -> add(Calendar.MONTH, 1)
-                }
-            }.timeInMillis
-            TransactionStore.get(context).activitySnapshotBetween(cal.timeInMillis, end) to
-                CategoryStore.get(context).all().associate { it.id to it.label }
+            val start =
+                cal.timeInMillis
+            val end =
+                (cal.clone() as Calendar)
+                    .apply {
+                        when (period) {
+                            "Week" ->
+                                add(
+                                    Calendar.DAY_OF_MONTH,
+                                    7
+                                )
+                            "Year" ->
+                                add(
+                                    Calendar.YEAR,
+                                    1
+                                )
+                            else ->
+                                add(
+                                    Calendar.MONTH,
+                                    1
+                                )
+                        }
+                    }
+                    .timeInMillis
+            val previousStart =
+                (cal.clone() as Calendar)
+                    .apply {
+                        when (period) {
+                            "Week" ->
+                                add(
+                                    Calendar.DAY_OF_MONTH,
+                                    -7
+                                )
+                            "Year" ->
+                                add(
+                                    Calendar.YEAR,
+                                    -1
+                                )
+                            else ->
+                                add(
+                                    Calendar.MONTH,
+                                    -1
+                                )
+                        }
+                    }
+                    .timeInMillis
+            val store =
+                TransactionStore.get(context)
+            ReportLoadedState(
+                current =
+                    store.activitySnapshotBetween(
+                        start,
+                        end,
+                        now
+                    ),
+                previous =
+                    store.activitySnapshotBetween(
+                        previousStart,
+                        start,
+                        now
+                    ),
+                labels =
+                    CategoryStore.get(context)
+                        .all()
+                        .associate {
+                            it.id to it.label
+                        },
+                health =
+                    MoneyPictureHealthEvaluator(
+                        context
+                    ).evaluate(now)
+            )
         }
-        snapshot = loaded.first
-        labels = loaded.second
+        snapshot = loaded.current
+        previousSnapshot = loaded.previous
+        labels = loaded.labels
+        moneyHealth = loaded.health
 
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
         } catch (failure: Exception) {
@@ -246,6 +336,20 @@ fun ReportsInsightsScreen(
                 .toInt()
         }
 
+    val currentSpent =
+        data?.summary?.spentMinor ?: 0L
+    val previousSpent =
+        previousSnapshot
+            ?.summary
+            ?.spentMinor ?: 0L
+    val spendingChange =
+        reportChangePercent(
+            currentSpent,
+            previousSpent
+        )
+    val topCategory =
+        spending.firstOrNull()
+
     LazyColumn(
         modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
@@ -269,9 +373,173 @@ fun ReportsInsightsScreen(
             ConceptEmeraldHero(
                 title = "Money spent",
                 amount = conceptMoney(data?.summary?.spentMinor ?: 0L),
-                subtitle = "Fees are tracked separately from spending",
+                subtitle =
+                    if (
+                        (data?.summary?.feesMinor ?: 0L) >
+                        0L
+                    ) {
+                        conceptMoney(
+                            data?.summary?.feesMinor
+                                ?: 0L
+                        ) +
+                            " in fees tracked separately"
+                    } else {
+                        "Fees are tracked separately from spending"
+                    },
                 eyebrow = period
             )
+        }
+        item {
+            PesaCard {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            Icons.Rounded.Insights,
+                            size = 42.dp,
+                            background =
+                                pesaToneContainer(
+                                    "green"
+                                ),
+                            tint =
+                                pesaToneContent(
+                                    "green"
+                                )
+                        )
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .padding(
+                                    start = 11.dp
+                                )
+                        ) {
+                            Text(
+                                "What changed",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium,
+                                fontWeight =
+                                    FontWeight.Bold
+                            )
+                            Text(
+                                when {
+                                    spendingChange == null &&
+                                        currentSpent == 0L ->
+                                        "No spending recorded in this period."
+                                    spendingChange == null ->
+                                        "No comparable spending in the previous " +
+                                            period.lowercase() +
+                                            "."
+                                    spendingChange > 0 ->
+                                        "Spending is " +
+                                            kotlin.math.abs(
+                                                spendingChange
+                                            ) +
+                                            "% higher than the previous " +
+                                            period.lowercase() +
+                                            "."
+                                    spendingChange < 0 ->
+                                        "Spending is " +
+                                            kotlin.math.abs(
+                                                spendingChange
+                                            ) +
+                                            "% lower than the previous " +
+                                            period.lowercase() +
+                                            "."
+                                    else ->
+                                        "Spending is unchanged from the previous " +
+                                            period.lowercase() +
+                                            "."
+                                },
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    topCategory?.let {
+                            category ->
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Largest category",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                            Text(
+                                category.first +
+                                    " • " +
+                                    conceptMoney(
+                                        category.second
+                                    ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelLarge,
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    moneyHealth?.let {
+                            health ->
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Money picture confidence",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                            Text(
+                                health.score
+                                    .toString() +
+                                    "% • " +
+                                    health.label,
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelLarge,
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
         }
         if (spending.isEmpty()) {
             item {
@@ -444,12 +712,63 @@ fun ReportsInsightsScreen(
                 Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconBubble(Icons.Rounded.Insights, size = 42.dp)
                     Column(Modifier.padding(start = 12.dp)) {
-                        Text("Money picture", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Money picture",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .titleMedium
+                        )
                         Text(
                             "Money in ${conceptMoney(data?.summary?.incomeMinor ?: 0L)} • Transfers ${conceptMoney(data?.summary?.transferMinor ?: 0L)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
                         )
+                        moneyHealth?.let {
+                                health ->
+                            Text(
+                                if (
+                                    health.issues.isEmpty()
+                                ) {
+                                    "Your current money picture has no open confidence issues."
+                                } else {
+                                    health.issues
+                                        .first()
+                                        .title +
+                                        if (
+                                            health.issues.size >
+                                            1
+                                        ) {
+                                            " • +" +
+                                                (
+                                                    health.issues.size -
+                                                        1
+                                                    ) +
+                                                " more"
+                                        } else {
+                                            ""
+                                        }
+                                },
+                                modifier =
+                                    Modifier.padding(
+                                        top = 4.dp
+                                    ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelSmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
