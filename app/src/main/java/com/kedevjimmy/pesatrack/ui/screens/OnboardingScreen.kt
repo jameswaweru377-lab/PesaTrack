@@ -32,9 +32,9 @@ fun OnboardingScreen(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF07553F),
-                        Color(0xFF063F34),
-                        Color(0xFF043127)
+                        Color(0xFF3933A8),
+                        Color(0xFF24213F),
+                        Color(0xFF111827)
                     )
                 )
             )
@@ -80,8 +80,8 @@ fun OnboardingScreen(
                 .heightIn(min = 58.dp),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFF8F7F1),
-                contentColor = Color(0xFF0B503E)
+                containerColor = Color(0xFFF6F7FB),
+                contentColor = Color(0xFF202B42)
             )
         ) {
             Text("Get started", fontWeight = FontWeight.Bold)
