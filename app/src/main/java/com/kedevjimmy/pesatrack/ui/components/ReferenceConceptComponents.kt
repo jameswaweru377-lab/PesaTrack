@@ -27,10 +27,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val ConceptEmerald = Color(0xFF23C483)
-private val ConceptEmeraldDeep = Color(0xFF0A5F45)
-private val ConceptEmeraldDarker = Color(0xFF151D1A)
-private val ConceptMint = Color(0xFF8DE7BF)
+private val ConceptEmerald = Color(0xFF087A58)
+private val ConceptEmeraldDeep = Color(0xFF053D32)
+private val ConceptEmeraldDarker = Color(0xFF032E27)
+private val ConceptMint = Color(0xFF72F1B3)
 private val ConceptMintSoft = Color(0xFFE8F8EF)
 private val ConceptCream = Color(0xFFF7F7F2)
 
@@ -195,9 +195,9 @@ fun ConceptEmeraldHero(
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            Color(0xFF0A5A43),
-                            Color(0xFF08724F),
-                            Color(0xFF0A8A5C)
+                            Color(0xFF0A6F50),
+                            Color(0xFF066344),
+                            Color(0xFF0A8560)
                         )
                     )
                 )
@@ -260,96 +260,6 @@ fun ConceptEmeraldHero(
 }
 
 @Composable
-fun ConceptNeutralHero(
-    title: String,
-    amount: String,
-    subtitle: String,
-    modifier: Modifier = Modifier,
-    eyebrow: String? = null,
-    icon: ImageVector = Icons.Rounded.AccountBalanceWallet,
-    tone: String = "green"
-) {
-    PesaCard(modifier) {
-        Column(
-            modifier =
-                Modifier.padding(16.dp),
-            verticalArrangement =
-                Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                IconBubble(
-                    icon = icon,
-                    size = 42.dp,
-                    background =
-                        pesaToneContainer(
-                            tone
-                        ),
-                    tint =
-                        pesaToneContent(
-                            tone
-                        )
-                )
-                Column(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .padding(
-                                start = 11.dp
-                            )
-                ) {
-                    eyebrow?.let {
-                        Text(
-                            it,
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .labelMedium,
-                            color =
-                                MaterialTheme
-                                    .colorScheme
-                                    .primary
-                        )
-                    }
-                    Text(
-                        title,
-                        style =
-                            MaterialTheme
-                                .typography
-                                .titleMedium,
-                        fontWeight =
-                            FontWeight.SemiBold
-                    )
-                }
-            }
-
-            Text(
-                amount,
-                style =
-                    MaterialTheme
-                        .typography
-                        .headlineLarge,
-                fontWeight =
-                    FontWeight.ExtraBold
-            )
-            Text(
-                subtitle,
-                style =
-                    MaterialTheme
-                        .typography
-                        .bodySmall,
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
 fun ConceptMetricTile(
     icon: ImageVector,
     label: String,
@@ -359,18 +269,16 @@ fun ConceptMetricTile(
 ) {
     val dark = MaterialTheme.colorScheme.background.luminance() < .45f
     val soft =
-        if (dark) {
-            MaterialTheme.colorScheme.surface
-        } else if (positive) {
-            Color(0xFFE6F8EC)
+        if (positive) {
+            if (dark) Color(0xFF0A4B3C) else Color(0xFFE6F8EC)
         } else {
-            Color(0xFFFFEBE8)
+            if (dark) Color(0xFF563D34) else Color(0xFFFFEBE8)
         }
     val accent =
         if (positive) {
-            if (dark) Color(0xFF23C483) else Color(0xFF2DBE62)
+            if (dark) Color(0xFF79F2B1) else Color(0xFF2DBE62)
         } else {
-            if (dark) Color(0xFFF87171) else Color(0xFFE2685B)
+            if (dark) Color(0xFFFF9D82) else Color(0xFFE2685B)
         }
     Surface(
         modifier = modifier,
@@ -429,13 +337,8 @@ fun ConceptProgressCard(
                     .fillMaxWidth()
                     .padding(top = 12.dp)
                     .height(9.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor =
-                    if (MaterialTheme.colorScheme.background.luminance() < .45f) {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    } else {
-                        Color(0xFFD8F1E2)
-                    }
+                color = Color(0xFF31BE73),
+                trackColor = Color(0xFFD8F1E2)
             )
             Text(
                 helper,
@@ -469,7 +372,7 @@ fun ConceptDarkPanel(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
+        color = ConceptEmeraldDarker
     ) {
         Column(Modifier.padding(15.dp), content = content)
     }
