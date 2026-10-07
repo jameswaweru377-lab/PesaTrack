@@ -1,6 +1,8 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import android.app.Activity
+import android.content.Context
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -66,6 +68,7 @@ import java.util.Locale
 fun AppLockScreen(
     biometricAvailable: Boolean,
     onPinUnlock: (String) -> Boolean,
+    pinLockoutRemainingMs: () -> Long,
     onBiometricUnlock: () -> Unit
 ) {
     var pin by remember {
@@ -219,8 +222,18 @@ fun AppLockScreen(
                     pin = ""
                     error = null
                 } else {
+                    val remainingMs =
+                        pinLockoutRemainingMs()
                     error =
-                        "That PIN is not correct."
+                        if (remainingMs > 0L) {
+                            "Too many attempts. Try again in " +
+                                lockoutSeconds(
+                                    remainingMs
+                                ) +
+                                " seconds."
+                        } else {
+                            "That PIN is not correct."
+                        }
                 }
             },
             enabled =
@@ -369,7 +382,7 @@ fun AppLockSettingsSheet(
                 if (enabled) {
                     "A PIN is required after PesaTrack has been in the background for 30 seconds. You can also use device biometrics where available."
                 } else {
-                    "Add a local PIN so opening PesaTrack requires authentication after it has been in the background."
+                    "Add a 6–8 digit local PIN so opening PesaTrack requires authentication after it has been in the background."
                 },
                 color =
                     MaterialTheme
@@ -441,11 +454,20 @@ fun AppLockSettingsSheet(
                                 currentPin
                             )
                         ) {
+                            syncSecureWindow(
+                                context = context,
+                                enabled = false
+                            )
                             onChanged()
                             onDismiss()
                         } else {
                             error =
-                                "Enter the current PIN before disabling app lock."
+                                lockoutError(
+                                    manager =
+                                        manager,
+                                    fallback =
+                                        "Enter the current PIN before disabling app lock."
+                                )
                         }
                     },
                     modifier =
@@ -465,7 +487,12 @@ fun AppLockSettingsSheet(
                             )
                         ) {
                             error =
-                                "The current PIN is not correct."
+                                lockoutError(
+                                    manager =
+                                        manager,
+                                    fallback =
+                                        "The current PIN is not correct."
+                                )
                             return@Button
                         }
                         if (
@@ -482,6 +509,10 @@ fun AppLockSettingsSheet(
                             )
                         manager.setPin(
                             newPin
+                        )
+                        syncSecureWindow(
+                            context = context,
+                            enabled = true
                         )
                         onChanged()
                         onDismiss()
@@ -519,6 +550,51 @@ fun AppLockSettingsSheet(
                         .onSurfaceVariant
             )
         }
+    }
+}
+
+private fun lockoutSeconds(
+    remainingMs: Long
+): Long =
+    (
+        remainingMs +
+            999L
+        ) / 1_000L
+
+private fun lockoutError(
+    manager: AppLockManager,
+    fallback: String
+): String {
+    val remainingMs =
+        manager.remainingLockoutMs()
+    return if (remainingMs > 0L) {
+        "Too many attempts. Try again in " +
+            lockoutSeconds(
+                remainingMs
+            ) +
+            " seconds."
+    } else {
+        fallback
+    }
+}
+
+private fun syncSecureWindow(
+    context: Context,
+    enabled: Boolean
+) {
+    val activity =
+        context as? Activity
+            ?: return
+    if (enabled) {
+        activity.window.addFlags(
+            WindowManager.LayoutParams
+                .FLAG_SECURE
+        )
+    } else {
+        activity.window.clearFlags(
+            WindowManager.LayoutParams
+                .FLAG_SECURE
+        )
     }
 }
 
