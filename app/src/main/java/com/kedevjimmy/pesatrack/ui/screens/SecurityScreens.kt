@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.security.AppLockManager
+import com.kedevjimmy.pesatrack.security.BackupPreview
 import com.kedevjimmy.pesatrack.security.PesaBackupManager
 import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
 import kotlinx.coroutines.Dispatchers
@@ -665,6 +667,12 @@ fun BackupRestoreSheet(
     var error by remember {
         mutableStateOf<String?>(null)
     }
+    var pendingRestoreUri by remember {
+        mutableStateOf<android.net.Uri?>(null)
+    }
+    var pendingRestorePreview by remember {
+        mutableStateOf<BackupPreview?>(null)
+    }
 
     val createBackup =
         rememberLauncherForActivityResult(
@@ -718,29 +726,136 @@ fun BackupRestoreSheet(
                     withContext(
                         Dispatchers.IO
                     ) {
-                        manager.restoreEncrypted(
-                            uri =
-                                uri,
+                        manager.previewEncrypted(
+                            uri = uri,
                             passphrase =
                                 pendingPassphrase
                         )
                     }
                 }.onSuccess {
-                    message =
-                        "Restore complete • " +
-                            it.rowCount +
-                            " financial records restored."
+                    pendingRestoreUri = uri
+                    pendingRestorePreview = it
+                    message = null
                     error = null
-                    delay(450)
-                    (
-                        context as? Activity
-                        )?.recreate()
                 }.onFailure {
+                    pendingRestoreUri = null
+                    pendingRestorePreview = null
                     error =
                         it.message
-                            ?: "Could not restore this backup."
+                            ?: "Could not inspect this backup."
                 }
                 busy = false
+            }
+        }
+
+    pendingRestorePreview
+        ?.let { preview ->
+            val restoreUri =
+                pendingRestoreUri
+            if (restoreUri != null) {
+                AlertDialog(
+                    onDismissRequest = {
+                        if (!busy) {
+                            pendingRestoreUri =
+                                null
+                            pendingRestorePreview =
+                                null
+                        }
+                    },
+                    title = {
+                        Text(
+                            "Restore this backup?"
+                        )
+                    },
+                    text = {
+                        val created =
+                            if (
+                                preview.createdAtEpochMs >
+                                0L
+                            ) {
+                                SimpleDateFormat(
+                                    "d MMM yyyy, HH:mm",
+                                    Locale.getDefault()
+                                ).format(
+                                    Date(
+                                        preview
+                                            .createdAtEpochMs
+                                    )
+                                )
+                            } else {
+                                "Unknown"
+                            }
+                        Text(
+                            "Created: " +
+                                created +
+                                "\nSchema: v" +
+                                preview.schemaVersion +
+                                "\nRecords: " +
+                                preview.rowCount +
+                                "\n\nRestoring replaces the current local PesaTrack database and backed-up preferences. Your app-lock PIN stays on this device."
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            enabled = !busy,
+                            onClick = {
+                                pendingRestoreUri =
+                                    null
+                                pendingRestorePreview =
+                                    null
+                                busy = true
+                                scope.launch {
+                                    runCatching {
+                                        withContext(
+                                            Dispatchers.IO
+                                        ) {
+                                            manager
+                                                .restoreEncrypted(
+                                                    uri =
+                                                        restoreUri,
+                                                    passphrase =
+                                                        pendingPassphrase
+                                                )
+                                        }
+                                    }.onSuccess {
+                                        message =
+                                            "Restore complete • " +
+                                                it.rowCount +
+                                                " financial records restored."
+                                        error = null
+                                        delay(450)
+                                        (
+                                            context as?
+                                                Activity
+                                            )?.recreate()
+                                    }.onFailure {
+                                        error =
+                                            it.message
+                                                ?: "Could not restore this backup."
+                                    }
+                                    busy = false
+                                }
+                            }
+                        ) {
+                            Text(
+                                "Restore and replace data"
+                            )
+                        }
+                    },
+                    dismissButton = {
+                        OutlinedButton(
+                            enabled = !busy,
+                            onClick = {
+                                pendingRestoreUri =
+                                    null
+                                pendingRestorePreview =
+                                    null
+                            }
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
 
@@ -947,13 +1062,13 @@ fun BackupRestoreSheet(
                         Modifier.width(8.dp)
                     )
                     Text(
-                        "Restore from backup"
+                        "Preview backup to restore"
                     )
                 }
             }
 
             Text(
-                "Keep the passphrase somewhere safe. PesaTrack cannot decrypt the backup without it.",
+                "Restore always shows backup details and asks for confirmation before replacing local data. Files larger than 64 MB are rejected. Keep the passphrase somewhere safe; PesaTrack cannot decrypt the backup without it.",
                 modifier =
                     Modifier.padding(
                         bottom = 16.dp
