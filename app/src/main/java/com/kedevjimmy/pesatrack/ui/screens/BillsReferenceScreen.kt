@@ -83,19 +83,19 @@ private fun billVisual(bill: ScheduledBill): BillVisual {
         .lowercase(Locale.getDefault())
     return when {
         "rent" in title ->
-            BillVisual(Icons.Rounded.Home, Color(0xFFFF6B7C))
+            BillVisual(Icons.Rounded.Home, Color(0xFFFF6B82))
         "wifi" in title || "wi-fi" in title || "internet" in title ->
-            BillVisual(Icons.Rounded.Wifi, Color(0xFF42A5F5))
+            BillVisual(Icons.Rounded.Wifi, Color(0xFF57C7FF))
         "electric" in title || "power" in title || "kplc" in title ->
-            BillVisual(Icons.Rounded.Bolt, Color(0xFFFFC43D))
+            BillVisual(Icons.Rounded.Bolt, Color(0xFFF4C768))
         "water" in title ->
-            BillVisual(Icons.Rounded.WaterDrop, Color(0xFF42A5F5))
+            BillVisual(Icons.Rounded.WaterDrop, Color(0xFF57C7FF))
         "subscription" in title || "netflix" in title || "youtube" in title ->
-            BillVisual(Icons.Rounded.PlayCircle, Color(0xFFB05CFF))
+            BillVisual(Icons.Rounded.PlayCircle, Color(0xFFA69CFF))
         "loan" in title || "debt" in title || "repayment" in title ->
-            BillVisual(Icons.Rounded.Savings, Color(0xFF39E58C))
+            BillVisual(Icons.Rounded.Savings, Color(0xFF55E6D1))
         else ->
-            BillVisual(Icons.Rounded.ReceiptLong, Color(0xFF23C483))
+            BillVisual(Icons.Rounded.ReceiptLong, Color(0xFF14B8A6))
     }
 }
 
@@ -200,8 +200,8 @@ private fun BillHeroBars() {
                     .background(
                         Brush.verticalGradient(
                             listOf(
-                                Color(0xFF19E6A1),
-                                Color(0xFF075D47)
+                                Color(0xFF55E6D1),
+                                Color(0xFF3933A8)
                             )
                         )
                     )
@@ -301,10 +301,10 @@ private fun BillsHero(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        color = Color(0xFF062F29),
+        color = Color(0xFF111827),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            Color(0xFF0A7056)
+            Color(0xFF433BB8)
         )
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -315,7 +315,7 @@ private fun BillsHero(
                             Icons.Rounded.EventNote,
                             contentDescription = null,
                             modifier = Modifier.size(22.dp),
-                            tint = Color(0xFF21E4A2)
+                            tint = Color(0xFF55E6D1)
                         )
                         Text(
                             if (monthOffset == 0) {
@@ -368,8 +368,8 @@ private fun BillsHero(
 
 private fun billDateColor(bill: ScheduledBill): Color =
     when (billStatus(bill).second) {
-        "red" -> Color(0xFFFF5F6D)
-        "green" -> Color(0xFF22E6A2)
+        "red" -> Color(0xFFEF5F78)
+        "green" -> Color(0xFF55E6D1)
         else -> billVisual(bill).color
     }
 
@@ -446,7 +446,7 @@ private fun BillWeekStrip(
                         border = if (selected) {
                             androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                Color(0xFF19E6A1)
+                                Color(0xFF55E6D1)
                             )
                         } else null
                     ) {
@@ -676,7 +676,7 @@ private fun BillReferenceRow(
                             status.first == "Due Soon" ||
                             status.first == "Overdue"
                         ) {
-                            Color(0xFFFF6B78)
+                            Color(0xFFFF6B82)
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
@@ -714,9 +714,9 @@ private fun BillReferenceRow(
                 Surface(
                     shape = RoundedCornerShape(50.dp),
                     color = when (status.second) {
-                        "red" -> Color(0xFF4A1F25)
-                        "green" -> Color(0xFF0B4A37)
-                        else -> Color(0xFF4C4218)
+                        "red" -> Color(0xFF3A1D2A)
+                        "green" -> Color(0xFF202B42)
+                        else -> Color(0xFF352B19)
                     }
                 ) {
                     Text(
@@ -728,9 +728,9 @@ private fun BillReferenceRow(
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = when (status.second) {
-                            "red" -> Color(0xFFFF7C88)
-                            "green" -> Color(0xFF39E8A5)
-                            else -> Color(0xFFFFCE45)
+                            "red" -> Color(0xFFFF92A3)
+                            "green" -> Color(0xFF55E6D1)
+                            else -> Color(0xFFF4C768)
                         }
                     )
                 }
@@ -797,13 +797,13 @@ private fun BillReminderCard(
             Surface(
                 modifier = Modifier.size(48.dp),
                 shape = RoundedCornerShape(15.dp),
-                color = Color(0xFF0B5A43)
+                color = Color(0xFF29254F)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         Icons.Rounded.NotificationsActive,
                         null,
-                        tint = Color(0xFF25E6A1)
+                        tint = Color(0xFF8B80FF)
                     )
                 }
             }

@@ -73,12 +73,12 @@ private fun SpendingDonut(
     modifier: Modifier = Modifier
 ) {
     val palette = listOf(
-        Color(0xFF087A58),
-        Color(0xFF2F9E73),
-        Color(0xFF67B993),
-        Color(0xFFA3D9BE),
-        Color(0xFFCCECDD),
-        Color(0xFF4F8D70)
+        Color(0xFF5B55E7),
+        Color(0xFF6F63F2),
+        Color(0xFF55E6D1),
+        Color(0xFFA69CFF),
+        Color(0xFFE2DFFF),
+        Color(0xFF14B8A6)
     )
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
@@ -639,10 +639,10 @@ fun ReportsInsightsScreen(
                                         modifier = Modifier.size(9.dp),
                                         shape = androidx.compose.foundation.shape.CircleShape,
                                         color = listOf(
-                                            Color(0xFF087A58),
-                                            Color(0xFF2F9E73),
-                                            Color(0xFF67B993),
-                                            Color(0xFFA3D9BE)
+                                            Color(0xFF5B55E7),
+                                            Color(0xFF6F63F2),
+                                            Color(0xFF55E6D1),
+                                            Color(0xFFA69CFF)
                                         )[index]
                                     ) {}
                                     Text(

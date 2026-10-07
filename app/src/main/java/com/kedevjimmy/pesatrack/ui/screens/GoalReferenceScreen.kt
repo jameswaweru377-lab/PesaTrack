@@ -128,44 +128,44 @@ private fun goalArtwork(title: String): GoalArtwork {
         "ps5" in text || "playstation" in text || "game" in text ->
             GoalArtwork(
                 Icons.Rounded.SportsEsports,
-                listOf(Color(0xFF0B2E69), Color(0xFF382A86)),
+                listOf(Color(0xFF243B73), Color(0xFF4A3FB4)),
                 Icons.Rounded.SportsEsports,
-                Color(0xFF8B5CF6)
+                Color(0xFF7C6FF2)
             )
         "table" in text || "furniture" in text || "sofa" in text ->
             GoalArtwork(
                 Icons.Rounded.TableRestaurant,
-                listOf(Color(0xFF6B3C1C), Color(0xFFB77B3D)),
+                listOf(Color(0xFF62401D), Color(0xFFC18442)),
                 Icons.Rounded.Storefront,
-                Color(0xFFF59E0B)
+                Color(0xFFF0B74A)
             )
         "emergency" in text || "fund" in text ->
             GoalArtwork(
                 Icons.Rounded.HealthAndSafety,
-                listOf(Color(0xFF5F3C14), Color(0xFF9C6B1D)),
+                listOf(Color(0xFF533A18), Color(0xFF9A6D25)),
                 Icons.Rounded.HealthAndSafety,
-                Color(0xFF22C55E)
+                Color(0xFF14B8A6)
             )
         "vacation" in text || "holiday" in text || "travel" in text || "diani" in text ->
             GoalArtwork(
                 Icons.Rounded.BeachAccess,
-                listOf(Color(0xFF0E7490), Color(0xFF2563EB)),
+                listOf(Color(0xFF2878B8), Color(0xFF5B55E7)),
                 Icons.Rounded.Flight,
-                Color(0xFF2196F3)
+                Color(0xFF57C7FF)
             )
         "land" in text || "house" in text || "home" in text ->
             GoalArtwork(
                 Icons.Rounded.HomeWork,
-                listOf(Color(0xFF1D5D4B), Color(0xFF4F7B55)),
+                listOf(Color(0xFF29254F), Color(0xFF5A54A6)),
                 Icons.Rounded.Home,
-                Color(0xFF23C483)
+                Color(0xFF14B8A6)
             )
         else ->
             GoalArtwork(
                 Icons.Rounded.Savings,
-                listOf(Color(0xFF0C4A3B), Color(0xFF0E8061)),
+                listOf(Color(0xFF1A2135), Color(0xFF4F46D8)),
                 Icons.Rounded.TrackChanges,
-                Color(0xFF23C483)
+                Color(0xFF14B8A6)
             )
     }
 }
@@ -385,7 +385,7 @@ private fun GoalSummaryBars() {
                     .clip(RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp))
                     .background(
                         Brush.verticalGradient(
-                            listOf(Color(0xFF19E6A1), Color(0xFF076B50))
+                            listOf(Color(0xFF55E6D1), Color(0xFF3933A8))
                         )
                     )
             )
@@ -399,7 +399,7 @@ private fun GoalHeroMetric(
     value: String,
     label: String,
     modifier: Modifier = Modifier,
-    tone: Color = Color(0xFF25D79A)
+    tone: Color = Color(0xFF7C6FF2)
 ) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Surface(
@@ -453,8 +453,8 @@ private fun GoalHero(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        color = Color(0xFF062F29),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0A7056))
+        color = Color(0xFF111827),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF433BB8))
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -469,7 +469,7 @@ private fun GoalHero(
                             Icons.Rounded.Visibility,
                             contentDescription = null,
                             modifier = Modifier.padding(start = 7.dp).size(19.dp),
-                            tint = Color(0xFF7DE9C0)
+                            tint = Color(0xFFA69CFF)
                         )
                     }
                     Text(
@@ -483,7 +483,7 @@ private fun GoalHero(
                         growthLabel,
                         modifier = Modifier.padding(top = 5.dp),
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFF42E2A9)
+                        color = Color(0xFF55E6D1)
                     )
                 }
                 GoalSummaryBars()
@@ -507,7 +507,7 @@ private fun GoalHero(
                     goalMoney(totalTargetMinor),
                     "Total Target",
                     Modifier.weight(1f),
-                    Color(0xFFFFC83D)
+                    Color(0xFFF4C768)
                 )
             }
         }
@@ -523,11 +523,11 @@ private fun GoalFilterChip(
     Surface(
         modifier = Modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(50.dp),
-        color = if (selected) Color(0xFF0B503F)
+        color = if (selected) Color(0xFF202B42)
         else MaterialTheme.colorScheme.surfaceVariant,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (selected) Color(0xFF1CD997)
+            if (selected) Color(0xFF55E6D1)
             else MaterialTheme.colorScheme.outline
         )
     ) {
@@ -539,14 +539,14 @@ private fun GoalFilterChip(
                 group.icon,
                 null,
                 Modifier.size(17.dp),
-                tint = if (selected) Color(0xFF2BE5A4)
+                tint = if (selected) Color(0xFF8B80FF)
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 group.label,
                 modifier = Modifier.padding(start = 6.dp),
                 style = MaterialTheme.typography.labelMedium,
-                color = if (selected) Color(0xFFE8FFF7)
+                color = if (selected) Color(0xFFF1EFFF)
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -638,7 +638,7 @@ private fun GoalReferenceCard(
                             .weight(1f)
                             .height(6.dp)
                             .clip(RoundedCornerShape(50.dp)),
-                        color = Color(0xFF13E69C),
+                        color = Color(0xFF7C6FF2),
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                     Text(
@@ -670,14 +670,14 @@ private fun GoalReferenceCard(
                         Surface(
                             modifier = Modifier.size(26.dp),
                             shape = CircleShape,
-                            color = Color(0xFFFFC928).copy(alpha = .12f)
+                            color = Color(0xFFF4C768).copy(alpha = .12f)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     Icons.Rounded.MonetizationOn,
                                     null,
                                     Modifier.size(16.dp),
-                                    tint = Color(0xFFFFC928)
+                                    tint = Color(0xFFF4C768)
                                 )
                             }
                         }
@@ -701,7 +701,7 @@ private fun GoalReferenceCard(
                     Surface(
                         modifier = Modifier.weight(.56f),
                         shape = RoundedCornerShape(11.dp),
-                        color = Color(0xFF0C3028)
+                        color = Color(0xFF171F31)
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
@@ -711,7 +711,7 @@ private fun GoalReferenceCard(
                                 Icons.Rounded.AutoAwesome,
                                 null,
                                 Modifier.size(15.dp),
-                                tint = Color(0xFF23E09B)
+                                tint = Color(0xFF55E6D1)
                             )
                             Text(
                                 goalProgressMessage(model),
@@ -769,7 +769,7 @@ private fun GoalDetailsSheet(
                     .fillMaxWidth()
                     .height(10.dp)
                     .clip(RoundedCornerShape(50.dp)),
-                color = Color(0xFF19D89B),
+                color = Color(0xFF7C6FF2),
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
             Row(
@@ -798,13 +798,13 @@ private fun GoalDetailsSheet(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF0C3028)
+                color = Color(0xFF171F31)
             ) {
                 Row(
                     modifier = Modifier.padding(13.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFF23E09B))
+                    Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFF55E6D1))
                     Text(
                         goalProgressMessage(model),
                         modifier = Modifier.padding(start = 9.dp),
@@ -946,6 +946,9 @@ fun SavingGoalsScreen(
         SavingGoalEditor(editingGoal) {
             goalEditor = false
             editingGoal = null
+            // Rule/metadata edits are not ledger transactions, so explicitly
+            // reload the goal models when the editor closes.
+            retryLoad++
         }
     }
 
@@ -1010,20 +1013,20 @@ fun SavingGoalsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF0B8B61)
+                    containerColor = Color(0xFF5B55E7)
                 ),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
             ) {
                 Surface(
                     modifier = Modifier.size(40.dp),
                     shape = CircleShape,
-                    color = Color(0xFF14F0A4)
+                    color = Color(0xFF55E6D1)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Rounded.Add,
                             contentDescription = null,
-                            tint = Color(0xFF05231A)
+                            tint = Color(0xFF0A0E19)
                         )
                     }
                 }

@@ -103,8 +103,8 @@ fun AvailableToLiveHero(
     safeToday: String? = null
 ) {
     val dark = isPesaDarkTheme()
-    val start = if (dark) Color(0xFF06453E) else Color(0xFF087A5B)
-    val end = if (dark) Color(0xFF0A6A59) else Color(0xFF0A9B73)
+    val start = if (dark) Color(0xFF24213F) else Color(0xFF4F46D8)
+    val end = if (dark) Color(0xFF3933A8) else Color(0xFF6F63F2)
     val showDailyMetrics =
         !spentToday.isNullOrBlank() ||
             !safeToday.isNullOrBlank()

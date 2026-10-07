@@ -4,6 +4,10 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 
 enum class ThemeMode {
@@ -12,48 +16,68 @@ enum class ThemeMode {
     DARK
 }
 
+val PesaShapes = Shapes(
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(14.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(30.dp)
+)
+
+private val ColorTokensLightSecondary = Color(0xFF087E73)
+private val ColorTokensLightSecondaryDeep = Color(0xFF07564F)
+private val ColorTokensLightErrorDeep = Color(0xFF7A2538)
+
 private val LightColors = lightColorScheme(
-    primary = Emerald,
+    primary = AuroraIndigo,
     onPrimary = SurfaceLight,
-    primaryContainer = MintSoft,
-    onPrimaryContainer = EmeraldDeep,
-    secondary = Amber,
-    onSecondary = Navy,
-    secondaryContainer = AmberSoft,
-    onSecondaryContainer = Navy,
-    background = WarmIvory,
-    onBackground = Navy,
+    primaryContainer = VioletSoft,
+    onPrimaryContainer = AuroraIndigoDeep,
+    secondary = ColorTokensLightSecondary,
+    onSecondary = SurfaceLight,
+    secondaryContainer = AquaSoft,
+    onSecondaryContainer = ColorTokensLightSecondaryDeep,
+    tertiary = Amber,
+    onTertiary = Navy,
+    tertiaryContainer = AmberSoft,
+    onTertiaryContainer = Navy,
+    background = Porcelain,
+    onBackground = Ink,
     surface = SurfaceLight,
     onSurface = Ink,
     surfaceVariant = SurfaceSoft,
     onSurfaceVariant = Slate,
     outline = OutlineLight,
     error = Rose,
-    errorContainer = RoseSoft
+    onError = SurfaceLight,
+    errorContainer = RoseSoft,
+    onErrorContainer = ColorTokensLightErrorDeep
 )
 
 private val DarkColors = darkColorScheme(
-    primary = NightGreen,
-    onPrimary = Night,
-    primaryContainer = NightMintSurface,
-    onPrimaryContainer = NightText,
-    secondary = PremiumGold,
-    onSecondary = Night,
-    secondaryContainer = NightAmberSurface,
-    onSecondaryContainer = NightAmberText,
-    tertiary = PremiumPurple,
-    onTertiary = Night,
-    tertiaryContainer = NightVioletSurface,
-    onTertiaryContainer = NightVioletText,
-    background = Night,
-    onBackground = NightText,
-    surface = NightSurface,
-    onSurface = NightText,
-    surfaceVariant = NightSurfaceHigh,
-    onSurfaceVariant = NightMuted,
-    outline = NightOutline,
+    primary = MidnightPrimary,
+    onPrimary = Midnight,
+    primaryContainer = Color(0xFF2C2850),
+    onPrimaryContainer = Color(0xFFE5E1FF),
+    secondary = AuroraAquaBright,
+    onSecondary = Midnight,
+    secondaryContainer = Color(0xFF153D3A),
+    onSecondaryContainer = Color(0xFFB7FFF4),
+    tertiary = PremiumGold,
+    onTertiary = Midnight,
+    tertiaryContainer = NightAmberSurface,
+    onTertiaryContainer = NightAmberText,
+    background = Midnight,
+    onBackground = MidnightText,
+    surface = MidnightSurface,
+    onSurface = MidnightText,
+    surfaceVariant = MidnightSurfaceHigh,
+    onSurfaceVariant = MidnightMuted,
+    outline = MidnightOutline,
     error = PremiumExpense,
-    errorContainer = NightRoseSurface
+    onError = Midnight,
+    errorContainer = NightRoseSurface,
+    onErrorContainer = NightRoseText
 )
 
 @Composable
@@ -64,6 +88,7 @@ fun PesaTrackTheme(
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
         typography = PesaTypography,
+        shapes = PesaShapes,
         content = content
     )
 }
