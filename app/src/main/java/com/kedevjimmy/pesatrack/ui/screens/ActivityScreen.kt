@@ -642,7 +642,7 @@ fun ActivityScreen(
 
             item {
                 Text(
-                    "Activity",
+                    "Transactions",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold
                 )
