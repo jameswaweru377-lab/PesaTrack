@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -642,6 +643,10 @@ fun BackupRestoreSheet(
 ) {
     val context =
         LocalContext.current
+    val locale =
+        LocalConfiguration
+            .current
+            .locales[0]
     val scope =
         rememberCoroutineScope()
     val manager =
@@ -775,7 +780,7 @@ fun BackupRestoreSheet(
                             ) {
                                 SimpleDateFormat(
                                     "d MMM yyyy, HH:mm",
-                                    Locale.getDefault()
+                                    locale
                                 ).format(
                                     Date(
                                         preview
