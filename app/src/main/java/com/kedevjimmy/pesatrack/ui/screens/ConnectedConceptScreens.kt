@@ -358,9 +358,6 @@ fun ReportsInsightsScreen(
                 .padding(scaffoldPadding)
                 .background(
                     MaterialTheme.colorScheme.background
-                )
-                .testTag(
-                    "saving-goals-list"
                 ),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -1265,7 +1262,15 @@ fun SavingGoalsScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
+        modifier =
+            Modifier
+                .padding(scaffoldPadding)
+                .background(
+                    MaterialTheme.colorScheme.background
+                )
+                .testTag(
+                    "saving-goals-list"
+                ),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
