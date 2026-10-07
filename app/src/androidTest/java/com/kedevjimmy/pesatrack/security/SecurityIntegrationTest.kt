@@ -200,6 +200,38 @@ class SecurityIntegrationTest {
         )
     }
 
+    @Test
+    fun encryptedBackupCanBePreviewedBeforeRestore() {
+        val backup =
+            PesaBackupManager(
+                context
+            ).exportEncryptedBytes(
+                "strong-passphrase"
+            )
+
+        val preview =
+            PesaBackupManager(
+                context
+            ).previewEncryptedBytes(
+                encrypted = backup,
+                passphrase =
+                    "strong-passphrase"
+            )
+
+        assertTrue(
+            preview.createdAtEpochMs > 0L
+        )
+        assertTrue(
+            preview.schemaVersion > 0
+        )
+        assertTrue(
+            preview.tableCount > 0
+        )
+        assertTrue(
+            preview.rowCount >= 0
+        )
+    }
+
     @Test(
         expected =
             IllegalArgumentException::class
