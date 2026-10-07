@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -352,7 +353,15 @@ fun ReportsInsightsScreen(
         spending.firstOrNull()
 
     LazyColumn(
-        modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
+        modifier =
+            Modifier
+                .padding(scaffoldPadding)
+                .background(
+                    MaterialTheme.colorScheme.background
+                )
+                .testTag(
+                    "saving-goals-list"
+                ),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
