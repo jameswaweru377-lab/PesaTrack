@@ -729,6 +729,8 @@ fun HomeMoneyPictureCard(
     knownBalanceMinor: Long?,
     balanceObservedAtEpochMs: Long?,
     accountCount: Int,
+    confidenceScore: Int,
+    confidenceLabel: String,
     debtOutstandingMinor: Long,
     debtAccountCount: Int,
     onAccountsClick: () -> Unit,
@@ -740,13 +742,61 @@ fun HomeMoneyPictureCard(
             verticalArrangement =
                 Arrangement.spacedBy(10.dp)
         ) {
-            Text(
-                "Money picture",
-                style =
-                    MaterialTheme
-                        .typography
-                        .titleLarge
-            )
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Text(
+                    "Money picture",
+                    modifier =
+                        Modifier.weight(1f),
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleLarge
+                )
+                Surface(
+                    shape =
+                        RoundedCornerShape(
+                            50.dp
+                        ),
+                    color =
+                        when {
+                            confidenceScore >= 75 ->
+                                pesaToneContainer(
+                                    "green"
+                                )
+                            confidenceScore >= 50 ->
+                                pesaToneContainer(
+                                    "amber"
+                                )
+                            else ->
+                                MaterialTheme
+                                    .colorScheme
+                                    .surfaceVariant
+                        }
+                ) {
+                    Text(
+                        confidenceScore
+                            .toString() +
+                            "% • " +
+                            confidenceLabel,
+                        modifier =
+                            Modifier.padding(
+                                horizontal = 10.dp,
+                                vertical = 6.dp
+                            ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelMedium,
+                        fontWeight =
+                            FontWeight.SemiBold
+                    )
+                }
+            }
             Text(
                 "Known balances stay separate from debt. Missing balances are never guessed.",
                 style =
