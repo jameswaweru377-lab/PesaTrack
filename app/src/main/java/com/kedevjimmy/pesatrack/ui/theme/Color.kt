@@ -26,32 +26,38 @@ val SkySoft = Color(0xFFEAF2FF)
 val Violet = Color(0xFF8975FF)
 val VioletSoft = Color(0xFFF0EDFF)
 
-// Dark Mode V2 — approved October 2026.
-// Neutral charcoal surfaces carry the UI; emerald is reserved for identity,
-// positive states, selection and primary actions.
-val Night = Color(0xFF0D1412)
-val NightSurface = Color(0xFF151D1A)
-val NightSurfaceHigh = Color(0xFF202C28)
-val NightElevated = Color(0xFF1B2622)
-val NightOutline = Color(0xFF2D3B36)
-val NightText = Color(0xFFF4F7F5)
-val NightMuted = Color(0xFFAAB8B2)
-val NightGreen = Color(0xFF23C483)
-val NightMint = Color(0xFF8DE7BF)
+// Dark Mode V3 — reference-inspired lime/forest theme.
+// Layout stays unchanged. Lime carries primary emphasis while emerald remains
+// a supporting brand/positive color.
+val Night = Color(0xFF07100A)
+val NightSurface = Color(0xFF0E190F)
+val NightSurfaceHigh = Color(0xFF152217)
+val NightElevated = Color(0xFF1B2A1C)
+val NightOutline = Color(0xFF2B3C2D)
+val NightText = Color(0xFFF5F8F2)
+val NightMuted = Color(0xFFA9B6A7)
 
-val NightMintSurface = Color(0xFF153229)
-val NightAmberSurface = Color(0xFF302715)
-val NightBlueSurface = Color(0xFF16283A)
+val NightLime = Color(0xFFC8F43D)
+val NightLimeBright = Color(0xFFE1FF72)
+val NightEmerald = Color(0xFF25C98A)
+
+// Compatibility names used by existing semantic components.
+val NightGreen = NightLime
+val NightMint = NightLimeBright
+
+val NightMintSurface = Color(0xFF253311)
+val NightAmberSurface = Color(0xFF332A12)
+val NightBlueSurface = Color(0xFF14283A)
 val NightVioletSurface = Color(0xFF271F3A)
 val NightRoseSurface = Color(0xFF3A2023)
 
-val NightMintText = Color(0xFF8DE7BF)
+val NightMintText = NightLimeBright
 val NightAmberText = Color(0xFFFBBF24)
 val NightBlueText = Color(0xFF60A5FA)
 val NightVioletText = Color(0xFFA78BFA)
 val NightRoseText = Color(0xFFF87171)
 
-val PremiumTeal = Color(0xFF23C483)
+val PremiumTeal = NightEmerald
 val PremiumCyan = Color(0xFF60A5FA)
 val PremiumPurple = Color(0xFFA78BFA)
 val PremiumGold = Color(0xFFFBBF24)
