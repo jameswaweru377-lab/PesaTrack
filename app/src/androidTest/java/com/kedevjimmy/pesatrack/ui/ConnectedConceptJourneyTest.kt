@@ -31,8 +31,14 @@ class ConnectedConceptJourneyTest {
         val created=RuleStore.get(context).listRules(true).first{it.name=="Emergency fund"}
         assertEquals(5000000L,SavingGoalMetadataStore.get(context).get(created.id)?.totalTargetMinor)
         assertEquals(0,TransactionStore.get(context).snapshot().transactionCount)
+        compose.waitForIdle()
         compose.onNodeWithTag("saving-goals-list")
-            .performScrollToNode(hasText("Edit goal"))
+            .performScrollToIndex(3)
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText("Edit goal")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
         compose.onNodeWithText("Edit goal").performClick()
         compose.onNodeWithText("Remove goal").performScrollTo().performClick()
         compose.onNodeWithText("Remove this goal?").assertIsDisplayed()
