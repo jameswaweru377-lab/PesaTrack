@@ -6,7 +6,7 @@ import android.content.Context
 data class SavingGoalMetadata(
     val ruleId: String,
     val totalTargetMinor: Long? = null,
-    val targetDateEpochDay: Long? = null
+    val targetDateEpochMs: Long? = null
 )
 
 class SavingGoalMetadataStore private constructor(
@@ -28,7 +28,7 @@ class SavingGoalMetadataStore private constructor(
                     """
                     SELECT rule_id,
                            total_target_minor,
-                           target_date_epoch_day
+                           target_date_epoch_ms
                     FROM saving_goal_metadata
                     WHERE rule_id = ?
                     LIMIT 1
@@ -48,7 +48,7 @@ class SavingGoalMetadataStore private constructor(
                                 } else {
                                     cursor.getLong(1)
                                 },
-                            targetDateEpochDay =
+                            targetDateEpochMs =
                                 if (cursor.isNull(2)) {
                                     null
                                 } else {
@@ -78,7 +78,7 @@ class SavingGoalMetadataStore private constructor(
                     """
                     SELECT rule_id,
                            total_target_minor,
-                           target_date_epoch_day
+                           target_date_epoch_ms
                     FROM saving_goal_metadata
                     WHERE rule_id IN ($placeholders)
                     """.trimIndent(),
@@ -104,7 +104,7 @@ class SavingGoalMetadataStore private constructor(
                                             cursor
                                                 .getLong(1)
                                         },
-                                    targetDateEpochDay =
+                                    targetDateEpochMs =
                                         if (
                                             cursor
                                                 .isNull(2)
@@ -128,7 +128,7 @@ class SavingGoalMetadataStore private constructor(
     fun save(
         ruleId: String,
         totalTargetMinor: Long?,
-        targetDateEpochDay: Long?
+        targetDateEpochMs: Long?
     ) {
         synchronized(
             CanonicalStoreLock.monitor
@@ -179,15 +179,15 @@ class SavingGoalMetadataStore private constructor(
                         )
                     }
                     if (
-                        targetDateEpochDay != null
+                        targetDateEpochMs != null
                     ) {
                         put(
-                            "target_date_epoch_day",
-                            targetDateEpochDay
+                            "target_date_epoch_ms",
+                            targetDateEpochMs
                         )
                     } else {
                         putNull(
-                            "target_date_epoch_day"
+                            "target_date_epoch_ms"
                         )
                     }
                     put(
