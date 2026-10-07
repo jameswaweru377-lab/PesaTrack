@@ -23,9 +23,9 @@ fun StartupSplashScreen() {
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF07553F),
-                        Color(0xFF063F34),
-                        Color(0xFF043127)
+                        Color(0xFF3933A8),
+                        Color(0xFF24213F),
+                        Color(0xFF111827)
                     )
                 )
             )
