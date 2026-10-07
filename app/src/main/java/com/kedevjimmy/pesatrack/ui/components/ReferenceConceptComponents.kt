@@ -185,6 +185,29 @@ fun ConceptEmeraldHero(
     eyebrow: String? = null,
     footer: String? = null
 ) {
+    val dark =
+        isPesaDarkTheme()
+    val heroColors =
+        if (dark) {
+            listOf(
+                Color(0xFFE7F7B5),
+                Color(0xFFDFF377),
+                Color(0xFFABC34C)
+            )
+        } else {
+            listOf(
+                Color(0xFF0A5A43),
+                Color(0xFF08724F),
+                Color(0xFF0A8A5C)
+            )
+        }
+    val heroForeground =
+        if (dark) {
+            Color(0xFF101700)
+        } else {
+            Color.White
+        }
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
@@ -194,11 +217,7 @@ fun ConceptEmeraldHero(
             modifier = Modifier
                 .background(
                     Brush.linearGradient(
-                        listOf(
-                            Color(0xFF0A5A43),
-                            Color(0xFF08724F),
-                            Color(0xFF0A8A5C)
-                        )
+                        heroColors
                     )
                 )
                 .padding(16.dp)
@@ -211,21 +230,21 @@ fun ConceptEmeraldHero(
                 eyebrow?.let {
                     Text(
                         it,
-                        color = Color.White.copy(alpha = .82f),
+                        color = heroForeground.copy(alpha = .78f),
                         style = MaterialTheme.typography.labelMedium
                     )
                     Spacer(Modifier.height(3.dp))
                 }
                 Text(
                     title,
-                    color = Color.White,
+                    color = heroForeground,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
                     amount,
                     modifier = Modifier.padding(top = 4.dp),
-                    color = Color.White,
+                    color = heroForeground,
                     fontSize = 30.sp,
                     lineHeight = 34.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -235,14 +254,14 @@ fun ConceptEmeraldHero(
                 Text(
                     subtitle,
                     modifier = Modifier.padding(top = 3.dp),
-                    color = Color.White.copy(alpha = .8f),
+                    color = heroForeground.copy(alpha = .76f),
                     style = MaterialTheme.typography.bodySmall
                 )
                 footer?.let {
                     Text(
                         it,
                         modifier = Modifier.padding(top = 6.dp),
-                        color = Color.White.copy(alpha = .72f),
+                        color = heroForeground.copy(alpha = .68f),
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
