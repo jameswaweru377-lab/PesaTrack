@@ -800,6 +800,17 @@ private fun billManagementScheduleLabel(
         }
     }
 
+private data class GoalLoadedState(
+    val rules:
+        List<com.kedevjimmy.pesatrack.domain.model.SmartRule>,
+    val monthlySavings:
+        Map<String?, Long>,
+    val totalSavings:
+        Map<String?, Long>,
+    val metadata:
+        Map<String, SavingGoalMetadata>
+)
+
 @Composable
 fun SavingGoalsScreen(
     scaffoldPadding: PaddingValues,
@@ -811,7 +822,11 @@ fun SavingGoalsScreen(
     var editingGoal by remember { mutableStateOf<com.kedevjimmy.pesatrack.domain.model.SmartRule?>(null) }
     val revision by LedgerUpdateBus.state.collectAsState()
     var rules by remember { mutableStateOf(emptyList<com.kedevjimmy.pesatrack.domain.model.SmartRule>()) }
-    var savingsByRule by remember { mutableStateOf<Map<String?, Long>>(emptyMap()) }
+    var monthlySavingsByRule by remember { mutableStateOf<Map<String?, Long>>(emptyMap()) }
+    var totalSavingsByRule by remember { mutableStateOf<Map<String?, Long>>(emptyMap()) }
+    var goalMetadataByRule by remember {
+        mutableStateOf<Map<String, SavingGoalMetadata>>(emptyMap())
+    }
 
     var loadError by remember { mutableStateOf<String?>(null) }
     var retryLoad by remember { mutableIntStateOf(0) }
@@ -819,20 +834,94 @@ fun SavingGoalsScreen(
         loadError = null
         try {
         val loaded = withContext(Dispatchers.IO) {
-            val savedRules = RuleStore.get(context).listRules(true).filter {
-                it.category == TransactionCategory.SAVINGS && (it.plannedAmountMinor ?: 0L) > 0L
-            }
-            val activity = TransactionStore.get(context).activitySnapshot()
-            val types = AccountStore.get(context).listAccounts(false).associate { it.id to it.type }
-            val saved = activity.trustedTransactions
-                .filter { it.category == TransactionCategory.SAVINGS.name && it.reviewState != "EXCLUDED" && it.reviewState != "NEEDS_REVIEW" }
-                .filter { it.direction == MoneyDirection.TRANSFER.name }
-                .groupBy { it.ruleId }
-                .mapValues { (_, rows) -> rows.sumOf { ConceptLedgerPolicy.savingsDelta(it, types) }.coerceAtLeast(0) }
-            savedRules to saved
+            val savedRules =
+                RuleStore.get(context)
+                    .listRules(true)
+                    .filter {
+                        it.category ==
+                            TransactionCategory.SAVINGS &&
+                            (it.plannedAmountMinor ?: 0L) >
+                            0L
+                    }
+            val transactionStore =
+                TransactionStore.get(context)
+            val monthlyActivity =
+                transactionStore.activitySnapshot()
+            val now =
+                System.currentTimeMillis()
+            val allActivity =
+                transactionStore.activitySnapshotBetween(
+                    startEpochMs = 0L,
+                    endEpochMsExclusive =
+                        now + 1L,
+                    nowEpochMs = now
+                )
+            val types =
+                AccountStore.get(context)
+                    .listAccounts(false)
+                    .associate {
+                        it.id to it.type
+                    }
+
+            fun savingsByRule(
+                rows: List<StoredTransaction>
+            ): Map<String?, Long> =
+                rows
+                    .filter {
+                        it.category ==
+                            TransactionCategory.SAVINGS.name &&
+                            it.reviewState !=
+                            ReviewState.EXCLUDED.name &&
+                            it.reviewState !=
+                            ReviewState.NEEDS_REVIEW.name
+                    }
+                    .filter {
+                        it.direction ==
+                            MoneyDirection.TRANSFER.name
+                    }
+                    .groupBy { it.ruleId }
+                    .mapValues {
+                            (_, groupedRows) ->
+                        groupedRows
+                            .sumOf {
+                                ConceptLedgerPolicy
+                                    .savingsDelta(
+                                        it,
+                                        types
+                                    )
+                            }
+                            .coerceAtLeast(0)
+                    }
+
+            GoalLoadedState(
+                rules = savedRules,
+                monthlySavings =
+                    savingsByRule(
+                        monthlyActivity
+                            .trustedTransactions
+                    ),
+                totalSavings =
+                    savingsByRule(
+                        allActivity
+                            .trustedTransactions
+                    ),
+                metadata =
+                    SavingGoalMetadataStore
+                        .get(context)
+                        .listForRules(
+                            savedRules.map {
+                                it.id
+                            }
+                        )
+            )
         }
-        rules = loaded.first
-        savingsByRule = loaded.second
+        rules = loaded.rules
+        monthlySavingsByRule =
+            loaded.monthlySavings
+        totalSavingsByRule =
+            loaded.totalSavings
+        goalMetadataByRule =
+            loaded.metadata
 
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
         } catch (failure: Exception) {
@@ -924,17 +1013,151 @@ fun SavingGoalsScreen(
                 )
             }
         } else {
-            items(rules, key = { it.id }) { rule ->
-                val target = rule.plannedAmountMinor ?: 0L
-                val progressMinor = minOf(savingsByRule[rule.id] ?: 0L, target)
+            items(
+                rules,
+                key = { it.id }
+            ) { rule ->
+                val monthlyTarget =
+                    rule.plannedAmountMinor
+                        ?: 0L
+                val metadata =
+                    goalMetadataByRule[
+                        rule.id
+                    ]
+                val overallTarget =
+                    metadata
+                        ?.totalTargetMinor
+                val monthlySaved =
+                    monthlySavingsByRule[
+                        rule.id
+                    ] ?: 0L
+                val totalSaved =
+                    totalSavingsByRule[
+                        rule.id
+                    ] ?: 0L
+                val usesOverallTarget =
+                    overallTarget != null &&
+                        overallTarget > 0L
+                val progressTarget =
+                    if (usesOverallTarget) {
+                        overallTarget!!
+                    } else {
+                        monthlyTarget
+                    }
+                val progressValue =
+                    if (usesOverallTarget) {
+                        minOf(
+                            totalSaved,
+                            progressTarget
+                        )
+                    } else {
+                        minOf(
+                            monthlySaved,
+                            progressTarget
+                        )
+                    }
+                val dateLabel =
+                    metadata
+                        ?.targetDateEpochMs
+                        ?.let {
+                            SimpleDateFormat(
+                                "d MMM yyyy",
+                                Locale.getDefault()
+                            ).format(
+                                Date(it)
+                            )
+                        }
+
                 ConceptProgressCard(
-                    title = rule.displayLabel ?: rule.name,
-                    amount = conceptMoney(progressMinor),
-                    helper = "${conceptMoney(progressMinor)} of ${conceptMoney(target)} this month",
-                    progress = if (target <= 0L) 0f else progressMinor.toFloat() / target.toFloat(),
-                    icon = Icons.Rounded.Savings
+                    title =
+                        rule.displayLabel
+                            ?: rule.name,
+                    amount =
+                        conceptMoney(
+                            progressValue
+                        ),
+                    helper =
+                        buildString {
+                            append(
+                                conceptMoney(
+                                    progressValue
+                                )
+                            )
+                            append(" of ")
+                            append(
+                                conceptMoney(
+                                    progressTarget
+                                )
+                            )
+                            append(
+                                if (
+                                    usesOverallTarget
+                                ) {
+                                    " overall"
+                                } else {
+                                    " this month"
+                                }
+                            )
+                            if (
+                                dateLabel != null
+                            ) {
+                                append(" • by ")
+                                append(dateLabel)
+                            }
+                        },
+                    progress =
+                        if (
+                            progressTarget <= 0L
+                        ) {
+                            0f
+                        } else {
+                            (
+                                progressValue
+                                    .toFloat() /
+                                    progressTarget
+                                        .toFloat()
+                                )
+                                .coerceIn(
+                                    0f,
+                                    1f
+                                )
+                        },
+                    icon =
+                        Icons.Rounded.Savings
                 )
-                TextButton(onClick = { editingGoal = rule; goalEditor = true }) { Text("Edit goal") }
+
+                if (
+                    usesOverallTarget &&
+                    monthlyTarget > 0L
+                ) {
+                    Text(
+                        "Monthly contribution target: " +
+                            conceptMoney(
+                                monthlyTarget
+                            ),
+                        modifier =
+                            Modifier.padding(
+                                horizontal = 6.dp
+                            ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
+                TextButton(
+                    onClick = {
+                        editingGoal = rule
+                        goalEditor = true
+                    }
+                ) {
+                    Text("Edit goal")
+                }
             }
         }
     }
