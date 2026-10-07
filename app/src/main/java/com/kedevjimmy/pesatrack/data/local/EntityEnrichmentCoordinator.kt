@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentClientIdentity
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentFetchResult
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentHttpClient
 import com.kedevjimmy.pesatrack.domain.intelligence.EntityDescriptorPrivacyPolicy
@@ -27,6 +28,10 @@ class EntityEnrichmentCoordinator private constructor(
         )
     private val remote =
         EntityEnrichmentHttpClient()
+    private val preferences =
+        EntityEnrichmentPreferences.get(
+            appContext
+        )
 
     fun enrichTransactionAsync(
         transactionId: Long,
@@ -41,6 +46,14 @@ class EntityEnrichmentCoordinator private constructor(
                 .cacheKey(sanitized)
         val hasCached =
             cache.get(key) != null
+
+        if (
+            !hasCached &&
+            !preferences
+                .isOnlineLookupEnabled()
+        ) {
+            return
+        }
 
         if (
             !hasCached &&
@@ -181,8 +194,20 @@ class EntityEnrichmentWorker(
             return Result.success()
         }
 
+        if (
+            !EntityEnrichmentPreferences
+                .get(applicationContext)
+                .isOnlineLookupEnabled()
+        ) {
+            return Result.success()
+        }
+
         val remote =
-            EntityEnrichmentHttpClient()
+            EntityEnrichmentHttpClient(
+                clientId =
+                    EntityEnrichmentClientIdentity
+                        .get(applicationContext)
+            )
         if (!remote.isConfigured()) {
             return Result.success()
         }
