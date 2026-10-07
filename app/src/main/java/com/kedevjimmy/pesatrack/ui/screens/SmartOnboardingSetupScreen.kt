@@ -81,11 +81,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
+import com.kedevjimmy.pesatrack.data.local.EntityEnrichmentPreferences
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentClientIdentity
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentFetchResult
 import com.kedevjimmy.pesatrack.data.remote.EntityEnrichmentHttpClient
 import com.kedevjimmy.pesatrack.domain.model.AccountType
@@ -193,7 +195,17 @@ fun SmartOnboardingSetupScreen(
         }
     val entityEnrichmentClient =
         remember {
-            EntityEnrichmentHttpClient()
+            EntityEnrichmentHttpClient(
+                clientId =
+                    EntityEnrichmentClientIdentity
+                        .get(context)
+            )
+        }
+    val onlineEntityLookupEnabled =
+        remember {
+            EntityEnrichmentPreferences
+                .get(context)
+                .isOnlineLookupEnabled()
         }
 
     var stage by rememberSaveable {
@@ -669,7 +681,9 @@ fun SmartOnboardingSetupScreen(
                                     observations
                                 ),
                         client =
-                            entityEnrichmentClient
+                            entityEnrichmentClient,
+                        onlineLookupEnabled =
+                            onlineEntityLookupEnabled
                     ),
                     if (
                         existingMpesaNumber
@@ -1405,7 +1419,9 @@ fun SmartOnboardingSetupScreen(
                                     observations
                                 ),
                         client =
-                            entityEnrichmentClient
+                            entityEnrichmentClient,
+                        onlineLookupEnabled =
+                            onlineEntityLookupEnabled
                     )
                 }
 
@@ -3525,10 +3541,15 @@ private fun ownedSetupAccounts(
 
 private fun verifiedSalarySuggestion(
     local: OnboardingSalarySuggestion?,
-    client: EntityEnrichmentHttpClient
+    client: EntityEnrichmentHttpClient,
+    onlineLookupEnabled: Boolean
 ): OnboardingSalarySuggestion? {
     val suggestion =
         local ?: return null
+    if (!onlineLookupEnabled) {
+        return suggestion
+    }
+
     val descriptor =
         EntityDescriptorPrivacyPolicy
             .sanitize(

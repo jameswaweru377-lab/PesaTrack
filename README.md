@@ -1,97 +1,93 @@
 # PesaTrack
 
-PesaTrack is a **private, local-first Android money intelligence app for Kenya**. It turns financial SMS/notification evidence into a trustworthy personal ledger and answers a small set of practical questions:
+PesaTrack is a **private, local-first Android money intelligence app for Kenya**. It turns financial SMS and notification evidence into a trustworthy personal ledger and answers practical questions about cash flow, transfers, balances, debts, salary cycles and commitments.
 
-- What money came in?
-- What money went out?
-- Which movements were transfers rather than spending?
-- What do I owe, and what changed in my debts?
-- What balances and owned accounts can be trusted?
-- What is already committed before the next payday?
-- Which transactions still need my attention?
-
-The product is deliberately not trying to become a bank, social network, investment broker, generic budgeting spreadsheet, or cloud finance platform.
+The product is deliberately not trying to become a bank, social network, investment broker, generic spreadsheet, AI chatbot or cloud-first finance platform.
 
 ## Product boundary
 
-The authoritative product scope is in [docs/PRODUCT_CHARTER.md](docs/PRODUCT_CHARTER.md).
-
-The short version:
+The authoritative scope is in [docs/PRODUCT_CHARTER.md](docs/PRODUCT_CHARTER.md). The current engineering snapshot is in [CURRENT_STATE.md](CURRENT_STATE.md).
 
 **PesaTrack is**
-- a financial-message understanding engine;
-- a local personal ledger;
-- account, balance, debt and transfer intelligence;
-- budgeting and payday context built from trusted ledger state;
-- explainable review/learning when certainty is insufficient;
+- a provider-neutral financial-message understanding engine;
+- a canonical local personal ledger;
+- account, balance, debt, refund and transfer intelligence;
+- salary/pay-cycle, budget, bill and saving-goal context built from trusted ledger state;
+- reports and CSV export based on the same Activity ledger;
+- explainable review and learning when certainty is insufficient;
 - optional privacy-safe merchant/entity enrichment.
 
 **PesaTrack is not**
 - a social/community app;
-- a fake savings-goals simulator;
-- a stock-trading/investment execution app;
-- a bank-sync product that pretends to have data it cannot access;
-- an AI chatbot;
-- a cloud-first service;
-- a place for preview cards that look like live financial facts.
+- a stock/crypto trading or payment-initiation app;
+- a bank-sync product that invents unavailable data;
+- an LLM accounting authority;
+- a cloud-first service.
 
 ## Current live user surfaces
 
 - Onboarding and guided financial-data setup
 - Home
-- Activity
-- Transaction details
+- Activity and transaction details
 - Plan / payday context
 - Budgets and categories
-- Accounts and balances
+- Accounts and observed balances
 - Debts and relationship review
+- Saving goals
+- Bills and local reminders
+- Reports and CSV export
+- Salary setup and manual salary receipts
 - Identity review
-- Historical SMS import
+- Historical financial SMS import
 - Financial notification connection status
-- Data Health
-- Settings / theme / Smart Rules
+- Data Health / Message Lab
+- Settings, theme, Smart Rules, app lock and encrypted backup/restore
 
-Goals, Goal Detail, Community, and the superseded onboarding screens have been removed from source. Compatibility redirects may remain for restored navigation state, but these are not product features.
+Legacy routes may remain only for compatibility with older navigation state.
 
 ## Financial intelligence architecture
 
-Financial messages flow through a provider-agnostic pipeline:
+Financial messages flow through a provider-neutral pipeline:
 
 `capture -> relevance -> normalization -> candidate extraction -> relationship resolution -> canonical financial records -> ledger/correlation -> review/learning`
 
 Message Packs are bounded deterministic language evidence. They are not allowed to become a provider-by-provider business-logic maze.
 
-Message Lab and Message Inspector are **developer/diagnostic tools**, not accounting authority. Evidence can suggest parser work, but it cannot silently activate parsing or write ledger state.
+Message Lab and Message Inspector are developer/diagnostic tools, not accounting authority. Evidence can suggest parser work, but it cannot silently activate parsing or write ledger state.
 
 ## Privacy
 
 SQLite on the device is the source of truth. Raw financial messages are not sent to the optional enrichment service.
 
-The Cloudflare enrichment boundary accepts only a sanitized merchant/entity descriptor and rejects likely:
-- phone numbers;
-- transaction codes;
-- email addresses;
-- long numeric references;
-- likely personal names.
+Online merchant/entity lookup is **off by default**. If the user enables it, only a sanitized business descriptor may leave the device. The sanitation layer rejects likely phone numbers, transaction codes, email addresses, long numeric references and likely personal names. Amounts, balances, account numbers and full SMS bodies are not sent.
 
-Provider credentials remain server-side.
+The public enrichment Worker is rate limited, and provider credentials remain server-side.
 
 ## Engineering status
 
-Current main schema: **v31**.
+- Database schema: **v32**
+- Android minSdk: **24**
+- target/compile SDK: **36**
+- Current CI runs:
+  - Worker syntax/contract checks;
+  - Android JVM unit tests;
+  - Android lint;
+  - debug APK assembly;
+  - Android instrumentation on API 35.
+- The rolling debug APK is published only after both the build and instrumentation jobs pass.
+- Canonical ingestion uses an explicit SQLite transaction boundary with rollback coverage.
+- Migration coverage includes fresh v32 plus selected historical upgrades including v1, v30 and v31 to v32.
+- App lock, biometric unlock and passphrase-encrypted backup/restore are implemented.
 
-Current CI on `main`:
-- Worker syntax/contract checks;
-- Android JVM unit tests;
-- Android lint;
-- debug APK assembly;
-- rolling private `ci-apk` prerelease publication.
+## Current hardening priorities
 
-Important remaining engineering debt:
-- no Android instrumentation/UI test suite yet;
-- no automated old-schema-to-v31 migration test matrix yet;
-- database ownership is fragmented across many stores and multi-store financial writes do not yet have a proven crash-atomic transaction boundary;
-- several files have grown too large and must be decomposed before substantial new feature work;
-- retired preview/onboarding source has been removed after a clean quarantine period and repeated CI confirmation.
+Before public release, the project is prioritizing:
+- branch protection and repository hygiene;
+- release signing/versioning and reproducible wrapper/tooling;
+- explicit privacy and Play Store permission documentation;
+- real-device Redmi/Xiaomi acceptance;
+- performance work for long-history import and large ledgers;
+- decomposition of the largest stores and Compose screens;
+- broader API/migration/performance test matrices.
 
-See [docs/AUDIT_2026-10-04.md](docs/AUDIT_2026-10-04.md) for the current repository audit and [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for detailed implementation history.
+See [CURRENT_STATE.md](CURRENT_STATE.md) for the source-of-truth engineering snapshot and [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for chronological implementation history.
