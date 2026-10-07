@@ -15,7 +15,6 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   deploy:
@@ -25,7 +24,6 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       WORKER_NAME: pesatrack
-      GH_TOKEN: ${{ github.token }}
 
     steps:
       - name: Checkout
@@ -138,10 +136,6 @@ jobs:
             echo "\`${RESOLVE_URL}\`"
             echo
             echo "The verified public endpoint is committed in Android CI; no repository Actions-variable write is required."
+            echo
+            echo "Android CI is triggered by the same main push, so this workflow does not dispatch a duplicate build."
           } >> "${GITHUB_STEP_SUMMARY}"
-
-      - name: Rebuild rolling APK with Worker endpoint
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh workflow run             android-ci.yml             --ref main             --repo "${GITHUB_REPOSITORY}"
