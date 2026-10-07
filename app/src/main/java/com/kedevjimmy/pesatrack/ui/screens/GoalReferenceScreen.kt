@@ -946,6 +946,9 @@ fun SavingGoalsScreen(
         SavingGoalEditor(editingGoal) {
             goalEditor = false
             editingGoal = null
+            // Rule/metadata edits are not ledger transactions, so explicitly
+            // reload the goal models when the editor closes.
+            retryLoad++
         }
     }
 
