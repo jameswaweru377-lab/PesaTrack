@@ -77,13 +77,7 @@ fun PesaTrackTopBar(
                     .size(40.dp)
                     .clickable(onClick = onProfileClick),
                 shape = CircleShape,
-                color =
-                    if (isPesaDarkTheme()) {
-                        MaterialTheme.colorScheme.primary
-                            .copy(alpha = .12f)
-                    } else {
-                        MaterialTheme.colorScheme.primaryContainer
-                    }
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -109,8 +103,8 @@ fun AvailableToLiveHero(
     safeToday: String? = null
 ) {
     val dark = isPesaDarkTheme()
-    val start = if (dark) Color(0xFF09563F) else Color(0xFF087A5B)
-    val end = if (dark) Color(0xFF0A865B) else Color(0xFF0A9B73)
+    val start = if (dark) Color(0xFF06453E) else Color(0xFF087A5B)
+    val end = if (dark) Color(0xFF0A6A59) else Color(0xFF0A9B73)
     val showDailyMetrics =
         !spentToday.isNullOrBlank() ||
             !safeToday.isNullOrBlank()
@@ -334,12 +328,7 @@ fun MoneySummaryTile(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(18.dp),
-        color =
-            if (isPesaDarkTheme()) {
-                MaterialTheme.colorScheme.surface
-            } else {
-                pesaToneContainer(tone)
-            }
+        color = pesaToneContainer(tone)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
