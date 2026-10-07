@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack
 
 import android.os.Bundle
+import android.annotation.SuppressLint
 import android.os.Build
 import android.os.CancellationSignal
 import android.hardware.biometrics.BiometricPrompt
@@ -162,6 +163,7 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
+    @SuppressLint("MissingPermission")
     private fun canUseBiometrics(): Boolean {
         if (
             Build.VERSION.SDK_INT <
@@ -200,6 +202,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun requestBiometricUnlock() {
         if (
             Build.VERSION.SDK_INT <
