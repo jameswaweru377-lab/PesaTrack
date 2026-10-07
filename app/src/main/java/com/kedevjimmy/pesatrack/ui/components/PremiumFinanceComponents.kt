@@ -109,8 +109,24 @@ fun AvailableToLiveHero(
     safeToday: String? = null
 ) {
     val dark = isPesaDarkTheme()
-    val start = if (dark) Color(0xFF09563F) else Color(0xFF087A5B)
-    val end = if (dark) Color(0xFF0A865B) else Color(0xFF0A9B73)
+    val start =
+        if (dark) {
+            Color(0xFFDDFB5E)
+        } else {
+            Color(0xFF087A5B)
+        }
+    val end =
+        if (dark) {
+            Color(0xFFA8D81F)
+        } else {
+            Color(0xFF0A9B73)
+        }
+    val heroText =
+        if (dark) {
+            Color(0xFF0B1507)
+        } else {
+            Color.White
+        }
     val showDailyMetrics =
         !spentToday.isNullOrBlank() ||
             !safeToday.isNullOrBlank()
@@ -130,7 +146,7 @@ fun AvailableToLiveHero(
     ) {
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(
-                color = Color.White.copy(alpha = .045f),
+                color = heroText.copy(alpha = .045f),
                 radius = size.minDimension * .46f,
                 center = Offset(size.width * .98f, size.height * .08f)
             )
@@ -145,14 +161,14 @@ fun AvailableToLiveHero(
                     size.height * .42f
                 )
             drawLine(
-                color = Color.White.copy(alpha = .16f),
+                color = heroText.copy(alpha = .16f),
                 start = stemStart,
                 end = stemEnd,
                 strokeWidth = 3.2f,
                 cap = StrokeCap.Round
             )
             drawOval(
-                color = Color.White.copy(alpha = .07f),
+                color = heroText.copy(alpha = .07f),
                 topLeft =
                     Offset(
                         size.width * .79f,
@@ -178,7 +194,7 @@ fun AvailableToLiveHero(
                     )
             )
             drawOval(
-                color = Color.White.copy(alpha = .055f),
+                color = heroText.copy(alpha = .055f),
                 topLeft =
                     Offset(
                         size.width * .87f,
@@ -203,7 +219,7 @@ fun AvailableToLiveHero(
                     MaterialTheme.typography
                         .titleMedium,
                 color =
-                    Color.White.copy(alpha = .88f)
+                    heroText.copy(alpha = .88f)
             )
             Text(
                 amount,
@@ -212,7 +228,7 @@ fun AvailableToLiveHero(
                     MaterialTheme.typography
                         .displaySmall,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = heroText
             )
             Text(
                 subtitle,
@@ -221,7 +237,7 @@ fun AvailableToLiveHero(
                     MaterialTheme.typography
                         .bodyMedium,
                 color =
-                    Color.White.copy(alpha = .82f),
+                    heroText.copy(alpha = .82f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -253,7 +269,7 @@ fun AvailableToLiveHero(
                         MaterialTheme.typography
                             .bodySmall,
                     color =
-                        Color.White.copy(alpha = .72f),
+                        heroText.copy(alpha = .72f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
