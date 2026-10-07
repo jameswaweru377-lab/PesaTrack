@@ -60,6 +60,39 @@ class BillSchedules(private val context: Context) {
             Context.MODE_PRIVATE
         )
 
+    fun globalReminderLeadDays(): Int =
+        prefs.getInt(
+            "global_reminder_lead_days",
+            3
+        ).coerceIn(1, 30)
+
+    fun globalRemindersEnabled(): Boolean =
+        prefs.getBoolean(
+            "global_reminders_enabled",
+            false
+        )
+
+    fun setGlobalReminderLeadDays(
+        days: Int,
+        enable: Boolean = true
+    ) {
+        require(days in 1..30) {
+            "Reminder lead days must be between 1 and 30."
+        }
+        prefs.edit()
+            .putInt(
+                "global_reminder_lead_days",
+                days
+            )
+            .putBoolean(
+                "global_reminders_enabled",
+                enable
+            )
+            .apply()
+        schedule(context)
+        LedgerUpdateBus.notifyChanged()
+    }
+
     fun config(ruleId: String): BillScheduleConfig {
         val cadence =
             runCatching {
@@ -261,9 +294,17 @@ class BillSchedules(private val context: Context) {
 
         val now = Calendar.getInstance()
 
+        val globalReminderOn =
+            globalRemindersEnabled()
+        val leadDays =
+            globalReminderLeadDays()
+
         list(now.timeInMillis)
             .filter {
-                it.reminders &&
+                (
+                    it.reminders ||
+                        globalReminderOn
+                    ) &&
                     it.dueThisMonth &&
                     it.remainingMinor > 0L
             }
@@ -296,7 +337,9 @@ class BillSchedules(private val context: Context) {
                                 delta !in
                                 0..
                                     TimeUnit.DAYS
-                                        .toMillis(3)
+                                        .toMillis(
+                                            leadDays.toLong()
+                                        )
                             ) {
                                 return@forEach
                             }

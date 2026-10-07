@@ -785,7 +785,7 @@ fun ReportsInsightsScreen(
 }
 
 @Composable
-fun BillsRemindersScreen(
+private fun LegacyBillsRemindersScreen(
     scaffoldPadding: PaddingValues,
     onBack: () -> Unit,
     onPlanClick: () -> Unit
@@ -1139,7 +1139,7 @@ private data class GoalLoadedState(
 )
 
 @Composable
-fun SavingGoalsScreen(
+private fun LegacySavingGoalsScreen(
     scaffoldPadding: PaddingValues,
     onBack: () -> Unit,
     onPlanClick: () -> Unit
