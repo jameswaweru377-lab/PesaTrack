@@ -68,6 +68,30 @@ internal fun SmartSmsPermissionPage(
 
         PesaCard {
             Column(
+                Modifier.padding(16.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    "Before you enable SMS access",
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium
+                )
+                Text(
+                    "PesaTrack reads the financial SMS history you choose so it can build your local ledger and identify income, spending, transfers, balances and debts. Processing happens on this device. Full SMS messages are not uploaded or shared with the optional online merchant lookup service. You can continue without SMS access.",
+                    style =
+                        MaterialTheme.typography
+                            .bodyMedium,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+        }
+
+        PesaCard {
+            Column(
                 Modifier.padding(18.dp),
                 horizontalAlignment =
                     Alignment.CenterHorizontally,

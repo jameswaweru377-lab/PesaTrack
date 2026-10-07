@@ -124,9 +124,9 @@ fun HistoricalImportScreen(
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Column {
-                    Text("Import M-Pesa history", style = MaterialTheme.typography.headlineMedium)
+                    Text("Import financial SMS history", style = MaterialTheme.typography.headlineMedium)
                     Text(
-                        "Read older M-Pesa and configured money SMS already on this phone.",
+                        "Read older financial SMS from M-Pesa, banks and other supported money sources already on this phone.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -170,6 +170,29 @@ fun HistoricalImportScreen(
         }
 
         if (!permissionGranted) {
+            item {
+                PesaCard {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement =
+                            Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            "Before you grant SMS access",
+                            style =
+                                MaterialTheme.typography
+                                    .titleMedium
+                        )
+                        Text(
+                            "PesaTrack will read the selected financial SMS history on this device to create and reconcile your local ledger. Full SMS messages are not uploaded or shared with the optional online merchant lookup service. You can leave this permission disabled and continue using PesaTrack without historical SMS import.",
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
             item {
                 Button(
                     onClick = {

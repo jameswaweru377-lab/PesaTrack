@@ -52,13 +52,22 @@ Current repository coverage includes JVM tests plus Android instrumentation. Imp
 
 The next test expansion should add scheduled API-level coverage, broader migration fixtures, performance benchmarks and repeatable physical-device acceptance.
 
+## Repository and release hardening
+
+- Android CI third-party actions are pinned to immutable commit SHAs.
+- CI/deployment use an exact Wrangler version.
+- Dependabot watches Gradle and GitHub Actions dependencies.
+- `SECURITY.md`, `CONTRIBUTING.md` and `CODEOWNERS` define review/privacy expectations.
+- The repository contains a privacy-policy source and a Play release checklist.
+- SMS-permission surfaces provide an explicit disclosure before requesting historical SMS access.
+
 ## Release status
 
 Not yet public-store ready. Remaining release blockers include:
 - protect `main` with required CI checks;
-- clean stale branches and superseded PRs;
-- signed/versioned release workflow and Gradle wrapper;
-- privacy policy and Google Play READ_SMS / Financial features declarations;
+- clean stale branches;
+- signed/versioned release workflow and committed Gradle wrapper;
+- publish the privacy policy at a stable HTTPS URL and complete Google Play READ_SMS / Financial features declarations;
 - Redmi/Xiaomi real-history acceptance;
 - performance hardening for long imports/large ledgers;
 - architecture decomposition of the largest stores/screens.
