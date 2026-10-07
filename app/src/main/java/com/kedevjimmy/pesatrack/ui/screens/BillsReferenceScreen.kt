@@ -541,8 +541,13 @@ private fun BillCalendarSheet(
                     }
             }
 
-            val cells = (0 until firstDay).map<Int, Int?> { null } +
-                (1..max).map { it as Int? }
+            val cells: List<Int?> =
+                List(firstDay) {
+                    null
+                } +
+                    (1..max).map {
+                        it
+                    }
 
             cells.chunked(7).forEach { week ->
                 Row(Modifier.fillMaxWidth()) {
