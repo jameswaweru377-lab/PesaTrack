@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Info
@@ -34,10 +35,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.security.AppLockManager
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
@@ -54,6 +61,46 @@ fun SettingsScreen(
     onSmartRulesClick: () -> Unit,
     onHistoricalImportClick: () -> Unit
 ) {
+    val context =
+        LocalContext.current
+    val appLockManager =
+        remember {
+            AppLockManager(context)
+        }
+    var appLockEnabled by remember {
+        mutableStateOf(
+            appLockManager.isEnabled()
+        )
+    }
+    var showAppLock by remember {
+        mutableStateOf(false)
+    }
+    var showBackupRestore by remember {
+        mutableStateOf(false)
+    }
+
+    if (showAppLock) {
+        AppLockSettingsSheet(
+            onDismiss = {
+                showAppLock = false
+            },
+            onChanged = {
+                appLockEnabled =
+                    appLockManager
+                        .isEnabled()
+            }
+        )
+    }
+
+    if (showBackupRestore) {
+        BackupRestoreSheet(
+            onDismiss = {
+                showBackupRestore =
+                    false
+            }
+        )
+    }
+
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
@@ -183,6 +230,27 @@ fun SettingsScreen(
             Spacer(Modifier.padding(top = 2.dp))
             PesaCard {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
+                    SettingsRow(
+                        Icons.Rounded.Security,
+                        "App lock",
+                        if (appLockEnabled) {
+                            "On • PIN required after 30 seconds in the background"
+                        } else {
+                            "Off • protect PesaTrack with a local PIN"
+                        },
+                        onClick = {
+                            showAppLock = true
+                        }
+                    )
+                    SettingsRow(
+                        Icons.Rounded.Backup,
+                        "Encrypted backup & restore",
+                        "Create a passphrase-protected local backup",
+                        onClick = {
+                            showBackupRestore =
+                                true
+                        }
+                    )
                     SettingsRow(
                         Icons.Rounded.Upload,
                         "Financial notifications",
