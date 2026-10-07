@@ -115,7 +115,9 @@ fun HistoricalImportScreen(
                     },
                     isCancelled = {
                         cancelRequested.get()
-                    }
+                    },
+                    resumeKey =
+                        selectedWindow.name
                 )
             }
 
@@ -340,7 +342,11 @@ fun HistoricalImportScreen(
                         ) {
                             Text(
                                 progress?.let {
-                                    "${it.scanned} of ${it.total} SMS scanned"
+                                    if (it.resumed) {
+                                        "Resuming import • ${it.scanned} of ${it.total} remaining SMS scanned"
+                                    } else {
+                                        "${it.scanned} of ${it.total} SMS scanned"
+                                    }
                                 } ?: "Reading the selected SMS history…",
                                 style =
                                     MaterialTheme.typography
@@ -355,7 +361,7 @@ fun HistoricalImportScreen(
                                 )
                             }
                             Text(
-                                "You can stop safely. Records already added stay valid, and running the import again will skip duplicates.",
+                                "You can stop safely. Records already added stay valid. The next run can resume from a recent saved checkpoint, and duplicate protection remains active.",
                                 style =
                                     MaterialTheme.typography
                                         .bodySmall,
@@ -400,9 +406,20 @@ fun HistoricalImportScreen(
                         ImportResultRow("New transactions added", importResult.inserted)
                         ImportResultRow("Duplicates skipped", importResult.duplicates)
                         ImportResultRow("Unrelated messages ignored", importResult.ignored)
+                        if (importResult.resumed) {
+                            Text(
+                                "This run resumed from the most recent saved checkpoint instead of rescanning the completed part of the interrupted import.",
+                                style =
+                                    MaterialTheme.typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
                         if (importResult.cancelled) {
                             Text(
-                                "Import stopped before the selected history was fully scanned. Records already added were kept. Run the import again when ready; duplicates will be skipped.",
+                                "Import stopped before the selected history was fully scanned. Records already added were kept and a recent checkpoint is retained so the next run can continue without rescanning the completed part.",
                                 style =
                                     MaterialTheme.typography
                                         .bodySmall,
