@@ -16,6 +16,15 @@ enum class HistoricalImportMode {
     REPROCESS
 }
 
+data class HistoricalImportProgress(
+    val scanned: Int,
+    val total: Int,
+    val matched: Int,
+    val inserted: Int,
+    val duplicates: Int,
+    val ignored: Int
+)
+
 data class HistoricalImportResult(
     val scanned: Int,
     val matched: Int,
@@ -24,7 +33,8 @@ data class HistoricalImportResult(
     val ignored: Int,
     val understood: Int = 0,
     val stateRefreshed: Int = 0,
-    val pendingReview: Int = 0
+    val pendingReview: Int = 0,
+    val cancelled: Boolean = false
 )
 
 class HistoricalSmsImporter(
@@ -35,7 +45,11 @@ class HistoricalSmsImporter(
         rebuildPayCycles: Boolean = true,
         mode:
             HistoricalImportMode =
-            HistoricalImportMode.IMPORT
+            HistoricalImportMode.IMPORT,
+        onProgress:
+            ((HistoricalImportProgress) -> Unit)? =
+            null,
+        isCancelled: () -> Boolean = { false }
     ): HistoricalImportResult {
         val rules = RuleStore.get(context).listRules(enabledOnly = true)
         val accounts = AccountStore.get(context).listAccounts()
@@ -49,6 +63,7 @@ class HistoricalSmsImporter(
         var understood = 0
         var stateRefreshed = 0
         var pendingReview = 0
+        var cancelled = false
 
         val projection = arrayOf(
             Telephony.Sms.ADDRESS,
@@ -66,11 +81,43 @@ class HistoricalSmsImporter(
             val addressIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
             val bodyIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.BODY)
             val dateIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.DATE)
+            val total = cursor.count.coerceAtLeast(0)
+
+            fun publishProgress(force: Boolean = false) {
+                if (
+                    onProgress == null ||
+                    (
+                        !force &&
+                        scanned != 1 &&
+                        scanned % PROGRESS_INTERVAL != 0 &&
+                        scanned != total
+                    )
+                ) {
+                    return
+                }
+
+                onProgress.invoke(
+                    HistoricalImportProgress(
+                        scanned = scanned,
+                        total = total,
+                        matched = matched,
+                        inserted = inserted,
+                        duplicates = duplicates,
+                        ignored = ignored
+                    )
+                )
+            }
 
             while (cursor.moveToNext()) {
+                if (isCancelled()) {
+                    cancelled = true
+                    break
+                }
+
                 scanned += 1
 
-                val address = cursor.getString(addressIndex)?.trim()
+                try {
+                    val address = cursor.getString(addressIndex)?.trim()
                 val body = cursor.getString(bodyIndex)?.trim()
                 val smsDate = cursor.getLong(dateIndex)
 
@@ -214,13 +261,27 @@ class HistoricalSmsImporter(
                     rebuildPayCycles = false
                 )
 
-                matched += 1
-                understood += 1
-                if (didInsert) inserted += 1 else duplicates += 1
+                    matched += 1
+                    understood += 1
+                    if (didInsert) {
+                        inserted += 1
+                    } else {
+                        duplicates += 1
+                    }
+                } finally {
+                    publishProgress()
+                }
+            }
+
+            if (cancelled) {
+                publishProgress(force = true)
             }
         } ?: error("SMS history is temporarily unavailable.")
 
-        if (mode == HistoricalImportMode.IMPORT) {
+        if (
+            mode == HistoricalImportMode.IMPORT &&
+            !cancelled
+        ) {
             AutomaticHistoryRepair.recordImport(context, sinceEpochMs)
         }
 
@@ -238,11 +299,13 @@ class HistoricalSmsImporter(
             stateRefreshed =
                 stateRefreshed,
             pendingReview =
-                pendingReview
+                pendingReview,
+            cancelled = cancelled
         )
     }
 
     companion object {
+        private const val PROGRESS_INTERVAL = 25
         const val SOURCE_HISTORICAL_SMS = "historical_sms"
         const val SOURCE_HISTORICAL_FINANCIAL_MESSAGE =
             "historical_financial_message"
