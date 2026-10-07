@@ -48,12 +48,13 @@ import com.kedevjimmy.pesatrack.ui.theme.NightRoseSurface
 import com.kedevjimmy.pesatrack.ui.theme.NightRoseText
 import com.kedevjimmy.pesatrack.ui.theme.NightVioletSurface
 import com.kedevjimmy.pesatrack.ui.theme.NightVioletText
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import com.kedevjimmy.pesatrack.ui.theme.MintSoft
 import com.kedevjimmy.pesatrack.ui.theme.SkySoft
 import com.kedevjimmy.pesatrack.ui.theme.VioletSoft
 
 @Composable
-fun PesaLogoMark(modifier: Modifier = Modifier, size: Dp = 42.dp) {
+fun PesaLogoMark(modifier: Modifier = Modifier, size: Dp = PesaDesignTokens.iconBubble) {
     Surface(
         modifier = modifier.size(size),
         shape = RoundedCornerShape(size * 0.28f),
@@ -122,7 +123,7 @@ fun PesaCard(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
