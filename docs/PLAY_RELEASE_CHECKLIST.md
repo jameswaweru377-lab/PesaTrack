@@ -49,9 +49,10 @@ https://support.google.com/googleplay/android-developer/answer/13849271
 ## Release engineering
 
 - [ ] Commit and use the Gradle Wrapper for reproducible local/CI builds.
-- [ ] Replace development-only versioning with intentional release `versionCode` / `versionName`.
-- [ ] Configure a release signing key outside the repository.
-- [ ] Produce a signed Android App Bundle (AAB) for Play.
+- [x] Release builds accept intentional `versionCode` / `versionName` inputs.
+- [x] A manual signed-release workflow is defined and verifies AAB/APK signatures.
+- [ ] Configure the release signing key/secrets outside the repository.
+- [ ] Run and retain the first verified signed Android App Bundle (AAB) for Play.
 - [ ] Keep the rolling debug APK separate from public release artifacts.
 - [x] Debug APK publication is gated on build + lint + unit tests + instrumentation.
 - [x] GitHub Actions are pinned to immutable commit SHAs.
