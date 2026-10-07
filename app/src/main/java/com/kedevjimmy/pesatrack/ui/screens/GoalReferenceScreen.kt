@@ -1,5 +1,8 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -229,37 +234,134 @@ private fun GoalPageHeader() {
     }
 }
 
+private fun goalReferenceAsset(
+    title: String
+): String? {
+    val text =
+        title.lowercase(
+            Locale.getDefault()
+        )
+    return when {
+        "ps5" in text ||
+            "playstation" in text ->
+            GoalReferenceAssets.PS5
+
+        "table" in text ||
+            "furniture" in text ||
+            "sofa" in text ->
+            GoalReferenceAssets.TABLE
+
+        "emergency" in text ->
+            GoalReferenceAssets.EMERGENCY
+
+        "vacation" in text ||
+            "diani" in text ||
+            "holiday" in text ||
+            "travel" in text ->
+            GoalReferenceAssets.VACATION
+
+        else -> null
+    }
+}
+
 @Composable
 private fun GoalArtworkTile(
     title: String,
     modifier: Modifier = Modifier
 ) {
-    val artwork = goalArtwork(title)
+    val encoded =
+        goalReferenceAsset(title)
+    val bitmap =
+        remember(encoded) {
+            encoded?.let {
+                runCatching {
+                    val bytes =
+                        Base64.decode(
+                            it,
+                            Base64.DEFAULT
+                        )
+                    BitmapFactory
+                        .decodeByteArray(
+                            bytes,
+                            0,
+                            bytes.size
+                        )
+                        ?.asImageBitmap()
+                }.getOrNull()
+            }
+        }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription =
+                title + " goal image",
+            modifier =
+                modifier.clip(
+                    RoundedCornerShape(
+                        16.dp
+                    )
+                ),
+            contentScale =
+                ContentScale.Crop
+        )
+        return
+    }
+
+    val artwork =
+        goalArtwork(title)
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(Brush.linearGradient(artwork.colors)),
-        contentAlignment = Alignment.Center
+            .clip(
+                RoundedCornerShape(
+                    16.dp
+                )
+            )
+            .background(
+                Brush.linearGradient(
+                    artwork.colors
+                )
+            ),
+        contentAlignment =
+            Alignment.Center
     ) {
         Icon(
             artwork.icon,
             contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = Color.White.copy(alpha = .96f)
+            modifier =
+                Modifier.size(48.dp),
+            tint =
+                Color.White.copy(
+                    alpha = .96f
+                )
         )
         Surface(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(7.dp)
-                .size(30.dp),
-            shape = RoundedCornerShape(9.dp),
-            color = artwork.badgeColor
+            modifier =
+                Modifier
+                    .align(
+                        Alignment.TopEnd
+                    )
+                    .padding(7.dp)
+                    .size(30.dp),
+            shape =
+                RoundedCornerShape(
+                    9.dp
+                ),
+            color =
+                artwork.badgeColor
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Box(
+                contentAlignment =
+                    Alignment.Center
+            ) {
                 Icon(
                     artwork.badge,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    contentDescription =
+                        null,
+                    modifier =
+                        Modifier.size(
+                            18.dp
+                        ),
                     tint = Color.White
                 )
             }
