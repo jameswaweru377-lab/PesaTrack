@@ -305,6 +305,25 @@ object OwnAccountTransferDetector {
             return false
         }
 
+        if (
+            compactIdentifier.length <=
+            6
+        ) {
+            // A short last-4/last-6 value is useful only when the message
+            // presents it as an account identifier. Do not match the same
+            // digits when they happen to occur in an amount/reference/date.
+            val accountContext =
+                Regex(
+                    """(?i)(?:a/?c|acct|account)[^A-Z0-9]{0,24}(?:[*xX#•\s-]*""" +
+                        Regex.escape(
+                            compactIdentifier
+                        ) +
+                        """)\b"""
+                )
+            return accountContext
+                .containsMatchIn(text)
+        }
+
         val compactText =
             text.uppercase()
                 .replace(
