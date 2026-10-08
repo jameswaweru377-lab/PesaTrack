@@ -28,7 +28,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -122,6 +121,27 @@ internal fun VoicePlanningAssistantSheet(
         mutableIntStateOf(0)
     }
 
+    fun processFinalTranscript(
+        heard: String
+    ) {
+        transcript = heard
+        val parsed =
+            VoicePlanningParser.parse(
+                kind = kind,
+                transcript = heard
+            )
+        draft = parsed.draft
+        error = parsed.error
+        status =
+            if (
+                parsed.draft != null
+            ) {
+                "Done listening. Please confirm the summary below."
+            } else {
+                "I need one more detail. Tap the microphone and say the complete request again."
+            }
+    }
+
     val offlineAvailable =
         remember {
             Build.VERSION.SDK_INT >=
@@ -161,7 +181,7 @@ internal fun VoicePlanningAssistantSheet(
                         listening = true
                         error = null
                         status =
-                            "Listening…"
+                            "Listening… speak naturally. I'll wait for your finishing pause."
                     }
 
                     override fun onBeginningOfSpeech() {
@@ -179,7 +199,7 @@ internal fun VoicePlanningAssistantSheet(
 
                     override fun onEndOfSpeech() {
                         status =
-                            "Processing speech…"
+                            "Got it. Preparing the confirmation…"
                     }
 
                     override fun onError(
@@ -209,14 +229,15 @@ internal fun VoicePlanningAssistantSheet(
                         if (
                             heard.isNotBlank()
                         ) {
-                            transcript = heard
-                            draft = null
-                            error = null
-                            status =
-                                "Review what I heard, then tap Send."
+                            processFinalTranscript(
+                                heard
+                            )
                         } else {
+                            draft = null
                             error =
                                 "I couldn't hear a complete command."
+                            status =
+                                "Tap the microphone and try again."
                         }
                     }
 
@@ -318,21 +339,6 @@ internal fun VoicePlanningAssistantSheet(
         }
     }
 
-    fun sendTranscript() {
-        val parsed =
-            VoicePlanningParser.parse(
-                kind = kind,
-                transcript =
-                    transcript
-            )
-        draft = parsed.draft
-        error = parsed.error
-        if (parsed.draft != null) {
-            status =
-                "I understood this. Confirm before anything is added."
-        }
-    }
-
     ModalBottomSheet(
         onDismissRequest = {
             if (
@@ -385,7 +391,7 @@ internal fun VoicePlanningAssistantSheet(
             )
 
             Text(
-                "Your voice is processed with Android's on-device speech recognizer. PesaTrack does not send this command to an AI service.",
+                "Speak the whole request naturally. After a normal finishing pause, PesaTrack will process it automatically and show a summary for confirmation. Voice stays on-device.",
                 style =
                     MaterialTheme
                         .typography
@@ -541,27 +547,6 @@ internal fun VoicePlanningAssistantSheet(
                     }
                 }
 
-                Button(
-                    onClick =
-                        ::sendTranscript,
-                    enabled =
-                        !listening &&
-                            !saving,
-                    modifier =
-                        Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        Icons.Rounded.Send,
-                        contentDescription =
-                            null
-                    )
-                    Spacer(
-                        Modifier.width(
-                            8.dp
-                        )
-                    )
-                    Text("Send")
-                }
             }
 
             error?.let {
@@ -928,6 +913,24 @@ private fun offlineRecognitionIntent():
             RecognizerIntent
                 .EXTRA_MAX_RESULTS,
             3
+        )
+        // Best-effort endpoint tuning. Some Android speech engines may ignore
+        // these hints, but supported engines wait through short thinking pauses
+        // and finish after a more natural end-of-sentence pause.
+        .putExtra(
+            RecognizerIntent
+                .EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS,
+            2_500L
+        )
+        .putExtra(
+            RecognizerIntent
+                .EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
+            1_600L
+        )
+        .putExtra(
+            RecognizerIntent
+                .EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
+            2_300L
         )
 
 private fun speechErrorMessage(
