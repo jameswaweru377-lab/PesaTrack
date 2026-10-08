@@ -50,4 +50,15 @@ class OfflineMoneyPolicyTest {
         assertEquals(20000L, OfflineMoneyPolicy.spendingIncrease(100000, 120000))
         assertNull(OfflineMoneyPolicy.spendingIncrease(Long.MAX_VALUE - 10000, Long.MAX_VALUE))
     }
+
+    @Test fun futureAndZeroOnlyObservationsDoNotEstablishHistory() {
+        assertTrue(OfflineMoneyPolicy.completedSavings(listOf(
+            SavingObservation(date(7), 0), SavingObservation(date(11), 500)
+        ), date(10), zone).isEmpty())
+    }
+
+    @Test fun forecastUsesOnlyMostRecentSixMonths() {
+        assertEquals(10, OfflineMoneyPolicy.forecast(1000, 0,
+            listOf(10000, 10000, 100, 100, 100, 100, 100, 100)).typicalMonths)
+    }
 }

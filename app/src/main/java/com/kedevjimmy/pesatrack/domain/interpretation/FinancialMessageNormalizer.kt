@@ -8,6 +8,9 @@ data class NormalizedFinancialMessage(
 
 object FinancialMessageNormalizer {
     private val whitespaceRegex = Regex("""\s+""")
+    private val typographyWhitespaceRegex = Regex("""[\s\p{Zs}]+""")
+    private val separatedDigitsRegex = Regex("""[0-9][\p{Zs}&&[^ ]]+[0-9]""")
+    private val rawCurrencyRegex = Regex("""\b(?:KES|KSHS?\.?|SHS?\.?|KENYA\s+SHILLINGS?)\b""", RegexOption.IGNORE_CASE)
 
     /*
      * Normalize Kenyan currency typography before any semantic
@@ -36,12 +39,16 @@ object FinancialMessageNormalizer {
         title: String?,
         body: String
     ): NormalizedFinancialMessage {
+        // Extend spacing around contiguous amounts only. Preserve the old pipeline
+        // for ambiguous Unicode digit grouping; never guess that "1 250" means 1,250.
+        val ambiguousTypography = separatedDigitsRegex.containsMatchIn(body) && rawCurrencyRegex.containsMatchIn(body)
+        val bodyForCurrency = if (ambiguousTypography) body else body.replace(typographyWhitespaceRegex, " ")
         val normalizedBody =
-            normalizeKenyanCurrency(body)
-                .replace(whitespaceRegex, " ")
+            normalizeKenyanCurrency(bodyForCurrency)
+                .replace(if (ambiguousTypography) whitespaceRegex else typographyWhitespaceRegex, " ")
                 .trim()
         val normalizedTitle = title
-            ?.replace(whitespaceRegex, " ")
+            ?.replace(typographyWhitespaceRegex, " ")
             ?.trim()
             ?.takeIf { it.isNotBlank() }
 

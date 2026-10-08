@@ -108,6 +108,33 @@ class FinancialMessageReplayConsistencyTest {
         assertEquals(1, balanceObservationCount)
     }
 
+    @Test
+    fun thirtyInventedPaymentsRemainSingleTransactionsAfterTwoReplays() {
+        val coordinator = FinancialMessageIngestionCoordinator.get(context)
+        repeat(30) { index ->
+            val code = "TST%07d".format(java.util.Locale.ROOT, 9000000 + index)
+            val body = PAYMENT_MESSAGE.replace(TRANSACTION_CODE, code)
+                .replace("450.00", "${450 + index}.00")
+            repeat(3) { replay ->
+                val result = coordinator.ingest(
+                    title = "MPESA", body = body,
+                    sourcePackage = "com.google.android.apps.messaging", sourceKind = "TEST_SMS",
+                    receivedAtEpochMs = TEST_RECEIVED_AT_EPOCH_MS + index * 1000L,
+                    rebuildPayCycles = false,
+                    diagnosticMode = FinancialDiagnosticMode.RECONCILE_ONLY
+                )
+                assertTrue(code, result.recognized)
+                assertEquals(code, if (replay == 0) 1 else 0, result.insertedTransactions)
+            }
+            PesaTrackDatabase.get(context).readableDatabase.rawQuery(
+                "SELECT COUNT(*) FROM transactions WHERE transaction_code = ?", arrayOf(code)
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(code, 1, cursor.getInt(0))
+            }
+        }
+    }
+
     private companion object {
         const val DATABASE_NAME = "pesatrack.db"
         const val TRANSACTION_CODE = "TST12ABC04"
