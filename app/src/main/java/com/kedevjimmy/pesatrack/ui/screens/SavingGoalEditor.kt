@@ -63,6 +63,11 @@ internal fun SavingGoalEditor(
     var payee by remember {
         mutableStateOf(
             rule?.counterpartyExact
+                ?.takeUnless {
+                    it.startsWith(
+                        "__PESATRACK_VOICE_GOAL__"
+                    )
+                }
                 ?.ifBlank {
                     rule.counterpartyContains
                 }
