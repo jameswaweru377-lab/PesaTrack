@@ -785,7 +785,7 @@ fun TransactionDetailScreen(
                 }
 
                 Spacer(
-                    Modifier.height(10.dp)
+                    Modifier.height(6.dp)
                 )
 
                 CategoryGrid(
@@ -932,9 +932,6 @@ fun TransactionDetailScreen(
             SectionHeader(
                 "Transaction information"
             )
-            Spacer(
-                Modifier.height(8.dp)
-            )
             PesaCard {
                 Column(
                     Modifier.padding(
@@ -1003,9 +1000,6 @@ fun TransactionDetailScreen(
 
         item {
             SectionHeader("Actions")
-            Spacer(
-                Modifier.height(8.dp)
-            )
             PesaCard {
                 Column(
                     Modifier.padding(
@@ -1147,7 +1141,7 @@ private fun TransactionHero(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(272.dp),
+                .height(288.dp),
         showSun = false
     ) {
         Column(
@@ -1160,13 +1154,10 @@ private fun TransactionHero(
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
-                IconBubble(
-                    Icons.Rounded.AccountCircle,
-                    size = 62.dp,
-                    background =
-                        Color(0xFF4F46D8),
-                    tint =
-                        Color(0xFF55E6D1)
+                TransactionCounterpartyBadge(
+                    name =
+                        item.counterparty,
+                    size = 62.dp
                 )
                 Column(
                     modifier =
@@ -1332,59 +1323,273 @@ private fun TransactionHero(
                             alpha = .92f
                         )
             ) {
-                Row(
+                Column(
                     modifier =
                         Modifier.padding(
                             horizontal = 12.dp,
-                            vertical = 14.dp
+                            vertical = 11.dp
                         ),
-                    horizontalArrangement =
+                    verticalArrangement =
                         Arrangement.spacedBy(
                             8.dp
                         )
                 ) {
-                    HeroMetric(
-                        "Transaction code",
-                        item.transactionCode
-                            ?: "—",
-                        Icons.AutoMirrored
-                            .Rounded
-                            .ReceiptLong,
-                        Modifier.weight(
-                            1.15f
-                        )
-                    )
-                    HeroMetric(
-                        "Fees",
-                        formatMoney(
-                            item.feeMinor +
-                                item
-                                    .fulizaAccessFeeMinor
-                        ),
-                        Icons.Rounded.Paid,
-                        Modifier.weight(1f)
-                    )
-                    HeroMetric(
-                        "Transaction date",
-                        SimpleDateFormat(
-                            "d MMM",
-                            locale
-                        ).format(
-                            Date(
-                                item.occurredAtEpochMs
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(
+                                10.dp
                             )
-                        ),
-                        Icons.Rounded.CalendarMonth,
-                        Modifier.weight(1f)
-                    )
-                    HeroMetric(
-                        "Status",
-                        status,
-                        Icons.Rounded.CheckCircle,
-                        Modifier.weight(1f)
-                    )
+                    ) {
+                        CompactHeroMetric(
+                            "Transaction code",
+                            item.transactionCode
+                                ?: "—",
+                            Icons.AutoMirrored
+                                .Rounded
+                                .ReceiptLong,
+                            Modifier.weight(1f)
+                        )
+                        CompactHeroMetric(
+                            "Status",
+                            status,
+                            Icons.Rounded.CheckCircle,
+                            Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(
+                                10.dp
+                            )
+                    ) {
+                        CompactHeroMetric(
+                            "Transaction date",
+                            SimpleDateFormat(
+                                "d MMM",
+                                locale
+                            ).format(
+                                Date(
+                                    item.occurredAtEpochMs
+                                )
+                            ),
+                            Icons.Rounded.CalendarMonth,
+                            Modifier.weight(1f)
+                        )
+                        CompactHeroMetric(
+                            "Fees",
+                            formatMoney(
+                                item.feeMinor +
+                                    item
+                                        .fulizaAccessFeeMinor
+                            ),
+                            Icons.Rounded.Paid,
+                            Modifier.weight(1f)
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TransactionCounterpartyBadge(
+    name: String?,
+    size: androidx.compose.ui.unit.Dp
+) {
+    val initials =
+        bankInitials(name)
+
+    Surface(
+        modifier =
+            Modifier.size(size),
+        shape = CircleShape,
+        color =
+            Color(0xFF4F46D8)
+    ) {
+        Box(
+            contentAlignment =
+                Alignment.Center
+        ) {
+            if (initials != null) {
+                Text(
+                    initials,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .headlineSmall,
+                    fontWeight =
+                        FontWeight.ExtraBold,
+                    color =
+                        Color(0xFF55E6D1)
+                )
+            } else {
+                Icon(
+                    Icons.Rounded.AccountCircle,
+                    contentDescription =
+                        null,
+                    modifier =
+                        Modifier.size(
+                            size * .62f
+                        ),
+                    tint =
+                        Color(0xFF55E6D1)
+                )
+            }
+        }
+    }
+}
+
+internal fun bankInitials(
+    rawName: String?
+): String? {
+    val name =
+        rawName?.trim()
+            ?.takeIf(String::isNotBlank)
+            ?: return null
+    val words =
+        name.replace(
+            Regex("""[^A-Za-z0-9&]+"""),
+            " "
+        )
+            .trim()
+            .split(Regex("""\s+"""))
+            .filter(String::isNotBlank)
+    val bankIndex =
+        words.indexOfFirst {
+            it.equals(
+                "bank",
+                ignoreCase = true
+            )
+        }
+    if (bankIndex < 0) {
+        return null
+    }
+
+    val beforeBank =
+        words.take(bankIndex)
+            .filterNot {
+                it.equals(
+                    "the",
+                    ignoreCase = true
+                ) ||
+                    it.equals(
+                        "of",
+                        ignoreCase = true
+                    )
+            }
+
+    val first =
+        beforeBank.firstOrNull()
+            ?: return "BK"
+    val isAcronym =
+        first.length in 2..4 &&
+            first.all {
+                !it.isLetter() ||
+                    it.isUpperCase()
+            }
+    if (isAcronym) {
+        return first.take(4)
+    }
+
+    return if (beforeBank.size >= 2) {
+        buildString {
+            append(
+                beforeBank[0]
+                    .first()
+                    .uppercaseChar()
+            )
+            append(
+                beforeBank[1]
+                    .first()
+                    .uppercaseChar()
+            )
+        }
+    } else {
+        buildString {
+            append(
+                first.first()
+                    .uppercaseChar()
+            )
+            append('B')
+        }
+    }
+}
+
+@Composable
+private fun CompactHeroMetric(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    modifier: Modifier
+) {
+    Row(
+        modifier =
+            modifier.padding(
+                horizontal = 2.dp,
+                vertical = 2.dp
+            ),
+        verticalAlignment =
+            Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = CircleShape,
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .surfaceVariant
+                    .copy(alpha = .72f)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier =
+                    Modifier.padding(
+                        7.dp
+                    )
+                        .size(17.dp),
+                tint =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
+            )
+        }
+        Column(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .padding(start = 8.dp)
+        ) {
+            Text(
+                label,
+                style =
+                    MaterialTheme
+                        .typography
+                        .labelSmall,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false
+            )
+            Text(
+                value,
+                modifier =
+                    Modifier.padding(top = 1.dp),
+                style =
+                    MaterialTheme
+                        .typography
+                        .titleSmall,
+                fontWeight =
+                    FontWeight.SemiBold,
+                maxLines = 1,
+                softWrap = false
+            )
         }
     }
 }
@@ -2036,7 +2241,7 @@ private fun CategoryGrid(
 
         Column(
             verticalArrangement =
-                Arrangement.spacedBy(8.dp)
+                Arrangement.spacedBy(6.dp)
         ) {
             if (narrowScreen) {
                 CategoryGridRows(
@@ -2147,16 +2352,13 @@ private fun CategoryGridRows(
                                 },
                         shape =
                             RoundedCornerShape(
-                                18.dp
+                                16.dp
                             ),
                         color =
                             if (selected) {
-                                Color(
-                                    0xFF0B6E55
-                                )
-                                    .copy(
-                                        alpha = .78f
-                                    )
+                                MaterialTheme
+                                    .colorScheme
+                                    .primaryContainer
                             } else {
                                 MaterialTheme
                                     .colorScheme
@@ -2173,9 +2375,9 @@ private fun CategoryGridRows(
                                     1.dp
                                 },
                                 if (selected) {
-                                    Color(
-                                        0xFF65F0B3
-                                    )
+                                    MaterialTheme
+                                        .colorScheme
+                                        .primary
                                 } else {
                                     MaterialTheme
                                         .colorScheme
@@ -2198,7 +2400,7 @@ private fun CategoryGridRows(
                                         } else {
                                             12.dp
                                         },
-                                    vertical = 11.dp
+                                    vertical = 7.dp
                                 ),
                             verticalAlignment =
                                 Alignment.CenterVertically
@@ -2219,9 +2421,13 @@ private fun CategoryGridRows(
                                     contentDescription =
                                         null,
                                     modifier =
-                                        Modifier.padding(
-                                            7.dp
-                                        ),
+                                        Modifier
+                                            .padding(
+                                                6.dp
+                                            )
+                                            .size(
+                                                20.dp
+                                            ),
                                     tint =
                                         visual.color
                                 )
@@ -2257,9 +2463,9 @@ private fun CategoryGridRows(
                                             18.dp
                                         ),
                                     tint =
-                                        Color(
-                                            0xFF77F3BA
-                                        )
+                                        MaterialTheme
+                                            .colorScheme
+                                            .primary
                                 )
                             }
                         }
@@ -2276,9 +2482,6 @@ private fun CategoryGridRows(
                 }
             }
 
-            Spacer(
-                Modifier.height(8.dp)
-            )
         }
 }
 
