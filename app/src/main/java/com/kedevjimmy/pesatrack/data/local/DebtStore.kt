@@ -915,10 +915,7 @@ class DebtStore private constructor(context: Context) {
                         repayment.occurredAtEpochMs -
                             REPAYMENT_LINK_WINDOW_MS
                     ).toString(),
-                    (
-                        repayment.occurredAtEpochMs +
-                            REPAYMENT_LINK_WINDOW_MS
-                    ).toString(),
+                    repayment.occurredAtEpochMs.toString(),
                     com.kedevjimmy.pesatrack.domain.model
                         .ReviewState.EXCLUDED.name,
                     com.kedevjimmy.pesatrack.domain.model
@@ -1366,10 +1363,7 @@ class DebtStore private constructor(context: Context) {
                         repayment.occurredAtEpochMs -
                             window
                     ).toString(),
-                    (
-                        repayment.occurredAtEpochMs +
-                            window
-                    ).toString()
+                    repayment.occurredAtEpochMs.toString()
                 )
             ).use { cursor ->
                 buildList {
