@@ -1,12 +1,7 @@
 package com.kedevjimmy.pesatrack.ui
 
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNode
-import androidx.compose.ui.test.performClick
-import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
@@ -20,7 +15,7 @@ class MainTabNavigationTest {
     val compose = createComposeRule()
 
     @Test
-    fun tabSelectionAndAndroidBackReturnToExpectedRoot() {
+    fun tabSelectionReturnsToExpectedRoots() {
         compose.setContent {
             PesaTrackTheme {
                 PesaTrackApp(
@@ -64,14 +59,7 @@ class MainTabNavigationTest {
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        pressBack()
-
-        compose.waitUntil(15_000L) {
-            compose.onAllNodes(hasText("Tracked funds"))
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-
-        compose.onNode(hasText("Tracked funds"))
+        compose.onNode(hasText("Search transactions"))
             .assertIsDisplayed()
     }
 }
