@@ -159,6 +159,55 @@ class AccountStore private constructor(context: Context) {
     }
     }
 
+    fun updateIdentifier(
+        id: String,
+        identifier: String?
+    ) {
+        synchronized(CanonicalStoreLock.monitor) {
+        val account = listAccounts(enabledOnly = false)
+            .firstOrNull { it.id == id }
+            ?: error("Account not found.")
+
+        val normalizedIdentifier = when {
+            identifier.isNullOrBlank() -> null
+            account.type == AccountType.MOBILE_WALLET ->
+                OwnAccountTransferDetector.normalizeKenyanPhone(identifier)
+                    ?: throw IllegalArgumentException(
+                        "Enter a valid Kenyan mobile number, for example 0712345678."
+                    )
+            else ->
+                identifier
+                    .trim()
+                    .replace(
+                        Regex("""\s+"""),
+                        ""
+                    )
+        }
+
+        val values = ContentValues().apply {
+            if (normalizedIdentifier == null) {
+                putNull("identifier")
+            } else {
+                put(
+                    "identifier",
+                    normalizedIdentifier
+                )
+            }
+            put(
+                "updated_at_epoch_ms",
+                System.currentTimeMillis()
+            )
+        }
+
+        database.writableDatabase.update(
+            "money_accounts",
+            values,
+            "id = ?",
+            arrayOf(id)
+        )
+    }
+    }
+
     fun setEnabled(id: String, enabled: Boolean) {
         synchronized(CanonicalStoreLock.monitor) {
         val values = ContentValues().apply {

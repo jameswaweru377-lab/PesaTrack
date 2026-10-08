@@ -20,6 +20,7 @@ import com.kedevjimmy.pesatrack.ui.screens.BudgetScreen
 import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
 import com.kedevjimmy.pesatrack.ui.screens.DataHealthScreen
 import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
+import com.kedevjimmy.pesatrack.ui.screens.FinancialInstitutionsScreen
 import com.kedevjimmy.pesatrack.ui.screens.IdentityReviewScreen
 import com.kedevjimmy.pesatrack.ui.screens.SalaryScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
@@ -199,6 +200,25 @@ fun PesaTrackApp(
                         navController.navigate(
                             "account-detail/$accountId"
                         )
+                    },
+                    onManageInstitutions = {
+                        navController.navigate(
+                            "financial-institutions"
+                        )
+                    }
+                )
+            }
+        }
+
+        composable("financial-institutions") {
+            AppScaffold(
+                currentTab = MainTab.ACCOUNTS,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                FinancialInstitutionsScreen(
+                    scaffoldPadding = padding,
+                    onBack = {
+                        navController.popBackStack()
                     }
                 )
             }

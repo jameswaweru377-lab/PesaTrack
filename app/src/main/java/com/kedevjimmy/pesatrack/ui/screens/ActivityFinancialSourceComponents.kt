@@ -814,6 +814,43 @@ internal fun financialActivityDisplayName(
     }
 }
 
+internal fun financialActivityRouteLabel(
+    item: StoredTransaction,
+    accountName: String?,
+    linkedAccountName: String?
+): String? {
+    val account =
+        accountName
+            ?.trim()
+            ?.takeIf {
+                it.isNotBlank()
+            }
+            ?: return null
+    val linked =
+        linkedAccountName
+            ?.trim()
+            ?.takeIf {
+                it.isNotBlank()
+            }
+
+    return when (
+        item.direction
+    ) {
+        MoneyDirection.TRANSFER.name ->
+            if (linked != null) {
+                "$account → $linked"
+            } else {
+                "From $account"
+            }
+        MoneyDirection.INCOME.name ->
+            "To $account"
+        MoneyDirection.EXPENSE.name ->
+            "From $account"
+        else ->
+            account
+    }
+}
+
 internal fun financialActivityEventLabel(
     item: StoredTransaction,
     categoryLabel: String,

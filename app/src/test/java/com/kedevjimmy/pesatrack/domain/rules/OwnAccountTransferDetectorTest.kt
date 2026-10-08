@@ -19,7 +19,8 @@ class OwnAccountTransferDetectorTest {
         MoneyAccount(
             id = "equity",
             name = "Equity Bank",
-            type = AccountType.BANK
+            type = AccountType.BANK,
+            identifier = "1234567890"
         ),
         MoneyAccount(
             id = "other-wallet",
@@ -85,6 +86,84 @@ class OwnAccountTransferDetectorTest {
 
         assertEquals("equity", match?.sourceAccountId)
         assertEquals("account-mpesa", match?.destinationAccountId)
+    }
+
+    @Test
+    fun mpesaNotificationToOwnedBankIdentifierIsTransfer() {
+        val match =
+            OwnAccountTransferDetector
+                .matchConfiguredNotification(
+                    title = "MPESA",
+                    body =
+                        "Ksh 2,500 transferred to Equity account 1234567890 successfully",
+                    accounts = accounts
+                )
+
+        assertEquals(
+            "account-mpesa",
+            match?.sourceAccountId
+        )
+        assertEquals(
+            "equity",
+            match?.destinationAccountId
+        )
+        assertEquals(
+            OwnTransferEvidence
+                .EXACT_IDENTIFIER,
+            match?.evidence
+        )
+    }
+
+    @Test
+    fun bankNameWithoutOwnedIdentifierDoesNotBecomeDestination() {
+        assertNull(
+            OwnAccountTransferDetector
+                .matchConfiguredNotification(
+                    title = "MPESA",
+                    body =
+                        "Ksh 2,500 transferred to Equity account 9999999999 successfully",
+                    accounts = accounts
+                )
+        )
+    }
+
+    @Test
+    fun shortOwnedIdentifierRequiresAccountContext() {
+        val shortIdAccounts =
+            accounts.map {
+                if (it.id == "equity") {
+                    it.copy(
+                        identifier = "7890"
+                    )
+                } else {
+                    it
+                }
+            }
+
+        assertNull(
+            OwnAccountTransferDetector
+                .matchConfiguredNotification(
+                    title = "MPESA",
+                    body =
+                        "Ksh 2,500 sent successfully. Reference ABC7890.",
+                    accounts =
+                        shortIdAccounts
+                )
+        )
+
+        val match =
+            OwnAccountTransferDetector
+                .matchConfiguredNotification(
+                    title = "MPESA",
+                    body =
+                        "Ksh 2,500 transferred to Equity account ****7890 successfully",
+                    accounts =
+                        shortIdAccounts
+                )
+        assertEquals(
+            "equity",
+            match?.destinationAccountId
+        )
     }
 
     @Test

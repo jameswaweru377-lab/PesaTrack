@@ -38,31 +38,157 @@ class AutomaticAccountResolutionTest {
         assertEquals(0, coordinator.ingest("MPESA", TRANSFER, "test.sms", "TEST_SMS", EPOCH, false).insertedTransactions)
     }
 
-    @Test fun resolvedBankPaymentGetsNamedBankAccountWithoutOwnershipPrompt() {
-        val result = FinancialMessageIngestionCoordinator.get(context).ingest(
-            "EQUITY", "Your transaction of Kenya Shillings 20,000 has been credited to SAMPLE PERSON. Reference number EQA12ABC34. M-Pesa reference UFT12ABC34.",
-            "test.sms", "TEST_SMS", EPOCH, false
+    @Test fun recognizedBankWaitsForOwnershipThenReplayAttachesCorrectAccount() {
+        val coordinator =
+            FinancialMessageIngestionCoordinator.get(context)
+        val body =
+            "Your transaction of Kenya Shillings 20,000 has been credited to SAMPLE PERSON. Reference number EQA12ABC34. M-Pesa reference UFT12ABC34."
+
+        val beforeConfirmation =
+            coordinator.ingest(
+                "EQUITY",
+                body,
+                "test.sms",
+                "TEST_SMS",
+                EPOCH,
+                false
+            )
+
+        assertEquals(
+            0,
+            beforeConfirmation.insertedTransactions
         )
-        assertEquals(1, result.insertedTransactions)
-        val accountId = FinancialUnderstandingStore.get(context).entityByKey("provider:KENYAN_BANK_EQUITY")?.confirmedAccountId
+        assertFalse(
+            AccountStore.get(context)
+                .listAccounts()
+                .any {
+                    it.name ==
+                        "Equity Bank Kenya"
+                }
+        )
+
+        val equity =
+            FinancialProviderRegistry
+                .resolveOwnedMessageSourceAccount(
+                    "EQUITY",
+                    true
+                )!!
+        val accountId =
+            FinancialUnderstandingStore
+                .get(context)
+                .setInstitutionOwned(
+                    reference = equity,
+                    identifier =
+                        "1234567890"
+                )
         assertNotNull(accountId)
-        assertEquals("Equity Bank Kenya", AccountStore.get(context).listAccounts().first { it.id == accountId }.name)
-        assertEquals(accountId, TransactionStore.get(context).recent().single().accountId)
+
+        val afterConfirmation =
+            coordinator.ingest(
+                "EQUITY",
+                body,
+                "test.sms",
+                "TEST_SMS",
+                EPOCH,
+                false
+            )
+
+        assertEquals(
+            1,
+            afterConfirmation.insertedTransactions
+        )
+        assertEquals(
+            accountId,
+            TransactionStore.get(context)
+                .recent()
+                .single()
+                .accountId
+        )
     }
 
-    @Test fun replayAttachesPreviouslyUnassignedBalanceAndPreservesExternalDecision() {
-        val store = FinancialUnderstandingStore.get(context)
-        val known = FinancialProviderRegistry.resolveOwnedMessageSourceAccount("EQUITY", true)!!
-        val unknown = known.copy(ownershipHint = AccountOwnershipHint.UNKNOWN)
-        val fact = BalanceObservationFact(unknown, 50_000L, InterpretationConfidence.HIGH)
-        store.recordBalance(fact, "same-message", EPOCH, "test.sms", "TEST_SMS")
-        assertNull(store.latestBalances().single().accountId)
-        assertTrue(store.recordBalance(fact.copy(account = known), "same-message", EPOCH, "test.sms", "TEST_SMS"))
-        assertNotNull(store.latestBalances().single().accountId)
-        assertEquals(1, store.latestBalances().size)
-        store.markEntityExternal(known.entityKey)
-        assertNull(store.observeEntity(known, EPOCH + 1))
-        assertFalse(store.isUserOwned(known.entityKey))
+    @Test fun explicitBankSelectionAttachesBalanceAndExternalDecisionPersists() {
+        val store =
+            FinancialUnderstandingStore.get(context)
+        val known =
+            FinancialProviderRegistry
+                .resolveOwnedMessageSourceAccount(
+                    "EQUITY",
+                    true
+                )!!
+        val unknown =
+            known.copy(
+                ownershipHint =
+                    AccountOwnershipHint.UNKNOWN
+            )
+        val fact =
+            BalanceObservationFact(
+                unknown,
+                50_000L,
+                InterpretationConfidence.HIGH
+            )
+
+        store.recordBalance(
+            fact,
+            "same-message",
+            EPOCH,
+            "test.sms",
+            "TEST_SMS"
+        )
+        assertNull(
+            store.latestBalances()
+                .single()
+                .accountId
+        )
+
+        val accountId =
+            store.setInstitutionOwned(
+                reference = known,
+                identifier = "1234567890"
+            )
+        assertNotNull(accountId)
+
+        // Confirmation immediately attaches any previously observed
+        // balance for the same institution; replay is no longer required.
+        assertEquals(
+            accountId,
+            store.latestBalances()
+                .single()
+                .accountId
+        )
+        assertEquals(
+            "1234567890",
+            AccountStore.get(context)
+                .listAccounts()
+                .first {
+                    it.id == accountId
+                }
+                .identifier
+        )
+
+        store.markEntityExternal(
+            known.entityKey
+        )
+        assertNull(
+            store.observeEntity(
+                known,
+                EPOCH + 1
+            )
+        )
+        assertFalse(
+            store.isUserOwned(
+                known.entityKey
+            )
+        )
+        assertFalse(
+            AccountStore.get(context)
+                .listAccounts(
+                    enabledOnly = false
+                )
+                .first {
+                    it.id == accountId
+                }
+                .enabled
+        )
     }
 
     companion object {

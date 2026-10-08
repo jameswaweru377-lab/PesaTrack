@@ -12,6 +12,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.interpretation.TransferEventFact
 import com.kedevjimmy.pesatrack.domain.rules.AutomaticAccountPolicy
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 import java.security.MessageDigest
 
 enum class FinancialEventStatus {
@@ -38,6 +39,15 @@ data class ObservedAccountBalance(
     val balanceMinor: Long,
     val confidence: InterpretationConfidence,
     val observedAtEpochMs: Long
+)
+
+data class OwnedFinancialInstitutionSelection(
+    val providerKey: String,
+    val entityKey: String,
+    val accountId: String,
+    val displayName: String,
+    val accountType: AccountType,
+    val identifier: String?
 )
 
 data class PendingFinancialTransfer(
@@ -493,6 +503,175 @@ class FinancialUnderstandingStore private constructor(
         }
     }
 
+    fun ownedInstitutionSelections():
+        List<OwnedFinancialInstitutionSelection> =
+        synchronized(CanonicalStoreLock.monitor) {
+            database.readableDatabase.rawQuery(
+                """
+                SELECT e.provider_key,
+                       e.entity_key,
+                       e.confirmed_account_id,
+                       a.name,
+                       a.type,
+                       a.identifier
+                FROM financial_entities e
+                JOIN money_accounts a
+                  ON a.id = e.confirmed_account_id
+                WHERE e.provider_key IS NOT NULL
+                  AND e.confirmed_account_id IS NOT NULL
+                  AND e.ownership_hint = ?
+                  AND a.enabled = 1
+                ORDER BY a.name COLLATE NOCASE
+                """.trimIndent(),
+                arrayOf(
+                    AccountOwnershipHint
+                        .USER_OWNED.name
+                )
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(
+                            OwnedFinancialInstitutionSelection(
+                                providerKey =
+                                    cursor.getString(0),
+                                entityKey =
+                                    cursor.getString(1),
+                                accountId =
+                                    cursor.getString(2),
+                                displayName =
+                                    cursor.getString(3),
+                                accountType =
+                                    AccountType.valueOf(
+                                        cursor.getString(4)
+                                    ),
+                                identifier =
+                                    if (
+                                        cursor.isNull(5)
+                                    ) {
+                                        null
+                                    } else {
+                                        cursor.getString(5)
+                                    }
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+    fun setInstitutionOwned(
+        reference: FinancialAccountReference,
+        identifier: String? = null
+    ): String? {
+        synchronized(CanonicalStoreLock.monitor) {
+            val now =
+                System.currentTimeMillis()
+            val values =
+                ContentValues().apply {
+                    put(
+                        "entity_key",
+                        reference.entityKey
+                    )
+                    put(
+                        "display_name",
+                        reference.displayName
+                    )
+                    reference.providerKey
+                        ?.let {
+                            put(
+                                "provider_key",
+                                it
+                            )
+                        }
+                    put(
+                        "account_type_hint",
+                        reference
+                            .accountTypeHint
+                            .name
+                    )
+                    put(
+                        "ownership_hint",
+                        AccountOwnershipHint
+                            .UNKNOWN.name
+                    )
+                    put(
+                        "nature_hint",
+                        reference.nature.name
+                    )
+                    put(
+                        "first_seen_epoch_ms",
+                        now
+                    )
+                    put(
+                        "last_seen_epoch_ms",
+                        now
+                    )
+                }
+            database.writableDatabase
+                .insertWithOnConflict(
+                    "financial_entities",
+                    null,
+                    values,
+                    SQLiteDatabase
+                        .CONFLICT_IGNORE
+                )
+
+            database.writableDatabase.update(
+                "financial_entities",
+                ContentValues().apply {
+                    put(
+                        "display_name",
+                        reference.displayName
+                    )
+                    reference.providerKey
+                        ?.let {
+                            put(
+                                "provider_key",
+                                it
+                            )
+                        }
+                    put(
+                        "account_type_hint",
+                        reference
+                            .accountTypeHint
+                            .name
+                    )
+                    put(
+                        "nature_hint",
+                        reference.nature.name
+                    )
+                    put(
+                        "last_seen_epoch_ms",
+                        now
+                    )
+                },
+                "entity_key = ?",
+                arrayOf(reference.entityKey)
+            )
+
+            val accountId =
+                confirmEntityOwned(
+                    reference.entityKey
+                ) ?: return null
+
+            accountStore.setEnabled(
+                accountId,
+                true
+            )
+            if (
+                identifier != null
+            ) {
+                accountStore.updateIdentifier(
+                    accountId,
+                    identifier
+                )
+            }
+
+            LedgerUpdateBus.notifyChanged()
+            return accountId
+        }
+    }
+
     fun confirmEntityOwned(
         entityKey: String
     ): String? {
@@ -924,6 +1103,26 @@ class FinancialUnderstandingStore private constructor(
         entityKey: String
     ): Boolean {
         synchronized(CanonicalStoreLock.monitor) {
+        val previousAccountId =
+            database.readableDatabase.rawQuery(
+                """
+                SELECT confirmed_account_id
+                FROM financial_entities
+                WHERE entity_key = ?
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf(entityKey)
+            ).use { cursor ->
+                if (
+                    cursor.moveToFirst() &&
+                    !cursor.isNull(0)
+                ) {
+                    cursor.getString(0)
+                } else {
+                    null
+                }
+            }
+
         val values = ContentValues().apply {
             put(
                 "ownership_hint",
@@ -937,7 +1136,53 @@ class FinancialUnderstandingStore private constructor(
             "entity_key = ?",
             arrayOf(entityKey)
         ) > 0
+
         if (changed) {
+            database.writableDatabase.update(
+                "account_balance_observations",
+                ContentValues().apply {
+                    putNull("account_id")
+                },
+                "entity_key = ?",
+                arrayOf(entityKey)
+            )
+
+            previousAccountId
+                ?.takeUnless {
+                    it ==
+                        AccountStore
+                            .DEFAULT_MPESA_ID ||
+                        it ==
+                        AccountStore
+                            .DEFAULT_CASH_ID
+                }
+                ?.let { accountId ->
+                    val stillOwned =
+                        database.readableDatabase
+                            .rawQuery(
+                                """
+                                SELECT 1
+                                FROM financial_entities
+                                WHERE confirmed_account_id = ?
+                                  AND ownership_hint = ?
+                                LIMIT 1
+                                """.trimIndent(),
+                                arrayOf(
+                                    accountId,
+                                    AccountOwnershipHint
+                                        .USER_OWNED.name
+                                )
+                            ).use {
+                                it.moveToFirst()
+                            }
+                    if (!stillOwned) {
+                        accountStore.setEnabled(
+                            accountId,
+                            false
+                        )
+                    }
+                }
+
             LedgerUpdateBus.notifyChanged()
         }
         return changed
@@ -1126,7 +1371,25 @@ class FinancialUnderstandingStore private constructor(
         }
         if (existing?.first == AccountOwnershipHint.EXTERNAL.name) return null
         existing?.second?.let { return it }
-        if (!AutomaticAccountPolicy.canResolve(reference, explicitlyExternal = false)) return null
+        if (
+            !AutomaticAccountPolicy.canResolve(
+                reference,
+                explicitlyExternal = false
+            )
+        ) {
+            return null
+        }
+
+        // A bank name in a message is not proof that the bank account belongs
+        // to the user. Bank accounts are created only after the user confirms
+        // the institution in account setup. This prevents recipients' banks
+        // from becoming phantom "my accounts".
+        if (
+            reference.accountTypeHint ==
+                AccountType.BANK
+        ) {
+            return null
+        }
 
         return stableOwnedAccountIds[reference.entityKey]
             ?: accountStore.findOrCreate(
