@@ -389,11 +389,9 @@ fun PesaTrackApp(
                         navController.popBackStack()
                     },
                     onReviewClick = {
-                        navController.navigate(
-                            MainTab.ACTIVITY.route
-                        ) {
-                            launchSingleTop = true
-                        }
+                        navigateToTab(
+                            MainTab.ACTIVITY
+                        )
                     }
                 )
             }
