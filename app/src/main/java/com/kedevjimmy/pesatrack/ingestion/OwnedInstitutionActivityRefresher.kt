@@ -71,23 +71,26 @@ class OwnedInstitutionActivityRefresher(
                         appContext
                     )
             ) {
-                AutomaticHistoryRepair
-                    .startEpochMs(
-                        appContext,
-                        nowEpochMs
-                    )
-                    ?.let { since ->
-                        HistoricalSmsImporter(
-                            appContext
-                        ).importSince(
-                            sinceEpochMs = since,
-                            rebuildPayCycles =
-                                false,
-                            mode =
-                                HistoricalImportMode
-                                    .REPROCESS
+                runCatching {
+                    AutomaticHistoryRepair
+                        .startEpochMs(
+                            appContext,
+                            nowEpochMs
                         )
-                    }
+                        ?.let { since ->
+                            HistoricalSmsImporter(
+                                appContext
+                            ).importSince(
+                                sinceEpochMs =
+                                    since,
+                                rebuildPayCycles =
+                                    false,
+                                mode =
+                                    HistoricalImportMode
+                                        .REPROCESS
+                            )
+                        }
+                }.getOrNull()
             } else {
                 null
             }
