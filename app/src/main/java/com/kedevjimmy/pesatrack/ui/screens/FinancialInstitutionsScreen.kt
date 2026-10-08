@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
@@ -304,28 +303,36 @@ fun FinancialInstitutionsScreen(
                                 val providerKey =
                                     option.reference
                                         .providerKey
-                                        ?: return@InstitutionOwnershipRow
-                                selectedProviderKeys =
-                                    if (selected) {
-                                        selectedProviderKeys +
-                                            providerKey
-                                    } else {
-                                        selectedProviderKeys -
-                                            providerKey
-                                    }
+                                if (
+                                    providerKey !=
+                                    null
+                                ) {
+                                    selectedProviderKeys =
+                                        if (selected) {
+                                            selectedProviderKeys +
+                                                providerKey
+                                        } else {
+                                            selectedProviderKeys -
+                                                providerKey
+                                        }
+                                }
                             },
                             onIdentifierChange = {
                                     value ->
                                 val providerKey =
                                     option.reference
                                         .providerKey
-                                        ?: return@InstitutionOwnershipRow
-                                identifiers =
-                                    identifiers +
-                                        (
-                                            providerKey to
-                                                value
-                                            )
+                                if (
+                                    providerKey !=
+                                    null
+                                ) {
+                                    identifiers =
+                                        identifiers +
+                                            (
+                                                providerKey to
+                                                    value
+                                                )
+                                }
                             }
                         )
                     }
