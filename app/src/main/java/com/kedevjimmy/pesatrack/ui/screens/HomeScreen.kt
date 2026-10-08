@@ -104,7 +104,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal data class HomeLoadedState(
+data class HomeLoadedState(
     val cycleSnapshot: PayCycleSnapshot,
     val ledgerSnapshot: LedgerSnapshot,
     val activitySnapshot: ActivityLedgerSnapshot,
@@ -121,7 +121,7 @@ internal data class HomeLoadedState(
         MoneyPictureHealth
 )
 
-internal class HomeScreenCache {
+class HomeScreenCache {
     var data: HomeLoadedState? = null
 }
 
