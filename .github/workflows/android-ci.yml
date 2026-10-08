@@ -57,6 +57,30 @@ jobs:
           set -o pipefail
           gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace 2>&1 | tee /tmp/pesatrack-build.log
 
+      - name: Summarize Kotlin regression evidence
+        shell: bash
+        run: |
+          export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
+          python3 - <<'PY'
+          import json, os, pathlib, xml.etree.ElementTree as ET
+          reports = list(pathlib.Path("app/build/test-results/testDebugUnitTest").glob("TEST-*.xml"))
+          assert reports, "JVM test reports are required"
+          suites = [ET.parse(path).getroot() for path in reports]
+          totals = {key: sum(int(suite.attrib.get(key, 0)) for suite in suites) for key in ("tests", "failures", "errors", "skipped")}
+          assert totals["failures"] == totals["errors"] == 0
+          required = {"OfflineMoneyPolicyTest", "GoalSavingHistoryPolicyTest", "FinancialWhitespaceTest", "SyntheticFinancialCorpusTest"}
+          verified = set()
+          for suite in suites:
+              name = suite.attrib["name"].split(".")[-1]
+              if name in required:
+                  assert int(suite.attrib["tests"]) > 0 and int(suite.attrib.get("skipped", 0)) == 0, name
+                  verified.add(name)
+          assert verified == required, "All new Kotlin contracts must execute"
+          evidence = {"source_sha": os.environ["PESATRACK_LAB_SOURCE_SHA"], "jvm": totals, "required_suites": sorted(verified), "synthetic_variants": 2432}
+          pathlib.Path("app/build/python-lab/unit-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+          print(json.dumps(evidence, indent=2))
+          PY
+
       - name: Print lint report on failure
         if: failure()
         run: |

@@ -47,7 +47,6 @@ import java.util.Locale
 import kotlin.math.abs
 import com.kedevjimmy.pesatrack.domain.intelligence.ForecastStatus
 import com.kedevjimmy.pesatrack.domain.intelligence.OfflineMoneyPolicy
-import com.kedevjimmy.pesatrack.domain.intelligence.SavingObservation
 import kotlin.math.roundToInt
 
 private fun goalMoney(minor: Long): String {
@@ -102,7 +101,8 @@ private data class GoalCardModel(
     val savedMinor: Long,
     val progress: Float,
     val targetDateEpochMs: Long?,
-    val completedSavings: List<Long> = emptyList()
+    val completedSavings: List<Long> = emptyList(),
+    val hasTotalTarget: Boolean = false
 )
 
 private fun goalGroupFor(rule: SmartRule): GoalGroup {
@@ -176,6 +176,7 @@ private fun goalArtwork(title: String): GoalArtwork {
 }
 
 private fun goalProgressMessage(model: GoalCardModel): String {
+    if (!model.hasTotalTarget) return "Add a total goal target to see a completion scenario. Your monthly plan is not a completion target."
     val forecast = OfflineMoneyPolicy.forecast(model.targetMinor, model.savedMinor, model.completedSavings)
     return when (forecast.status) {
         ForecastStatus.REACHED -> "Goal reached. Great work!"
@@ -873,17 +874,11 @@ fun SavingGoalsScreen(
                     .associate { it.id to it.type }
 
                 fun savingsByRule(rows: List<StoredTransaction>): Map<String?, Long> =
-                    rows.filter {
-                        it.ruleId in rules.map { rule -> rule.id } &&
-                            it.reviewState != ReviewState.EXCLUDED.name &&
-                            it.reviewState != ReviewState.NEEDS_REVIEW.name &&
-                            it.direction == MoneyDirection.TRANSFER.name
-                    }.groupBy { it.ruleId }
-                        .mapValues { (_, rows) ->
-                            rows.fold(0L) { sum, row ->
-                                Math.addExact(sum, ConceptLedgerPolicy.savingsDelta(row, types))
-                            }.coerceAtLeast(0L)
-                        }
+                    rules.associate { rule ->
+                        rule.id to checkNotNull(GoalSavingHistoryPolicy.netSaved(
+                            GoalSavingHistoryPolicy.observations(rows, rule.id, types)
+                        )) { "Savings total exceeds supported range" }
+                    }
 
                 val now = System.currentTimeMillis()
                 val currentRows = store.activitySnapshotBetween(
@@ -912,12 +907,10 @@ fun SavingGoalsScreen(
                     totalSavings = savingsByRule(totalRows),
                     metadata = SavingGoalMetadataStore.get(context)
                         .listForRules(rules.map { it.id }),
-                    completedSavings = totalRows.filter { it.direction == MoneyDirection.TRANSFER.name }
-                        .groupBy { it.ruleId }.mapValues { (_, rows) ->
-                            OfflineMoneyPolicy.completedSavings(rows.map {
-                                SavingObservation(it.occurredAtEpochMs, ConceptLedgerPolicy.savingsDelta(it, types))
-                            }, now)
-                        }
+                    completedSavings = rules.associate { rule ->
+                        rule.id to OfflineMoneyPolicy.completedSavings(
+                            GoalSavingHistoryPolicy.observations(totalRows, rule.id, types), now)
+                    }
                 )
             }
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -943,7 +936,8 @@ fun SavingGoalsScreen(
             progress = if (target <= 0L) 0f
             else (saved.toFloat() / target.toFloat()).coerceIn(0f, 1f),
             targetDateEpochMs = metadata?.targetDateEpochMs,
-            completedSavings = loaded.completedSavings[rule.id].orEmpty()
+            completedSavings = loaded.completedSavings[rule.id].orEmpty(),
+            hasTotalTarget = (metadata?.totalTargetMinor ?: 0L) > 0L
         )
     }
 
