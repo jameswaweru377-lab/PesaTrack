@@ -70,9 +70,25 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                 val selected = all.firstOrNull { it.startTransactionId == selectedStartId } ?: all.firstOrNull()
                 val prior = all.getOrNull(all.indexOf(selected) + 1)
                 val now = System.currentTimeMillis()
-                CyclePageData(all, selected?.let { store.activitySnapshotBetween(it.startEpochMs, it.endEpochMs ?: (now + 1)) },
-                    prior?.let { store.activitySnapshotBetween(it.startEpochMs, it.endEpochMs ?: (now + 1)) },
-                    CategoryStore.get(context).all().associate { it.id to it.label })
+                CyclePageData(
+                    all,
+                    selected?.let {
+                        store.activitySnapshotBetween(
+                            it.startEpochMs,
+                            it.endEpochMs ?: (now + 1)
+                        )
+                    },
+                    prior?.let {
+                        store.activitySnapshotBetween(
+                            it.startEpochMs,
+                            it.endEpochMs ?: (now + 1),
+                            performMaintenance = false
+                        )
+                    },
+                    CategoryStore.get(context).all().associate {
+                        it.id to it.label
+                    }
+                )
             }
             cycles = data.cycles; snapshot = data.snapshot; previous = data.previous; categoryLabels = data.labels
         } catch (cancelled: CancellationException) { throw cancelled
