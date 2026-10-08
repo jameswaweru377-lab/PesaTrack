@@ -34,10 +34,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
-import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.FinancialInstitutionDirectory
 import com.kedevjimmy.pesatrack.domain.model.FinancialInstitutionOption
+import com.kedevjimmy.pesatrack.ingestion.OwnedInstitutionActivityRefresher
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -407,8 +407,31 @@ fun FinancialInstitutionsScreen(
                                                 )
                                         }
                                     }
-                                LedgerUpdateBus
-                                    .notifyChanged()
+
+                                val selectedEntityKeys =
+                                    allOptions
+                                        .filter {
+                                            it.reference
+                                                .providerKey in
+                                                selectedProviderKeys
+                                        }
+                                        .map {
+                                            it.reference
+                                                .entityKey
+                                        }
+                                        .toSet()
+
+                                // Re-run the user's already-authorized imported
+                                // history immediately. Existing Activity rows
+                                // are promoted/demoted using the new ownership
+                                // evidence, and the ledger update bus refreshes
+                                // Activity/Home before the user returns there.
+                                OwnedInstitutionActivityRefresher(
+                                    context
+                                ).refresh(
+                                    selectedEntityKeys =
+                                        selectedEntityKeys
+                                )
                             }
                             onBack()
                         } catch (
@@ -442,7 +465,7 @@ fun FinancialInstitutionsScreen(
                             2.dp
                     )
                     Text(
-                        "Saving…",
+                        "Saving & updating Activity…",
                         modifier =
                             Modifier.padding(
                                 start = 8.dp
