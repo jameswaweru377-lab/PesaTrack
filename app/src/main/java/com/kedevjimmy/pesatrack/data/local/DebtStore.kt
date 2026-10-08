@@ -1168,16 +1168,15 @@ class DebtStore private constructor(context: Context) {
             }
 
         val computedBalanceAfterMinor =
-            linkedFunding
-                ?.priorBalanceMinor
-                ?.let { prior ->
-                    max(
-                        0L,
-                        prior +
-                            linkedFunding.amountMinor -
-                            repayment.amountMinor
-                    )
-                }
+            DebtRepaymentBalancePolicy
+                .deriveBalanceAfterRepayment(
+                    priorBalanceMinor =
+                        linkedFunding?.priorBalanceMinor,
+                    incomingAmountMinor =
+                        linkedFunding?.amountMinor ?: 0L,
+                    repaymentAmountMinor =
+                        repayment.amountMinor
+                )
 
         val window =
             DebtRepaymentBalancePolicy
