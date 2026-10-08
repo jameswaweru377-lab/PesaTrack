@@ -100,10 +100,9 @@ class AutomaticAccountResolutionTest {
         assertEquals(
             accountId,
             TransactionStore.get(context)
-                .findByTransactionCode(
-                    "EQA12ABC34"
-                )
-                ?.accountId
+                .recent()
+                .single()
+                .accountId
         )
     }
 
