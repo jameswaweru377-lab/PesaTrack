@@ -88,6 +88,63 @@ class HistoricalImportCheckpointStoreTest {
         )
     }
 
+
+    @Test
+    fun matchingResumeKeyAlsoRequiresTheSameStartOfHistoryWindow() {
+        val now = 1_000_000L
+        store.save(
+            resumeKey = "LAST_90_DAYS",
+            sinceEpochMs = 100_000L,
+            lastSmsDateEpochMs = 200_000L,
+            lastSmsId = 42L,
+            nowEpochMs = now
+        )
+
+        assertEquals(
+            42L,
+            store.load(
+                resumeKey = "LAST_90_DAYS",
+                nowEpochMs = now + 1_000L,
+                expectedSinceEpochMs = 100_000L
+            )?.lastSmsId
+        )
+
+        // The same UI import option can acquire a new calendar start at
+        // month rollover. Resuming its old cursor would silently skip SMS.
+        assertNull(
+            store.load(
+                resumeKey = "LAST_90_DAYS",
+                nowEpochMs = now + 2_000L,
+                expectedSinceEpochMs = 125_000L
+            )
+        )
+        assertNull(
+            store.load(
+                resumeKey = "LAST_90_DAYS",
+                nowEpochMs = now + 3_000L
+            )
+        )
+    }
+
+    @Test
+    fun checkpointCannotSaveCursorBeforeRequestedImportWindow() {
+        val now = 1_000_000L
+        store.save(
+            resumeKey = "LAST_30_DAYS",
+            sinceEpochMs = 100_000L,
+            lastSmsDateEpochMs = 90_000L,
+            lastSmsId = 43L,
+            nowEpochMs = now
+        )
+        assertNull(
+            store.load(
+                resumeKey = "LAST_30_DAYS",
+                nowEpochMs = now + 1_000L,
+                expectedSinceEpochMs = 100_000L
+            )
+        )
+    }
+
     @Test
     fun staleCheckpointIsDiscarded() {
         val now = 1_000_000L

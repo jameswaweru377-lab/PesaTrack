@@ -23,7 +23,8 @@ class HistoricalImportCheckpointStore(
     fun load(
         resumeKey: String,
         nowEpochMs: Long =
-            System.currentTimeMillis()
+            System.currentTimeMillis(),
+        expectedSinceEpochMs: Long? = null
     ): HistoricalImportCheckpoint? {
         val storedKey =
             prefs.getString(
@@ -61,7 +62,10 @@ class HistoricalImportCheckpointStore(
 
         if (
             sinceEpochMs <= 0L ||
+            (expectedSinceEpochMs != null &&
+                sinceEpochMs != expectedSinceEpochMs) ||
             lastSmsDateEpochMs <= 0L ||
+            lastSmsDateEpochMs < sinceEpochMs ||
             lastSmsId < 0L ||
             updatedAtEpochMs <= 0L ||
             age < 0L ||
@@ -94,6 +98,7 @@ class HistoricalImportCheckpointStore(
             resumeKey.isBlank() ||
             sinceEpochMs <= 0L ||
             lastSmsDateEpochMs <= 0L ||
+            lastSmsDateEpochMs < sinceEpochMs ||
             lastSmsId < 0L
         ) {
             return
