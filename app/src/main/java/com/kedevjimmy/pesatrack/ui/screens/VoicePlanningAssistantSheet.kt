@@ -138,11 +138,21 @@ internal fun VoicePlanningAssistantSheet(
             onDispose { }
         } else {
             val local =
-                createOnDeviceRecognizer(
-                    context
-                )
-            recognizer = local
-            local.setRecognitionListener(
+                if (
+                    Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.S
+                ) {
+                    createOnDeviceRecognizer(
+                        context
+                    )
+                } else {
+                    null
+                }
+            if (local == null) {
+                onDispose { }
+            } else {
+                recognizer = local
+                local.setRecognitionListener(
                 object :
                     RecognitionListener {
                     override fun onReadyForSpeech(
@@ -232,16 +242,17 @@ internal fun VoicePlanningAssistantSheet(
                         params: Bundle?
                     ) = Unit
                 }
-            )
+                )
 
-            onDispose {
-                runCatching {
-                    local.cancel()
+                onDispose {
+                    runCatching {
+                        local.cancel()
+                    }
+                    runCatching {
+                        local.destroy()
+                    }
+                    recognizer = null
                 }
-                runCatching {
-                    local.destroy()
-                }
-                recognizer = null
             }
         }
     }
