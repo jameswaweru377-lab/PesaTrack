@@ -81,7 +81,8 @@ fun AccountsScreen(
     scaffoldPadding: PaddingValues,
     onBack: (() -> Unit)? = null,
     onDebtsClick: (() -> Unit)? = null,
-    onAccountClick: ((String) -> Unit)? = null
+    onAccountClick: ((String) -> Unit)? = null,
+    onManageInstitutions: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val accountStore =
@@ -251,6 +252,74 @@ fun AccountsScreen(
                 footer = "Missing balances are never guessed."
             )
         }
+
+        if (onManageInstitutions != null) {
+            item {
+                PesaCard(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                onClick =
+                                    onManageInstitutions
+                            )
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.padding(
+                                15.dp
+                            ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            icon =
+                                Icons.Rounded
+                                    .AccountBalance,
+                            size = 42.dp
+                        )
+                        Column(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .padding(
+                                        start = 11.dp
+                                    )
+                        ) {
+                            Text(
+                                "My financial institutions",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium
+                            )
+                            Text(
+                                "Confirm which banks, wallets and savings accounts are actually yours.",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Rounded
+                                .ChevronRight,
+                            contentDescription =
+                                null,
+                            tint =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
 
         if (onDebtsClick != null) {
             item {
