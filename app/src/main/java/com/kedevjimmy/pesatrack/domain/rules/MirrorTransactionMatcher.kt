@@ -127,6 +127,38 @@ object MirrorTransactionMatcher {
             )
         }
 
+        // Without an exact shared reference, two *explicitly different*
+        // counterparties for the same financial direction are separate
+        // transactions, even if one SMS is codeless and arrives seconds
+        // after the other. Time/amount alone must not hide real spending.
+        // An EXPENSE/INCOME pair is intentionally not subject to this
+        // check: a genuine bank-to-wallet transfer can name opposite ends.
+        if (
+            first.direction != null &&
+            first.direction == second.direction &&
+            first.direction in setOf("EXPENSE", "INCOME")
+        ) {
+            val firstIdentity = identityTokens(first.counterparty)
+            val secondIdentity = identityTokens(second.counterparty)
+            if (
+                firstIdentity.isNotEmpty() &&
+                secondIdentity.isNotEmpty() &&
+                firstIdentity.intersect(secondIdentity).isEmpty()
+            ) {
+                return none()
+            }
+
+            val firstPhone = normalizePhone(first.counterpartyPhone)
+            val secondPhone = normalizePhone(second.counterpartyPhone)
+            if (
+                firstPhone != null &&
+                secondPhone != null &&
+                firstPhone != secondPhone
+            ) {
+                return none()
+            }
+        }
+
         // Distinct coded transactions from one capture source remain separate,
         // even when their owned-account paths, amounts and timestamps coincide.
         // An exact shared external reference has already been handled above.
