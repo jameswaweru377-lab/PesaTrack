@@ -35,6 +35,7 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.planning.VoicePlanKind
 import com.kedevjimmy.pesatrack.ui.components.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -851,6 +852,7 @@ fun SavingGoalsScreen(
     var goalEditor by remember { mutableStateOf(false) }
     var editingGoal by remember { mutableStateOf<SmartRule?>(null) }
     var selectedGoal by remember { mutableStateOf<GoalCardModel?>(null) }
+    var voiceAdd by remember { mutableStateOf(false) }
 
     LaunchedEffect(revision.revision, retryLoad) {
         loadError = null
@@ -954,6 +956,18 @@ fun SavingGoalsScreen(
         }
     }
 
+    if (voiceAdd) {
+        VoicePlanningAssistantSheet(
+            kind = VoicePlanKind.GOAL,
+            onDismiss = {
+                voiceAdd = false
+            },
+            onSaved = {
+                retryLoad++
+            }
+        )
+    }
+
     selectedGoal?.let { model ->
         GoalDetailsSheet(
             model = model,
@@ -1006,6 +1020,30 @@ fun SavingGoalsScreen(
                 onClick = { selectedGoal = model }
             )
         }
+        item {
+            OutlinedButton(
+                onClick = {
+                    voiceAdd = true
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                contentPadding = PaddingValues(
+                    horizontal = 14.dp,
+                    vertical = 11.dp
+                )
+            ) {
+                Icon(
+                    Icons.Rounded.Mic,
+                    contentDescription = null
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Add goal by voice",
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
         item {
             Button(
                 onClick = {
