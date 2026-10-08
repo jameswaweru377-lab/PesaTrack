@@ -179,7 +179,7 @@ private fun goalProgressMessage(model: GoalCardModel): String {
     if (!model.hasTotalTarget) return "Add a total goal target to see a completion scenario. Your monthly plan is not a completion target."
     val forecast = OfflineMoneyPolicy.forecast(model.targetMinor, model.savedMinor, model.completedSavings)
     return when (forecast.status) {
-        ForecastStatus.REACHED -> "Goal reached. Great work!"
+        ForecastStatus.REACHED -> "Recorded savings assigned to this goal meet its target."
         ForecastStatus.INSUFFICIENT_HISTORY ->
             "A recorded-pace estimate needs at least three completed months of goal-linked savings."
         ForecastStatus.NO_RELIABLE_PROGRESS ->
@@ -188,9 +188,9 @@ private fun goalProgressMessage(model: GoalCardModel): String {
             val range = forecast.slowestMonths?.let {
                 " Observed contribution scenarios: ${forecast.fastestMonths}–$it months."
             } ?: " A slower scenario has no reliable upper bound."
-            "Recorded pace suggests about ${forecast.typicalMonths} months remaining.$range " +
-                "Based on ${forecast.sampleMonths} completed months, including withdrawals and zero months. " +
-                "A scenario, not a guaranteed date; missing records may change it."
+            "Recorded savings scenario: about ${forecast.typicalMonths} months remaining.$range " +
+                "Uses savings assigned to this goal over ${forecast.sampleMonths} completed months, including withdrawals and zero months. " +
+                "Missing or unassigned records can change this; it is not a guaranteed date."
         }
     }
 }
@@ -1097,3 +1097,4 @@ fun SavingGoalsScreen(
         }
     }
 }
+
