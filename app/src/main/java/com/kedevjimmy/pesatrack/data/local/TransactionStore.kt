@@ -2403,7 +2403,9 @@ class TransactionStore private constructor(context: Context) {
               AND amount_minor = ?
               AND occurred_at_epoch_ms <= ?
               AND occurred_at_epoch_ms >= ?
-              AND review_state != ?
+              AND review_state NOT IN (?, ?)
+              AND relation_type IS NULL
+              AND cycle_candidate_reason IS NULL
               AND id NOT IN (
                     SELECT related_transaction_id
                     FROM transactions
@@ -2422,6 +2424,7 @@ class TransactionStore private constructor(context: Context) {
                         RefundMatchingPolicy.MAX_REFUND_DISTANCE_MS
                 ).toString(),
                 ReviewState.EXCLUDED.name,
+                ReviewState.NEEDS_REVIEW.name,
                 RELATION_REFUND
             )
         ).use { cursor ->
