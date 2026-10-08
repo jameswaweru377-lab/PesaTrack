@@ -104,6 +104,26 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+data class HomeCoreState(
+    val cycleSnapshot: PayCycleSnapshot,
+    val ledgerSnapshot: LedgerSnapshot,
+    val activitySnapshot: ActivityLedgerSnapshot,
+    val debtAccounts: List<DebtAccountSnapshot>,
+    val trackedAccounts: List<MoneyAccount>,
+    val monthlyBudgets: List<MonthlyBudget>,
+    val confirmedAccountIds: Set<String>,
+    val salaryRule: SmartRule?,
+    val upcomingBills: List<ScheduledBill>,
+    val accountBalanceSnapshots:
+        List<PaydayAccountSnapshot>
+)
+
+data class HomeSupplementalState(
+    val needsAttentionCount: Int,
+    val moneyPictureHealth:
+        MoneyPictureHealth
+)
+
 data class HomeLoadedState(
     val cycleSnapshot: PayCycleSnapshot,
     val ledgerSnapshot: LedgerSnapshot,
@@ -333,9 +353,9 @@ fun HomeScreen(
         )
     }
 
-    suspend fun loadHomeState(
+    suspend fun loadHomeCoreState(
         rebuildCycles: Boolean
-    ): HomeLoadedState =
+    ): HomeCoreState =
         withContext(Dispatchers.IO) {
             if (rebuildCycles) {
                 cycleStore.rebuild()
@@ -354,7 +374,8 @@ fun HomeScreen(
                         nowEpochMs =
                             referenceEpochMs
                     )
-            HomeLoadedState(
+
+            HomeCoreState(
                 cycleSnapshot =
                     cycleStore.snapshot(),
                 ledgerSnapshot =
@@ -385,6 +406,17 @@ fun HomeScreen(
                 upcomingBills =
                     billSchedules
                         .upcomingThisMonth(),
+                accountBalanceSnapshots =
+                    balanceSnapshots
+            )
+        }
+
+    suspend fun loadHomeSupplementalState():
+        HomeSupplementalState =
+        withContext(Dispatchers.IO) {
+            val referenceEpochMs =
+                System.currentTimeMillis()
+            HomeSupplementalState(
                 needsAttentionCount =
                     transactionStore
                         .activityReviewOverview(
@@ -409,8 +441,6 @@ fun HomeScreen(
                                 includeOptional = false
                             )
                             .size,
-                accountBalanceSnapshots =
-                    balanceSnapshots,
                 moneyPictureHealth =
                     MoneyPictureHealthEvaluator(
                         context
@@ -420,6 +450,75 @@ fun HomeScreen(
                     )
             )
         }
+
+    fun applyHomeCoreState(
+        core: HomeCoreState
+    ) {
+        cycleSnapshot =
+            core.cycleSnapshot
+        ledgerSnapshot =
+            core.ledgerSnapshot
+        activitySnapshot =
+            core.activitySnapshot
+        debtAccounts =
+            core.debtAccounts
+        trackedAccounts =
+            core.trackedAccounts
+        monthlyBudgets =
+            core.monthlyBudgets
+        confirmedAccountIds =
+            core.confirmedAccountIds
+        salaryRule =
+            core.salaryRule
+        upcomingBills =
+            core.upcomingBills
+        accountBalanceSnapshots =
+            core.accountBalanceSnapshots
+    }
+
+    fun applyHomeSupplementalState(
+        supplemental: HomeSupplementalState
+    ) {
+        needsAttentionCount =
+            supplemental.needsAttentionCount
+        moneyPictureHealth =
+            supplemental.moneyPictureHealth
+    }
+
+    fun cacheHomeState(
+        core: HomeCoreState,
+        supplemental: HomeSupplementalState
+    ) {
+        stateCache?.data =
+            HomeLoadedState(
+                cycleSnapshot =
+                    core.cycleSnapshot,
+                ledgerSnapshot =
+                    core.ledgerSnapshot,
+                activitySnapshot =
+                    core.activitySnapshot,
+                debtAccounts =
+                    core.debtAccounts,
+                trackedAccounts =
+                    core.trackedAccounts,
+                monthlyBudgets =
+                    core.monthlyBudgets,
+                confirmedAccountIds =
+                    core.confirmedAccountIds,
+                salaryRule =
+                    core.salaryRule,
+                upcomingBills =
+                    core.upcomingBills,
+                needsAttentionCount =
+                    supplemental
+                        .needsAttentionCount,
+                accountBalanceSnapshots =
+                    core.accountBalanceSnapshots,
+                moneyPictureHealth =
+                    supplemental
+                        .moneyPictureHealth
+            )
+    }
 
     fun refresh(
         rebuildCycles: Boolean = false
@@ -435,38 +534,58 @@ fun HomeScreen(
                     refreshPending = false
                     val shouldRebuild = rebuildPending
                     rebuildPending = false
-                    val loaded =
-                        loadHomeState(
+                    val core =
+                        loadHomeCoreState(
                             rebuildCycles =
                                 shouldRebuild
                         )
-                    cycleSnapshot =
-                        loaded.cycleSnapshot
-                    ledgerSnapshot =
-                        loaded.ledgerSnapshot
-                    activitySnapshot =
-                        loaded.activitySnapshot
-                    debtAccounts =
-                        loaded.debtAccounts
-                    trackedAccounts =
-                        loaded.trackedAccounts
-                    monthlyBudgets =
-                        loaded.monthlyBudgets
-                    confirmedAccountIds =
-                        loaded.confirmedAccountIds
-                    salaryRule =
-                        loaded.salaryRule
-                    upcomingBills =
-                        loaded.upcomingBills
-                    needsAttentionCount =
-                        loaded.needsAttentionCount
-                    accountBalanceSnapshots =
-                        loaded
-                            .accountBalanceSnapshots
-                    moneyPictureHealth =
-                        loaded.moneyPictureHealth
-                    stateCache?.data = loaded
+                    applyHomeCoreState(core)
+
+                    // The primary money picture should appear as soon as the
+                    // ledger/pay-cycle reads finish. Attention diagnostics and
+                    // health analysis can complete just after the main cards
+                    // are already usable.
                     homeLoaded = true
+                    homeLoading = false
+
+                    stateCache?.data
+                        ?.let {
+                            existing ->
+                            stateCache.data =
+                                existing.copy(
+                                    cycleSnapshot =
+                                        core.cycleSnapshot,
+                                    ledgerSnapshot =
+                                        core.ledgerSnapshot,
+                                    activitySnapshot =
+                                        core.activitySnapshot,
+                                    debtAccounts =
+                                        core.debtAccounts,
+                                    trackedAccounts =
+                                        core.trackedAccounts,
+                                    monthlyBudgets =
+                                        core.monthlyBudgets,
+                                    confirmedAccountIds =
+                                        core.confirmedAccountIds,
+                                    salaryRule =
+                                        core.salaryRule,
+                                    upcomingBills =
+                                        core.upcomingBills,
+                                    accountBalanceSnapshots =
+                                        core.accountBalanceSnapshots
+                                )
+                        }
+
+                    val supplemental =
+                        loadHomeSupplementalState()
+                    applyHomeSupplementalState(
+                        supplemental
+                    )
+                    cacheHomeState(
+                        core = core,
+                        supplemental =
+                            supplemental
+                    )
                 } while (refreshPending)
             } catch (cancelled: CancellationException) {
                 throw cancelled

@@ -137,6 +137,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+data class ActivityCoreData(
+    val monthBuckets: List<ActivityMonthBucket>,
+    val snapshot: ActivityLedgerSnapshot,
+    val previousSnapshot: ActivityLedgerSnapshot,
+    val accountsById: Map<String, MoneyAccount>,
+    val confirmedAccountIds: Set<String>
+)
+
+data class ActivitySupplementalData(
+    val globalOverview: ActivityReviewOverview,
+    val relationshipReviews: List<RelationshipReviewItem>,
+    val pendingFinancialEntities: List<DiscoveredFinancialEntity>,
+    val financialDiagnostics: List<FinancialIngestionDiagnostic>,
+    val identityReviewCount: Int
+)
+
 data class ActivityScreenData(
     val monthBuckets: List<ActivityMonthBucket>,
     val snapshot: ActivityLedgerSnapshot,
@@ -340,9 +356,9 @@ fun ActivityScreen(
         mutableStateOf<String?>(null)
     }
 
-    suspend fun loadActivityData(
+    suspend fun loadActivityCoreData(
         monthEpochMs: Long
-    ): ActivityScreenData =
+    ): ActivityCoreData =
         withContext(Dispatchers.IO) {
             val existing =
                 store.activityMonths()
@@ -363,7 +379,7 @@ fun ActivityScreen(
                 )
             }
 
-            ActivityScreenData(
+            ActivityCoreData(
                 monthBuckets =
                     existing.sortedByDescending {
                         it.monthStartEpochMs
@@ -383,6 +399,24 @@ fun ActivityScreen(
                         performMaintenance =
                             false
                     ),
+                accountsById =
+                    accountStore
+                        .listAccounts(
+                            enabledOnly = false
+                        )
+                        .associateBy {
+                            it.id
+                        },
+                confirmedAccountIds =
+                    financialStore
+                        .confirmedAccountIds()
+            )
+        }
+
+    suspend fun loadActivitySupplementalData():
+        ActivitySupplementalData =
+        withContext(Dispatchers.IO) {
+            ActivitySupplementalData(
                 globalOverview =
                     store.activityReviewOverview(
                         performMaintenance =
@@ -402,17 +436,6 @@ fun ActivityScreen(
                                 FinancialIngestionDiagnosticCode
                                     .IGNORED_NON_FINANCIAL
                         },
-                accountsById =
-                    accountStore
-                        .listAccounts(
-                            enabledOnly = false
-                        )
-                        .associateBy {
-                            it.id
-                        },
-                confirmedAccountIds =
-                    financialStore
-                        .confirmedAccountIds(),
                 identityReviewCount =
                     identityGraphStore
                         .pendingReviewPrompts(
@@ -423,33 +446,111 @@ fun ActivityScreen(
             )
         }
 
-    fun applyActivityData(
-        monthEpochMs: Long,
-        data: ActivityScreenData
+    fun applyActivityCoreData(
+        core: ActivityCoreData
     ) {
-        monthBuckets = data.monthBuckets
-        snapshot = data.snapshot
+        monthBuckets = core.monthBuckets
+        snapshot = core.snapshot
         previousSnapshot =
-            data.previousSnapshot
-        globalOverview =
-            data.globalOverview
-        relationshipReviews =
-            data.relationshipReviews
-        pendingFinancialEntities =
-            data.pendingFinancialEntities
-        financialDiagnostics =
-            data.financialDiagnostics
+            core.previousSnapshot
         accountsById =
-            data.accountsById
+            core.accountsById
         confirmedAccountIds =
-            data.confirmedAccountIds
+            core.confirmedAccountIds
+    }
+
+    fun applyActivitySupplementalData(
+        supplemental: ActivitySupplementalData
+    ) {
+        globalOverview =
+            supplemental.globalOverview
+        relationshipReviews =
+            supplemental.relationshipReviews
+        pendingFinancialEntities =
+            supplemental.pendingFinancialEntities
+        financialDiagnostics =
+            supplemental.financialDiagnostics
         identityReviewCount =
-            data.identityReviewCount
+            supplemental.identityReviewCount
+    }
+
+    fun cacheActivityData(
+        monthEpochMs: Long,
+        core: ActivityCoreData,
+        supplemental: ActivitySupplementalData
+    ) {
         stateCache?.let {
             it.selectedMonthEpochMs =
                 monthEpochMs
-            it.data = data
+            it.data =
+                ActivityScreenData(
+                    monthBuckets =
+                        core.monthBuckets,
+                    snapshot =
+                        core.snapshot,
+                    previousSnapshot =
+                        core.previousSnapshot,
+                    globalOverview =
+                        supplemental
+                            .globalOverview,
+                    relationshipReviews =
+                        supplemental
+                            .relationshipReviews,
+                    pendingFinancialEntities =
+                        supplemental
+                            .pendingFinancialEntities,
+                    financialDiagnostics =
+                        supplemental
+                            .financialDiagnostics,
+                    accountsById =
+                        core.accountsById,
+                    confirmedAccountIds =
+                        core.confirmedAccountIds,
+                    identityReviewCount =
+                        supplemental
+                            .identityReviewCount
+                )
         }
+    }
+
+    suspend fun reloadActivityData(
+        requestedMonth: Long
+    ) {
+        val core =
+            loadActivityCoreData(
+                requestedMonth
+            )
+        if (
+            selectedMonthEpochMs !=
+            requestedMonth
+        ) {
+            return
+        }
+
+        // Show the selected month as soon as the ledger query finishes.
+        // Diagnostics/review metadata continue loading afterward instead of
+        // holding the transaction list behind slower secondary stores.
+        applyActivityCoreData(core)
+
+        val supplemental =
+            loadActivitySupplementalData()
+        if (
+            selectedMonthEpochMs !=
+            requestedMonth
+        ) {
+            return
+        }
+
+        applyActivitySupplementalData(
+            supplemental
+        )
+        cacheActivityData(
+            monthEpochMs =
+                requestedMonth,
+            core = core,
+            supplemental =
+                supplemental
+        )
     }
 
     val reviewableFinancialEntities =
@@ -483,16 +584,9 @@ fun ActivityScreen(
         val requestedMonth =
             selectedMonthEpochMs
         activityScope.launch {
-            val data =
-                loadActivityData(
-                    requestedMonth
-                )
-            if (
-                selectedMonthEpochMs ==
+            reloadActivityData(
                 requestedMonth
-            ) {
-                applyActivityData(requestedMonth, data)
-            }
+            )
         }
     }
 
@@ -500,18 +594,9 @@ fun ActivityScreen(
         ledgerUpdateState.revision,
         selectedMonthEpochMs
     ) {
-        val requestedMonth =
+        reloadActivityData(
             selectedMonthEpochMs
-        val data =
-            loadActivityData(
-                requestedMonth
-            )
-        if (
-            selectedMonthEpochMs ==
-            requestedMonth
-        ) {
-            applyActivityData(requestedMonth, data)
-        }
+        )
     }
 
     val selectedMonthLabel =
