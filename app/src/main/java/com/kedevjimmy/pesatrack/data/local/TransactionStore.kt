@@ -1157,12 +1157,16 @@ class TransactionStore private constructor(context: Context) {
     }
     }
 
-    fun activityReviewOverview(): ActivityReviewOverview {
+    fun activityReviewOverview(
+        performMaintenance: Boolean = true
+    ): ActivityReviewOverview {
         synchronized(CanonicalStoreLock.monitor) {
-        ensureMirrorReconciled()
-        ensureBuiltInRecognitionReconciled()
-        ensureSemanticReviewStateReconciled()
-        ensureRefundsReconciled()
+        if (performMaintenance) {
+            ensureMirrorReconciled()
+            ensureBuiltInRecognitionReconciled()
+            ensureSemanticReviewStateReconciled()
+            ensureRefundsReconciled()
+        }
 
         val transactions = allTransactions()
             .filter { it.reviewState != ReviewState.EXCLUDED.name }
@@ -1189,7 +1193,8 @@ class TransactionStore private constructor(context: Context) {
 
     fun activitySnapshot(
         nowEpochMs: Long = System.currentTimeMillis(),
-        timeZone: TimeZone = TimeZone.getDefault()
+        timeZone: TimeZone = TimeZone.getDefault(),
+        performMaintenance: Boolean = true
     ): ActivityLedgerSnapshot {
         val monthStart = Calendar.getInstance(timeZone).apply {
             timeInMillis = nowEpochMs
@@ -1202,35 +1207,49 @@ class TransactionStore private constructor(context: Context) {
         val nextMonthStart = (monthStart.clone() as Calendar).apply {
             add(Calendar.MONTH, 1)
         }
-        return activitySnapshotBetween(monthStart.timeInMillis, nextMonthStart.timeInMillis, nowEpochMs, timeZone)
+        return activitySnapshotBetween(
+            monthStart.timeInMillis,
+            nextMonthStart.timeInMillis,
+            nowEpochMs,
+            timeZone,
+            performMaintenance
+        )
     }
 
     fun activitySnapshotBetween(
         startEpochMs: Long,
         endEpochMsExclusive: Long,
         nowEpochMs: Long = System.currentTimeMillis(),
-        timeZone: TimeZone = TimeZone.getDefault()
+        timeZone: TimeZone = TimeZone.getDefault(),
+        performMaintenance: Boolean = true
     ): ActivityLedgerSnapshot {
         synchronized(CanonicalStoreLock.monitor) {
         require(endEpochMsExclusive > startEpochMs)
-        val salaryDb = database.writableDatabase
-        salaryDb.beginTransaction()
-        try {
-        val correctedSalary = database.writableDatabase.compileStatement("""
-            UPDATE transactions SET direction = 'EXPENSE', category = 'UNCATEGORIZED', rule_id = NULL,
-                cycle_candidate_reason = NULL, pay_cycle_id = NULL, review_state = 'AUTO_CLASSIFIED'
-            WHERE type IN ('PAY_BILL','BUY_GOODS','AIRTIME','SENT_MONEY')
-              AND direction = 'INCOME' AND review_state != 'USER_CLASSIFIED' AND review_state != 'EXCLUDED'
-              AND cycle_override IS NULL AND rule_id IN (SELECT id FROM smart_rules WHERE starts_pay_cycle = 1)
-        """.trimIndent()).use { it.executeUpdateDelete() }
-        if (correctedSalary > 0) { PayCycleStore.get(appContext).rebuild(); LedgerUpdateBus.notifyChanged() }
-        salaryDb.setTransactionSuccessful()
-        } finally { salaryDb.endTransaction() }
-        ensureMirrorReconciled()
-        ensureBuiltInRecognitionReconciled()
-        ensureSemanticReviewStateReconciled()
-        ensureRefundsReconciled()
-        reconcileRecentReviewTriage(nowEpochMs, timeZone)
+        if (performMaintenance) {
+            val salaryDb = database.writableDatabase
+            salaryDb.beginTransaction()
+            try {
+            val correctedSalary = database.writableDatabase.compileStatement("""
+                UPDATE transactions SET direction = 'EXPENSE', category = 'UNCATEGORIZED', rule_id = NULL,
+                    cycle_candidate_reason = NULL, pay_cycle_id = NULL, review_state = 'AUTO_CLASSIFIED'
+                WHERE type IN ('PAY_BILL','BUY_GOODS','AIRTIME','SENT_MONEY')
+                  AND direction = 'INCOME' AND review_state != 'USER_CLASSIFIED' AND review_state != 'EXCLUDED'
+                  AND cycle_override IS NULL AND rule_id IN (SELECT id FROM smart_rules WHERE starts_pay_cycle = 1)
+            """.trimIndent()).use { it.executeUpdateDelete() }
+            if (correctedSalary > 0) {
+                PayCycleStore.get(appContext).rebuild()
+                LedgerUpdateBus.notifyChanged()
+            }
+            salaryDb.setTransactionSuccessful()
+            } finally {
+                salaryDb.endTransaction()
+            }
+            ensureMirrorReconciled()
+            ensureBuiltInRecognitionReconciled()
+            ensureSemanticReviewStateReconciled()
+            ensureRefundsReconciled()
+            reconcileRecentReviewTriage(nowEpochMs, timeZone)
+        }
 
         val reversedCodes = reversedTransactionCodes()
         val monthTransactions = transactionsBetween(
