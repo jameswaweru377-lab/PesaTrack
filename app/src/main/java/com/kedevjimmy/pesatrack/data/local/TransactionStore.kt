@@ -1238,25 +1238,46 @@ class TransactionStore private constructor(context: Context) {
             ensureRefundsReconciled()
         }
 
-        val transactions = allTransactions()
-            .filter { it.reviewState != ReviewState.EXCLUDED.name }
+        // Activity's attention strip only needs unresolved rows. Loading
+        // the full ledger here made tab entry progressively slower as history
+        // grew and made duplicate detection unnecessarily quadratic.
+        val attentionTransactions =
+            reviewAttentionTransactions()
+
+        // Optional enrichment is deliberately bounded to recent activity. It
+        // must never make rendering the review summary depend on the full
+        // lifetime ledger.
         scheduleRemoteEntityEnrichment(
-            transactions
+            recent(
+                REVIEW_ENRICHMENT_RECENT_LIMIT
+            )
         )
-        val possibleDuplicates = buildPossibleDuplicateGroups(
-            transactions
-        )
-        val possibleDuplicateIds = possibleDuplicates
-            .flatMap { listOf(it.first.id, it.second.id) }
-            .toSet()
+
+        val possibleDuplicates =
+            buildPossibleDuplicateGroups(
+                attentionTransactions
+            )
+        val possibleDuplicateIds =
+            possibleDuplicates
+                .flatMap {
+                    listOf(
+                        it.first.id,
+                        it.second.id
+                    )
+                }
+                .toSet()
 
         return ActivityReviewOverview(
-            reviewGroups = buildReviewGroups(
-                transactions.filterNot {
-                    it.id in possibleDuplicateIds
-                }
-            ),
-            possibleDuplicates = possibleDuplicates
+            reviewGroups =
+                buildReviewGroups(
+                    attentionTransactions
+                        .filterNot {
+                            it.id in
+                                possibleDuplicateIds
+                        }
+                ),
+            possibleDuplicates =
+                possibleDuplicates
         )
     }
     }
@@ -1508,6 +1529,29 @@ class TransactionStore private constructor(context: Context) {
         return changed
     }
     }
+
+    private fun reviewAttentionTransactions():
+        List<StoredTransaction> =
+        database.readableDatabase.rawQuery(
+            BASE_SELECT +
+                """
+                 WHERE review_state = ?
+                    OR cycle_candidate_reason IS NOT NULL
+                 ORDER BY occurred_at_epoch_ms DESC, id DESC
+                """.trimIndent(),
+            arrayOf(
+                ReviewState.NEEDS_REVIEW.name
+            )
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        cursor
+                            .toStoredTransaction()
+                    )
+                }
+            }
+        }
 
     private fun buildReviewGroups(
         transactions: List<StoredTransaction>
@@ -3063,40 +3107,91 @@ class TransactionStore private constructor(context: Context) {
         val groups = mutableListOf<PossibleDuplicateGroup>()
 
         eligible.forEachIndexed { index, first ->
-            if (first.id in claimedIds) return@forEachIndexed
+            if (
+                first.id in claimedIds
+            ) {
+                return@forEachIndexed
+            }
 
-            val firstObservation = first.toPossibleDuplicateObservation()
-            val best = eligible
-                .asSequence()
-                .drop(index + 1)
-                .filter { it.id !in claimedIds }
-                .mapNotNull { second ->
-                    val key = duplicatePairKey(first.id, second.id)
-                    if (key in resolvedKeys) return@mapNotNull null
-                    if (
-                        !PossibleDuplicatePolicy.isCandidate(
-                            firstObservation,
-                            second.toPossibleDuplicateObservation()
-                        )
-                    ) {
-                        return@mapNotNull null
-                    }
+            val firstObservation =
+                first.toPossibleDuplicateObservation()
+            var best:
+                Pair<StoredTransaction, Long>? =
+                null
 
-                    second to kotlin.math.abs(
-                        first.receivedAtEpochMs -
-                            second.receivedAtEpochMs
-                    )
+            // The policy rejects anything farther than 90 seconds apart.
+            // Because eligible is time-sorted, stop as soon as that bound is
+            // crossed instead of comparing this row with the whole ledger.
+            for (
+                candidateIndex in
+                (index + 1) until
+                    eligible.size
+            ) {
+                val second =
+                    eligible[candidateIndex]
+                val delta =
+                    first.receivedAtEpochMs -
+                        second.receivedAtEpochMs
+                if (
+                    delta >
+                    PossibleDuplicatePolicy
+                        .MAX_CANDIDATE_WINDOW_MS
+                ) {
+                    break
                 }
-                .minByOrNull { it.second }
-                ?: return@forEachIndexed
+                if (
+                    second.id in claimedIds
+                ) {
+                    continue
+                }
 
-            val second = best.first
+                val key =
+                    duplicatePairKey(
+                        first.id,
+                        second.id
+                    )
+                if (key in resolvedKeys) {
+                    continue
+                }
+                if (
+                    !PossibleDuplicatePolicy
+                        .isCandidate(
+                            firstObservation,
+                            second
+                                .toPossibleDuplicateObservation()
+                        )
+                ) {
+                    continue
+                }
+
+                val absoluteDelta =
+                    kotlin.math.abs(delta)
+                if (
+                    best == null ||
+                    absoluteDelta <
+                    best!!.second
+                ) {
+                    best =
+                        second to
+                            absoluteDelta
+                    if (
+                        absoluteDelta == 0L
+                    ) {
+                        break
+                    }
+                }
+            }
+
+            val second =
+                best?.first
+                    ?: return@forEachIndexed
             val key = duplicatePairKey(first.id, second.id)
             groups += PossibleDuplicateGroup(
                 key = key,
                 first = first,
                 second = second,
-                timeDeltaMs = best.second
+                timeDeltaMs =
+                    best.second
             )
             claimedIds += first.id
             claimedIds += second.id
