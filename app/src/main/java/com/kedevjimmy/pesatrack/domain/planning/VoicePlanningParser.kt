@@ -89,18 +89,20 @@ object VoicePlanningParser {
                 nowEpochMs,
                 locale
             )
+                ?: return VoicePlanParseResult(
+                    error =
+                        "Say the target date too, for example “by 8 February”."
+                )
         val name =
             parseGoalName(text)
                 .ifBlank {
                     "Savings goal"
                 }
         val months =
-            targetDate?.let {
-                monthsUntil(
-                    nowEpochMs,
-                    it
-                )
-            } ?: 1
+            monthsUntil(
+                nowEpochMs,
+                targetDate
+            )
         val monthly =
             ceilDiv(
                 amountMinor,
@@ -177,15 +179,10 @@ object VoicePlanningParser {
                 parseMonthlyDueDay(
                     lower
                 )
-                    ?: Calendar
-                        .getInstance()
-                        .apply {
-                            timeInMillis =
-                                nowEpochMs
-                        }
-                        .get(
-                            Calendar.DAY_OF_MONTH
-                        )
+                    ?: return VoicePlanParseResult(
+                        error =
+                            "Say the monthly due day, for example “due on the 5th”."
+                    )
             } else {
                 null
             }
