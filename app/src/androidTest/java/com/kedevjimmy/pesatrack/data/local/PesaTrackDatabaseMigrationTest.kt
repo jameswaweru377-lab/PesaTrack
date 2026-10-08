@@ -36,6 +36,9 @@ class PesaTrackDatabaseMigrationTest {
             assertTrue(db.hasTable("recurring_pattern_decisions"))
             assertTrue(db.hasTable("saving_goal_metadata"))
             assertTrue(db.hasIndex("idx_transactions_code"))
+            assertTrue(db.hasIndex("idx_transactions_review_occurred"))
+            assertTrue(db.hasIndex("idx_transactions_account_occurred"))
+            assertTrue(db.hasIndex("idx_transactions_fingerprint_occurred"))
             assertTrue(db.hasTrigger("trg_sync_refund_category"))
         }
     }
@@ -88,6 +91,40 @@ class PesaTrackDatabaseMigrationTest {
             assertEquals(CURRENT_VERSION, db.version)
             assertTrue(db.hasTable("saving_goal_metadata"))
             assertTrue(db.hasTable("recurring_pattern_decisions"))
+        }
+    }
+
+    @Test
+    fun version32UpgradeAddsLedgerPerformanceIndexes() {
+        seedVersion32Database()
+
+        PesaTrackDatabase(context).use { helper ->
+            val db = helper.writableDatabase
+
+            assertEquals(
+                CURRENT_VERSION,
+                db.version
+            )
+            assertTrue(
+                db.hasIndex(
+                    "idx_transactions_review_occurred"
+                )
+            )
+            assertTrue(
+                db.hasIndex(
+                    "idx_transactions_account_occurred"
+                )
+            )
+            assertTrue(
+                db.hasIndex(
+                    "idx_transactions_linked_account_occurred"
+                )
+            )
+            assertTrue(
+                db.hasIndex(
+                    "idx_transactions_fingerprint_occurred"
+                )
+            )
         }
     }
 
@@ -209,6 +246,27 @@ class PesaTrackDatabaseMigrationTest {
         }
     }
 
+    private fun seedVersion32Database() {
+        PesaTrackDatabase(context).use {
+                helper ->
+            val db = helper.writableDatabase
+
+            db.execSQL(
+                "DROP INDEX IF EXISTS idx_transactions_review_occurred"
+            )
+            db.execSQL(
+                "DROP INDEX IF EXISTS idx_transactions_account_occurred"
+            )
+            db.execSQL(
+                "DROP INDEX IF EXISTS idx_transactions_linked_account_occurred"
+            )
+            db.execSQL(
+                "DROP INDEX IF EXISTS idx_transactions_fingerprint_occurred"
+            )
+            db.version = 32
+        }
+    }
+
     private fun seedVersion31Database() {
         PesaTrackDatabase(context).use { helper ->
             val db = helper.writableDatabase
@@ -287,7 +345,7 @@ class PesaTrackDatabaseMigrationTest {
 
     private companion object {
         const val DATABASE_NAME = "pesatrack.db"
-        const val CURRENT_VERSION = 32
+        const val CURRENT_VERSION = 33
         const val V1_FINGERPRINT = "migration-fixture-v1"
         const val V30_FINGERPRINT = "migration-fixture-v30"
         const val TEST_AMOUNT_MINOR = 12_345L

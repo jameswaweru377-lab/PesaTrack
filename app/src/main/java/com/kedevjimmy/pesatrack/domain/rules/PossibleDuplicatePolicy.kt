@@ -18,7 +18,9 @@ data class PossibleDuplicateObservation(
 )
 
 object PossibleDuplicatePolicy {
-    private const val CODED_WINDOW_MS = 90_000L
+    const val MAX_CANDIDATE_WINDOW_MS = 90_000L
+    private const val CODED_WINDOW_MS =
+        MAX_CANDIDATE_WINDOW_MS
     private const val CODELESS_WINDOW_MS = 20_000L
     private const val COMPLEMENTARY_WINDOW_MS = 60_000L
 

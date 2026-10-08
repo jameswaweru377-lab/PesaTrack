@@ -1491,6 +1491,18 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             "CREATE INDEX IF NOT EXISTS idx_transactions_pay_cycle ON transactions(pay_cycle_id)"
         )
         db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_transactions_review_occurred ON transactions(review_state, occurred_at_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_transactions_account_occurred ON transactions(account_id, occurred_at_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_transactions_linked_account_occurred ON transactions(linked_account_id, occurred_at_epoch_ms DESC)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_transactions_fingerprint_occurred ON transactions(fingerprint, occurred_at_epoch_ms)"
+        )
+        db.execSQL(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_money_accounts_identifier ON money_accounts(identifier) WHERE identifier IS NOT NULL AND identifier != ''"
         )
         db.execSQL(
@@ -1622,6 +1634,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 32
+        private const val DATABASE_VERSION = 33
     }
 }

@@ -65,7 +65,7 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 
 ## Engineering status
 
-- Database schema: **v32**
+- Database schema: **v33**
 - Android minSdk: **24**
 - target/compile SDK: **36**
 - Current CI runs:
@@ -76,7 +76,7 @@ The public enrichment Worker is rate limited, and provider credentials remain se
   - Android instrumentation on API 35.
 - The rolling debug APK is published only after both the build and instrumentation jobs pass.
 - Canonical ingestion uses an explicit SQLite transaction boundary with rollback coverage.
-- Migration coverage includes fresh v32 plus selected historical upgrades including v1, v30 and v31 to v32.
+- Migration coverage includes fresh v33 plus selected historical upgrades including v1, v30 and v31/v32 to v33.
 - App lock, biometric unlock and passphrase-encrypted backup/restore are implemented.
 
 ## Release and security documents

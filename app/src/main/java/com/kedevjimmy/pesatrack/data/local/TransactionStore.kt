@@ -1180,32 +1180,128 @@ class TransactionStore private constructor(context: Context) {
         timeZone: TimeZone = TimeZone.getDefault()
     ): List<ActivityMonthBucket> {
         synchronized(CanonicalStoreLock.monitor) {
-        val counts = linkedMapOf<Long, Int>()
+        val range =
+            database.readableDatabase
+                .rawQuery(
+                    """
+                    SELECT
+                        MIN(occurred_at_epoch_ms),
+                        MAX(occurred_at_epoch_ms)
+                    FROM transactions
+                    WHERE review_state != ?
+                    """.trimIndent(),
+                    arrayOf(
+                        ReviewState.EXCLUDED.name
+                    )
+                )
+                .use { cursor ->
+                    if (
+                        !cursor.moveToFirst() ||
+                        cursor.isNull(0) ||
+                        cursor.isNull(1)
+                    ) {
+                        null
+                    } else {
+                        cursor.getLong(0) to
+                            cursor.getLong(1)
+                    }
+                } ?: return emptyList()
 
-        database.readableDatabase.rawQuery(
-            "SELECT occurred_at_epoch_ms FROM transactions WHERE review_state != ? ORDER BY occurred_at_epoch_ms DESC, id DESC",
-            arrayOf(ReviewState.EXCLUDED.name)
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                val monthStart = Calendar.getInstance(timeZone).apply {
-                    timeInMillis = cursor.getLong(0)
-                    set(Calendar.DAY_OF_MONTH, 1)
-                    set(Calendar.HOUR_OF_DAY, 0)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }.timeInMillis
+        fun monthStart(
+            epochMs: Long
+        ): Calendar =
+            Calendar.getInstance(timeZone)
+                .apply {
+                    timeInMillis = epochMs
+                    set(
+                        Calendar.DAY_OF_MONTH,
+                        1
+                    )
+                    set(
+                        Calendar.HOUR_OF_DAY,
+                        0
+                    )
+                    set(
+                        Calendar.MINUTE,
+                        0
+                    )
+                    set(
+                        Calendar.SECOND,
+                        0
+                    )
+                    set(
+                        Calendar.MILLISECOND,
+                        0
+                    )
+                }
 
-                counts[monthStart] = (counts[monthStart] ?: 0) + 1
+        val earliest =
+            monthStart(range.first)
+        val cursorMonth =
+            monthStart(range.second)
+        val result =
+            mutableListOf<ActivityMonthBucket>()
+
+        while (
+            cursorMonth.timeInMillis >=
+            earliest.timeInMillis
+        ) {
+            val start =
+                cursorMonth.timeInMillis
+            val end =
+                (cursorMonth.clone()
+                    as Calendar)
+                    .apply {
+                        add(
+                            Calendar.MONTH,
+                            1
+                        )
+                    }
+                    .timeInMillis
+
+            val count =
+                database.readableDatabase
+                    .rawQuery(
+                        """
+                        SELECT COUNT(*)
+                        FROM transactions
+                        WHERE review_state != ?
+                          AND occurred_at_epoch_ms >= ?
+                          AND occurred_at_epoch_ms < ?
+                        """.trimIndent(),
+                        arrayOf(
+                            ReviewState.EXCLUDED.name,
+                            start.toString(),
+                            end.toString()
+                        )
+                    )
+                    .use { cursor ->
+                        if (
+                            cursor.moveToFirst()
+                        ) {
+                            cursor.getInt(0)
+                        } else {
+                            0
+                        }
+                    }
+
+            if (count > 0) {
+                result +=
+                    ActivityMonthBucket(
+                        monthStartEpochMs =
+                            start,
+                        transactionCount =
+                            count
+                    )
             }
-        }
 
-        return counts.map { (monthStart, count) ->
-            ActivityMonthBucket(
-                monthStartEpochMs = monthStart,
-                transactionCount = count
+            cursorMonth.add(
+                Calendar.MONTH,
+                -1
             )
         }
+
+        return result
     }
     }
 
@@ -1238,25 +1334,46 @@ class TransactionStore private constructor(context: Context) {
             ensureRefundsReconciled()
         }
 
-        val transactions = allTransactions()
-            .filter { it.reviewState != ReviewState.EXCLUDED.name }
+        // Activity's attention strip only needs unresolved rows. Loading
+        // the full ledger here made tab entry progressively slower as history
+        // grew and made duplicate detection unnecessarily quadratic.
+        val attentionTransactions =
+            reviewAttentionTransactions()
+
+        // Optional enrichment is deliberately bounded to recent activity. It
+        // must never make rendering the review summary depend on the full
+        // lifetime ledger.
         scheduleRemoteEntityEnrichment(
-            transactions
+            recent(
+                REVIEW_ENRICHMENT_RECENT_LIMIT
+            )
         )
-        val possibleDuplicates = buildPossibleDuplicateGroups(
-            transactions
-        )
-        val possibleDuplicateIds = possibleDuplicates
-            .flatMap { listOf(it.first.id, it.second.id) }
-            .toSet()
+
+        val possibleDuplicates =
+            buildPossibleDuplicateGroups(
+                attentionTransactions
+            )
+        val possibleDuplicateIds =
+            possibleDuplicates
+                .flatMap {
+                    listOf(
+                        it.first.id,
+                        it.second.id
+                    )
+                }
+                .toSet()
 
         return ActivityReviewOverview(
-            reviewGroups = buildReviewGroups(
-                transactions.filterNot {
-                    it.id in possibleDuplicateIds
-                }
-            ),
-            possibleDuplicates = possibleDuplicates
+            reviewGroups =
+                buildReviewGroups(
+                    attentionTransactions
+                        .filterNot {
+                            it.id in
+                                possibleDuplicateIds
+                        }
+                ),
+            possibleDuplicates =
+                possibleDuplicates
         )
     }
     }
@@ -1508,6 +1625,29 @@ class TransactionStore private constructor(context: Context) {
         return changed
     }
     }
+
+    private fun reviewAttentionTransactions():
+        List<StoredTransaction> =
+        database.readableDatabase.rawQuery(
+            BASE_SELECT +
+                """
+                 WHERE review_state = ?
+                    OR cycle_candidate_reason IS NOT NULL
+                 ORDER BY occurred_at_epoch_ms DESC, id DESC
+                """.trimIndent(),
+            arrayOf(
+                ReviewState.NEEDS_REVIEW.name
+            )
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        cursor
+                            .toStoredTransaction()
+                    )
+                }
+            }
+        }
 
     private fun buildReviewGroups(
         transactions: List<StoredTransaction>
@@ -3063,41 +3203,99 @@ class TransactionStore private constructor(context: Context) {
         val groups = mutableListOf<PossibleDuplicateGroup>()
 
         eligible.forEachIndexed { index, first ->
-            if (first.id in claimedIds) return@forEachIndexed
+            if (
+                first.id in claimedIds
+            ) {
+                return@forEachIndexed
+            }
 
-            val firstObservation = first.toPossibleDuplicateObservation()
-            val best = eligible
-                .asSequence()
-                .drop(index + 1)
-                .filter { it.id !in claimedIds }
-                .mapNotNull { second ->
-                    val key = duplicatePairKey(first.id, second.id)
-                    if (key in resolvedKeys) return@mapNotNull null
-                    if (
-                        !PossibleDuplicatePolicy.isCandidate(
-                            firstObservation,
-                            second.toPossibleDuplicateObservation()
-                        )
-                    ) {
-                        return@mapNotNull null
-                    }
+            val firstObservation =
+                first.toPossibleDuplicateObservation()
+            var best:
+                Pair<StoredTransaction, Long>? =
+                null
 
-                    second to kotlin.math.abs(
-                        first.receivedAtEpochMs -
-                            second.receivedAtEpochMs
-                    )
+            // The policy rejects anything farther than 90 seconds apart.
+            // Because eligible is time-sorted, stop as soon as that bound is
+            // crossed instead of comparing this row with the whole ledger.
+            for (
+                candidateIndex in
+                (index + 1) until
+                    eligible.size
+            ) {
+                val second =
+                    eligible[candidateIndex]
+                val delta =
+                    first.receivedAtEpochMs -
+                        second.receivedAtEpochMs
+                if (
+                    delta >
+                    PossibleDuplicatePolicy
+                        .MAX_CANDIDATE_WINDOW_MS
+                ) {
+                    break
                 }
-                .minByOrNull { it.second }
-                ?: return@forEachIndexed
+                if (
+                    second.id in claimedIds
+                ) {
+                    continue
+                }
 
-            val second = best.first
-            val key = duplicatePairKey(first.id, second.id)
-            groups += PossibleDuplicateGroup(
-                key = key,
-                first = first,
-                second = second,
-                timeDeltaMs = best.second
-            )
+                val key =
+                    duplicatePairKey(
+                        first.id,
+                        second.id
+                    )
+                if (key in resolvedKeys) {
+                    continue
+                }
+                if (
+                    !PossibleDuplicatePolicy
+                        .isCandidate(
+                            firstObservation,
+                            second
+                                .toPossibleDuplicateObservation()
+                        )
+                ) {
+                    continue
+                }
+
+                val absoluteDelta =
+                    kotlin.math.abs(delta)
+                if (
+                    best == null ||
+                    absoluteDelta <
+                    best!!.second
+                ) {
+                    best =
+                        second to
+                            absoluteDelta
+                    if (
+                        absoluteDelta == 0L
+                    ) {
+                        break
+                    }
+                }
+            }
+
+            val selected =
+                best
+                    ?: return@forEachIndexed
+            val second =
+                selected.first
+            val key =
+                duplicatePairKey(
+                    first.id,
+                    second.id
+                )
+            groups +=
+                PossibleDuplicateGroup(
+                    key = key,
+                    first = first,
+                    second = second,
+                    timeDeltaMs =
+                        selected.second
+                )
             claimedIds += first.id
             claimedIds += second.id
         }
@@ -4100,6 +4298,8 @@ class TransactionStore private constructor(context: Context) {
             "INVESTMENT_SELL"
         private const val DUPLICATE_DECISION_SAME = "SAME_TRANSACTION"
         private const val DUPLICATE_DECISION_KEEP_BOTH = "KEEP_BOTH"
+        private const val REVIEW_ENRICHMENT_RECENT_LIMIT =
+            500
 
         private val OUTGOING_REVIEW_TYPES = setOf(
             MpesaTransactionType.SENT_MONEY.name,
