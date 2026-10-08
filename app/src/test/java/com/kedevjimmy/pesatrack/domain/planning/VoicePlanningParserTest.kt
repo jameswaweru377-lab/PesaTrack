@@ -135,6 +135,32 @@ class VoicePlanningParserTest {
     }
 
     @Test
+    fun simpleSavingForPhraseExtractsItemName() {
+        val result =
+            VoicePlanningParser.parse(
+                kind = VoicePlanKind.GOAL,
+                transcript =
+                    "I am saving for a PS5 target 55,000 by 10 April",
+                nowEpochMs =
+                    calendar(
+                        2026,
+                        Calendar.OCTOBER,
+                        8
+                    ).timeInMillis,
+                locale = Locale.ENGLISH
+            )
+
+        assertNull(result.error)
+        val draft =
+            result.draft as
+                VoiceGoalDraft
+        assertEquals(
+            "PS5",
+            draft.name
+        )
+    }
+
+    @Test
     fun savingTowardsPhraseExtractsItemName() {
         val result =
             VoicePlanningParser.parse(
