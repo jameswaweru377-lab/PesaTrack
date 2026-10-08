@@ -300,38 +300,46 @@ object VoicePlanningParser {
         val text =
             raw.trim()
 
-        val beforeGoal =
-            Regex(
-                """(?i)\b(?:add|create|set|make)\s+(?:a\s+|an\s+|my\s+)?(.+?)\s+goal\b"""
+        val patterns =
+            listOf(
+                // "I'm targeting to save for a PS5 ..."
+                Regex(
+                    """(?i)\b(?:i\s*(?:am|'m)\s+)?(?:targeting|trying|planning|hoping|wanting)?\s*(?:to\s+)?sav(?:e|ing)(?:\s+up)?\s+for\s+(?:a\s+|an\s+|the\s+|my\s+)?(.+?)(?=\s*[,.-]?\s*(?:with\s+(?:a\s+)?target|target(?:\s+of)?|worth|cost(?:s)?|price|for\s+(?:(?:kes|kshs?|shillings?)\s*)?[0-9][0-9,]*(?:\.\d+)?(?:\s*(?:k|thousand|m|million))?|by|before|due|at)\b|$)"""
+                ),
+                // "I wanted to buy a couch ..." / "I want to get a laptop ..."
+                Regex(
+                    """(?i)\b(?:i\s+)?(?:want(?:ed)?\s+to|plan(?:ning)?\s+to|going\s+to|need\s+to|would\s+like\s+to)?\s*(?:buy|purchase|get)\s+(?:a\s+|an\s+|the\s+|my\s+)?(.+?)(?=\s*[,.-]?\s*(?:with\s+(?:a\s+)?target|target(?:\s+of)?|worth|cost(?:s)?|price|for\s+(?:(?:kes|kshs?|shillings?)\s*)?[0-9][0-9,]*(?:\.\d+)?(?:\s*(?:k|thousand|m|million))?|by|before|due|at)\b|$)"""
+                ),
+                // "I'm saving towards a couch ..."
+                Regex(
+                    """(?i)\b(?:saving|save)\s+(?:towards|toward)\s+(?:a\s+|an\s+|the\s+|my\s+)?(.+?)(?=\s*[,.-]?\s*(?:with\s+(?:a\s+)?target|target(?:\s+of)?|worth|cost(?:s)?|price|for\s+(?:(?:kes|kshs?|shillings?)\s*)?[0-9][0-9,]*(?:\.\d+)?(?:\s*(?:k|thousand|m|million))?|by|before|due|at)\b|$)"""
+                ),
+                // Existing explicit goal language.
+                Regex(
+                    """(?i)\b(?:add|create|set|make)\s+(?:a\s+|an\s+|my\s+)?(.+?)\s+goal\b"""
+                ),
+                Regex(
+                    """(?i)\bgoal\s+(?:for|called|named)\s+(.+?)(?=\s+(?:target|worth|by|before|due|of\s+(?:kes|ksh|[0-9]))\b|$)"""
+                )
             )
-                .find(text)
-                ?.groupValues
-                ?.getOrNull(1)
-                ?.let(::cleanName)
-                .orEmpty()
-        if (
-            beforeGoal.isNotBlank() &&
-            beforeGoal.lowercase() !in
-            setOf(
-                "saving",
-                "savings",
-                "new"
-            )
-        ) {
-            return beforeGoal
+
+        patterns.forEach { pattern ->
+            val candidate =
+                pattern.find(text)
+                    ?.groupValues
+                    ?.getOrNull(1)
+                    ?.let(::cleanPlanName)
+                    .orEmpty()
+            if (
+                candidate.isNotBlank() &&
+                candidate.lowercase() !in
+                GENERIC_PLAN_NAMES
+            ) {
+                return candidate
+            }
         }
 
-        val afterGoal =
-            Regex(
-                """(?i)\bgoal\s+(?:for|called|named)\s+(.+?)(?=\s+(?:target|worth|by|before|due|of\s+(?:kes|ksh|[0-9]))\b|$)"""
-            )
-                .find(text)
-                ?.groupValues
-                ?.getOrNull(1)
-                ?.let(::cleanName)
-                .orEmpty()
-
-        return afterGoal
+        return ""
     }
 
     private fun parseBillName(
@@ -377,26 +385,66 @@ object VoicePlanningParser {
     private fun cleanName(
         raw: String
     ): String =
-        raw.trim()
-            .trim(
-                ',',
-                '.',
-                '-',
-                ':'
-            )
-            .replace(
-                Regex("""\s+"""),
-                " "
-            )
-            .replaceFirstChar {
-                if (
-                    it.isLowerCase()
+        cleanPlanName(raw)
+
+    private fun cleanPlanName(
+        raw: String
+    ): String {
+        val cleaned =
+            raw.trim()
+                .trim(
+                    ',',
+                    '.',
+                    '-',
+                    ':'
+                )
+                .replace(
+                    Regex("""\s+"""),
+                    " "
+                )
+                .replace(
+                    Regex(
+                        """(?i)^(?:just\s+|really\s+|a\s+new\s+|new\s+)"""
+                    ),
+                    ""
+                )
+                .trim()
+
+        return cleaned
+            .split(" ")
+            .joinToString(" ") {
+                token ->
+                when (
+                    token.lowercase()
                 ) {
-                    it.titlecase()
-                } else {
-                    it.toString()
+                    "ps5" -> "PS5"
+                    "ps4" -> "PS4"
+                    "tv" -> "TV"
+                    "wifi",
+                    "wi-fi" -> "WiFi"
+                    else ->
+                        token.replaceFirstChar {
+                            if (
+                                it.isLowerCase()
+                            ) {
+                                it.titlecase()
+                            } else {
+                                it.toString()
+                            }
+                        }
                 }
             }
+    }
+
+    private val GENERIC_PLAN_NAMES =
+        setOf(
+            "goal",
+            "saving",
+            "savings",
+            "new",
+            "something",
+            "item"
+        )
 
     private fun parseTargetDate(
         raw: String,
