@@ -7,29 +7,48 @@ data class KenyanBank(
 )
 
 object KenyanBankDirectory {
-    // Independent offline catalogue used only to simplify account setup.
-    // The user can always choose "type bank name" when an institution or
-    // sender format is missing, so financial logic never depends on this list.
+    // Offline catalogue aligned with the Central Bank of Kenya's July 2026
+    // directory of licensed commercial banks. PesaTrack keeps this local so
+    // account setup and sender matching still work without a network.
     val banks: List<KenyanBank> = listOf(
-        KenyanBank("equity", "Equity Bank Kenya", listOf("EQUITY", "EQUITY BANK")),
-        KenyanBank("cooperative", "Co-operative Bank of Kenya", listOf("COOP BANK", "CO-OP BANK", "COOPERATIVE BANK", "COOPBANK")),
-        KenyanBank("kcb", "KCB Bank Kenya", listOf("KCB", "KCB BANK")),
-        KenyanBank("ncba", "NCBA Bank Kenya", listOf("NCBA", "NCBA BANK")),
-        KenyanBank("absa", "Absa Bank Kenya", listOf("ABSA", "ABSA BANK")),
-        KenyanBank("stanbic", "Stanbic Bank Kenya", listOf("STANBIC", "STANBIC BANK")),
-        KenyanBank("standard-chartered", "Standard Chartered Bank Kenya", listOf("SCB", "STANDARD CHARTERED", "STANCHART")),
-        KenyanBank("i-and-m", "I&M Bank Kenya", listOf("I&M", "I&M BANK", "IM BANK", "IMBANK", "IANDBANK", "IANDM BANK")),
-        KenyanBank("dtb", "Diamond Trust Bank Kenya", listOf("DTB", "DTB BANK")),
-        KenyanBank("family", "Family Bank", listOf("FAMILY BANK")),
-        KenyanBank("ecobank", "Ecobank Kenya", listOf("ECOBANK")),
-        KenyanBank("bank-of-africa", "Bank of Africa Kenya", listOf("BOA", "BANK OF AFRICA")),
-        KenyanBank("citibank", "Citibank N.A. Kenya", listOf("CITI", "CITIBANK")),
-        KenyanBank("gulf-african", "Gulf African Bank", listOf("GULF AFRICAN", "GAB")),
-        KenyanBank("kingdom", "Kingdom Bank", listOf("KINGDOM BANK")),
-        KenyanBank("prime", "Prime Bank Kenya", listOf("PRIME BANK")),
-        KenyanBank("sbm", "SBM Bank Kenya", listOf("SBM", "SBM BANK")),
-        KenyanBank("sidian", "Sidian Bank", listOf("SIDIAN", "SIDIAN BANK")),
-        KenyanBank("victoria", "Victoria Commercial Bank", listOf("VICTORIA BANK", "VCB"))
+        KenyanBank("absa", "ABSA Bank Kenya PLC", listOf("ABSA", "ABSA BANK")),
+        KenyanBank("access", "Access Bank (Kenya) PLC", listOf("ACCESS", "ACCESS BANK")),
+        KenyanBank("abc", "African Banking Corporation Limited", listOf("ABC BANK", "AFRICAN BANKING CORPORATION")),
+        KenyanBank("bank-of-africa", "Bank of Africa Kenya Limited", listOf("BOA", "BANK OF AFRICA", "BOA KENYA")),
+        KenyanBank("bank-of-baroda", "Bank of Baroda (Kenya) Limited", listOf("BANK OF BARODA", "BARODA")),
+        KenyanBank("bank-of-india", "Bank of India", listOf("BANK OF INDIA", "BOI")),
+        KenyanBank("citibank", "Citibank N.A Kenya", listOf("CITI", "CITIBANK")),
+        KenyanBank("cib", "Commercial International Bank (CIB) Kenya Limited", listOf("CIB", "CIB KENYA", "COMMERCIAL INTERNATIONAL BANK")),
+        KenyanBank("consolidated", "Consolidated Bank of Kenya Limited", listOf("CONSOLIDATED BANK", "CONSOLIDATED")),
+        KenyanBank("cooperative", "Co-operative Bank of Kenya Limited", listOf("COOP BANK", "CO-OP BANK", "COOPERATIVE BANK", "COOPBANK")),
+        KenyanBank("credit", "Credit Bank PLC", listOf("CREDIT BANK", "CREDITBANK")),
+        KenyanBank("development", "Development Bank of Kenya Limited", listOf("DEVELOPMENT BANK", "DBK")),
+        KenyanBank("dtb", "Diamond Trust Bank Kenya Limited", listOf("DTB", "DTB BANK", "DIAMOND TRUST BANK")),
+        KenyanBank("dib", "DIB Bank Kenya Limited", listOf("DIB", "DIB BANK")),
+        KenyanBank("ecobank", "Ecobank Kenya Limited", listOf("ECOBANK", "ECO BANK")),
+        KenyanBank("equity", "Equity Bank Kenya Limited", listOf("EQUITY", "EQUITY BANK")),
+        KenyanBank("family", "Family Bank Limited", listOf("FAMILY BANK", "FAMILYBANK")),
+        KenyanBank("gtbank", "Guaranty Trust Bank (K) Ltd", listOf("GTBANK", "GT BANK", "GUARANTY TRUST BANK")),
+        KenyanBank("guardian", "Guardian Bank Limited", listOf("GUARDIAN BANK", "GUARDIAN")),
+        KenyanBank("gulf-african", "Gulf African Bank Limited", listOf("GULF AFRICAN", "GULF AFRICAN BANK", "GAB")),
+        KenyanBank("habib", "Habib Bank A.G Zurich", listOf("HABIB BANK", "HABIB")),
+        KenyanBank("i-and-m", "I&M Bank Limited", listOf("I&M", "I&M BANK", "IM BANK", "IMBANK", "IANDBANK", "IANDM BANK")),
+        KenyanBank("kcb", "KCB Bank Kenya Limited", listOf("KCB", "KCB BANK")),
+        KenyanBank("kingdom", "Kingdom Bank Limited", listOf("KINGDOM BANK", "KINGDOM")),
+        KenyanBank("middle-east", "Middle East Bank (K) Limited", listOf("MIDDLE EAST BANK", "MEB")),
+        KenyanBank("m-oriental", "M-Oriental Bank Limited", listOf("M-ORIENTAL", "M ORIENTAL", "MORIENTAL")),
+        KenyanBank("national", "National Bank of Kenya Limited", listOf("NATIONAL BANK", "NBK")),
+        KenyanBank("ncba", "NCBA Bank Kenya PLC", listOf("NCBA", "NCBA BANK")),
+        KenyanBank("paramount", "Paramount Bank Limited", listOf("PARAMOUNT BANK", "PARAMOUNT")),
+        KenyanBank("premier", "Premier Bank Kenya Limited", listOf("PREMIER BANK", "PREMIER")),
+        KenyanBank("prime", "Prime Bank Limited", listOf("PRIME BANK", "PRIMEBANK")),
+        KenyanBank("sbm", "SBM Bank Kenya Limited", listOf("SBM", "SBM BANK")),
+        KenyanBank("sidian", "Sidian Bank Limited", listOf("SIDIAN", "SIDIAN BANK")),
+        KenyanBank("spire", "Spire Bank Ltd", listOf("SPIRE", "SPIRE BANK")),
+        KenyanBank("stanbic", "Stanbic Bank Kenya Limited", listOf("STANBIC", "STANBIC BANK")),
+        KenyanBank("standard-chartered", "Standard Chartered Bank Kenya Limited", listOf("SCB", "STANDARD CHARTERED", "STANCHART")),
+        KenyanBank("uba", "UBA Kenya Bank Limited", listOf("UBA", "UBA KENYA", "UBA BANK")),
+        KenyanBank("victoria", "Victoria Commercial Bank PLC", listOf("VICTORIA BANK", "VICTORIA COMMERCIAL BANK", "VCB"))
     )
 
     fun search(query: String): List<KenyanBank> {
@@ -98,5 +117,4 @@ object KenyanBankDirectory {
             "NOTIFICATION",
             "MOBILE"
         )
-
 }
