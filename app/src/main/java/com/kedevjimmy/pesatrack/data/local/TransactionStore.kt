@@ -3182,17 +3182,24 @@ class TransactionStore private constructor(context: Context) {
                 }
             }
 
-            val second =
-                best?.first
+            val selected =
+                best
                     ?: return@forEachIndexed
-            val key = duplicatePairKey(first.id, second.id)
-            groups += PossibleDuplicateGroup(
-                key = key,
-                first = first,
-                second = second,
-                timeDeltaMs =
-                    best.second
-            )
+            val second =
+                selected.first
+            val key =
+                duplicatePairKey(
+                    first.id,
+                    second.id
+                )
+            groups +=
+                PossibleDuplicateGroup(
+                    key = key,
+                    first = first,
+                    second = second,
+                    timeDeltaMs =
+                        selected.second
+                )
             claimedIds += first.id
             claimedIds += second.id
         }
@@ -4195,6 +4202,8 @@ class TransactionStore private constructor(context: Context) {
             "INVESTMENT_SELL"
         private const val DUPLICATE_DECISION_SAME = "SAME_TRANSACTION"
         private const val DUPLICATE_DECISION_KEEP_BOTH = "KEEP_BOTH"
+        private const val REVIEW_ENRICHMENT_RECENT_LIMIT =
+            500
 
         private val OUTGOING_REVIEW_TYPES = setOf(
             MpesaTransactionType.SENT_MONEY.name,
