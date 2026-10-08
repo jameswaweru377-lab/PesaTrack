@@ -16,6 +16,7 @@ import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.rules.RepaymentChainConfidence
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
