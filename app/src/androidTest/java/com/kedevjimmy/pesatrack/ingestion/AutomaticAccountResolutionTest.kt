@@ -38,18 +38,26 @@ class AutomaticAccountResolutionTest {
         assertEquals(0, coordinator.ingest("MPESA", TRANSFER, "test.sms", "TEST_SMS", EPOCH, false).insertedTransactions)
     }
 
-    @Test fun recognizedBankDoesNotBecomeOwnedWithoutUserConfirmation() {
-        val result = FinancialMessageIngestionCoordinator.get(context).ingest(
-            "EQUITY", "Your transaction of Kenya Shillings 20,000 has been credited to SAMPLE PERSON. Reference number EQA12ABC34. M-Pesa reference UFT12ABC34.",
-            "test.sms", "TEST_SMS", EPOCH, false
+    @Test fun recognizedBankWaitsForOwnershipThenReplayAttachesCorrectAccount() {
+        val coordinator =
+            FinancialMessageIngestionCoordinator.get(context)
+        val body =
+            "Your transaction of Kenya Shillings 20,000 has been credited to SAMPLE PERSON. Reference number EQA12ABC34. M-Pesa reference UFT12ABC34."
+
+        val beforeConfirmation =
+            coordinator.ingest(
+                "EQUITY",
+                body,
+                "test.sms",
+                "TEST_SMS",
+                EPOCH,
+                false
+            )
+
+        assertEquals(
+            0,
+            beforeConfirmation.insertedTransactions
         )
-        assertEquals(1, result.insertedTransactions)
-        val entity =
-            FinancialUnderstandingStore.get(context)
-                .entityByKey(
-                    "provider:KENYAN_BANK_EQUITY"
-                )
-        assertNull(entity?.confirmedAccountId)
         assertFalse(
             AccountStore.get(context)
                 .listAccounts()
@@ -58,11 +66,44 @@ class AutomaticAccountResolutionTest {
                         "Equity Bank Kenya"
                 }
         )
-        assertNull(
+
+        val equity =
+            FinancialProviderRegistry
+                .resolveOwnedMessageSourceAccount(
+                    "EQUITY",
+                    true
+                )!!
+        val accountId =
+            FinancialUnderstandingStore
+                .get(context)
+                .setInstitutionOwned(
+                    reference = equity,
+                    identifier =
+                        "1234567890"
+                )
+        assertNotNull(accountId)
+
+        val afterConfirmation =
+            coordinator.ingest(
+                "EQUITY",
+                body,
+                "test.sms",
+                "TEST_SMS",
+                EPOCH,
+                false
+            )
+
+        assertEquals(
+            1,
+            afterConfirmation.insertedTransactions
+        )
+        assertEquals(
+            accountId,
             TransactionStore.get(context)
-                .recent()
-                .single()
-                .accountId
+                .findByTransactionCode(
+                    "EQA12ABC34"
+                )
+                ?.accountId
         )
     }
 
@@ -107,17 +148,8 @@ class AutomaticAccountResolutionTest {
             )
         assertNotNull(accountId)
 
-        assertTrue(
-            store.recordBalance(
-                fact.copy(
-                    account = known
-                ),
-                "same-message",
-                EPOCH,
-                "test.sms",
-                "TEST_SMS"
-            )
-        )
+        // Confirmation immediately attaches any previously observed
+        // balance for the same institution; replay is no longer required.
         assertEquals(
             accountId,
             store.latestBalances()
