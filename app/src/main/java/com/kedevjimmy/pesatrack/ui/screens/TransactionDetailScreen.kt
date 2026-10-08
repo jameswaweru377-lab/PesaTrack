@@ -1141,14 +1141,14 @@ private fun TransactionHero(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(288.dp),
+                .height(240.dp),
         showSun = false
     ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(18.dp)
+                    .padding(14.dp)
         ) {
             Row(
                 verticalAlignment =
@@ -1157,14 +1157,14 @@ private fun TransactionHero(
                 TransactionCounterpartyBadge(
                     name =
                         item.counterparty,
-                    size = 62.dp
+                    size = 54.dp
                 )
                 Column(
                     modifier =
                         Modifier
                             .weight(1f)
                             .padding(
-                                start = 14.dp
+                                start = 10.dp
                             )
                 ) {
                     Text(
@@ -1195,11 +1195,11 @@ private fun TransactionHero(
                     Surface(
                         modifier =
                             Modifier.padding(
-                                top = 8.dp
+                                top = 5.dp
                             ),
                         shape =
                             RoundedCornerShape(
-                                12.dp
+                                11.dp
                             ),
                         color =
                             MaterialTheme
@@ -1212,8 +1212,8 @@ private fun TransactionHero(
                         Row(
                             modifier =
                                 Modifier.padding(
-                                    horizontal = 10.dp,
-                                    vertical = 6.dp
+                                    horizontal = 8.dp,
+                                    vertical = 4.dp
                                 ),
                             verticalAlignment =
                                 Alignment.CenterVertically
@@ -1267,7 +1267,7 @@ private fun TransactionHero(
                                 null,
                             modifier =
                                 Modifier.padding(
-                                    12.dp
+                                    9.dp
                                 ),
                             tint =
                                 Color(
@@ -1279,7 +1279,7 @@ private fun TransactionHero(
                         "Amount",
                         modifier =
                             Modifier.padding(
-                                top = 8.dp
+                                top = 4.dp
                             ),
                         style =
                             MaterialTheme
@@ -1297,7 +1297,7 @@ private fun TransactionHero(
                         style =
                             MaterialTheme
                                 .typography
-                                .headlineLarge,
+                                .headlineMedium,
                         fontWeight =
                             FontWeight.Bold
                     )
@@ -1313,7 +1313,7 @@ private fun TransactionHero(
                     Modifier.fillMaxWidth(),
                 shape =
                     RoundedCornerShape(
-                        20.dp
+                        18.dp
                     ),
                 color =
                     MaterialTheme
@@ -1326,12 +1326,12 @@ private fun TransactionHero(
                 Column(
                     modifier =
                         Modifier.padding(
-                            horizontal = 12.dp,
-                            vertical = 11.dp
+                            horizontal = 10.dp,
+                            vertical = 8.dp
                         ),
                     verticalArrangement =
                         Arrangement.spacedBy(
-                            8.dp
+                            5.dp
                         )
                 ) {
                     Row(
@@ -1339,7 +1339,7 @@ private fun TransactionHero(
                             Modifier.fillMaxWidth(),
                         horizontalArrangement =
                             Arrangement.spacedBy(
-                                10.dp
+                                8.dp
                             )
                     ) {
                         CompactHeroMetric(
@@ -1530,8 +1530,8 @@ private fun CompactHeroMetric(
     Row(
         modifier =
             modifier.padding(
-                horizontal = 2.dp,
-                vertical = 2.dp
+                horizontal = 1.dp,
+                vertical = 1.dp
             ),
         verticalAlignment =
             Alignment.CenterVertically
@@ -1549,9 +1549,9 @@ private fun CompactHeroMetric(
                 contentDescription = null,
                 modifier =
                     Modifier.padding(
-                        7.dp
+                        6.dp
                     )
-                        .size(17.dp),
+                        .size(16.dp),
                 tint =
                     MaterialTheme
                         .colorScheme
@@ -1562,7 +1562,7 @@ private fun CompactHeroMetric(
             modifier =
                 Modifier
                     .weight(1f)
-                    .padding(start = 8.dp)
+                    .padding(start = 7.dp)
         ) {
             Text(
                 label,
