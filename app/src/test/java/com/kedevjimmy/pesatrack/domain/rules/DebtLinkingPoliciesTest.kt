@@ -340,6 +340,53 @@ class DebtLinkingPoliciesTest {
     }
 
     @Test
+    fun refusesBalanceObservationThatPredatesRepayment() {
+        val match =
+            DebtRepaymentBalancePolicy.choose(
+                explicitBalanceAfterMinor = 1_300_000L,
+                computedBalanceAfterMinor = null,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(
+                    RepaymentBalanceCandidate(
+                        observationId = 60L,
+                        balanceMinor = 1_300_000L,
+                        observedAtEpochMs = 590_000L
+                    )
+                )
+            )
+
+        assertNull(match)
+    }
+
+    @Test
+    fun earlierBalanceCannotObscureUniqueResultingBalance() {
+        val match =
+            DebtRepaymentBalancePolicy.choose(
+                explicitBalanceAfterMinor = null,
+                computedBalanceAfterMinor = 1_300_000L,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(
+                    RepaymentBalanceCandidate(
+                        observationId = 61L,
+                        balanceMinor = 1_300_000L,
+                        observedAtEpochMs = 590_000L
+                    ),
+                    RepaymentBalanceCandidate(
+                        observationId = 62L,
+                        balanceMinor = 1_300_000L,
+                        observedAtEpochMs = 605_000L
+                    )
+                )
+            )
+
+        assertEquals(62L, match?.observationId)
+        assertEquals(
+            RepaymentChainConfidence.HIGH,
+            match?.confidence
+        )
+    }
+
+    @Test
     fun linksExplicitResultingBalanceObservation() {
         val match =
             DebtRepaymentBalancePolicy.choose(

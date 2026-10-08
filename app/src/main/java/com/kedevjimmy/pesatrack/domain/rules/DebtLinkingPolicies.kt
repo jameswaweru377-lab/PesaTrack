@@ -328,10 +328,12 @@ object DebtRepaymentBalancePolicy {
         val matching =
             candidates.filter { candidate ->
                 candidate.balanceMinor == target &&
-                    abs(
-                        candidate.observedAtEpochMs -
-                            repaymentAtEpochMs
-                    ) <= MAX_LINK_DISTANCE_MS
+                    // A "resulting" balance must not precede its repayment.
+                    // Earlier observations may have the same value but
+                    // cannot prove the state after money moved.
+                    candidate.observedAtEpochMs -
+                        repaymentAtEpochMs in
+                        0L..MAX_LINK_DISTANCE_MS
             }
 
         if (matching.size != 1) {
