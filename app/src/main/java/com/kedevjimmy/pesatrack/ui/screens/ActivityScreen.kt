@@ -1384,6 +1384,16 @@ fun ActivityScreen(
                                     accountName =
                                         transaction
                                             .accountId
+                                            ?.takeIf {
+                                                it in
+                                                    confirmedAccountIds ||
+                                                    it ==
+                                                        AccountStore
+                                                            .DEFAULT_MPESA_ID ||
+                                                    it ==
+                                                        AccountStore
+                                                            .DEFAULT_CASH_ID
+                                            }
                                             ?.let {
                                                 accountsById[
                                                     it
@@ -1392,6 +1402,16 @@ fun ActivityScreen(
                                     linkedAccountName =
                                         transaction
                                             .linkedAccountId
+                                            ?.takeIf {
+                                                it in
+                                                    confirmedAccountIds ||
+                                                    it ==
+                                                        AccountStore
+                                                            .DEFAULT_MPESA_ID ||
+                                                    it ==
+                                                        AccountStore
+                                                            .DEFAULT_CASH_ID
+                                            }
                                             ?.let {
                                                 accountsById[
                                                     it
