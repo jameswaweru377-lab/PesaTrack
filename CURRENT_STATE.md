@@ -12,7 +12,7 @@ The current product includes the canonical ledger, provider-neutral financial in
 
 ## Data and accounting
 
-- Schema: **v32**
+- Schema: **v33**
 - `PesaTrackDatabase.get(...)` is the process-scoped database owner.
 - Canonical financial-message ingestion is transaction-wrapped.
 - Replay/idempotency and rollback are covered by Android tests.
@@ -61,7 +61,7 @@ The next test expansion should add scheduled API-level coverage, broader migrati
 - The repository contains a privacy-policy source and a Play release checklist.
 - SMS-permission surfaces provide an explicit disclosure before requesting historical SMS access.
 - Release builds accept explicit version code/name inputs and a manual signed AAB/APK workflow is defined; signing material remains outside the repository and the first signed run is still a release gate.
-- Historical SMS import reports scan/match/insert progress, supports cooperative cancellation, and retains a short-lived checkpoint so interrupted imports can resume by SMS date/id without rescanning the completed portion. Deeper batching/performance work remains.
+- Historical SMS import reports scan/match/insert progress, supports cooperative cancellation, and retains a short-lived checkpoint so interrupted imports can resume by SMS date/id without rescanning the completed portion. Activity review/duplicate work is now bounded to unresolved/recent rows, duplicate matching stops at the policy time window, and month/account lookups use v33 ledger indexes. Physical-device large-ledger measurement still remains.
 
 ## Release status
 
