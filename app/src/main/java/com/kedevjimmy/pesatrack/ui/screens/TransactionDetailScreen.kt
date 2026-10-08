@@ -1444,7 +1444,7 @@ private fun TransactionCounterpartyBadge(
     }
 }
 
-private fun bankInitials(
+internal fun bankInitials(
     rawName: String?
 ): String? {
     val name =
@@ -2352,16 +2352,13 @@ private fun CategoryGridRows(
                                 },
                         shape =
                             RoundedCornerShape(
-                                18.dp
+                                16.dp
                             ),
                         color =
                             if (selected) {
-                                Color(
-                                    0xFF0B6E55
-                                )
-                                    .copy(
-                                        alpha = .78f
-                                    )
+                                MaterialTheme
+                                    .colorScheme
+                                    .primaryContainer
                             } else {
                                 MaterialTheme
                                     .colorScheme
