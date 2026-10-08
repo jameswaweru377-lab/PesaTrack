@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
+import com.kedevjimmy.pesatrack.domain.planning.VoicePlanKind
 import com.kedevjimmy.pesatrack.planning.BillCadence
 import com.kedevjimmy.pesatrack.planning.BillSchedules
 import com.kedevjimmy.pesatrack.planning.ScheduledBill
@@ -899,6 +900,7 @@ fun BillsRemindersScreen(
     var showCalendar by remember { mutableStateOf(false) }
     var sort by remember { mutableStateOf(BillSort.DUE_DATE) }
     var sortExpanded by remember { mutableStateOf(false) }
+    var voiceAdd by remember { mutableStateOf(false) }
 
     LaunchedEffect(revision.revision, monthOffset, retryLoad) {
         loadError = null
@@ -925,6 +927,18 @@ fun BillsRemindersScreen(
             BillSort.NAME ->
                 bills.sortedBy { it.rule.displayLabel ?: it.rule.name }
         }
+    }
+
+    if (voiceAdd) {
+        VoicePlanningAssistantSheet(
+            kind = VoicePlanKind.BILL,
+            onDismiss = {
+                voiceAdd = false
+            },
+            onSaved = {
+                retryLoad++
+            }
+        )
     }
 
     if (billEditor) {
@@ -971,6 +985,26 @@ fun BillsRemindersScreen(
                 onOpenCalendar = { showCalendar = true }
             )
         }
+        item {
+            OutlinedButton(
+                onClick = {
+                    voiceAdd = true
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Icon(
+                    Icons.Rounded.Mic,
+                    contentDescription = null
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Add bill by voice",
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
