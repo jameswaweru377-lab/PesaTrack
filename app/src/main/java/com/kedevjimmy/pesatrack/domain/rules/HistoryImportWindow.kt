@@ -32,6 +32,10 @@ object HistoryImportWindow {
             set(Calendar.MILLISECOND, 0)
         }
 
+        val monthLabelFormatter = SimpleDateFormat("MMMM yyyy", locale).apply {
+            this.timeZone = timeZone
+        }
+
         return (0 until count).map { offset ->
             val start = (current.clone() as Calendar).apply {
                 add(Calendar.MONTH, -offset)
@@ -43,7 +47,7 @@ object HistoryImportWindow {
             HistoryMonth(
                 year = start.get(Calendar.YEAR),
                 month = start.get(Calendar.MONTH),
-                label = SimpleDateFormat("MMMM yyyy", locale).format(start.time),
+                label = monthLabelFormatter.format(start.time),
                 startEpochMs = start.timeInMillis,
                 endEpochMs = end.timeInMillis
             )
