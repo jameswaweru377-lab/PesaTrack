@@ -882,9 +882,14 @@ class DebtStore private constructor(context: Context) {
                             direction = ?
                             AND linked_account_id = ?
                         )
+                        OR (
+                            direction = ?
+                            AND relation_type = ?
+                            AND account_id = ?
+                        )
                       )
                   AND occurred_at_epoch_ms BETWEEN ? AND ?
-                  AND review_state != ?
+                  AND review_state NOT IN (?, ?)
                   AND id NOT IN (
                         SELECT linked_transaction_id
                         FROM debt_events
@@ -899,6 +904,13 @@ class DebtStore private constructor(context: Context) {
                     com.kedevjimmy.pesatrack.domain.model
                         .MoneyDirection.TRANSFER.name,
                     fundingAccountId,
+                    // A returned merchant payment is credited to this wallet,
+                    // but legacy accounting labels its refund as TRANSFER with
+                    // the original purchase relation, not a linked destination.
+                    com.kedevjimmy.pesatrack.domain.model
+                        .MoneyDirection.TRANSFER.name,
+                    TransactionStore.RELATION_REFUND,
+                    fundingAccountId,
                     (
                         repayment.occurredAtEpochMs -
                             REPAYMENT_LINK_WINDOW_MS
@@ -908,7 +920,9 @@ class DebtStore private constructor(context: Context) {
                             REPAYMENT_LINK_WINDOW_MS
                     ).toString(),
                     com.kedevjimmy.pesatrack.domain.model
-                        .ReviewState.EXCLUDED.name
+                        .ReviewState.EXCLUDED.name,
+                    com.kedevjimmy.pesatrack.domain.model
+                        .ReviewState.NEEDS_REVIEW.name
                 )
             ).use { cursor ->
                 buildList {
