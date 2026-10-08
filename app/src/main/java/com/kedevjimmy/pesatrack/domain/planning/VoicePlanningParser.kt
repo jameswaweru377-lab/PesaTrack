@@ -304,7 +304,7 @@ object VoicePlanningParser {
             listOf(
                 // "I'm targeting to save for a PS5 ..."
                 Regex(
-                    """(?i)\b(?:i\s*(?:am|'m)\s+)?(?:targeting|trying|planning|hoping|wanting)?\s*(?:to\s+)?save(?:\s+up)?\s+for\s+(?:a\s+|an\s+|the\s+|my\s+)?(.+?)(?=\s*[,.-]?\s*(?:with\s+(?:a\s+)?target|target(?:\s+of)?|worth|cost(?:s)?|price|for\s+(?:(?:kes|kshs?|shillings?)\s*)?[0-9][0-9,]*(?:\.\d+)?(?:\s*(?:k|thousand|m|million))?|by|before|due|at)\b|$)"""
+                    """(?i)\b(?:i\s*(?:am|'m)\s+)?(?:targeting|trying|planning|hoping|wanting)?\s*(?:to\s+)?sav(?:e|ing)(?:\s+up)?\s+for\s+(?:a\s+|an\s+|the\s+|my\s+)?(.+?)(?=\s*[,.-]?\s*(?:with\s+(?:a\s+)?target|target(?:\s+of)?|worth|cost(?:s)?|price|for\s+(?:(?:kes|kshs?|shillings?)\s*)?[0-9][0-9,]*(?:\.\d+)?(?:\s*(?:k|thousand|m|million))?|by|before|due|at)\b|$)"""
                 ),
                 // "I wanted to buy a couch ..." / "I want to get a laptop ..."
                 Regex(
