@@ -5,7 +5,13 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.interpretation.*
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
+import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferMatch
+import com.kedevjimmy.pesatrack.domain.rules.OwnTransferEvidence
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -188,6 +194,134 @@ class AutomaticAccountResolutionTest {
                     it.id == accountId
                 }
                 .enabled
+        )
+    }
+
+    @Test
+    fun historicalRowCanBeReclassifiedAfterOwnershipSelection() {
+        val accountStore =
+            AccountStore.get(context)
+        val bank =
+            accountStore.save(
+                id = "owned-bank-test",
+                name = "KCB Bank Kenya",
+                type = AccountType.BANK
+            )
+        val transactionStore =
+            TransactionStore.get(context)
+        val parsed =
+            ParsedMpesaTransaction(
+                transactionCode =
+                    "OWN12ABC34",
+                type =
+                    MpesaTransactionType
+                        .SENT_MONEY,
+                amountMinor =
+                    2_500_00L,
+                counterparty =
+                    "KCB Bank Kenya",
+                counterpartyPhone =
+                    null,
+                feeMinor = 0L,
+                balanceMinor = null,
+                occurredAtText = null,
+                rawMessage =
+                    "Ksh2,500 transferred to KCB account"
+            )
+        val ownTransfer =
+            OwnAccountTransferMatch(
+                sourceAccountId =
+                    AccountStore
+                        .DEFAULT_MPESA_ID,
+                sourceName = "M-Pesa",
+                destinationAccountId =
+                    bank.id,
+                destinationName =
+                    bank.name,
+                evidence =
+                    OwnTransferEvidence
+                        .EXACT_IDENTIFIER
+            )
+
+        assertTrue(
+            transactionStore.insertIfNew(
+                parsed = parsed,
+                sourcePackage = null,
+                sourceKind =
+                    "test_history",
+                receivedAtEpochMs = EPOCH,
+                occurredAtEpochMs = EPOCH,
+                rebuildPayCycles = false,
+                runRelationshipReconciliation =
+                    false,
+                runMirrorCorrelation = false,
+                accountTransferOverride =
+                    ownTransfer
+            )
+        )
+
+        assertEquals(
+            1,
+            transactionStore
+                .reconcileAutoTransfersWithOwnedAccounts(
+                    setOf(
+                        AccountStore
+                            .DEFAULT_MPESA_ID
+                    )
+                )
+        )
+        val demoted =
+            transactionStore
+                .findByTransactionCode(
+                    "OWN12ABC34"
+                )!!
+        assertEquals(
+            MoneyDirection.EXPENSE.name,
+            demoted.direction
+        )
+        assertNull(
+            demoted.linkedAccountId
+        )
+
+        assertFalse(
+            transactionStore.insertIfNew(
+                parsed = parsed,
+                sourcePackage = null,
+                sourceKind =
+                    "test_history",
+                receivedAtEpochMs = EPOCH,
+                occurredAtEpochMs = EPOCH,
+                rebuildPayCycles = false,
+                runRelationshipReconciliation =
+                    false,
+                runMirrorCorrelation = false,
+                accountTransferOverride =
+                    ownTransfer
+            )
+        )
+
+        val promoted =
+            transactionStore
+                .findByTransactionCode(
+                    "OWN12ABC34"
+                )!!
+        assertEquals(
+            MoneyDirection.TRANSFER.name,
+            promoted.direction
+        )
+        assertEquals(
+            TransactionCategory
+                .TRANSFER.name,
+            promoted.category
+        )
+        assertEquals(
+            AccountStore
+                .DEFAULT_MPESA_ID,
+            promoted.accountId
+        )
+        assertEquals(
+            bank.id,
+            promoted.linkedAccountId
         )
     }
 
