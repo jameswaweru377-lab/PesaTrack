@@ -1389,6 +1389,14 @@ fun ActivityScreen(
                                                     it
                                                 ]?.name
                                             },
+                                    linkedAccountName =
+                                        transaction
+                                            .linkedAccountId
+                                            ?.let {
+                                                accountsById[
+                                                    it
+                                                ]?.name
+                                            },
                                     onClick = {
                                         onTransactionClick(
                                             transaction.id
@@ -3754,6 +3762,7 @@ private fun ActivityDateHeader(
 private fun ActivityRow(
     item: StoredTransaction,
     accountName: String?,
+    linkedAccountName: String?,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -3839,11 +3848,13 @@ private fun ActivityRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
+                    val activityLabel =
                         when {
-                            needsReview -> "Needs review"
+                            needsReview ->
+                                "Needs review"
                             isRefund ->
-                                "Refund • " + categoryLabel
+                                "Refund • " +
+                                    categoryLabel
                             else ->
                                 financialActivityEventLabel(
                                     item = item,
@@ -3854,9 +3865,29 @@ private fun ActivityRow(
                                     accountName =
                                         accountName
                                 )
-                        },
+                        }
+                    val routeLabel =
+                        financialActivityRouteLabel(
+                            item = item,
+                            accountName =
+                                accountName,
+                            linkedAccountName =
+                                linkedAccountName
+                        )
+                    Text(
+                        listOfNotNull(
+                            routeLabel,
+                            activityLabel
+                        ).joinToString(
+                            " • "
+                        ),
                         style = MaterialTheme.typography.bodySmall,
-                        color = pesaToneContent(tone)
+                        color = pesaToneContent(tone),
+                        maxLines = 1,
+                        overflow =
+                            androidx.compose.ui.text
+                                .style.TextOverflow
+                                .Ellipsis
                     )
                 }
                 if (
