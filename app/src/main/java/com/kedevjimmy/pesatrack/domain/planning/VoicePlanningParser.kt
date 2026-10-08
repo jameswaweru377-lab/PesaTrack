@@ -3,8 +3,6 @@ package com.kedevjimmy.pesatrack.domain.planning
 import com.kedevjimmy.pesatrack.planning.BillCadence
 import java.util.Calendar
 import java.util.Locale
-import java.util.concurrent.TimeUnit
-import kotlin.math.ceil
 
 enum class VoicePlanKind {
     GOAL,
@@ -697,19 +695,49 @@ object VoicePlanningParser {
         nowEpochMs: Long,
         targetEpochMs: Long
     ): Int {
-        val delta =
-            (targetEpochMs -
-                nowEpochMs)
-                .coerceAtLeast(1L)
-        val days =
-            delta.toDouble() /
-                TimeUnit.DAYS
-                    .toMillis(1)
-                    .toDouble()
-        return ceil(
-            days / 30.4375
-        ).toInt()
-            .coerceAtLeast(1)
+        val start =
+            Calendar.getInstance()
+                .apply {
+                    timeInMillis =
+                        nowEpochMs
+                }
+        val target =
+            Calendar.getInstance()
+                .apply {
+                    timeInMillis =
+                        targetEpochMs
+                }
+
+        var months =
+            (
+                target.get(
+                    Calendar.YEAR
+                ) -
+                    start.get(
+                        Calendar.YEAR
+                    )
+                ) * 12 +
+                (
+                    target.get(
+                        Calendar.MONTH
+                    ) -
+                        start.get(
+                            Calendar.MONTH
+                        )
+                    )
+
+        if (
+            target.get(
+                Calendar.DAY_OF_MONTH
+            ) >
+            start.get(
+                Calendar.DAY_OF_MONTH
+            )
+        ) {
+            months += 1
+        }
+
+        return months.coerceAtLeast(1)
     }
 
     private fun ceilDiv(
