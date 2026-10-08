@@ -304,15 +304,15 @@ object VoicePlanningParser {
             listOf(
                 // "I'm targeting to save for a PS5 ..."
                 Regex(
-                    """(?i)\b(?:i\s*(?:am|'m)\s+)?(?:targeting|trying|planning|hoping|wanting)?\s*(?:to\s+)?save(?:\s+up)?\s+for\s+(?:a\s+|an\s+|the\s+|my\s+)?(.+?)(?=\s*[,.-]?\s*(?:with\s+(?:a\s+)?target|target(?:\s+of)?|worth|cost(?:s)?|price|for\s+(?:kes|kshs?|shillings?|[0-9])|by|before|due|at)\b|$)"""
+                    """(?i)\b(?:i\s*(?:am|'m)\s+)?(?:targeting|trying|planning|hoping|wanting)?\s*(?:to\s+)?save(?:\s+up)?\s+for\s+(?:a\s+|an\s+|the\s+|my\s+)?(.+?)(?=\s*[,.-]?\s*(?:with\s+(?:a\s+)?target|target(?:\s+of)?|worth|cost(?:s)?|price|for\s+(?:(?:kes|kshs?|shillings?)\s*)?[0-9][0-9,]*(?:\.\d+)?(?:\s*(?:k|thousand|m|million))?|by|before|due|at)\b|$)"""
                 ),
                 // "I wanted to buy a couch ..." / "I want to get a laptop ..."
                 Regex(
-                    """(?i)\b(?:i\s+)?(?:want(?:ed)?\s+to|plan(?:ning)?\s+to|going\s+to|need\s+to|would\s+like\s+to)?\s*(?:buy|purchase|get)\s+(?:a\s+|an\s+|the\s+|my\s+)?(.+?)(?=\s*[,.-]?\s*(?:with\s+(?:a\s+)?target|target(?:\s+of)?|worth|cost(?:s)?|price|for\s+(?:kes|kshs?|shillings?|[0-9])|by|before|due|at)\b|$)"""
+                    """(?i)\b(?:i\s+)?(?:want(?:ed)?\s+to|plan(?:ning)?\s+to|going\s+to|need\s+to|would\s+like\s+to)?\s*(?:buy|purchase|get)\s+(?:a\s+|an\s+|the\s+|my\s+)?(.+?)(?=\s*[,.-]?\s*(?:with\s+(?:a\s+)?target|target(?:\s+of)?|worth|cost(?:s)?|price|for\s+(?:(?:kes|kshs?|shillings?)\s*)?[0-9][0-9,]*(?:\.\d+)?(?:\s*(?:k|thousand|m|million))?|by|before|due|at)\b|$)"""
                 ),
                 // "I'm saving towards a couch ..."
                 Regex(
-                    """(?i)\b(?:saving|save)\s+(?:towards|toward)\s+(?:a\s+|an\s+|the\s+|my\s+)?(.+?)(?=\s*[,.-]?\s*(?:with\s+(?:a\s+)?target|target(?:\s+of)?|worth|cost(?:s)?|price|for\s+(?:kes|kshs?|shillings?|[0-9])|by|before|due|at)\b|$)"""
+                    """(?i)\b(?:saving|save)\s+(?:towards|toward)\s+(?:a\s+|an\s+|the\s+|my\s+)?(.+?)(?=\s*[,.-]?\s*(?:with\s+(?:a\s+)?target|target(?:\s+of)?|worth|cost(?:s)?|price|for\s+(?:(?:kes|kshs?|shillings?)\s*)?[0-9][0-9,]*(?:\.\d+)?(?:\s*(?:k|thousand|m|million))?|by|before|due|at)\b|$)"""
                 ),
                 // Existing explicit goal language.
                 Regex(
