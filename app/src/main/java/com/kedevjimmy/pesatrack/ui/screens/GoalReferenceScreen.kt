@@ -887,12 +887,14 @@ fun SavingGoalsScreen(
                 val previousRows = store.activitySnapshotBetween(
                     monthStart(-1),
                     monthStart(0),
-                    now
+                    now,
+                    performMaintenance = false
                 ).trustedTransactions
                 val totalRows = store.activitySnapshotBetween(
                     0L,
                     now + 1L,
-                    now
+                    now,
+                    performMaintenance = false
                 ).trustedTransactions
 
                 ReferenceGoalState(
