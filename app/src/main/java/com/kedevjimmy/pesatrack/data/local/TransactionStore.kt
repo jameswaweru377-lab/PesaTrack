@@ -1180,32 +1180,128 @@ class TransactionStore private constructor(context: Context) {
         timeZone: TimeZone = TimeZone.getDefault()
     ): List<ActivityMonthBucket> {
         synchronized(CanonicalStoreLock.monitor) {
-        val counts = linkedMapOf<Long, Int>()
+        val range =
+            database.readableDatabase
+                .rawQuery(
+                    """
+                    SELECT
+                        MIN(occurred_at_epoch_ms),
+                        MAX(occurred_at_epoch_ms)
+                    FROM transactions
+                    WHERE review_state != ?
+                    """.trimIndent(),
+                    arrayOf(
+                        ReviewState.EXCLUDED.name
+                    )
+                )
+                .use { cursor ->
+                    if (
+                        !cursor.moveToFirst() ||
+                        cursor.isNull(0) ||
+                        cursor.isNull(1)
+                    ) {
+                        null
+                    } else {
+                        cursor.getLong(0) to
+                            cursor.getLong(1)
+                    }
+                } ?: return emptyList()
 
-        database.readableDatabase.rawQuery(
-            "SELECT occurred_at_epoch_ms FROM transactions WHERE review_state != ? ORDER BY occurred_at_epoch_ms DESC, id DESC",
-            arrayOf(ReviewState.EXCLUDED.name)
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                val monthStart = Calendar.getInstance(timeZone).apply {
-                    timeInMillis = cursor.getLong(0)
-                    set(Calendar.DAY_OF_MONTH, 1)
-                    set(Calendar.HOUR_OF_DAY, 0)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }.timeInMillis
+        fun monthStart(
+            epochMs: Long
+        ): Calendar =
+            Calendar.getInstance(timeZone)
+                .apply {
+                    timeInMillis = epochMs
+                    set(
+                        Calendar.DAY_OF_MONTH,
+                        1
+                    )
+                    set(
+                        Calendar.HOUR_OF_DAY,
+                        0
+                    )
+                    set(
+                        Calendar.MINUTE,
+                        0
+                    )
+                    set(
+                        Calendar.SECOND,
+                        0
+                    )
+                    set(
+                        Calendar.MILLISECOND,
+                        0
+                    )
+                }
 
-                counts[monthStart] = (counts[monthStart] ?: 0) + 1
+        val earliest =
+            monthStart(range.first)
+        val cursorMonth =
+            monthStart(range.second)
+        val result =
+            mutableListOf<ActivityMonthBucket>()
+
+        while (
+            cursorMonth.timeInMillis >=
+            earliest.timeInMillis
+        ) {
+            val start =
+                cursorMonth.timeInMillis
+            val end =
+                (cursorMonth.clone()
+                    as Calendar)
+                    .apply {
+                        add(
+                            Calendar.MONTH,
+                            1
+                        )
+                    }
+                    .timeInMillis
+
+            val count =
+                database.readableDatabase
+                    .rawQuery(
+                        """
+                        SELECT COUNT(*)
+                        FROM transactions
+                        WHERE review_state != ?
+                          AND occurred_at_epoch_ms >= ?
+                          AND occurred_at_epoch_ms < ?
+                        """.trimIndent(),
+                        arrayOf(
+                            ReviewState.EXCLUDED.name,
+                            start.toString(),
+                            end.toString()
+                        )
+                    )
+                    .use { cursor ->
+                        if (
+                            cursor.moveToFirst()
+                        ) {
+                            cursor.getInt(0)
+                        } else {
+                            0
+                        }
+                    }
+
+            if (count > 0) {
+                result +=
+                    ActivityMonthBucket(
+                        monthStartEpochMs =
+                            start,
+                        transactionCount =
+                            count
+                    )
             }
-        }
 
-        return counts.map { (monthStart, count) ->
-            ActivityMonthBucket(
-                monthStartEpochMs = monthStart,
-                transactionCount = count
+            cursorMonth.add(
+                Calendar.MONTH,
+                -1
             )
         }
+
+        return result
     }
     }
 
