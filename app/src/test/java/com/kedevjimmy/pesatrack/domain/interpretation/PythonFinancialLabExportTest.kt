@@ -69,7 +69,8 @@ class PythonFinancialLabExportTest {
             )
         }
         val output = File(root, "app/build/python-lab/kotlin-output.json")
-        check(output.parentFile.mkdirs() || output.parentFile.isDirectory)
+        val directory = checkNotNull(output.parentFile)
+        check(directory.mkdirs() || directory.isDirectory)
         output.writeText(
             GsonBuilder().setPrettyPrinting().create().toJson(
                 mapOf(
