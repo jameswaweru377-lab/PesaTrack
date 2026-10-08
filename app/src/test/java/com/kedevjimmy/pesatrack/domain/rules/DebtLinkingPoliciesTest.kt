@@ -271,6 +271,75 @@ class DebtLinkingPoliciesTest {
 
 
     @Test
+    fun doesNotLinkRepaymentToMoneyThatArrivedAfterIt() {
+        val candidateAfterRepayment = RepaymentFundingCandidate(
+            transactionId = 93L,
+            amountMinor = 22_000L,
+            occurredAtEpochMs = 601_000L,
+            balanceAfterMinor = 22_000L,
+            priorBalanceMinor = 0L
+        )
+        assertNull(
+            DebtRepaymentChainPolicy.chooseFundingTransaction(
+                repaymentAmountMinor = 22_000L,
+                walletBalanceAfterMinor = 0L,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(candidateAfterRepayment)
+            )
+        )
+    }
+
+    @Test
+    fun laterMoneyCannotObscureRealEarlierRepaymentFunding() {
+        val earlier = RepaymentFundingCandidate(
+            transactionId = 94L,
+            amountMinor = 22_000L,
+            occurredAtEpochMs = 590_000L,
+            balanceAfterMinor = null,
+            priorBalanceMinor = null
+        )
+        val later = earlier.copy(
+            transactionId = 95L,
+            occurredAtEpochMs = 610_000L
+        )
+        val match = DebtRepaymentChainPolicy.chooseFundingTransaction(
+            repaymentAmountMinor = 22_000L,
+            walletBalanceAfterMinor = null,
+            repaymentAtEpochMs = 600_000L,
+            candidates = listOf(later, earlier)
+        )
+        assertEquals(94L, match?.transactionId)
+        assertEquals(RepaymentChainConfidence.MEDIUM, match?.confidence)
+    }
+
+    @Test
+    fun laterLoanDisbursementCannotFundPastRepayment() {
+        val later = DebtProceedsEventCandidate(
+            debtEventId = 21L,
+            amountMinor = 98_500L,
+            occurredAtEpochMs = 601_000L
+        )
+        assertNull(
+            DebtProceedsRepaymentLinkPolicy.choose(
+                repaymentAmountMinor = 98_500L,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(later)
+            )
+        )
+        assertEquals(
+            22L,
+            DebtProceedsRepaymentLinkPolicy.choose(
+                repaymentAmountMinor = 98_500L,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(
+                    later,
+                    later.copy(debtEventId = 22L, occurredAtEpochMs = 590_000L)
+                )
+            )?.debtEventId
+        )
+    }
+
+    @Test
     fun linksExplicitResultingBalanceObservation() {
         val match =
             DebtRepaymentBalancePolicy.choose(

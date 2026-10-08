@@ -60,10 +60,8 @@ object DebtProceedsRepaymentLinkPolicy {
             candidates.filter { candidate ->
                 candidate.amountMinor ==
                     repaymentAmountMinor &&
-                    abs(
-                        repaymentAtEpochMs -
-                            candidate.occurredAtEpochMs
-                    ) <= MAX_LINK_DISTANCE_MS
+                    repaymentAtEpochMs - candidate.occurredAtEpochMs in
+                        0L..MAX_LINK_DISTANCE_MS
             }
 
         if (exact.size != 1) {
@@ -72,10 +70,8 @@ object DebtProceedsRepaymentLinkPolicy {
 
         val candidate = exact.single()
         val distance =
-            abs(
-                repaymentAtEpochMs -
-                    candidate.occurredAtEpochMs
-            )
+            repaymentAtEpochMs -
+                candidate.occurredAtEpochMs
 
         return DebtProceedsEventMatch(
             debtEventId = candidate.debtEventId,
@@ -174,10 +170,11 @@ object DebtRepaymentChainPolicy {
 
         val plausible = candidates
             .filter {
-                abs(
-                    repaymentAtEpochMs -
-                        it.occurredAtEpochMs
-                ) <= MAX_LINK_DISTANCE_MS
+                // Funds must exist when the repayment happens. SMS delivery
+                // order may differ, but future *transaction* timestamps are
+                // not causal evidence for an earlier repayment.
+                repaymentAtEpochMs - it.occurredAtEpochMs in
+                    0L..MAX_LINK_DISTANCE_MS
             }
             .sortedBy {
                 abs(
