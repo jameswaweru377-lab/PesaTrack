@@ -137,7 +137,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private data class ActivityScreenData(
+internal data class ActivityScreenData(
     val monthBuckets: List<ActivityMonthBucket>,
     val snapshot: ActivityLedgerSnapshot,
     val previousSnapshot: ActivityLedgerSnapshot,
@@ -149,6 +149,11 @@ private data class ActivityScreenData(
     val confirmedAccountIds: Set<String>,
     val identityReviewCount: Int
 )
+
+internal class ActivityScreenCache {
+    var selectedMonthEpochMs: Long? = null
+    var data: ActivityScreenData? = null
+}
 
 private fun emptyActivityLedgerSnapshot(): ActivityLedgerSnapshot =
     ActivityLedgerSnapshot(
@@ -171,7 +176,8 @@ fun ActivityScreen(
     onProfileClick: () -> Unit = {},
     onIdentityReviewClick: () -> Unit = {},
     onSalaryClick: () -> Unit = {},
-    openNeedsAttention: Boolean = false
+    openNeedsAttention: Boolean = false,
+    stateCache: ActivityScreenCache? = null
 ) {
     var payCycleMode by rememberSaveable { mutableStateOf(false) }
     if (payCycleMode) {
@@ -206,40 +212,53 @@ fun ActivityScreen(
     val currentMonthEpochMs = remember {
         monthStart(System.currentTimeMillis())
     }
+    val warmData =
+        remember(stateCache) {
+            stateCache?.data
+        }
+    val warmMonth =
+        remember(stateCache) {
+            stateCache?.selectedMonthEpochMs
+                ?: currentMonthEpochMs
+        }
 
-    var monthBuckets by remember {
-        mutableStateOf(
-            listOf(
-                ActivityMonthBucket(
-                    monthStartEpochMs =
-                        currentMonthEpochMs,
-                    transactionCount = 0
-                )
-            )
-        )
-    }
     var selectedMonthEpochMs by rememberSaveable {
-        mutableStateOf(currentMonthEpochMs)
+        mutableStateOf(warmMonth)
     }
     var expandedMonthEpochMs by rememberSaveable {
-        mutableStateOf<Long?>(currentMonthEpochMs)
+        mutableStateOf<Long?>(warmMonth)
+    }
+    var monthBuckets by remember {
+        mutableStateOf(
+            warmData?.monthBuckets
+                ?: listOf(
+                    ActivityMonthBucket(
+                        monthStartEpochMs =
+                            currentMonthEpochMs,
+                        transactionCount = 0
+                    )
+                )
+        )
     }
     var snapshot by remember {
         mutableStateOf(
-            emptyActivityLedgerSnapshot()
+            warmData?.snapshot
+                ?: emptyActivityLedgerSnapshot()
         )
     }
     var previousSnapshot by remember {
         mutableStateOf(
-            emptyActivityLedgerSnapshot()
+            warmData?.previousSnapshot
+                ?: emptyActivityLedgerSnapshot()
         )
     }
     var globalOverview by remember {
         mutableStateOf(
-            ActivityReviewOverview(
-                reviewGroups = emptyList(),
-                possibleDuplicates = emptyList()
-            )
+            warmData?.globalOverview
+                ?: ActivityReviewOverview(
+                    reviewGroups = emptyList(),
+                    possibleDuplicates = emptyList()
+                )
         )
     }
     var showEvidenceLinks by remember { mutableStateOf(false) }
@@ -251,12 +270,14 @@ fun ActivityScreen(
     }
     var relationshipReviews by remember {
         mutableStateOf<List<RelationshipReviewItem>>(
-            emptyList()
+            warmData?.relationshipReviews
+                ?: emptyList()
         )
     }
     var pendingFinancialEntities by remember {
         mutableStateOf<List<DiscoveredFinancialEntity>>(
-            emptyList()
+            warmData?.pendingFinancialEntities
+                ?: emptyList()
         )
     }
     var selectedFilter by remember {
@@ -270,21 +291,27 @@ fun ActivityScreen(
     }
     var financialDiagnostics by remember {
         mutableStateOf<List<FinancialIngestionDiagnostic>>(
-            emptyList()
+            warmData?.financialDiagnostics
+                ?: emptyList()
         )
     }
     var accountsById by remember {
         mutableStateOf<Map<String, MoneyAccount>>(
-            emptyMap()
+            warmData?.accountsById
+                ?: emptyMap()
         )
     }
     var confirmedAccountIds by remember {
         mutableStateOf<Set<String>>(
-            emptySet()
+            warmData?.confirmedAccountIds
+                ?: emptySet()
         )
     }
     var identityReviewCount by remember {
-        mutableStateOf(0)
+        mutableStateOf(
+            warmData?.identityReviewCount
+                ?: 0
+        )
     }
     var selectedGlobalQueue by
         rememberSaveable(
@@ -352,10 +379,15 @@ fun ActivityScreen(
                             shiftMonth(
                                 monthEpochMs,
                                 -1
-                            )
+                            ),
+                        performMaintenance =
+                            false
                     ),
                 globalOverview =
-                    store.activityReviewOverview(),
+                    store.activityReviewOverview(
+                        performMaintenance =
+                            false
+                    ),
                 relationshipReviews =
                     relationshipReviewStore
                         .pendingReviews(),
@@ -392,6 +424,7 @@ fun ActivityScreen(
         }
 
     fun applyActivityData(
+        monthEpochMs: Long,
         data: ActivityScreenData
     ) {
         monthBuckets = data.monthBuckets
@@ -412,6 +445,11 @@ fun ActivityScreen(
             data.confirmedAccountIds
         identityReviewCount =
             data.identityReviewCount
+        stateCache?.let {
+            it.selectedMonthEpochMs =
+                monthEpochMs
+            it.data = data
+        }
     }
 
     val reviewableFinancialEntities =
@@ -453,7 +491,7 @@ fun ActivityScreen(
                 selectedMonthEpochMs ==
                 requestedMonth
             ) {
-                applyActivityData(data)
+                applyActivityData(requestedMonth, data)
             }
         }
     }
@@ -472,7 +510,7 @@ fun ActivityScreen(
             selectedMonthEpochMs ==
             requestedMonth
         ) {
-            applyActivityData(data)
+            applyActivityData(requestedMonth, data)
         }
     }
 
