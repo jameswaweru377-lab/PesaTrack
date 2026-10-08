@@ -41,6 +41,41 @@ class RecentFinancialNotificationDeduperTest {
     }
 
     @Test
+    fun whitespaceOnlyNotificationUpdateIsSuppressed() {
+        val deduper =
+            RecentFinancialNotificationDeduper(
+                windowMs = 120_000L
+            )
+
+        assertTrue(
+            deduper.shouldProcess(
+                notificationKey = "bank|1",
+                sourcePackage =
+                    "ke.example.bank",
+                title =
+                    "Transaction alert",
+                body =
+                    "KES 500.00 debited from account.",
+                observedAtEpochMs =
+                    1_000L
+            )
+        )
+        assertFalse(
+            deduper.shouldProcess(
+                notificationKey = "bank|1",
+                sourcePackage =
+                    "ke.example.bank",
+                title =
+                    "Transaction alert",
+                body =
+                    "KES   500.00   debited\nfrom account.",
+                observedAtEpochMs =
+                    2_000L
+            )
+        )
+    }
+
+    @Test
     fun changedNotificationBodyIsNewEvidence() {
         val deduper =
             RecentFinancialNotificationDeduper(

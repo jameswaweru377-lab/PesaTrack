@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.ingestion
 
 import android.app.Notification
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -350,6 +351,20 @@ class MpesaNotificationListenerService :
             recentEvidence
                 .removeFirst()
         }
+    }
+
+    override fun onListenerDisconnected() {
+        super.onListenerDisconnected()
+        // Android/OEM battery management can disconnect notification access
+        // while the app is backgrounded. Ask the system to reconnect the
+        // listener instead of waiting for the user to reopen PesaTrack.
+        requestRebind(
+            ComponentName(
+                this,
+                MpesaNotificationListenerService::
+                    class.java
+            )
+        )
     }
 
     override fun onDestroy() {

@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ui
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -13,6 +14,7 @@ import com.kedevjimmy.pesatrack.ui.components.MainTab
 import com.kedevjimmy.pesatrack.ui.screens.AccountDetailsScreen
 import com.kedevjimmy.pesatrack.ui.screens.AccountsScreen
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
+import com.kedevjimmy.pesatrack.ui.screens.ActivityScreenCache
 import com.kedevjimmy.pesatrack.ui.screens.BillsRemindersScreen
 import com.kedevjimmy.pesatrack.ui.screens.BudgetScreen
 import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
@@ -21,6 +23,7 @@ import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
 import com.kedevjimmy.pesatrack.ui.screens.IdentityReviewScreen
 import com.kedevjimmy.pesatrack.ui.screens.SalaryScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
+import com.kedevjimmy.pesatrack.ui.screens.HomeScreenCache
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoreScreen
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
@@ -44,6 +47,14 @@ fun PesaTrackApp(
     billsOpenRequest: Int = 0
 ) {
     val navController = rememberNavController()
+    val homeScreenCache =
+        remember {
+            HomeScreenCache()
+        }
+    val activityScreenCache =
+        remember {
+            ActivityScreenCache()
+        }
 
     LaunchedEffect(salaryOpenRequest, setupComplete) {
         if (salaryOpenRequest > 0 && setupComplete) navController.navigate("salary") { launchSingleTop = true }
@@ -54,11 +65,23 @@ fun PesaTrackApp(
     }
 
     fun navigateToTab(tab: MainTab) {
-        navController.navigate(tab.route) {
-            launchSingleTop = true
-            restoreState = true
-            popUpTo(MainTab.HOME.route) {
-                saveState = true
+        val alreadyAtTab =
+            navController.currentDestination
+                ?.route == tab.route
+        if (alreadyAtTab) {
+            return
+        }
+
+        val returnedToExistingTab =
+            navController.popBackStack(
+                route = tab.route,
+                inclusive = false
+            )
+        if (!returnedToExistingTab) {
+            navController.navigate(
+                tab.route
+            ) {
+                launchSingleTop = true
             }
         }
     }
@@ -147,7 +170,9 @@ fun PesaTrackApp(
                     },
                     onReportsClick = {
                         navController.navigate("reports")
-                    }
+                    },
+                    stateCache =
+                        homeScreenCache
                 )
             }
         }
@@ -227,7 +252,9 @@ fun PesaTrackApp(
                         navController.navigate(
                             "identity-review"
                         )
-                    }
+                    },
+                    stateCache =
+                        activityScreenCache
                 )
             }
         }
@@ -255,7 +282,9 @@ fun PesaTrackApp(
                             "identity-review"
                         )
                     },
-                    openNeedsAttention = true
+                    openNeedsAttention = true,
+                    stateCache =
+                        activityScreenCache
                 )
             }
         }
@@ -360,11 +389,9 @@ fun PesaTrackApp(
                         navController.popBackStack()
                     },
                     onReviewClick = {
-                        navController.navigate(
-                            MainTab.ACTIVITY.route
-                        ) {
-                            launchSingleTop = true
-                        }
+                        navigateToTab(
+                            MainTab.ACTIVITY
+                        )
                     }
                 )
             }

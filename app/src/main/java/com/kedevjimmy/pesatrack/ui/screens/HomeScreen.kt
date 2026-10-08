@@ -104,7 +104,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private data class HomeLoadedState(
+data class HomeLoadedState(
     val cycleSnapshot: PayCycleSnapshot,
     val ledgerSnapshot: LedgerSnapshot,
     val activitySnapshot: ActivityLedgerSnapshot,
@@ -120,6 +120,10 @@ private data class HomeLoadedState(
     val moneyPictureHealth:
         MoneyPictureHealth
 )
+
+class HomeScreenCache {
+    var data: HomeLoadedState? = null
+}
 
 private fun emptyPayCycleSnapshot() =
     PayCycleSnapshot(
@@ -164,7 +168,8 @@ fun HomeScreen(
     onSalaryClick: () -> Unit = {},
     onBillsClick: () -> Unit = {},
     onGoalsClick: () -> Unit = {},
-    onReportsClick: () -> Unit = {}
+    onReportsClick: () -> Unit = {},
+    stateCache: HomeScreenCache? = null
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val cycleStore = remember { PayCycleStore.get(context) }
@@ -219,85 +224,112 @@ fun HomeScreen(
     var showProtectionDialog by remember {
         mutableStateOf(false)
     }
+    val warmHome =
+        remember(stateCache) {
+            stateCache?.data
+        }
     var homeLoading by remember {
-        mutableStateOf(true)
+        mutableStateOf(warmHome == null)
     }
     var homeError by remember { mutableStateOf(false) }
     var refreshJob by remember { mutableStateOf<Job?>(null) }
     var refreshPending by remember { mutableStateOf(false) }
     var rebuildPending by remember { mutableStateOf(false) }
     var homeLoaded by remember {
-        mutableStateOf(false)
+        mutableStateOf(warmHome != null)
     }
 
     var cycleSnapshot by remember {
         mutableStateOf(
-            emptyPayCycleSnapshot()
+            warmHome?.cycleSnapshot
+                ?: emptyPayCycleSnapshot()
         )
     }
     var ledgerSnapshot by remember {
         mutableStateOf(
-            LedgerSnapshot(
-                transactionCount = 0,
-                latestTransaction = null,
-                latestBalanceMinor = null,
-                latestBalanceObservedAtEpochMs =
-                    null
-            )
+            warmHome?.ledgerSnapshot
+                ?: LedgerSnapshot(
+                    transactionCount = 0,
+                    latestTransaction = null,
+                    latestBalanceMinor = null,
+                    latestBalanceObservedAtEpochMs =
+                        null
+                )
         )
     }
     var activitySnapshot by remember {
         mutableStateOf(
-            emptyActivitySnapshot()
+            warmHome?.activitySnapshot
+                ?: emptyActivitySnapshot()
         )
     }
     var debtAccounts by remember {
         mutableStateOf<
             List<DebtAccountSnapshot>
-        >(emptyList())
+        >(
+            warmHome?.debtAccounts
+                ?: emptyList()
+        )
     }
     var trackedAccounts by remember {
         mutableStateOf<
             List<MoneyAccount>
-        >(emptyList())
+        >(
+            warmHome?.trackedAccounts
+                ?: emptyList()
+        )
     }
     var monthlyBudgets by remember {
-        mutableStateOf<List<MonthlyBudget>>(emptyList())
+        mutableStateOf<List<MonthlyBudget>>(
+            warmHome?.monthlyBudgets
+                ?: emptyList()
+        )
     }
     var confirmedAccountIds by remember {
         mutableStateOf<Set<String>>(
-            emptySet()
+            warmHome?.confirmedAccountIds
+                ?: emptySet()
         )
     }
     var salaryRule by remember {
         mutableStateOf<SmartRule?>(
-            null
+            warmHome?.salaryRule
         )
     }
     var upcomingBills by remember {
-        mutableStateOf<List<ScheduledBill>>(emptyList())
+        mutableStateOf<List<ScheduledBill>>(
+            warmHome?.upcomingBills
+                ?: emptyList()
+        )
     }
     var needsAttentionCount by remember {
-        mutableStateOf(0)
+        mutableStateOf(
+            warmHome?.needsAttentionCount
+                ?: 0
+        )
     }
     var accountBalanceSnapshots by remember {
         mutableStateOf<
             List<PaydayAccountSnapshot>
-        >(emptyList())
+        >(
+            warmHome?.accountBalanceSnapshots
+                ?: emptyList()
+        )
     }
     var moneyPictureHealth by remember {
         mutableStateOf(
-            MoneyPictureHealth(
-                score = 0,
-                understoodTransactions = 0,
-                consideredTransactions = 0,
-                needsReviewCount = 0,
-                lowQualitySpendingShare = 0,
-                confirmedAccountCount = 0,
-                knownBalanceAccountCount = 0,
-                salaryCycleActive = false,
-                issues = emptyList()
-            )
+            warmHome?.moneyPictureHealth
+                ?: MoneyPictureHealth(
+                    score = 0,
+                    understoodTransactions = 0,
+                    consideredTransactions = 0,
+                    needsReviewCount = 0,
+                    lowQualitySpendingShare = 0,
+                    confirmedAccountCount = 0,
+                    knownBalanceAccountCount = 0,
+                    salaryCycleActive = false,
+                    issues = emptyList()
+                )
         )
     }
 
@@ -355,7 +387,10 @@ fun HomeScreen(
                         .upcomingThisMonth(),
                 needsAttentionCount =
                     transactionStore
-                        .activityReviewOverview()
+                        .activityReviewOverview(
+                            performMaintenance =
+                                false
+                        )
                         .let { overview ->
                             overview.reviewGroups
                                 .sumOf {
@@ -430,6 +465,7 @@ fun HomeScreen(
                             .accountBalanceSnapshots
                     moneyPictureHealth =
                         loaded.moneyPictureHealth
+                    stateCache?.data = loaded
                     homeLoaded = true
                 } while (refreshPending)
             } catch (cancelled: CancellationException) {
