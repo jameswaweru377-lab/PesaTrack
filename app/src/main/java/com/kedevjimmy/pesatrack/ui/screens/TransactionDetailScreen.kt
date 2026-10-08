@@ -1363,7 +1363,7 @@ private fun TransactionHero(
                             Modifier.fillMaxWidth(),
                         horizontalArrangement =
                             Arrangement.spacedBy(
-                                10.dp
+                                8.dp
                             )
                     ) {
                         CompactHeroMetric(
