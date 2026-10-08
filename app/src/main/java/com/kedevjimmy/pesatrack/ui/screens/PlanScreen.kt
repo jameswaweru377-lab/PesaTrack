@@ -153,7 +153,8 @@ fun PlanScreen(
     ) {
         val loaded =
             withContext(Dispatchers.IO) {
-                store.rebuild()
+                // Pay cycles are rebuilt when ledger data changes. Reading Plan
+                // should not rebuild the whole cycle graph every time the tab opens.
                 val cycle = store.snapshot()
                 val recurring =
                     recurringStore.suggestions(limit = 3)
