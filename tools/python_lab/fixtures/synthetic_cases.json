@@ -1,0 +1,49 @@
+{
+  "notice": "ALL EXAMPLES INVENTED. Never add personal financial records here.",
+  "messages": [
+    {"id":"T1","kind":"transfer","text":"KES 1400 transferred from your bank account to your mobile wallet"},
+    {"id":"T2","kind":"transfer","text":"Transfer completed from my current account to my wallet for KES 950"},
+    {"id":"T3","kind":"transfer","text":"You moved KES 750 between your own bank and mobile money accounts"},
+    {"id":"I1","kind":"income","text":"Your salary payment of KES 45000 has been credited to the account"},
+    {"id":"I2","kind":"income","text":"Employer payroll deposited KES 54000 as salary in your bank account"},
+    {"id":"I3","kind":"income","text":"Wages income received KES 52000 from payroll"},
+    {"id":"E1","kind":"expense","text":"You paid a merchant KES 250 for shopping at a store"},
+    {"id":"E2","kind":"expense","text":"Payment of KES 300 completed for taxi fare"},
+    {"id":"E3","kind":"expense","text":"KES 950 paid to shop for groceries"},
+    {"id":"L1","kind":"loan_drawdown","text":"Loan approved and KES 600 deposited into your mobile wallet"},
+    {"id":"L2","kind":"loan_drawdown","text":"Credit facility loan disbursed KES 1500 to your account"},
+    {"id":"L3","kind":"loan_drawdown","text":"Borrowed KES 2500 with new loan disbursement into wallet"},
+    {"id":"R1","kind":"loan_repayment","text":"Loan repayment of KES 480 received. Remaining debt is KES 0"},
+    {"id":"R2","kind":"loan_repayment","text":"KES 520 used to settle outstanding loan principal"},
+    {"id":"R3","kind":"loan_repayment","text":"Debt repayment complete for KES 1800"},
+    {"id":"F1","kind":"fee","text":"Transaction fee of KES 12 charged to your account"},
+    {"id":"F2","kind":"fee","text":"KES 15 service fee debited for the transfer"},
+    {"id":"F3","kind":"fee","text":"Account maintenance charge KES 35 applied"},
+    {"id":"U1","kind":"refund","text":"Refund of KES 220 for cancelled taxi payment credited"},
+    {"id":"U2","kind":"refund","text":"Merchant reversed previous purchase KES 540 refunded"},
+    {"id":"U3","kind":"refund","text":"KES 350 refunded after reversed shopping transaction"},
+    {"id":"S1","kind":"savings_transfer","text":"KES 10000 transferred to locked savings from my wallet"},
+    {"id":"S2","kind":"savings_transfer","text":"Moved KES 7000 out of savings into my wallet"},
+    {"id":"S3","kind":"savings_transfer","text":"Savings deposit of KES 4000 transferred between owned accounts"},
+    {"id":"N1","kind":"no_movement","text":"Your account balance statement is available to view"},
+    {"id":"N2","kind":"no_movement","text":"Loan application declined and no money has been released"},
+    {"id":"N3","kind":"no_movement","text":"Your account balance alert contains no new transaction"}
+  ],
+  "ledger": [
+    {"id":"salary-1","kind":"income","amount":"45000.00","date":"2026-09-25","category":"Salary"},
+    {"id":"ride-1","kind":"expense","amount":"220.00","date":"2026-09-26","category":"Transport"},
+    {"id":"refund-1","kind":"refund","amount":"220.00","date":"2026-09-26","category":"Transport","linked_event_id":"ride-1"},
+    {"id":"transfer-1","kind":"transfer","amount":"1500.00","date":"2026-09-27","destination":"Owned wallet"},
+    {"id":"savings-1","kind":"savings_transfer","amount":"10000.00","date":"2026-09-27","destination":"Owned savings"},
+    {"id":"drawdown-1","kind":"loan_drawdown","amount":"1381.00","date":"2026-09-27"},
+    {"id":"repayment-1","kind":"loan_repayment","amount":"1381.00","date":"2026-09-28"},
+    {"id":"fee-1","kind":"fee","amount":"12.00","date":"2026-09-28","category":"Fees"},
+    {"id":"food-1","kind":"expense","amount":"800.00","date":"2026-09-28","category":"Food & Dining"}
+  ],
+  "spending_history": {
+    "2026-06":{"Transport":"1000","Food & Dining":"2100"},
+    "2026-07":{"Transport":"1200","Food & Dining":"2200"},
+    "2026-08":{"Transport":"1100","Food & Dining":"2000"}
+  },
+  "spending_current":{"Transport":"2400","Food & Dining":"2300"}
+}

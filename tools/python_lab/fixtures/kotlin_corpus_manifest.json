@@ -1,0 +1,120 @@
+{
+  "notice": "Reviewed sanitized Kotlin test fixtures only; TST codes and SAMPLE counterparties are synthetic. Never replace with personal messages.",
+  "corpus": "FinancialMessageFixtureCorpus-v1",
+  "cases": [
+    {
+      "id": "mshwari_to_mpesa",
+      "title": "MPESA",
+      "text": "TST12ABC01 Confirmed. Ksh 7,000.00 transferred from M-Shwari account on 28/9/26 at 6:00 PM. M-Shwari balance is Ksh 543.00. M-PESA balance is Ksh 7,789.00.",
+      "sha256": "856904f6abc1045a0ad25f7f06db2b018d06120524a31761a0c8c1289e5a319f"
+    },
+    {
+      "id": "mpesa_to_mshwari",
+      "title": "MPESA",
+      "text": "TST12ABC02 Confirmed. Ksh 2,500.00 transferred to M-Shwari account on 28/9/26 at 6:15 PM. M-Shwari balance is Ksh 3,043.00. New M-PESA balance is Ksh 5,289.00.",
+      "sha256": "c04c853ceb3918e86378d827c9b61179c0b80f9121fedb937ff294139cca5f16"
+    },
+    {
+      "id": "unknown_account_to_mpesa",
+      "title": "MPESA",
+      "text": "TST12ABC03 Confirmed. Ksh 5,000.00 transferred from PesaNova account on 28/9/26 at 7:00 PM. PesaNova balance is Ksh 12,400.00. M-PESA balance is Ksh 8,100.00.",
+      "sha256": "a494dc20ea84a21d9e116b142e9bcb992fe63dd7d93141c5eae06781ac7464a3"
+    },
+    {
+      "id": "ordinary_mpesa_payment",
+      "title": "MPESA",
+      "text": "TST12ABC04 Confirmed. Ksh 450.00 sent to SAMPLE PERSON 0712000000 on 28/9/26 at 7:10 PM. New M-PESA balance is Ksh 7,650.00. Transaction cost, Ksh 7.00.",
+      "sha256": "032ab0d65fddc3a7e4672572bc94f3a8c447b9f0a46c19355ebd78559f7f1b29"
+    },
+    {
+      "id": "ordinary_mpesa_receipt",
+      "title": "MPESA",
+      "text": "TST12ABC05 Confirmed. You have received Ksh 2,000.00 from SAMPLE PERSON 0712000001 on 28/9/26 at 7:20 PM. New M-PESA balance is Ksh 9,650.00.",
+      "sha256": "dc948170c031a048a41655f03e6338ce99895234561627aa665bd6188f1d28f3"
+    },
+    {
+      "id": "mpesa_buy_goods_paid_to",
+      "title": "MPESA",
+      "text": "TST12ABC11 Confirmed. Ksh 850.00 paid to SAMPLE SHOP on 28/9/26 at 7:25 PM. New M-PESA balance is Ksh 8,800.00. Transaction cost, Ksh 0.00.",
+      "sha256": "107bf21871e5657cc4c65f86ac3c45d76be858f28e70336c221de15f64e93503"
+    },
+    {
+      "id": "mpesa_paybill_paid_to",
+      "title": "MPESA",
+      "text": "TST12ABC12 Confirmed. Ksh 1,200.00 paid to SAMPLE UTILITY for account 123456 on 28/9/26 at 7:28 PM. New M-PESA balance is Ksh 7,600.00. Transaction cost, Ksh 20.00.",
+      "sha256": "a5a58901ffd808360d309771db1ee85ebe64231d326701a987098dd40ced0f45"
+    },
+    {
+      "id": "fuliza_drawdown",
+      "title": "MPESA",
+      "text": "TST12ABC06 Confirmed. Fuliza M-PESA amount is KSh 167.00. Access Fee charged KSh 1.67. Total Fuliza M-PESA outstanding amount is KSh 1086.51 due on 18/10/26.",
+      "sha256": "80ab1b5e639943770211b74c1800eb17474d5fa35c649b26ebead6930c683fe0"
+    },
+    {
+      "id": "fuliza_partial_repayment",
+      "title": "MPESA",
+      "text": "TST12ABC07 Confirmed. Ksh 220.00 from your M-PESA has been used to partially pay your outstanding Fuliza M-PESA. Your available Fuliza M-PESA limit is Ksh 589.09. Your M-PESA balance is Ksh 0.00.",
+      "sha256": "20a88fc7fb16d3b3f357e9835d2f10dd8974ac04a8c37a57515d384a4ef839c2"
+    },
+    {
+      "id": "fuliza_full_repayment",
+      "title": "MPESA",
+      "text": "TST12ABC08 Confirmed. Ksh 1,381.00 from your M-PESA has been used to fully pay your outstanding Fuliza M-PESA. Available Fuliza balance limit is Ksh 1,440.00. Your M-PESA balance is Ksh 13,000.00.",
+      "sha256": "d03a3d37a3055955ffaa7a1609bebee140ec9f952effaefa95785f211e59d54a"
+    },
+    {
+      "id": "merchant_refund",
+      "title": "MPESA",
+      "text": "TST12ABC09 Confirmed. You have received Ksh 220.00 from SAMPLE RIDE LIMITED 3000000 on 28/9/26 at 7:30 PM. New M-PESA balance is Ksh 220.00.",
+      "sha256": "244c622c43b87d1248ed762d6822a66b2a216c67ca5eece7862b8f03831481b2"
+    },
+    {
+      "id": "mpesa_reversal",
+      "title": "MPESA",
+      "text": "TST12ABC10 Confirmed. The reversal of transaction TST12ABC04 of Ksh 450.00 has been completed on 28/9/26 at 7:40 PM. New M-PESA balance is Ksh 8,100.00.",
+      "sha256": "a00116185cd0965e79cdbea5cdd9a17d6dd8af77ecb737e7ad9e0d2a0b41c49e"
+    },
+    {
+      "id": "mpesa_transferred_to_unknown_account",
+      "title": "MPESA",
+      "text": "TST12ABC13 Confirmed. Ksh 10,000.00 transferred to KCB ACCOUNT on 28/9/26 at 9:54 PM. New M-PESA balance is Ksh 2,500.00.",
+      "sha256": "a6a06487943026c6cfca5ff356d45df5ff2eed9d43f2776414527813a0838e3a"
+    },
+    {
+      "id": "mpesa_sent_to_masked_phone",
+      "title": "MPESA",
+      "text": "TST12ABC14 Confirmed. Ksh 900.00 sent to SAMPLE PERSON 2547****321 on 28/9/26 at 8:10 AM. New M-PESA balance is Ksh 11,950.00.",
+      "sha256": "c849d58a534a7493af87bfb7d8978b4c48274addc949bfad15d69f8fdfdae43c"
+    },
+    {
+      "id": "mpesa_cash_withdrawal",
+      "title": "MPESA",
+      "text": "TST12ABC15 Confirmed. Ksh 1,000.00 withdrawn from M-PESA at SAMPLE AGENT on 28/9/26 at 8:20 AM. New M-PESA balance is Ksh 10,950.00.",
+      "sha256": "722950baebee407433cb0a59a8d8a5dea09a7a70bb454d374369f11480636cd9"
+    },
+    {
+      "id": "mpesa_cash_deposit",
+      "title": "MPESA",
+      "text": "TST12ABC16 Confirmed. Ksh 2,000.00 deposited into your M-PESA on 28/9/26 at 8:30 AM. New M-PESA balance is Ksh 12,950.00.",
+      "sha256": "bb6bb78316a69f661cab98ae43b7a3870e7abfce88f94586c700f47e26438996"
+    },
+    {
+      "id": "mpesa_airtime_purchase",
+      "title": "MPESA",
+      "text": "TST12ABC17 Confirmed. Ksh 100.00 airtime purchased on 28/9/26 at 8:40 AM. New M-PESA balance is Ksh 12,850.00.",
+      "sha256": "cfc403ce724a0af423cee8906852a57ca9ec0ba9ff8f07c25e504d5b0d483ca2"
+    },
+    {
+      "id": "unknown_wording_single_amount",
+      "title": "MPESA",
+      "text": "TST12ABC18 Confirmed. Ksh 640.00 processed through M-PESA on 28/9/26 at 9:10 AM. New M-PESA balance is Ksh 12,210.00.",
+      "sha256": "233c8b979ff245247f37d1baef2159590d655072147a18bd9f779fc837972009"
+    },
+    {
+      "id": "airtime_balance_only",
+      "title": "Safaricom",
+      "text": "Your airtime balance is Ksh 73.00.",
+      "sha256": "b8247fa153b5b7d7d737843fb83332e02770877eef5cb412a01b57472cf30ef5"
+    }
+  ]
+}

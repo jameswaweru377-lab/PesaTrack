@@ -61,6 +61,30 @@ jobs:
             cat "$report"
           fi
 
+      - name: Python lab contract tests
+        run: python3 -m unittest discover -s tools/python_lab -p 'test_*.py' -v
+
+      - name: Evaluate reviewed fixtures against actual Kotlin outputs
+        env:
+          PESATRACK_ENTITY_ENRICHMENT_URL: https://pesatrack.jameswaweru399.workers.dev/v1/entity/resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
+          export PESATRACK_PYTHON_LAB_EXPORT=1
+          rm -f app/build/python-lab/kotlin-output.json
+          gradle :app:testDebugUnitTest --tests '*PythonFinancialLabExportTest' --rerun-tasks --stacktrace
+          python3 -m tools.python_lab.kotlin_evaluation > app/build/python-lab/evaluation.json
+          cat app/build/python-lab/evaluation.json
+
+      - name: Upload sanitized Python lab evaluation evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-kotlin-sanitized-evaluation
+          path: app/build/python-lab/*.json
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Upload debug APK for gated publication
         if: success()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
