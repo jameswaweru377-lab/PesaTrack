@@ -137,7 +137,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal data class ActivityScreenData(
+data class ActivityScreenData(
     val monthBuckets: List<ActivityMonthBucket>,
     val snapshot: ActivityLedgerSnapshot,
     val previousSnapshot: ActivityLedgerSnapshot,
@@ -150,7 +150,7 @@ internal data class ActivityScreenData(
     val identityReviewCount: Int
 )
 
-internal class ActivityScreenCache {
+class ActivityScreenCache {
     var selectedMonthEpochMs: Long? = null
     var data: ActivityScreenData? = null
 }
