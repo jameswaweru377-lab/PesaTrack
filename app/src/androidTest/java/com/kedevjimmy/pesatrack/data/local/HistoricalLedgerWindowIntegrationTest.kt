@@ -141,7 +141,9 @@ class HistoricalLedgerWindowIntegrationTest {
             put("amount_minor", amount)
             put("fee_minor", fee)
             put("occurred_at_epoch_ms", at)
-            put("received_at_epoch_ms", at)
+            // Simulate importing old SMS on a later day: reporting must use
+            // actual transaction time, never the time of SMS discovery.
+            put("received_at_epoch_ms", epoch(Calendar.OCTOBER, 8, 18, 0))
             put("created_at_epoch_ms", at)
             put("source_kind", "TEST_SYNTHETIC_HISTORY")
             put("direction", direction.name)
