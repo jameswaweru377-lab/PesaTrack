@@ -148,6 +148,6 @@ class RecentFinancialNotificationDeduper(
             64
 
         private val WHITESPACE =
-            Regex("""s+""")
+            Regex("""\s+""")
     }
 }
