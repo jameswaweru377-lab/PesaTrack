@@ -73,7 +73,8 @@ class HistoricalSmsImporter(
                 normalizedResumeKey != null
             ) {
                 checkpointStore.load(
-                    normalizedResumeKey
+                    resumeKey = normalizedResumeKey,
+                    expectedSinceEpochMs = sinceEpochMs
                 )
             } else {
                 null
@@ -220,6 +221,7 @@ class HistoricalSmsImporter(
                 lastProcessedSmsId =
                     smsId
 
+                var processingFailed = false
                 try {
 
                 if (body.isNullOrBlank() || smsDate <= 0L) {
@@ -369,8 +371,14 @@ class HistoricalSmsImporter(
                     } else {
                         duplicates += 1
                     }
+                } catch (failure: Throwable) {
+                    // A failed SMS must be retried after a restart. Never
+                    // move the checkpoint past an uncommitted row.
+                    processingFailed = true
+                    throw failure
                 } finally {
                     if (
+                        !processingFailed &&
                         mode ==
                             HistoricalImportMode
                                 .IMPORT &&
