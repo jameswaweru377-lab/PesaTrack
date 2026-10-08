@@ -75,6 +75,92 @@ class VoicePlanningParserTest {
     }
 
     @Test
+    fun naturalBuyPhraseExtractsCouchAsGoalName() {
+        val result =
+            VoicePlanningParser.parse(
+                kind = VoicePlanKind.GOAL,
+                transcript =
+                    "I wanted to buy a couch for 60,000 by 20 December",
+                nowEpochMs =
+                    calendar(
+                        2026,
+                        Calendar.OCTOBER,
+                        8
+                    ).timeInMillis,
+                locale = Locale.ENGLISH
+            )
+
+        assertNull(result.error)
+        val draft =
+            result.draft as
+                VoiceGoalDraft
+        assertEquals(
+            "Couch",
+            draft.name
+        )
+        assertEquals(
+            6_000_000L,
+            draft.totalTargetMinor
+        )
+    }
+
+    @Test
+    fun naturalSavingPhraseExtractsPs5AsGoalName() {
+        val result =
+            VoicePlanningParser.parse(
+                kind = VoicePlanKind.GOAL,
+                transcript =
+                    "I'm targeting to save for a PS5 with a target of 45,000 by 8 February",
+                nowEpochMs =
+                    calendar(
+                        2026,
+                        Calendar.OCTOBER,
+                        8
+                    ).timeInMillis,
+                locale = Locale.ENGLISH
+            )
+
+        assertNull(result.error)
+        val draft =
+            result.draft as
+                VoiceGoalDraft
+        assertEquals(
+            "PS5",
+            draft.name
+        )
+        assertEquals(
+            4_500_000L,
+            draft.totalTargetMinor
+        )
+    }
+
+    @Test
+    fun savingTowardsPhraseExtractsItemName() {
+        val result =
+            VoicePlanningParser.parse(
+                kind = VoicePlanKind.GOAL,
+                transcript =
+                    "I am saving towards a new sofa target 80,000 by 15 March",
+                nowEpochMs =
+                    calendar(
+                        2026,
+                        Calendar.OCTOBER,
+                        8
+                    ).timeInMillis,
+                locale = Locale.ENGLISH
+            )
+
+        assertNull(result.error)
+        val draft =
+            result.draft as
+                VoiceGoalDraft
+        assertEquals(
+            "Sofa",
+            draft.name
+        )
+    }
+
+    @Test
     fun monthlyBillCommandBuildsDueSchedule() {
         val result =
             VoicePlanningParser.parse(
