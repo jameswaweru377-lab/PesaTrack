@@ -325,28 +325,82 @@ class TransactionStore private constructor(context: Context) {
         val existingFingerprint =
             getByFingerprint(fingerprint)
         if (existingFingerprint != null) {
+            val preservesUserDecision =
+                existingFingerprint.reviewState in
+                    setOf(
+                        ReviewState.USER_CLASSIFIED.name,
+                        ReviewState.EXCLUDED.name
+                    )
+            val protectedMirror =
+                existingFingerprint.evidenceSource ==
+                    "owned_mirror_transfer"
+            val safeOwnTransferRefresh =
+                accountTransferOverride != null &&
+                    !preservesUserDecision &&
+                    !protectedMirror
+
             val values =
                 ContentValues().apply {
-                    if (
-                        existingFingerprint.accountId ==
-                            null &&
-                        accountId != null
-                    ) {
+                    if (safeOwnTransferRefresh) {
+                        // Account ownership can be confirmed after the original
+                        // SMS was imported. Replaying that same message must
+                        // promote the old income/expense row into the newly
+                        // proven own-account transfer rather than leaving stale
+                        // Activity data behind.
                         put(
                             "account_id",
-                            accountId
+                            ownTransfer!!
+                                .sourceAccountId
                         )
-                    }
-                    if (
-                        existingFingerprint.linkedAccountId ==
-                            null &&
-                        linkedAccountId != null
-                    ) {
                         put(
                             "linked_account_id",
-                            linkedAccountId
+                            ownTransfer
+                                .destinationAccountId
                         )
+                        put(
+                            "direction",
+                            MoneyDirection
+                                .TRANSFER.name
+                        )
+                        put(
+                            "category",
+                            TransactionCategory
+                                .TRANSFER.name
+                        )
+                        put(
+                            "review_state",
+                            ReviewState
+                                .AUTO_CLASSIFIED.name
+                        )
+                        putNull("rule_id")
+                        put(
+                            "planning_month",
+                            classification
+                                .planningMonth
+                        )
+                    } else {
+                        if (
+                            existingFingerprint.accountId ==
+                                null &&
+                            accountId != null
+                        ) {
+                            put(
+                                "account_id",
+                                accountId
+                            )
+                        }
+                        if (
+                            existingFingerprint.linkedAccountId ==
+                                null &&
+                            linkedAccountId != null
+                        ) {
+                            put(
+                                "linked_account_id",
+                                linkedAccountId
+                            )
+                        }
                     }
+
                     val safeSemanticOverride =
                         matchedRule == null &&
                             (
@@ -356,22 +410,38 @@ class TransactionStore private constructor(context: Context) {
                             ) &&
                             existingFingerprint.ruleId ==
                                 null &&
-                            existingFingerprint.reviewState !=
-                                ReviewState.USER_CLASSIFIED.name &&
-                            existingFingerprint.reviewState !=
-                                ReviewState.EXCLUDED.name
+                            !preservesUserDecision
 
-                    val preservesUserDecision = existingFingerprint.reviewState in setOf(
-                        ReviewState.USER_CLASSIFIED.name, ReviewState.EXCLUDED.name
-                    )
                     if (
-                        (matchedRule != null || safeSemanticOverride) && !preservesUserDecision &&
-                        existingFingerprint.evidenceSource != "owned_mirror_transfer"
+                        !safeOwnTransferRefresh &&
+                        (
+                            matchedRule != null ||
+                                safeSemanticOverride
+                            ) &&
+                        !preservesUserDecision &&
+                        !protectedMirror
                     ) {
-                        if (safeSemanticOverride && accountId != null) {
-                            put("account_id", accountId)
-                            if (linkedAccountId == null) putNull("linked_account_id")
-                            else put("linked_account_id", linkedAccountId)
+                        if (
+                            safeSemanticOverride &&
+                            accountId != null
+                        ) {
+                            put(
+                                "account_id",
+                                accountId
+                            )
+                            if (
+                                linkedAccountId ==
+                                null
+                            ) {
+                                putNull(
+                                    "linked_account_id"
+                                )
+                            } else {
+                                put(
+                                    "linked_account_id",
+                                    linkedAccountId
+                                )
+                            }
                         }
                         put(
                             "direction",
@@ -3471,6 +3541,162 @@ class TransactionStore private constructor(context: Context) {
         if (changed) {
             PayCycleStore.get(appContext).rebuild()
             LedgerUpdateBus.notifyChanged()
+        }
+        return changed
+    }
+    }
+
+    fun reconcileAutoTransfersWithOwnedAccounts(
+        ownedAccountIds: Set<String>
+    ): Int {
+        synchronized(CanonicalStoreLock.monitor) {
+        val protectedOwnedIds =
+            ownedAccountIds +
+                AccountStore.DEFAULT_MPESA_ID +
+                AccountStore.DEFAULT_CASH_ID
+
+        val candidates =
+            database.readableDatabase
+                .rawQuery(
+                    BASE_SELECT +
+                        """
+                         WHERE direction = ?
+                           AND category = ?
+                           AND rule_id IS NULL
+                           AND review_state NOT IN (?, ?)
+                        """.trimIndent(),
+                    arrayOf(
+                        MoneyDirection.TRANSFER.name,
+                        TransactionCategory.TRANSFER.name,
+                        ReviewState.USER_CLASSIFIED.name,
+                        ReviewState.EXCLUDED.name
+                    )
+                )
+                .use { cursor ->
+                    buildList {
+                        while (
+                            cursor.moveToNext()
+                        ) {
+                            add(
+                                cursor
+                                    .toStoredTransaction()
+                            )
+                        }
+                    }
+                }
+
+        var changed = 0
+        candidates.forEach { row ->
+            val sourceOwned =
+                row.accountId != null &&
+                    row.accountId in
+                        protectedOwnedIds
+            val destinationOwned =
+                row.linkedAccountId != null &&
+                    row.linkedAccountId in
+                        protectedOwnedIds
+
+            if (
+                sourceOwned &&
+                destinationOwned
+            ) {
+                return@forEach
+            }
+
+            val values =
+                ContentValues().apply {
+                    when {
+                        sourceOwned -> {
+                            // Money left one of my accounts for an external
+                            // destination. It is spending, not an own-account
+                            // transfer.
+                            put(
+                                "direction",
+                                MoneyDirection
+                                    .EXPENSE.name
+                            )
+                            put(
+                                "category",
+                                TransactionCategory
+                                    .UNCATEGORIZED.name
+                            )
+                            putNull(
+                                "linked_account_id"
+                            )
+                            put(
+                                "review_state",
+                                ReviewState
+                                    .AUTO_CLASSIFIED.name
+                            )
+                        }
+
+                        destinationOwned -> {
+                            // Money arrived in one of my accounts from an
+                            // external account. Keep the owned destination as
+                            // the transaction's account and treat it as income.
+                            put(
+                                "direction",
+                                MoneyDirection
+                                    .INCOME.name
+                            )
+                            put(
+                                "category",
+                                TransactionCategory
+                                    .UNCATEGORIZED.name
+                            )
+                            put(
+                                "account_id",
+                                row.linkedAccountId
+                            )
+                            putNull(
+                                "linked_account_id"
+                            )
+                            put(
+                                "review_state",
+                                ReviewState
+                                    .AUTO_CLASSIFIED.name
+                            )
+                        }
+
+                        else -> {
+                            put(
+                                "direction",
+                                MoneyDirection
+                                    .NEUTRAL.name
+                            )
+                            put(
+                                "category",
+                                TransactionCategory
+                                    .UNCATEGORIZED.name
+                            )
+                            putNull("account_id")
+                            putNull(
+                                "linked_account_id"
+                            )
+                            put(
+                                "review_state",
+                                ReviewState
+                                    .NEEDS_REVIEW.name
+                            )
+                        }
+                    }
+                }
+
+            changed +=
+                database.writableDatabase
+                    .update(
+                        "transactions",
+                        values,
+                        "id = ?",
+                        arrayOf(
+                            row.id.toString()
+                        )
+                    )
+        }
+
+        if (changed > 0) {
+            LedgerUpdateBus
+                .notifyChanged()
         }
         return changed
     }
