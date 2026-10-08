@@ -696,7 +696,7 @@ fun DebtsScreen(
 }
 
 @Composable
-private fun DetailPageHeader(
+internal fun DetailPageHeader(
     title: String,
     subtitle: String,
     onBack: (() -> Unit)?
