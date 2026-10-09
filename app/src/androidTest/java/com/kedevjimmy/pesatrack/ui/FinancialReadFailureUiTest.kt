@@ -1,16 +1,19 @@
 package com.kedevjimmy.pesatrack.ui
 
 import android.content.Context
+import android.database.sqlite.SQLiteException
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.PesaTrackDatabase
+import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import org.junit.*
+import org.junit.Assert.assertThrows
 import org.junit.runner.RunWith
 
 /** Force a real isolated SQLite read failure, restore its schema, then retry the UI. */
@@ -28,11 +31,15 @@ class FinancialReadFailureUiTest {
     }
 
     @Test fun activityReadFailureOffersRetryWithoutPublishingEmptyFinancialSummary() {
+        val activityStore = TransactionStore.get(context)
+        activityStore.activityMonths()
         val recreate = removeTable("transactions")
+        assertThrows(SQLiteException::class.java) { activityStore.activityMonths() }
         compose.setContent { PesaTrackTheme { ActivityScreen(PaddingValues()) } }
         waitFor("Activity could not load")
         compose.onNodeWithText("Money in").assertDoesNotExist()
         PesaTrackDatabase.get(context).writableDatabase.execSQL(recreate)
+        activityStore.activityMonths()
         compose.onNodeWithText("Try again").performClick()
         waitFor("Money in")
         compose.onNodeWithText("Activity could not load").assertDoesNotExist()
