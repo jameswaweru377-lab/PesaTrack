@@ -163,7 +163,7 @@ class DebtAccountingRegressionTest {
         val original = transactions.findByTransactionCode("DEBTTEST01")!!
         val debt = account(liability)
         val db = PesaTrackDatabase.get(context).writableDatabase
-        db.execSQL("UPDATE transactions SET counterparty = ? WHERE id = ?", arrayOf(liability.displayName, original.id))
+        db.execSQL("UPDATE transactions SET counterparty = ? WHERE id = ?", arrayOf<Any>(liability.displayName, original.id))
         db.execSQL("""
             CREATE TRIGGER abort_debt_classification_for_test
             BEFORE UPDATE OF relation_type ON transactions
