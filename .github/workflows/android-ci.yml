@@ -37,7 +37,7 @@ jobs:
       - name: Set up Gradle 9.5
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
-          gradle-version: "9.5.0"
+          gradle-version: "wrapper"
 
       - name: Validate entity enrichment Worker
         run: |
@@ -58,7 +58,7 @@ jobs:
         run: |
           set -o pipefail
           export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
-          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace 2>&1 | tee /tmp/pesatrack-build.log
+          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace 2>&1 | tee /tmp/pesatrack-build.log
 
       - name: Summarize Kotlin regression evidence
         shell: bash
@@ -104,7 +104,7 @@ jobs:
           export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
           export PESATRACK_PYTHON_LAB_EXPORT=1
           rm -f app/build/python-lab/kotlin-output.json
-          gradle :app:testDebugUnitTest --tests '*PythonFinancialLabExportTest' --rerun-tasks --stacktrace
+          ./gradlew :app:testDebugUnitTest --tests '*PythonFinancialLabExportTest' --tests '*FinancialContractLabTest' --rerun-tasks --stacktrace
           python3 -m tools.python_lab.kotlin_evaluation > app/build/python-lab/evaluation.json
           cat app/build/python-lab/evaluation.json
 
@@ -162,7 +162,7 @@ jobs:
       - name: Set up Gradle 9.5
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
-          gradle-version: "9.5.0"
+          gradle-version: "wrapper"
 
       - name: Enable KVM access
         run: |
@@ -178,7 +178,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: gradle :app:connectedDebugAndroidTest --stacktrace
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
 
   publish:
     needs: [build, instrumentation]
