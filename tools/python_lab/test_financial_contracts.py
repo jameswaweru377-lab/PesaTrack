@@ -17,6 +17,9 @@ class FinancialContractsTest(unittest.TestCase):
         case = next(c for c in generate()['cases'] if c['id'] == 'debt-known-history-01')
         self.assertEqual([250000, 50000], [s['expected']['amount'] for s in case['steps']])
         self.assertEqual([250000, 200000], [s['expected']['outstanding'] for s in case['steps']])
+        for case in generate()['cases']:
+            if case['fixture_id'].startswith('debt-generic-'):
+                self.assertTrue(all(s['expected']['liability'] == 'Nova Credit' for s in case['steps']))
 
     def test_no_external_message_inputs(self):
         with self.assertRaises(TypeError):
@@ -42,3 +45,9 @@ class FinancialContractsTest(unittest.TestCase):
             if mutation == 'fixture': bad['fixture_sha256'] = '0' * 64
             with self.assertRaises(ValueError, msg=mutation):
                 evaluate(bad, 'a' * 40)
+
+    def test_malformed_evidence_has_no_unvalidated_payload(self):
+        for report in (None, [], {}, {'schema_version': 1, 'source_sha': 'a' * 40,
+                'fixture_sha256': generate()['fixture_sha256'], 'cases': None}):
+            with self.assertRaises(ValueError):
+                evaluate(report, 'a' * 40)

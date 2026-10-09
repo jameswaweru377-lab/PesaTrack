@@ -40,9 +40,9 @@ class FinancialContractLabTest {
             .joinToString("") { "%02x".format(it.toInt() and 0xff) }
         assertEquals(hash, corpus["fixture_sha256"].asString)
         val fixtures = authored["cases"].asJsonArray.associate { it.asJsonObject["id"].asString to it.asJsonObject }
-        assertEquals(28, fixtures.size)
+        assertEquals(29, fixtures.size)
         val rows = corpus["cases"].asJsonArray
-        assertEquals(224, rows.size())
+        assertEquals(232, rows.size())
         val ids = mutableSetOf<String>()
         val failures = mutableListOf<String>()
         val output = rows.map { item ->
@@ -82,7 +82,7 @@ class FinancialContractLabTest {
             }
             mapOf("id" to id, "results" to results)
         }
-        assertEquals(224, ids.size)
+        assertEquals(232, ids.size)
         val sha = System.getenv("PESATRACK_LAB_SOURCE_SHA")
         if (sha != null) {
             check(sha.matches(Regex("[0-9a-f]{40}")))
@@ -90,6 +90,7 @@ class FinancialContractLabTest {
                 gson.toJson(mapOf("schema_version" to 1, "source_sha" to sha,
                     "fixture_sha256" to hash, "cases" to output)) + "\n", Charsets.UTF_8)
         }
+        failures.forEach { println(it) }
         assertEquals(failures.joinToString("\n"), emptyList<String>(), failures)
     }
 
@@ -113,12 +114,14 @@ class FinancialContractLabTest {
             check(events.size <= 1) { "Ambiguous invented debt result" }
             when (val event = events.singleOrNull()) {
                 is DebtDrawdownEventFact -> mapOf("kind" to event.kind.name, "amount" to event.amountMinor,
+                    "liability" to (event.liability.providerKey ?: event.liability.displayName),
                     "outstanding" to (event.outstandingAfterMinor ?: -1L),
                     "credit" to (event.availableCreditAfterMinor ?: -1L), "completion" to "NA")
                 is DebtRepaymentEventFact -> mapOf("kind" to event.kind.name, "amount" to event.amountMinor,
+                    "liability" to (event.liability.providerKey ?: event.liability.displayName),
                     "outstanding" to (event.outstandingAfterMinor ?: -1L),
                     "credit" to (event.availableCreditAfterMinor ?: -1L), "completion" to event.completion.name)
-                else -> mapOf("kind" to "NONE", "amount" to -1L, "outstanding" to -1L,
+                else -> mapOf("kind" to "NONE", "liability" to "", "amount" to -1L, "outstanding" to -1L,
                     "credit" to -1L, "completion" to "NA")
             }
         }

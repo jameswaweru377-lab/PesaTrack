@@ -86,6 +86,24 @@ class RememberCategoryIntegrationTest {
         PersonalLearningStore.get(context).applyHighConfidenceTo(store.categoryLearningCandidates())
         assertEquals("OTHER", store.getById(untouched)!!.category)
     }
+    @Test fun inventedMerchantCorrectionHandlesUnicodeSpacingButRequiresRememberedConsent() {
+        val source = insert(0, name = "SAMPLE WATERFALL MARKET")
+        val spaced = insert(1, name = "SAMPLE\u00a0WATERFALL\u202fMARKET")
+        val unrelated = insert(2, name = "SAMPLE WATERFALL MARKET SERVICES")
+        store.classifyManually(source, "GROCERIES", MoneyDirection.EXPENSE)
+        val learning = PersonalLearningStore.get(context)
+        learning.applyHighConfidenceTo(store.categoryLearningCandidates())
+        assertEquals("OTHER", store.getById(spaced)!!.category)
+        val repo = RememberCategoryRepository(context)
+        assertEquals(1, repo.matchingCount(store.getById(source)!!))
+        assertEquals(1, repo.remember(source, "GROCERIES"))
+        assertEquals("GROCERIES", store.getById(spaced)!!.category)
+        assertEquals("OTHER", store.getById(unrelated)!!.category)
+        val future = insert(3, name = "SAMPLE\u202fWATERFALL\u00a0MARKET")
+        assertEquals(1, learning.applyHighConfidenceTo(store.recentlyInsertedForLearning(limit = 1)))
+        assertEquals("GROCERIES", store.getById(future)!!.category)
+    }
+
     @Test fun failedHistoryWriteRollsBackPreferenceAndSourceCategory() {
         val source = insert(0)
         val other = insert(1)

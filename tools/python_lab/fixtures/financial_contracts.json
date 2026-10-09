@@ -440,7 +440,8 @@
             "amount": 250000,
             "outstanding": 250000,
             "credit": -1,
-            "completion": "NA"
+            "completion": "NA",
+            "liability": "NCBA_MSHWARI_LOAN"
           }
         },
         {
@@ -452,7 +453,8 @@
             "amount": 50000,
             "outstanding": 200000,
             "credit": -1,
-            "completion": "PARTIAL"
+            "completion": "PARTIAL",
+            "liability": "NCBA_MSHWARI_LOAN"
           }
         }
       ]
@@ -470,7 +472,8 @@
             "amount": 50000,
             "outstanding": -1,
             "credit": -1,
-            "completion": "PARTIAL"
+            "completion": "PARTIAL",
+            "liability": "NCBA_MSHWARI_LOAN"
           }
         }
       ]
@@ -488,7 +491,8 @@
             "amount": 50000,
             "outstanding": 0,
             "credit": 300000,
-            "completion": "FULL"
+            "completion": "FULL",
+            "liability": "NCBA_MSHWARI_LOAN"
           }
         }
       ]
@@ -506,7 +510,8 @@
             "amount": 250000,
             "outstanding": 250000,
             "credit": -1,
-            "completion": "NA"
+            "completion": "NA",
+            "liability": "Nova Credit"
           }
         },
         {
@@ -518,7 +523,8 @@
             "amount": 50000,
             "outstanding": 200000,
             "credit": -1,
-            "completion": "PARTIAL"
+            "completion": "PARTIAL",
+            "liability": "Nova Credit"
           }
         }
       ]
@@ -536,7 +542,8 @@
             "amount": 50000,
             "outstanding": -1,
             "credit": -1,
-            "completion": "PARTIAL"
+            "completion": "PARTIAL",
+            "liability": "Nova Credit"
           }
         }
       ]
@@ -554,7 +561,8 @@
             "amount": 50000,
             "outstanding": 0,
             "credit": 300000,
-            "completion": "FULL"
+            "completion": "FULL",
+            "liability": "Nova Credit"
           }
         }
       ]
@@ -572,7 +580,8 @@
             "amount": -1,
             "outstanding": -1,
             "credit": -1,
-            "completion": "NA"
+            "completion": "NA",
+            "liability": ""
           }
         }
       ]
@@ -685,6 +694,40 @@
           "phone": "",
           "expected": {
             "match": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "transfer-incoming-wallet-not-outgoing",
+      "group": "transfer",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "Equity",
+          "text": "KES 250.00 received from M-PESA 0712000000.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            }
+          ],
+          "expected": {
+            "match": ""
           }
         }
       ]

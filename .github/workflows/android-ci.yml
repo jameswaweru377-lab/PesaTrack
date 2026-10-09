@@ -109,12 +109,19 @@ jobs:
           cat app/build/python-lab/evaluation.json
 
       - name: Evaluate four invented financial contract groups
+        if: success() || failure()
         shell: bash
         run: |
           export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
-          python3 -m tools.python_lab.financial_contracts evaluate
+          if [ -f app/build/python-lab/financial-contract-output.json ]; then
+            python3 -m tools.python_lab.financial_contracts evaluate
+          else
+            echo "Kotlin contract output unavailable; preceding build did not complete the contract suite."
+            exit 1
+          fi
 
       - name: Upload sanitized Python lab evaluation evidence
+        if: success() || failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: python-kotlin-sanitized-evaluation

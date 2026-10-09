@@ -118,3 +118,55 @@ Python remains a development-only laboratory. Run `python3 -m tools.python_lab.s
 
 Production changes use deterministic Kotlin calculations only: currency spacing, completed-month recorded spending comparisons and goal-linked historical savings scenarios. Existing local recurring/salary policies and explicit exact-identity category preferences are reused. No remote AI, model download, subscription, Python APK dependency, new permissions or database schema changes are added. Goal scenarios require three completed months and retain zero/withdrawal months. Their limits include missing records and withdrawals that were not linked to the goal. Budget and debt projections remain with the existing engines; this PR does not infer missing interest rates or promise repayment dates.
 
+# Four offline financial contract groups
+
+The development laboratory also checks 29 authored invented scenarios across
+account ownership evidence, configured transfers, debt message histories, and
+explicit merchant-category identity matching. Eight monetary scales produce
+232 cases. Bank-name and merchant cases repeat unchanged across scales; these
+are regression variations, not 232 independently researched message formats.
+
+```sh
+python3 -m tools.python_lab.financial_contracts generate
+PESATRACK_SYNTHETIC_CORPUS_REQUIRED=1 PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)" \
+  gradle :app:testDebugUnitTest --tests '*FinancialContractLabTest'
+PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)" \
+  python3 -m tools.python_lab.financial_contracts evaluate
+```
+
+Both commands use fixed repository/build paths. No arbitrary SMS import,
+network, model, subscription or production Python runtime is added. Kotlin
+independently reconstructs the inputs and expected monetary scales from the
+reviewed fixture file, rejecting altered input, missing/duplicate IDs and
+unsupported scales. The Python evaluator rejects stale checkout SHA,
+fixture hash mismatch, incomplete histories and malformed envelopes. It compares
+actual Kotlin decisions with authored answers and reports failures by group.
+CI executes the contracts in the full JVM suite and retains synthetic diagnostic
+output on failures while APK publication continues to require both successful
+build and Android test jobs.
+
+Acceptance criteria:
+
+- A bank name in a body, unknown sender, ambiguous configured account, or a
+  longer number containing an owned identifier must not prove an own transfer.
+- Unique configured source/destination evidence still recognizes genuine
+  transfers; an incoming bank receipt is not an outgoing bank-to-wallet transfer.
+- Loan principal, repayment, outstanding balance and available credit remain
+  separate fields tied to the right liability. Known M-Shwari and an invented
+  unknown lender share financial grammar rather than needing a rule per amount.
+- A remembered category applies to the same merchant despite ordinary Unicode
+  spaces, while substrings and conflicting/missing phone identities stay separate.
+  Remembered consent, one-off corrections and future application are tested in
+  `RememberCategoryIntegrationTest` using a fresh invented-data database.
+- `FinancialLabHistoryIntegrationTest` stores known and invented lender histories,
+  checks KSh 2,500 minus KSh 500 leaves KSh 2,000, distinguishes observed versus
+  estimated outstanding amounts, and replays the invented events without duplication.
+
+Limits: the JSON comparison interprets individual steps without reconstructing
+an installed user's ledger. Separate Android tests cover a few complete stored
+histories; they do not diagnose a particular user's M-Shwari balance. These tests
+do not repair previous account-review decisions, infer ownership from a name,
+guess groceries for an unknown merchant, prove every bank wording, or add voice
+entry. Existing shared-reference mirror-transfer integration tests remain in
+the Android suite. Production interpretation and writes remain in Kotlin.
+

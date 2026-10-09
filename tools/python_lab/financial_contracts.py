@@ -47,15 +47,19 @@ def evaluate(report, source_sha):
     corpus = generate()
     if not isinstance(source_sha, str) or not re.fullmatch('[0-9a-f]{40}', source_sha):
         raise ValueError('Exact checkout SHA required')
-    if (set(report) != {'schema_version', 'source_sha', 'fixture_sha256', 'cases'}
+    if (not isinstance(report, dict)
+            or set(report) != {'schema_version', 'source_sha', 'fixture_sha256', 'cases'}
             or type(report['schema_version']) is not int or report['schema_version'] != 1
             or report['source_sha'] != source_sha
             or report['fixture_sha256'] != corpus['fixture_sha256']):
         raise ValueError('Malformed, stale or unreviewed Kotlin output')
     expected = {c['id']: c for c in corpus['cases']}
     actual = {}
+    if not isinstance(report['cases'], list):
+        raise ValueError('Contract cases must be a list')
     for row in report['cases']:
-        if set(row) != {'id', 'results'} or row['id'] not in expected or row['id'] in actual:
+        if (not isinstance(row, dict) or set(row) != {'id', 'results'}
+                or not isinstance(row['id'], str) or row['id'] not in expected or row['id'] in actual):
             raise ValueError('Unknown or duplicate contract ID')
         if not isinstance(row['results'], list) or len(row['results']) != len(expected[row['id']]['steps']):
             raise ValueError('Missing history steps')
@@ -82,7 +86,7 @@ def main():
     if sys.argv[1:] == ['generate']:
         BUILD.mkdir(parents=True, exist_ok=True)
         (BUILD / 'financial-contracts.json').write_text(json.dumps(generate(), indent=2) + '\n', encoding='utf-8')
-        print('Generated 224 invented cases across four financial contract groups.')
+        print(f"Generated {len(generate()['cases'])} invented cases across four financial contract groups.")
     elif sys.argv[1:] == ['evaluate']:
         import os
         report = json.loads((BUILD / 'financial-contract-output.json').read_text(encoding='utf-8'))
