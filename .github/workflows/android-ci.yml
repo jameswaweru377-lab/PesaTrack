@@ -13,7 +13,7 @@ on:
         default: false
 
 concurrency:
-  group: android-ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.run_instrumentation && 'review' || 'build' }}
+  group: android-ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-${{ github.event_name == 'workflow_dispatch' && inputs.run_instrumentation && 'review' || 'build' }}
   cancel-in-progress: true
 
 permissions:
