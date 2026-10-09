@@ -101,7 +101,7 @@ class FinancialHistoryReprocessCancellationTest {
             MatrixCursor(arrayOf("_id", "address", "body", "date")).apply {
                 repeat(80) { index ->
                     val code = "TST12AB" + index.toString().padStart(3, '0')
-                    addRow(arrayOf(index.toLong(), "MPESA",
+                    addRow(arrayOf<Any>(index.toLong(), "MPESA",
                         "$code Confirmed. Ksh 450.00 sent to SAMPLE PERSON 0712345678. Transaction cost, Ksh 0.00. New M-PESA balance is Ksh 1000.00.",
                         now - 80_000L + index * 1_000L))
                 }
