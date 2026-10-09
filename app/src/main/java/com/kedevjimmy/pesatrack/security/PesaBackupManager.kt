@@ -75,6 +75,8 @@ class PesaBackupManager(
                     passphrase
             )
 
+        BackupSizePolicy.requireRestorable(encrypted.size.toLong())
+
         app.contentResolver
             .openOutputStream(
                 uri,
@@ -159,7 +161,7 @@ class PesaBackupManager(
                     ),
             passphrase =
                 passphrase
-        )
+        ).also { BackupSizePolicy.requireRestorable(it.size.toLong()) }
     }
 
     internal fun previewEncryptedBytes(
@@ -264,12 +266,7 @@ class PesaBackupManager(
         encrypted: ByteArray,
         passphrase: String
     ): JsonObject {
-        require(
-            encrypted.size.toLong() <=
-                MAX_ENCRYPTED_BACKUP_BYTES
-        ) {
-            "This backup is too large to restore safely."
-        }
+        BackupSizePolicy.requireRestorable(encrypted.size.toLong())
         val plain =
             decrypt(
                 encrypted = encrypted,
@@ -370,11 +367,9 @@ class PesaBackupManager(
                 ?.asInt
                 ?: 0
         require(
-            backupSchema > 0 &&
-                backupSchema <=
-                currentSchema
+            backupSchema == currentSchema
         ) {
-            "This backup was created by a newer PesaTrack version."
+            "This backup uses a different database version. Restore requires the same version; older backups need a supported migration."
         }
     }
 
@@ -383,6 +378,7 @@ class PesaBackupManager(
             PesaTrackDatabase
                 .get(app)
                 .readableDatabase
+        BackupRestoreJournal(app).recover(database)
         val root =
             JsonObject().apply {
                 addProperty(
@@ -452,6 +448,29 @@ class PesaBackupManager(
                 "tables"
             ) ?: JsonObject()
 
+        require(backupTables.keySet() == currentTables.toSet()) {
+            "This backup does not contain the complete current ledger schema."
+        }
+        backupTables.entrySet().forEach { (table, rows) ->
+            require(rows.isJsonArray) { "This backup contains damaged table data." }
+            rows.asJsonArray.forEach { row ->
+                require(row.isJsonObject && row.asJsonObject.keySet() == currentColumns.getValue(table)) {
+                    "This backup contains damaged row data."
+                }
+                row.asJsonObject.entrySet().forEach { (column, element) ->
+                    require(element.isJsonObject)
+                    val cell = element.asJsonObject
+                    validateCell(cell)
+                    putCell(ContentValues(), column, cell)
+                }
+            }
+        }
+        val preferences = root.getAsJsonObject("preferences")
+            ?: throw IllegalArgumentException("This backup is missing its settings.")
+        BackupPreferences.decode(preferences)
+        val journal = BackupRestoreJournal(app)
+        val operationId = journal.stage(database, preferences)
+
         var restoredRows = 0
         var restoredTables = 0
 
@@ -517,18 +536,22 @@ class PesaBackupManager(
                     restoredTables++
                 }
 
+            journal.markCommitted(database, operationId)
             database.setTransactionSuccessful()
         } finally {
             database.endTransaction()
         }
 
-        val preferences =
-            root.getAsJsonObject(
-                "preferences"
-            ) ?: JsonObject()
-        restorePreferences(
-            preferences
-        )
+        try {
+            journal.recover(database)
+        } catch (failure: Exception) {
+            BackupRecoveryStatus.failure = failure
+            database.close()
+            throw IllegalStateException(
+                "The ledger was restored, but settings recovery is pending. Free storage and reopen PesaTrack to finish recovery.",
+                failure
+            )
+        }
 
         LedgerUpdateBus
             .notifyChanged()
@@ -695,6 +718,25 @@ class PesaBackupManager(
         }
     }
 
+    private fun validateCell(cell: JsonObject) {
+        val type = cell.get("type")
+        require(type is com.google.gson.JsonPrimitive && type.isString)
+        val value = cell.get("value")
+        when (type.asString) {
+            "null" -> require(value == null || value.isJsonNull)
+            "integer" -> {
+                require(value is com.google.gson.JsonPrimitive && value.isNumber)
+                require(value.asString.toLongOrNull() != null)
+            }
+            "float" -> {
+                require(value is com.google.gson.JsonPrimitive && value.isNumber)
+                require(value.asDouble.isFinite())
+            }
+            "blob", "string" -> require(value is com.google.gson.JsonPrimitive && value.isString)
+            else -> throw IllegalArgumentException("Unsupported backup ledger value.")
+        }
+    }
+
     private fun userTableNames(
         database: SQLiteDatabase
     ): List<String> =
@@ -705,6 +747,7 @@ class PesaBackupManager(
             WHERE type = 'table'
               AND name NOT LIKE 'sqlite_%'
               AND name != 'android_metadata'
+              AND name != '_pesatrack_restore_state'
             ORDER BY name
             """.trimIndent(),
             null
@@ -780,94 +823,6 @@ class PesaBackupManager(
                 )
             }
         return result
-    }
-
-    private fun restorePreferences(
-        preferences: JsonObject
-    ) {
-        preferences.entrySet()
-            .forEach {
-                    (
-                        name,
-                        valuesElement
-                    ) ->
-                if (
-                    !isBackupPreference(
-                        name
-                    )
-                ) {
-                    return@forEach
-                }
-                val editor =
-                    app.getSharedPreferences(
-                        name,
-                        Context.MODE_PRIVATE
-                    )
-                        .edit()
-                        .clear()
-                valuesElement
-                    .asJsonObject
-                    .entrySet()
-                    .forEach {
-                            (
-                                key,
-                                cellElement
-                            ) ->
-                        val cell =
-                            cellElement
-                                .asJsonObject
-                        when (
-                            cell
-                                .get("type")
-                                ?.asString
-                        ) {
-                            "boolean" ->
-                                editor.putBoolean(
-                                    key,
-                                    cell.get("value")
-                                        .asBoolean
-                                )
-                            "int" ->
-                                editor.putInt(
-                                    key,
-                                    cell.get("value")
-                                        .asInt
-                                )
-                            "long" ->
-                                editor.putLong(
-                                    key,
-                                    cell.get("value")
-                                        .asLong
-                                )
-                            "float" ->
-                                editor.putFloat(
-                                    key,
-                                    cell.get("value")
-                                        .asFloat
-                                )
-                            "set" ->
-                                editor
-                                    .putStringSet(
-                                        key,
-                                        cell
-                                            .getAsJsonArray(
-                                                "value"
-                                            )
-                                            .map {
-                                                it.asString
-                                            }
-                                            .toSet()
-                                    )
-                            else ->
-                                editor.putString(
-                                    key,
-                                    cell.get("value")
-                                        ?.asString
-                                )
-                        }
-                    }
-                editor.apply()
-            }
     }
 
     private fun preferenceCell(
@@ -977,26 +932,16 @@ class PesaBackupManager(
             .sorted()
     }
 
-    private fun isBackupPreference(
-        name: String
-    ): Boolean =
-        name !=
-            AppLockManager.PREFS_NAME &&
-            !name.startsWith(
-                "androidx."
-            ) &&
-            !name.startsWith(
-                "com.google."
-            ) &&
-            !name.contains(
-                "workmanager",
-                ignoreCase = true
-            )
+    private fun isBackupPreference(name: String): Boolean = BackupPreferences.allowed(name)
 
     private fun encrypt(
         plain: ByteArray,
         passphrase: String
     ): ByteArray {
+        // AES-GCM has a fixed tag and no padding; include every wire-header length field.
+        val encryptedLength = plain.size.toLong() + MAGIC.size + 4L * 4L +
+            SALT_BYTES + IV_BYTES + GCM_TAG_BITS / 8
+        BackupSizePolicy.requireRestorable(encryptedLength)
         val salt =
             ByteArray(SALT_BYTES)
                 .also {
@@ -1227,7 +1172,7 @@ class PesaBackupManager(
         private const val GCM_TAG_BITS =
             128
         private const val MAX_ENCRYPTED_BACKUP_BYTES =
-            64L * 1024L * 1024L
+            BackupSizePolicy.MAX_ENCRYPTED_BYTES
         private val MAGIC =
             "PESABK01"
                 .toByteArray(

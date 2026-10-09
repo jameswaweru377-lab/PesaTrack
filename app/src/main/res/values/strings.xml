@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">PesaTrack</string>
+    <string name="backup_recovery_retry_message">Restore recovery could not finish. Free storage and reopen PesaTrack to retry. Your recovery file is retained.</string>
+    <string name="backup_recovery_retry_action">Retry recovery</string>
 </resources>

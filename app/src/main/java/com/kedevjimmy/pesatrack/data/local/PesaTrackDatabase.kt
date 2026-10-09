@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.kedevjimmy.pesatrack.security.BackupRestoreJournal
 
 internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
@@ -10,6 +11,14 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
     null,
     DATABASE_VERSION
 ) {
+    private val appContext = context.applicationContext
+
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        // SQLiteOpenHelper serializes opening; recovery precedes access to the database.
+        BackupRestoreJournal(appContext).recover(db)
+    }
+
     override fun onCreate(db: SQLiteDatabase) {
         createTransactionsTable(db)
         createRulesTable(db)

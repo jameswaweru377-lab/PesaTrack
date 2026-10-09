@@ -44,6 +44,26 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.retry(this)
+        if (com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failure != null) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            setContentView(android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                setPadding(32, 64, 32, 32)
+                addView(android.widget.TextView(this@MainActivity).apply {
+                    text = getString(R.string.backup_recovery_retry_message)
+                    textSize = 18f
+                })
+                addView(android.widget.Button(this@MainActivity).apply {
+                    text = getString(R.string.backup_recovery_retry_action)
+                    setOnClickListener {
+                        com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.retry(this@MainActivity)
+                        recreate()
+                    }
+                })
+            })
+            return
+        }
         appLockManager =
             AppLockManager(this)
         appLocked =
@@ -147,6 +167,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        if (com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failure != null) return
         updateSecureWindowState()
         RecentSmsCatchUp.schedule(this)
         if (

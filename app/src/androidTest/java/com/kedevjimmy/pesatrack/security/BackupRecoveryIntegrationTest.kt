@@ -10,6 +10,7 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -26,6 +27,7 @@ class BackupRecoveryIntegrationTest {
         PesaTrackDatabase.resetForTests()
         context.deleteDatabase("pesatrack.db")
         context.deleteSharedPreferences(PREFS)
+        context.deleteSharedPreferences(SECOND_PREFS)
         manager = PesaBackupManager(context)
     }
 
@@ -34,6 +36,7 @@ class BackupRecoveryIntegrationTest {
         PesaTrackDatabase.resetForTests()
         context.deleteDatabase("pesatrack.db")
         context.deleteSharedPreferences(PREFS)
+        context.deleteSharedPreferences(SECOND_PREFS)
     }
 
     @Test
@@ -93,6 +96,74 @@ class BackupRecoveryIntegrationTest {
         payload.addProperty("schemaVersion", current - 1)
     }
 
+    @Test
+    fun restartAfterStagingBeforeLedgerCommitKeepsOldLedgerAndSettings() {
+        val saved = saveCurrentRule()
+        setPreference(PREFS, "old settings")
+        val database = PesaTrackDatabase.get(context).writableDatabase
+        BackupRestoreJournal(context).stage(database, stagedSettings())
+        assertTrue(BackupRestoreJournal.isPending(context))
+
+        // Persisted interruption boundary: journal exists, SQLite has no committed marker.
+        PesaTrackDatabase.resetForTests()
+        PesaTrackDatabase.get(context).writableDatabase
+
+        assertEquals(listOf(saved.id), RuleStore.get(context).listRules().map { it.id })
+        assertEquals("old settings", preference(PREFS))
+        assertFalse(BackupRestoreJournal.isPending(context))
+    }
+
+    @Test
+    fun restartAfterLedgerCommitFinishesPartiallyWrittenSettingsAndIsIdempotent() {
+        saveCurrentRule()
+        setPreference(PREFS, "old settings")
+        setPreference(SECOND_PREFS, "old settings")
+        val database = PesaTrackDatabase.get(context).writableDatabase
+        val journal = BackupRestoreJournal(context)
+        val operationId = journal.stage(database, stagedSettings())
+        database.beginTransaction()
+        try {
+            database.delete("smart_rules", null, null)
+            journal.markCommitted(database, operationId)
+            database.setTransactionSuccessful()
+        } finally {
+            database.endTransaction()
+        }
+        // Simulate termination between the durable writes of two real preference files.
+        setPreference(PREFS, "new settings")
+        assertEquals("old settings", preference(SECOND_PREFS))
+
+        PesaTrackDatabase.resetForTests()
+        PesaTrackDatabase.get(context).writableDatabase
+
+        assertTrue(RuleStore.get(context).listRules().isEmpty())
+        assertEquals("new settings", preference(PREFS))
+        assertEquals("new settings", preference(SECOND_PREFS))
+        assertFalse(BackupRestoreJournal.isPending(context))
+        PesaTrackDatabase.resetForTests()
+        PesaTrackDatabase.get(context).writableDatabase
+        assertEquals("new settings", preference(SECOND_PREFS))
+    }
+
+    private fun stagedSettings() = JsonObject().apply {
+        listOf(PREFS, SECOND_PREFS).forEach { name ->
+            add(name, JsonObject().apply {
+                add("marker", JsonObject().apply {
+                    addProperty("type", "string")
+                    addProperty("value", "new settings")
+                })
+            })
+        }
+    }
+
+    private fun setPreference(name: String, value: String) {
+        assertTrue(context.getSharedPreferences(name, Context.MODE_PRIVATE)
+            .edit().putString("marker", value).commit())
+    }
+
+    private fun preference(name: String) = context.getSharedPreferences(name, Context.MODE_PRIVATE)
+        .getString("marker", null)
+
     private fun saveCurrentRule() = RuleStore.get(context).save(
         name = "Current ledger marker",
         counterpartyContains = "CURRENT PAYEE",
@@ -102,6 +173,7 @@ class BackupRecoveryIntegrationTest {
 
     companion object {
         private const val PREFS = "backup_recovery_test"
+        private const val SECOND_PREFS = "backup_recovery_test_second"
         private const val PASSPHRASE = "strong-passphrase"
     }
 }
