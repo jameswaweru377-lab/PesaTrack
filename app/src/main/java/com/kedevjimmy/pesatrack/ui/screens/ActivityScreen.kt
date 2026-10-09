@@ -136,6 +136,9 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
+import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 
 data class ActivityCoreData(
     val monthBuckets: List<ActivityMonthBucket>,
@@ -268,6 +271,9 @@ fun ActivityScreen(
                 ?: emptyActivityLedgerSnapshot()
         )
     }
+    var activityLoading by remember { mutableStateOf(warmData == null) }
+    var activityError by remember { mutableStateOf(false) }
+    var loadedMonthEpochMs by remember { mutableStateOf<Long?>(if (warmData != null) warmMonth else null) }
     var globalOverview by remember {
         mutableStateOf(
             warmData?.globalOverview
@@ -516,6 +522,9 @@ fun ActivityScreen(
     suspend fun reloadActivityData(
         requestedMonth: Long
     ) {
+        activityLoading = true
+        activityError = false
+        try {
         val core =
             loadActivityCoreData(
                 requestedMonth
@@ -531,6 +540,7 @@ fun ActivityScreen(
         // Diagnostics/review metadata continue loading afterward instead of
         // holding the transaction list behind slower secondary stores.
         applyActivityCoreData(core)
+        loadedMonthEpochMs = requestedMonth
 
         val supplemental =
             loadActivitySupplementalData()
@@ -551,6 +561,16 @@ fun ActivityScreen(
             supplemental =
                 supplemental
         )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            if (selectedMonthEpochMs == requestedMonth) {
+                android.util.Log.e("PesaTrackActivity", "Activity could not load", failure)
+                activityError = true
+            }
+        } finally {
+            if (selectedMonthEpochMs == requestedMonth) activityLoading = false
+        }
     }
 
     val reviewableFinancialEntities =
@@ -597,6 +617,20 @@ fun ActivityScreen(
         reloadActivityData(
             selectedMonthEpochMs
         )
+    }
+
+    if (loadedMonthEpochMs != selectedMonthEpochMs) {
+        LazyColumn(modifier = Modifier.padding(scaffoldPadding), contentPadding = PaddingValues(16.dp)) {
+            item {
+                Text(if (activityError) "Activity could not load" else "Loading activity…")
+                if (activityLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (activityError) {
+                    Text("Your saved data is unchanged. Try loading this month again.")
+                    TextButton(onClick = { refresh() }) { Text("Try again") }
+                }
+            }
+        }
+        return
     }
 
     val selectedMonthLabel =
@@ -786,6 +820,14 @@ fun ActivityScreen(
                 )
             }
 
+            if (activityError || activityLoading) item {
+                if (activityError) {
+                    Text("Activity could not load")
+                    Text("Showing your last successfully loaded activity.")
+                    TextButton(onClick = { refresh() }) { Text("Try again") }
+                }
+                if (activityLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
             item { SpendingPeriodSelector(false, {}, { payCycleMode = true }) }
 
             item {
@@ -2844,7 +2886,7 @@ private fun ActivitySummaryCard(
                                     .onSurfaceVariant
                         )
                         Text(
-                            formatActivityMoney(savingsMinor),
+                            savingsMinor?.let(::formatActivityMoney) ?: "Amount unavailable",
                             style =
                                 MaterialTheme
                                     .typography
@@ -2997,9 +3039,13 @@ private fun SummaryComparison(
 
 @Composable
 private fun SavingsChangeBadge(
-    current: Long,
-    previous: Long
+    current: Long?,
+    previous: Long?
 ) {
+    if (current == null || previous == null) {
+        Text("Comparison unavailable")
+        return
+    }
     val percent = percentageChange(
         current = current,
         previous = previous
@@ -3092,7 +3138,7 @@ private fun percentageChange(
 
 private fun monthSavings(
     snapshot: ActivityLedgerSnapshot
-): Long =
+): Long? = CheckedMoney.orNull {
     snapshot.transactions
         .filter {
             it.category in setOf(
@@ -3104,7 +3150,8 @@ private fun monthSavings(
                 it.reviewState !=
                     ReviewState.NEEDS_REVIEW.name
         }
-        .sumOf { it.amountMinor }
+        .checkedMoneySumOf { it.amountMinor }
+}
 
 @Composable
 private fun ResponsiveActivityMetrics(
@@ -3837,9 +3884,9 @@ private fun ActivityDateHeader(
     dayEpochMs: Long,
     transactions: List<StoredTransaction>
 ) {
-    val expenseTotal = transactions
+    val expenseTotal = CheckedMoney.orNull { transactions
         .filter { it.direction == MoneyDirection.EXPENSE.name }
-        .sumOf { it.amountMinor + it.feeMinor }
+        .checkedMoneySumOf { CheckedMoney.add(it.amountMinor, it.feeMinor) } }
 
     Row(
         modifier = Modifier
@@ -3853,9 +3900,9 @@ private fun ActivityDateHeader(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        if (expenseTotal > 0L) {
+        if (expenseTotal == null || expenseTotal > 0L) {
             Text(
-                formatActivityMoney(expenseTotal),
+                expenseTotal?.let(::formatActivityMoney) ?: "Total unavailable",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

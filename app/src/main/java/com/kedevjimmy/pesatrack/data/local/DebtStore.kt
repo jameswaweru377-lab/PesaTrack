@@ -12,6 +12,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.domain.rules.DebtFundingCandidate
 import com.kedevjimmy.pesatrack.domain.rules.DebtFundingPairingPolicy
 import com.kedevjimmy.pesatrack.domain.rules.DebtProceedsEventCandidate
@@ -1878,7 +1879,7 @@ class DebtStore private constructor(context: Context) {
     ): Long = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             """
-            SELECT COALESCE(SUM(fee_minor), 0)
+            SELECT fee_minor
             FROM debt_events
             WHERE occurred_at_epoch_ms >= ?
               AND occurred_at_epoch_ms < ?
@@ -1888,11 +1889,9 @@ class DebtStore private constructor(context: Context) {
                 endEpochMsExclusive.toString()
             )
         ).use { cursor ->
-            if (cursor.moveToFirst()) {
-                cursor.getLong(0)
-            } else {
-                0L
-            }
+            var total = 0L
+            while (cursor.moveToNext()) total = CheckedMoney.add(total, cursor.getLong(0))
+            total
         }
     }
 
@@ -1994,8 +1993,7 @@ class DebtStore private constructor(context: Context) {
         }
 
         val totalRequired =
-            parsed.amountMinor +
-                parsed.feeMinor
+            CheckedMoney.orNull { CheckedMoney.add(parsed.amountMinor, parsed.feeMinor) } ?: return
         val exact = eligible.filter {
             it.financedMinor == totalRequired
         }
@@ -2682,10 +2680,21 @@ class DebtStore private constructor(context: Context) {
                     } else if (!sawMovement && anchorAt == null) {
                         known = true
                     }
-                    if (known) balance += movement.amountMinor + movement.feeMinor
+                    if (known) {
+                        val next = CheckedMoney.orNull {
+                            CheckedMoney.add(balance, CheckedMoney.add(movement.amountMinor, movement.feeMinor))
+                        }
+                        if (next == null) known = false else balance = next
+                    }
                 }
-                DebtEventType.REPAYMENT -> if (known) balance = max(0L, balance - movement.amountMinor)
-                DebtEventType.FEE -> if (known) balance += movement.amountMinor
+                DebtEventType.REPAYMENT -> if (known) {
+                    val next = CheckedMoney.orNull { CheckedMoney.subtract(balance, movement.amountMinor) }
+                    if (next == null) known = false else balance = max(0L, next)
+                }
+                DebtEventType.FEE -> if (known) {
+                    val next = CheckedMoney.orNull { CheckedMoney.add(balance, movement.amountMinor) }
+                    if (next == null) known = false else balance = next
+                }
                 DebtEventType.ADJUSTMENT -> known = false
             }
             sawMovement = true

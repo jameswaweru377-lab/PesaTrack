@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
 import kotlin.math.max
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 
 object FundingGapPolicy {
     fun unexplainedGap(
@@ -11,11 +12,11 @@ object FundingGapPolicy {
     ): Long {
         val recognizedFunding = max(
             0L,
-            startingFundsMinor + additionalIncomeMinor
+            CheckedMoney.add(startingFundsMinor, additionalIncomeMinor)
         )
         val actualOutflow =
-            max(0L, spentMinor) + max(0L, feesMinor)
+            CheckedMoney.add(max(0L, spentMinor), max(0L, feesMinor))
 
-        return max(0L, actualOutflow - recognizedFunding)
+        return max(0L, CheckedMoney.subtract(actualOutflow, recognizedFunding))
     }
 }

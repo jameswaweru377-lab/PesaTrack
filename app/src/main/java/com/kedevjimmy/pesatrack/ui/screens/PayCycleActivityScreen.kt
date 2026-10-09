@@ -26,6 +26,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.*
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
+import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
 import com.kedevjimmy.pesatrack.ui.components.ConceptMetricTile
 import kotlinx.coroutines.CancellationException
@@ -47,9 +49,6 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
     onSalaryClick: () -> Unit, onTransactionClick: (Long) -> Unit) {
     val context = LocalContext.current
     var accountTypes by remember { mutableStateOf<Map<String, com.kedevjimmy.pesatrack.domain.model.AccountType>>(emptyMap()) }
-    LaunchedEffect(Unit) {
-        accountTypes = withContext(Dispatchers.IO) { AccountStore.get(context).listAccounts(false).associate { it.id to it.type } }
-    }
     val revision by LedgerUpdateBus.state.collectAsState()
     var cycles by remember { mutableStateOf(emptyList<PayCycle>()) }
     var selectedStartId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -64,6 +63,9 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
     LaunchedEffect(revision.revision, selectedStartId, retry) {
         loading = true; error = null
         try {
+            val loadedAccountTypes = withContext(Dispatchers.IO) {
+                AccountStore.get(context).listAccounts(false).associate { it.id to it.type }
+            }
             val data = withContext(Dispatchers.IO) {
                 val all = PayCycleStore.get(context).listCycles()
                 val store = TransactionStore.get(context)
@@ -91,6 +93,7 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                 )
             }
             cycles = data.cycles; snapshot = data.snapshot; previous = data.previous; categoryLabels = data.labels
+            accountTypes = loadedAccountTypes
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (exception: Exception) {
             android.util.Log.e("PesaTrackActivity", "Could not load salary cycle", exception)
@@ -141,15 +144,17 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                     val transfers = ledger.trustedTransactions.filter {
                         it.direction == "TRANSFER" && it.relationType != TransactionStore.RELATION_REFUND
                     }
-                    val savedMinor = transfers.sumOf { ConceptLedgerPolicy.savingsDelta(it, accountTypes) }
-                    val investedMinor = transfers.filter { it.category == "INVESTMENT" }.sumOf { it.amountMinor }
-                    val debtMinor = transfers.filter { it.category == "DEBT_LOAN" }.sumOf { it.amountMinor }
-                    val surplus = ledger.summary.netMinor - savedMinor - investedMinor - debtMinor
+                    val savedMinor = CheckedMoney.orNull { transfers.checkedMoneySumOf { ConceptLedgerPolicy.savingsDelta(it, accountTypes) } }
+                    val investedMinor = CheckedMoney.orNull { transfers.filter { it.category == "INVESTMENT" }.checkedMoneySumOf { it.amountMinor } }
+                    val debtMinor = CheckedMoney.orNull { transfers.filter { it.category == "DEBT_LOAN" }.checkedMoneySumOf { it.amountMinor } }
+                    val surplus = if (savedMinor == null || investedMinor == null || debtMinor == null) null
+                        else CheckedMoney.orNull { CheckedMoney.total(ledger.summary.netMinor,
+                            CheckedMoney.negate(savedMinor), CheckedMoney.negate(investedMinor), CheckedMoney.negate(debtMinor)) }
 
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         ConceptEmeraldHero(
                             title = "Cycle surplus",
-                            amount = salaryMoney(surplus),
+                            amount = surplus?.let(::salaryMoney) ?: "Amount unavailable",
                             subtitle = "After spending, fees, savings, investments and debt repayments",
                             artwork = false,
                             eyebrow = if (selected.endEpochMs == null) "Current pay cycle" else "Completed pay cycle",
@@ -185,14 +190,14 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                             ConceptMetricTile(
                                 Icons.Rounded.Savings,
                                 "Saved",
-                                salaryMoney(savedMinor),
+                                savedMinor?.let(::salaryMoney) ?: "Amount unavailable",
                                 Modifier.weight(1f),
                                 true
                             )
                             ConceptMetricTile(
                                 Icons.Rounded.TrendingUp,
                                 "Invested",
-                                salaryMoney(investedMinor),
+                                investedMinor?.let(::salaryMoney) ?: "Amount unavailable",
                                 Modifier.weight(1f),
                                 true
                             )
@@ -204,7 +209,8 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text("Earlier carryover: " + salaryMoney(selected.carryoverMinor), style = MaterialTheme.typography.labelSmall)
-                        Text("With recorded carryover: " + salaryMoney(selected.carryoverMinor + surplus), style = MaterialTheme.typography.labelSmall)
+                        val withCarryover = surplus?.let { value -> CheckedMoney.orNull { CheckedMoney.add(selected.carryoverMinor, value) } }
+                        Text("With recorded carryover: " + (withCarryover?.let(::salaryMoney) ?: "Amount unavailable"), style = MaterialTheme.typography.labelSmall)
                         Text("A planning figure, not an account balance.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         previous?.let { prior ->
                             Text(

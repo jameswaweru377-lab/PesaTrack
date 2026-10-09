@@ -15,6 +15,8 @@ import com.kedevjimmy.pesatrack.domain.ingestion.TransactionFingerprint
 import com.kedevjimmy.pesatrack.domain.interpretation.CanonicalFinancialRecordKind
 import com.kedevjimmy.pesatrack.domain.interpretation.PaymentRouteHint
 import com.kedevjimmy.pesatrack.domain.interpretation.SemanticInvestmentAction
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
+import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
@@ -1457,33 +1459,36 @@ class TransactionStore private constructor(context: Context) {
 
         val income = effective
             .filter { it.direction == MoneyDirection.INCOME.name }
-            .sumOf { it.amountMinor }
+            .checkedMoneySumOf { it.amountMinor }
 
         val grossSpent = effective
             .filter { it.direction == MoneyDirection.EXPENSE.name }
-            .sumOf { it.amountMinor }
+            .checkedMoneySumOf { it.amountMinor }
 
         val refunds = effective
             .filter {
                 it.relationType == RELATION_REFUND &&
                     refundOriginalIsTrusted(it)
             }
-            .sumOf { it.amountMinor }
+            .checkedMoneySumOf { it.amountMinor }
 
-        val spent = maxOf(0L, grossSpent - refunds)
+        val spent = maxOf(0L, CheckedMoney.subtract(grossSpent, refunds))
 
         val transfers = effective
             .filter {
                 it.direction == MoneyDirection.TRANSFER.name &&
                     it.relationType != RELATION_REFUND
             }
-            .sumOf { it.amountMinor }
+            .checkedMoneySumOf { it.amountMinor }
 
-        val fees = effective.sumOf { it.feeMinor } +
+        val fees = CheckedMoney.add(effective.checkedMoneySumOf { it.feeMinor },
             DebtStore.get(appContext).sumFeesBetween(
                 startEpochMs = startEpochMs,
                 endEpochMsExclusive = endEpochMsExclusive
-            )
+            ))
+        // Primary spending views include fees. Reject their unrepresentable total
+        // before a snapshot can reach composition or a historical report.
+        CheckedMoney.add(grossSpent, fees)
 
         return ActivityLedgerSnapshot(
             transactions = monthTransactions,
@@ -1492,7 +1497,7 @@ class TransactionStore private constructor(context: Context) {
                 spentMinor = spent,
                 feesMinor = fees,
                 transferMinor = transfers,
-                netMinor = income + refunds - grossSpent - fees,
+                netMinor = CheckedMoney.total(income, refunds, CheckedMoney.negate(grossSpent), CheckedMoney.negate(fees)),
                 needsReviewCount = monthTransactions.count {
                     it.id !in possibleDuplicateIds &&
                         (
@@ -1670,7 +1675,7 @@ class TransactionStore private constructor(context: Context) {
                             .replaceFirstChar { it.uppercase() },
                     representativeTransactionId = latest.id,
                     transactionCount = items.size,
-                    totalMinor = items.sumOf(StoredTransaction::amountMinor),
+                    totalMinor = items.checkedMoneySumOf(StoredTransaction::amountMinor),
                     latestEpochMs = latest.occurredAtEpochMs
                 )
             }

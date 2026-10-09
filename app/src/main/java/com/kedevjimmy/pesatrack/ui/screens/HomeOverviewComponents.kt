@@ -34,6 +34,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.planning.ScheduledBill
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
+import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
@@ -56,7 +58,7 @@ data class HomeSpendingItem(
 
 @Composable
 fun HomeTodayCard(
-    spentTodayMinor: Long,
+    spentTodayMinor: Long?,
     safeTodayMinor: Long?,
     activeCycle: Boolean,
     onProtectMoney: () -> Unit
@@ -562,7 +564,7 @@ fun HomeWhereMoneyWentCard(
                 )
             } else {
                 val denominator =
-                    items.sumOf {
+                    items.checkedMoneySumOf {
                         it.amountMinor
                     }.coerceAtLeast(1L)
                 val needsBetterCategories =
@@ -577,10 +579,9 @@ fun HomeWhereMoneyWentCard(
                                     ignoreCase = true
                                 )
                         }
-                        .sumOf {
+                        .checkedMoneySumOf {
                             it.amountMinor
-                        } * 100L /
-                        denominator >= 70L
+                        }.toDouble() / denominator.toDouble() >= .70
 
                 if (needsBetterCategories) {
                     Surface(
@@ -731,7 +732,7 @@ fun HomeMoneyPictureCard(
     accountCount: Int,
     confidenceScore: Int,
     confidenceLabel: String,
-    debtOutstandingMinor: Long,
+    debtOutstandingMinor: Long?,
     debtAccountCount: Int,
     onAccountsClick: () -> Unit,
     onDebtsClick: () -> Unit
@@ -860,12 +861,14 @@ fun HomeMoneyPictureCard(
                         },
                 value =
                     if (
-                        debtOutstandingMinor >
+                        debtOutstandingMinor != null && debtOutstandingMinor >
                         0L
                     ) {
                         formatHomeMoney(
                             debtOutstandingMinor
                         )
+                    } else if (debtOutstandingMinor == null) {
+                        "Balance pending"
                     } else {
                         "None"
                     },
@@ -1172,7 +1175,7 @@ private fun HomeRecentActivityRow(
         }
         Text(
             signedHomeMoney(
-                item.amountMinor +
+                CheckedMoney.orNull { CheckedMoney.add(item.amountMinor,
                     if (
                         direction ==
                         MoneyDirection.EXPENSE
@@ -1180,7 +1183,7 @@ private fun HomeRecentActivityRow(
                         item.feeMinor
                     } else {
                         0L
-                    },
+                    }) },
                 direction
             ),
             modifier =
@@ -1232,10 +1235,10 @@ private fun balanceFreshnessLabel(
 }
 
 private fun signedHomeMoney(
-    minor: Long,
+    minor: Long?,
     direction: MoneyDirection
 ): String =
-    when (direction) {
+    if (minor == null) "Amount unavailable" else when (direction) {
         MoneyDirection.INCOME ->
             "+ " +
                 formatHomeMoney(minor)
@@ -1249,8 +1252,9 @@ private fun signedHomeMoney(
     }
 
 private fun formatHomeMoney(
-    minor: Long
+    minor: Long?
 ): String {
+    if (minor == null) return "Amount unavailable"
     val formatter =
         NumberFormat
             .getNumberInstance(Locale.US)
@@ -1261,7 +1265,7 @@ private fun formatHomeMoney(
     return if (minor < 0L) {
         "-KES " +
             formatter.format(
-                -minor / 100.0
+                -minor.toDouble() / 100.0
             )
     } else {
         "KES " +

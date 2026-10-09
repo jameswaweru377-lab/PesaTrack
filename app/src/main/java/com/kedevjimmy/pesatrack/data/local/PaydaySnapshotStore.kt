@@ -8,6 +8,10 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
+import com.kedevjimmy.pesatrack.domain.model.checkedMoneySum
+import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
+import java.math.BigInteger
 
 enum class PaydayBalanceQuality {
     OBSERVED,
@@ -273,13 +277,13 @@ class PaydaySnapshotStore private constructor(
                 .mapNotNull {
                     it.balanceMinor
                 }
-                .sum()
+                .checkedMoneySum()
         val protectedSavingsMinor =
             protected
                 .mapNotNull {
                     it.balanceMinor
                 }
-                .sum()
+                .checkedMoneySum()
         val unknownLiquidCount =
             liquid.count {
                 it.balanceMinor == null
@@ -600,6 +604,17 @@ class PaydaySnapshotStore private constructor(
         db: SQLiteDatabase,
         account: MoneyAccount,
         snapshotEpochMs: Long
+    ): PaydayAccountSnapshot = try {
+        reconstructAccountSnapshot(db, account, snapshotEpochMs)
+    } catch (_: ArithmeticException) {
+        PaydayAccountSnapshot(account.id, account.name, account.type, null,
+            PaydayBalanceQuality.UNKNOWN, null, spendability(account.type))
+    }
+
+    private fun reconstructAccountSnapshot(
+        db: SQLiteDatabase,
+        account: MoneyAccount,
+        snapshotEpochMs: Long
     ): PaydayAccountSnapshot {
         val prior =
             latestBalanceAnchorAtOrBefore(
@@ -630,8 +645,7 @@ class PaydaySnapshotStore private constructor(
                 accountName = account.name,
                 accountType = account.type,
                 balanceMinor =
-                    prior.balanceMinor +
-                        delta,
+                    CheckedMoney.add(prior.balanceMinor, delta),
                 quality =
                     if (exact) {
                         prior.quality
@@ -671,8 +685,7 @@ class PaydaySnapshotStore private constructor(
                 accountName = account.name,
                 accountType = account.type,
                 balanceMinor =
-                    openingBalance +
-                        delta,
+                    CheckedMoney.add(openingBalance, delta),
                 quality =
                     if (
                         openingEpoch ==
@@ -715,8 +728,7 @@ class PaydaySnapshotStore private constructor(
                 accountName = account.name,
                 accountType = account.type,
                 balanceMinor =
-                    openingBalance -
-                        laterDelta,
+                    CheckedMoney.subtract(openingBalance, laterDelta),
                 quality =
                     PaydayBalanceQuality
                         .RECONSTRUCTED,
@@ -758,8 +770,7 @@ class PaydaySnapshotStore private constructor(
                 accountName = account.name,
                 accountType = account.type,
                 balanceMinor =
-                    later.balanceMinor -
-                        laterDelta,
+                    CheckedMoney.subtract(later.balanceMinor, laterDelta),
                 quality =
                     PaydayBalanceQuality
                         .RECONSTRUCTED,
@@ -945,7 +956,7 @@ class PaydaySnapshotStore private constructor(
                 accountId
             )
         ).use { cursor ->
-            var delta = 0L
+            var delta = BigInteger.ZERO
             while (
                 cursor.moveToNext()
             ) {
@@ -984,20 +995,20 @@ class PaydaySnapshotStore private constructor(
                     delta +=
                         when (direction) {
                             MoneyDirection.INCOME ->
-                                amount
+                                BigInteger.valueOf(amount)
                             MoneyDirection.EXPENSE ->
-                                -(amount + fee)
+                                -(BigInteger.valueOf(amount) + BigInteger.valueOf(fee))
                             MoneyDirection.TRANSFER ->
                                 if (
                                     destination ==
                                     accountId
                                 ) {
-                                    -fee
+                                    -BigInteger.valueOf(fee)
                                 } else {
-                                    -(amount + fee)
+                                    -(BigInteger.valueOf(amount) + BigInteger.valueOf(fee))
                                 }
                             MoneyDirection.NEUTRAL ->
-                                0L
+                                BigInteger.ZERO
                         }
                 }
 
@@ -1007,10 +1018,10 @@ class PaydaySnapshotStore private constructor(
                     direction ==
                     MoneyDirection.TRANSFER
                 ) {
-                    delta += amount
+                    delta += BigInteger.valueOf(amount)
                 }
             }
-            delta
+            CheckedMoney.exact(delta)
         }
     }
 
@@ -1037,7 +1048,7 @@ class PaydaySnapshotStore private constructor(
                 }
             }
 
-        return debtIds.sumOf {
+        return debtIds.checkedMoneySumOf {
                 debtId ->
             db.rawQuery(
                 """
