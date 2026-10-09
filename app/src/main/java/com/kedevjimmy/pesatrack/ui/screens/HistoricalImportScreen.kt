@@ -38,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,6 +70,7 @@ fun HistoricalImportScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    var showDateHelp by rememberSaveable { mutableStateOf(false) }
     var consentAccepted by rememberSaveable { mutableStateOf(SmsAccessConsentStore.hasConsent(context)) }
     var permissionGranted by remember {
         mutableStateOf(hasSmsPermission(context))
@@ -471,13 +473,11 @@ fun HistoricalImportScreen(
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Column(Modifier.padding(start = 10.dp)) {
-                        Text(
-                            "About transaction dates",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            "Transaction date = when money moved. SMS received date = when the phone received the message. Import time = when PesaTrack learned about it. Monthly reports use the transaction date.",
+                        TextButton(onClick = { showDateHelp = !showDateHelp }) {
+                            Text(if (showDateHelp) "Hide date explanation" else "About transaction dates")
+                        }
+                        if (showDateHelp) Text(
+                            "Reports use the date the money moved. The message may arrive later, and adding it to PesaTrack later does not change that date.",
                             modifier = Modifier.padding(top = 4.dp),
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )

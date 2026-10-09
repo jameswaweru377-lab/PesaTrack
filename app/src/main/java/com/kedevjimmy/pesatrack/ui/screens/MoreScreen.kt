@@ -79,7 +79,7 @@ fun MoreScreen(
                 MoreRow(
                     icon = Icons.Rounded.Insights,
                     title = "Reports & insights",
-                    subtitle = "Week, month and year views from trusted activity",
+                    subtitle = "See where your money goes",
                     tone = "green",
                     onClick = onReportsClick
                 )
@@ -90,7 +90,7 @@ fun MoreScreen(
                 MoreRow(
                     icon = Icons.Rounded.Savings,
                     title = "Saving goals",
-                    subtitle = "Targets backed by your real savings plan",
+                    subtitle = "Track your savings targets",
                     tone = "blue",
                     onClick = onGoalsClick
                 )
@@ -101,7 +101,7 @@ fun MoreScreen(
                 MoreRow(
                     icon = Icons.Rounded.NotificationsActive,
                     title = "Bills & reminders",
-                    subtitle = "Protected commitments and payment status",
+                    subtitle = "Upcoming bills and payments",
                     tone = "amber",
                     onClick = onBillsClick
                 )
@@ -114,7 +114,7 @@ fun MoreScreen(
             MoreRow(
                 icon = Icons.Rounded.Person,
                 title = "Profile",
-                subtitle = "Your money profile and account overview",
+                subtitle = "Personal details and financial progress",
                 tone = "blue",
                 onClick = onProfileClick
             )
@@ -123,19 +123,19 @@ fun MoreScreen(
             MoreRow(
                 icon = Icons.Rounded.Settings,
                 title = "Settings",
-                subtitle = "Theme, permissions and smart rules",
+                subtitle = "Privacy, reminders and appearance",
                 tone = "violet",
                 onClick = onSettingsClick
             )
         }
         item {
-            SectionHeader("Advanced tools")
+            SectionHeader("History and help")
         }
         item {
             MoreRow(
                 icon = Icons.Rounded.CalendarMonth,
-                title = "Import history",
-                subtitle = "Bring in an older SMS window when you choose",
+                title = "Add past transactions",
+                subtitle = "Read older money messages from this phone",
                 tone = "green",
                 onClick = onImportClick
             )
@@ -143,8 +143,8 @@ fun MoreScreen(
         item {
             MoreRow(
                 icon = Icons.Rounded.Info,
-                title = "Data health",
-                subtitle = "Message coverage and items PesaTrack could not understand",
+                title = "Advanced troubleshooting",
+                subtitle = "Message tests and repair tools",
                 tone = "amber",
                 onClick = onDataHealthClick
             )
