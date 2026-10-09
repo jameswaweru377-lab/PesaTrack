@@ -144,6 +144,38 @@ class DebtAccountingRegressionTest {
     }
 
     @Test
+    fun distinctDrawdownAtFullRepaymentTimestampCannotProveSettlement() {
+        val liability = liability("SAME_TIME_FULL")
+        drawdown(liability, 50_000L, T1, "original")
+        repayment(liability, 50_000L, T2, "full", DebtCompletion.FULL)
+        // SMS minute precision cannot establish which distinct event came first.
+        drawdown(liability, 10_000L, T2, "new-loan")
+        assertEquals(DebtBalanceQuality.UNKNOWN, account(liability).balanceQuality)
+        assertFalse(account(liability).isSettled)
+        assertFalse(drawdown(liability, 10_000L, T2, "new-loan").inserted)
+        assertEquals(DebtBalanceQuality.UNKNOWN, account(liability).balanceQuality)
+    }
+
+    @Test
+    fun standaloneZeroAtDistinctDrawdownTimestampCannotProveSettlement() {
+        val liability = liability("SAME_TIME_ZERO")
+        store.recordObservedOutstanding(liability, 0L, T2)
+        drawdown(liability, 10_000L, T2, "new-loan")
+        assertEquals(DebtBalanceQuality.UNKNOWN, account(liability).balanceQuality)
+        assertFalse(account(liability).isSettled)
+    }
+
+    @Test
+    fun observedZeroWithoutCoincidentDistinctMovementProvesSettlement() {
+        val liability = liability("ZERO_CONTROL")
+        drawdown(liability, 50_000L, T1, "original")
+        store.recordObservedOutstanding(liability, 0L, T2)
+        assertEquals(0L, account(liability).outstandingMinor)
+        assertEquals(DebtBalanceQuality.OBSERVED, account(liability).balanceQuality)
+        assertTrue(account(liability).isSettled)
+    }
+
+    @Test
     fun netCashProceedsRemainUnknownUntilARealPrincipalObservation() {
         val liability = liability("NET_PROCEEDS")
         drawdown(liability, 12_000L, T1, "net", netProceeds = true)

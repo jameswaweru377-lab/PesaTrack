@@ -87,6 +87,18 @@ class RefundOriginalTrustIntegrationTest {
     }
 
     @Test
+    fun futureRefundPromiseIsNotCompletedRefundEvidence() {
+        insertOutgoing(ReviewState.AUTO_CLASSIFIED)
+        assertNull(incomingReceipt("Refund of Ksh 220 will be credited tomorrow").relationType)
+    }
+
+    @Test
+    fun deniedRefundIsNotCompletedRefundEvidence() {
+        insertOutgoing(ReviewState.AUTO_CLASSIFIED)
+        assertNull(incomingReceipt("Refund for this payment has not been completed").relationType)
+    }
+
+    @Test
     fun unrelatedReceiptFromSameMerchantIsNotRefundEvidence() {
         insertOutgoing(ReviewState.AUTO_CLASSIFIED)
         val receipt = incomingReceipt("Synthetic consultancy payment received from SAMPLE TAXI")
