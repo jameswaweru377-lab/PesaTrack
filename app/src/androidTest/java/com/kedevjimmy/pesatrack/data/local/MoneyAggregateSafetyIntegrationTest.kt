@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.domain.interpretation.*
 import com.kedevjimmy.pesatrack.domain.model.*
+import com.kedevjimmy.pesatrack.ui.screens.formatSignedMoney
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -45,6 +46,37 @@ class MoneyAggregateSafetyIntegrationTest {
         insert("second", 1L, MoneyDirection.INCOME, start + 60_000L)
         assertEquals(Long.MAX_VALUE, snapshot().summary.incomeMinor)
         assertEquals(Long.MAX_VALUE, snapshot().summary.netMinor)
+    }
+
+    @Test fun exactlyRepresentableMinimumNetRemainsAvailableAndDisplaysOneNegativeSign() {
+        // -(MAX + 1) equals MIN: net is representable even though absolute outflow is not.
+        insert("expense", Long.MAX_VALUE, MoneyDirection.EXPENSE, start)
+        insert("fee", 0L, MoneyDirection.NEUTRAL, start + 60_000L, fee = 1L)
+        val result = snapshot()
+        assertEquals(Long.MIN_VALUE, result.summary.netMinor)
+        assertEquals(Long.MAX_VALUE, result.summary.spentMinor)
+        assertEquals(1L, result.summary.feesMinor)
+        assertEquals("- KES 92,233,720,368,547,760", formatSignedMoney(result.summary.netMinor))
+    }
+
+    @Test fun estimatedZeroRepaymentDoesNotBecomeSettledAfterDatabaseReopens() {
+        val liability = FinancialAccountReference(entityKey = "synthetic:repayment-lender",
+            displayName = "Synthetic repayment lender", providerKey = "synthetic:repayment-lender",
+            accountTypeHint = AccountType.OTHER, ownershipHint = AccountOwnershipHint.USER_OWNED,
+            nature = FinancialAccountNature.LIABILITY)
+        val store = DebtStore.get(context)
+        store.recordObservedOutstanding(liability, 10_000L, start)
+        store.recordRepayment(DebtRepaymentEventFact(amountMinor = 10_000L, liability = liability,
+            fundingAccount = null, completion = DebtCompletion.PARTIAL, outstandingAfterMinor = null,
+            availableCreditAfterMinor = null, walletBalanceAfterMinor = null,
+            confidence = InterpretationConfidence.HIGH), null, "invented-partial-repayment", null,
+            "TEST", start + 60_000L)
+        PesaTrackDatabase.resetForTests()
+        val reloaded = DebtStore.get(context).accounts().single()
+        assertEquals(0L, reloaded.outstandingMinor)
+        assertEquals(DebtBalanceQuality.ESTIMATED, reloaded.balanceQuality)
+        assertFalse(reloaded.isSettled)
+        assertEquals(10_000L, reloaded.lastRepaymentMinor)
     }
 
     @Test fun savingsWithdrawalRejectsUnrepresentableSignedAmount() {
