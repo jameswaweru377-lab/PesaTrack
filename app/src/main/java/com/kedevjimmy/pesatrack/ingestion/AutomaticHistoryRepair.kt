@@ -46,7 +46,7 @@ object AutomaticHistoryRepair {
     }
 
     internal fun hasSmsAccess(context: Context): Boolean =
-        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+        com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore.canRead(context)
 
     internal fun updateEpochMs(context: Context): Long = runCatching {
         @Suppress("DEPRECATION")

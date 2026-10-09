@@ -80,6 +80,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore
 import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
 import com.kedevjimmy.pesatrack.data.local.EntityEnrichmentPreferences
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
@@ -213,7 +214,8 @@ fun SmartOnboardingSetupScreen(
     var stage by rememberSaveable {
         mutableStateOf(SmartSetupStage.SMS_PERMISSION)
     }
-    var disclosureAccepted by rememberSaveable { mutableStateOf(false) }
+    var disclosureAccepted by rememberSaveable { mutableStateOf(SmsAccessConsentStore.hasConsent(context)) }
+    var consentError by remember { mutableStateOf<String?>(null) }
     var accessStarted by rememberSaveable { mutableStateOf(false) }
     var smsHandled by rememberSaveable { mutableStateOf(false) }
     var notificationsHandled by rememberSaveable { mutableStateOf(false) }
@@ -361,7 +363,7 @@ fun SmartOnboardingSetupScreen(
             ) {
                 smsPromptLaunched = false
                 smsHandled = false
-                accessStarted = disclosureAccepted
+                accessStarted = disclosureAccepted && SmsAccessConsentStore.hasConsent(context)
             }
         }
 
@@ -1535,24 +1537,41 @@ fun SmartOnboardingSetupScreen(
             BrandWordmark(compact = true)
             StageProgress(stage)
             SmartSmsPermissionPage(
-                accepted = disclosureAccepted, busy = accessStarted, denied = smsDenied,
+                accepted = disclosureAccepted, busy = accessStarted, denied = smsDenied, consentError = consentError,
                 restrictedHelp = smsDenied && smartIsLikelySideloaded(context),
-                onAccepted = { disclosureAccepted = it },
+                onAccepted = {
+                    if (it || SmsAccessConsentStore.setAccepted(context, false)) {
+                        disclosureAccepted = it
+                        consentError = null
+                    } else consentError = "Your choice could not be saved. Please try again."
+                },
                 onOpenAppInfo = {
                     smsAppInfoVisited = true
                     appInfoLauncher.launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                         Uri.parse("package:" + context.packageName)))
                 },
                 onTryAgain = {
-                    if (disclosureAccepted) {
+                    if (disclosureAccepted && SmsAccessConsentStore.setAccepted(context, true)) {
                         smsDenied = false
                         smsHandled = false
                         smsPromptLaunched = false
                         accessStarted = true
-                    }
+                    } else consentError = "Your choice could not be saved. Please try again."
                 },
-                onContinue = { if (disclosureAccepted) accessStarted = true },
-                onContinueWithout = { importMonths = 0; accessStarted = false; stage = SmartSetupStage.IMPORT }
+                onContinue = {
+                    if (disclosureAccepted && SmsAccessConsentStore.setAccepted(context, true)) {
+                        consentError = null
+                        accessStarted = true
+                    } else consentError = "Your choice could not be saved. Please try again."
+                },
+                onContinueWithout = {
+                    if (SmsAccessConsentStore.setAccepted(context, false)) {
+                        disclosureAccepted = false
+                        importMonths = 0
+                        accessStarted = false
+                        stage = SmartSetupStage.IMPORT
+                    } else consentError = "Your choice could not be saved. Please try again."
+                }
             )
         }
         return

@@ -55,6 +55,7 @@ internal fun SmartSmsPermissionPage(
     busy: Boolean,
     denied: Boolean,
     restrictedHelp: Boolean,
+    consentError: String? = null,
     onAccepted: (Boolean) -> Unit,
     onOpenAppInfo: () -> Unit,
     onTryAgain: () -> Unit,
@@ -76,6 +77,8 @@ internal fun SmartSmsPermissionPage(
         PesaCard(modifier = Modifier.fillMaxWidth().weight(1f)) {
             Column(Modifier.fillMaxSize().verticalScroll(disclosureScroll).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                consentError?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall) }
         if (denied) {
             Text(if (restrictedHelp) "Android did not allow SMS access. If access is restricted, open App info → ⋮ → Allow restricted settings, then return."
                 else "SMS access wasn't allowed. You can retry or continue without importing history.",
@@ -91,7 +94,7 @@ internal fun SmartSmsPermissionPage(
                     style = MaterialTheme.typography.bodySmall)
                 Text("Financial messages are processed on this device. Full SMS and notification text are not uploaded. Optional online merchant lookup is a separate choice and uses limited descriptors, not full messages.",
                     style = MaterialTheme.typography.bodySmall)
-                Text("You choose how much SMS history to import and which notification sources to approve. Other messages are not added to your ledger. Access alone does not approve every app as a financial source.",
+                Text("You choose how much SMS history to import and which notification sources to approve. Recent SMS catch-up can run when you reopen the app. Other messages are not added to your ledger. Access alone does not approve every app as a financial source.",
                     style = MaterialTheme.typography.bodySmall)
                 Text("Android will ask you to allow SMS access and open notification-access settings. You can deny access, continue without it, or change permissions later in Android settings. PesaTrack cannot enable restricted settings for you.",
                     style = MaterialTheme.typography.bodySmall)

@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
+import com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -46,6 +47,7 @@ object RecentSmsCatchUp {
     fun schedule(context: Context) {
         val appContext =
             context.applicationContext
+        if (!SmsAccessConsentStore.canRead(appContext)) return
         if (
             ContextCompat.checkSelfPermission(
                 appContext,
@@ -91,6 +93,7 @@ object RecentSmsCatchUp {
                 LedgerUpdateBus
                     .processingStarted()
                 try {
+                    if (!SmsAccessConsentStore.canRead(appContext)) return@schedule
                     if (
                         ContextCompat
                             .checkSelfPermission(

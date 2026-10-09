@@ -27,6 +27,9 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -66,6 +69,7 @@ fun HistoricalImportScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    var consentAccepted by rememberSaveable { mutableStateOf(SmsAccessConsentStore.hasConsent(context)) }
     var permissionGranted by remember {
         mutableStateOf(hasSmsPermission(context))
     }
@@ -90,7 +94,11 @@ fun HistoricalImportScreen(
     }
 
     fun runImport() {
-        if (!permissionGranted || importing) return
+        if (!permissionGranted || importing || !consentAccepted) return
+        if (!SmsAccessConsentStore.setAccepted(context, true)) {
+            error = "Your SMS consent could not be saved. Please try again."
+            return
+        }
         importing = true
         stopping = false
         cancelRequested.set(false)
@@ -129,7 +137,8 @@ fun HistoricalImportScreen(
                 }.onFailure {
                     error = when (it) {
                         is SecurityException ->
-                            "Android did not allow PesaTrack to read the SMS inbox on this installation."
+                            if (!SmsAccessConsentStore.hasConsent(context)) "SMS consent is off. Accept the disclosure before importing history."
+                            else "Android did not allow PesaTrack to read the SMS inbox on this installation."
                         else ->
                             it.message ?: "Historical import could not be completed."
                     }
@@ -161,6 +170,23 @@ fun HistoricalImportScreen(
             }
         }
 
+        item {
+            PesaCard {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Before reading SMS", style = MaterialTheme.typography.titleMedium)
+                    Text("With your agreement and Android permission, PesaTrack reads financial SMS to organise income, spending, transfers, balances and debts on this device. Full messages are not uploaded. Optional online merchant lookup is a separate choice using limited descriptors. You choose the import window; recent SMS catch-up can run when you reopen the app. Unrelated messages are not added to your ledger. You can continue using the app without this access.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = consentAccepted, enabled = !importing, onCheckedChange = { accepted ->
+                            if (accepted || SmsAccessConsentStore.setAccepted(context, false)) {
+                                consentAccepted = accepted
+                            } else error = "Your choice could not be saved. Please try again."
+                        })
+                        Text("I agree to this use of my financial SMS", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
         item {
             PesaCard {
                 Row(
@@ -199,35 +225,15 @@ fun HistoricalImportScreen(
 
         if (!permissionGranted) {
             item {
-                PesaCard {
-                    Column(
-                        Modifier.padding(16.dp),
-                        verticalArrangement =
-                            Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            "Before you grant SMS access",
-                            style =
-                                MaterialTheme.typography
-                                    .titleMedium
-                        )
-                        Text(
-                            "PesaTrack will read the selected financial SMS history on this device to create and reconcile your local ledger. Full SMS messages are not uploaded or shared with the optional online merchant lookup service. You can leave this permission disabled and continue using PesaTrack without historical SMS import.",
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            item {
                 Button(
                     onClick = {
                         permissionDenied = false
-                        permissionLauncher.launch(Manifest.permission.READ_SMS)
+                        if (consentAccepted && SmsAccessConsentStore.setAccepted(context, true)) {
+                            permissionLauncher.launch(Manifest.permission.READ_SMS)
+                        } else error = "Accept the disclosure before allowing SMS access."
                     },
                     modifier = Modifier.fillMaxWidth(),
+                    enabled = consentAccepted,
                     shape = RoundedCornerShape(18.dp)
                 ) {
                     Icon(Icons.Rounded.Lock, contentDescription = null)
@@ -306,7 +312,7 @@ fun HistoricalImportScreen(
             item {
                 Button(
                     onClick = ::runImport,
-                    enabled = !importing,
+                    enabled = !importing && consentAccepted,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp)
                 ) {

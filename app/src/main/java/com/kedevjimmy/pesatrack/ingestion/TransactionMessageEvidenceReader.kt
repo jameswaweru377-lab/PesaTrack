@@ -18,8 +18,8 @@ class TransactionMessageEvidenceReader(private val context: Context) {
     fun read(transaction: StoredTransaction): TransactionMessageEvidenceResult {
         val code = transaction.transactionCode?.trim()?.takeIf { it.isNotEmpty() }
             ?: return TransactionMessageEvidenceResult(unavailableReason = "No message reference is recorded for this transaction.")
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
-            return TransactionMessageEvidenceResult(unavailableReason = "SMS access is off. Allow SMS access in Connect messages to view the original message.")
+        if (!com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore.canRead(context)) {
+            return TransactionMessageEvidenceResult(unavailableReason = "SMS access is off. Open More → Import history, accept the disclosure and allow Android SMS access to view the original message.")
         }
         return try {
             val candidates = mutableListOf<TransactionMessageEvidence>()
@@ -36,6 +36,7 @@ class TransactionMessageEvidenceReader(private val context: Context) {
                 val bodyIndex = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
                 val dateIndex = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
                 while (it.moveToNext()) {
+                    com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore.requireConsent(context)
                     val sender = it.getString(senderIndex).orEmpty()
                     val body = it.getString(bodyIndex).orEmpty()
                     val interpretation = FinancialMessageInterpreter.interpret(title = sender, body = body)
