@@ -92,6 +92,11 @@ fun SettingsScreen(
     var showBackupRestore by remember {
         mutableStateOf(false)
     }
+    var showNotificationSources by remember { mutableStateOf(false) }
+
+    if (showNotificationSources) {
+        NotificationSourceApprovalSheet(onDismiss = { showNotificationSources = false })
+    }
 
     if (showAppLock) {
         AppLockSettingsSheet(
@@ -286,6 +291,12 @@ fun SettingsScreen(
                         "Financial notifications",
                         "M-Pesa and supported bank/app capture status",
                         onClick = onMpesaConnectionClick
+                    )
+                    SettingsRow(
+                        Icons.Rounded.Security,
+                        "Approved notification apps",
+                        "Choose which apps may update financial records; all start off",
+                        onClick = { showNotificationSources = true }
                     )
                     SettingsRow(
                         Icons.Rounded.Storage,
