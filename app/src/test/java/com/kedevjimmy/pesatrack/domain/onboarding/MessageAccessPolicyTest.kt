@@ -1,9 +1,19 @@
 package com.kedevjimmy.pesatrack.domain.onboarding
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MessageAccessPolicyTest {
+    @Test fun existingAndroidGrantDoesNotReplaceDisclosureConsent() {
+        assertFalse(MessageAccessPolicy.canImport(false, true, 3))
+    }
+    @Test fun historyNeedsBothConsentAndPermission() {
+        assertFalse(MessageAccessPolicy.canImport(true, false, 3))
+        assertFalse(MessageAccessPolicy.canImport(true, true, 0))
+        assertTrue(MessageAccessPolicy.canImport(true, true, 3))
+    }
     @Test fun noPermissionRequestsBeforeAcceptance() {
         assertEquals(MessageAccessAction.WAIT, MessageAccessPolicy.next(false, true, false, false))
     }

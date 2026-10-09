@@ -9,7 +9,9 @@ import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.material3.Checkbox
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +34,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -57,16 +61,30 @@ internal fun SmartSmsPermissionPage(
     onContinue: () -> Unit,
     onContinueWithout: () -> Unit
 ) {
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val compact = maxHeight < 600.dp
+    val disclosureScroll = rememberScrollState()
+    LaunchedEffect(denied) { if (denied) disclosureScroll.scrollTo(0) }
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)) {
         Text("Build your money picture privately",
-            style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold)
         Text("PesaTrack understands financial messages on this device.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        FinancialMessagesIllustration()
+        FinancialMessagesIllustration(compact = compact)
         PesaCard(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
+            Column(Modifier.fillMaxSize().verticalScroll(disclosureScroll).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (denied) {
+            Text(if (restrictedHelp) "Android did not allow SMS access. If access is restricted, open App info → ⋮ → Allow restricted settings, then return."
+                else "SMS access wasn't allowed. You can retry or continue without importing history.",
+                style = MaterialTheme.typography.bodySmall)
+            Row {
+                if (restrictedHelp) TextButton(onClick = onOpenAppInfo) { Text("Open App info") }
+                TextButton(onClick = onTryAgain) { Text("Try SMS again") }
+            }
+        }
                 Text("Your messages, your choice", style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold)
                 Text("With your permission, PesaTrack reads financial SMS history and notifications from supported money apps to organise income, spending, transfers, balances and debts.",
@@ -79,18 +97,10 @@ internal fun SmartSmsPermissionPage(
                     style = MaterialTheme.typography.bodySmall)
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = accepted, onCheckedChange = if (busy) null else onAccepted)
+        Row(Modifier.fillMaxWidth().toggleable(value = accepted, enabled = !busy,
+            role = Role.Checkbox, onValueChange = onAccepted), verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = accepted, onCheckedChange = null, enabled = !busy)
             Text("I agree to this use of my financial messages", style = MaterialTheme.typography.bodySmall)
-        }
-        if (denied) {
-            Text(if (restrictedHelp) "Android did not allow SMS access. If access is restricted, open App info → ⋮ → Allow restricted settings, then return."
-                else "SMS access wasn't allowed. You can retry or continue without importing history.",
-                style = MaterialTheme.typography.bodySmall)
-            Row {
-                if (restrictedHelp) TextButton(onClick = onOpenAppInfo) { Text("Open App info") }
-                TextButton(onClick = onTryAgain) { Text("Try SMS again") }
-            }
         }
         Button(onClick = onContinue, enabled = accepted && !busy,
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
@@ -100,48 +110,6 @@ internal fun SmartSmsPermissionPage(
             Text("Continue without access")
         }
     }
-}
-
-@Composable
-private fun PermissionFeatureRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    body: String,
-    enabled: Boolean,
-    actionLabel: String,
-    onAction: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconBubble(icon, size = 42.dp)
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 10.dp)
-        ) {
-            Text(
-                title,
-                style = MaterialTheme.typography.titleSmall
-            )
-            Text(
-                body,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        if (enabled) {
-            Icon(
-                Icons.Rounded.CheckCircle,
-                contentDescription = "Enabled",
-                tint = pesaToneContent("green")
-            )
-        } else {
-            TextButton(onClick = onAction) {
-                Text(actionLabel)
-            }
-        }
     }
 }
 

@@ -478,8 +478,7 @@ fun SmartOnboardingSetupScreen(
         importResult =
             withContext(Dispatchers.IO) {
                 if (
-                    importMonths > 0 &&
-                    smsGranted &&
+                    MessageAccessPolicy.canImport(disclosureAccepted, smsGranted, importMonths) &&
                     startEpochMs != null
                 ) {
                     runCatching {
@@ -1601,7 +1600,7 @@ fun SmartOnboardingSetupScreen(
                         onContinue = {
                             if (
                                 importMonths == 0 ||
-                                smsGranted
+                                MessageAccessPolicy.canImport(disclosureAccepted, smsGranted, importMonths)
                             ) {
                                 stage =
                                     SmartSetupStage
@@ -1624,8 +1623,7 @@ fun SmartOnboardingSetupScreen(
                 item {
                     AnalysisPage(
                         importing =
-                            importMonths > 0 &&
-                                smsGranted,
+                            MessageAccessPolicy.canImport(disclosureAccepted, smsGranted, importMonths),
                         step = analysisStep,
                         reviewMode =
                             analysisReviewMode,

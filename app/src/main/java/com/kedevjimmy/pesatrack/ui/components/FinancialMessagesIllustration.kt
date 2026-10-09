@@ -17,13 +17,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /** Illustrative messages only; these values never enter the user's ledger. */
 @Composable
-fun FinancialMessagesIllustration(modifier: Modifier = Modifier) {
+fun FinancialMessagesIllustration(modifier: Modifier = Modifier, compact: Boolean = false) {
     val colors = MaterialTheme.colorScheme
     Column(modifier.fillMaxWidth()) {
-        BoxWithConstraints(Modifier.fillMaxWidth().height(150.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(if (compact) 108.dp else 150.dp)) {
             Canvas(Modifier.fillMaxSize()) {
                 val end = size.width * .64f
                 listOf(.3f to .36f, .75f to .64f).forEach { (fromY, toY) ->
@@ -36,10 +37,10 @@ fun FinancialMessagesIllustration(modifier: Modifier = Modifier) {
             }
             Column(Modifier.width(maxWidth * .48f).align(Alignment.CenterStart),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                IllustrationMessage(Icons.Rounded.PhoneAndroid, "M-Pesa", "KES 1,200.00", "Today 14:21")
-                IllustrationMessage(Icons.Rounded.AccountBalance, "Equity Bank", "KES 5,000.00", "Today 09:10")
+                IllustrationMessage(Icons.Rounded.PhoneAndroid, "M-Pesa", "KES 1,200.00", "Today 14:21", compact)
+                IllustrationMessage(Icons.Rounded.AccountBalance, "Equity Bank", "KES 5,000.00", "Today 09:10", compact)
             }
-            Box(Modifier.align(Alignment.CenterEnd).padding(end = 22.dp).width(92.dp).height(146.dp)
+            Box(Modifier.align(Alignment.CenterEnd).padding(end = 22.dp).width(92.dp).height(if (compact) 108.dp else 146.dp)
                 .border(4.dp, colors.onSurface, RoundedCornerShape(14.dp))
                 .background(colors.surface, RoundedCornerShape(14.dp)).padding(10.dp)) {
                 Box(Modifier.align(Alignment.TopCenter).width(34.dp).height(6.dp)
@@ -63,15 +64,17 @@ fun FinancialMessagesIllustration(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun IllustrationMessage(icon: ImageVector, name: String, amount: String, time: String) {
+private fun IllustrationMessage(icon: ImageVector, name: String, amount: String, time: String, compact: Boolean) {
+    val style = if (compact) MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 11.sp)
+        else MaterialTheme.typography.labelSmall
     Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .3f))) {
-        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth().padding(if (compact) 6.dp else 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(icon, contentDescription = null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
             Column {
-                Text(name, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                Text(amount, style = MaterialTheme.typography.labelSmall)
-                Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(name, style = style, fontWeight = FontWeight.Bold)
+                Text(amount, style = style)
+                Text(time, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

@@ -55,6 +55,7 @@ import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.domain.model.checkedMoneySum
 import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
 import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
@@ -219,24 +220,25 @@ fun AccountsScreen(
         return
     }
 
+    val visible = presentations.filter {
+        val mobileMoney = FinancialProviderRegistry.isMobileMoneyAccount(it.group.displayName, it.group.type)
+        when (selectedTab) {
+            1 -> !mobileMoney
+            2 -> mobileMoney
+            else -> true
+        }
+    }
     val knownTotalMinor = CheckedMoney.orNull {
-        presentations
+        visible
             .mapNotNull {
                 it.balanceMinor
             }
             .checkedMoneySum()
     }
     val knownBalanceCount =
-        presentations.count {
+        visible.count {
             it.balanceMinor != null
         }
-    val visible = presentations.filter {
-        when (selectedTab) {
-            1 -> it.group.type != AccountType.MOBILE_WALLET
-            2 -> it.group.type == AccountType.MOBILE_WALLET
-            else -> true
-        }
-    }
     LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -250,7 +252,7 @@ fun AccountsScreen(
                     Text("Known balances", style = MaterialTheme.typography.titleMedium)
                     Text(if (knownBalanceCount == 0) "Waiting for balances" else formatDetailMoney(knownTotalMinor),
                         style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text("$knownBalanceCount of ${presentations.size} confirmed accounts • unknown balances excluded",
+                    Text("$knownBalanceCount of ${visible.size} confirmed accounts • unknown balances excluded",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -424,10 +426,6 @@ fun DebtsScreen(
                     Text(
                         if (totalDebtMinor == null) {
                             "Balance unavailable"
-                        } else if (
-                            unknownBalanceCount > 0
-                        ) {
-                            "Known outstanding"
                         } else {
                             "Known outstanding"
                         },
@@ -1042,7 +1040,8 @@ private fun formatDetailMoney(
         NumberFormat.getNumberInstance(
             Locale.US
         ).apply {
-            maximumFractionDigits = 0
+            minimumFractionDigits = 2
+            maximumFractionDigits = 2
         }
     return "KES " +
         formatter.format(
