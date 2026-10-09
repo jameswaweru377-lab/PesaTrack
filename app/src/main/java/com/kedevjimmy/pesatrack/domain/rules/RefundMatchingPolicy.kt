@@ -85,13 +85,7 @@ object RefundMatchingPolicy {
         first: String,
         second: String
     ): Boolean {
-        if (first == second) return true
-
-        val shorter = minOf(first.length, second.length)
-        if (shorter < 5) return false
-
-        return first.startsWith(second) ||
-            second.startsWith(first)
+        return first == second
     }
 
     private val STOP_WORDS = setOf(
