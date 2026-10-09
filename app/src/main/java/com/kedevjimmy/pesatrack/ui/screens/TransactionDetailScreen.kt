@@ -45,7 +45,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -1065,7 +1064,7 @@ private fun TransactionHero(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 180.dp),
+                .height(240.dp),
         showSun = false
     ) {
         Column(
@@ -1151,7 +1150,9 @@ private fun TransactionHero(
                                         15.dp
                                     ),
                                 tint =
-                                    MaterialTheme.colorScheme.secondary
+                                    Color(
+                                        0xFF77E8B6
+                                    )
                             )
                             Text(
                                 accountLabel,
@@ -1192,7 +1193,9 @@ private fun TransactionHero(
                                     9.dp
                                 ),
                             tint =
-                                MaterialTheme.colorScheme.secondary
+                                Color(
+                                    0xFF74F1B9
+                                )
                         )
                     }
                     Text(
@@ -1224,7 +1227,9 @@ private fun TransactionHero(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(
+                Modifier.weight(1f)
+            )
 
             Surface(
                 modifier =
@@ -1327,7 +1332,7 @@ private fun TransactionCounterpartyBadge(
             Modifier.size(size),
         shape = CircleShape,
         color =
-            Color(0xFF181818)
+            Color(0xFF4F46D8)
     ) {
         Box(
             contentAlignment =
@@ -1341,9 +1346,9 @@ private fun TransactionCounterpartyBadge(
                             .typography
                             .headlineSmall,
                     fontWeight =
-                        FontWeight.SemiBold,
+                        FontWeight.ExtraBold,
                     color =
-                        Color(0xFF9AD2BB)
+                        Color(0xFF55E6D1)
                 )
             } else {
                 Icon(
@@ -1355,7 +1360,7 @@ private fun TransactionCounterpartyBadge(
                             size * .62f
                         ),
                     tint =
-                        Color(0xFF9AD2BB)
+                        Color(0xFF55E6D1)
                 )
             }
         }
@@ -2067,7 +2072,6 @@ private data class CategoryVisual(
     val color: Color
 )
 
-@Composable
 private fun categoryVisual(
     categoryId: String
 ): CategoryVisual =
@@ -2077,7 +2081,7 @@ private fun categoryVisual(
             CategoryVisual(
                 Icons.Rounded
                     .ShoppingCart,
-                MaterialTheme.colorScheme.onSurface
+                Color(0xFFA69CFF)
             )
 
         TransactionCategory
@@ -2085,7 +2089,7 @@ private fun categoryVisual(
             CategoryVisual(
                 Icons.Rounded
                     .Restaurant,
-                MaterialTheme.colorScheme.tertiary
+                Color(0xFFFFB24D)
             )
 
         TransactionCategory
@@ -2093,28 +2097,28 @@ private fun categoryVisual(
             CategoryVisual(
                 Icons.Rounded
                     .DirectionsBus,
-                if (com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme()) Color(0xFFA6CAE3) else Color(0xFF356B98)
+                Color(0xFF57C7FF)
             )
 
         TransactionCategory
             .RENT.name ->
             CategoryVisual(
                 Icons.Rounded.Home,
-                MaterialTheme.colorScheme.error
+                Color(0xFFFF7B8C)
             )
 
         TransactionCategory
             .ELECTRICITY.name ->
             CategoryVisual(
                 Icons.Rounded.Bolt,
-                MaterialTheme.colorScheme.tertiary
+                Color(0xFFFFD54A)
             )
 
         TransactionCategory
             .WATER.name ->
             CategoryVisual(
                 Icons.Rounded.WaterDrop,
-                if (com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme()) Color(0xFFA6CAE3) else Color(0xFF356B98)
+                Color(0xFF78D8FF)
             )
 
         TransactionCategory
@@ -2123,14 +2127,14 @@ private fun categoryVisual(
             .PHONE_AND_DATA.name ->
             CategoryVisual(
                 Icons.Rounded.Wifi,
-                MaterialTheme.colorScheme.onSurfaceVariant
+                Color(0xFF9B8CFF)
             )
 
         TransactionCategory
             .SHOPPING.name ->
             CategoryVisual(
                 Icons.Rounded.ShoppingBag,
-                MaterialTheme.colorScheme.error
+                Color(0xFFFF81AE)
             )
 
         TransactionCategory
@@ -2141,14 +2145,14 @@ private fun categoryVisual(
             .FAMILY.name ->
             CategoryVisual(
                 Icons.Rounded.Favorite,
-                MaterialTheme.colorScheme.error
+                Color(0xFFFF7A7A)
             )
 
         TransactionCategory
             .EDUCATION.name ->
             CategoryVisual(
                 Icons.Rounded.School,
-                MaterialTheme.colorScheme.onSurfaceVariant
+                Color(0xFFA78BFA)
             )
 
         TransactionCategory
@@ -2159,41 +2163,41 @@ private fun categoryVisual(
                 Icons.AutoMirrored
                     .Rounded
                     .ReceiptLong,
-                MaterialTheme.colorScheme.tertiary
+                Color(0xFFFFC36A)
             )
 
         TransactionCategory
             .SAVINGS.name ->
             CategoryVisual(
                 Icons.Rounded.Savings,
-                MaterialTheme.colorScheme.tertiary
+                Color(0xFFFFD78A)
             )
 
         TransactionCategory
             .INVESTMENT.name ->
             CategoryVisual(
                 Icons.Rounded.TrendingUp,
-                MaterialTheme.colorScheme.secondary
+                Color(0xFF55E6D1)
             )
 
         TransactionCategory
             .INCOME.name ->
             CategoryVisual(
                 Icons.Rounded.Paid,
-                MaterialTheme.colorScheme.onSurface
+                Color(0xFFA69CFF)
             )
 
         TransactionCategory
             .HOME_HOUSEHOLD.name ->
             CategoryVisual(
                 Icons.Rounded.Home,
-                MaterialTheme.colorScheme.secondary
+                Color(0xFF55E6D1)
             )
 
         else ->
             CategoryVisual(
                 Icons.Rounded.MoreHoriz,
-                MaterialTheme.colorScheme.onSurfaceVariant
+                Color(0xFFB3C7C2)
             )
     }
 
@@ -2260,7 +2264,7 @@ private fun TransactionActionCard(
                 shape =
                     CircleShape,
                 color =
-                    MaterialTheme.colorScheme.secondary
+                    Color(0xFF14B8A6)
                         .copy(
                             alpha = .2f
                         )
@@ -2274,7 +2278,9 @@ private fun TransactionActionCard(
                             9.dp
                         ),
                     tint =
-                        MaterialTheme.colorScheme.secondary
+                        Color(
+                            0xFF8ADFC0
+                        )
                 )
             }
             Column(

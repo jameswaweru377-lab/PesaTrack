@@ -1,10 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -39,41 +34,46 @@ enum class MainTab(
 }
 
 @Composable
-fun AppScaffold(currentTab: MainTab?, onTabSelected: (MainTab) -> Unit, content: @Composable (PaddingValues) -> Unit) {
+fun AppScaffold(
+    currentTab: MainTab?,
+    onTabSelected: (MainTab) -> Unit,
+    content: @Composable (PaddingValues) -> Unit
+) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp)) {
-                androidx.compose.material3.Surface(
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
-                    androidx.compose.foundation.layout.Row(
-                        Modifier.fillMaxWidth().selectableGroup().padding(6.dp),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)
-                    ) {
-                        MainTab.entries.forEach { tab ->
-                            val selected = currentTab == tab
-                            androidx.compose.foundation.layout.Column(
-                                Modifier.weight(1f)
-                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
-                                    .background(if (selected) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent)
-                                    .selectable(selected = selected, role = androidx.compose.ui.semantics.Role.Tab, onClick = { onTabSelected(tab) })
-                                    .heightIn(min = 56.dp).padding(horizontal = 3.dp, vertical = 8.dp),
-                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp, androidx.compose.ui.Alignment.CenterVertically)
-                            ) {
-                                val foreground = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                Icon(tab.icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = foreground)
-                                Text(tab.label, color = foreground, style = MaterialTheme.typography.labelSmall,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                            }
-                        }
-                    }
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp
+            ) {
+                MainTab.entries.forEach { tab ->
+                    NavigationBarItem(
+                        selected = currentTab == tab,
+                        onClick = { onTabSelected(tab) },
+                        icon = {
+                            Icon(
+                                tab.icon,
+                                contentDescription = tab.label,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        },
+                        label = {
+                            Text(
+                                tab.label,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = .14f),
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
                 }
             }
-        }, content = content
+        },
+        content = content
     )
 }

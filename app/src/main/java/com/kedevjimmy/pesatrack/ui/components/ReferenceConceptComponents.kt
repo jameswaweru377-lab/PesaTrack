@@ -27,12 +27,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val ConceptEmerald = Color(0xFF181818)
-private val ConceptEmeraldDeep = Color(0xFF181818)
-private val ConceptEmeraldDarker = Color(0xFF121212)
-private val ConceptMint = Color(0xFF9AD2BB)
-private val ConceptMintSoft = Color(0xFFF2F2F2)
-private val ConceptCream = Color(0xFFF7F7F7)
+private val ConceptEmerald = Color(0xFF5B55E7)
+private val ConceptEmeraldDeep = Color(0xFF24213F)
+private val ConceptEmeraldDarker = Color(0xFF121725)
+private val ConceptMint = Color(0xFF55E6D1)
+private val ConceptMintSoft = Color(0xFFF0EFFF)
+private val ConceptCream = Color(0xFFF6F7FB)
 
 @Composable
 fun ConceptWalletIllustration(
@@ -63,7 +63,7 @@ fun ConceptMessagesIllustration(
                 .height(166.dp)
                 .rotate(-7f),
             shape = RoundedCornerShape(28.dp),
-            color = Color(0xFFF2F2F2),
+            color = Color(0xFFF0EFFF),
             tonalElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -80,7 +80,7 @@ fun ConceptMessagesIllustration(
                         .width(72.dp)
                         .height(30.dp),
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFF525252)
+                    color = Color(0xFF7C6FF2)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -111,7 +111,7 @@ fun ConceptMessagesIllustration(
         Icon(
             Icons.Rounded.Eco,
             contentDescription = null,
-            tint = Color(0xFF287A5B),
+            tint = Color(0xFF14B8A6),
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset(x = 86.dp, y = 10.dp)
@@ -134,7 +134,7 @@ fun ConceptBrandLockup(
                 .size(54.dp)
                 .background(
                     brush = Brush.verticalGradient(
-                        listOf(Color(0xFF181818), Color(0xFF181818))
+                        listOf(Color(0xFFA69CFF), Color(0xFF5B55E7))
                     ),
                     shape = RoundedCornerShape(14.dp)
                 ),
@@ -149,7 +149,7 @@ fun ConceptBrandLockup(
             Icon(
                 Icons.Rounded.Eco,
                 contentDescription = null,
-                tint = Color(0xFF9AD2BB),
+                tint = Color(0xFF55E6D1),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .offset(x = 8.dp, y = (-7).dp)
@@ -162,7 +162,7 @@ fun ConceptBrandLockup(
             modifier = Modifier.padding(top = 8.dp),
             color = foreground,
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.ExtraBold
         )
         if (!subtitle.isNullOrBlank()) {
             Text(
@@ -195,9 +195,9 @@ fun ConceptEmeraldHero(
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            Color(0xFF181818),
-                            Color(0xFF181818),
-                            Color(0xFF181818)
+                            Color(0xFF4F46D8),
+                            Color(0xFF3933A8),
+                            Color(0xFF14B8A6)
                         )
                     )
                 )
@@ -206,7 +206,7 @@ fun ConceptEmeraldHero(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(end = 0.dp)
+                    .padding(end = if (artwork) 104.dp else 0.dp)
             ) {
                 eyebrow?.let {
                     Text(
@@ -226,10 +226,10 @@ fun ConceptEmeraldHero(
                     amount,
                     modifier = Modifier.padding(top = 4.dp),
                     color = Color.White,
-                    fontSize = 28.sp,
+                    fontSize = 30.sp,
                     lineHeight = 34.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
@@ -247,7 +247,14 @@ fun ConceptEmeraldHero(
                     )
                 }
             }
-
+            if (artwork) {
+                ConceptWalletIllustration(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .offset(x = 14.dp),
+                    compact = true
+                )
+            }
         }
     }
 }
@@ -263,15 +270,15 @@ fun ConceptMetricTile(
     val dark = MaterialTheme.colorScheme.background.luminance() < .45f
     val soft =
         if (positive) {
-            if (dark) Color(0xFF292929) else Color(0xFFF2F2F2)
+            if (dark) Color(0xFF252243) else Color(0xFFF0EFFF)
         } else {
-            if (dark) Color(0xFF352326) else Color(0xFFFCEDEE)
+            if (dark) Color(0xFF3A2330) else Color(0xFFFFE9EE)
         }
     val accent =
         if (positive) {
-            if (dark) Color(0xFFEEEEEE) else Color(0xFF181818)
+            if (dark) Color(0xFFA69CFF) else Color(0xFF5B55E7)
         } else {
-            if (dark) Color(0xFFF0B4B6) else Color(0xFFB54345)
+            if (dark) Color(0xFFFF92A3) else Color(0xFFEF5F78)
         }
     Surface(
         modifier = modifier,
@@ -315,7 +322,7 @@ fun ConceptProgressCard(
     ) {
         Column(Modifier.padding(15.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
+                Icon(icon, contentDescription = null, tint = ConceptEmerald, modifier = Modifier.size(24.dp))
                 Text(
                     title,
                     modifier = Modifier.weight(1f).padding(start = 8.dp),
@@ -330,8 +337,8 @@ fun ConceptProgressCard(
                     .fillMaxWidth()
                     .padding(top = 12.dp)
                     .height(9.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                color = Color(0xFF7C6FF2),
+                trackColor = Color(0xFFE2DFFF)
             )
             Text(
                 helper,

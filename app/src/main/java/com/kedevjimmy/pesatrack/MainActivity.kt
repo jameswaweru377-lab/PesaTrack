@@ -121,12 +121,6 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.DARK -> true
             }
 
-            androidx.compose.runtime.SideEffect {
-                val darkSurface = useDark || showLaunchSplash || appLocked
-                val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
-                controller.isAppearanceLightStatusBars = !darkSurface
-                controller.isAppearanceLightNavigationBars = !darkSurface
-            }
             PesaTrackTheme(darkTheme = useDark) {
                 if (showLaunchSplash) {
                     StartupSplashScreen()

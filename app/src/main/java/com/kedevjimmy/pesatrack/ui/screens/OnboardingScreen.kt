@@ -26,28 +26,15 @@ import com.kedevjimmy.pesatrack.ui.components.ConceptWalletIllustration
 fun OnboardingScreen(
     onContinue: () -> Unit
 ) {
-    val host = androidx.activity.compose.LocalActivity.current
-    androidx.compose.runtime.DisposableEffect(host) {
-        val controller = host?.let { androidx.core.view.WindowCompat.getInsetsController(it.window, it.window.decorView) }
-        val previousStatus = controller?.isAppearanceLightStatusBars
-        val previousNavigation = controller?.isAppearanceLightNavigationBars
-        controller?.isAppearanceLightStatusBars = false
-        controller?.isAppearanceLightNavigationBars = false
-        onDispose {
-            previousStatus?.let { controller?.isAppearanceLightStatusBars = it }
-            previousNavigation?.let { controller?.isAppearanceLightNavigationBars = it }
-        }
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF181818),
-                        Color(0xFF181818),
-                        Color(0xFF191919)
+                        Color(0xFF3933A8),
+                        Color(0xFF24213F),
+                        Color(0xFF111827)
                     )
                 )
             )
@@ -63,7 +50,7 @@ fun OnboardingScreen(
             "Your money.\nBetter days.",
             style = MaterialTheme.typography.displaySmall,
             color = Color.White,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.ExtraBold,
             textAlign = TextAlign.Center
         )
         Text(
@@ -93,8 +80,8 @@ fun OnboardingScreen(
                 .heightIn(min = 58.dp),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFF7F7F7),
-                contentColor = Color(0xFF303030)
+                containerColor = Color(0xFFF6F7FB),
+                contentColor = Color(0xFF202B42)
             )
         ) {
             Text("Get started", fontWeight = FontWeight.Bold)
