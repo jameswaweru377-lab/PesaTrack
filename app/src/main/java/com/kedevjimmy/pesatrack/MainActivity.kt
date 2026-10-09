@@ -17,6 +17,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,6 +77,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         AutomaticHistoryRepair.scheduleIfAllowed(this)
         setContent {
+            val recoveryFailure by com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failures.collectAsState()
+            if (recoveryFailure != null) {
+                com.kedevjimmy.pesatrack.ui.screens.BackupRecoveryBlockingScreen(onRetry = {
+                    com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.retry(this)
+                    if (com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failure == null) recreate()
+                })
+                return@setContent
+            }
             val preferences = remember {
                 getSharedPreferences("pesatrack_preferences", MODE_PRIVATE)
             }

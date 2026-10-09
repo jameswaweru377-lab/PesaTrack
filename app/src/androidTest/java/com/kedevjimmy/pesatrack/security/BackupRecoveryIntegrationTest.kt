@@ -1,6 +1,8 @@
 package com.kedevjimmy.pesatrack.security
 
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.SharedPreferences
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.gson.JsonObject
@@ -8,6 +10,7 @@ import com.kedevjimmy.pesatrack.data.local.PesaTrackDatabase
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -29,6 +32,7 @@ class BackupRecoveryIntegrationTest {
         context.deleteSharedPreferences(PREFS)
         context.deleteSharedPreferences(SECOND_PREFS)
         manager = PesaBackupManager(context)
+        BackupRecoveryStatus.failure = null
     }
 
     @After
@@ -37,6 +41,8 @@ class BackupRecoveryIntegrationTest {
         context.deleteDatabase("pesatrack.db")
         context.deleteSharedPreferences(PREFS)
         context.deleteSharedPreferences(SECOND_PREFS)
+        BackupRecoveryStatus.failure = null
+        File(context.cacheDir, "blocked-journal-parent").delete()
     }
 
     @Test
@@ -94,6 +100,120 @@ class BackupRecoveryIntegrationTest {
         val current = payload.get("schemaVersion").asInt
         assertTrue("Fixture requires a schema with a previous version", current > 1)
         payload.addProperty("schemaVersion", current - 1)
+    }
+
+    @Test
+    fun previewRejectsAuthenticatedMalformedPreferencesBeforeOfferingRestore() {
+        val malformed = EncryptedBackupFixture.rewrite(
+            manager.exportEncryptedBytes(PASSPHRASE), PASSPHRASE
+        ) { payload ->
+            payload.getAsJsonObject("preferences").add(PREFS, JsonObject().apply {
+                add("marker", JsonObject().apply {
+                    addProperty("type", "int")
+                    addProperty("value", "not-an-integer")
+                })
+            })
+        }
+        assertTrue(runCatching { manager.previewEncryptedBytes(malformed, PASSPHRASE) }
+            .exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test
+    fun previewRejectsMissingLedgerTableBeforeOfferingRestore() {
+        val malformed = EncryptedBackupFixture.rewrite(
+            manager.exportEncryptedBytes(PASSPHRASE), PASSPHRASE
+        ) { it.getAsJsonObject("tables").remove("smart_rules") }
+        assertTrue(runCatching { manager.previewEncryptedBytes(malformed, PASSPHRASE) }
+            .exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test
+    fun failedPreferenceCommitBlocksAccessUntilRealRestoreJournalRetries() {
+        setPreference(PREFS, "snapshot settings")
+        val backup = manager.exportEncryptedBytes(PASSPHRASE)
+        saveCurrentRule()
+        setPreference(PREFS, "current settings")
+        val failingContext = object : ContextWrapper(context) {
+            override fun getApplicationContext(): Context = this
+            override fun getSharedPreferences(name: String, mode: Int): SharedPreferences {
+                val real = context.getSharedPreferences(name, mode)
+                if (name != PREFS) return real
+                return object : SharedPreferences by real {
+                    override fun edit(): SharedPreferences.Editor {
+                        val realEditor = real.edit()
+                        return object : SharedPreferences.Editor by realEditor {
+                            override fun clear(): SharedPreferences.Editor { realEditor.clear(); return this }
+                            override fun putString(key: String, value: String?): SharedPreferences.Editor {
+                                realEditor.putString(key, value)
+                                return this
+                            }
+                            override fun commit(): Boolean = false
+                        }
+                    }
+                }
+            }
+        }
+
+        val failure = runCatching {
+            PesaBackupManager(failingContext).restoreEncryptedBytes(backup, PASSPHRASE)
+        }.exceptionOrNull()
+
+        assertTrue(failure is IllegalStateException)
+        assertTrue(failure?.message?.contains("settings recovery is pending") == true)
+        assertTrue(BackupRecoveryStatus.failure != null)
+        assertEquals(BackupRecoveryStatus.failure, BackupRecoveryStatus.failures.value)
+        assertTrue(BackupRestoreJournal.isPending(context))
+        assertEquals("current settings", preference(PREFS))
+
+        // The actual helper reopens using its real application context and completes durable writes.
+        BackupRecoveryStatus.retry(context)
+        assertEquals(null, BackupRecoveryStatus.failure)
+        assertEquals(null, BackupRecoveryStatus.failures.value)
+        assertFalse(BackupRestoreJournal.isPending(context))
+        assertEquals("snapshot settings", preference(PREFS))
+        assertTrue(RuleStore.get(context).listRules().isEmpty())
+    }
+
+    @Test
+    fun journalStagingFailureLeavesCurrentLedgerAndPreferencesUntouched() {
+        val backup = manager.exportEncryptedBytes(PASSPHRASE)
+        val saved = saveCurrentRule()
+        setPreference(PREFS, "current settings")
+        val blockedParent = File(context.cacheDir, "blocked-journal-parent").apply { writeText("file") }
+        val blockedContext = object : ContextWrapper(context) {
+            override fun getApplicationContext(): Context = this
+            override fun getNoBackupFilesDir(): File = blockedParent
+        }
+        val failure = runCatching {
+            PesaBackupManager(blockedContext).restoreEncryptedBytes(backup, PASSPHRASE)
+        }.exceptionOrNull()
+        assertTrue(failure != null)
+        assertEquals(listOf(saved.id), RuleStore.get(context).listRules().map { it.id })
+        assertEquals("current settings", preference(PREFS))
+        assertEquals(null, BackupRecoveryStatus.failure)
+    }
+
+    @Test
+    fun failedLedgerInsertRollsBackReplacementWithoutWritingSettings() {
+        val saved = saveCurrentRule()
+        setPreference(PREFS, "snapshot settings")
+        val duplicateId = EncryptedBackupFixture.rewrite(
+            manager.exportEncryptedBytes(PASSPHRASE), PASSPHRASE
+        ) { payload ->
+            val rows = payload.getAsJsonObject("tables").getAsJsonArray("smart_rules")
+            rows.add(rows[0].deepCopy())
+        }
+        assertTrue(RuleStore.get(context).setEnabled(saved.id, false))
+        setPreference(PREFS, "current settings")
+
+        assertTrue(runCatching { manager.restoreEncryptedBytes(duplicateId, PASSPHRASE) }
+            .exceptionOrNull() != null)
+        assertFalse(RuleStore.get(context).listRules().single().enabled)
+        assertEquals("current settings", preference(PREFS))
+        PesaTrackDatabase.resetForTests()
+        PesaTrackDatabase.get(context).writableDatabase
+        assertFalse(BackupRestoreJournal.isPending(context))
+        assertFalse(RuleStore.get(context).listRules().single().enabled)
     }
 
     @Test

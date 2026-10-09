@@ -305,9 +305,9 @@ class PesaBackupManager(
     private fun backupPreview(
         payload: JsonObject
     ): BackupPreview {
-        validateBackupSchema(
-            payload
-        )
+        synchronized(CanonicalStoreLock.monitor) {
+            validatePayload(payload, PesaTrackDatabase.get(app).readableDatabase)
+        }
         val tables =
             payload.getAsJsonObject(
                 "tables"
@@ -420,6 +420,34 @@ class PesaBackupManager(
         return root
     }
 
+    private fun validatePayload(root: JsonObject, database: SQLiteDatabase) {
+        validateBackupSchema(root)
+        val currentTables = userTableNames(database)
+        val currentColumns = currentTables.associateWith { tableColumns(database, it) }
+        val backupTables = root.getAsJsonObject("tables")
+            ?: throw IllegalArgumentException("This backup is missing its ledger tables.")
+        require(backupTables.keySet() == currentTables.toSet()) {
+            "This backup does not contain the complete current ledger schema."
+        }
+        backupTables.entrySet().forEach { (table, rows) ->
+            require(rows.isJsonArray) { "This backup contains damaged table data." }
+            rows.asJsonArray.forEach { row ->
+                require(row.isJsonObject && row.asJsonObject.keySet() == currentColumns.getValue(table)) {
+                    "This backup contains damaged row data."
+                }
+                row.asJsonObject.entrySet().forEach { (column, element) ->
+                    require(element.isJsonObject)
+                    val cell = element.asJsonObject
+                    validateCell(cell)
+                    putCell(ContentValues(), column, cell)
+                }
+            }
+        }
+        val preferences = root.getAsJsonObject("preferences")
+            ?: throw IllegalArgumentException("This backup is missing its settings.")
+        BackupPreferences.decode(preferences)
+    }
+
     private fun restorePayload(
         root: JsonObject
     ): RestoreSummary {
@@ -448,26 +476,8 @@ class PesaBackupManager(
                 "tables"
             ) ?: JsonObject()
 
-        require(backupTables.keySet() == currentTables.toSet()) {
-            "This backup does not contain the complete current ledger schema."
-        }
-        backupTables.entrySet().forEach { (table, rows) ->
-            require(rows.isJsonArray) { "This backup contains damaged table data." }
-            rows.asJsonArray.forEach { row ->
-                require(row.isJsonObject && row.asJsonObject.keySet() == currentColumns.getValue(table)) {
-                    "This backup contains damaged row data."
-                }
-                row.asJsonObject.entrySet().forEach { (column, element) ->
-                    require(element.isJsonObject)
-                    val cell = element.asJsonObject
-                    validateCell(cell)
-                    putCell(ContentValues(), column, cell)
-                }
-            }
-        }
+        validatePayload(root, database)
         val preferences = root.getAsJsonObject("preferences")
-            ?: throw IllegalArgumentException("This backup is missing its settings.")
-        BackupPreferences.decode(preferences)
         val journal = BackupRestoreJournal(app)
         val operationId = journal.stage(database, preferences)
 

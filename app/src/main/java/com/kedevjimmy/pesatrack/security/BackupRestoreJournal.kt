@@ -24,11 +24,16 @@ internal class BackupRestoreJournal(private val context: Context) {
                     .forEach { (name, values) -> add(name, values) }
             })
         }
+        val serialized = intent.toString().toByteArray(Charsets.UTF_8)
         val output = file.startWrite()
         try {
-            output.write(intent.toString().toByteArray(Charsets.UTF_8))
+            output.write(serialized)
             output.fd.sync()
             file.finishWrite(output)
+            // AtomicFile logs some rename failures instead of throwing; never commit without intent.
+            check(file.baseFile.isFile && file.baseFile.length() == serialized.size.toLong()) {
+                "Restore could not stage durable settings. The current ledger was kept."
+            }
         } catch (failure: Throwable) {
             file.failWrite(output)
             throw failure
