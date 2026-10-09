@@ -9,8 +9,9 @@ import com.kedevjimmy.pesatrack.domain.onboarding.SmsAccessConsent
 
 /** Android permission is not a substitute for the user's saved disclosure decision. */
 object SmsAccessConsentStore {
+    const val PREFS_NAME = "sms_access_consent"
     private fun consent(context: Context): SmsAccessConsent {
-        val preferences = context.applicationContext.getSharedPreferences("sms_access_consent", Context.MODE_PRIVATE)
+        val preferences = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return SmsAccessConsent(object : ConsentVersionStorage {
             override fun readVersion(): Int = preferences.getInt("accepted_disclosure_version", 0)
             override fun writeVersion(version: Int): Boolean {

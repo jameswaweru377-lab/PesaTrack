@@ -85,6 +85,21 @@ class NotificationSourceTrustIntegrationTest {
         assertFalse(sources.isApproved("ke.example.bank"))
     }
 
+    @Test fun backupCannotReenableRevokedSmsConsent() {
+        val consent = com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore
+        context.getSharedPreferences(consent.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
+        try {
+            assertTrue(consent.setAccepted(context, true))
+            val backups = PesaBackupManager(context)
+            val encrypted = backups.exportEncryptedBytes("invented-strong-passphrase")
+            assertTrue(consent.setAccepted(context, false))
+            backups.restoreEncryptedBytes(encrypted, "invented-strong-passphrase")
+            assertFalse(consent.hasConsent(context))
+        } finally {
+            context.getSharedPreferences(consent.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
+        }
+    }
+
     private fun ingestInventedPayment() {
         FinancialMessageIngestionCoordinator.get(context).ingest(
             title = "M-PESA",
