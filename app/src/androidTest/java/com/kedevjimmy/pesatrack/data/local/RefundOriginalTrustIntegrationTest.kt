@@ -43,6 +43,40 @@ class RefundOriginalTrustIntegrationTest {
     }
 
     @Test
+    fun legacyAutomaticRefundWithoutMessageEvidenceReturnsToReview() {
+        insertOutgoing(ReviewState.AUTO_CLASSIFIED)
+        val receipt = incomingReceipt()
+        seedLegacyRefund(receipt.id, ReviewState.AUTO_CLASSIFIED)
+        store.activitySnapshotBetween(EPOCH - 1L, EPOCH + 10_000_000L)
+        val restored = requireNotNull(store.findByTransactionCode("REFTEST220"))
+        assertNull(restored.relationType)
+        assertEquals(ReviewState.NEEDS_REVIEW.name, restored.reviewState)
+    }
+
+    @Test
+    fun legacyRefundReconciliationPreservesUserClassification() {
+        val originalId = insertOutgoing(ReviewState.AUTO_CLASSIFIED)
+        val receipt = incomingReceipt()
+        seedLegacyRefund(receipt.id, ReviewState.USER_CLASSIFIED)
+        store.activitySnapshotBetween(EPOCH - 1L, EPOCH + 10_000_000L)
+        val restored = requireNotNull(store.findByTransactionCode("REFTEST220"))
+        assertEquals(TransactionStore.RELATION_REFUND, restored.relationType)
+        assertEquals(originalId, restored.relatedTransactionId)
+        assertEquals(ReviewState.USER_CLASSIFIED.name, restored.reviewState)
+    }
+
+    private fun seedLegacyRefund(id: Long, reviewState: ReviewState) {
+        val values = ContentValues().apply {
+            put("evidence_source", "refund_match")
+            put("review_state", reviewState.name)
+        }
+        PesaTrackDatabase.get(context).writableDatabase.update("transactions", values,
+            "id = ?", arrayOf(id.toString()))
+        context.getSharedPreferences("pesatrack_preferences", Context.MODE_PRIVATE)
+            .edit().remove("refund_reconciliation_v2").commit()
+    }
+
+    @Test
     fun trustedTaxiPaymentThenEqualReceiptStillLinksAsRefund() {
         val originalId = insertOutgoing(ReviewState.AUTO_CLASSIFIED)
         val receipt = incomingReceipt()
