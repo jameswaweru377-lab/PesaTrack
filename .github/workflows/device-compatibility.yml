@@ -27,7 +27,9 @@ jobs:
             arch: x86_64
             profile: pixel_6
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # API24 reached 130/141 tests at the old limit; retain the full synthetic
+    # history workload and allow the slower legacy emulator to finish.
+    timeout-minutes: 60
 
     steps:
       - name: Checkout

@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.security
 
+import android.os.Build
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import java.io.ByteArrayInputStream
@@ -27,13 +28,19 @@ internal object EncryptedBackupFixture {
         val salt = ByteArray(input.readInt()).also { input.readFully(it) }
         val iv = ByteArray(input.readInt()).also { input.readFully(it) }
         val ciphertext = ByteArray(input.readInt()).also { input.readFully(it) }
-        val spec = PBEKeySpec(passphrase.toCharArray(), salt, iterations, 256)
-        val key = try {
-            SecretKeySpec(SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-                .generateSecret(spec).encoded, "AES")
-        } finally {
-            spec.clearPassword()
+        // API24/25 lack the native provider. Fixed independent vectors and the modern
+        // wire-cipher fixture validate this fallback in Pbkdf2CompatibilityIntegrationTest.
+        val keyBytes = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            val password = passphrase.toCharArray()
+            try { Pbkdf2Sha256.derive(password, salt, iterations, 256) }
+            finally { password.fill('\u0000') }
+        } else {
+            val spec = PBEKeySpec(passphrase.toCharArray(), salt, iterations, 256)
+            try {
+                SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
+            } finally { spec.clearPassword() }
         }
+        val key = SecretKeySpec(keyBytes, "AES")
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
         val payload = JsonParser.parseString(String(cipher.doFinal(ciphertext), Charsets.UTF_8))

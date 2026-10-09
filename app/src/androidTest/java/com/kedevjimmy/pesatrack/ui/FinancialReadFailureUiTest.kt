@@ -4,7 +4,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteException
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.PesaTrackDatabase
@@ -36,7 +36,12 @@ class FinancialReadFailureUiTest {
         val recreate = removeTable("transactions")
         assertThrows(SQLiteException::class.java) { activityStore.activityMonths() }
         compose.setContent { PesaTrackTheme { ActivityScreen(PaddingValues()) } }
-        waitFor("Activity could not load")
+        try {
+            waitFor("Activity could not load")
+        } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
+            android.util.Log.e("FinancialReadFailureUiTest", compose.onRoot(useUnmergedTree = true).printToString())
+            throw failure
+        }
         compose.onNodeWithText("Money in").assertDoesNotExist()
         PesaTrackDatabase.get(context).writableDatabase.execSQL(recreate)
         activityStore.activityMonths()
