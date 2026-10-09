@@ -2,6 +2,7 @@ name: Android 7 security compatibility
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "app/src/main/java/com/kedevjimmy/pesatrack/security/**"
       - "app/src/androidTest/java/com/kedevjimmy/pesatrack/security/**"
@@ -13,6 +14,7 @@ permissions:
 
 jobs:
   legacy_security:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.action == 'ready_for_review' || (github.event.action == 'opened' && github.event.pull_request.draft == false))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
