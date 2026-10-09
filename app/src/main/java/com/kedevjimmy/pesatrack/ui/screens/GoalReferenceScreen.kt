@@ -645,7 +645,7 @@ private fun GoalReferenceCard(
                             .weight(1f)
                             .height(6.dp)
                             .clip(RoundedCornerShape(50.dp)),
-                        color = Color(0xFF525252),
+                        color = MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                     Text(
@@ -776,7 +776,7 @@ private fun GoalDetailsSheet(
                     .fillMaxWidth()
                     .height(10.dp)
                     .clip(RoundedCornerShape(50.dp)),
-                color = Color(0xFF525252),
+                color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
             Row(
