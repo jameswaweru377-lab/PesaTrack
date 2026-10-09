@@ -20,6 +20,13 @@ class NotificationSourceTrustStore(context: Context) {
         prefs.edit().putStringSet("approved", updated).commit()
     }
 
+    /** Skipping message access revokes existing sources, including queued work. */
+    fun revokeAll(): Boolean = synchronized(monitor) {
+        val saved = prefs.edit().putStringSet("approved", emptySet()).commit()
+        if (!saved) prefs.edit().remove("approved").apply()
+        saved
+    }
+
     // Queued work rechecks approval at admission. Never hold a preferences lock
     // during database work: Settings and Android notification callbacks must stay responsive.
     fun withApprovedSource(packageName: String, action: () -> Unit): Boolean {

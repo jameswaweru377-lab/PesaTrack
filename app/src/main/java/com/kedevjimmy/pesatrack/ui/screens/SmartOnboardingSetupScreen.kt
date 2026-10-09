@@ -1540,7 +1540,12 @@ fun SmartOnboardingSetupScreen(
                 accepted = disclosureAccepted, busy = accessStarted, denied = smsDenied, consentError = consentError,
                 restrictedHelp = smsDenied && smartIsLikelySideloaded(context),
                 onAccepted = {
-                    if (it || SmsAccessConsentStore.setAccepted(context, false)) {
+                    val revoked = if (it) true else {
+                        val sourcesSaved = com.kedevjimmy.pesatrack.ingestion.NotificationSourceTrustStore(context).revokeAll()
+                        val smsSaved = SmsAccessConsentStore.setAccepted(context, false)
+                        sourcesSaved && smsSaved
+                    }
+                    if (revoked) {
                         disclosureAccepted = it
                         consentError = null
                     } else consentError = "Your choice could not be saved. Please try again."
@@ -1565,7 +1570,9 @@ fun SmartOnboardingSetupScreen(
                     } else consentError = "Your choice could not be saved. Please try again."
                 },
                 onContinueWithout = {
-                    if (SmsAccessConsentStore.setAccepted(context, false)) {
+                    val sourcesSaved = com.kedevjimmy.pesatrack.ingestion.NotificationSourceTrustStore(context).revokeAll()
+                    val smsSaved = SmsAccessConsentStore.setAccepted(context, false)
+                    if (sourcesSaved && smsSaved) {
                         disclosureAccepted = false
                         importMonths = 0
                         accessStarted = false
