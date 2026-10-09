@@ -6,6 +6,9 @@ import com.kedevjimmy.pesatrack.ingestion.TransactionMessageEvidenceResult
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.width
@@ -84,6 +87,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
@@ -358,10 +362,12 @@ fun TransactionDetailScreen(
             onDismissRequest = { showCategoryPicker = false },
             title = { Text("Choose a category") },
             text = {
+                Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
                 CategoryGrid(
                     currentCategoryId = categoryStore.canonicalId(current.category),
                     onSelected = { category -> showCategoryPicker = false; applyCategory(category) }
                 )
+                }
             },
             confirmButton = { TextButton(onClick = { showCategoryPicker = false }) { Text("Close") } }
         )
@@ -490,7 +496,7 @@ fun TransactionDetailScreen(
     }
 
     LazyColumn(
-        modifier = Modifier
+        modifier = Modifier.testTag("transaction-details-list")
             .padding(scaffoldPadding)
             .background(
                 MaterialTheme
@@ -2207,8 +2213,8 @@ private fun TransactionQuickActions(
 ) {
     PesaCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-            ActionRow(Icons.Rounded.AccountCircle, "Merchant history", onMerchantHistory)
-            if (hasAccount) ActionRow(Icons.Rounded.Paid, "View $accountLabel", onAccount)
+            ActionRow(Icons.Rounded.AccountCircle, "Merchant history", onClick = onMerchantHistory)
+            if (hasAccount) ActionRow(Icons.Rounded.Paid, "View $accountLabel", onClick = onAccount)
         }
     }
 }

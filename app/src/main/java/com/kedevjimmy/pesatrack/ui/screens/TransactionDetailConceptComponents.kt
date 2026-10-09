@@ -60,7 +60,7 @@ internal fun TransactionDetailFacts(
     onAccount: (() -> Unit)?, onCategory: (() -> Unit)?
 ) {
     val direction = runCatching { MoneyDirection.valueOf(item.direction) }.getOrDefault(MoneyDirection.NEUTRAL)
-    val incomingAdjustment = item.type == "REVERSAL" || item.relationType == TransactionStore.RELATION_REFUND
+    val incomingAdjustment = transactionDetailIsIncoming(item.type, item.relationType)
     val amounts = transactionDetailAmounts(item.amountMinor, item.feeMinor, item.fulizaAccessFeeMinor, direction, incomingAdjustment)
     PesaCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {

@@ -1,0 +1,101 @@
+package com.kedevjimmy.pesatrack.ui
+
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.kedevjimmy.pesatrack.data.local.*
+import com.kedevjimmy.pesatrack.domain.model.*
+import com.kedevjimmy.pesatrack.ingestion.TransactionMessageEvidence
+import com.kedevjimmy.pesatrack.ingestion.TransactionMessageEvidenceResult
+import com.kedevjimmy.pesatrack.ui.screens.*
+import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
+import org.junit.*
+import org.junit.Assert.*
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class TransactionDetailJourneyTest {
+    @get:Rule val compose = createComposeRule()
+    private lateinit var context: Context
+
+    @Before fun setup() {
+        context = ApplicationProvider.getApplicationContext()
+        PesaTrackDatabase.resetForTests()
+        context.deleteDatabase("pesatrack.db")
+    }
+
+    @After fun cleanup() {
+        compose.runOnIdle { }
+        PesaTrackDatabase.resetForTests()
+        context.deleteDatabase("pesatrack.db")
+    }
+
+    private fun payment(): StoredTransaction {
+        val store = TransactionStore.get(context)
+        val now = System.currentTimeMillis()
+        store.insertIfNew(
+            ParsedMpesaTransaction("UITEST0001", MpesaTransactionType.BUY_GOODS, 200000L,
+                "Invented grocer", null, 2300L, null, null, "Invented UI test payment"),
+            sourcePackage = null, sourceKind = "test", receivedAtEpochMs = now,
+            rebuildPayCycles = false, runRelationshipReconciliation = false, runMirrorCorrelation = false,
+            directionOverride = MoneyDirection.EXPENSE, categoryOverride = TransactionCategory.GROCERIES,
+            reviewStateOverride = ReviewState.USER_CLASSIFIED
+        )
+        return store.getByTransactionCode("UITEST0001")!!
+    }
+
+    @Test fun categoryPickerScrollsAndNoteActionPersistsWithoutChangingMoney() {
+        val payment = payment()
+        compose.setContent { PesaTrackTheme { TransactionDetailScreen(PaddingValues(), payment.id, {}) } }
+        val list = compose.onNodeWithTag("transaction-details-list")
+        list.performScrollToNode(hasText("Total outflow"))
+        compose.onNodeWithText("KES 2,023.00").assertIsDisplayed()
+        compose.onNodeWithText("Balance unknown").assertIsDisplayed()
+        list.performScrollToNode(hasText("Change"))
+        compose.onNodeWithText("Change").performClick()
+        compose.onNodeWithText("Add category").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Groceries", useUnmergedTree = true).performScrollTo().performClick()
+        compose.waitForIdle()
+        list.performScrollToNode(hasText("Add note or receipt"))
+        compose.onNodeWithText("Add note or receipt").performClick()
+        compose.onNodeWithText("Personal note").performTextInput("Weekly shopping")
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(5000) { TransactionAnnotationStore.get(context).get(payment.id).note == "Weekly shopping" }
+        assertEquals(200000L, TransactionStore.get(context).getById(payment.id)!!.amountMinor)
+        assertEquals(2300L, TransactionStore.get(context).getById(payment.id)!!.feeMinor)
+    }
+
+    @Test fun originalMessageExpandsAndReferenceCopiesInDarkTheme() {
+        val payment = payment()
+        val body = "UITEST0001 Confirmed. Ksh2,000.00 paid to Invented grocer."
+        val evidence = TransactionMessageEvidenceResult(TransactionMessageEvidence("M-PESA", body,
+            payment.receivedAtEpochMs, payment.transactionCode, listOf(payment.amountMinor)))
+        compose.setContent {
+            PesaTrackTheme(darkTheme = true) {
+                var expanded by remember { mutableStateOf(true) }
+                LazyColumn(Modifier.testTag("evidence-test-list")) {
+                    item { TransactionDetailMessage(payment, evidence, expanded, { expanded = !expanded }, false, {}) }
+                }
+            }
+        }
+        compose.onNodeWithText(body).assertIsDisplayed()
+        compose.onNodeWithText("SMS (M-PESA)").assertIsDisplayed()
+        compose.onNodeWithText("Message evidence").performClick()
+        compose.onNodeWithText(body).assertDoesNotExist()
+        compose.onNodeWithText("Add note or receipt").assertIsDisplayed()
+        compose.onNodeWithText("Message evidence").performClick()
+        compose.onNodeWithContentDescription("Copy reference").performScrollTo().performClick()
+        compose.runOnIdle {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            assertEquals(payment.transactionCode, clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+        }
+    }
+}

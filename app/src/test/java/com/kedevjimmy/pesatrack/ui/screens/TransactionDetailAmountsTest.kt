@@ -5,6 +5,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TransactionDetailAmountsTest {
+    @Test fun incomingTransfersAndInvestmentSalesAreNotOutflows() {
+        for ((type, relation) in listOf("RECEIVED" to null, "DEPOSIT" to null, "OTHER" to "INVESTMENT_SELL", "REVERSAL" to null, "RECEIVED" to "REFUND")) {
+            assertNull(transactionDetailAmounts(200000, 0, 0, MoneyDirection.TRANSFER,
+                incomingAdjustment = transactionDetailIsIncoming(type, relation)).outflowMinor)
+        }
+        assertEquals(false, transactionDetailIsIncoming("BUY_GOODS", "INVESTMENT_BUY"))
+    }
     @Test fun paymentOutflowIncludesBothFeesOnce() {
         val result = transactionDetailAmounts(200000, 2300, 500, MoneyDirection.EXPENSE)
         assertEquals(2800L, result.feesMinor)

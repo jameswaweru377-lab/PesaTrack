@@ -8,6 +8,10 @@ import java.util.Locale
 
 internal data class TransactionDetailAmounts(val feesMinor: Long?, val outflowMinor: Long?)
 
+internal fun transactionDetailIsIncoming(type: String, relationType: String?): Boolean =
+    type in setOf("RECEIVED", "DEPOSIT", "REVERSAL") ||
+        relationType in setOf("REFUND", "INVESTMENT_SELL")
+
 internal fun transactionDetailAmounts(
     amountMinor: Long,
     feeMinor: Long,
