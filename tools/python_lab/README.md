@@ -112,3 +112,9 @@ claim held-out improvement.
 
 Reversibility for the bridge: remove its Kotlin test class, lab folder and the
 three added lab CI steps. No app database, runtime or APK dependency changes.
+# Offline app direction (2026-10-09)
+
+Python remains a development-only laboratory. Run `python3 -m tools.python_lab.synthetic_corpus` from the repository root before Kotlin unit tests to create 2,432 invented monetary variants of the 19 reviewed scenarios. CI requires this corpus with `PESATRACK_SYNTHETIC_CORPUS_REQUIRED=1`. The generator accepts no input arguments and writes only the ignored build directory. It preserves dates, identities and zero amounts; scaling uses decimal arithmetic. Kotlin checks authored record kinds and balances, monetary scaling and repeat interpretation. Existing Android ingestion tests plus 30 invented payment replays check actual transaction idempotency separately. Template variations do not establish new-bank coverage, economic income, automatic refund provenance or production readiness of the earlier experimental classifier.
+
+Production changes use deterministic Kotlin calculations only: currency spacing, completed-month recorded spending comparisons and goal-linked historical savings scenarios. Existing local recurring/salary policies and explicit exact-identity category preferences are reused. No remote AI, model download, subscription, Python APK dependency, new permissions or database schema changes are added. Goal scenarios require three completed months and retain zero/withdrawal months. Their limits include missing records and withdrawals that were not linked to the goal. Budget and debt projections remain with the existing engines; this PR does not infer missing interest rates or promise repayment dates.
+

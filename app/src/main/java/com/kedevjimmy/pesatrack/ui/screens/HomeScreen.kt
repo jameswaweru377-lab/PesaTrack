@@ -119,6 +119,7 @@ data class HomeCoreState(
 )
 
 data class HomeSupplementalState(
+    val recordedSpendingInsight: String? = null,
     val needsAttentionCount: Int,
     val moneyPictureHealth:
         MoneyPictureHealth
@@ -336,6 +337,7 @@ fun HomeScreen(
                 ?: emptyList()
         )
     }
+    var recordedSpendingInsight by remember { mutableStateOf<String?>(null) }
     var moneyPictureHealth by remember {
         mutableStateOf(
             warmHome?.moneyPictureHealth
@@ -417,6 +419,8 @@ fun HomeScreen(
             val referenceEpochMs =
                 System.currentTimeMillis()
             HomeSupplementalState(
+                recordedSpendingInsight = com.kedevjimmy.pesatrack.data.local.OfflineMoneyInsightStore
+                    .spendingComparison(transactionStore, referenceEpochMs),
                 needsAttentionCount =
                     transactionStore
                         .activityReviewOverview(
@@ -479,6 +483,7 @@ fun HomeScreen(
     fun applyHomeSupplementalState(
         supplemental: HomeSupplementalState
     ) {
+        recordedSpendingInsight = supplemental.recordedSpendingInsight
         needsAttentionCount =
             supplemental.needsAttentionCount
         moneyPictureHealth =
@@ -1391,7 +1396,8 @@ fun HomeScreen(
                         cycleSnapshot =
                             cycleSnapshot,
                         needsReviewCount =
-                            needsAttentionCount
+                            needsAttentionCount,
+                        recordedSpendingInsight = recordedSpendingInsight
                     )
             )
         }
@@ -1914,7 +1920,8 @@ private fun parseHomeDate(raw: String): Long? =
 
 private fun homeInsight(
     cycleSnapshot: PayCycleSnapshot,
-    needsReviewCount: Int
+    needsReviewCount: Int,
+    recordedSpendingInsight: String? = null
 ): String {
     val paydaySnapshot =
         cycleSnapshot.paydaySnapshot
@@ -1946,6 +1953,7 @@ private fun homeInsight(
 
     cycleSnapshot.unexplainedFundingGapMinor > 0L ->
         "Some spending still needs a funding source. Reconcile it before relying on the full picture."
+    recordedSpendingInsight != null -> recordedSpendingInsight
     cycleSnapshot.cycle == null ->
         "Once a salary cycle is recognized, this space will explain your real spending and commitments."
     cycleSnapshot.remainingCommitmentsMinor > 0L ->

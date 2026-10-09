@@ -45,7 +45,8 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
-import kotlin.math.ceil
+import com.kedevjimmy.pesatrack.domain.intelligence.ForecastStatus
+import com.kedevjimmy.pesatrack.domain.intelligence.OfflineMoneyPolicy
 import kotlin.math.roundToInt
 
 private fun goalMoney(minor: Long): String {
@@ -77,7 +78,8 @@ private data class ReferenceGoalState(
     val currentMonthSavings: Map<String?, Long>,
     val previousMonthSavings: Map<String?, Long>,
     val totalSavings: Map<String?, Long>,
-    val metadata: Map<String, SavingGoalMetadata>
+    val metadata: Map<String, SavingGoalMetadata>,
+    val completedSavings: Map<String?, List<Long>> = emptyMap()
 )
 
 private enum class GoalGroup(
@@ -98,7 +100,9 @@ private data class GoalCardModel(
     val targetMinor: Long,
     val savedMinor: Long,
     val progress: Float,
-    val targetDateEpochMs: Long?
+    val targetDateEpochMs: Long?,
+    val completedSavings: List<Long> = emptyList(),
+    val hasTotalTarget: Boolean = false
 )
 
 private fun goalGroupFor(rule: SmartRule): GoalGroup {
@@ -172,20 +176,22 @@ private fun goalArtwork(title: String): GoalArtwork {
 }
 
 private fun goalProgressMessage(model: GoalCardModel): String {
-    val percent = (model.progress * 100).roundToInt().coerceIn(0, 100)
-    val remaining = (model.targetMinor - model.savedMinor).coerceAtLeast(0L)
-    return when {
-        remaining == 0L -> "Goal reached. Great work!"
-        percent >= 60 -> "Great progress! You're $percent% there."
-        percent >= 25 -> "You're on track! Keep going."
-        model.monthlyTargetMinor > 0L -> {
-            val months = ceil(
-                remaining.toDouble() / model.monthlyTargetMinor.toDouble()
-            ).toInt().coerceAtLeast(1)
-            "At this pace, about $months " +
-                if (months == 1) "month remains." else "months remain."
+    if (!model.hasTotalTarget) return "Add a total goal target to see a completion scenario. Your monthly plan is not a completion target."
+    val forecast = OfflineMoneyPolicy.forecast(model.targetMinor, model.savedMinor, model.completedSavings)
+    return when (forecast.status) {
+        ForecastStatus.REACHED -> "Recorded savings assigned to this goal meet its target."
+        ForecastStatus.INSUFFICIENT_HISTORY ->
+            "A recorded-pace estimate needs at least three completed months of goal-linked savings."
+        ForecastStatus.NO_RELIABLE_PROGRESS ->
+            "Recorded net savings do not support a useful completion estimate yet."
+        ForecastStatus.ESTIMATE -> {
+            val range = forecast.slowestMonths?.let {
+                " Observed contribution scenarios: ${forecast.fastestMonths}–$it months."
+            } ?: " A slower scenario has no reliable upper bound."
+            "Recorded savings scenario: about ${forecast.typicalMonths} months remaining.$range " +
+                "Uses savings assigned to this goal over ${forecast.sampleMonths} completed months, including withdrawals and zero months. " +
+                "Missing or unassigned records can change this; it is not a guaranteed date."
         }
-        else -> "A little more each month will get you there sooner."
     }
 }
 
@@ -868,23 +874,18 @@ fun SavingGoalsScreen(
                     .associate { it.id to it.type }
 
                 fun savingsByRule(rows: List<StoredTransaction>): Map<String?, Long> =
-                    rows.filter {
-                        it.category == TransactionCategory.SAVINGS.name &&
-                            it.reviewState != ReviewState.EXCLUDED.name &&
-                            it.reviewState != ReviewState.NEEDS_REVIEW.name &&
-                            it.direction == MoneyDirection.TRANSFER.name
-                    }.groupBy { it.ruleId }
-                        .mapValues { (_, rows) ->
-                            rows.sumOf {
-                                ConceptLedgerPolicy.savingsDelta(it, types)
-                            }.coerceAtLeast(0L)
-                        }
+                    rules.associate { rule ->
+                        rule.id to checkNotNull(GoalSavingHistoryPolicy.netSaved(
+                            GoalSavingHistoryPolicy.observations(rows, rule.id, types)
+                        )) { "Savings total exceeds supported range" }
+                    }
 
                 val now = System.currentTimeMillis()
                 val currentRows = store.activitySnapshotBetween(
                     monthStart(0),
                     monthStart(1),
-                    now
+                    now,
+                    performMaintenance = false
                 ).trustedTransactions
                 val previousRows = store.activitySnapshotBetween(
                     monthStart(-1),
@@ -905,7 +906,11 @@ fun SavingGoalsScreen(
                     previousMonthSavings = savingsByRule(previousRows),
                     totalSavings = savingsByRule(totalRows),
                     metadata = SavingGoalMetadataStore.get(context)
-                        .listForRules(rules.map { it.id })
+                        .listForRules(rules.map { it.id }),
+                    completedSavings = rules.associate { rule ->
+                        rule.id to OfflineMoneyPolicy.completedSavings(
+                            GoalSavingHistoryPolicy.observations(totalRows, rule.id, types), now)
+                    }
                 )
             }
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -930,7 +935,9 @@ fun SavingGoalsScreen(
             savedMinor = saved,
             progress = if (target <= 0L) 0f
             else (saved.toFloat() / target.toFloat()).coerceIn(0f, 1f),
-            targetDateEpochMs = metadata?.targetDateEpochMs
+            targetDateEpochMs = metadata?.targetDateEpochMs,
+            completedSavings = loaded.completedSavings[rule.id].orEmpty(),
+            hasTotalTarget = (metadata?.totalTargetMinor ?: 0L) > 0L
         )
     }
 
