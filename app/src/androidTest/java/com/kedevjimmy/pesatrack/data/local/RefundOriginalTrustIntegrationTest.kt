@@ -99,6 +99,24 @@ class RefundOriginalTrustIntegrationTest {
     }
 
     @Test
+    fun precedingNegationDoesNotEstablishCompletedRefund() {
+        insertOutgoing(ReviewState.AUTO_CLASSIFIED)
+        val receipt = incomingReceipt("No money was refunded")
+        assertNull(receipt.relationType)
+        assertNull(receipt.relatedTransactionId)
+        assertEquals(MoneyDirection.INCOME.name, receipt.direction)
+    }
+
+    @Test
+    fun conditionalRefundDoesNotEstablishCompletedRefund() {
+        insertOutgoing(ReviewState.AUTO_CLASSIFIED)
+        val receipt = incomingReceipt("If payment is refunded, you will receive a separate notification")
+        assertNull(receipt.relationType)
+        assertNull(receipt.relatedTransactionId)
+        assertEquals(MoneyDirection.INCOME.name, receipt.direction)
+    }
+
+    @Test
     fun unrelatedReceiptFromSameMerchantIsNotRefundEvidence() {
         insertOutgoing(ReviewState.AUTO_CLASSIFIED)
         val receipt = incomingReceipt("Synthetic consultancy payment received from SAMPLE TAXI")
