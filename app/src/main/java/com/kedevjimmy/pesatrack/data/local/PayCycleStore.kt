@@ -2,6 +2,8 @@ package com.kedevjimmy.pesatrack.data.local
 
 import android.content.ContentValues
 import android.content.Context
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
+import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
@@ -245,7 +247,7 @@ class PayCycleStore private constructor(context: Context) {
 
         val totals = cycleTotals(cycle)
         val commitments = commitmentsFor(cycle)
-        val remainingCommitments = commitments.sumOf { it.remainingMinor }
+        val remainingCommitments = commitments.checkedMoneySumOf { it.remainingMinor }
         val userProtectedMinor =
             cycleProtectionStore
                 .get(
@@ -253,20 +255,15 @@ class PayCycleStore private constructor(context: Context) {
                 )
                 ?.amountMinor
                 ?: 0L
-        val startingFunds = cycle.openingIncomeMinor + cycle.carryoverMinor
-        val available = startingFunds +
-            totals.additionalIncomeMinor +
-            totals.refundsMinor -
-            totals.spentMinor -
-            totals.feesMinor -
-            totals.savingsMinor -
-            remainingCommitments -
-            userProtectedMinor
+        val startingFunds = CheckedMoney.add(cycle.openingIncomeMinor, cycle.carryoverMinor)
+        val available = CheckedMoney.total(startingFunds, totals.additionalIncomeMinor, totals.refundsMinor,
+            CheckedMoney.negate(totals.spentMinor), CheckedMoney.negate(totals.feesMinor),
+            CheckedMoney.negate(totals.savingsMinor), CheckedMoney.negate(remainingCommitments),
+            CheckedMoney.negate(userProtectedMinor))
         val unexplainedFundingGap = FundingGapPolicy.unexplainedGap(
             startingFundsMinor = startingFunds,
             additionalIncomeMinor =
-                totals.additionalIncomeMinor +
-                    totals.refundsMinor,
+                CheckedMoney.add(totals.additionalIncomeMinor, totals.refundsMinor),
             spentMinor = totals.spentMinor,
             feesMinor = totals.feesMinor
         )
@@ -418,13 +415,9 @@ class PayCycleStore private constructor(context: Context) {
             startEpochMs = startEpochMs,
             endEpochMs = endEpochMs
         )
-        return openingIncomeMinor +
-            carryoverMinor +
-            totals.additionalIncomeMinor +
-            totals.refundsMinor -
-            totals.spentMinor -
-            totals.feesMinor -
-            totals.savingsMinor
+        return CheckedMoney.total(openingIncomeMinor, carryoverMinor, totals.additionalIncomeMinor,
+            totals.refundsMinor, CheckedMoney.negate(totals.spentMinor), CheckedMoney.negate(totals.feesMinor),
+            CheckedMoney.negate(totals.savingsMinor))
     }
 
     private fun cycleTotals(cycle: PayCycle): CycleTotals =
@@ -484,28 +477,28 @@ class PayCycleStore private constructor(context: Context) {
                 val relatedTransactionId =
                     if (cursor.isNull(6)) null else cursor.getLong(6)
 
-                fees += fee
+                fees = CheckedMoney.add(fees, fee)
 
                 when {
                     relationType == TransactionStore.RELATION_REFUND &&
                         relatedTransactionId != null &&
                         isTrustedExpense(relatedTransactionId) ->
-                        refunds += amount
+                        refunds = CheckedMoney.add(refunds, amount)
                     id != startTransactionId && direction == MoneyDirection.INCOME.name ->
-                        additionalIncome += amount
+                        additionalIncome = CheckedMoney.add(additionalIncome, amount)
                     direction == MoneyDirection.EXPENSE.name ->
-                        spent += amount
+                        spent = CheckedMoney.add(spent, amount)
                     direction == MoneyDirection.TRANSFER.name &&
                         category in setOf(
                             "SAVINGS",
                             "INVESTMENT",
                             "DEBT_LOAN"
                         ) ->
-                        savings += amount
+                        savings = CheckedMoney.add(savings, amount)
                 }
             }
 
-            fees += debtFeesForRange(startEpochMs, endEpochMs)
+            fees = CheckedMoney.add(fees, debtFeesForRange(startEpochMs, endEpochMs))
 
             CycleTotals(
                 additionalIncomeMinor = additionalIncome,
@@ -524,7 +517,7 @@ class PayCycleStore private constructor(context: Context) {
         val endExclusive = endEpochMs ?: Long.MAX_VALUE
         return database.readableDatabase.rawQuery(
             """
-            SELECT COALESCE(SUM(fee_minor), 0)
+            SELECT fee_minor
             FROM debt_events
             WHERE occurred_at_epoch_ms >= ?
               AND occurred_at_epoch_ms < ?
@@ -534,11 +527,9 @@ class PayCycleStore private constructor(context: Context) {
                 endExclusive.toString()
             )
         ).use { cursor ->
-            if (cursor.moveToFirst()) {
-                cursor.getLong(0)
-            } else {
-                0L
-            }
+            var total = 0L
+            while (cursor.moveToNext()) total = CheckedMoney.add(total, cursor.getLong(0))
+            total
         }
     }
 
@@ -619,7 +610,7 @@ class PayCycleStore private constructor(context: Context) {
 
             val paid = database.readableDatabase.rawQuery(
                 """
-                SELECT COALESCE(SUM(amount_minor), 0)
+                SELECT amount_minor
                 FROM transactions
                 WHERE pay_cycle_id = ?
                   AND rule_id = ?
@@ -635,7 +626,9 @@ class PayCycleStore private constructor(context: Context) {
                     MpesaTransactionType.REVERSAL.name
                 )
             ).use { cursor ->
-                if (cursor.moveToFirst()) cursor.getLong(0) else 0L
+                var total = 0L
+                while (cursor.moveToNext()) total = CheckedMoney.add(total, cursor.getLong(0))
+                total
             }
 
             CommitmentProgress(
@@ -644,7 +637,7 @@ class PayCycleStore private constructor(context: Context) {
                 category = rule.category,
                 plannedMinor = inferred,
                 paidMinor = paid,
-                remainingMinor = max(0L, inferred - paid)
+                remainingMinor = max(0L, CheckedMoney.subtract(inferred, paid))
             )
         }
     }

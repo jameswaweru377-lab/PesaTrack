@@ -12,6 +12,7 @@ import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.interpretation.InterpretationConfidence
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.domain.rules.DebtFundingCandidate
 import com.kedevjimmy.pesatrack.domain.rules.DebtFundingPairingPolicy
 import com.kedevjimmy.pesatrack.domain.rules.DebtProceedsEventCandidate
@@ -36,7 +37,8 @@ enum class DebtEventType {
 
 enum class DebtBalanceQuality {
     OBSERVED,
-    ESTIMATED
+    ESTIMATED,
+    UNKNOWN
 }
 
 data class DebtAccountSnapshot(
@@ -51,7 +53,11 @@ data class DebtAccountSnapshot(
     val hasUnresolvedDrawdown: Boolean = false,
     val lastRepaymentMinor: Long? = null,
     val lastRepaymentAtEpochMs: Long? = null
-)
+) {
+    val isSettled: Boolean
+        get() = balanceQuality == DebtBalanceQuality.OBSERVED &&
+            outstandingMinor == 0L && !hasUnresolvedDrawdown
+}
 
 data class DebtEventRecord(
     val id: Long,
@@ -176,6 +182,7 @@ class DebtStore private constructor(context: Context) {
             ),
             debtAccountId = identity.id,
             type = DebtEventType.DRAWDOWN,
+            amountIsNetProceeds = event.amountIsNetProceeds,
             amountMinor = event.amountMinor,
             feeMinor = event.feeMinor,
             outstandingAfterMinor =
@@ -213,18 +220,6 @@ class DebtStore private constructor(context: Context) {
                 quality =
                     DebtBalanceQuality.OBSERVED,
                 observedAtEpochMs =
-                    occurredAtEpochMs
-            )
-        } else if (
-            insert.inserted &&
-            !event.amountIsNetProceeds
-        ) {
-            applyEstimatedDelta(
-                accountId = identity.id,
-                deltaMinor =
-                    event.amountMinor +
-                        event.feeMinor,
-                occurredAtEpochMs =
                     occurredAtEpochMs
             )
         }
@@ -364,14 +359,6 @@ class DebtStore private constructor(context: Context) {
                         occurredAtEpochMs
                 )
 
-            insert.inserted ->
-                applyEstimatedDelta(
-                    accountId = identity.id,
-                    deltaMinor =
-                        -event.amountMinor,
-                    occurredAtEpochMs =
-                        occurredAtEpochMs
-                )
         }
 
         reconcileRepaymentFromDebtProceeds(
@@ -484,14 +471,39 @@ class DebtStore private constructor(context: Context) {
         transactionId: Long,
         debtAccountId: String,
         userConfirmed: Boolean
+    ): Boolean = synchronized(CanonicalStoreLock.monitor) {
+        val db = database.writableDatabase
+        val ownsTransaction = !db.inTransaction()
+        if (ownsTransaction) db.beginTransaction()
+        try {
+            val recorded = recordPaymentAsRepaymentInTransaction(transactionId, debtAccountId, userConfirmed)
+            if (recorded && ownsTransaction) db.setTransactionSuccessful()
+            recorded
+        } finally {
+            if (ownsTransaction) db.endTransaction()
+        }
+    }
+
+    private fun recordPaymentAsRepaymentInTransaction(
+        transactionId: Long,
+        debtAccountId: String,
+        userConfirmed: Boolean
     ): Boolean {
         synchronized(CanonicalStoreLock.monitor) {
-        if (
-            hasRepaymentLinkedToTransaction(
-                transactionId
+        val existing = database.readableDatabase.rawQuery(
+            "SELECT id, debt_account_id FROM debt_events WHERE event_type = 'REPAYMENT' AND linked_transaction_id = ? LIMIT 1",
+            arrayOf(transactionId.toString())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getLong(0) to cursor.getString(1) else null
+        }
+        if (existing != null) {
+            if (existing.second != debtAccountId) return false
+            val debt = accounts().firstOrNull { it.id == debtAccountId } ?: return false
+            // Repair partial corrections created by older versions instead of
+            // returning success while the payment still counts as spending.
+            return TransactionStore.get(appContext).markDebtRepayment(
+                transactionId, existing.first, debt.name, userConfirmed
             )
-        ) {
-            return true
         }
 
         val payment =
@@ -598,7 +610,7 @@ class DebtStore private constructor(context: Context) {
                         userConfirmed
                 )
 
-        return result.inserted || classified
+        return classified
     }
     }
 
@@ -1167,17 +1179,13 @@ class DebtStore private constructor(context: Context) {
                 }
             }
 
-        val computedBalanceAfterMinor =
-            linkedFunding
-                ?.priorBalanceMinor
-                ?.let { prior ->
-                    max(
-                        0L,
-                        prior +
-                            linkedFunding.amountMinor -
-                            repayment.amountMinor
-                    )
-                }
+        val computedBalanceAfterMinor = linkedFunding?.let {
+            DebtRepaymentBalancePolicy.deriveBalanceAfterRepayment(
+                priorBalanceMinor = it.priorBalanceMinor,
+                incomingAmountMinor = it.amountMinor,
+                repaymentAmountMinor = repayment.amountMinor
+            )
+        }
 
         val window =
             DebtRepaymentBalancePolicy
@@ -1710,7 +1718,7 @@ class DebtStore private constructor(context: Context) {
                                 cursor.getInt(8) == 1,
                             lastRepaymentMinor = if (cursor.isNull(9)) null else cursor.getLong(9),
                             lastRepaymentAtEpochMs = if (cursor.isNull(10)) null else cursor.getLong(10)
-                        )
+                        ).let(::projectBalance)
                     )
                 }
             }
@@ -1871,7 +1879,7 @@ class DebtStore private constructor(context: Context) {
     ): Long = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             """
-            SELECT COALESCE(SUM(fee_minor), 0)
+            SELECT fee_minor
             FROM debt_events
             WHERE occurred_at_epoch_ms >= ?
               AND occurred_at_epoch_ms < ?
@@ -1881,11 +1889,9 @@ class DebtStore private constructor(context: Context) {
                 endEpochMsExclusive.toString()
             )
         ).use { cursor ->
-            if (cursor.moveToFirst()) {
-                cursor.getLong(0)
-            } else {
-                0L
-            }
+            var total = 0L
+            while (cursor.moveToNext()) total = CheckedMoney.add(total, cursor.getLong(0))
+            total
         }
     }
 
@@ -1987,8 +1993,7 @@ class DebtStore private constructor(context: Context) {
         }
 
         val totalRequired =
-            parsed.amountMinor +
-                parsed.feeMinor
+            CheckedMoney.orNull { CheckedMoney.add(parsed.amountMinor, parsed.feeMinor) } ?: return
         val exact = eligible.filter {
             it.financedMinor == totalRequired
         }
@@ -2303,7 +2308,7 @@ class DebtStore private constructor(context: Context) {
             put("provider_key", providerKey)
             put("name", name)
             put("outstanding_minor", 0L)
-            put("balance_quality", DebtBalanceQuality.ESTIMATED.name)
+            put("balance_quality", DebtBalanceQuality.UNKNOWN.name)
             put("created_at_epoch_ms", now)
             put("updated_at_epoch_ms", now)
         }.also { values ->
@@ -2335,7 +2340,8 @@ class DebtStore private constructor(context: Context) {
         fundingLinkReason: String?,
         sourcePackage: String?,
         sourceKind: String,
-        occurredAtEpochMs: Long
+        occurredAtEpochMs: Long,
+        amountIsNetProceeds: Boolean? = null
     ): DebtEventInsertResult {
         val existing = database.readableDatabase.rawQuery(
             """
@@ -2350,6 +2356,9 @@ class DebtStore private constructor(context: Context) {
         }
         if (existing != null) {
             ContentValues().apply {
+                if (amountIsNetProceeds != null) {
+                    put("amount_is_net_proceeds", if (amountIsNetProceeds) 1 else 0)
+                }
                 if (linkedTransactionId != null) {
                     put(
                         "linked_transaction_id",
@@ -2421,6 +2430,9 @@ class DebtStore private constructor(context: Context) {
             put("event_type", type.name)
             put("amount_minor", amountMinor)
             put("fee_minor", feeMinor)
+            if (amountIsNetProceeds != null) {
+                put("amount_is_net_proceeds", if (amountIsNetProceeds) 1 else 0)
+            }
             if (outstandingAfterMinor != null) {
                 put(
                     "outstanding_after_minor",
@@ -2532,6 +2544,7 @@ class DebtStore private constructor(context: Context) {
                 SELECT last_observed_at_epoch_ms
                 FROM debt_accounts
                 WHERE id = ?
+                  AND balance_quality = 'OBSERVED'
                 LIMIT 1
                 """.trimIndent(),
                 arrayOf(accountId)
@@ -2578,44 +2591,123 @@ class DebtStore private constructor(context: Context) {
         LedgerUpdateBus.notifyChanged()
     }
 
-    private fun applyEstimatedDelta(
-        accountId: String,
-        deltaMinor: Long,
-        occurredAtEpochMs: Long
-    ) {
-        val current = database.readableDatabase.rawQuery(
+    private data class BalanceMovement(
+        val type: DebtEventType,
+        val amountMinor: Long,
+        val feeMinor: Long,
+        val outstandingAfterMinor: Long?,
+        val completion: String?,
+        val atEpochMs: Long,
+        val principalKnown: Boolean,
+        val eventKey: String
+    )
+
+    /** The account row retains genuine observations, never arrival-order estimates. */
+    private fun projectBalance(account: DebtAccountSnapshot): DebtAccountSnapshot {
+        val db = database.readableDatabase
+        val movements = db.rawQuery(
             """
-            SELECT outstanding_minor, last_observed_at_epoch_ms
-            FROM debt_accounts
-            WHERE id = ?
-            LIMIT 1
-            """.trimIndent(),
-            arrayOf(accountId)
+            SELECT event_type, amount_minor, fee_minor, outstanding_after_minor,
+                   repayment_completion, occurred_at_epoch_ms, amount_is_net_proceeds,
+                   event_key
+            FROM debt_events WHERE debt_account_id = ?
+            ORDER BY occurred_at_epoch_ms, event_key
+            """.trimIndent(), arrayOf(account.id)
         ).use { cursor ->
-            if (!cursor.moveToFirst()) {
-                0L to null
-            } else {
-                cursor.getLong(0) to
-                    if (cursor.isNull(1)) {
-                        null
-                    } else {
-                        cursor.getLong(1)
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(BalanceMovement(
+                        type = DebtEventType.valueOf(cursor.getString(0)),
+                        amountMinor = cursor.getLong(1), feeMinor = cursor.getLong(2),
+                        outstandingAfterMinor = if (cursor.isNull(3)) null else cursor.getLong(3),
+                        completion = if (cursor.isNull(4)) null else cursor.getString(4),
+                        atEpochMs = cursor.getLong(5),
+                        principalKnown = !cursor.isNull(6) && cursor.getInt(6) == 0,
+                        eventKey = cursor.getString(7)
+                    ))
+                }
+            }
+        }
+
+        var anchorAt = account.observedAtEpochMs.takeIf {
+            account.balanceQuality == DebtBalanceQuality.OBSERVED
+        }
+        var balance = if (anchorAt != null) account.outstandingMinor else 0L
+        var anchorEventKey: String? = null
+        fun anchor(value: Long, at: Long, eventKey: String? = null) {
+            if (anchorAt == null || at >= anchorAt!!) {
+                balance = max(0L, value)
+                anchorAt = at
+                anchorEventKey = eventKey
+            }
+        }
+        // Recover genuine observations even when an older app overwrote its
+        // debt-account cache with an estimate. Entity identity avoids wallet balances.
+        db.rawQuery(
+            """
+            SELECT o.balance_minor, o.observed_at_epoch_ms
+            FROM account_balance_observations o
+            LEFT JOIN financial_entities e ON e.entity_key = o.entity_key
+            WHERE (e.provider_key = ? OR o.entity_key = ?)
+              AND (e.nature_hint = 'LIABILITY' OR o.entity_key = ?)
+            ORDER BY o.observed_at_epoch_ms, o.observation_key
+            """.trimIndent(), arrayOf(account.providerKey, account.providerKey, account.providerKey)
+        ).use { cursor ->
+            while (cursor.moveToNext()) anchor(cursor.getLong(0), cursor.getLong(1))
+        }
+        movements.forEach { movement ->
+            val observed = movement.outstandingAfterMinor ?: 0L.takeIf {
+                movement.type == DebtEventType.REPAYMENT && movement.completion == DebtCompletion.FULL.name
+            }
+            if (observed != null) anchor(observed, movement.atEpochMs, movement.eventKey)
+        }
+
+        // SMS timestamps may have minute precision. An event's own final
+        // balance includes that event, but proves no ordering against another
+        // movement with the same timestamp. Stable keys are identity, not time.
+        val ambiguousAnchor = anchorAt != null && movements.any {
+            it.atEpochMs == anchorAt && it.eventKey != anchorEventKey
+        }
+        var known = anchorAt != null && !ambiguousAnchor
+        var quality = if (known) DebtBalanceQuality.OBSERVED else DebtBalanceQuality.UNKNOWN
+        var sawMovement = false
+        movements.filter { anchorAt == null || it.atEpochMs > anchorAt!! }.forEach { movement ->
+            when (movement.type) {
+                DebtEventType.DRAWDOWN -> {
+                    // Legacy NULL provenance and net cash proceeds cannot establish principal.
+                    if (!movement.principalKnown) {
+                        known = false
+                    } else if (!sawMovement && anchorAt == null) {
+                        known = true
                     }
+                    if (known) {
+                        val next = CheckedMoney.orNull {
+                            CheckedMoney.add(balance, CheckedMoney.add(movement.amountMinor, movement.feeMinor))
+                        }
+                        if (next == null) known = false else balance = next
+                    }
+                }
+                DebtEventType.REPAYMENT -> if (known) {
+                    val next = CheckedMoney.orNull { CheckedMoney.subtract(balance, movement.amountMinor) }
+                    if (next == null) known = false else balance = max(0L, next)
+                }
+                DebtEventType.FEE -> if (known) {
+                    val next = CheckedMoney.orNull { CheckedMoney.add(balance, movement.amountMinor) }
+                    if (next == null) known = false else balance = next
+                }
+                DebtEventType.ADJUSTMENT -> known = false
             }
+            sawMovement = true
+            quality = if (known) DebtBalanceQuality.ESTIMATED else DebtBalanceQuality.UNKNOWN
         }
-
-        current.second?.let { lastObservedAt ->
-            if (occurredAtEpochMs < lastObservedAt) {
-                return
-            }
-        }
-
-        updateBalance(
-            accountId = accountId,
-            outstandingMinor =
-                max(0L, current.first + deltaMinor),
-            quality = DebtBalanceQuality.ESTIMATED,
-            observedAtEpochMs = occurredAtEpochMs
+        return account.copy(
+            outstandingMinor = if (known) balance else 0L,
+            balanceQuality = quality,
+            observedAtEpochMs = anchorAt,
+            hasUnresolvedDrawdown = if (quality == DebtBalanceQuality.OBSERVED && balance == 0L) false
+                else account.hasUnresolvedDrawdown || (ambiguousAnchor && movements.any {
+                    it.atEpochMs == anchorAt && it.type == DebtEventType.DRAWDOWN
+                })
         )
     }
 

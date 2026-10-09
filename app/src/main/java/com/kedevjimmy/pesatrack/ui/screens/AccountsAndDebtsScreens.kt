@@ -46,6 +46,9 @@ import com.kedevjimmy.pesatrack.data.local.PaydayAccountSnapshot
 import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
 import com.kedevjimmy.pesatrack.data.local.PaydaySnapshotStore
 import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
+import com.kedevjimmy.pesatrack.domain.model.checkedMoneySum
+import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
@@ -59,6 +62,8 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import androidx.compose.material3.LinearProgressIndicator
 
 private data class AccountComponentPresentation(
     val label: String,
@@ -119,8 +124,15 @@ fun AccountsScreen(
             mutableStateOf(emptyList())
         }
 
-    LaunchedEffect(revision) {
-        presentations =
+    var accountsLoading by remember { mutableStateOf(true) }
+    var accountsLoaded by remember { mutableStateOf(false) }
+    var accountsError by remember { mutableStateOf(false) }
+    var accountsRetry by remember { mutableStateOf(0) }
+    LaunchedEffect(revision, accountsRetry) {
+        accountsLoading = true
+        accountsError = false
+        try {
+        val loadedPresentations =
             withContext(Dispatchers.IO) {
                 val accounts =
                     accountStore.listAccounts(
@@ -171,36 +183,46 @@ fun AccountsScreen(
                     )
                 }
             }
-    }
-
-    LaunchedEffect(revision) {
-        activeDebts =
+        val loadedDebts =
             withContext(Dispatchers.IO) {
                 debtStore.accounts()
                     .filter {
-                        it.outstandingMinor >
-                            0L
+                        !it.isSettled && (it.outstandingMinor > 0L ||
+                            it.balanceQuality == DebtBalanceQuality.UNKNOWN)
                     }
                     .sortedByDescending {
                         it.outstandingMinor
                     }
             }
+        presentations = loadedPresentations
+        activeDebts = loadedDebts
+        accountsLoaded = true
+        } catch (cancelled: CancellationException) { throw cancelled
+        } catch (failure: Exception) {
+            android.util.Log.e("PesaTrackAccounts", "Accounts could not load", failure)
+            accountsError = true
+        } finally { accountsLoading = false }
+    }
+    if (!accountsLoaded) {
+        FinancialReadStatus(scaffoldPadding, "Accounts", accountsLoading, accountsError) { accountsRetry++ }
+        return
     }
 
-    val knownTotalMinor =
+    val knownTotalMinor = CheckedMoney.orNull {
         presentations
             .mapNotNull {
                 it.balanceMinor
             }
-            .sum()
+            .checkedMoneySum()
+    }
     val knownBalanceCount =
         presentations.count {
             it.balanceMinor != null
         }
-    val debtOutstandingMinor =
-        activeDebts.sumOf {
+    val debtOutstandingMinor = if (activeDebts.any { it.balanceQuality == DebtBalanceQuality.UNKNOWN }) null
+        else CheckedMoney.orNull { activeDebts.checkedMoneySumOf {
             it.outstandingMinor
-        }
+        } }
 
     LazyColumn(
         modifier = Modifier
@@ -217,6 +239,7 @@ fun AccountsScreen(
         verticalArrangement =
             Arrangement.spacedBy(14.dp)
     ) {
+        if (accountsLoading || accountsError) item { FinancialReadBanner("Accounts", accountsLoading, accountsError) { accountsRetry++ } }
         item {
             DetailPageHeader(
                 title = "Your accounts",
@@ -230,7 +253,9 @@ fun AccountsScreen(
             ConceptEmeraldHero(
                 title = "Known balances",
                 amount =
-                    if (knownBalanceCount > 0) {
+                    if (knownTotalMinor == null) {
+                        "Balance unavailable"
+                    } else if (knownBalanceCount > 0) {
                         formatDetailMoney(knownTotalMinor)
                     } else {
                         "Waiting for balances"
@@ -394,12 +419,14 @@ fun AccountsScreen(
                         }
                         Text(
                             if (
-                                debtOutstandingMinor >
+                                debtOutstandingMinor != null && debtOutstandingMinor >
                                 0L
                             ) {
                                 formatDetailMoney(
                                     debtOutstandingMinor
                                 )
+                            } else if (debtOutstandingMinor == null) {
+                                "Balance pending"
                             } else {
                                 "None"
                             },
@@ -504,15 +531,23 @@ fun DebtsScreen(
             mutableStateOf(emptyList())
         }
 
-    LaunchedEffect(revision) {
-        activeDebts =
+    var debtsLoading by remember { mutableStateOf(true) }
+    var debtsLoaded by remember { mutableStateOf(false) }
+    var debtsError by remember { mutableStateOf(false) }
+    var debtsRetry by remember { mutableStateOf(0) }
+    LaunchedEffect(revision, debtsRetry) {
+        debtsLoading = true
+        debtsError = false
+        try {
+        val loaded =
             withContext(Dispatchers.IO) {
-                debtStore.accounts().also { accounts ->
-                    settledDebts = accounts.filter { it.outstandingMinor == 0L && !it.hasUnresolvedDrawdown && it.lastRepaymentAtEpochMs != null }
-                }
+                debtStore.accounts()
+            }
+        val nextActive = loaded
                     .filter {
-                        it.outstandingMinor > 0L ||
-                            it.hasUnresolvedDrawdown
+                        !it.isSettled && (it.outstandingMinor > 0L ||
+                            it.hasUnresolvedDrawdown || it.lastRepaymentAtEpochMs != null ||
+                            it.balanceQuality == DebtBalanceQuality.UNKNOWN)
                     }
                     .sortedWith(
                         compareByDescending<
@@ -523,21 +558,33 @@ fun DebtsScreen(
                             it.name.lowercase()
                         }
                     )
-            }
+        settledDebts = loaded.filter { it.isSettled }
+        activeDebts = nextActive
+        debtsLoaded = true
+        } catch (cancelled: CancellationException) { throw cancelled
+        } catch (failure: Exception) {
+            android.util.Log.e("PesaTrackDebts", "Debt could not load", failure)
+            debtsError = true
+        } finally { debtsLoading = false }
+    }
+    if (!debtsLoaded) {
+        FinancialReadStatus(scaffoldPadding, "Debt", debtsLoading, debtsError) { debtsRetry++ }
+        return
     }
 
     val unknownBalanceCount =
         activeDebts.count(
             ::hasUnknownDebtBalance
         )
-    val totalDebtMinor =
+    val totalDebtMinor = CheckedMoney.orNull {
         activeDebts
             .filterNot(
                 ::hasUnknownDebtBalance
             )
-            .sumOf {
+            .checkedMoneySumOf {
                 it.outstandingMinor
             }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -554,6 +601,7 @@ fun DebtsScreen(
         verticalArrangement =
             Arrangement.spacedBy(14.dp)
     ) {
+        if (debtsLoading || debtsError) item { FinancialReadBanner("Debt", debtsLoading, debtsError) { debtsRetry++ } }
         item {
             DetailPageHeader(
                 title = "Debt",
@@ -570,7 +618,9 @@ fun DebtsScreen(
                         Modifier.padding(16.dp)
                 ) {
                     Text(
-                        if (
+                        if (totalDebtMinor == null) {
+                            "Balance unavailable"
+                        } else if (
                             unknownBalanceCount > 0
                         ) {
                             "Known outstanding debt"
@@ -1017,7 +1067,7 @@ private fun DebtAccountCard(
                         hasUnknownDebtBalance(
                             debt
                         ) ->
-                            "Loan detected • exact outstanding balance not observed yet"
+                            "Outstanding balance unknown • more loan history needed"
                         debt.balanceQuality ==
                             DebtBalanceQuality.OBSERVED ->
                             "Observed outstanding balance"
@@ -1040,7 +1090,7 @@ private fun DebtAccountCard(
                 debt.observedAtEpochMs
                     ?.let {
                         Text(
-                            "Last updated " +
+                            "Last observed " +
                                 formatDetailDateTime(
                                     it
                                 ),
@@ -1083,10 +1133,11 @@ private fun DebtAccountCard(
 private fun hasUnknownDebtBalance(
     debt: DebtAccountSnapshot
 ): Boolean =
-    debt.hasUnresolvedDrawdown &&
+    debt.balanceQuality == DebtBalanceQuality.UNKNOWN ||
+    (debt.hasUnresolvedDrawdown &&
         debt.outstandingMinor == 0L &&
         debt.balanceQuality ==
-            DebtBalanceQuality.ESTIMATED
+            DebtBalanceQuality.ESTIMATED)
 
 private fun accountBalancePresentation(
     group: TrackedAccountGroup,
@@ -1147,9 +1198,9 @@ private fun accountBalancePresentation(
                 components.single()
                     .balanceMinor
             allKnown ->
-                knownComponents.sumOf {
+                CheckedMoney.orNull { knownComponents.checkedMoneySumOf {
                     it.balanceMinor ?: 0L
-                }
+                } }
             else -> null
         }
 
@@ -1166,6 +1217,7 @@ private fun accountBalancePresentation(
 
     val overallQuality =
         when {
+            totalBalance == null -> PaydayBalanceQuality.UNKNOWN
             components.any {
                 it.quality ==
                     PaydayBalanceQuality
@@ -1229,8 +1281,9 @@ private fun mshwariComponentLabel(
 }
 
 private fun formatDetailMoney(
-    minor: Long
+    minor: Long?
 ): String {
+    if (minor == null) return "Balance unavailable"
     val formatter =
         NumberFormat.getNumberInstance(
             Locale.US
@@ -1241,6 +1294,27 @@ private fun formatDetailMoney(
         formatter.format(
             minor / 100.0
         )
+}
+
+@Composable
+private fun FinancialReadStatus(padding: PaddingValues, label: String, loading: Boolean,
+    error: Boolean, retry: () -> Unit) {
+    Column(Modifier.padding(padding).padding(16.dp)) {
+        FinancialReadBanner(label, loading, error, retry)
+    }
+}
+
+@Composable
+private fun FinancialReadBanner(label: String, loading: Boolean, error: Boolean, retry: () -> Unit) {
+    if (loading) {
+        Text("Loading ${label.lowercase()}…")
+        LinearProgressIndicator(Modifier.fillMaxWidth())
+    }
+    if (error) {
+        Text("$label could not load")
+        Text("Your saved data is unchanged. Any amounts below are from the last successful load.")
+        TextButton(onClick = retry) { Text("Try again") }
+    }
 }
 
 private fun formatDetailDateTime(

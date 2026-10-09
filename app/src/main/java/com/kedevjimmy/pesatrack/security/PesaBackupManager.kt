@@ -20,9 +20,7 @@ import java.io.DataOutputStream
 import java.io.File
 import java.security.SecureRandom
 import javax.crypto.Cipher
-import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 data class BackupSummary(
@@ -1119,29 +1117,10 @@ class PesaBackupManager(
         iterations: Int =
             PBKDF_ITERATIONS
     ): SecretKeySpec {
-        val spec =
-            PBEKeySpec(
-                passphrase
-                    .toCharArray(),
-                salt,
-                iterations,
-                KEY_BITS
-            )
-        return try {
-            SecretKeySpec(
-                SecretKeyFactory
-                    .getInstance(
-                        "PBKDF2WithHmacSHA256"
-                    )
-                    .generateSecret(
-                        spec
-                    )
-                    .encoded,
-                "AES"
-            )
-        } finally {
-            spec.clearPassword()
-        }
+        return SecretKeySpec(
+            PasswordKeyDerivation.derive(passphrase, salt, iterations, KEY_BITS),
+            "AES"
+        )
     }
 
     private fun quoteIdentifier(

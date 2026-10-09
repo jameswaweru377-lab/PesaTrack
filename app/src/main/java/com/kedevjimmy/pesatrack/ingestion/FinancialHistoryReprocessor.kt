@@ -37,7 +37,9 @@ class FinancialHistoryReprocessor(
     fun reprocess(
         months: Int,
         nowEpochMs: Long =
-            System.currentTimeMillis()
+            System.currentTimeMillis(),
+        onProgress: ((HistoricalImportProgress) -> Unit)? = null,
+        isCancelled: () -> Boolean = { false }
     ): FinancialHistoryReprocessReport {
         val safeMonths =
             months.coerceIn(
@@ -75,8 +77,14 @@ class FinancialHistoryReprocessor(
                 rebuildPayCycles = true,
                 mode =
                     HistoricalImportMode
-                        .REPROCESS
-            )
+                        .REPROCESS,
+                onProgress = onProgress,
+                isCancelled = isCancelled
+            ).let { result ->
+                // REPROCESS restarts the window; no import cursor is reused.
+                // A cancellation arriving after the final row is still not success.
+                if (isCancelled()) result.copy(cancelled = true) else result
+            }
 
         val afterDebt =
             debtStore.accounts()
@@ -112,12 +120,18 @@ class FinancialHistoryReprocessor(
                     }
             )
 
-        stateStore.recordSuccess(
-            atEpochMs = nowEpochMs,
-            months = safeMonths
-        )
+        val finalReport = if (isCancelled() && !report.importResult.cancelled) {
+            report.copy(importResult = report.importResult.copy(cancelled = true))
+        } else report
 
-        return report
+        if (!finalReport.importResult.cancelled) {
+            stateStore.recordSuccess(
+                atEpochMs = nowEpochMs,
+                months = safeMonths
+            )
+        }
+
+        return finalReport
     }
 
     companion object {

@@ -1,6 +1,8 @@
 package com.kedevjimmy.pesatrack.data.local
 
 import android.content.Context
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
+import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
@@ -94,9 +96,8 @@ class MoneyPictureHealthEvaluator(
                         MoneyDirection.EXPENSE.name
                 }
             val spendingTotal =
-                trustedSpending.sumOf {
-                    it.amountMinor +
-                        it.feeMinor
+                trustedSpending.checkedMoneySumOf {
+                    CheckedMoney.add(it.amountMinor, it.feeMinor)
                 }
             val lowQualityMinor =
                 trustedSpending
@@ -108,18 +109,15 @@ class MoneyPictureHealthEvaluator(
                             TransactionCategory
                                 .OTHER.name
                     }
-                    .sumOf {
-                        it.amountMinor +
-                            it.feeMinor
+                    .checkedMoneySumOf {
+                        CheckedMoney.add(it.amountMinor, it.feeMinor)
                     }
             val lowQualityShare =
                 if (spendingTotal <= 0L) {
                     0
                 } else {
                     (
-                        lowQualityMinor *
-                            100L /
-                            spendingTotal
+                        lowQualityMinor.toDouble() * 100.0 / spendingTotal.toDouble()
                         )
                         .toInt()
                         .coerceIn(0, 100)

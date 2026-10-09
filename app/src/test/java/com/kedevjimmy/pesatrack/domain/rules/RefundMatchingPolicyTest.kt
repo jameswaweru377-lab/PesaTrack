@@ -6,6 +6,16 @@ import org.junit.Test
 
 class RefundMatchingPolicyTest {
     @Test
+    fun prefixRelatedMerchantNamesAreNotTheSameIdentity() {
+        assertNull(RefundMatchingPolicy.chooseCandidate(
+            receivedAmountMinor = 22_000L,
+            receivedAtEpochMs = 600_000L,
+            receivedCounterparty = "SAMPLE TAXI EXPRESS",
+            candidates = listOf(RefundCandidate(41L, 120_000L, 22_000L, "SAMPLE TAXI"))
+        ))
+    }
+
+    @Test
     fun linksUniqueExactAmountFromSameMerchant() {
         val result = RefundMatchingPolicy.chooseCandidate(
             receivedAmountMinor = 22_000L,
