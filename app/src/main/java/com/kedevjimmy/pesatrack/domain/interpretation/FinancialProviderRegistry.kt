@@ -24,7 +24,8 @@ data class FinancialProviderAccountKnowledge(
     val ownershipHint: AccountOwnershipHint,
     val nature: FinancialAccountNature,
     val aliases: Set<String>,
-    val debtBehavior: DebtProductBehavior? = null
+    val debtBehavior: DebtProductBehavior? = null,
+    val mobileMoney: Boolean = accountType == AccountType.MOBILE_WALLET
 )
 
 data class FinancialMessageSourceProfile(
@@ -34,12 +35,17 @@ data class FinancialMessageSourceProfile(
 )
 
 object FinancialProviderRegistry {
+    fun isMobileMoneyAccount(rawLabel: String, accountType: AccountType): Boolean =
+        accountType == AccountType.MOBILE_WALLET || known.firstOrNull {
+            it.providerKey == resolveAccount(rawLabel).providerKey
+        }?.mobileMoney == true
     private val known = listOf(
         // Specific products must come before broader family names.
         FinancialProviderAccountKnowledge(
             providerKey = "NCBA_MSHWARI_LOCK_SAVINGS",
             canonicalName = "M-Shwari Lock Savings",
             accountType = AccountType.SAVINGS,
+            mobileMoney = true,
             ownershipHint = AccountOwnershipHint.USER_OWNED,
             nature = FinancialAccountNature.ASSET,
             aliases = setOf(
@@ -189,6 +195,7 @@ object FinancialProviderRegistry {
             providerKey = "KCB_MPESA_SAVINGS",
             canonicalName = "KCB M-PESA",
             accountType = AccountType.SAVINGS,
+            mobileMoney = true,
             ownershipHint = AccountOwnershipHint.USER_OWNED,
             nature = FinancialAccountNature.ASSET,
             aliases = setOf(
@@ -232,6 +239,7 @@ object FinancialProviderRegistry {
             providerKey = "NCBA_MSHWARI_SAVINGS",
             canonicalName = "M-Shwari",
             accountType = AccountType.SAVINGS,
+            mobileMoney = true,
             ownershipHint = AccountOwnershipHint.USER_OWNED,
             nature = FinancialAccountNature.ASSET,
             aliases = setOf(

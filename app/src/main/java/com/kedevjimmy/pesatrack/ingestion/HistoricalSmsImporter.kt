@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ingestion
 import android.content.Context
 import android.provider.BaseColumns
 import android.provider.Telephony
+import com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
@@ -55,6 +56,7 @@ class HistoricalSmsImporter(
         isCancelled: () -> Boolean = { false },
         resumeKey: String? = null
     ): HistoricalImportResult {
+        SmsAccessConsentStore.requireRead(context)
         val rules = RuleStore.get(context).listRules(enabledOnly = true)
         val accounts = AccountStore.get(context).listAccounts()
         val store = TransactionStore.get(context)
@@ -139,6 +141,7 @@ class HistoricalSmsImporter(
         var lastProcessedSmsDate = 0L
         var lastProcessedSmsId = -1L
 
+        SmsAccessConsentStore.requireRead(context)
         context.contentResolver.query(
             Telephony.Sms.Inbox.CONTENT_URI,
             projection,
@@ -194,6 +197,7 @@ class HistoricalSmsImporter(
             }
 
             while (cursor.moveToNext()) {
+                SmsAccessConsentStore.requireConsent(context)
                 if (isCancelled()) {
                     cancelled = true
                     break

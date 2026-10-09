@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -1037,10 +1038,15 @@ fun HomeScreen(
 
         item {
             ConceptEmeraldHero(
-                title = "Tracked funds",
+                title = if (cycleSnapshot.cycle == null) "Account balances" else "After planned payments",
                 amount =
                     if (cycleSnapshot.cycle == null) {
-                        "Waiting for salary"
+                        com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.totalKnown(
+                            accountBalanceSnapshots.filter { snapshot -> trackedAccounts.any { it.id == snapshot.accountId && AccountDisplayPolicy.isConfirmedOwned(it, confirmedAccountIds) } }.map { snapshot ->
+                                val account = trackedAccounts.first { it.id == snapshot.accountId }
+                                com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.savingsBalance(snapshot.balanceMinor, account.type == AccountType.SAVINGS, snapshot.quality == com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality.RECONSTRUCTED)
+                            }
+                        )?.let(::formatMoney) ?: "Balance unavailable"
                     } else if (planningAvailability == null) {
                         "Amount unavailable"
                     } else {
@@ -1054,7 +1060,7 @@ fun HomeScreen(
                     } else if (cycleSnapshot.cycle != null) {
                         "Available after commitments • updated from your real activity"
                     } else {
-                        "PesaTrack will calculate this after your first salary is recorded."
+                        "Based on available account records • not a live bank balance"
                     },
                 eyebrow = visibleAccountGroups.size.toString() + " tracked account" +
                     if (visibleAccountGroups.size == 1) "" else "s"
@@ -1976,7 +1982,3 @@ private fun formatMoney(minor: Long?): String {
 
 private fun formatShortDate(epochMs: Long): String =
     SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(epochMs))
-
-
-
-

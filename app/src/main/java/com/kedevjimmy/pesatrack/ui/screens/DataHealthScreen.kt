@@ -366,6 +366,10 @@ fun DataHealthScreen(
 
     fun runHistoryReprocess() {
         if (!smsPermissionGranted || reprocessingHistory) return
+        if (!com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore.hasConsent(context)) {
+            reprocessError = "SMS consent is off. Open Import history from More and accept the disclosure first."
+            return
+        }
         val cancellation = AtomicBoolean(false)
         val months = selectedReprocessMonths
         reprocessCancellation = cancellation
@@ -394,7 +398,9 @@ fun DataHealthScreen(
                 throw cancelled
             } catch (failure: Exception) {
                 reprocessError = if (failure is SecurityException) {
-                    "Android did not allow PesaTrack to read SMS history on this installation."
+                    if (!com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore.hasConsent(context))
+                        "SMS consent is off. Open Import history from More and accept the disclosure first."
+                    else "Android did not allow PesaTrack to read SMS history on this installation."
                 } else {
                     failure.message ?: "Financial history could not be reprocessed."
                 }
@@ -476,14 +482,14 @@ fun DataHealthScreen(
                 }
                 Column {
                     Text(
-                        "Data Health",
+                        "Advanced troubleshooting",
                         style =
                             MaterialTheme
                                 .typography
                                 .headlineMedium
                     )
                     Text(
-                        "What PesaTrack understands, falls back on, or still needs to learn.",
+                        "Technical tools for investigating missing or incorrect records.",
                         style =
                             MaterialTheme
                                 .typography
@@ -614,7 +620,11 @@ fun DataHealthScreen(
                     selectedReprocessMonths =
                         it
                 },
-                onRequestPermission = {
+                onRequestPermission = requestSms@ {
+                    if (!com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore.hasConsent(context)) {
+                        reprocessError = "Open Import history from More and accept the SMS disclosure first."
+                        return@requestSms
+                    }
                     smsPermissionDenied =
                         false
                     smsPermissionLauncher
@@ -2433,7 +2443,7 @@ private fun HistoryReprocessCard(
                         .onSurfaceVariant
             )
             Text(
-                "This reconciliation pass does not add duplicate Data Health observations or inflate existing Message Lab occurrence counts.",
+                "This reconciliation pass does not add duplicate Advanced troubleshooting observations or inflate existing Message Lab occurrence counts.",
                 style =
                     MaterialTheme
                         .typography

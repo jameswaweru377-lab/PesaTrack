@@ -39,7 +39,7 @@ internal fun ReviewDiscoveryPage(
     onManualSalary: () -> Unit,
     onContinue: () -> Unit
 ) {
-    var showOptions by rememberSaveable { mutableStateOf(false) }
+    var showOptions by rememberSaveable { mutableStateOf(true) }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement =
@@ -49,7 +49,7 @@ internal fun ReviewDiscoveryPage(
             icon = Icons.Rounded.CheckCircle,
             title = "Here's what we found",
             body =
-                "Your transactions are organized automatically. You can start now and add personal details later."
+                "Choose the accounts you use. You can add more later."
         )
 
         if (sources.isEmpty()) {
@@ -273,7 +273,7 @@ internal fun ReviewDiscoveryPage(
             showOptions && ownershipCandidates.isNotEmpty()
         ) {
             Text(
-                "Confirm accounts you recognize",
+                "Which accounts are yours?",
                 style =
                     MaterialTheme.typography
                         .titleMedium,
@@ -284,7 +284,7 @@ internal fun ReviewDiscoveryPage(
                     FontWeight.SemiBold
             )
             Text(
-                "PesaTrack can identify a bank or savings product without assuming it belongs to you. Confirm only accounts you actually use; anything you skip can be reviewed later in Activity.",
+                "Select only your own accounts. A bank mentioned in a payment may belong to someone else.",
                 style =
                     MaterialTheme.typography
                         .bodySmall,
@@ -329,4 +329,3 @@ internal fun ReviewDiscoveryPage(
 
     }
 }
-

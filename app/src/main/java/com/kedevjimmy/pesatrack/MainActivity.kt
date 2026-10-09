@@ -34,6 +34,8 @@ import kotlinx.coroutines.delay
 class MainActivity : ComponentActivity() {
     private var salaryOpenRequest by mutableStateOf(0)
     private var billsOpenRequest by mutableStateOf(0)
+    private var planningOpenRequest by mutableStateOf(0)
+    private var planningRoute by mutableStateOf("budgets")
     private lateinit var appLockManager:
         AppLockManager
     private var appLocked by mutableStateOf(false)
@@ -42,6 +44,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
         if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
+        intent.getStringExtra(com.kedevjimmy.pesatrack.planning.PlanningReminders.OPEN_PLAN)?.takeIf { it in setOf("budgets","saving-goals") }?.let { planningRoute=it; planningOpenRequest++ }
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,8 +75,10 @@ class MainActivity : ComponentActivity() {
         updateSecureWindowState()
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
         if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
+        intent.getStringExtra(com.kedevjimmy.pesatrack.planning.PlanningReminders.OPEN_PLAN)?.takeIf { it in setOf("budgets","saving-goals") }?.let { planningRoute=it; planningOpenRequest++ }
         SalaryReminders.schedule(this)
         BillSchedules.schedule(this)
+        com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this)
         enableEdgeToEdge()
         AutomaticHistoryRepair.scheduleIfAllowed(this)
         setContent {
@@ -101,6 +106,7 @@ class MainActivity : ComponentActivity() {
             var setupComplete by remember {
                 mutableStateOf(preferences.getBoolean("setup_complete", false))
             }
+            var welcomeVisible by remember { mutableStateOf(!setupComplete) }
             var showLaunchSplash by remember {
                 mutableStateOf(true)
             }
@@ -116,6 +122,12 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.DARK -> true
             }
 
+            androidx.compose.runtime.SideEffect {
+                val darkSurface = useDark || showLaunchSplash || (appLocked && appLockManager.isEnabled()) || welcomeVisible
+                val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                controller.isAppearanceLightStatusBars = !darkSurface
+                controller.isAppearanceLightNavigationBars = !darkSurface
+            }
             PesaTrackTheme(darkTheme = useDark) {
                 if (showLaunchSplash) {
                     StartupSplashScreen()
@@ -150,12 +162,14 @@ class MainActivity : ComponentActivity() {
                     PesaTrackApp(
                     salaryOpenRequest = salaryOpenRequest,
                     billsOpenRequest = billsOpenRequest,
+                            planningOpenRequest = planningOpenRequest, planningRoute = planningRoute,
                     themeMode = themeMode,
                     onThemeModeChange = { newMode ->
                         themeMode = newMode
                         preferences.edit().putString("theme_mode", newMode.name).apply()
                     },
                     setupComplete = setupComplete,
+                    onWelcomeVisibilityChange = { welcomeVisible = it },
                     onSetupComplete = {
                         setupComplete = true
                         preferences.edit()
@@ -166,6 +180,7 @@ class MainActivity : ComponentActivity() {
                             .apply()
                         SalaryReminders.schedule(this)
         BillSchedules.schedule(this)
+        com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this)
                         AutomaticHistoryRepair.scheduleIfAllowed(this)
                     }
                 )
@@ -321,6 +336,3 @@ class MainActivity : ComponentActivity() {
     }
 
 }
-
-
-

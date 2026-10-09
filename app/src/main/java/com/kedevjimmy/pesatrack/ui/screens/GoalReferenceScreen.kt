@@ -176,21 +176,21 @@ private fun goalArtwork(title: String): GoalArtwork {
 }
 
 private fun goalProgressMessage(model: GoalCardModel): String {
-    if (!model.hasTotalTarget) return "Add a total goal target to see a completion scenario. Your monthly plan is not a completion target."
+    if (!model.hasTotalTarget) return "Add the full amount you want to save to see when you might reach it."
     val forecast = OfflineMoneyPolicy.forecast(model.targetMinor, model.savedMinor, model.completedSavings)
     return when (forecast.status) {
-        ForecastStatus.REACHED -> "Recorded savings assigned to this goal meet its target."
+        ForecastStatus.REACHED -> "You have reached this goal."
         ForecastStatus.INSUFFICIENT_HISTORY ->
-            "A recorded-pace estimate needs at least three completed months of goal-linked savings."
+            "Save towards this goal for three full months to see an estimated finish date."
         ForecastStatus.NO_RELIABLE_PROGRESS ->
-            "Recorded net savings do not support a useful completion estimate yet."
+            "There is not enough savings progress to estimate a finish date yet."
         ForecastStatus.ESTIMATE -> {
             val range = forecast.slowestMonths?.let {
-                " Observed contribution scenarios: ${forecast.fastestMonths}–$it months."
-            } ?: " A slower scenario has no reliable upper bound."
-            "Recorded savings scenario: about ${forecast.typicalMonths} months remaining.$range " +
-                "Uses savings assigned to this goal over ${forecast.sampleMonths} completed months, including withdrawals and zero months. " +
-                "Missing or unassigned records can change this; it is not a guaranteed date."
+                " It could take ${forecast.fastestMonths}–$it months if your pace changes."
+            } ?: " A slower pace could take longer."
+            "At your recent pace, about ${forecast.typicalMonths} months to go.$range " +
+                "Based on the last ${forecast.sampleMonths} full months of saving and withdrawals. " +
+                "This is an estimate, not a promise."
         }
     }
 }
@@ -493,7 +493,7 @@ private fun GoalHero(
                         color = Color(0xFF55E6D1)
                     )
                 }
-                GoalSummaryBars()
+                if (totalSavedMinor > 0L) GoalSummaryBars()
             }
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 13.dp),
@@ -1060,7 +1060,8 @@ fun SavingGoalsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF5B55E7)
+                    containerColor = com.kedevjimmy.pesatrack.ui.theme.AuroraIndigo,
+                    contentColor = Color.White
                 ),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
             ) {

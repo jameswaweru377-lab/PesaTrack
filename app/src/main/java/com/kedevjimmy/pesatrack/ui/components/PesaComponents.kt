@@ -222,7 +222,7 @@ fun LandscapeBackdrop(
             .clip(RoundedCornerShape(28.dp))
             .background(base)
     ) {
-        Canvas(Modifier.fillMaxSize()) {
+        Canvas(Modifier.matchParentSize()) {
             if (showSun) {
                 drawCircle(
                     color = sun,
@@ -339,7 +339,7 @@ fun pesaToneContent(tone: String): Color {
         }
     } else {
         when (tone) {
-            "amber" -> Color(0xFF9B650C)
+            "amber" -> Color(0xFF8B590B)
             "blue" -> Color(0xFF176A99)
             "violet" -> Color(0xFF60459F)
             "red" -> Color(0xFFB33B49)

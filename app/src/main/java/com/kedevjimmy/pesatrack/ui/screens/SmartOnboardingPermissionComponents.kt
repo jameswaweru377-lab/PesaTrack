@@ -7,6 +7,13 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,14 +34,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.kedevjimmy.pesatrack.ingestion.MpesaNotificationListenerService
-import com.kedevjimmy.pesatrack.ui.components.ConceptMessagesIllustration
+import com.kedevjimmy.pesatrack.ui.components.FinancialMessagesIllustration
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
@@ -42,252 +52,81 @@ import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 
 @Composable
 internal fun SmartSmsPermissionPage(
-    smsGranted: Boolean,
+    accepted: Boolean,
+    busy: Boolean,
     denied: Boolean,
     restrictedHelp: Boolean,
-    notificationEnabled: Boolean,
+    consentError: String? = null,
+    onAccepted: (Boolean) -> Unit,
     onOpenAppInfo: () -> Unit,
     onTryAgain: () -> Unit,
-    onEnableNotifications: () -> Unit,
     onContinue: () -> Unit,
     onContinueWithout: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement =
-            Arrangement.spacedBy(16.dp)
-    ) {
-        SmartSetupHero(
-            icon = Icons.AutoMirrored.Rounded.Message,
-            title = "Let your messages do the work",
-            body =
-                "PesaTrack finds and organises transaction messages from M-Pesa, banks and other supported money sources."
-        )
-
-        ConceptMessagesIllustration()
-
-        PesaCard {
-            Column(
-                Modifier.padding(16.dp),
-                verticalArrangement =
-                    Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    "Before you enable SMS access",
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium
-                )
-                Text(
-                    "PesaTrack reads the financial SMS history you choose so it can build your local ledger and identify income, spending, transfers, balances and debts. Processing happens on this device. Full SMS messages are not uploaded or shared with the optional online merchant lookup service. You can continue without SMS access.",
-                    style =
-                        MaterialTheme.typography
-                            .bodyMedium,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val compact = maxHeight < 600.dp
+    val constrained = maxHeight < 480.dp || LocalDensity.current.fontScale > 1.3f
+    val disclosureScroll = rememberScrollState()
+    LaunchedEffect(denied) { if (denied) disclosureScroll.scrollTo(0) }
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)) {
+        if (!constrained) MessageAccessIntroduction(compact)
+        PesaCard(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            Column(Modifier.fillMaxSize().verticalScroll(disclosureScroll).padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (constrained) MessageAccessIntroduction(compact = true)
+                consentError?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall) }
+        if (denied) {
+            Text(if (restrictedHelp) "Android did not allow SMS access. If access is restricted, open App info → ⋮ → Allow restricted settings, then return."
+                else "SMS access wasn't allowed. You can retry or continue without importing history.",
+                style = MaterialTheme.typography.bodySmall)
+            Row {
+                if (restrictedHelp) TextButton(onClick = onOpenAppInfo) { Text("Open App info") }
+                TextButton(onClick = onTryAgain) { Text("Try SMS again") }
             }
         }
-
-        PesaCard {
-            Column(
-                Modifier.padding(18.dp),
-                horizontalAlignment =
-                    Alignment.CenterHorizontally,
-                verticalArrangement =
-                    Arrangement.spacedBy(12.dp)
-            ) {
-                PermissionFeatureRow(
-                    icon = Icons.AutoMirrored.Rounded.Message,
-                    title = "Read transaction messages",
-                    body = "Find and extract transaction details from the history you choose",
-                    enabled = smsGranted,
-                    actionLabel =
-                        if (restrictedHelp) "Open App info" else "Enable",
-                    onAction =
-                        if (restrictedHelp) onOpenAppInfo else onTryAgain
-                )
-                PermissionFeatureRow(
-                    icon = Icons.Rounded.Notifications,
-                    title = "Keep tracking in the background",
-                    body = "Keep your money picture current as new confirmations arrive",
-                    enabled = notificationEnabled,
-                    actionLabel = "Enable",
-                    onAction = onEnableNotifications
-                )
-                IconBubble(
-                    Icons.Rounded.Shield,
-                    size = 48.dp,
-                    background =
-                        pesaToneContainer("green"),
-                    tint =
-                        pesaToneContent("green")
-                )
-                Text(
-                    when {
-                        restrictedHelp ->
-                            "Android blocked SMS access"
-                        smsGranted ->
-                            "Message access is ready"
-                        denied ->
-                            "SMS access wasn't allowed"
-                        else ->
-                            "Waiting for Android permission"
-                    },
-                    style =
-                        MaterialTheme.typography
-                            .titleLarge,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurface,
-                    textAlign =
-                        TextAlign.Center
-                )
-                Text(
-                    when {
-                        restrictedHelp ->
-                            "This debug APK was installed outside a trusted app store. On this phone, Android requires you to enable “Allow restricted settings” in App info first."
-                        smsGranted ->
-                            "You can continue to choose how much recent history PesaTrack should import."
-                        denied ->
-                            "You can try again or continue without importing old messages."
-                        else ->
-                            "The system Allow / Don't allow dialog should appear automatically."
-                    },
-                    textAlign =
-                        TextAlign.Center,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
+                Text("Your messages, your choice", style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold)
+                Text("If you agree, PesaTrack reads money messages on this phone to track what comes in, what you spend, your savings and your debts.",
+                    style = MaterialTheme.typography.bodySmall)
+                Text("Your messages are processed on this phone. We do not upload their full text. You can separately choose online help to identify business names.",
+                    style = MaterialTheme.typography.bodySmall)
+                Text("You choose how far back to read and which apps to read money updates from. Newer SMS can be added when you reopen PesaTrack. Other messages are not added as transactions.",
+                    style = MaterialTheme.typography.bodySmall)
+                Text("Android will ask for permission to read SMS and app notifications. You can say no or stop access later. If Android blocks access, you may need to allow restricted settings yourself.",
+                    style = MaterialTheme.typography.bodySmall)
+                if (constrained) MessageAccessAgreement(accepted, busy, onAccepted)
             }
         }
-
-        if (restrictedHelp) {
-            Surface(
-                modifier =
-                    Modifier.fillMaxWidth(),
-                shape =
-                    RoundedCornerShape(18.dp),
-                color =
-                    pesaToneContainer("amber")
-            ) {
-                Column(
-                    Modifier.padding(16.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        "One Android step is required",
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurface
-                    )
-                    Text(
-                        "Open App info → turn on Allow restricted settings → return to PesaTrack. The SMS permission request will open again automatically.",
-                        style =
-                            MaterialTheme.typography
-                                .bodyMedium,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                    Button(
-                        onClick = onOpenAppInfo,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 6.dp)
-                    ) {
-                        Text("Open App info")
-                    }
-                }
-            }
-        } else if (denied) {
-            Button(
-                onClick = onTryAgain,
-                modifier =
-                    Modifier.fillMaxWidth()
-            ) {
-                Text("Try again")
-            }
+        if (!constrained) MessageAccessAgreement(accepted, busy, onAccepted)
+        Button(onClick = onContinue, enabled = accepted && !busy,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+            Text(if (busy) "Waiting for Android…" else "Continue")
         }
-
-        if (smsGranted) {
-            Button(
-                onClick = onContinue,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
-                shape = RoundedCornerShape(18.dp)
-            ) {
-                Text("Continue")
-            }
-        } else if (denied || restrictedHelp) {
-            OutlinedButton(
-                onClick = onContinueWithout,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Continue without import")
-            }
+        TextButton(onClick = onContinueWithout, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+            Text("Continue without access")
         }
-
-        Text(
-            "PesaTrack cannot switch Android's restricted-settings protection on by itself. That decision always belongs to you.",
-            style =
-                MaterialTheme.typography
-                    .bodySmall,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
-        )
+    }
     }
 }
 
 @Composable
-private fun PermissionFeatureRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    body: String,
-    enabled: Boolean,
-    actionLabel: String,
-    onAction: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconBubble(icon, size = 42.dp)
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 10.dp)
-        ) {
-            Text(
-                title,
-                style = MaterialTheme.typography.titleSmall
-            )
-            Text(
-                body,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        if (enabled) {
-            Icon(
-                Icons.Rounded.CheckCircle,
-                contentDescription = "Enabled",
-                tint = pesaToneContent("green")
-            )
-        } else {
-            TextButton(onClick = onAction) {
-                Text(actionLabel)
-            }
-        }
+private fun MessageAccessIntroduction(compact: Boolean) {
+    Text("Build your money picture privately",
+        style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold)
+    Text("PesaTrack understands financial messages on this device.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+    FinancialMessagesIllustration(compact = compact)
+}
+
+@Composable
+private fun MessageAccessAgreement(accepted: Boolean, busy: Boolean, onAccepted: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().toggleable(value = accepted, enabled = !busy,
+        role = Role.Checkbox, onValueChange = onAccepted), verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = accepted, onCheckedChange = null, enabled = !busy)
+        Text("I agree to this use of my financial messages", style = MaterialTheme.typography.bodySmall)
     }
 }
 

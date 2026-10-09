@@ -566,7 +566,7 @@ fun HomeWhereMoneyWentCard(
                 )
             } else {
                 val denominator =
-                    items.sumOf { it.amountMinor.toDouble() }.coerceAtLeast(1.0)
+                    (totalMinor ?: 0L).toDouble().coerceAtLeast(1.0)
                 val needsBetterCategories =
                     items
                         .filter {
@@ -696,12 +696,7 @@ fun HomeWhereMoneyWentCard(
                                         .labelLarge
                             )
                             Text(
-                                (
-                                    item.amountMinor *
-                                        100L /
-                                        denominator
-                                ).toString() +
-                                    "%",
+                                com.kedevjimmy.pesatrack.domain.rules.PlanningReminderPolicy.share(item.amountMinor, totalMinor ?: 0L),
                                 modifier =
                                     Modifier.padding(
                                         start = 8.dp
@@ -748,7 +743,7 @@ fun HomeMoneyPictureCard(
                     Alignment.CenterVertically
             ) {
                 Text(
-                    "Money picture",
+                    "Your accounts",
                     modifier =
                         Modifier.weight(1f),
                     style =
@@ -756,48 +751,9 @@ fun HomeMoneyPictureCard(
                             .typography
                             .titleLarge
                 )
-                Surface(
-                    shape =
-                        RoundedCornerShape(
-                            50.dp
-                        ),
-                    color =
-                        when {
-                            confidenceScore >= 75 ->
-                                pesaToneContainer(
-                                    "green"
-                                )
-                            confidenceScore >= 50 ->
-                                pesaToneContainer(
-                                    "amber"
-                                )
-                            else ->
-                                MaterialTheme
-                                    .colorScheme
-                                    .surfaceVariant
-                        }
-                ) {
-                    Text(
-                        confidenceScore
-                            .toString() +
-                            "% • " +
-                            confidenceLabel,
-                        modifier =
-                            Modifier.padding(
-                                horizontal = 10.dp,
-                                vertical = 6.dp
-                            ),
-                        style =
-                            MaterialTheme
-                                .typography
-                                .labelMedium,
-                        fontWeight =
-                            FontWeight.SemiBold
-                    )
-                }
             }
             Text(
-                "Known balances stay separate from debt. Missing balances are never guessed.",
+                "Balances are based on recorded messages, not live bank checks.",
                 style =
                     MaterialTheme
                         .typography

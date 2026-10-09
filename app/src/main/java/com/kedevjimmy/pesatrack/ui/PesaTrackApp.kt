@@ -1,6 +1,9 @@
 package com.kedevjimmy.pesatrack.ui
 
+import androidx.navigation.compose.currentBackStackEntryAsState
+
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -43,9 +46,11 @@ fun PesaTrackApp(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     setupComplete: Boolean,
+    onWelcomeVisibilityChange: (Boolean) -> Unit = {},
     onSetupComplete: () -> Unit,
     salaryOpenRequest: Int = 0,
-    billsOpenRequest: Int = 0
+    billsOpenRequest: Int = 0,
+    planningOpenRequest: Int = 0, planningRoute: String = "budgets"
 ) {
     val navController = rememberNavController()
     val homeScreenCache =
@@ -63,6 +68,10 @@ fun PesaTrackApp(
 
     LaunchedEffect(billsOpenRequest, setupComplete) {
         if (billsOpenRequest > 0 && setupComplete) navController.navigate("bills") { launchSingleTop = true }
+    }
+
+    LaunchedEffect(planningOpenRequest, setupComplete) {
+        if(planningOpenRequest > 0 && setupComplete && planningRoute in setOf("budgets", "saving-goals")) navController.navigate(planningRoute) { launchSingleTop = true }
     }
 
     fun navigateToTab(tab: MainTab) {
@@ -101,6 +110,11 @@ fun PesaTrackApp(
         } else {
             MainTab.HOME.route
         }
+
+    val currentEntry by navController.currentBackStackEntryAsState()
+    LaunchedEffect(currentEntry?.destination?.route, setupComplete) {
+        onWelcomeVisibilityChange((currentEntry?.destination?.route ?: startDestination) == "onboarding")
+    }
 
     NavHost(
         navController = navController,
@@ -460,6 +474,7 @@ fun PesaTrackApp(
                 AccountDetailsScreen(
                     scaffoldPadding = padding,
                     accountId = accountId,
+                    onAccountClick = { childId -> navController.navigate("account-detail/$childId") },
                     onBack = { navController.popBackStack() },
                     onTransactionClick = { id ->
                         navController.navigate("transaction-detail/$id")
@@ -510,7 +525,8 @@ fun PesaTrackApp(
                     onBack = { navController.popBackStack() },
                     onSettingsClick = { navController.navigate("settings") },
                     onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },
-                    onDataHealthClick = { navController.navigate("data-health") }
+                    onDataHealthClick = { navController.navigate("data-health") },
+                    onGoalsClick = { navController.navigate("saving-goals") }
                 )
             }
         }
@@ -561,7 +577,8 @@ fun PesaTrackApp(
                     onProfileClick = { navController.navigate("profile") },
                     onMpesaConnectionClick = { navController.navigate("mpesa-connection") },
                     onSmartRulesClick = { navController.navigate("smart-rules") },
-                    onHistoricalImportClick = { navController.navigate("historical-import") }
+                    onHistoricalImportClick = { navController.navigate("historical-import") },
+                    onAdvancedClick = { navController.navigate("data-health") }
                 )
             }
         }
@@ -605,4 +622,3 @@ fun PesaTrackApp(
         }
     }
 }
-

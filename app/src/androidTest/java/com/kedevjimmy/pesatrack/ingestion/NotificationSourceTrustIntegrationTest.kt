@@ -56,6 +56,21 @@ class NotificationSourceTrustIntegrationTest {
         assertEquals(afterApproval, counts())
     }
 
+    @Test fun skippingAccessRevokesAllSourcesAcrossRestartAndQueuedAdmission() {
+        assertTrue(sources.setApproved("ke.example.bank", true))
+        assertTrue(sources.setApproved("ke.example.wallet", true))
+        assertTrue(sources.revokeAll())
+        val reopened = NotificationSourceTrustStore(context)
+        assertFalse(reopened.isApproved("ke.example.bank"))
+        assertFalse(reopened.isApproved("ke.example.wallet"))
+        var entered = false
+        assertFalse(sources.withApprovedSource("ke.example.bank") { entered = true })
+        assertFalse(entered)
+        assertTrue(reopened.setApproved("ke.example.bank", true))
+        assertTrue(sources.isApproved("ke.example.bank"))
+        assertFalse(sources.isApproved("ke.example.wallet"))
+    }
+
     @Test fun approvalRejectsSelfAndEmptyPackages() {
         assertFalse(sources.setApproved(context.packageName, true))
         assertFalse(sources.setApproved("", true))
@@ -68,6 +83,21 @@ class NotificationSourceTrustIntegrationTest {
         assertTrue(sources.setApproved("ke.example.bank", false))
         backups.restoreEncryptedBytes(encrypted, "invented-strong-passphrase")
         assertFalse(sources.isApproved("ke.example.bank"))
+    }
+
+    @Test fun backupCannotReenableRevokedSmsConsent() {
+        val consent = com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore
+        context.getSharedPreferences(consent.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
+        try {
+            assertTrue(consent.setAccepted(context, true))
+            val backups = PesaBackupManager(context)
+            val encrypted = backups.exportEncryptedBytes("invented-strong-passphrase")
+            assertTrue(consent.setAccepted(context, false))
+            backups.restoreEncryptedBytes(encrypted, "invented-strong-passphrase")
+            assertFalse(consent.hasConsent(context))
+        } finally {
+            context.getSharedPreferences(consent.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
+        }
     }
 
     private fun ingestInventedPayment() {

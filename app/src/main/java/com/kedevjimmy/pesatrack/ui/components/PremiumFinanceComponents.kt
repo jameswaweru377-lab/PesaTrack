@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -112,7 +113,7 @@ fun AvailableToLiveHero(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(
+            .heightIn(min =
                 if (showDailyMetrics) {
                     198.dp
                 } else {
@@ -122,7 +123,7 @@ fun AvailableToLiveHero(
             .clip(RoundedCornerShape(24.dp))
             .background(Brush.linearGradient(listOf(start, end)))
     ) {
-        Canvas(Modifier.fillMaxSize()) {
+        Canvas(Modifier.matchParentSize()) {
             drawCircle(
                 color = Color.White.copy(alpha = .045f),
                 radius = size.minDimension * .46f,
@@ -219,7 +220,7 @@ fun AvailableToLiveHero(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(12.dp))
 
             if (showDailyMetrics) {
                 Row(

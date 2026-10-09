@@ -35,9 +35,9 @@ class EstimatedDebtSettlementUiTest {
         seedEstimatedZero()
         compose.setContent { PesaTrackTheme { AccountsScreen(PaddingValues(), onDebtsClick = {}) } }
         waitFor("Known balances")
-        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("1 active account"))
-        compose.onNodeWithText("1 active account").assertExists()
-        compose.onNodeWithText("Confirmation pending").assertExists()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Synthetic repayment lender"))
+        compose.onNodeWithText("Synthetic repayment lender").assertExists()
+        compose.onNodeWithText("Settlement confirmation pending").assertExists()
         compose.onNodeWithText("No active tracked debt").assertDoesNotExist()
         compose.onNodeWithText("None").assertDoesNotExist()
     }
@@ -55,7 +55,7 @@ class EstimatedDebtSettlementUiTest {
     @Test fun debtPageKeepsZeroEstimateOutOfSettledDebts() {
         seedEstimatedZero()
         compose.setContent { PesaTrackTheme { DebtsScreen(PaddingValues(), {}) } }
-        waitFor("Total outstanding debt")
+        waitFor("Known outstanding")
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Synthetic repayment lender"))
         compose.onNodeWithText("Synthetic repayment lender").assertExists()
         compose.onNodeWithText("Settled debts (1)").assertDoesNotExist()

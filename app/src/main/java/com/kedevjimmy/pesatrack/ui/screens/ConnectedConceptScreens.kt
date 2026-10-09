@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -66,13 +68,7 @@ private fun conceptDate(epoch: Long): String =
     SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(epoch))
 
 
-@Composable
-private fun SpendingDonut(
-    spending: List<Pair<String, Long>>,
-    total: Long,
-    modifier: Modifier = Modifier
-) {
-    val palette = listOf(
+private val SpendingPalette = listOf(
         Color(0xFF5B55E7),
         Color(0xFF6F63F2),
         Color(0xFF55E6D1),
@@ -80,6 +76,15 @@ private fun SpendingDonut(
         Color(0xFFE2DFFF),
         Color(0xFF14B8A6)
     )
+
+@Composable
+private fun SpendingDonut(
+    spending: List<Pair<String, Long>>,
+    total: Long,
+    modifier: Modifier = Modifier
+) {
+    val palette = SpendingPalette
+
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             var start = -90f
@@ -143,7 +148,7 @@ private fun WeeklySpendingBars(
                     color = MaterialTheme.colorScheme.primary
                 ) {}
                 Text(
-                    "Week ${index + 1}",
+                    if (index == 4) "29+" else "${index * 7 + 1}–${index * 7 + 7}",
                     modifier = Modifier.padding(top = 5.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -512,45 +517,13 @@ fun ReportsInsightsScreen(
                         }
                     }
 
-                    moneyHealth?.let {
-                            health ->
-                        Row(
-                            modifier =
-                                Modifier.fillMaxWidth(),
-                            horizontalArrangement =
-                                Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                "Money picture confidence",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                            Text(
-                                health.score
-                                    .toString() +
-                                    "% • " +
-                                    health.label,
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .labelLarge,
-                                fontWeight =
-                                    FontWeight.SemiBold
-                            )
-                        }
-                    }
+
                 }
             }
         }
         if (spending.isEmpty()) {
             item {
-                PesaCard { Text("No trusted spending in this period yet.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                PesaCard { Text("No recorded spending in this period yet.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         } else {
             if (lowQualityShare >= 70) {
@@ -633,17 +606,12 @@ fun ReportsInsightsScreen(
                             modifier = Modifier.weight(1f).padding(start = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
-                            spending.take(4).forEachIndexed { index, entry ->
+                            spending.forEachIndexed { index, entry ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Surface(
                                         modifier = Modifier.size(9.dp),
                                         shape = androidx.compose.foundation.shape.CircleShape,
-                                        color = listOf(
-                                            Color(0xFF5B55E7),
-                                            Color(0xFF6F63F2),
-                                            Color(0xFF55E6D1),
-                                            Color(0xFFA69CFF)
-                                        )[index]
+                                        color = SpendingPalette[index % SpendingPalette.size]
                                     ) {}
                                     Text(
                                         entry.first,
@@ -675,14 +643,14 @@ fun ReportsInsightsScreen(
                             color = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
-                        Text("${(progress * 100).toInt()}% of trusted spending", Modifier.padding(top = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${(progress * 100).toInt()}% of recorded spending", Modifier.padding(top = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
 
             if (period == "Month" && data != null) {
                 item {
-                    val weeks = (1..4).map { week ->
+                    val weeks = (1..5).map { week ->
                         data.trustedTransactions
                             .filter {
                                 it.direction == MoneyDirection.EXPENSE.name &&
@@ -690,15 +658,14 @@ fun ReportsInsightsScreen(
                                     it.reviewState != "NEEDS_REVIEW" &&
                                     Calendar.getInstance().apply {
                                         timeInMillis = it.occurredAtEpochMs
-                                    }.get(Calendar.WEEK_OF_MONTH)
-                                        .coerceIn(1, 4) == week
+                                    }.get(Calendar.DAY_OF_MONTH).let { (it - 1) / 7 + 1 } == week
                             }
                             .sumOf { it.amountMinor }
                     }
                     PesaCard {
                         Column(Modifier.padding(16.dp)) {
                             Text(
-                                "Weekly spending",
+                                "Spending by date",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -737,45 +704,7 @@ fun ReportsInsightsScreen(
                                     .colorScheme
                                     .onSurfaceVariant
                         )
-                        moneyHealth?.let {
-                                health ->
-                            Text(
-                                if (
-                                    health.issues.isEmpty()
-                                ) {
-                                    "Your current money picture has no open confidence issues."
-                                } else {
-                                    health.issues
-                                        .first()
-                                        .title +
-                                        if (
-                                            health.issues.size >
-                                            1
-                                        ) {
-                                            " • +" +
-                                                (
-                                                    health.issues.size -
-                                                        1
-                                                    ) +
-                                                " more"
-                                        } else {
-                                            ""
-                                        }
-                                },
-                                modifier =
-                                    Modifier.padding(
-                                        top = 4.dp
-                                    ),
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .labelSmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                        }
+
                     }
                 }
             }
@@ -1508,7 +1437,8 @@ fun AccountDetailsScreen(
     scaffoldPadding: PaddingValues,
     accountId: String,
     onBack: () -> Unit,
-    onTransactionClick: (Long) -> Unit
+    onTransactionClick: (Long) -> Unit,
+    onAccountClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val revision by LedgerUpdateBus.state.collectAsState()
@@ -1516,6 +1446,7 @@ fun AccountDetailsScreen(
     var balance by remember { mutableStateOf<PaydayAccountSnapshot?>(null) }
     var rows by remember { mutableStateOf(emptyList<StoredTransaction>()) }
     var detailTab by remember { mutableStateOf("Transactions") }
+    var products by remember { mutableStateOf(emptyList<Pair<com.kedevjimmy.pesatrack.domain.model.MoneyAccount, PaydayAccountSnapshot?>>()) }
 
     var loadError by remember { mutableStateOf<String?>(null) }
     var retryLoad by remember { mutableIntStateOf(0) }
@@ -1527,6 +1458,11 @@ fun AccountDetailsScreen(
             val b = a?.let { PaydaySnapshotStore.get(context).currentAccountSnapshot(it) }
             val t = TransactionStore.get(context).activitySnapshot().trustedTransactions.filter { it.accountId == accountId || it.linkedAccountId == accountId }
             Triple(a, b, t)
+        }
+        products = withContext(Dispatchers.IO) {
+            if (accountId != AccountStore.DEFAULT_MPESA_ID) emptyList() else
+                AccountStore.get(context).listAccounts(true).filter { (it.name.contains("M-Shwari", true) || it.name.contains("KCB M-Pesa", true)) && AccountDisplayPolicy.isConfirmedOwned(it, FinancialUnderstandingStore.get(context).confirmedAccountIds()) }
+                    .map { it to PaydaySnapshotStore.get(context).currentAccountSnapshot(it) }
         }
         account = loaded.first
         balance = loaded.second
@@ -1551,12 +1487,25 @@ fun AccountDetailsScreen(
         item { ConceptInnerHeader(account?.name ?: "Account", onBack) }
         item {
             ConceptEmeraldHero(
-                title = "Balance from latest evidence",
-                amount = balance?.balanceMinor?.let(::conceptMoney) ?: "Waiting for balance",
-                subtitle = balance?.referenceEpochMs?.let { "Observed ${conceptDate(it)}" } ?: "PesaTrack does not guess missing balances",
+                title = "Latest recorded balance",
+                amount = com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.savingsBalance(balance?.balanceMinor, account?.type == AccountType.SAVINGS, balance?.quality == PaydayBalanceQuality.RECONSTRUCTED)?.let(::conceptMoney) ?: "Balance unavailable",
+                subtitle = balance?.referenceEpochMs?.let { (if (balance?.quality == PaydayBalanceQuality.RECONSTRUCTED) "Estimated on " else "Updated ") + conceptDate(it) } ?: "A balance will appear when a money message includes it",
                 artwork = accountId == AccountStore.DEFAULT_MPESA_ID
             )
         }
+        if (products.isNotEmpty()) item { ConceptSectionTitle("Savings linked to M-Pesa") }
+        products.forEach { (product, snapshot) -> item {
+            val amount = com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.savingsBalance(snapshot?.balanceMinor, true, snapshot?.quality == PaydayBalanceQuality.RECONSTRUCTED)
+            PesaCard(modifier = Modifier.fillMaxWidth().clickable { onAccountClick(product.id) }) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(product.name, style = MaterialTheme.typography.titleMedium)
+                    Text(amount?.let(::conceptMoney) ?: "Balance unavailable", style = MaterialTheme.typography.titleLarge)
+                    Text(if (snapshot?.quality == PaydayBalanceQuality.RECONSTRUCTED) "Estimated from recorded transactions" else "Balance from a money message", style = MaterialTheme.typography.bodyMedium)
+                    snapshot?.referenceEpochMs?.let { Text("Updated ${conceptDate(it)}", style = MaterialTheme.typography.bodySmall) }
+                    Text("View transactions", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        } }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 ConceptMetricTile(Icons.Rounded.SouthWest, "Money in", conceptMoney(moneyIn), Modifier.weight(1f), true)

@@ -23,6 +23,7 @@ class SalarySmsCandidateFinder(
         sinceEpochMs: Long,
         limit: Int = 12
     ): List<SalarySmsCandidate> {
+        if (!com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore.canRead(context)) return emptyList()
         val projection = arrayOf(
             Telephony.Sms._ID,
             Telephony.Sms.ADDRESS,
@@ -46,6 +47,7 @@ class SalarySmsCandidateFinder(
             val dateIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.DATE)
 
             while (cursor.moveToNext() && candidates.size < limit) {
+                if (!com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore.hasConsent(context)) break
                 val address = cursor.getString(addressIndex)?.trim().orEmpty()
                 val normalizedAddress = normalizeSender(address)
                 if (normalizedAddress.isBlank()) continue
