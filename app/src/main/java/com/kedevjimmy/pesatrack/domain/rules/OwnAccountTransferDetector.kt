@@ -1,6 +1,5 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
-import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
@@ -36,12 +35,12 @@ data class OwnAccountTransferMatch(
 }
 
 object OwnAccountTransferDetector {
-    private val phoneRegex = Regex("""(?:\+?254|0)[17]\d{8}""")
+    private val phoneRegex = Regex("""(?<!\d)(?:\+?254|0)[17]\d{8}(?!\d)""")
     private val genericAccountWords = setOf(
         "bank", "account", "mobile", "wallet", "savings", "current", "salary", "my"
     )
-    private val outgoingWords = listOf(
-        "sent", "transfer", "transferred", "debit", "debited", "paid", "m-pesa", "mpesa"
+    private val outgoingMovementRegex = Regex(
+        """\b(?:sent|transfer(?:red)?|debit(?:ed)?|paid)\b""", RegexOption.IGNORE_CASE
     )
 
     fun normalizeKenyanPhone(value: String): String? {
@@ -134,136 +133,19 @@ object OwnAccountTransferDetector {
         body: String,
         accounts: List<MoneyAccount>
     ): OwnAccountTransferMatch? {
-        val enabledAccounts =
-            accounts.filter {
-                it.enabled
-            }
-        val lowerBody =
-            body.lowercase()
-        if (
-            outgoingWords.none(
-                lowerBody::contains
-            )
-        ) {
-            return null
-        }
-
-        // The message sender identifies the source institution, but never the
-        // destination. The destination must match an identifier that the user
-        // explicitly saved for one of their accounts (phone/account number).
-        val source =
-            enabledAccounts
-                .firstOrNull { account ->
-                    title?.let {
-                        accountNameMatches(
-                            account.name,
-                            it
-                        )
-                    } == true
-                }
-                ?: enabledAccounts
-                    .firstOrNull { account ->
-                        accountNameMatches(
-                            account.name,
-                            body
-                        )
-                    }
-
-        if (source != null) {
-            val destination =
-                enabledAccounts
-                    .firstOrNull { account ->
-                        account.id !=
-                            source.id &&
-                            identifierAppears(
-                                account.identifier,
-                                body
-                            )
-                    }
-
-            if (destination != null) {
-                return OwnAccountTransferMatch(
-                    sourceAccountId =
-                        source.id,
-                    sourceName =
-                        source.name,
-                    destinationAccountId =
-                        destination.id,
-                    destinationName =
-                        destination.name,
-                    evidence =
-                        OwnTransferEvidence
-                            .EXACT_IDENTIFIER
-                )
-            }
-        }
-
-        // Backward-compatible bank/savings -> mobile-wallet route. This still
-        // requires the user's exact wallet phone number in the message.
-        val normalizedPhones =
-            phoneRegex.findAll(body)
-                .mapNotNull {
-                    normalizeKenyanPhone(
-                        it.value
-                    )
-                }
-                .toSet()
-        if (normalizedPhones.isEmpty()) {
-            return null
-        }
-
-        val destination =
-            enabledAccounts
-                .firstOrNull { account ->
-                    account.type ==
-                        AccountType
-                            .MOBILE_WALLET &&
-                        account.identifier
-                            ?.let(
-                                ::normalizeKenyanPhone
-                            )
-                            ?.let(
-                                normalizedPhones::
-                                    contains
-                            ) == true
-                } ?: return null
-
-        val bankSource =
-            enabledAccounts
-                .firstOrNull { account ->
-                    account.id !=
-                        destination.id &&
-                        account.type in
-                            setOf(
-                                AccountType.BANK,
-                                AccountType.SAVINGS
-                            ) &&
-                        (
-                            title?.let {
-                                accountNameMatches(
-                                    account.name,
-                                    it
-                                )
-                            } == true ||
-                                accountNameMatches(
-                                    account.name,
-                                    body
-                                )
-                            )
-                } ?: return null
-
+        if (!outgoingMovementRegex.containsMatchIn(body)) return null
+        val sender = title?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        val enabled = accounts.filter { it.enabled }
+        // A mentioned bank or person is not evidence of the sender's account.
+        // Multiple accounts at the same institution require more evidence.
+        val source = enabled.filter { accountNameMatches(it.name, sender) }
+            .singleOrNull() ?: return null
+        val destination = enabled.filter {
+            it.id != source.id && identifierAppears(it.identifier, body)
+        }.singleOrNull() ?: return null
         return OwnAccountTransferMatch(
-            sourceAccountId =
-                bankSource.id,
-            sourceName =
-                bankSource.name,
-            destinationAccountId =
-                destination.id,
-            destinationName =
-                destination.name,
-            evidence =
-                OwnTransferEvidence
-                    .EXACT_IDENTIFIER
+            source.id, source.name, destination.id, destination.name,
+            OwnTransferEvidence.EXACT_IDENTIFIER
         )
     }
 
@@ -298,40 +180,16 @@ object OwnAccountTransferDetector {
                     Regex("""[^A-Z0-9]+"""),
                     ""
                 )
-        if (
-            compactIdentifier.length <
-            4
-        ) {
-            return false
-        }
-
-        if (
-            compactIdentifier.length <=
-            6
-        ) {
-            // A short last-4/last-6 value is useful only when the message
-            // presents it as an account identifier. Do not match the same
-            // digits when they happen to occur in an amount/reference/date.
-            val accountContext =
-                Regex(
-                    """(?i)(?:a/?c|acct|account)[^A-Z0-9]{0,24}(?:[*xX#•\s-]*""" +
-                        Regex.escape(
-                            compactIdentifier
-                        ) +
-                        """)\b"""
-                )
-            return accountContext
-                .containsMatchIn(text)
-        }
-
-        val compactText =
-            text.uppercase()
-                .replace(
-                    Regex("""[^A-Z0-9]+"""),
-                    ""
-                )
-        return compactIdentifier in
-            compactText
+        if (compactIdentifier.length < 4) return false
+        // A saved account identifier needs account context and a whole match.
+        // Do not recognize a reference, amount or longer account number as owned.
+        val identifierPattern = compactIdentifier.map { Regex.escape(it.toString()) }
+            .joinToString("""[\s-]*""")
+        val accountContext = Regex(
+            """(?i)\b(?:a/?c|acct|account)\b(?:\s*(?:number|no\.?))?[^A-Z0-9]{0,24}(?:[*xX#•\s-]*""" +
+                identifierPattern + """)\b"""
+        )
+        return accountContext.containsMatchIn(text)
     }
 
     private fun accountNameMatches(

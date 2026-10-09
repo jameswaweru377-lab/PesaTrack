@@ -177,6 +177,17 @@ class OwnAccountTransferDetectorTest {
         )
     }
 
+    @Test
+    fun fullBankIdentifierKeepsFormattingButRequiresAccountContext() {
+        val match = OwnAccountTransferDetector.matchConfiguredNotification(
+            "MPESA", "Ksh 250.00 transferred to Equity account no. 123 456-7890 successfully", accounts)
+        assertEquals("equity", match?.destinationAccountId)
+        assertNull(OwnAccountTransferDetector.matchConfiguredNotification(
+            "MPESA", "Ksh 250.00 sent successfully. Reference 1234567890.", accounts))
+        assertNull(OwnAccountTransferDetector.matchConfiguredNotification(
+            "MPESA", "Ksh 250.00 transferred to Equity account 91234567890 successfully", accounts))
+    }
+
     private fun sample(
         type: MpesaTransactionType,
         counterparty: String?,

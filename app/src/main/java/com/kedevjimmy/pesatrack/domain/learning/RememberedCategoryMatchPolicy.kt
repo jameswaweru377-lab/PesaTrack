@@ -15,6 +15,7 @@ object RememberedCategoryMatchPolicy {
         return source == normalize(name)
     }
 
-    private fun normalize(value: String?): String? = value?.trim()
-        ?.replace(Regex("\\s+"), " ")?.uppercase(Locale.ROOT)?.takeIf { it.isNotBlank() }
+    private fun normalize(value: String?): String? = value
+        ?.replace(Regex("[\\s\\p{Zs}]+"), " ")?.trim()
+        ?.uppercase(Locale.ROOT)?.takeIf { it.isNotBlank() }
 }
