@@ -3,6 +3,10 @@ package com.kedevjimmy.pesatrack.ui
 import android.content.Context
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -48,28 +52,34 @@ class ActivityLiveRefreshTest {
     fun visibleActivityRefreshesWhenLedgerChanges() {
         val now = System.currentTimeMillis()
         insertExpense("RCINIT0001", "Initial merchant", now)
+        val cache = ActivityScreenCache()
 
         compose.setContent {
             PesaTrackTheme {
                 ActivityScreen(
                     scaffoldPadding = PaddingValues(),
-                    stateCache = ActivityScreenCache()
+                    stateCache = cache
                 )
             }
         }
 
         compose.waitUntil(15_000L) {
-            compose.onAllNodes(hasText("Initial merchant"))
-                .fetchSemanticsNodes().isNotEmpty()
+            cache.data?.snapshot?.transactions?.any { it.counterparty == "Initial merchant" } == true
         }
+        // LazyColumn does not compose rows below the summary on a compact viewport.
+        compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex))
+            .performScrollToNode(hasText("Initial merchant"))
+        compose.onNode(hasText("Initial merchant")).assertIsDisplayed()
 
         insertExpense("RCFRESH0002", "Fresh merchant", now + 1_000L)
         LedgerUpdateBus.notifyChanged()
 
         compose.waitUntil(15_000L) {
-            compose.onAllNodes(hasText("Fresh merchant"))
-                .fetchSemanticsNodes().isNotEmpty()
+            cache.data?.snapshot?.transactions?.any { it.counterparty == "Fresh merchant" } == true
         }
+        compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex))
+            .performScrollToNode(hasText("Fresh merchant"))
+        compose.onNode(hasText("Fresh merchant")).assertIsDisplayed()
     }
 
     private fun insertExpense(

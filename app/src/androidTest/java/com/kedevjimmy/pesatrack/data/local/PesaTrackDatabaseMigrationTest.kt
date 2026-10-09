@@ -28,7 +28,7 @@ class PesaTrackDatabaseMigrationTest {
 
     @Test
     fun freshDatabaseCreatesCurrentSchema() {
-        PesaTrackDatabase(context).use { helper ->
+        PesaTrackDatabase(context).useDatabase { helper ->
             val db = helper.writableDatabase
 
             assertEquals(CURRENT_VERSION, db.version)
@@ -46,9 +46,9 @@ class PesaTrackDatabaseMigrationTest {
 
     @Test
     fun version33UpgradePreservesDebtEventsWithoutInventingPrincipalProvenance() {
-        PesaTrackDatabase(context).use { helper ->
+        PesaTrackDatabase(context).useDatabase { helper ->
             val db = helper.writableDatabase
-            db.execSQL("ALTER TABLE debt_events DROP COLUMN amount_is_net_proceeds")
+            removeV34DebtProvenanceColumn(db)
             db.execSQL("""
                 INSERT INTO debt_events
                     (event_key, debt_account_id, event_type, amount_minor, fee_minor,
@@ -58,7 +58,7 @@ class PesaTrackDatabaseMigrationTest {
             """.trimIndent())
             db.version = 33
         }
-        PesaTrackDatabase(context).use { helper ->
+        PesaTrackDatabase(context).useDatabase { helper ->
             val db = helper.writableDatabase
             assertEquals(CURRENT_VERSION, db.version)
             assertTrue(db.hasColumn("debt_events", "amount_is_net_proceeds"))
@@ -74,7 +74,7 @@ class PesaTrackDatabaseMigrationTest {
     fun version1UpgradePreservesLedgerAndCreatesCurrentSchema() {
         seedVersion1Database()
 
-        PesaTrackDatabase(context).use { helper ->
+        PesaTrackDatabase(context).useDatabase { helper ->
             val db = helper.writableDatabase
 
             assertEquals(CURRENT_VERSION, db.version)
@@ -95,7 +95,7 @@ class PesaTrackDatabaseMigrationTest {
     fun version30UpgradePreservesLedgerAndCreatesCurrentSchema() {
         seedVersion30Database()
 
-        PesaTrackDatabase(context).use { helper ->
+        PesaTrackDatabase(context).useDatabase { helper ->
             val db = helper.writableDatabase
 
             assertEquals(CURRENT_VERSION, db.version)
@@ -112,7 +112,7 @@ class PesaTrackDatabaseMigrationTest {
     fun version31UpgradeCreatesSavingGoalMetadata() {
         seedVersion31Database()
 
-        PesaTrackDatabase(context).use { helper ->
+        PesaTrackDatabase(context).useDatabase { helper ->
             val db = helper.writableDatabase
 
             assertEquals(CURRENT_VERSION, db.version)
@@ -125,7 +125,7 @@ class PesaTrackDatabaseMigrationTest {
     fun version32UpgradeAddsLedgerPerformanceIndexes() {
         seedVersion32Database()
 
-        PesaTrackDatabase(context).use { helper ->
+        PesaTrackDatabase(context).useDatabase { helper ->
             val db = helper.writableDatabase
 
             assertEquals(
@@ -237,7 +237,7 @@ class PesaTrackDatabaseMigrationTest {
     }
 
     private fun seedVersion30Database() {
-        PesaTrackDatabase(context).use { helper ->
+        PesaTrackDatabase(context).useDatabase { helper ->
             val db = helper.writableDatabase
 
             db.execSQL(
@@ -274,7 +274,7 @@ class PesaTrackDatabaseMigrationTest {
     }
 
     private fun seedVersion32Database() {
-        PesaTrackDatabase(context).use {
+        PesaTrackDatabase(context).useDatabase {
                 helper ->
             val db = helper.writableDatabase
 
@@ -295,7 +295,7 @@ class PesaTrackDatabaseMigrationTest {
     }
 
     private fun seedVersion31Database() {
-        PesaTrackDatabase(context).use { helper ->
+        PesaTrackDatabase(context).useDatabase { helper ->
             val db = helper.writableDatabase
 
             db.execSQL(
@@ -379,3 +379,7 @@ class PesaTrackDatabaseMigrationTest {
         const val TEST_EPOCH_MS = 1_790_000_000_000L
     }
 }
+
+// SQLiteOpenHelper implements AutoCloseable only from API 26. Keep API 24 fixture cleanup explicit.
+private inline fun <T> PesaTrackDatabase.useDatabase(block: (PesaTrackDatabase) -> T): T =
+    try { block(this) } finally { close() }
