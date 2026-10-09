@@ -47,6 +47,37 @@ object DebtProceedsRepaymentLinkPolicy {
     private const val STRONG_DISTANCE_MS =
         2L * 60L * 1000L
 
+    /**
+     * Derive a possible post-repayment account balance without inventing zero.
+     * A shortfall or overflow means the available snapshots are insufficient,
+     * not that the account necessarily ended at zero.
+     */
+    fun deriveBalanceAfterRepayment(
+        priorBalanceMinor: Long?,
+        incomingAmountMinor: Long,
+        repaymentAmountMinor: Long
+    ): Long? {
+        val prior = priorBalanceMinor ?: return null
+        if (
+            prior < 0L ||
+            incomingAmountMinor <= 0L ||
+            repaymentAmountMinor <= 0L
+        ) {
+            return null
+        }
+
+        return try {
+            Math.subtractExact(
+                Math.addExact(
+                    prior,
+                    incomingAmountMinor
+                ),
+                repaymentAmountMinor
+            ).takeIf { it >= 0L }
+        } catch (_: ArithmeticException) {
+            null
+        }
+    }
     fun choose(
         repaymentAmountMinor: Long,
         repaymentAtEpochMs: Long,
