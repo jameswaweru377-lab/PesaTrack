@@ -53,6 +53,57 @@ class RefundOriginalTrustIntegrationTest {
     }
 
     @Test
+    fun unrelatedReceiptFromSameMerchantIsNotRefundEvidence() {
+        insertOutgoing(ReviewState.AUTO_CLASSIFIED)
+        val receipt = incomingReceipt("Synthetic consultancy payment received from SAMPLE TAXI")
+        assertNull(receipt.relationType)
+        assertNull(receipt.relatedTransactionId)
+        assertEquals(MoneyDirection.INCOME.name, receipt.direction)
+    }
+
+    @Test
+    fun prefixRelatedBusinessDoesNotEstablishRefundIdentity() {
+        insertOutgoing(ReviewState.AUTO_CLASSIFIED)
+        val receipt = incomingReceipt("Synthetic payment refunded", "SAMPLE TAXI EXPRESS")
+        assertNull(receipt.relationType)
+    }
+
+    @Test
+    fun reversedOriginalCannotContributeTrustedRefund() {
+        insertOutgoing(ReviewState.AUTO_CLASSIFIED)
+        incomingReceipt()
+        val values = ContentValues().apply {
+            put("transaction_code", "REVTEST220")
+            put("fingerprint", "synthetic-reversed-original")
+            put("type", "REVERSAL")
+            put("amount_minor", 22_000L)
+            put("fee_minor", 0L)
+            put("occurred_at_epoch_ms", EPOCH + 7_200_000L)
+            put("received_at_epoch_ms", EPOCH + 7_200_000L)
+            put("created_at_epoch_ms", EPOCH + 7_200_000L)
+            put("source_kind", "TEST_SYNTHETIC")
+            put("direction", MoneyDirection.NEUTRAL.name)
+            put("category", TransactionCategory.OTHER.name)
+            put("review_state", ReviewState.AUTO_CLASSIFIED.name)
+            put("reversal_of_code", "PAYTEST220")
+        }
+        PesaTrackDatabase.get(context).writableDatabase.insertOrThrow("transactions", null, values)
+        val snapshot = store.activitySnapshotBetween(EPOCH - 1L, EPOCH + 10_000_000L, performMaintenance = false)
+        assertEquals(0L, snapshot.summary.refundMinor)
+        assertEquals(0L, snapshot.summary.netMinor)
+    }
+
+    @Test
+    fun originalBecomingCycleCandidateStopsTrustedRefund() {
+        val originalId = insertOutgoing(ReviewState.AUTO_CLASSIFIED)
+        incomingReceipt()
+        val values = ContentValues().apply { put("cycle_candidate_reason", "Synthetic conflicting cycle") }
+        PesaTrackDatabase.get(context).writableDatabase.update("transactions", values, "id = ?", arrayOf(originalId.toString()))
+        assertEquals(0L, store.activitySnapshotBetween(EPOCH - 1L, EPOCH + 10_000_000L,
+            performMaintenance = false).summary.refundMinor)
+    }
+
+    @Test
     fun unreviewedPaymentCannotBeAutoPromotedToHighConfidenceRefund() {
         insertOutgoing(ReviewState.NEEDS_REVIEW)
         val receipt = incomingReceipt()
@@ -84,18 +135,21 @@ class RefundOriginalTrustIntegrationTest {
         assertEquals(MoneyDirection.INCOME.name, receipt.direction)
     }
 
-    private fun incomingReceipt(): StoredTransaction {
+    private fun incomingReceipt(
+        message: String = "Synthetic merchant payment returned",
+        merchant: String = "SAMPLE TAXI"
+    ): StoredTransaction {
         assertTrue(
             store.insertInterpretedMoneyMovementIfNew(
                 kind = CanonicalFinancialRecordKind.RECEIPT,
                 transactionCode = "REFTEST220",
                 amountMinor = 22_000L,
-                counterparty = "SAMPLE TAXI",
+                counterparty = merchant,
                 counterpartyPhone = null,
                 feeMinor = 0L,
                 balanceMinor = null,
                 occurredAtText = null,
-                rawMessage = "Synthetic merchant payment returned",
+                rawMessage = message,
                 sourcePackage = "test.sms",
                 sourceKind = "interpreted_TEST_SMS",
                 receivedAtEpochMs = EPOCH + 3_600_000L,
