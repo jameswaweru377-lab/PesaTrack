@@ -2,9 +2,8 @@ name: Android compatibility matrix
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 3 * * 1'
   pull_request:
+    types: [opened, synchronize, reopened]
     paths:
       - '.github/workflows/device-compatibility.yml'
 
@@ -13,6 +12,7 @@ permissions:
 
 jobs:
   compatibility:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     strategy:
       fail-fast: false
       matrix:

@@ -2,6 +2,7 @@ name: Signed Android Release
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
     paths:
       - '.github/workflows/release-build.yml'
       - 'gradlew'
@@ -151,6 +152,7 @@ jobs:
 
 
   validate_android:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
 

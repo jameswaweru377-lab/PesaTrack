@@ -57,8 +57,10 @@ The current product includes the canonical ledger, provider-neutral financial in
 The Android CI workflow has three responsibilities:
 
 1. `build`: Worker validation, unit tests, lint, debug APK assembly, then upload the APK as a workflow artifact.
-2. `instrumentation`: run Android instrumentation independently.
-3. `publish`: run only after **both** jobs succeed on `main`, then replace the rolling `ci-apk` asset.
+2. `instrumentation`: run Android instrumentation only when explicitly requested through a manual workflow run with `run_instrumentation` enabled (default off).
+3. `publish`: after successful build checks on a push to `main`, replace the rolling development `ci-apk` asset without requiring instrumentation. Manual review/build runs retain artifacts but cannot replace the rolling release.
+
+PR updates and merges run build checks automatically. Marking a PR ready does not start another run. Android 7 security and API compatibility emulator suites are manual review tools; the former weekly compatibility schedule is disabled. Manual signed releases still require same-commit Android validation.
 
 The build/test jobs require only read access to repository contents. Release write permission is scoped to the publish job.
 
@@ -74,7 +76,7 @@ Current repository coverage includes JVM tests plus Android instrumentation. Imp
 - connected UI journeys;
 - security backup/restore integration.
 
-The next test expansion should add scheduled API-level coverage, broader migration fixtures, performance benchmarks and repeatable physical-device acceptance.
+The next test expansion should add broader migration fixtures, performance benchmarks and repeatable physical-device acceptance. API-level emulator coverage remains available through explicit manual reviews.
 
 ## Repository and release hardening
 

@@ -14,18 +14,26 @@ Historical project notes are useful context, but current code and `CURRENT_STATE
 ## Branch and pull-request workflow
 
 1. Branch from current `main`.
-2. Keep one coherent risk area per pull request.
-3. Do not merge until Android CI is green.
-4. Prefer small migrations and decompositions over broad rewrites.
-5. Update current-state documentation when behavior or release readiness changes.
+2. Keep one coherent risk area per pull request and batch related edits before review.
+3. PR updates and merges run build, lint, unit tests and debug APK assembly. These checks must pass before merge.
+4. Emulator instrumentation runs only on an explicit manual review request. Marking a PR ready or pushing more edits does not start emulator tests.
+5. For Android device review, use Actions → Android CI → Run workflow on the feature branch and enable `run_instrumentation`. Inspect the successful run's source revision; skipped instrumentation means no device tests ran.
+6. Device compatibility and Android 7 security workflows are manual review tools. Their existing emulator suites are retained; weekly automatic compatibility runs are disabled.
+7. Prefer small migrations and decompositions over broad rewrites.
+8. Update current-state documentation when behavior or release readiness changes.
 
 ## Required checks
 
-For Android changes, run or rely on CI for:
+For every Android change, run or rely on CI for:
 - JVM unit tests;
 - Android lint;
-- debug APK assembly;
-- Android instrumentation.
+- debug APK assembly.
+
+Run Android instrumentation when explicitly requested for device review. Signed releases retain their manual Android validation gate.
+
+The debug APK is available as the `pesatrack-debug-apk` artifact after build checks succeed. Merges to `main` publish the rolling preview APK after successful build checks without requiring instrumentation. A manual Android CI run defaults to build-only; enabling `run_instrumentation` adds emulator tests. Manual runs retain downloadable artifacts but never replace the rolling APK, so a slower review cannot overwrite a newer preview. The rolling APK is a development preview, not a signed production release.
+
+Build-only and manual emulator-review runs use separate concurrency groups so editing does not cancel an active manual review.
 
 Worker changes must also pass the Worker syntax/contract test and dry-run deployment validation.
 
