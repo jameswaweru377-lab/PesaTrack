@@ -508,11 +508,11 @@ fun DebtsScreen(
         activeDebts =
             withContext(Dispatchers.IO) {
                 debtStore.accounts().also { accounts ->
-                    settledDebts = accounts.filter { it.outstandingMinor == 0L && !it.hasUnresolvedDrawdown && it.lastRepaymentAtEpochMs != null }
+                    settledDebts = accounts.filter { it.isSettled }
                 }
                     .filter {
-                        it.outstandingMinor > 0L ||
-                            it.hasUnresolvedDrawdown
+                        !it.isSettled && (it.outstandingMinor > 0L ||
+                            it.hasUnresolvedDrawdown || it.lastRepaymentAtEpochMs != null)
                     }
                     .sortedWith(
                         compareByDescending<
@@ -1017,7 +1017,7 @@ private fun DebtAccountCard(
                         hasUnknownDebtBalance(
                             debt
                         ) ->
-                            "Loan detected • exact outstanding balance not observed yet"
+                            "Outstanding balance unknown • more loan history needed"
                         debt.balanceQuality ==
                             DebtBalanceQuality.OBSERVED ->
                             "Observed outstanding balance"
@@ -1040,7 +1040,7 @@ private fun DebtAccountCard(
                 debt.observedAtEpochMs
                     ?.let {
                         Text(
-                            "Last updated " +
+                            "Last observed " +
                                 formatDetailDateTime(
                                     it
                                 ),
@@ -1083,10 +1083,11 @@ private fun DebtAccountCard(
 private fun hasUnknownDebtBalance(
     debt: DebtAccountSnapshot
 ): Boolean =
-    debt.hasUnresolvedDrawdown &&
+    debt.balanceQuality == DebtBalanceQuality.UNKNOWN ||
+    (debt.hasUnresolvedDrawdown &&
         debt.outstandingMinor == 0L &&
         debt.balanceQuality ==
-            DebtBalanceQuality.ESTIMATED
+            DebtBalanceQuality.ESTIMATED)
 
 private fun accountBalancePresentation(
     group: TrackedAccountGroup,

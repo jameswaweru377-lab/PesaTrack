@@ -144,23 +144,71 @@ class DebtAccountingRegressionTest {
     }
 
     @Test
+    fun netCashProceedsRemainUnknownUntilARealPrincipalObservation() {
+        val liability = liability("NET_PROCEEDS")
+        drawdown(liability, 12_000L, T1, "net", netProceeds = true)
+        assertEquals(DebtBalanceQuality.UNKNOWN, account(liability).balanceQuality)
+        assertFalse(account(liability).isSettled)
+        store.recordObservedOutstanding(liability, 15_000L, T2)
+        assertEquals(15_000L, account(liability).outstandingMinor)
+        assertEquals(DebtBalanceQuality.OBSERVED, account(liability).balanceQuality)
+        assertFalse(drawdown(liability, 12_000L, T1, "net", netProceeds = true).inserted)
+        assertEquals(15_000L, account(liability).outstandingMinor)
+    }
+
+    @Test
+    fun estimatedZeroDoesNotProveSettlementButObservedZeroDoes() {
+        val liability = liability("ZERO_EVIDENCE")
+        store.recordObservedOutstanding(liability, 50_000L, T1)
+        repayment(liability, 50_000L, T2, "unknown-completion", DebtCompletion.UNKNOWN)
+        assertEquals(0L, account(liability).outstandingMinor)
+        assertEquals(DebtBalanceQuality.ESTIMATED, account(liability).balanceQuality)
+        assertFalse(account(liability).isSettled)
+        store.recordObservedOutstanding(liability, 0L, T3)
+        assertTrue(account(liability).isSettled)
+    }
+
+    @Test
+    fun cachedLegacyEstimateDoesNotInventPrincipalFromUnmarkedDrawdown() {
+        val liability = liability("LEGACY_ESTIMATE")
+        drawdown(liability, 12_000L, T1, "legacy")
+        val debt = account(liability)
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        db.execSQL("UPDATE debt_events SET amount_is_net_proceeds = NULL WHERE debt_account_id = ?", arrayOf(debt.id))
+        db.execSQL("UPDATE debt_accounts SET outstanding_minor = 12000, balance_quality = 'ESTIMATED', last_observed_at_epoch_ms = ? WHERE id = ?", arrayOf<Any>(T1, debt.id))
+        assertEquals(DebtBalanceQuality.UNKNOWN, account(liability).balanceQuality)
+        assertNull(account(liability).observedAtEpochMs)
+        // A later observation restores certainty without guessing legacy provenance.
+        store.recordObservedOutstanding(liability, 15_000L, T2)
+        assertEquals(15_000L, account(liability).outstandingMinor)
+    }
+
+    @Test
+    fun retryRepairsLegacyLinkedDebtEventWhosePaymentStillCountsAsSpending() {
+        val liability = liability("LEGACY_LINK")
+        store.recordObservedOutstanding(liability, 250_000L, T1)
+        val original = insertOutgoingPayment("DEBTTEST02")
+        store.recordRepayment(
+            event = DebtRepaymentEventFact(50_000L, liability, null, DebtCompletion.UNKNOWN,
+                null, null, null, InterpretationConfidence.HIGH),
+            transactionCode = original.transactionCode, messageFingerprint = "synthetic-partial-correction",
+            sourcePackage = "test.package", sourceKind = "TEST", occurredAtEpochMs = T2,
+            linkedTransactionIdOverride = original.id
+        )
+        val before = TransactionStore.get(context).findByTransactionCode("DEBTTEST02")!!
+        assertEquals(original.direction, before.direction)
+        assertEquals(200_000L, account(liability).outstandingMinor)
+        assertTrue(store.recordPaymentAsRepayment(original.id, account(liability).id, userConfirmed = true))
+        assertEquals("DEBT_REPAYMENT", TransactionStore.get(context).findByTransactionCode("DEBTTEST02")!!.relationType)
+        assertEquals(200_000L, account(liability).outstandingMinor)
+    }
+
+    @Test
     fun manualRepaymentClassificationFailureRollsBackDebtAndRetryFinishesBoth() {
         val liability = liability("MANUAL")
         store.recordObservedOutstanding(liability, 250_000L, T1)
         val transactions = TransactionStore.get(context)
-        assertTrue(transactions.insertInterpretedMoneyMovementIfNew(
-            kind = CanonicalFinancialRecordKind.PAYMENT,
-            paymentRouteHint = PaymentRouteHint.MERCHANT,
-            transactionCode = "DEBTTEST01", amountMinor = 50_000L,
-            // Initially unrelated, so ingestion cannot auto-link the payment.
-            counterparty = "Synthetic merchant", counterpartyPhone = null,
-            feeMinor = 0L, balanceMinor = null, occurredAtText = null,
-            rawMessage = "Synthetic debt correction fixture", sourcePackage = "test.package",
-            sourceKind = "interpreted_TEST", receivedAtEpochMs = T2, occurredAtEpochMs = T2,
-            matchedRule = null, rebuildPayCycles = false,
-            accountIdOverride = AccountStore.DEFAULT_MPESA_ID
-        ))
-        val original = transactions.findByTransactionCode("DEBTTEST01")!!
+        val original = insertOutgoingPayment("DEBTTEST01")
         val debt = account(liability)
         val db = PesaTrackDatabase.get(context).writableDatabase
         db.execSQL("UPDATE transactions SET counterparty = ? WHERE id = ?", arrayOf<Any>(liability.displayName, original.id))
@@ -188,6 +236,23 @@ class DebtAccountingRegressionTest {
         assertEquals(200_000L, account(liability).outstandingMinor)
     }
 
+    private fun insertOutgoingPayment(code: String): StoredTransaction {
+        val transactions = TransactionStore.get(context)
+        assertTrue(transactions.insertInterpretedMoneyMovementIfNew(
+            kind = CanonicalFinancialRecordKind.PAYMENT,
+            paymentRouteHint = PaymentRouteHint.MERCHANT,
+            transactionCode = code, amountMinor = 50_000L,
+            // Initially unrelated, so ingestion cannot auto-link the payment.
+            counterparty = "Synthetic merchant", counterpartyPhone = null,
+            feeMinor = 0L, balanceMinor = null, occurredAtText = null,
+            rawMessage = "Synthetic debt correction fixture $code", sourcePackage = "test.package",
+            sourceKind = "interpreted_TEST", receivedAtEpochMs = T2, occurredAtEpochMs = T2,
+            matchedRule = null, rebuildPayCycles = false,
+            accountIdOverride = AccountStore.DEFAULT_MPESA_ID
+        ))
+        return transactions.findByTransactionCode(code)!!
+    }
+
     private fun liability(key: String) = FinancialAccountReference(
         entityKey = "discovered:synthetic-${key.lowercase().replace('_', '-')}-lender", displayName = "Synthetic $key lender",
         providerKey = "discovered:synthetic-${key.lowercase().replace('_', '-')}-lender", accountTypeHint = AccountType.OTHER,
@@ -197,10 +262,11 @@ class DebtAccountingRegressionTest {
     private fun account(liability: FinancialAccountReference) =
         store.accounts().single { it.providerKey == liability.providerKey }
 
-    private fun drawdown(liability: FinancialAccountReference, amount: Long, at: Long, key: String, outstanding: Long? = null) =
+    private fun drawdown(liability: FinancialAccountReference, amount: Long, at: Long, key: String, outstanding: Long? = null, netProceeds: Boolean = false) =
         store.recordDrawdown(
             event = DebtDrawdownEventFact(amountMinor = amount, liability = liability,
                 feeMinor = 0L, outstandingAfterMinor = outstanding, availableCreditAfterMinor = null,
+                amountIsNetProceeds = netProceeds,
                 confidence = InterpretationConfidence.HIGH),
             transactionCode = null, messageFingerprint = "${liability.entityKey}:$key",
             sourcePackage = "test.package", sourceKind = "TEST", occurredAtEpochMs = at
