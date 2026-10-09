@@ -26,7 +26,11 @@ object PlanningReminders {
     fun setEnabled(c: Context, kind: String, enabled: Boolean) {
         prefs(c).edit().putBoolean(kind,enabled).putLong("enabled:$kind",System.currentTimeMillis()).apply()
         schedule(c)
-        if(!enabled) c.getSystemService(NotificationManager::class.java).cancel(kind,925)
+        if(!enabled) {
+            val manager = c.getSystemService(NotificationManager::class.java)
+            manager.activeNotifications.filter { it.tag?.startsWith("$kind:") == true }.forEach { manager.cancel(it.tag, it.id) }
+            manager.cancel(kind,925)
+        }
     }
     fun schedule(c: Context) {
         if (!enabled(c,"budgets") && !enabled(c,"goals")) { WorkManager.getInstance(c).cancelUniqueWork(WORK); return }
@@ -71,7 +75,7 @@ object PlanningReminders {
         val public=NotificationCompat.Builder(c,"planning").setSmallIcon(R.drawable.ic_pesatrack_logo).setContentTitle("PesaTrack reminder").setContentText("Open PesaTrack to see your reminder.").build()
         val notification=NotificationCompat.Builder(c,"planning").setSmallIcon(R.drawable.ic_pesatrack_logo).setContentTitle(title).setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text)).setContentIntent(open).setAutoCancel(true).setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setPublicVersion(public).build()
-        manager.notify(kind,925,notification)
+        manager.notify("$kind:$key",925,notification)
         prefs.edit().putBoolean(key,true).apply()
     }
 }

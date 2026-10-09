@@ -566,7 +566,7 @@ fun HomeWhereMoneyWentCard(
                 )
             } else {
                 val denominator =
-                    totalMinor.toDouble().coerceAtLeast(1.0)
+                    (totalMinor ?: 0L).toDouble().coerceAtLeast(1.0)
                 val needsBetterCategories =
                     items
                         .filter {
@@ -696,7 +696,7 @@ fun HomeWhereMoneyWentCard(
                                         .labelLarge
                             )
                             Text(
-                                com.kedevjimmy.pesatrack.domain.rules.PlanningReminderPolicy.share(item.amountMinor, totalMinor),
+                                com.kedevjimmy.pesatrack.domain.rules.PlanningReminderPolicy.share(item.amountMinor, totalMinor ?: 0L),
                                 modifier =
                                     Modifier.padding(
                                         start = 8.dp

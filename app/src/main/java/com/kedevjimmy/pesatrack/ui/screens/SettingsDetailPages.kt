@@ -126,7 +126,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit) {
     val context = LocalContext.current
     val bills = remember { BillSchedules(context) }
     var lead by remember { mutableIntStateOf(bills.globalReminderLeadDays()) }
-    var billOn by remember { mutableStateOf(bills.globalRemindersEnabled()) }
+    var billOn by remember { mutableStateOf(bills.remindersEnabled()) }
     var budgetOn by remember { mutableStateOf(PlanningReminders.enabled(context, "budgets")) }
     var goalOn by remember { mutableStateOf(PlanningReminders.enabled(context, "goals")) }
     var allowed by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
@@ -138,7 +138,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit) {
         if (!allowed) item { Button(onClick = { settings.launch(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }, modifier = Modifier.fillMaxWidth()) { Text("Allow PesaTrack notifications") } }
         item { ChoiceSwitch("Upcoming bills", "Remind me before a scheduled bill is due", billOn) { billOn = it; bills.setGlobalReminderLeadDays(lead, it); if(it) ask() } }
         item { Text("Before a bill is due", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(1,3,7).forEach { days -> FilterChip(selected = lead == days, onClick = { lead = days; bills.setGlobalReminderLeadDays(days, billOn) }, label = { Text("$days days") }) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(1,3,7).forEach { days -> FilterChip(selected = lead == days, onClick = { lead = days; bills.setGlobalReminderLeadDays(days, billOn) }, label = { Text("$days days") }) } } }
         item { ChoiceSwitch("Budget warnings", "Tell me when a monthly category budget reaches 95% or goes over", budgetOn) { budgetOn = it; PlanningReminders.setEnabled(context, "budgets", it); if(it) ask() } }
         item { ChoiceSwitch("Savings reminders", "Remind me when a monthly goal has no contribution for a month", goalOn) { goalOn = it; PlanningReminders.setEnabled(context, "goals", it); if(it) ask() } }
         item { Text("Amounts are hidden on the lock screen. You can turn each reminder off here or in Android settings.", style = MaterialTheme.typography.bodyMedium) }

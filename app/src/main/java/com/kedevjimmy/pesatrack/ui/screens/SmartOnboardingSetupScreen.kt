@@ -1531,6 +1531,7 @@ fun SmartOnboardingSetupScreen(
             }
     }
 
+    BackHandler(enabled = chooseInstitutions) { chooseInstitutions = false }
     if (chooseInstitutions) {
         FinancialInstitutionsScreen(scaffoldPadding) { chooseInstitutions = false }
         return

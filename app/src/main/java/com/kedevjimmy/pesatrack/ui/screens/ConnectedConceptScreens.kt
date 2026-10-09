@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -1437,7 +1439,8 @@ fun AccountDetailsScreen(
     scaffoldPadding: PaddingValues,
     accountId: String,
     onBack: () -> Unit,
-    onTransactionClick: (Long) -> Unit
+    onTransactionClick: (Long) -> Unit,
+    onAccountClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val revision by LedgerUpdateBus.state.collectAsState()
@@ -1460,7 +1463,7 @@ fun AccountDetailsScreen(
         }
         products = withContext(Dispatchers.IO) {
             if (accountId != AccountStore.DEFAULT_MPESA_ID) emptyList() else
-                AccountStore.get(context).listAccounts(true).filter { it.name.contains("M-Shwari", true) || it.name.contains("KCB M-Pesa", true) }
+                AccountStore.get(context).listAccounts(true).filter { (it.name.contains("M-Shwari", true) || it.name.contains("KCB M-Pesa", true)) && AccountDisplayPolicy.isConfirmedOwned(it, FinancialUnderstandingStore.get(context).confirmedAccountIds()) }
                     .map { it to PaydaySnapshotStore.get(context).currentAccountSnapshot(it) }
         }
         account = loaded.first
@@ -1486,12 +1489,25 @@ fun AccountDetailsScreen(
         item { ConceptInnerHeader(account?.name ?: "Account", onBack) }
         item {
             ConceptEmeraldHero(
-                title = "Balance from latest evidence",
-                amount = balance?.balanceMinor?.let(::conceptMoney) ?: "Waiting for balance",
-                subtitle = balance?.referenceEpochMs?.let { "Observed ${conceptDate(it)}" } ?: "PesaTrack does not guess missing balances",
+                title = "Latest recorded balance",
+                amount = com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.savingsBalance(balance?.balanceMinor, account?.type == AccountType.SAVINGS, balance?.quality == PaydayBalanceQuality.RECONSTRUCTED)?.let(::conceptMoney) ?: "Balance unavailable",
+                subtitle = balance?.referenceEpochMs?.let { (if (balance?.quality == PaydayBalanceQuality.RECONSTRUCTED) "Estimated on " else "Updated ") + conceptDate(it) } ?: "A balance will appear when a money message includes it",
                 artwork = accountId == AccountStore.DEFAULT_MPESA_ID
             )
         }
+        if (products.isNotEmpty()) item { ConceptSectionTitle("Savings linked to M-Pesa") }
+        products.forEach { (product, snapshot) -> item {
+            val amount = com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.savingsBalance(snapshot?.balanceMinor, true, snapshot?.quality == PaydayBalanceQuality.RECONSTRUCTED)
+            PesaCard(modifier = Modifier.fillMaxWidth().clickable { onAccountClick(product.id) }) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(product.name, style = MaterialTheme.typography.titleMedium)
+                    Text(amount?.let(::conceptMoney) ?: "Balance unavailable", style = MaterialTheme.typography.titleLarge)
+                    Text(if (snapshot?.quality == PaydayBalanceQuality.RECONSTRUCTED) "Estimated from recorded transactions" else "Balance from a money message", style = MaterialTheme.typography.bodyMedium)
+                    snapshot?.referenceEpochMs?.let { Text("Updated ${conceptDate(it)}", style = MaterialTheme.typography.bodySmall) }
+                    Text("View transactions", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        } }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 ConceptMetricTile(Icons.Rounded.SouthWest, "Money in", conceptMoney(moneyIn), Modifier.weight(1f), true)

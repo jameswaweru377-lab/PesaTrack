@@ -66,6 +66,9 @@ class BillSchedules(private val context: Context) {
             3
         ).coerceIn(1, 30)
 
+    fun remindersEnabled(): Boolean =
+        prefs.getBoolean("reminders_allowed", true) && (globalRemindersEnabled() || list().any { it.reminders })
+
     fun globalRemindersEnabled(): Boolean =
         prefs.getBoolean(
             "global_reminders_enabled",

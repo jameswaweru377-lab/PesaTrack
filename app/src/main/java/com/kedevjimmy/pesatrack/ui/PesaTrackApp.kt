@@ -465,6 +465,7 @@ fun PesaTrackApp(
                 AccountDetailsScreen(
                     scaffoldPadding = padding,
                     accountId = accountId,
+                    onAccountClick = { childId -> navController.navigate("account-detail/$childId") },
                     onBack = { navController.popBackStack() },
                     onTransactionClick = { id ->
                         navController.navigate("transaction-detail/$id")
@@ -515,7 +516,8 @@ fun PesaTrackApp(
                     onBack = { navController.popBackStack() },
                     onSettingsClick = { navController.navigate("settings") },
                     onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },
-                    onDataHealthClick = { navController.navigate("data-health") }
+                    onDataHealthClick = { navController.navigate("data-health") },
+                    onGoalsClick = { navController.navigate("saving-goals") }
                 )
             }
         }

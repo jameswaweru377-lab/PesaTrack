@@ -379,7 +379,7 @@ fun FinancialInstitutionsScreen(
                                             option.reference
                                                 .providerKey
                                                 ?: return@forEach
-                                        if (providerKey in selectedProviderKeys || (M_PESA_PROVIDER_KEY in selectedProviderKeys && providerKey in setOf("NCBA_MSHWARI_SAVINGS", "NCBA_MSHWARI_LOCK_SAVINGS", "KCB_MPESA_SAVINGS"))) {
+                                        if (providerKey in selectedProviderKeys) {
                                             understandingStore
                                                 .setInstitutionOwned(
                                                     reference =

@@ -26,7 +26,7 @@ import java.util.Locale
 
 @Composable
 fun ProfileScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit, onSettingsClick: () -> Unit,
-    onAccountsClick: (() -> Unit)? = null, onDataHealthClick: (() -> Unit)? = null) {
+    onAccountsClick: (() -> Unit)? = null, onDataHealthClick: (() -> Unit)? = null, onGoalsClick: (() -> Unit)? = null) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("pesatrack_preferences",0) }
     var edit by rememberSaveable { mutableStateOf(false) }
@@ -56,8 +56,8 @@ fun ProfileScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit, onSettings
             if (data.budgets.isEmpty() && data.goals.isEmpty()) item { Text("Set a budget or create a savings goal in Plan to see your progress here.") }
             data.budgets.forEach { budget -> item { FinancialProgressCard(budget, false) } }
             val active = data.goals.count { it.saved < it.target }
-            item { Text("$active active savings goals", style = MaterialTheme.typography.titleMedium) }
-            data.goals.forEach { goal -> item { FinancialProgressCard(goal, true) } }
+            item { EverydayRow(Icons.Rounded.Savings, "$active active savings goals", "Open your savings goals", onGoalsClick ?: onSettingsClick) }
+            data.goals.forEach { goal -> item { Box(Modifier.clickable { (onGoalsClick ?: onSettingsClick)() }) { FinancialProgressCard(goal, true) } } }
         }
         item { EverydayRow(Icons.Rounded.Settings, "Settings", "Privacy, reminders and appearance", onSettingsClick) }
     }
