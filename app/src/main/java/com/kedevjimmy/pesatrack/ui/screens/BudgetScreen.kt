@@ -56,6 +56,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,19 +65,20 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.BudgetReadRepository
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
 import com.kedevjimmy.pesatrack.data.local.PesaCategory
-import com.kedevjimmy.pesatrack.data.local.TransactionStore
-import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import java.math.RoundingMode
 import java.text.NumberFormat
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -95,7 +97,7 @@ fun BudgetScreen(
     val context = LocalContext.current
     val budgetStore = remember { BudgetStore.get(context) }
     val categoryStore = remember { CategoryStore.get(context) }
-    val transactionStore = remember { TransactionStore.get(context) }
+    val budgetReads = remember { BudgetReadRepository(context) }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
 
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
@@ -106,63 +108,23 @@ fun BudgetScreen(
     var categoryExpanded by remember { mutableStateOf(false) }
     var showBudgetSheet by remember { mutableStateOf(false) }
 
+    val scope = rememberCoroutineScope()
+    var saving by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var retry by remember { mutableStateOf(0) }
     val revision = ledgerUpdateState.revision
     var uiData by remember {
         mutableStateOf(BudgetUiData())
     }
 
-    LaunchedEffect(revision) {
+    LaunchedEffect(revision, retry) {
+        loading = true
+        loadError = null
+        try {
         uiData =
             withContext(Dispatchers.IO) {
-                val activity =
-                    transactionStore.activitySnapshot()
-                val trackedByCategory =
-                    activity.transactions
-                        .filter {
-                            it.reviewState !=
-                                ReviewState.EXCLUDED.name &&
-                                it.reviewState !=
-                                ReviewState.NEEDS_REVIEW.name
-                        }
-                        .groupBy {
-                            categoryStore
-                                .canonicalId(it.category)
-                        }
-                        .mapValues {
-                                (_, transactions) ->
-                            maxOf(
-                                0L,
-                                transactions.sumOf { item ->
-                                    if (
-                                        item.relationType ==
-                                        TransactionStore
-                                            .RELATION_REFUND
-                                    ) {
-                                        val original =
-                                            item.relatedTransactionId
-                                                ?.let(
-                                                    transactionStore::getById
-                                                )
-                                        if (
-                                            original != null &&
-                                            original.direction ==
-                                                com.kedevjimmy.pesatrack.domain.model.MoneyDirection.EXPENSE.name &&
-                                            original.reviewState !=
-                                                ReviewState.EXCLUDED.name &&
-                                            original.reviewState !=
-                                                ReviewState.NEEDS_REVIEW.name
-                                        ) {
-                                            -item.amountMinor
-                                        } else {
-                                            0L
-                                        }
-                                    } else {
-                                        item.amountMinor +
-                                            item.feeMinor
-                                    }
-                                }
-                            )
-                        }
+                val trackedByCategory = budgetReads.spendingByCategory()
 
                 BudgetUiData(
                     budgets = budgetStore.list(),
@@ -172,6 +134,13 @@ fun BudgetScreen(
                         trackedByCategory
                 )
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            loadError = "Could not load budgets. Try again."
+        } finally {
+            loading = false
+        }
     }
 
     val budgets = uiData.budgets
@@ -196,35 +165,46 @@ fun BudgetScreen(
         }
     }
 
-    fun saveBudget(): Boolean {
+    fun saveBudget() {
+        if (saving) return
         val categoryId = selectedCategoryId
         if (categoryId == null) {
             error = "Choose a category for this budget."
-            return false
+            return
         }
-
         val limitMinor = parseBudgetMoneyMinor(amount)
         if (limitMinor == null || limitMinor <= 0L) {
             error = "Enter a budget amount above zero."
-            return false
+            return
         }
-
-        budgetStore.save(categoryId, limitMinor)
-        amount = ""
-        selectedCategoryId = null
-        error = null
-        return true
+        saving = true
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { budgetStore.save(categoryId, limitMinor) }
+                showBudgetSheet = false
+                amount = ""
+                selectedCategoryId = null
+                error = null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                error = "Could not save budget. Try again."
+            } finally { saving = false }
+        }
     }
-
     if (showAddCategory) {
         AlertDialog(
             onDismissRequest = {
-                showAddCategory = false
-                customCategoryName = ""
+                if (!saving) {
+                    showAddCategory = false
+                    customCategoryName = ""
+                    error = null
+                }
             },
             title = { Text("Add category") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     Text(
                         "This category will appear in both Activity and Budgets.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -241,9 +221,11 @@ fun BudgetScreen(
             },
             dismissButton = {
                 TextButton(
+                    enabled = !saving,
                     onClick = {
                         showAddCategory = false
                         customCategoryName = ""
+                        error = null
                     }
                 ) {
                     Text("Cancel")
@@ -251,16 +233,23 @@ fun BudgetScreen(
             },
             confirmButton = {
                 Button(
+                    enabled = !saving,
                     onClick = {
-                        runCatching {
-                            categoryStore.addCustom(customCategoryName)
-                        }.onSuccess { category ->
-                            showAddCategory = false
-                            customCategoryName = ""
-                            selectCategory(category)
-                        }.onFailure {
-                            error = it.message ?: "Could not add category."
-                            showAddCategory = false
+                        if (!saving) {
+                            saving = true
+                            val name = customCategoryName
+                            scope.launch {
+                                try {
+                                    val category = withContext(Dispatchers.IO) { categoryStore.addCustom(name) }
+                                    showAddCategory = false
+                                    customCategoryName = ""
+                                    selectCategory(category)
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (failure: Exception) {
+                                    error = failure.message ?: "Could not add category. Try again."
+                                } finally { saving = false }
+                            }
                         }
                     }
                 ) {
@@ -282,10 +271,12 @@ fun BudgetScreen(
 
         ModalBottomSheet(
             onDismissRequest = {
+                if (!saving) {
                 showBudgetSheet = false
                 selectedCategoryId = null
                 amount = ""
                 error = null
+                }
             }
         ) {
             BudgetEditorSheet(
@@ -294,14 +285,15 @@ fun BudgetScreen(
                 amount = amount,
                 isEditing = existingBudget != null,
                 error = error,
+                saving = saving,
                 onAmountChanged = {
-                    amount = it
-                    error = null
+                    if (!saving) {
+                        amount = it
+                        error = null
+                    }
                 },
                 onSave = {
-                    if (saveBudget()) {
-                        showBudgetSheet = false
-                    }
+                    saveBudget()
                 }
             )
         }
@@ -453,7 +445,16 @@ fun BudgetScreen(
             )
         }
 
-        if (budgets.isEmpty()) {
+        if (loading || loadError != null) {
+            item {
+                Text(if (loading) "Loading budgets…" else loadError.orEmpty())
+                if (!loading) TextButton(onClick = { retry += 1 }) { Text("Retry") }
+            }
+        }
+        if (error != null && !showBudgetSheet && !showAddCategory) {
+            item { Text(error.orEmpty(), color = MaterialTheme.colorScheme.error) }
+        }
+        if (budgets.isEmpty() && !loading && loadError == null) {
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -489,15 +490,23 @@ fun BudgetScreen(
                         )?.let(::selectCategory)
                     },
                     onDelete = {
-                        budgetStore.delete(
-                            budgets[index].categoryId
-                        )
-                        if (
-                            selectedCategoryId ==
-                            budgets[index].categoryId
-                        ) {
-                            selectedCategoryId = null
-                            amount = ""
+                        if (!saving) {
+                            saving = true
+                            val id = budgets[index].categoryId
+                            scope.launch {
+                                try {
+                                    withContext(Dispatchers.IO) { budgetStore.delete(id) }
+                                    if (selectedCategoryId == id) {
+                                        selectedCategoryId = null
+                                        amount = ""
+                                    }
+                                    error = null
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (failure: Exception) {
+                                    error = "Could not delete budget. Try again."
+                                } finally { saving = false }
+                            }
                         }
                     }
                 )
@@ -553,6 +562,7 @@ private fun BudgetEditorSheet(
     amount: String,
     isEditing: Boolean,
     error: String?,
+    saving: Boolean,
     onAmountChanged: (String) -> Unit,
     onSave: () -> Unit
 ) {
@@ -627,13 +637,16 @@ private fun BudgetEditorSheet(
 
         Button(
             onClick = onSave,
+            enabled = !saving,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 54.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
             Text(
-                if (isEditing) {
+                if (saving) {
+                    "Saving…"
+                } else if (isEditing) {
                     "Update budget"
                 } else {
                     "Add budget"

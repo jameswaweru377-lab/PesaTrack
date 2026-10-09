@@ -598,7 +598,8 @@ class TransactionStore private constructor(context: Context) {
                         )
                     if (matchedRule == null) {
                         tryLinkRefund(
-                            mirrorCandidate.id
+                            mirrorCandidate.id,
+                            parsed.rawMessage
                         )
                     }
                 }
@@ -737,7 +738,7 @@ class TransactionStore private constructor(context: Context) {
                                 occurredAtEpochMs
                         )
                     if (matchedRule == null) {
-                        tryLinkRefund(rowId)
+                        tryLinkRefund(rowId, parsed.rawMessage)
                     }
                 }
             }
@@ -1451,12 +1452,7 @@ class TransactionStore private constructor(context: Context) {
             .toSet()
 
         val effective = monthTransactions.filter { item ->
-            item.id !in possibleDuplicateIds &&
-                item.transactionCode !in reversedCodes &&
-                item.type != MpesaTransactionType.REVERSAL.name &&
-                item.reviewState != ReviewState.EXCLUDED.name &&
-                item.reviewState != ReviewState.NEEDS_REVIEW.name &&
-                item.cycleCandidateReason == null
+            accountingEligible(item, reversedCodes, possibleDuplicateIds)
         }
 
         val income = effective
@@ -2316,12 +2312,28 @@ class TransactionStore private constructor(context: Context) {
     ): Boolean {
         val originalId =
             refund.relatedTransactionId ?: return false
-        val original = getById(originalId) ?: return false
-        return original.direction == MoneyDirection.EXPENSE.name &&
-            original.reviewState != ReviewState.EXCLUDED.name &&
-            original.reviewState != ReviewState.NEEDS_REVIEW.name &&
-            original.type != MpesaTransactionType.REVERSAL.name
+        return trustedRefundOriginal(originalId) != null
     }
+
+    /** Cross-period refund eligibility uses the same exclusions as the ledger. */
+    fun trustedRefundOriginal(originalId: Long): StoredTransaction? = synchronized(CanonicalStoreLock.monitor) {
+        val original = getById(originalId) ?: return@synchronized null
+        original.takeIf {
+            it.direction == MoneyDirection.EXPENSE.name &&
+                accountingEligible(it, reversedTransactionCodes(), emptySet())
+        }
+    }
+
+    private fun accountingEligible(
+        item: StoredTransaction,
+        reversedCodes: Set<String>,
+        possibleDuplicateIds: Set<Long>
+    ): Boolean = item.id !in possibleDuplicateIds &&
+        item.transactionCode !in reversedCodes &&
+        item.type != MpesaTransactionType.REVERSAL.name &&
+        item.reviewState != ReviewState.EXCLUDED.name &&
+        item.reviewState != ReviewState.NEEDS_REVIEW.name &&
+        item.cycleCandidateReason == null
 
     private fun ensureRefundsReconciled() {
         val preferences = appContext.getSharedPreferences(
@@ -2337,34 +2349,25 @@ class TransactionStore private constructor(context: Context) {
             return
         }
 
-        var changed = false
-        database.readableDatabase.rawQuery(
-            """
-            SELECT id
-            FROM transactions
-            WHERE type IN (?, ?)
-              AND relation_type IS NULL
-              AND rule_id IS NULL
-              AND review_state != ?
-              AND review_state != ?
-            ORDER BY occurred_at_epoch_ms DESC, id DESC
-            LIMIT 400
-            """.trimIndent(),
-            arrayOf(
-                MpesaTransactionType.RECEIVED.name,
-                MpesaTransactionType.DEPOSIT.name,
-                ReviewState.USER_CLASSIFIED.name,
-                ReviewState.EXCLUDED.name
-            )
-        ).use { cursor ->
-            val ids = mutableListOf<Long>()
-            while (cursor.moveToNext()) {
-                ids += cursor.getLong(0)
-            }
-            ids.forEach { id ->
-                changed = tryLinkRefund(id) || changed
-            }
+        // Legacy amount/name matches have no retained message proof. Preserve
+        // explicit user decisions; send only automatic matches back to review.
+        val values = ContentValues().apply {
+            putNull("relation_type")
+            putNull("related_transaction_id")
+            put("direction", MoneyDirection.INCOME.name)
+            put("category", TransactionCategory.UNCATEGORIZED.name)
+            put("review_state", ReviewState.NEEDS_REVIEW.name)
+            putNull("evidence_label")
+            putNull("evidence_source")
+            putNull("evidence_confidence")
+            putNull("evidence_time_delta_ms")
+            putNull("cycle_candidate_reason")
         }
+        val changed = database.writableDatabase.update(
+            "transactions", values,
+            "relation_type = ? AND evidence_source = ? AND review_state = ? AND rule_id IS NULL",
+            arrayOf(RELATION_REFUND, "refund_match", ReviewState.AUTO_CLASSIFIED.name)
+        ) > 0
 
         if (changed) {
             PayCycleStore.get(appContext).rebuild()
@@ -2376,8 +2379,10 @@ class TransactionStore private constructor(context: Context) {
     }
 
     private fun tryLinkRefund(
-        transactionId: Long
+        transactionId: Long,
+        rawMessage: String
     ): Boolean {
+        if (!EXPLICIT_COMPLETED_REFUND.containsMatchIn(rawMessage)) return false
         val incoming = getById(transactionId) ?: return false
         if (
             incoming.type != MpesaTransactionType.RECEIVED.name &&
@@ -2451,7 +2456,7 @@ class TransactionStore private constructor(context: Context) {
             receivedAmountMinor = incoming.amountMinor,
             receivedAtEpochMs = incoming.occurredAtEpochMs,
             receivedCounterparty = incoming.counterparty,
-            candidates = candidates
+            candidates = candidates.filter { trustedRefundOriginal(it.transactionId) != null }
         ) ?: return false
 
         val original = getById(originalId) ?: return false
@@ -2472,7 +2477,7 @@ class TransactionStore private constructor(context: Context) {
             put("relation_type", RELATION_REFUND)
             put("related_transaction_id", original.id)
             put("evidence_label", evidenceLabel)
-            put("evidence_source", "refund_match")
+            put("evidence_source", "refund_explicit_match")
             put("evidence_confidence", "HIGH")
             put(
                 "evidence_time_delta_ms",
@@ -4005,7 +4010,7 @@ class TransactionStore private constructor(context: Context) {
             put("direction", MoneyDirection.INCOME.name)
             put("category", TransactionCategory.UNCATEGORIZED.name)
             put("review_state", ReviewState.NEEDS_REVIEW.name)
-            if (current.evidenceSource == "refund_match") {
+            if (current.evidenceSource in setOf("refund_match", "refund_explicit_match")) {
                 putNull("evidence_label")
                 putNull("evidence_source")
                 putNull("evidence_confidence")
@@ -4291,7 +4296,11 @@ class TransactionStore private constructor(context: Context) {
         private const val SEMANTIC_REVIEW_RECONCILIATION_KEY =
             "semantic_review_reconciliation_v1"
         private const val REFUND_RECONCILIATION_KEY =
-            "refund_reconciliation_v1"
+            "refund_reconciliation_v2"
+        private val EXPLICIT_COMPLETED_REFUND = Regex(
+            """\b(?:payment|amount|money)\s+(?:(?:has\s+been|was|is)\s+)?(?:refunded|returned)\b|\brefund\s+(?:of|for)\b[^.!?]*\b(?:credited|received|completed)\b""",
+            RegexOption.IGNORE_CASE
+        )
         const val RELATION_REFUND = "REFUND"
         const val RELATION_DEBT_REPAYMENT =
             "DEBT_REPAYMENT"

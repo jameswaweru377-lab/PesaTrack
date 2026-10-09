@@ -49,8 +49,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.BudgetReadRepository
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
-import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.CommitmentProgress
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
@@ -58,9 +58,6 @@ import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
 import com.kedevjimmy.pesatrack.data.local.RecurringPatternStore
 import com.kedevjimmy.pesatrack.data.local.RuleStore
-import com.kedevjimmy.pesatrack.data.local.TransactionStore
-import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
-import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternCandidate
@@ -82,6 +79,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.max
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -110,8 +108,7 @@ fun PlanScreen(
         RecurringPatternStore.get(context)
     }
     val budgetStore = remember { BudgetStore.get(context) }
-    val categoryStore = remember { CategoryStore.get(context) }
-    val transactionStore = remember { TransactionStore.get(context) }
+    val budgetReads = remember { BudgetReadRepository(context) }
     val ruleStore = remember { RuleStore.get(context) }
     val billSchedules = remember { BillSchedules(context) }
     val planScope =
@@ -147,10 +144,16 @@ fun PlanScreen(
         mutableStateOf(false)
     }
 
+    var loading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(
         ledgerUpdateState.revision,
         localRefresh
     ) {
+        loading = true
+        loadError = null
+        try {
         val loaded =
             withContext(Dispatchers.IO) {
                 // Pay cycles are rebuilt when ledger data changes. Reading Plan
@@ -159,43 +162,7 @@ fun PlanScreen(
                 val recurring =
                     recurringStore.suggestions(limit = 3)
                 val budgets = budgetStore.list()
-                val activity = transactionStore.activitySnapshot()
-                val spent = activity.trustedTransactions
-                    .filter {
-                        it.direction == MoneyDirection.EXPENSE.name &&
-                            it.reviewState != ReviewState.EXCLUDED.name &&
-                            it.reviewState != ReviewState.NEEDS_REVIEW.name
-                    }
-                    .groupBy {
-                        categoryStore.canonicalId(it.category)
-                    }
-                    .mapValues { (_, rows) ->
-                        rows.sumOf { row ->
-                            if (
-                                row.relationType ==
-                                TransactionStore.RELATION_REFUND
-                            ) {
-                                val original =
-                                    row.relatedTransactionId
-                                        ?.let(transactionStore::getById)
-                                if (
-                                    original != null &&
-                                    original.direction ==
-                                        MoneyDirection.EXPENSE.name &&
-                                    original.reviewState !=
-                                        ReviewState.EXCLUDED.name &&
-                                    original.reviewState !=
-                                        ReviewState.NEEDS_REVIEW.name
-                                ) {
-                                    -row.amountMinor
-                                } else {
-                                    0L
-                                }
-                            } else {
-                                row.amountMinor
-                            }
-                        }.coerceAtLeast(0L)
-                    }
+                val spent = budgetReads.spendingByCategory()
                 val goals =
                     ruleStore.listRules(enabledOnly = true)
                         .filter {
@@ -217,6 +184,19 @@ fun PlanScreen(
         spentByBudgetCategory = loaded.spentByCategory
         savingsGoals = loaded.goals
         upcomingBills = loaded.bills
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            loadError = "Could not load your plan. Try again."
+        } finally { loading = false }
+    }
+
+    if (loading || loadError != null) {
+        Column(Modifier.padding(scaffoldPadding).padding(18.dp)) {
+            Text(if (loading) "Loading your plan…" else loadError.orEmpty())
+            if (!loading) TextButton(onClick = { localRefresh += 1 }) { Text("Retry") }
+        }
+        return
     }
 
     val planningAvailability =
