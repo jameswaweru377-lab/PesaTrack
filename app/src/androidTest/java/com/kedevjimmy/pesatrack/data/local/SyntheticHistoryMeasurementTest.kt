@@ -31,20 +31,33 @@ class SyntheticHistoryMeasurementTest {
         context.deleteDatabase("pesatrack.db")
     }
 
-    @Test fun thirtyDayHistoryHasStableTotalsAfterDuplicateReplay() {
+    @Test fun thirtyAndNinetyDayHistoriesHaveStableTotalsAfterDuplicateReplay() {
         measureHistory(days = 30, expectedRows = 3000, expectedSpent = 3148500L, expectedFees = 15000L)
-    }
-
-    @Test fun ninetyDayHistoryHasStableTotalsAfterDuplicateReplay() {
         measureHistory(days = 90, expectedRows = 9000, expectedSpent = 9445500L, expectedFees = 45000L)
     }
 
     private fun measureHistory(days: Int, expectedRows: Int, expectedSpent: Long, expectedFees: Long) {
         val runs = JsonArray()
+        // Stores retain their helper for the process lifetime. Reuse that file/connection rather
+        // than unlinking it while TransactionStore/AccountStore singletons still reference it.
+        val store = TransactionStore.get(context)
+        assertNull(store.findByTransactionCode("SYNTHETIC_INITIALIZATION_ONLY"))
+        val database = PesaTrackDatabase.get(context).writableDatabase
         repeat(3) { run ->
-            PesaTrackDatabase.resetForTests()
-            context.deleteDatabase("pesatrack.db")
-            val store = TransactionStore.get(context)
+            database.beginTransaction()
+            try {
+                database.delete("transaction_external_references",
+                    "transaction_id IN (SELECT id FROM transactions WHERE source_kind = ?)",
+                    arrayOf("SYNTHETIC_HISTORY_MEASUREMENT"))
+                database.delete("transactions", "source_kind = ?",
+                    arrayOf("SYNTHETIC_HISTORY_MEASUREMENT"))
+                database.setTransactionSuccessful()
+            } finally { database.endTransaction() }
+            database.rawQuery("SELECT COUNT(*) FROM transactions", null).use {
+                assertTrue(it.moveToFirst())
+                assertEquals("The entire invented ledger must be empty before measurement", 0L, it.getLong(0))
+            }
+            assertTrue(snapshot(store, days).transactions.isEmpty())
             // Rows are generated outside the measured persistence phase.
             val rows = List(expectedRows) { index ->
                 ParsedMpesaTransaction(
@@ -58,8 +71,6 @@ class SyntheticHistoryMeasurementTest {
                     rawMessage = "Invented parsed payment fixture $days/$index. No personal message source."
                 )
             }
-            // Open the store's own helper before timing, without holding another helper's transaction.
-            assertNull(store.findByTransactionCode("SYNTHETIC_INITIALIZATION_ONLY"))
             var inserted = 0
             val importStarted = System.nanoTime()
             rows.forEachIndexed { index, parsed ->
@@ -100,7 +111,7 @@ class SyntheticHistoryMeasurementTest {
             })
         }
         val evidence = JsonObject().apply {
-            addProperty("fixture", "invented-history-v2")
+            addProperty("fixture", "invented-history-v3")
             addProperty("days", days)
             addProperty("rows", expectedRows)
             addProperty("schema_version", 34)
@@ -109,7 +120,8 @@ class SyntheticHistoryMeasurementTest {
             addProperty("model", Build.MODEL)
             addProperty("measurement_scope", "parsed_message_per_record_persistence_duplicate_replay_activity_snapshot")
             addProperty("transaction_mode", "production_per_record")
-            addProperty("fresh_runs", 3)
+            addProperty("empty_ledger_runs", 3)
+            addProperty("database_lifecycle", "single_file_and_helper_lifetime_with_ledger_reset_between_runs")
             addProperty("thresholds", "informational_only")
             add("runs", runs)
         }
