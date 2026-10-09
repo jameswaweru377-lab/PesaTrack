@@ -1,6 +1,6 @@
 # PesaTrack Current State
 
-_Last refreshed: 7 October 2026_
+_Last refreshed: 9 October 2026_
 
 This file is the short engineering source of truth. Historical audits, design explorations and `PROJECT_CONTEXT.md` are useful background, but they must not override current code or this snapshot when they conflict.
 
@@ -18,6 +18,30 @@ The current product includes the canonical ledger, provider-neutral financial in
 - Replay/idempotency and rollback are covered by Android tests.
 - User-authoritative corrections must not be silently overwritten by replay.
 - Unknown/ambiguous evidence must remain uncertain rather than being guessed.
+
+## Offline financial laboratory
+
+- Python is development-only: fixed invented fixtures and read-only comparison
+  with actual Kotlin outputs; no device SMS or ledger import, network/model
+  integration, or Python runtime shipped in the APK.
+- Four contract groups cover sender/account ownership evidence, configured
+  transfers, debt interpretation histories and remembered merchant identities.
+  29 authored scenarios at eight monetary scales produce 232 regression cases;
+  unchanged name-only cases are repeats, not independent message formats.
+- Configured notification transfers require a unique sender-derived source and
+  unique whole destination identifier. Body bank names and ambiguous accounts
+  do not establish an own transfer. Existing shared-reference mirror matching
+  remains available when complementary observations establish both sides.
+- Explicit remembered merchant corrections normalize ordinary Unicode spaces,
+  retaining exact-name and phone safeguards. Unknown merchant names do not
+  automatically imply groceries or consent.
+- Fresh-database Android histories verify lender separation, observed versus
+  estimated outstanding debt, repayment replay and remembered-category consent.
+  These do not diagnose a particular installed user's debt or repair previous
+  account-review decisions. Voice entry is outside this change.
+- Release readiness still requires current-head Android CI and physical-device
+  acceptance with invented data. See `tools/python_lab/README.md` for commands,
+  acceptance criteria and coverage limits.
 
 ## Remote enrichment privacy
 
