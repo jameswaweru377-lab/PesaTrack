@@ -1,6 +1,8 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import android.content.Intent
+import com.kedevjimmy.pesatrack.ingestion.TransactionMessageEvidenceReader
+import com.kedevjimmy.pesatrack.ingestion.TransactionMessageEvidenceResult
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -338,7 +340,32 @@ fun TransactionDetailScreen(
         }
     }
 
+    var showCategoryPicker by remember(transactionId) { mutableStateOf(false) }
+    var messageExpanded by remember(transactionId) { mutableStateOf(true) }
+    var messageEvidence by remember(transactionId) { mutableStateOf<TransactionMessageEvidenceResult?>(null) }
+    var evidenceRefresh by remember(transactionId) { mutableStateOf(0) }
     val current = transaction
+    LaunchedEffect(current?.id, current?.transactionCode, current?.amountMinor, messageExpanded, evidenceRefresh) {
+        if (current != null && messageExpanded) {
+            messageEvidence = null
+            messageEvidence = withContext(Dispatchers.IO) {
+                TransactionMessageEvidenceReader(context.applicationContext).read(current)
+            }
+        }
+    }
+    if (showCategoryPicker && current != null) {
+        AlertDialog(
+            onDismissRequest = { showCategoryPicker = false },
+            title = { Text("Choose a category") },
+            text = {
+                CategoryGrid(
+                    currentCategoryId = categoryStore.canonicalId(current.category),
+                    onSelected = { category -> showCategoryPicker = false; applyCategory(category) }
+                )
+            },
+            confirmButton = { TextButton(onClick = { showCategoryPicker = false }) { Text("Close") } }
+        )
+    }
     val appliedRule =
         current?.ruleId
             ?.let(
@@ -508,10 +535,10 @@ fun TransactionDetailScreen(
                         FontWeight.Bold
                 )
                 IconButton(
-                    onClick = ::refresh
+                    onClick = { refresh(); evidenceRefresh++ }
                 ) {
                     Icon(
-                        Icons.Rounded.MoreVert,
+                        Icons.Rounded.Refresh,
                         contentDescription =
                             "Refresh transaction"
                     )
@@ -539,9 +566,17 @@ fun TransactionDetailScreen(
         }
 
         item {
-            TransactionHero(current)
+            TransactionDetailSummary(current, categoryVisual(categoryStore.canonicalId(current.category)).icon)
         }
-
+        item {
+            TransactionDetailFacts(
+                item = current,
+                accountLabel = current.accountId?.let { id -> accountStore.listAccounts(enabledOnly = false).firstOrNull { it.id == id }?.name } ?: "Not identified",
+                categoryLabel = categoryStore.labelFor(categoryStore.canonicalId(current.category)),
+                onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
+                onCategory = if (current.relationType != TransactionStore.RELATION_REFUND) ({ showCategoryPicker = true }) else null
+            )
+        }
         if (
             current.fulizaFinancedMinor > 0L
         ) {
@@ -588,6 +623,14 @@ fun TransactionDetailScreen(
                             categoryDirection
                         )
 
+            TransactionDetailMessage(
+                item = current,
+                evidence = messageEvidence,
+                expanded = messageExpanded,
+                onExpanded = { messageExpanded = !messageExpanded },
+                hasAnnotation = annotation.note.isNotBlank() || annotation.receiptUri != null,
+                onAnnotation = { showAnnotationDialog = true }
+            ) {
             ClassificationCard(
                 item = current,
                 appliedRule =
@@ -671,6 +714,7 @@ fun TransactionDetailScreen(
                     }
                 }
             )
+            }
         }
 
         learnedMessage?.let {
@@ -829,67 +873,6 @@ fun TransactionDetailScreen(
             }
         }
 
-        if (
-            current.relationType !=
-            TransactionStore.RELATION_REFUND
-        ) {
-            item {
-                Row(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-                    verticalAlignment =
-                        Alignment.Bottom
-                ) {
-                    Column(
-                        modifier =
-                            Modifier.weight(1f)
-                    ) {
-                        Text(
-                            "Choose a category",
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .titleLarge,
-                            fontWeight =
-                                FontWeight.Bold
-                        )
-                    }
-                    Text(
-                        if (
-                            learningPreference !=
-                            null
-                        ) {
-                            "Same merchant? We'll\nsuggest it next time."
-                        } else {
-                            "Tap any category\nto change it."
-                        },
-                        style =
-                            MaterialTheme
-                                .typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .onSurfaceVariant
-                    )
-                }
-
-                Spacer(
-                    Modifier.height(6.dp)
-                )
-
-                CategoryGrid(
-                    currentCategoryId =
-                        categoryStore
-                            .canonicalId(
-                                current.category
-                            ),
-                    onSelected =
-                        ::applyCategory
-                )
-            }
-        }
-
         item {
             TransactionQuickActions(
                 merchant =
@@ -1018,75 +1001,7 @@ fun TransactionDetailScreen(
                 }
             }
 
-        item {
-            SectionHeader(
-                "Transaction information"
-            )
-            PesaCard {
-                Column(
-                    Modifier.padding(
-                        horizontal = 14.dp,
-                        vertical = 4.dp
-                    )
-                ) {
-                    DetailRow(
-                        Icons.Rounded.AccountCircle,
-                        "Name",
-                        current.counterparty
-                            ?: "Not identified"
-                    )
-                    DetailRow(
-                        Icons.AutoMirrored
-                            .Rounded
-                            .ReceiptLong,
-                        "Type",
-                        pretty(
-                            current.type
-                        )
-                    )
-                    DetailRow(
-                        Icons.AutoMirrored
-                            .Rounded
-                            .ReceiptLong,
-                        "M-Pesa code",
-                        current.transactionCode
-                            ?: "Not provided"
-                    )
-                    DetailRow(
-                        Icons.Rounded.CalendarMonth,
-                        "Transaction date",
-                        formatDateTime(
-                            current
-                                .occurredAtEpochMs
-                        )
-                    )
-                    DetailRow(
-                        Icons.Rounded.Paid,
-                        "Transaction fee",
-                        formatMoney(
-                            current.feeMinor +
-                                current
-                                    .fulizaAccessFeeMinor
-                        )
-                    )
-                    current.balanceMinor
-                        ?.let {
-                            DetailRow(
-                                Icons.Rounded.Paid,
-                                "Balance after",
-                                formatMoney(it)
-                            )
-                        }
-                    DetailRow(
-                        Icons.Rounded.Tune,
-                        "Source",
-                        pretty(
-                            current.sourceKind
-                        )
-                    )
-                }
-            }
-        }
+
 
 
     }
@@ -1804,360 +1719,19 @@ private fun ClassificationCard(
     onRememberChanged: (Boolean) -> Unit,
     onDisableRule: (SmartRule) -> Unit
 ) {
-    val context =
-        LocalContext.current
-    val categoryStore =
-        remember {
-            CategoryStore.get(context)
-        }
-    val categoryId =
-        categoryStore.canonicalId(
-            item.category
-        )
-    val visual =
-        categoryVisual(
-            categoryId
-        )
-    val needsReview =
-        item.reviewState ==
-            ReviewState.NEEDS_REVIEW.name
-    val excluded =
-        item.reviewState ==
-            ReviewState.EXCLUDED.name
-    val categoryLabel =
-        categoryStore.labelFor(
-            categoryId
-        )
-
-    Surface(
-        modifier =
-            Modifier.fillMaxWidth(),
-        shape =
-            RoundedCornerShape(
-                22.dp
-            ),
-        color =
-            MaterialTheme
-                .colorScheme
-                .surfaceVariant
-                .copy(alpha = .72f),
-        border =
-            BorderStroke(
-                1.dp,
-                MaterialTheme
-                    .colorScheme
-                    .outlineVariant
-                    .copy(alpha = .42f)
-            )
-    ) {
-        Column {
-            Row(
-                modifier =
-                    Modifier.padding(
-                        start = 16.dp,
-                        end = 12.dp,
-                        top = 16.dp,
-                        bottom = 12.dp
-                    ),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape =
-                        CircleShape,
-                    color =
-                        visual.color
-                            .copy(
-                                alpha = .17f
-                            ),
-                    border =
-                        BorderStroke(
-                            2.dp,
-                            visual.color
-                                .copy(
-                                    alpha = .85f
-                                )
-                        )
-                ) {
-                    Icon(
-                        visual.icon,
-                        contentDescription =
-                            null,
-                        modifier =
-                            Modifier.padding(
-                                13.dp
-                            ),
-                        tint =
-                            visual.color
-                    )
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Remember category for this merchant", style = MaterialTheme.typography.bodyMedium)
+                    Text(confidenceLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-
-                Column(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .padding(
-                                start = 14.dp
-                            )
-                ) {
-                    Text(
-                        when {
-                            needsReview ->
-                                "Needs review"
-                            excluded ->
-                                "Excluded"
-                            else ->
-                                categoryLabel
-                        },
-                        style =
-                            MaterialTheme
-                                .typography
-                                .titleLarge,
-                        fontWeight =
-                            FontWeight.Bold
-                    )
-                    Text(
-                        when {
-                            needsReview ->
-                                "Choose the category that best fits this transaction."
-                            item.reviewState ==
-                                ReviewState
-                                    .USER_CLASSIFIED
-                                    .name ->
-                                "Classified by you."
-                            appliedRule != null ->
-                                "Classified by your saved rule."
-                            item.evidenceSource
-                                ?.startsWith(
-                                    "entity_intelligence:"
-                                ) == true ->
-                                "Classified from a recognized merchant match."
-                            else ->
-                                "Classified automatically."
-                        },
-                        style =
-                            MaterialTheme
-                                .typography
-                                .bodyMedium,
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .onSurfaceVariant
-                    )
-                }
-
-                if (!needsReview) {
-                    Surface(
-                        shape =
-                            RoundedCornerShape(
-                                50.dp
-                            ),
-                        color =
-                            Color(0xFF3933A8)
-                                .copy(
-                                    alpha = .52f
-                                ),
-                        border =
-                            BorderStroke(
-                                1.dp,
-                                Color(
-                                    0xFF62EAB2
-                                ).copy(
-                                    alpha = .45f
-                                )
-                            )
-                    ) {
-                        Row(
-                            modifier =
-                                Modifier.padding(
-                                    horizontal = 10.dp,
-                                    vertical = 7.dp
-                                ),
-                            verticalAlignment =
-                                Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Rounded
-                                    .CheckCircle,
-                                contentDescription =
-                                    null,
-                                modifier =
-                                    Modifier.size(
-                                        17.dp
-                                    ),
-                                tint =
-                                    Color(
-                                        0xFF6FF0B7
-                                    )
-                            )
-                            Text(
-                                confidenceLabel,
-                                modifier =
-                                    Modifier.padding(
-                                        start = 5.dp
-                                    ),
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .labelMedium
-                            )
-                        }
-                    }
-                }
-
-                Icon(
-                    Icons.Rounded
-                        .ChevronRight,
-                    contentDescription =
-                        null,
-                    modifier =
-                        Modifier.padding(
-                            start = 7.dp
-                        ),
-                    tint =
-                        MaterialTheme
-                            .colorScheme
-                            .onSurfaceVariant
-                )
+                Switch(checked = learningPreferenceActive, onCheckedChange = onRememberChanged, enabled = canRemember)
             }
-
-            if (
-                canRemember &&
-                !needsReview &&
-                !excluded
-            ) {
-                Surface(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                start = 14.dp,
-                                end = 14.dp,
-                                bottom = 14.dp
-                            ),
-                    shape =
-                        RoundedCornerShape(
-                            16.dp
-                        ),
-                    color =
-                        MaterialTheme
-                            .colorScheme
-                            .surface
-                            .copy(
-                                alpha = .42f
-                            )
-                ) {
-                    Row(
-                        modifier =
-                            Modifier.padding(
-                                horizontal = 12.dp,
-                                vertical = 10.dp
-                            ),
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            shape =
-                                CircleShape,
-                            color =
-                                Color(
-                                    0xFF1C8A6A
-                                ).copy(
-                                    alpha = .22f
-                                )
-                        ) {
-                            Icon(
-                                Icons.Rounded
-                                    .TrendingUp,
-                                contentDescription =
-                                    null,
-                                modifier =
-                                    Modifier.padding(
-                                        8.dp
-                                    ),
-                                tint =
-                                    Color(
-                                        0xFF6CE8B2
-                                    )
-                            )
-                        }
-                        Column(
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .padding(
-                                        horizontal =
-                                            10.dp
-                                    )
-                        ) {
-                            Text(
-                                if (
-                                    learningPreferenceActive
-                                ) {
-                                    "We'll remember this choice"
-                                } else {
-                                    "Remember this choice"
-                                },
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .titleSmall,
-                                fontWeight =
-                                    FontWeight.SemiBold
-                            )
-                            Text(
-                                if (
-                                    learningPreferenceActive
-                                ) {
-                                    "Similar ${item.counterparty ?: "merchant"} transactions may be suggested as $categoryLabel."
-                                } else {
-                                    "Turn this on to teach PesaTrack for future similar transactions."
-                                },
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked =
-                                learningPreferenceActive,
-                            onCheckedChange =
-                                onRememberChanged
-                        )
-                    }
-                }
-            }
-
-            if (
-                appliedRule != null &&
-                appliedRule.enabled
-            ) {
-                TextButton(
-                    onClick = {
-                        onDisableRule(
-                            appliedRule
-                        )
-                    },
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                horizontal = 8.dp,
-                                vertical = 2.dp
-                            )
-                ) {
-                    Text(
-                        "Disable saved rule for future"
-                    )
-                }
+            if (!canRemember) Text("Category memory is unavailable for this transaction.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            appliedRule?.let { rule ->
+                TextButton(onClick = { onDisableRule(rule) }) { Text("Disable applied smart rule") }
             }
         }
-    }
 }
 
 @Composable
@@ -2631,90 +2205,11 @@ private fun TransactionQuickActions(
     onAnnotation: () -> Unit,
     onAccount: () -> Unit
 ) {
-    Column(
-        verticalArrangement =
-            Arrangement.spacedBy(
-                10.dp
-            )
-    ) {
-        Row(
-            modifier =
-                Modifier.fillMaxWidth(),
-            horizontalArrangement =
-                Arrangement.spacedBy(
-                    10.dp
-                )
-        ) {
-            TransactionActionCard(
-                icon =
-                    Icons.Rounded
-                        .TrendingUp,
-                title =
-                    "Merchant history",
-                subtitle =
-                    "View past transactions\nwith $merchant",
-                modifier =
-                    Modifier.weight(1f),
-                onClick =
-                    onMerchantHistory
-            )
-            TransactionActionCard(
-                icon =
-                    Icons.Rounded
-                        .AttachFile,
-                title =
-                    if (
-                        annotation.note
-                            .isNotBlank() ||
-                        annotation.receiptUri !=
-                        null
-                    ) {
-                        "Note or receipt"
-                    } else {
-                        "Add note or receipt"
-                    },
-                subtitle =
-                    when {
-                        annotation.receiptUri !=
-                            null &&
-                            annotation.note
-                                .isNotBlank() ->
-                            "Note and receipt saved"
-                        annotation.receiptUri !=
-                            null ->
-                            "Receipt attached"
-                        annotation.note
-                            .isNotBlank() ->
-                            "Note saved"
-                        else ->
-                            "Save a note or photo"
-                    },
-                modifier =
-                    Modifier.weight(1f),
-                onClick =
-                    onAnnotation
-            )
+    PesaCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            ActionRow(Icons.Rounded.AccountCircle, "Merchant history", onMerchantHistory)
+            if (hasAccount) ActionRow(Icons.Rounded.Paid, "View $accountLabel", onAccount)
         }
-
-        TransactionActionCard(
-            icon =
-                Icons.Rounded
-                    .AccountCircle,
-            title =
-                "Linked account",
-            subtitle =
-                if (hasAccount) {
-                    accountLabel
-                } else {
-                    "No linked account"
-                },
-            modifier =
-                Modifier.fillMaxWidth(),
-            enabled =
-                hasAccount,
-            onClick =
-                onAccount
-        )
     }
 }
 
