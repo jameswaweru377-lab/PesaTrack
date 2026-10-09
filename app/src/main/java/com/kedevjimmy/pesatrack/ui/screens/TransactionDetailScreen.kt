@@ -739,6 +739,96 @@ fun TransactionDetailScreen(
             }
         }
 
+        item {
+            SectionHeader("Actions")
+            PesaCard {
+                Column(
+                    Modifier.padding(
+                        horizontal = 14.dp,
+                        vertical = 4.dp
+                    )
+                ) {
+                    if (
+                        current.counterparty
+                            .isNullOrBlank() &&
+                        !current.evidenceLabel
+                            .isNullOrBlank()
+                    ) {
+                        ActionRow(
+                            icon =
+                                Icons.Rounded
+                                    .CheckCircle,
+                            label =
+                                "Use suggested identity",
+                            onClick = {
+                                store.acceptEvidenceIdentity(
+                                    current.id
+                                )
+                                refresh()
+                            }
+                        )
+                    }
+
+                    if (
+                        current.relationType ==
+                        TransactionStore
+                            .RELATION_REFUND
+                    ) {
+                        ActionRow(
+                            icon =
+                                Icons.Rounded
+                                    .SwapHoriz,
+                            label =
+                                "This was not a refund",
+                            onClick = {
+                                store.unlinkRefund(
+                                    current.id
+                                )
+                                refresh()
+                            }
+                        )
+                    } else {
+                        ActionRow(
+                            icon =
+                                Icons.Rounded
+                                    .SwapHoriz,
+                            label =
+                                "Mark as own-account transfer",
+                            onClick = {
+                                store.classifyManually(
+                                    id =
+                                        current.id,
+                                    category =
+                                        TransactionCategory
+                                            .TRANSFER,
+                                    direction =
+                                        MoneyDirection
+                                            .TRANSFER,
+                                    markTransfer =
+                                        true
+                                )
+                                refresh()
+                            }
+                        )
+                    }
+
+                    ActionRow(
+                        icon =
+                            Icons.Rounded.Block,
+                        label =
+                            "Exclude from budget",
+                        tintError = true,
+                        onClick = {
+                            store.excludeFromBudget(
+                                current.id
+                            )
+                            refresh()
+                        }
+                    )
+                }
+            }
+        }
+
         if (
             current.relationType !=
             TransactionStore.RELATION_REFUND
@@ -998,95 +1088,7 @@ fun TransactionDetailScreen(
             }
         }
 
-        item {
-            SectionHeader("Actions")
-            PesaCard {
-                Column(
-                    Modifier.padding(
-                        horizontal = 14.dp,
-                        vertical = 4.dp
-                    )
-                ) {
-                    if (
-                        current.counterparty
-                            .isNullOrBlank() &&
-                        !current.evidenceLabel
-                            .isNullOrBlank()
-                    ) {
-                        ActionRow(
-                            icon =
-                                Icons.Rounded
-                                    .CheckCircle,
-                            label =
-                                "Use suggested identity",
-                            onClick = {
-                                store.acceptEvidenceIdentity(
-                                    current.id
-                                )
-                                refresh()
-                            }
-                        )
-                    }
 
-                    if (
-                        current.relationType ==
-                        TransactionStore
-                            .RELATION_REFUND
-                    ) {
-                        ActionRow(
-                            icon =
-                                Icons.Rounded
-                                    .SwapHoriz,
-                            label =
-                                "This was not a refund",
-                            onClick = {
-                                store.unlinkRefund(
-                                    current.id
-                                )
-                                refresh()
-                            }
-                        )
-                    } else {
-                        ActionRow(
-                            icon =
-                                Icons.Rounded
-                                    .SwapHoriz,
-                            label =
-                                "Mark as own-account transfer",
-                            onClick = {
-                                store.classifyManually(
-                                    id =
-                                        current.id,
-                                    category =
-                                        TransactionCategory
-                                            .TRANSFER,
-                                    direction =
-                                        MoneyDirection
-                                            .TRANSFER,
-                                    markTransfer =
-                                        true
-                                )
-                                refresh()
-                            }
-                        )
-                    }
-
-                    ActionRow(
-                        icon =
-                            Icons.Rounded.Block,
-                        label =
-                            "Exclude from budget",
-                        tintError = true,
-                        onClick = {
-                            store.excludeFromBudget(
-                                current.id
-                            )
-                            refresh()
-                        }
-                    )
-                }
-            }
-        }
     }
 }
 
