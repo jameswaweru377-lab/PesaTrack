@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BudgetReadRepository
+import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CommitmentProgress
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
@@ -108,6 +109,7 @@ fun PlanScreen(
         RecurringPatternStore.get(context)
     }
     val budgetStore = remember { BudgetStore.get(context) }
+    val categoryStore = remember { CategoryStore.get(context) }
     val budgetReads = remember { BudgetReadRepository(context) }
     val ruleStore = remember { RuleStore.get(context) }
     val billSchedules = remember { BillSchedules(context) }
