@@ -4,8 +4,6 @@ import android.content.Context
 import android.util.Base64
 import java.security.MessageDigest
 import java.security.SecureRandom
-import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.PBEKeySpec
 import kotlin.math.max
 import kotlin.math.min
 
@@ -315,22 +313,7 @@ class AppLockManager(
             ) {
                 "Invalid stored PIN format."
             }
-            val spec =
-                PBEKeySpec(
-                    pin.toCharArray(),
-                    salt,
-                    ITERATIONS,
-                    KEY_BITS
-                )
-            return try {
-                SecretKeyFactory.getInstance(
-                    "PBKDF2WithHmacSHA256"
-                )
-                    .generateSecret(spec)
-                    .encoded
-            } finally {
-                spec.clearPassword()
-            }
+            return PasswordKeyDerivation.derive(pin, salt, ITERATIONS, KEY_BITS)
         }
 
         private fun lockoutDelayMs(

@@ -8,6 +8,8 @@ import com.kedevjimmy.pesatrack.domain.intelligence.SalaryCandidateSuitability
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 
 sealed interface EntityEnrichmentFetchResult {
@@ -30,7 +32,10 @@ sealed interface EntityEnrichmentFetchResult {
 class EntityEnrichmentHttpClient(
     private val endpoint:
         String = BuildConfig.ENTITY_ENRICHMENT_URL,
-    private val clientId: String? = null
+    private val clientId: String? = null,
+    private val openConnection: (URL) -> HttpURLConnection = {
+        it.openConnection() as HttpURLConnection
+    }
 ) {
     fun isConfigured(): Boolean =
         endpoint.startsWith(
@@ -66,8 +71,7 @@ class EntityEnrichmentHttpClient(
         val connection =
             runCatching {
                 (
-                    URL(endpoint).openConnection()
-                        as HttpURLConnection
+                    openConnection(URL(endpoint))
                     ).apply {
                         requestMethod = "POST"
                         connectTimeout = 5_000
@@ -101,6 +105,13 @@ class EntityEnrichmentHttpClient(
                     )
             }
 
+        val deadlineNanos = System.nanoTime() +
+            TimeUnit.MILLISECONDS.toNanos(REQUEST_DEADLINE_MS)
+        val deadlineTask = deadlineScheduler.schedule(
+            { connection.disconnect() },
+            REQUEST_DEADLINE_MS,
+            TimeUnit.MILLISECONDS
+        )
         return try {
             val request =
                 JSONObject()
@@ -121,17 +132,19 @@ class EntityEnrichmentHttpClient(
 
             val responseCode =
                 connection.responseCode
+            BoundedEnrichmentResponse.requireBeforeDeadline(deadlineNanos)
 
             when {
                 responseCode in 200..299 -> {
-                    val response =
-                        connection.inputStream
-                            .bufferedReader()
-                            .use {
-                                it.readText()
-                            }
+                    if (connection.contentLengthLong > MAX_RESPONSE_BYTES) {
+                        return EntityEnrichmentFetchResult.PermanentFailure("response_too_large")
+                    }
+                    val response = connection.inputStream.use {
+                        BoundedEnrichmentResponse.read(it, MAX_RESPONSE_BYTES, deadlineNanos)
+                    }
                     val parsed =
                         parseResponse(response)
+                    BoundedEnrichmentResponse.requireBeforeDeadline(deadlineNanos)
                     if (parsed == null) {
                         EntityEnrichmentFetchResult
                             .PermanentFailure(
@@ -169,6 +182,7 @@ class EntityEnrichmentHttpClient(
             EntityEnrichmentFetchResult
                 .Retryable("io")
         } finally {
+            deadlineTask.cancel(false)
             connection.disconnect()
         }
     }
@@ -277,6 +291,11 @@ class EntityEnrichmentHttpClient(
     }
 
     private companion object {
+        const val MAX_RESPONSE_BYTES = 65_536
+        const val REQUEST_DEADLINE_MS = 12_000L
+        val deadlineScheduler = Executors.newScheduledThreadPool(2) { task ->
+            Thread(task, "entity-enrichment-deadline").apply { isDaemon = true }
+        }
         val CLIENT_ID_REGEX =
             Regex(
                 """^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$"""

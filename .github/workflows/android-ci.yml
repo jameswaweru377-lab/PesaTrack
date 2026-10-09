@@ -37,12 +37,13 @@ jobs:
       - name: Set up Gradle 9.5
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
-          gradle-version: "9.5.0"
+          gradle-version: "wrapper"
 
       - name: Validate entity enrichment Worker
         run: |
           node --check worker/entity-enrichment/src/index.js
           node worker/entity-enrichment/test.mjs
+          node worker/entity-enrichment/resource-test.mjs
           npx --yes wrangler@4.148.0 deploy --config wrangler.jsonc --dry-run --outdir /tmp/pesatrack-worker-dry-run
 
       - name: Generate invented financial message variants
@@ -58,7 +59,7 @@ jobs:
         run: |
           set -o pipefail
           export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
-          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace 2>&1 | tee /tmp/pesatrack-build.log
+          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace 2>&1 | tee /tmp/pesatrack-build.log
 
       - name: Summarize Kotlin regression evidence
         shell: bash
@@ -104,7 +105,7 @@ jobs:
           export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
           export PESATRACK_PYTHON_LAB_EXPORT=1
           rm -f app/build/python-lab/kotlin-output.json
-          gradle :app:testDebugUnitTest --tests '*PythonFinancialLabExportTest' --rerun-tasks --stacktrace
+          ./gradlew :app:testDebugUnitTest --tests '*PythonFinancialLabExportTest' --tests '*FinancialContractLabTest' --rerun-tasks --stacktrace
           python3 -m tools.python_lab.kotlin_evaluation > app/build/python-lab/evaluation.json
           cat app/build/python-lab/evaluation.json
 
@@ -162,7 +163,7 @@ jobs:
       - name: Set up Gradle 9.5
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
-          gradle-version: "9.5.0"
+          gradle-version: "wrapper"
 
       - name: Enable KVM access
         run: |
@@ -178,7 +179,22 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: gradle :app:connectedDebugAndroidTest --stacktrace
+          script: |
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace
+            adb logcat -d -v raw 'PesaTrackMeasurement:I' '*:S' > history-measurements.jsonl
+            echo "${{ github.sha }}" > ANDROID_TEST_SOURCE_SHA.txt
+
+      - name: Retain invented Android test and timing evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-ci-results
+          retention-days: 14
+          path: |
+            app/build/outputs/androidTest-results/connected/**
+            app/build/reports/androidTests/connected/**
+            history-measurements.jsonl
+            ANDROID_TEST_SOURCE_SHA.txt
 
   publish:
     needs: [build, instrumentation]

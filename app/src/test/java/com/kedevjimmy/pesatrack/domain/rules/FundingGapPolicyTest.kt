@@ -1,9 +1,24 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class FundingGapPolicyTest {
+    @Test
+    fun unrepresentableRecognizedFundingCannotBecomeAFabricatedGap() {
+        assertThrows(ArithmeticException::class.java) {
+            FundingGapPolicy.unexplainedGap(Long.MAX_VALUE, 1L, 100L, 0L)
+        }
+    }
+
+    @Test
+    fun unrepresentableOutflowCannotBeReportedAsNoGap() {
+        assertThrows(ArithmeticException::class.java) {
+            FundingGapPolicy.unexplainedGap(0L, 0L, Long.MAX_VALUE, 1L)
+        }
+    }
+
     @Test
     fun detectsSpendingAboveRecognizedFunding() {
         assertEquals(

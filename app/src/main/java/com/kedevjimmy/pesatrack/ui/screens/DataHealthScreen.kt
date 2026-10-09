@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,6 +54,7 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialCoverageAnalysis
 import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessFreshness
 import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessReport
 import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessStateStore
+import com.kedevjimmy.pesatrack.ingestion.HistoricalImportProgress
 import com.kedevjimmy.pesatrack.ingestion.FinancialHistoryReprocessor
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
 import com.kedevjimmy.pesatrack.ingestion.FinancialMessageCoverageSnapshot
@@ -77,6 +79,10 @@ import com.kedevjimmy.pesatrack.ingestion.UnsupportedMessageShape
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -352,54 +358,50 @@ fun DataHealthScreen(
             loaded.reprocessFreshness
     }
 
-    fun runHistoryReprocess() {
-        if (
-            !smsPermissionGranted ||
-            reprocessingHistory
-        ) {
-            return
-        }
+    var reprocessProgress by remember { mutableStateOf<HistoricalImportProgress?>(null) }
+    var reprocessCancellation by remember { mutableStateOf<AtomicBoolean?>(null) }
+    DisposableEffect(Unit) {
+        onDispose { reprocessCancellation?.set(true) }
+    }
 
+    fun runHistoryReprocess() {
+        if (!smsPermissionGranted || reprocessingHistory) return
+        val cancellation = AtomicBoolean(false)
+        val months = selectedReprocessMonths
+        reprocessCancellation = cancellation
         reprocessingHistory = true
         reprocessError = null
         reprocessReport = null
-
+        reprocessProgress = null
         scope.launch {
-            val outcome =
-                runCatching {
-                    withContext(
-                        Dispatchers.IO
-                    ) {
-                        historyReprocessor
-                            .reprocess(
-                                selectedReprocessMonths
-                            )
-                    }
+            val operationJob = currentCoroutineContext().job
+            try {
+                val report = withContext(Dispatchers.IO) {
+                    historyReprocessor.reprocess(
+                        months = months,
+                        isCancelled = { cancellation.get() || !operationJob.isActive },
+                        onProgress = { progress ->
+                            scope.launch {
+                                if (reprocessCancellation === cancellation) reprocessProgress = progress
+                            }
+                        }
+                    )
                 }
-
-            outcome.onSuccess {
-                report ->
-                reprocessReport =
-                    report
-                runCatching {
-                    loadDataHealth()
-                }.onSuccess(
-                    ::applyDataHealth
-                )
-            }.onFailure {
-                error ->
-                reprocessError =
-                    when (error) {
-                        is SecurityException ->
-                            "Android did not allow PesaTrack to read SMS history on this installation."
-
-                        else ->
-                            error.message
-                                ?: "Financial history could not be reprocessed."
-                    }
+                reprocessReport = report
+                applyDataHealth(loadDataHealth())
+            } catch (cancelled: CancellationException) {
+                cancellation.set(true)
+                throw cancelled
+            } catch (failure: Exception) {
+                reprocessError = if (failure is SecurityException) {
+                    "Android did not allow PesaTrack to read SMS history on this installation."
+                } else {
+                    failure.message ?: "Financial history could not be reprocessed."
+                }
+            } finally {
+                reprocessingHistory = false
+                reprocessCancellation = null
             }
-
-            reprocessingHistory = false
         }
     }
 
@@ -621,6 +623,8 @@ fun DataHealthScreen(
                                 .READ_SMS
                         )
                 },
+                progress = reprocessProgress,
+                onCancel = { reprocessCancellation?.set(true) },
                 onReprocess =
                     ::runHistoryReprocess
             )
@@ -2314,6 +2318,8 @@ private fun HistoryReprocessCard(
     error: String?,
     onMonthsSelected: (Int) -> Unit,
     onRequestPermission: () -> Unit,
+    progress: HistoricalImportProgress?,
+    onCancel: () -> Unit,
     onReprocess: () -> Unit
 ) {
     PesaCard(
@@ -2537,6 +2543,12 @@ private fun HistoryReprocessCard(
                 }
             }
 
+            if (reprocessing) {
+                progress?.let { update ->
+                    Text("Checked ${update.scanned} of ${update.total} messages; ${update.inserted + update.duplicates} processed.")
+                }
+                TextButton(onClick = onCancel) { Text("Cancel reprocessing") }
+            }
             error?.let {
                 message ->
                 Text(
@@ -2554,6 +2566,9 @@ private fun HistoryReprocessCard(
 
             report?.let {
                 result ->
+                if (result.importResult.cancelled) {
+                    Text("Stopped after ${result.importResult.scanned} messages. Saved changes are kept. Reprocess again to restart this window safely.")
+                }
                 Text(
                     "Reconciliation report",
                     style =

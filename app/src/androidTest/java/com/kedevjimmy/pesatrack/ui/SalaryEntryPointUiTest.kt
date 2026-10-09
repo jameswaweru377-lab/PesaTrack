@@ -32,6 +32,10 @@ class SalaryEntryPointUiTest {
     }
     @Test fun payCycleViewHasExplicitEmptyStateAndCalendarSwitch() {
         compose.setContent { PesaTrackTheme { ActivityScreen(PaddingValues()) } }
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText("Pay cycle").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Pay cycle").assertIsDisplayed()
         compose.onNodeWithText("Pay cycle").performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithText("Add salary").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("This pay cycle").assertIsDisplayed()

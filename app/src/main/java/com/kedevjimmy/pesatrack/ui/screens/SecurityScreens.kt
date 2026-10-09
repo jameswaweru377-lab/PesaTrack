@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -50,12 +51,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.security.AppLockManager
+import com.kedevjimmy.pesatrack.security.BackupRecoveryStatus
+import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.security.BackupPreview
 import com.kedevjimmy.pesatrack.security.PesaBackupManager
 import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
@@ -66,6 +70,22 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+@Composable
+internal fun BackupRecoveryBlockingScreen(onRetry: () -> Unit) {
+    BackHandler { /* Recovery must finish before returning to the ledger. */ }
+    Column(
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(stringResource(R.string.backup_recovery_retry_message))
+        Spacer(Modifier.size(16.dp))
+        Button(onClick = onRetry) {
+            Text(stringResource(R.string.backup_recovery_retry_action))
+        }
+    }
+}
 
 @Composable
 fun AppLockScreen(
@@ -837,8 +857,11 @@ fun BackupRestoreSheet(
                                         error =
                                             it.message
                                                 ?: "Could not restore this backup."
+                                        if (BackupRecoveryStatus.failure != null) {
+                                            (context as? Activity)?.recreate()
+                                        }
                                     }
-                                    busy = false
+                                    busy = BackupRecoveryStatus.failure != null
                                 }
                             }
                         ) {

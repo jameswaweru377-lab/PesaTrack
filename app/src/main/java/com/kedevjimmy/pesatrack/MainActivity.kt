@@ -17,6 +17,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,26 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.retry(this)
+        if (com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failure != null) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            setContentView(android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                setPadding(32, 64, 32, 32)
+                addView(android.widget.TextView(this@MainActivity).apply {
+                    text = getString(R.string.backup_recovery_retry_message)
+                    textSize = 18f
+                })
+                addView(android.widget.Button(this@MainActivity).apply {
+                    text = getString(R.string.backup_recovery_retry_action)
+                    setOnClickListener {
+                        com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.retry(this@MainActivity)
+                        recreate()
+                    }
+                })
+            })
+            return
+        }
         appLockManager =
             AppLockManager(this)
         appLocked =
@@ -56,6 +77,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         AutomaticHistoryRepair.scheduleIfAllowed(this)
         setContent {
+            val recoveryFailure by com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failures.collectAsState()
+            if (recoveryFailure != null) {
+                com.kedevjimmy.pesatrack.ui.screens.BackupRecoveryBlockingScreen(onRetry = {
+                    com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.retry(this)
+                    if (com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failure == null) recreate()
+                })
+                return@setContent
+            }
             val preferences = remember {
                 getSharedPreferences("pesatrack_preferences", MODE_PRIVATE)
             }
@@ -147,6 +176,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        if (com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failure != null) return
         updateSecureWindowState()
         RecentSmsCatchUp.schedule(this)
         if (

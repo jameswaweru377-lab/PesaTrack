@@ -1,4 +1,48 @@
 const MAX_DESCRIPTOR_LENGTH = 80;
+const MAX_REQUEST_BYTES = 4096;
+const MAX_PROVIDER_RESPONSE_BYTES = 65536;
+const PROVIDER_DEADLINE_MS = 5000;
+
+class BodyTooLarge extends Error {}
+
+async function boundedJson(message, maxBytes, signal) {
+  if (signal?.aborted) {
+    void message.body?.cancel().catch(() => {});
+    throw new Error("Provider deadline exceeded");
+  }
+  const length = message.headers.get("content-length");
+  if (length && /^\d+$/.test(length) && Number(length) > maxBytes) {
+    void message.body?.cancel().catch(() => {});
+    throw new BodyTooLarge();
+  }
+  if (!message.body) throw new SyntaxError("Missing JSON body");
+  const reader = message.body.getReader();
+  const abort = () => { void reader.cancel().catch(() => {}); };
+  signal?.addEventListener("abort", abort, { once: true });
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      if (signal?.aborted) throw new Error("Provider deadline exceeded");
+      const { done, value } = await reader.read();
+      if (signal?.aborted) throw new Error("Provider deadline exceeded");
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) {
+        void reader.cancel().catch(() => {});
+        throw new BodyTooLarge();
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } finally {
+    signal?.removeEventListener("abort", abort);
+    reader.releaseLock();
+  }
+}
 
 function json(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
@@ -398,6 +442,25 @@ export function salarySuitabilityForRole(role) {
 }
 
 async function resolveMerchant(descriptor, env) {
+  const controller = new AbortController();
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error("Provider deadline exceeded"));
+    }, PROVIDER_DEADLINE_MS);
+  });
+  try {
+    return await Promise.race([
+      resolveMerchantWithinDeadline(descriptor, env, controller.signal),
+      deadline,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function resolveMerchantWithinDeadline(descriptor, env, signal) {
   if (!env.LOGO_DEV_SECRET_KEY) {
     return {
       error: "Merchant provider is not configured.",
@@ -409,6 +472,7 @@ async function resolveMerchant(descriptor, env) {
     "https://api.logo.dev/enrich/transaction",
     {
       method: "POST",
+      signal,
       headers: {
         authorization: `Bearer ${env.LOGO_DEV_SECRET_KEY}`,
         "content-type": "application/json",
@@ -427,7 +491,7 @@ async function resolveMerchant(descriptor, env) {
     };
   }
 
-  const data = await response.json();
+  const data = await boundedJson(response, MAX_PROVIDER_RESPONSE_BYTES, signal);
   const canonicalName =
     typeof data.merchant === "string"
       ? normalizeWhitespace(data.merchant)
@@ -521,8 +585,11 @@ export default {
 
     let payload;
     try {
-      payload = await request.json();
-    } catch {
+      payload = await boundedJson(request, MAX_REQUEST_BYTES);
+    } catch (error) {
+      if (error instanceof BodyTooLarge) {
+        return json({ error: "Request body is too large." }, 413);
+      }
       return json(
         { error: "Invalid JSON." },
         400,

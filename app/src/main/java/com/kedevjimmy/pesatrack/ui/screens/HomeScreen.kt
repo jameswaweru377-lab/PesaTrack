@@ -72,6 +72,8 @@ import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.SalaryCycleCandidate
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
+import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
@@ -635,7 +637,7 @@ fun HomeScreen(
     val activeDebtAccounts =
         debtAccounts
             .filter {
-                it.outstandingMinor > 0L
+                it.isActive
             }
             .sortedWith(
                 compareByDescending<
@@ -744,7 +746,7 @@ fun HomeScreen(
         return
     }
 
-    val planningAvailability =
+    val planningAvailability = if (cycleSnapshot.availableToLiveMinor == Long.MIN_VALUE) null else
         PlanningAvailabilityPolicy
             .from(
                 cycleSnapshot
@@ -752,6 +754,7 @@ fun HomeScreen(
             )
 
     val spendSlices = remember(activitySnapshot) {
+        try {
         activitySnapshot.trustedTransactions
             .filter {
                 it.reviewState != ReviewState.EXCLUDED.name &&
@@ -769,7 +772,7 @@ fun HomeScreen(
             .mapValues { (_, items) ->
                 maxOf(
                     0L,
-                    items.sumOf { item ->
+                    items.checkedMoneySumOf { item ->
                         if (
                             item.relationType ==
                             TransactionStore.RELATION_REFUND
@@ -780,12 +783,12 @@ fun HomeScreen(
                                     store = transactionStore
                                 )
                             ) {
-                                -item.amountMinor
+                                CheckedMoney.negate(item.amountMinor)
                             } else {
                                 0L
                             }
                         } else {
-                            item.amountMinor + item.feeMinor
+                            CheckedMoney.add(item.amountMinor, item.feeMinor)
                         }
                     }
                 )
@@ -800,12 +803,13 @@ fun HomeScreen(
                     color = premiumCategoryColor(index)
                 )
             }
+        } catch (_: ArithmeticException) { null }
     }
 
     val spentTodayMinor = remember(
         activitySnapshot,
         ledgerUpdateState.revision
-    ) {
+    ) { CheckedMoney.orNull {
         val startCalendar =
             Calendar.getInstance().apply {
                 set(Calendar.HOUR_OF_DAY, 0)
@@ -842,7 +846,7 @@ fun HomeScreen(
                                         .RELATION_REFUND
                             )
                 }
-                .sumOf { item ->
+                .checkedMoneySumOf { item ->
                     if (
                         item.relationType ==
                         TransactionStore.RELATION_REFUND
@@ -853,21 +857,20 @@ fun HomeScreen(
                                 store = transactionStore
                             )
                         ) {
-                            -item.amountMinor
+                            CheckedMoney.negate(item.amountMinor)
                         } else {
                             0L
                         }
                     } else {
-                        item.amountMinor +
-                            item.feeMinor
+                        CheckedMoney.add(item.amountMinor, item.feeMinor)
                     }
                 }
         )
-    }
+    } }
 
     val homeSpendingItems =
-        spendSlices.take(3)
-            .map {
+        spendSlices?.take(3)
+            ?.map {
                 HomeSpendingItem(
                     label = it.label,
                     amountMinor =
@@ -875,19 +878,13 @@ fun HomeScreen(
                     color = it.color
                 )
             }
-    val totalTrustedSpendingMinor =
+    val totalTrustedSpendingMinor = CheckedMoney.orNull {
         maxOf(
             0L,
-            activitySnapshot
-                .summary
-                .spentMinor +
-                activitySnapshot
-                    .summary
-                    .feesMinor -
-                activitySnapshot
-                    .summary
-                    .refundMinor
+            CheckedMoney.total(activitySnapshot.summary.spentMinor, activitySnapshot.summary.feesMinor,
+                CheckedMoney.negate(activitySnapshot.summary.refundMinor))
         )
+    }
     val unresolvedDuplicateSecondIds =
         activitySnapshot
             .possibleDuplicates
@@ -912,10 +909,10 @@ fun HomeScreen(
             .take(5)
             .toList()
     val monthlyBudgetTotalMinor =
-        monthlyBudgets.sumOf { it.limitMinor }
+        CheckedMoney.orNull { monthlyBudgets.checkedMoneySumOf { it.limitMinor } }
     val monthlyBudgetCategoryIds =
         monthlyBudgets.map { it.categoryId }.toSet()
-    val monthlyBudgetSpentMinor =
+    val monthlyBudgetSpentMinor = CheckedMoney.orNull {
         activitySnapshot.trustedTransactions
             .filter {
                 it.direction == MoneyDirection.EXPENSE.name &&
@@ -923,13 +920,13 @@ fun HomeScreen(
                     it.reviewState != ReviewState.NEEDS_REVIEW.name &&
                     categoryStore.canonicalId(it.category) in monthlyBudgetCategoryIds
             }
-            .sumOf { it.amountMinor + it.feeMinor }
+            .checkedMoneySumOf { CheckedMoney.add(it.amountMinor, it.feeMinor) }
             .coerceAtLeast(0L)
 
+    }
     val activeDebtOutstandingMinor =
-        activeDebtAccounts.sumOf {
-            it.outstandingMinor
-        }
+        if (activeDebtAccounts.any { it.balanceQuality == com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality.UNKNOWN }) null
+        else CheckedMoney.orNull { activeDebtAccounts.checkedMoneySumOf { it.outstandingMinor } }
     val activeSalaryRule =
         salaryRule
     if (
@@ -970,9 +967,18 @@ fun HomeScreen(
         )
     }
 
+    val maximumProtectionMinor = CheckedMoney.orNull {
+        CheckedMoney.add(cycleSnapshot.availableToLiveMinor, cycleSnapshot.userProtectedMinor)
+    }
+    if (showProtectionDialog && maximumProtectionMinor == null) {
+        AlertDialog(onDismissRequest = { showProtectionDialog = false },
+            title = { Text("Amount unavailable") },
+            text = { Text("This planning amount cannot be represented safely.") },
+            confirmButton = { TextButton(onClick = { showProtectionDialog = false }) { Text("Close") } })
+    }
     if (
         showProtectionDialog &&
-        cycleSnapshot.cycle != null
+        cycleSnapshot.cycle != null && maximumProtectionMinor != null
     ) {
         ProtectMoneyDialog(
             currentMinor =
@@ -981,20 +987,7 @@ fun HomeScreen(
             maximumSuggestedMinor =
                 maxOf(
                     0L,
-                    cycleSnapshot
-                        .startingFundsMinor +
-                        cycleSnapshot
-                            .additionalIncomeMinor +
-                        cycleSnapshot
-                            .refundsMinor -
-                        cycleSnapshot
-                            .spentMinor -
-                        cycleSnapshot
-                            .feesMinor -
-                        cycleSnapshot
-                            .savingsMinor -
-                        cycleSnapshot
-                            .remainingCommitmentsMinor
+                    maximumProtectionMinor
                 ),
             onDismiss = {
                 showProtectionDialog =
@@ -1036,6 +1029,11 @@ fun HomeScreen(
         item {
             GreetingBlock(onProfileClick = onProfileClick)
         }
+        if (homeError) item {
+            Text("Your money picture could not load")
+            Text("Showing your last successfully loaded money picture.")
+            TextButton(onClick = { refresh() }) { Text("Try again") }
+        }
 
         item {
             ConceptEmeraldHero(
@@ -1043,11 +1041,15 @@ fun HomeScreen(
                 amount =
                     if (cycleSnapshot.cycle == null) {
                         "Waiting for salary"
+                    } else if (planningAvailability == null) {
+                        "Amount unavailable"
                     } else {
                         formatMoney(planningAvailability.availableMinor)
                     },
                 subtitle =
-                    if (planningAvailability.shortfallMinor > 0L) {
+                    if (planningAvailability == null) {
+                        "The planning amount cannot be represented safely."
+                    } else if (planningAvailability.shortfallMinor > 0L) {
                         "Planning shortfall " + formatMoney(planningAvailability.shortfallMinor)
                     } else if (cycleSnapshot.cycle != null) {
                         "Available after commitments • updated from your real activity"
@@ -1074,14 +1076,7 @@ fun HomeScreen(
                 ConceptMetricTile(
                     icon = Icons.Rounded.NorthEast,
                     label = "Spent",
-                    value = formatMoney(
-                        maxOf(
-                            0L,
-                            activitySnapshot.summary.spentMinor +
-                                activitySnapshot.summary.feesMinor -
-                                activitySnapshot.summary.refundMinor
-                        )
-                    ),
+                    value = formatMoney(totalTrustedSpendingMinor),
                     modifier = Modifier.weight(1f),
                     positive = false
                 )
@@ -1120,12 +1115,15 @@ fun HomeScreen(
             }
         }
 
-        if (monthlyBudgetTotalMinor > 0L) {
+        if (monthlyBudgetTotalMinor == null || monthlyBudgetSpentMinor == null) item {
+            Text("Monthly plan total unavailable")
+        }
+        if (monthlyBudgetTotalMinor != null && monthlyBudgetTotalMinor > 0L && monthlyBudgetSpentMinor != null) {
             item {
                 ConceptProgressCard(
                     title = "Monthly plan",
                     amount = formatMoney(
-                        (monthlyBudgetTotalMinor - monthlyBudgetSpentMinor)
+                        CheckedMoney.subtract(monthlyBudgetTotalMinor, monthlyBudgetSpentMinor)
                             .coerceAtLeast(0L)
                     ) + " left",
                     helper =
@@ -1964,12 +1962,13 @@ private fun homeInsight(
     }
 }
 
-private fun formatMoney(minor: Long): String {
+private fun formatMoney(minor: Long?): String {
+    if (minor == null) return "Amount unavailable"
     val formatter = NumberFormat.getNumberInstance(Locale.US).apply {
         maximumFractionDigits = 0
     }
     return if (minor < 0) {
-        "-KES " + formatter.format(-minor / 100.0)
+        "-KES " + formatter.format(-minor.toDouble() / 100.0)
     } else {
         "KES " + formatter.format(minor / 100.0)
     }

@@ -460,6 +460,83 @@ class DebtLinkingPoliciesTest {
     }
 
     @Test
+    fun negativeRepaymentBalanceMustNotBecomeFabricatedZero() {
+        val derived =
+            DebtRepaymentBalancePolicy.deriveBalanceAfterRepayment(
+                priorBalanceMinor = 1_000L,
+                incomingAmountMinor = 200L,
+                repaymentAmountMinor = 1_500L
+            )
+
+        assertNull(derived)
+        assertNull(
+            DebtRepaymentBalancePolicy.choose(
+                explicitBalanceAfterMinor = null,
+                computedBalanceAfterMinor = derived,
+                repaymentAtEpochMs = 600_000L,
+                candidates = listOf(
+                    RepaymentBalanceCandidate(
+                        observationId = 70L,
+                        balanceMinor = 0L,
+                        observedAtEpochMs = 605_000L
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun validRepaymentEquationPreservesExactMinorUnits() {
+        assertEquals(
+            1_050L,
+            DebtRepaymentBalancePolicy.deriveBalanceAfterRepayment(
+                priorBalanceMinor = 2_000L,
+                incomingAmountMinor = 50L,
+                repaymentAmountMinor = 1_000L
+            )
+        )
+        assertEquals(
+            0L,
+            DebtRepaymentBalancePolicy.deriveBalanceAfterRepayment(
+                priorBalanceMinor = 1_000L,
+                incomingAmountMinor = 100L,
+                repaymentAmountMinor = 1_100L
+            )
+        )
+    }
+
+    @Test
+    fun rejectsArithmeticOverflowAndInvalidBalanceEvidence() {
+        assertNull(
+            DebtRepaymentBalancePolicy.deriveBalanceAfterRepayment(
+                priorBalanceMinor = Long.MAX_VALUE,
+                incomingAmountMinor = 100L,
+                repaymentAmountMinor = 50L
+            )
+        )
+        assertNull(
+            DebtRepaymentBalancePolicy.deriveBalanceAfterRepayment(
+                priorBalanceMinor = null,
+                incomingAmountMinor = 1_000L,
+                repaymentAmountMinor = 500L
+            )
+        )
+        assertNull(
+            DebtRepaymentBalancePolicy.deriveBalanceAfterRepayment(
+                priorBalanceMinor = -1L,
+                incomingAmountMinor = 1_000L,
+                repaymentAmountMinor = 500L
+            )
+        )
+        assertNull(
+            DebtRepaymentBalancePolicy.deriveBalanceAfterRepayment(
+                priorBalanceMinor = 1_000L,
+                incomingAmountMinor = 500L,
+                repaymentAmountMinor = 0L
+            )
+        )
+    }
+    @Test
     fun doesNotTreatAvailableCreditAsCashBalance() {
         val match =
             DebtRepaymentBalancePolicy.choose(

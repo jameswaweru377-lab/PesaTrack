@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.kedevjimmy.pesatrack.security.BackupRestoreJournal
 
 internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
@@ -10,6 +11,13 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
     null,
     DATABASE_VERSION
 ) {
+    private val appContext = context.applicationContext
+
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        BackupRestoreJournal(appContext).recover(db)
+    }
+
     override fun onCreate(db: SQLiteDatabase) {
         createTransactionsTable(db)
         createRulesTable(db)
@@ -481,6 +489,12 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 32) {
             createSavingGoalMetadataTable(db)
+        }
+
+        if (oldVersion < 34) {
+            // NULL means legacy provenance was not recorded; never assume
+            // that net cash received was the principal owed.
+            addColumnIfMissing(db, "debt_events", "amount_is_net_proceeds", "INTEGER")
         }
 
         createIndexes(db)
@@ -957,6 +971,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 amount_minor INTEGER NOT NULL,
                 fee_minor INTEGER NOT NULL DEFAULT 0,
                 outstanding_after_minor INTEGER,
+                amount_is_net_proceeds INTEGER,
                 linked_transaction_id INTEGER,
                 related_debt_event_id INTEGER,
                 wallet_balance_after_minor INTEGER,
@@ -1634,6 +1649,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 33
+        private const val DATABASE_VERSION = 34
     }
 }
