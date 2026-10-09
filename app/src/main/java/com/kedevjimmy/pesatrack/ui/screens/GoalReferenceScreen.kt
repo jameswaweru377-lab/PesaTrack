@@ -1060,7 +1060,8 @@ fun SavingGoalsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF5B55E7)
+                    containerColor = com.kedevjimmy.pesatrack.ui.theme.AuroraIndigo,
+                    contentColor = Color.White
                 ),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
             ) {

@@ -1,5 +1,8 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
+
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -79,26 +82,28 @@ private data class BillVisual(
     val color: Color
 )
 
+@Composable
 private fun billVisual(bill: ScheduledBill): BillVisual {
     val title = (bill.rule.displayLabel ?: bill.rule.name)
-        .lowercase(Locale.getDefault())
+        .lowercase(Locale.ROOT)
     return when {
         "rent" in title ->
-            BillVisual(Icons.Rounded.Home, Color(0xFFFF6B82))
+            BillVisual(Icons.Rounded.Home, com.kedevjimmy.pesatrack.ui.components.pesaToneContent("red"))
         "wifi" in title || "wi-fi" in title || "internet" in title ->
-            BillVisual(Icons.Rounded.Wifi, Color(0xFF57C7FF))
+            BillVisual(Icons.Rounded.Wifi, com.kedevjimmy.pesatrack.ui.components.pesaToneContent("blue"))
         "electric" in title || "power" in title || "kplc" in title ->
-            BillVisual(Icons.Rounded.Bolt, Color(0xFFF4C768))
+            BillVisual(Icons.Rounded.Bolt, com.kedevjimmy.pesatrack.ui.components.pesaToneContent("amber"))
         "water" in title ->
-            BillVisual(Icons.Rounded.WaterDrop, Color(0xFF57C7FF))
+            BillVisual(Icons.Rounded.WaterDrop, com.kedevjimmy.pesatrack.ui.components.pesaToneContent("blue"))
         "subscription" in title || "netflix" in title || "youtube" in title ->
-            BillVisual(Icons.Rounded.PlayCircle, Color(0xFFA69CFF))
+            BillVisual(Icons.Rounded.PlayCircle, com.kedevjimmy.pesatrack.ui.components.pesaToneContent("violet"))
         "loan" in title || "debt" in title || "repayment" in title ->
-            BillVisual(Icons.Rounded.Savings, Color(0xFF55E6D1))
+            BillVisual(Icons.Rounded.Savings, com.kedevjimmy.pesatrack.ui.components.pesaToneContent("green"))
         else ->
-            BillVisual(Icons.Rounded.ReceiptLong, Color(0xFF14B8A6))
+            BillVisual(Icons.Rounded.ReceiptLong, com.kedevjimmy.pesatrack.ui.components.pesaToneContent("green"))
     }
 }
+
 
 private fun billStatus(bill: ScheduledBill): Pair<String, String> {
     if (bill.remainingMinor <= 0L) {
@@ -367,10 +372,11 @@ private fun BillsHero(
     }
 }
 
+@Composable
 private fun billDateColor(bill: ScheduledBill): Color =
     when (billStatus(bill).second) {
-        "red" -> Color(0xFFEF5F78)
-        "green" -> Color(0xFF55E6D1)
+        "red" -> pesaToneContent("red")
+        "green" -> pesaToneContent("green")
         else -> billVisual(bill).color
     }
 
@@ -677,7 +683,7 @@ private fun BillReferenceRow(
                             status.first == "Due Soon" ||
                             status.first == "Overdue"
                         ) {
-                            Color(0xFFFF6B82)
+                            pesaToneContent("red")
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
@@ -714,11 +720,7 @@ private fun BillReferenceRow(
                 }
                 Surface(
                     shape = RoundedCornerShape(50.dp),
-                    color = when (status.second) {
-                        "red" -> Color(0xFF3A1D2A)
-                        "green" -> Color(0xFF202B42)
-                        else -> Color(0xFF352B19)
-                    }
+                    color = pesaToneContainer(if (status.second == "red") "red" else if (status.second == "green") "green" else "amber")
                 ) {
                     Text(
                         status.first,
@@ -728,11 +730,7 @@ private fun BillReferenceRow(
                         ),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = when (status.second) {
-                            "red" -> Color(0xFFFF92A3)
-                            "green" -> Color(0xFF55E6D1)
-                            else -> Color(0xFFF4C768)
-                        }
+                        color = pesaToneContent(if (status.second == "red") "red" else if (status.second == "green") "green" else "amber")
                     )
                 }
             }
@@ -798,13 +796,13 @@ private fun BillReminderCard(
             Surface(
                 modifier = Modifier.size(48.dp),
                 shape = RoundedCornerShape(15.dp),
-                color = Color(0xFF29254F)
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         Icons.Rounded.NotificationsActive,
                         null,
-                        tint = Color(0xFF8B80FF)
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }

@@ -68,13 +68,7 @@ private fun conceptDate(epoch: Long): String =
     SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(epoch))
 
 
-@Composable
-private fun SpendingDonut(
-    spending: List<Pair<String, Long>>,
-    total: Long,
-    modifier: Modifier = Modifier
-) {
-    val palette = listOf(
+private val SpendingPalette = listOf(
         Color(0xFF5B55E7),
         Color(0xFF6F63F2),
         Color(0xFF55E6D1),
@@ -82,6 +76,15 @@ private fun SpendingDonut(
         Color(0xFFE2DFFF),
         Color(0xFF14B8A6)
     )
+
+@Composable
+private fun SpendingDonut(
+    spending: List<Pair<String, Long>>,
+    total: Long,
+    modifier: Modifier = Modifier
+) {
+    val palette = SpendingPalette
+
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             var start = -90f
@@ -603,17 +606,12 @@ fun ReportsInsightsScreen(
                             modifier = Modifier.weight(1f).padding(start = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
-                            spending.take(4).forEachIndexed { index, entry ->
+                            spending.forEachIndexed { index, entry ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Surface(
                                         modifier = Modifier.size(9.dp),
                                         shape = androidx.compose.foundation.shape.CircleShape,
-                                        color = listOf(
-                                            Color(0xFF5B55E7),
-                                            Color(0xFF6F63F2),
-                                            Color(0xFF55E6D1),
-                                            Color(0xFFA69CFF)
-                                        )[index]
+                                        color = SpendingPalette[index % SpendingPalette.size]
                                     ) {}
                                     Text(
                                         entry.first,

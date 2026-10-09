@@ -106,6 +106,7 @@ class MainActivity : ComponentActivity() {
             var setupComplete by remember {
                 mutableStateOf(preferences.getBoolean("setup_complete", false))
             }
+            var welcomeVisible by remember { mutableStateOf(!setupComplete) }
             var showLaunchSplash by remember {
                 mutableStateOf(true)
             }
@@ -121,6 +122,12 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.DARK -> true
             }
 
+            androidx.compose.runtime.SideEffect {
+                val darkSurface = useDark || showLaunchSplash || (appLocked && appLockManager.isEnabled()) || welcomeVisible
+                val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                controller.isAppearanceLightStatusBars = !darkSurface
+                controller.isAppearanceLightNavigationBars = !darkSurface
+            }
             PesaTrackTheme(darkTheme = useDark) {
                 if (showLaunchSplash) {
                     StartupSplashScreen()
@@ -162,6 +169,7 @@ class MainActivity : ComponentActivity() {
                         preferences.edit().putString("theme_mode", newMode.name).apply()
                     },
                     setupComplete = setupComplete,
+                    onWelcomeVisibilityChange = { welcomeVisible = it },
                     onSetupComplete = {
                         setupComplete = true
                         preferences.edit()

@@ -1,6 +1,9 @@
 package com.kedevjimmy.pesatrack.ui
 
+import androidx.navigation.compose.currentBackStackEntryAsState
+
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -43,6 +46,7 @@ fun PesaTrackApp(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     setupComplete: Boolean,
+    onWelcomeVisibilityChange: (Boolean) -> Unit = {},
     onSetupComplete: () -> Unit,
     salaryOpenRequest: Int = 0,
     billsOpenRequest: Int = 0,
@@ -106,6 +110,11 @@ fun PesaTrackApp(
         } else {
             MainTab.HOME.route
         }
+
+    val currentEntry by navController.currentBackStackEntryAsState()
+    LaunchedEffect(currentEntry?.destination?.route, setupComplete) {
+        onWelcomeVisibilityChange((currentEntry?.destination?.route ?: startDestination) == "onboarding")
+    }
 
     NavHost(
         navController = navController,

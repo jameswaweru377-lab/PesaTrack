@@ -222,7 +222,7 @@ fun LandscapeBackdrop(
             .clip(RoundedCornerShape(28.dp))
             .background(base)
     ) {
-        Canvas(Modifier.fillMaxSize()) {
+        Canvas(Modifier.matchParentSize()) {
             if (showSun) {
                 drawCircle(
                     color = sun,

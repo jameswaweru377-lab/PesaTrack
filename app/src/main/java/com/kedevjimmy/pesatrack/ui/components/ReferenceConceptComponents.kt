@@ -203,10 +203,11 @@ fun ConceptEmeraldHero(
                 )
                 .padding(16.dp)
         ) {
+            val showArtwork = artwork && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 380 && androidx.compose.ui.platform.LocalDensity.current.fontScale <= 1.1f
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(end = if (artwork) 104.dp else 0.dp)
+                    .padding(end = if (showArtwork) 104.dp else 0.dp)
             ) {
                 eyebrow?.let {
                     Text(
@@ -229,7 +230,7 @@ fun ConceptEmeraldHero(
                     fontSize = 30.sp,
                     lineHeight = 34.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
@@ -247,7 +248,7 @@ fun ConceptEmeraldHero(
                     )
                 }
             }
-            if (artwork) {
+            if (showArtwork) {
                 ConceptWalletIllustration(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
@@ -322,7 +323,7 @@ fun ConceptProgressCard(
     ) {
         Column(Modifier.padding(15.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = ConceptEmerald, modifier = Modifier.size(24.dp))
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                 Text(
                     title,
                     modifier = Modifier.weight(1f).padding(start = 8.dp),
@@ -337,8 +338,8 @@ fun ConceptProgressCard(
                     .fillMaxWidth()
                     .padding(top = 12.dp)
                     .height(9.dp),
-                color = Color(0xFF7C6FF2),
-                trackColor = Color(0xFFE2DFFF)
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.primaryContainer
             )
             Text(
                 helper,

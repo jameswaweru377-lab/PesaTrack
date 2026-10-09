@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -1064,7 +1065,7 @@ private fun TransactionHero(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(240.dp),
+                .heightIn(min = 240.dp),
         showSun = false
     ) {
         Column(
@@ -2072,6 +2073,7 @@ private data class CategoryVisual(
     val color: Color
 )
 
+@Composable
 private fun categoryVisual(
     categoryId: String
 ): CategoryVisual =
@@ -2081,7 +2083,7 @@ private fun categoryVisual(
             CategoryVisual(
                 Icons.Rounded
                     .ShoppingCart,
-                Color(0xFFA69CFF)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("violet")
             )
 
         TransactionCategory
@@ -2089,7 +2091,7 @@ private fun categoryVisual(
             CategoryVisual(
                 Icons.Rounded
                     .Restaurant,
-                Color(0xFFFFB24D)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("amber")
             )
 
         TransactionCategory
@@ -2097,28 +2099,28 @@ private fun categoryVisual(
             CategoryVisual(
                 Icons.Rounded
                     .DirectionsBus,
-                Color(0xFF57C7FF)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("blue")
             )
 
         TransactionCategory
             .RENT.name ->
             CategoryVisual(
                 Icons.Rounded.Home,
-                Color(0xFFFF7B8C)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("red")
             )
 
         TransactionCategory
             .ELECTRICITY.name ->
             CategoryVisual(
                 Icons.Rounded.Bolt,
-                Color(0xFFFFD54A)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("amber")
             )
 
         TransactionCategory
             .WATER.name ->
             CategoryVisual(
                 Icons.Rounded.WaterDrop,
-                Color(0xFF78D8FF)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("blue")
             )
 
         TransactionCategory
@@ -2127,14 +2129,14 @@ private fun categoryVisual(
             .PHONE_AND_DATA.name ->
             CategoryVisual(
                 Icons.Rounded.Wifi,
-                Color(0xFF9B8CFF)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("violet")
             )
 
         TransactionCategory
             .SHOPPING.name ->
             CategoryVisual(
                 Icons.Rounded.ShoppingBag,
-                Color(0xFFFF81AE)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("red")
             )
 
         TransactionCategory
@@ -2145,14 +2147,14 @@ private fun categoryVisual(
             .FAMILY.name ->
             CategoryVisual(
                 Icons.Rounded.Favorite,
-                Color(0xFFFF7A7A)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("red")
             )
 
         TransactionCategory
             .EDUCATION.name ->
             CategoryVisual(
                 Icons.Rounded.School,
-                Color(0xFFA78BFA)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("violet")
             )
 
         TransactionCategory
@@ -2163,7 +2165,7 @@ private fun categoryVisual(
                 Icons.AutoMirrored
                     .Rounded
                     .ReceiptLong,
-                Color(0xFFFFC36A)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("amber")
             )
 
         TransactionCategory
@@ -2177,21 +2179,21 @@ private fun categoryVisual(
             .INVESTMENT.name ->
             CategoryVisual(
                 Icons.Rounded.TrendingUp,
-                Color(0xFF55E6D1)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("green")
             )
 
         TransactionCategory
             .INCOME.name ->
             CategoryVisual(
                 Icons.Rounded.Paid,
-                Color(0xFFA69CFF)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("violet")
             )
 
         TransactionCategory
             .HOME_HOUSEHOLD.name ->
             CategoryVisual(
                 Icons.Rounded.Home,
-                Color(0xFF55E6D1)
+                com.kedevjimmy.pesatrack.ui.components.pesaToneContent("green")
             )
 
         else ->
@@ -2264,7 +2266,7 @@ private fun TransactionActionCard(
                 shape =
                     CircleShape,
                 color =
-                    Color(0xFF14B8A6)
+                    com.kedevjimmy.pesatrack.ui.components.pesaToneContent("green")
                         .copy(
                             alpha = .2f
                         )
