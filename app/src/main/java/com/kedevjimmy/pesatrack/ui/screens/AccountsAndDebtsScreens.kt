@@ -228,6 +228,8 @@ fun AccountsScreen(
             else -> true
         }
     }
+    val hasMpesa = visible.any { it.group.accounts.any { account -> account.id == AccountStore.DEFAULT_MPESA_ID } }
+    val shown = visible.filterNot { hasMpesa && (it.group.displayName.contains("M-Shwari", true) || it.group.displayName.contains("KCB M-Pesa", true)) }
     val knownTotalMinor = CheckedMoney.orNull {
         visible
             .mapNotNull {
@@ -250,9 +252,9 @@ fun AccountsScreen(
             PesaCard {
                 Column(Modifier.padding(16.dp)) {
                     Text("Known balances", style = MaterialTheme.typography.titleMedium)
-                    Text(if (knownBalanceCount == 0) "Waiting for balances" else formatDetailMoney(knownTotalMinor),
+                    Text(if (knownBalanceCount == 0) "No balance yet" else formatDetailMoney(knownTotalMinor),
                         style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text("$knownBalanceCount of ${visible.size} confirmed accounts • unknown balances excluded",
+                    Text("Balances available for $knownBalanceCount of ${visible.size} accounts",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -264,9 +266,9 @@ fun AccountsScreen(
                     style = MaterialTheme.typography.bodySmall)
             } }
         }
-        items(visible.size, key = { visible[it].group.key }) { index ->
-            AccountBalanceCard(visible[index], index, onAccountClick?.let { callback ->
-                { visible[index].group.accounts.firstOrNull()?.id?.let(callback); Unit }
+        items(shown.size, key = { shown[it].group.key }) { index ->
+            AccountBalanceCard(shown[index], index, onAccountClick?.let { callback ->
+                { shown[index].group.accounts.firstOrNull()?.id?.let(callback); Unit }
             })
         }
         if (selectedTab == 0 && activeDebts.isNotEmpty()) {
@@ -295,7 +297,7 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
             }
         }
         ScrollableTabRow(selectedTabIndex = selected, edgePadding = 0.dp) {
-            listOf("All", "Bank accounts", "Mobile money", "Debts").forEachIndexed { index, label ->
+            listOf("All", "Banks", "Mobile", "Debts").forEachIndexed { index, label ->
                 Tab(selected = selected == index, onClick = { onSelected(index) }, text = { Text(label) })
             }
         }
@@ -308,8 +310,8 @@ private fun RelationshipReviewCard(onClick: () -> Unit) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             IconBubble(Icons.Rounded.AccountBalance, size = 40.dp)
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text("Review relationships", style = MaterialTheme.typography.titleMedium)
-                Text("Check which accounts are yours, shared or someone else's.",
+                Text("Which accounts are yours?", style = MaterialTheme.typography.titleMedium)
+                Text("Add or manage your accounts",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Icon(Icons.Rounded.ChevronRight, contentDescription = null)
@@ -507,13 +509,13 @@ fun DebtsScreen(
                             Modifier.padding(18.dp)
                     ) {
                         Text(
-                            "You're clear here",
+                            "No current debt recorded",
                             style =
                                 MaterialTheme.typography
                                     .titleMedium
                         )
                         Text(
-                            "A loan appears when PesaTrack has a positive outstanding balance or a confirmed drawdown whose exact balance is still waiting for evidence.",
+                            "Add a debt or import its money messages to track it here.",
                             modifier =
                                 Modifier.padding(top = 5.dp),
                             color =
@@ -711,12 +713,12 @@ private fun AccountBalanceCard(
                                 presentation.quality
                             ) {
                                 PaydayBalanceQuality.OBSERVED ->
-                                    "Last observed " +
+                                    "Balance from " +
                                         formatDetailDateTime(
                                             epoch
                                         )
                                 PaydayBalanceQuality.RECONSTRUCTED ->
-                                    "Updated from account activity • base " +
+                                    "Estimate from " +
                                         formatDetailDateTime(
                                             epoch
                                         )
@@ -732,7 +734,7 @@ private fun AccountBalanceCard(
                                         )
                             }
                         }
-                        ?: "No balance observed yet",
+                        ?: "Balance not available",
                     modifier =
                         Modifier.padding(top = 3.dp),
                     style =
@@ -914,7 +916,7 @@ private fun accountBalancePresentation(
                             account.name
                         ),
                     balanceMinor =
-                        snapshot?.balanceMinor,
+                        com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.savingsBalance(snapshot?.balanceMinor, account.type == AccountType.SAVINGS, snapshot?.quality == PaydayBalanceQuality.RECONSTRUCTED),
                     observedAtEpochMs =
                         snapshot
                             ?.referenceEpochMs,
@@ -1079,4 +1081,3 @@ private fun formatDetailDateTime(
     ).format(
         Date(epochMs)
     )
-

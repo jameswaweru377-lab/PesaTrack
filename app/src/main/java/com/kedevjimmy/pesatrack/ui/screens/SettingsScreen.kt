@@ -1,450 +1,62 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Upload
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.kedevjimmy.pesatrack.data.local.EntityEnrichmentPreferences
-import com.kedevjimmy.pesatrack.security.AppLockManager
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
-import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
-import com.kedevjimmy.pesatrack.ui.components.SectionHeader
+
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
+import com.kedevjimmy.pesatrack.security.AppLockManager
 
 @Composable
-fun SettingsScreen(
-    scaffoldPadding: PaddingValues,
-    themeMode: ThemeMode,
-    onThemeModeChange: (ThemeMode) -> Unit,
-    onBack: () -> Unit,
-    onProfileClick: () -> Unit,
-    onMpesaConnectionClick: () -> Unit,
-    onSmartRulesClick: () -> Unit,
-    onHistoricalImportClick: () -> Unit
-) {
-    val context =
-        LocalContext.current
-    val appLockManager =
-        remember {
-            AppLockManager(context)
+fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit,
+    onBack: () -> Unit, onProfileClick: () -> Unit, onMpesaConnectionClick: () -> Unit,
+    onSmartRulesClick: () -> Unit, onHistoricalImportClick: () -> Unit, onAdvancedClick: () -> Unit = {}) {
+    val context = LocalContext.current
+    var page by rememberSaveable { mutableStateOf("settings") }
+    var lock by remember { mutableStateOf(false) }
+    var backup by remember { mutableStateOf(false) }
+    val back = { page = "settings" }
+    BackHandler(enabled = page != "settings", onBack = back)
+    if (lock) AppLockSettingsSheet(onDismiss = { lock = false }, onChanged = {})
+    if (backup) BackupRestoreSheet(onDismiss = { backup = false })
+    when (page) {
+        "appearance" -> AppearancePage(scaffoldPadding, themeMode, onThemeModeChange, back)
+        "privacy" -> PrivacyPage(scaffoldPadding, back, { page = "access" })
+        "access" -> MoneyAccessPage(scaffoldPadding, back, onHistoricalImportClick)
+        "reminders" -> RemindersPage(scaffoldPadding, back)
+        "help" -> HelpPage(scaffoldPadding, back, onAdvancedClick)
+        "about" -> EverydayPage("About PesaTrack", scaffoldPadding, back) {
+            item { Text("PesaTrack helps you understand your spending, savings and bills from money messages on this phone.") }
+            item { Text("Version " + com.kedevjimmy.pesatrack.BuildConfig.VERSION_NAME) }
+            item { Text("Balances reflect the messages and entries available to PesaTrack. Check your bank or M-Pesa app for the latest balance.") }
         }
-    val enrichmentPreferences =
-        remember {
-            EntityEnrichmentPreferences
-                .get(context)
-        }
-    var onlineEntityLookupEnabled by
-        remember {
-            mutableStateOf(
-                enrichmentPreferences
-                    .isOnlineLookupEnabled()
-            )
-        }
-    var appLockEnabled by remember {
-        mutableStateOf(
-            appLockManager.isEnabled()
-        )
-    }
-    var showAppLock by remember {
-        mutableStateOf(false)
-    }
-    var showBackupRestore by remember {
-        mutableStateOf(false)
-    }
-    var showNotificationSources by remember { mutableStateOf(false) }
-
-    if (showNotificationSources) {
-        NotificationSourceApprovalSheet(onDismiss = { showNotificationSources = false })
-    }
-
-    if (showAppLock) {
-        AppLockSettingsSheet(
-            onDismiss = {
-                showAppLock = false
-            },
-            onChanged = {
-                appLockEnabled =
-                    appLockManager
-                        .isEnabled()
-            }
-        )
-    }
-
-    if (showBackupRestore) {
-        BackupRestoreSheet(
-            onDismiss = {
-                showBackupRestore =
-                    false
-            }
-        )
-    }
-
-    LazyColumn(
-        modifier = Modifier
-            .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-                }
-                Text("Settings", style = MaterialTheme.typography.headlineMedium)
-            }
-        }
-
-        item {
-            PesaCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onProfileClick)
-            ) {
-                Row(
-                    Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        modifier = Modifier.size(54.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        PesaLogoMark(size = 54.dp)
-                    }
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .padding(start = 12.dp)
-                    ) {
-                        Text("PesaTrack user", style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            "Personal finance profile",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Icon(
-                        Icons.Rounded.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        item {
-            SectionHeader("Appearance")
-            Spacer(Modifier.padding(top = 2.dp))
-            PesaCard {
-                Column(
-                    Modifier.padding(
-                        horizontal = 16.dp,
-                        vertical = 13.dp
-                    )
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Rounded.Palette,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Column(Modifier.padding(start = 10.dp)) {
-                            Text("Theme", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "Choose how PesaTrack looks on this device.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ThemeMode.entries.forEach { mode ->
-                            FilterChip(
-                                selected = themeMode == mode,
-                                onClick = { onThemeModeChange(mode) },
-                                label = {
-                                    Text(
-                                        when (mode) {
-                                            ThemeMode.SYSTEM -> "System"
-                                            ThemeMode.LIGHT -> "Light"
-                                            ThemeMode.DARK -> "Dark"
-                                        }
-                                    )
-                                },
-                                modifier = Modifier.weight(1f),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            SectionHeader("Money & automation")
-            Spacer(Modifier.padding(top = 2.dp))
-            PesaCard {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    SettingsRow(
-                        Icons.Rounded.Tune,
-                        "Smart rules",
-                        "Salary sources, recurring expenses and transfers",
-                        onClick = onSmartRulesClick
-                    )
-                }
-            }
-        }
-
-        item {
-            SectionHeader("Privacy & data")
-            Spacer(Modifier.padding(top = 2.dp))
-            PesaCard {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    SettingsSwitchRow(
-                        icon = Icons.Rounded.Storage,
-                        title = "Online merchant lookup",
-                        subtitle =
-                            "Off by default. When enabled, only a sanitized business label may be sent. Amounts, balances, phone/account numbers, transaction codes and full SMS are never sent.",
-                        checked =
-                            onlineEntityLookupEnabled,
-                        onCheckedChange = {
-                            onlineEntityLookupEnabled =
-                                it
-                            enrichmentPreferences
-                                .setOnlineLookupEnabled(
-                                    it
-                                )
-                        }
-                    )
-                    SettingsRow(
-                        Icons.Rounded.Security,
-                        "App lock",
-                        if (appLockEnabled) {
-                            "On • PIN required after 30 seconds in the background"
-                        } else {
-                            "Off • protect PesaTrack with a local PIN"
-                        },
-                        onClick = {
-                            showAppLock = true
-                        }
-                    )
-                    SettingsRow(
-                        Icons.Rounded.Backup,
-                        "Encrypted backup & restore",
-                        "Create a passphrase-protected local backup",
-                        onClick = {
-                            showBackupRestore =
-                                true
-                        }
-                    )
-                    SettingsRow(
-                        Icons.Rounded.Upload,
-                        "Financial notifications",
-                        "M-Pesa and supported bank/app capture status",
-                        onClick = onMpesaConnectionClick
-                    )
-                    SettingsRow(
-                        Icons.Rounded.Security,
-                        "Approved notification apps",
-                        "Choose which apps may update financial records; all start off",
-                        onClick = { showNotificationSources = true }
-                    )
-                    SettingsRow(
-                        Icons.Rounded.Storage,
-                        "Import financial SMS history",
-                        "Grant SMS access and backfill this month or up to 90 days",
-                        onClick = onHistoricalImportClick
-                    )
-                }
-            }
-        }
-
-        item {
-            SectionHeader("About")
-            Spacer(Modifier.padding(top = 2.dp))
-            PesaCard {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    SettingsRow(Icons.Rounded.Info, "About PesaTrack", "Private, local-first money companion")
-                    SettingsRow(
-                        Icons.Rounded.Lock,
-                        "Privacy",
-                        "Core records stay local. Online enrichment is optional and off by default."
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsSwitchRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable {
-                    onCheckedChange(!checked)
-                }
-                .padding(vertical = 12.dp),
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) {
-        Surface(
-            modifier = Modifier.size(40.dp),
-            shape = RoundedCornerShape(13.dp),
-            color =
-                MaterialTheme
-                    .colorScheme
-                    .surfaceVariant
-        ) {
-            androidx.compose.foundation.layout.Box(
-                contentAlignment =
-                    Alignment.Center
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint =
-                        MaterialTheme
-                            .colorScheme
-                            .primary
-                )
-            }
-        }
-        Column(
-            Modifier
-                .weight(1f)
-                .padding(horizontal = 12.dp)
-        ) {
-            Text(
-                title,
-                style =
-                    MaterialTheme
-                        .typography
-                        .titleMedium
-            )
-            Text(
-                subtitle,
-                style =
-                    MaterialTheme
-                        .typography
-                        .bodySmall,
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .onSurfaceVariant
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange =
-                onCheckedChange
-        )
-    }
-}
-
-@Composable
-private fun SettingsRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: (() -> Unit)? = null
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(onClick = onClick)
-                } else {
-                    Modifier
-                }
-            )
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Surface(
-            modifier = Modifier.size(40.dp),
-            shape = RoundedCornerShape(13.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            }
-        }
-        Column(
-            Modifier
-                .weight(1f)
-                .padding(horizontal = 12.dp)
-        ) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        if (onClick != null) {
-            Icon(
-                Icons.Rounded.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        else -> EverydayPage("Settings", scaffoldPadding, onBack) {
+            item { EverydayRow(Icons.Rounded.Person, context.getSharedPreferences("pesatrack_preferences", 0).getString("profile_name", "").orEmpty().ifBlank { "Your profile" }, "Personal details and money progress", onProfileClick) }
+            item { Text("Make it yours", style = MaterialTheme.typography.titleMedium) }
+            item { EverydayRow(Icons.Rounded.Palette, "Appearance", "Light, dark or your phone's setting") { page = "appearance" } }
+            item { EverydayRow(Icons.Rounded.Notifications, "Reminders", "Bills, budgets and savings") { page = "reminders" } }
+            item { Text("Privacy and data", style = MaterialTheme.typography.titleMedium) }
+            item { EverydayRow(Icons.Rounded.Security, "Privacy", "Your data and your choices") { page = "privacy" } }
+            item { EverydayRow(Icons.Rounded.Message, "Money message access", "SMS history and bank-app updates") { page = "access" } }
+            item { EverydayRow(Icons.Rounded.Lock, "App lock", "Protect PesaTrack with a PIN") { lock = true } }
+            item { EverydayRow(Icons.Rounded.Backup, "Backup and restore", "Save a protected copy of your data") { backup = true } }
+            item { Text("Help and more", style = MaterialTheme.typography.titleMedium) }
+            item { EverydayRow(Icons.Rounded.Tune, "Automatic sorting", "Salary, regular payments and transfers", onSmartRulesClick) }
+            item { EverydayRow(Icons.Rounded.HelpOutline, "Help", "Answers and troubleshooting") { page = "help" } }
+            item { EverydayRow(Icons.Rounded.Info, "About PesaTrack", "App information") { page = "about" } }
         }
     }
 }

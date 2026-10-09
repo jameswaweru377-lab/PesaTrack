@@ -1037,10 +1037,10 @@ fun HomeScreen(
 
         item {
             ConceptEmeraldHero(
-                title = "Tracked funds",
+                title = if (cycleSnapshot.cycle == null) "Account balances" else "After planned payments",
                 amount =
                     if (cycleSnapshot.cycle == null) {
-                        "Waiting for salary"
+                        CheckedMoney.orNull { accountBalanceSnapshots.mapNotNull { it.balanceMinor }.checkedMoneySumOf { it } }?.let(::formatMoney) ?: "Balance unavailable"
                     } else if (planningAvailability == null) {
                         "Amount unavailable"
                     } else {
@@ -1054,7 +1054,7 @@ fun HomeScreen(
                     } else if (cycleSnapshot.cycle != null) {
                         "Available after commitments • updated from your real activity"
                     } else {
-                        "PesaTrack will calculate this after your first salary is recorded."
+                        "Based on available account records • not a live bank balance"
                     },
                 eyebrow = visibleAccountGroups.size.toString() + " tracked account" +
                     if (visibleAccountGroups.size == 1) "" else "s"
@@ -1976,7 +1976,3 @@ private fun formatMoney(minor: Long?): String {
 
 private fun formatShortDate(epochMs: Long): String =
     SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(epochMs))
-
-
-
-

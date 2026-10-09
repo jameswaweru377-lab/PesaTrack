@@ -143,7 +143,7 @@ private fun WeeklySpendingBars(
                     color = MaterialTheme.colorScheme.primary
                 ) {}
                 Text(
-                    "Week ${index + 1}",
+                    if (index == 4) "29+" else "${index * 7 + 1}–${index * 7 + 7}",
                     modifier = Modifier.padding(top = 5.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -512,45 +512,13 @@ fun ReportsInsightsScreen(
                         }
                     }
 
-                    moneyHealth?.let {
-                            health ->
-                        Row(
-                            modifier =
-                                Modifier.fillMaxWidth(),
-                            horizontalArrangement =
-                                Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                "Money picture confidence",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                            Text(
-                                health.score
-                                    .toString() +
-                                    "% • " +
-                                    health.label,
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .labelLarge,
-                                fontWeight =
-                                    FontWeight.SemiBold
-                            )
-                        }
-                    }
+
                 }
             }
         }
         if (spending.isEmpty()) {
             item {
-                PesaCard { Text("No trusted spending in this period yet.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                PesaCard { Text("No recorded spending in this period yet.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         } else {
             if (lowQualityShare >= 70) {
@@ -675,14 +643,14 @@ fun ReportsInsightsScreen(
                             color = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
-                        Text("${(progress * 100).toInt()}% of trusted spending", Modifier.padding(top = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${(progress * 100).toInt()}% of recorded spending", Modifier.padding(top = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
 
             if (period == "Month" && data != null) {
                 item {
-                    val weeks = (1..4).map { week ->
+                    val weeks = (1..5).map { week ->
                         data.trustedTransactions
                             .filter {
                                 it.direction == MoneyDirection.EXPENSE.name &&
@@ -690,15 +658,14 @@ fun ReportsInsightsScreen(
                                     it.reviewState != "NEEDS_REVIEW" &&
                                     Calendar.getInstance().apply {
                                         timeInMillis = it.occurredAtEpochMs
-                                    }.get(Calendar.WEEK_OF_MONTH)
-                                        .coerceIn(1, 4) == week
+                                    }.get(Calendar.DAY_OF_MONTH).let { (it - 1) / 7 + 1 } == week
                             }
                             .sumOf { it.amountMinor }
                     }
                     PesaCard {
                         Column(Modifier.padding(16.dp)) {
                             Text(
-                                "Weekly spending",
+                                "Spending by date",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -737,45 +704,7 @@ fun ReportsInsightsScreen(
                                     .colorScheme
                                     .onSurfaceVariant
                         )
-                        moneyHealth?.let {
-                                health ->
-                            Text(
-                                if (
-                                    health.issues.isEmpty()
-                                ) {
-                                    "Your current money picture has no open confidence issues."
-                                } else {
-                                    health.issues
-                                        .first()
-                                        .title +
-                                        if (
-                                            health.issues.size >
-                                            1
-                                        ) {
-                                            " • +" +
-                                                (
-                                                    health.issues.size -
-                                                        1
-                                                    ) +
-                                                " more"
-                                        } else {
-                                            ""
-                                        }
-                                },
-                                modifier =
-                                    Modifier.padding(
-                                        top = 4.dp
-                                    ),
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .labelSmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                        }
+
                     }
                 }
             }
@@ -1516,6 +1445,7 @@ fun AccountDetailsScreen(
     var balance by remember { mutableStateOf<PaydayAccountSnapshot?>(null) }
     var rows by remember { mutableStateOf(emptyList<StoredTransaction>()) }
     var detailTab by remember { mutableStateOf("Transactions") }
+    var products by remember { mutableStateOf(emptyList<Pair<com.kedevjimmy.pesatrack.domain.model.MoneyAccount, PaydayAccountSnapshot?>>()) }
 
     var loadError by remember { mutableStateOf<String?>(null) }
     var retryLoad by remember { mutableIntStateOf(0) }
@@ -1527,6 +1457,11 @@ fun AccountDetailsScreen(
             val b = a?.let { PaydaySnapshotStore.get(context).currentAccountSnapshot(it) }
             val t = TransactionStore.get(context).activitySnapshot().trustedTransactions.filter { it.accountId == accountId || it.linkedAccountId == accountId }
             Triple(a, b, t)
+        }
+        products = withContext(Dispatchers.IO) {
+            if (accountId != AccountStore.DEFAULT_MPESA_ID) emptyList() else
+                AccountStore.get(context).listAccounts(true).filter { it.name.contains("M-Shwari", true) || it.name.contains("KCB M-Pesa", true) }
+                    .map { it to PaydaySnapshotStore.get(context).currentAccountSnapshot(it) }
         }
         account = loaded.first
         balance = loaded.second

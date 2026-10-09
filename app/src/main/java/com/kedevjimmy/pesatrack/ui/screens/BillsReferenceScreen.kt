@@ -360,7 +360,7 @@ private fun BillsHero(
                 Column(horizontalAlignment = Alignment.End) {
                     BillMonthSelector(monthOffset, onMonthSelected)
                     Spacer(Modifier.height(8.dp))
-                    BillHeroBars()
+                    if (dueBills.isNotEmpty()) BillHeroBars()
                 }
             }
         }

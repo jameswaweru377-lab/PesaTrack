@@ -249,6 +249,7 @@ fun SmartOnboardingSetupScreen(
             emptySet()
         )
     }
+    var chooseInstitutions by rememberSaveable { mutableStateOf(false) }
     var reviewSaving by remember {
         mutableStateOf(false)
     }
@@ -1530,6 +1531,10 @@ fun SmartOnboardingSetupScreen(
             }
     }
 
+    if (chooseInstitutions) {
+        FinancialInstitutionsScreen(scaffoldPadding) { chooseInstitutions = false }
+        return
+    }
     if (stage == SmartSetupStage.SMS_PERMISSION) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.safeDrawing).padding(scaffoldPadding).padding(18.dp),
@@ -1672,6 +1677,7 @@ fun SmartOnboardingSetupScreen(
             }
 
             SmartSetupStage.REVIEW -> {
+                item { OutlinedButton(onClick = { chooseInstitutions = true }, modifier = Modifier.fillMaxWidth()) { Text("Choose banks and mobile-money accounts") } }
                 item {
                     ReviewDiscoveryPage(
                         sources =
@@ -3745,4 +3751,3 @@ private const val MIN_PROGRESS_STEP_MS =
 
 private const val SEVEN_DAYS_MS =
     7L * 24L * 60L * 60L * 1000L
-

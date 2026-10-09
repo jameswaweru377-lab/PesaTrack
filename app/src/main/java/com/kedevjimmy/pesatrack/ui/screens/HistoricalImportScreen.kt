@@ -161,9 +161,9 @@ fun HistoricalImportScreen(
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Column {
-                    Text("Import financial SMS history", style = MaterialTheme.typography.headlineMedium)
+                    Text("Add past transactions", style = MaterialTheme.typography.headlineMedium)
                     Text(
-                        "Read older financial SMS from M-Pesa, banks and other supported money sources already on this phone.",
+                        "Read older money messages from this phone.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -204,7 +204,7 @@ fun HistoricalImportScreen(
                     ) {
                         Text(
                             if (permissionGranted) {
-                                "SMS access is available"
+                                "SMS access is on"
                             } else {
                                 "SMS access is not granted"
                             },
@@ -331,7 +331,7 @@ fun HistoricalImportScreen(
                     } else {
                         Icon(Icons.Rounded.History, contentDescription = null)
                         Text(
-                            "Import selected history",
+                            "Add transactions",
                             modifier = Modifier.padding(start = 8.dp)
                         )
                     }
@@ -472,7 +472,7 @@ fun HistoricalImportScreen(
                     )
                     Column(Modifier.padding(start = 10.dp)) {
                         Text(
-                            "Three dates stay separate",
+                            "About transaction dates",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )

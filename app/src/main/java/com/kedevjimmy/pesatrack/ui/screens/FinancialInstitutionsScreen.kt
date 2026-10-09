@@ -163,7 +163,7 @@ fun FinancialInstitutionsScreen(
                                     .primary
                         )
                         Text(
-                            "Ownership first",
+                            "Choose your accounts",
                             modifier =
                                 Modifier.padding(
                                     start = 10.dp
@@ -177,7 +177,7 @@ fun FinancialInstitutionsScreen(
                         )
                     }
                     Text(
-                        "A bank appearing in a payment message does not make it your account. PesaTrack now treats only the institutions you confirm here as yours. Add an account number or unique last 4+ digits when available so transfers can be matched safely.",
+                        "Choose banks and money services you use. The last four digits of an account number can help match transfers. A bank mentioned in a payment may belong to someone else.",
                         modifier =
                             Modifier.padding(
                                 top = 8.dp
@@ -379,10 +379,7 @@ fun FinancialInstitutionsScreen(
                                             option.reference
                                                 .providerKey
                                                 ?: return@forEach
-                                        if (
-                                            providerKey in
-                                            selectedProviderKeys
-                                        ) {
+                                        if (providerKey in selectedProviderKeys || (M_PESA_PROVIDER_KEY in selectedProviderKeys && providerKey in setOf("NCBA_MSHWARI_SAVINGS", "NCBA_MSHWARI_LOCK_SAVINGS", "KCB_MPESA_SAVINGS"))) {
                                             understandingStore
                                                 .setInstitutionOwned(
                                                     reference =

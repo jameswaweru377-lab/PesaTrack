@@ -87,13 +87,13 @@ internal fun SmartSmsPermissionPage(
         }
                 Text("Your messages, your choice", style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold)
-                Text("With your permission, PesaTrack reads financial SMS history and notifications from supported money apps to organise income, spending, transfers, balances and debts.",
+                Text("If you agree, PesaTrack reads money messages on this phone to track what comes in, what you spend, your savings and your debts.",
                     style = MaterialTheme.typography.bodySmall)
-                Text("Financial messages are processed on this device. Full SMS and notification text are not uploaded. Optional online merchant lookup is a separate choice and uses limited descriptors, not full messages.",
+                Text("Your messages are processed on this phone. We do not upload their full text. You can separately choose online help to identify business names.",
                     style = MaterialTheme.typography.bodySmall)
-                Text("You choose how much SMS history to import and which notification sources to approve. Recent SMS catch-up can run when you reopen the app. Other messages are not added to your ledger. Access alone does not approve every app as a financial source.",
+                Text("You choose how far back to read and which apps to read money updates from. Newer SMS can be added when you reopen PesaTrack. Other messages are not added as transactions.",
                     style = MaterialTheme.typography.bodySmall)
-                Text("Android will ask you to allow SMS access and open notification-access settings. You can deny access, continue without it, or change permissions later in Android settings. PesaTrack cannot enable restricted settings for you.",
+                Text("Android will ask for permission to read SMS and app notifications. You can say no or stop access later. If Android blocks access, you may need to allow restricted settings yourself.",
                     style = MaterialTheme.typography.bodySmall)
                 if (constrained) MessageAccessAgreement(accepted, busy, onAccepted)
             }
@@ -413,4 +413,3 @@ internal fun smartNotificationAccessIntent(
             .ACTION_NOTIFICATION_LISTENER_SETTINGS
     )
 }
-

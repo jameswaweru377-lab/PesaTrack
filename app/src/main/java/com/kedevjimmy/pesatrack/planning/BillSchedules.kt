@@ -76,6 +76,7 @@ class BillSchedules(private val context: Context) {
         days: Int,
         enable: Boolean = true
     ) {
+        prefs.edit().putBoolean("reminders_allowed", enable).apply()
         require(days in 1..30) {
             "Reminder lead days must be between 1 and 30."
         }
@@ -264,6 +265,8 @@ class BillSchedules(private val context: Context) {
     }
 
     fun notifyDue() {
+        if (!prefs.getBoolean("reminders_allowed", true)) return
+        if (Calendar.getInstance().get(Calendar.HOUR_OF_DAY) !in 8..20) return
         if (
             Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(

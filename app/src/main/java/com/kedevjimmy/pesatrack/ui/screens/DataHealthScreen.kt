@@ -482,14 +482,14 @@ fun DataHealthScreen(
                 }
                 Column {
                     Text(
-                        "Data Health",
+                        "Advanced troubleshooting",
                         style =
                             MaterialTheme
                                 .typography
                                 .headlineMedium
                     )
                     Text(
-                        "What PesaTrack understands, falls back on, or still needs to learn.",
+                        "Technical tools for investigating missing or incorrect records.",
                         style =
                             MaterialTheme
                                 .typography
@@ -2443,7 +2443,7 @@ private fun HistoryReprocessCard(
                         .onSurfaceVariant
             )
             Text(
-                "This reconciliation pass does not add duplicate Data Health observations or inflate existing Message Lab occurrence counts.",
+                "This reconciliation pass does not add duplicate Advanced troubleshooting observations or inflate existing Message Lab occurrence counts.",
                 style =
                     MaterialTheme
                         .typography

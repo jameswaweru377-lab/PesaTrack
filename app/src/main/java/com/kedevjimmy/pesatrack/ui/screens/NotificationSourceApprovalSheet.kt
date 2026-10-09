@@ -39,6 +39,10 @@ fun NotificationSourceApprovalSheet(onDismiss: () -> Unit) {
             .distinctBy { it.packageName }
             .sortedBy { it.label.lowercase() }
     }
+    var query by remember { mutableStateOf("") }
+    var details by remember { mutableStateOf(false) }
+    val observed = remember { trust.observedSources().map { it.packageName }.toSet() }
+    val filtered = sources.filter { source -> if(query.isNotBlank()) source.label.contains(query,true) || source.packageName.contains(query,true) else source.packageName in observed || trust.isApproved(source.packageName) || Regex("mpesa|m-pesa|equity|kcb|ncba|co.op|absa|bank",RegexOption.IGNORE_CASE).containsMatchIn(source.label) }
     var error by remember { mutableStateOf<String?>(null) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(
@@ -47,22 +51,24 @@ fun NotificationSourceApprovalSheet(onDismiss: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
-                Text("Approved notification apps", style = MaterialTheme.typography.titleLarge)
+                Text("Apps to read money updates from", style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(8.dp))
-                Text("Choose apps whose financial notifications you trust. Every app starts off, including your SMS app. Approval allows future financial notifications from that exact app to update your records.")
+                Text("Turn on your bank, mobile-money or SMS app. We only add money updates from apps you choose.")
                 Spacer(Modifier.height(8.dp))
-                Text("Check the app and package name. A bank name in a notification is not proof of its source. Avoid approving chat or forwarding apps.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Choose the actual app you use. Avoid chat apps or forwarded messages.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(query, { query=it }, label = { Text("Find an app") }, modifier = Modifier.fillMaxWidth())
+                TextButton(onClick = { details=!details }) { Text(if(details) "Hide technical names" else "Show technical names") }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
-            if (sources.isEmpty()) item {
+            if (filtered.isEmpty()) item {
                 Text("Apps will appear here after posting a notification. Only their app name and package are retained before approval.")
             }
-            items(sources, key = { it.packageName }) { source ->
+            items(filtered, key = { it.packageName }) { source ->
                 var checked by remember(source.packageName) { mutableStateOf(trust.isApproved(source.packageName)) }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(source.label, style = MaterialTheme.typography.titleMedium)
-                        Text(source.packageName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (details) Text(source.packageName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Switch(
                         modifier = Modifier.semantics {
@@ -80,7 +86,7 @@ fun NotificationSourceApprovalSheet(onDismiss: () -> Unit) {
                 }
             }
             item {
-                Text("Turning an app off stops future capture and queued work. Processing already started may finish. Earlier records stay in your ledger. Notifications skipped before approval are not imported automatically.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Turning an app off stops new reading. Your saved transactions remain. Updates received while an app was off are not added later.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(24.dp))
             }
         }

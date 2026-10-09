@@ -45,7 +45,8 @@ fun PesaTrackApp(
     setupComplete: Boolean,
     onSetupComplete: () -> Unit,
     salaryOpenRequest: Int = 0,
-    billsOpenRequest: Int = 0
+    billsOpenRequest: Int = 0,
+    planningOpenRequest: Int = 0, planningRoute: String = "budgets"
 ) {
     val navController = rememberNavController()
     val homeScreenCache =
@@ -63,6 +64,10 @@ fun PesaTrackApp(
 
     LaunchedEffect(billsOpenRequest, setupComplete) {
         if (billsOpenRequest > 0 && setupComplete) navController.navigate("bills") { launchSingleTop = true }
+    }
+
+    LaunchedEffect(planningOpenRequest, setupComplete) {
+        if(planningOpenRequest > 0 && setupComplete && planningRoute in setOf("budgets", "saving-goals")) navController.navigate(planningRoute) { launchSingleTop = true }
     }
 
     fun navigateToTab(tab: MainTab) {
@@ -561,7 +566,8 @@ fun PesaTrackApp(
                     onProfileClick = { navController.navigate("profile") },
                     onMpesaConnectionClick = { navController.navigate("mpesa-connection") },
                     onSmartRulesClick = { navController.navigate("smart-rules") },
-                    onHistoricalImportClick = { navController.navigate("historical-import") }
+                    onHistoricalImportClick = { navController.navigate("historical-import") },
+                    onAdvancedClick = { navController.navigate("data-health") }
                 )
             }
         }
@@ -605,4 +611,3 @@ fun PesaTrackApp(
         }
     }
 }
-

@@ -34,6 +34,8 @@ import kotlinx.coroutines.delay
 class MainActivity : ComponentActivity() {
     private var salaryOpenRequest by mutableStateOf(0)
     private var billsOpenRequest by mutableStateOf(0)
+    private var planningOpenRequest by mutableStateOf(0)
+    private var planningRoute by mutableStateOf("budgets")
     private lateinit var appLockManager:
         AppLockManager
     private var appLocked by mutableStateOf(false)
@@ -42,6 +44,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
         if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
+        intent.getStringExtra(com.kedevjimmy.pesatrack.planning.PlanningReminders.OPEN_PLAN)?.takeIf { it in setOf("budgets","saving-goals") }?.let { planningRoute=it; planningOpenRequest++ }
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,8 +75,10 @@ class MainActivity : ComponentActivity() {
         updateSecureWindowState()
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
         if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
+        intent.getStringExtra(com.kedevjimmy.pesatrack.planning.PlanningReminders.OPEN_PLAN)?.takeIf { it in setOf("budgets","saving-goals") }?.let { planningRoute=it; planningOpenRequest++ }
         SalaryReminders.schedule(this)
         BillSchedules.schedule(this)
+        com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this)
         enableEdgeToEdge()
         AutomaticHistoryRepair.scheduleIfAllowed(this)
         setContent {
@@ -150,6 +155,7 @@ class MainActivity : ComponentActivity() {
                     PesaTrackApp(
                     salaryOpenRequest = salaryOpenRequest,
                     billsOpenRequest = billsOpenRequest,
+                            planningOpenRequest = planningOpenRequest, planningRoute = planningRoute,
                     themeMode = themeMode,
                     onThemeModeChange = { newMode ->
                         themeMode = newMode
@@ -166,6 +172,7 @@ class MainActivity : ComponentActivity() {
                             .apply()
                         SalaryReminders.schedule(this)
         BillSchedules.schedule(this)
+        com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this)
                         AutomaticHistoryRepair.scheduleIfAllowed(this)
                     }
                 )
@@ -321,6 +328,3 @@ class MainActivity : ComponentActivity() {
     }
 
 }
-
-
-

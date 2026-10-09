@@ -34,8 +34,10 @@ class BudgetReadRepository(context: Context) {
     private val categories = CategoryStore.get(context.applicationContext)
 
     fun spendingByCategory(): Map<String, Long> = synchronized(CanonicalStoreLock.monitor) {
+        val start = java.util.Calendar.getInstance().apply { set(java.util.Calendar.DAY_OF_MONTH,1); set(java.util.Calendar.HOUR_OF_DAY,0); set(java.util.Calendar.MINUTE,0); set(java.util.Calendar.SECOND,0); set(java.util.Calendar.MILLISECOND,0) }
+        val end = (start.clone() as java.util.Calendar).apply { add(java.util.Calendar.MONTH,1) }
         BudgetSpendingProjection.calculate(
-            trustedRows = transactions.activitySnapshot().trustedTransactions,
+            trustedRows = transactions.activitySnapshotBetween(start.timeInMillis, end.timeInMillis, System.currentTimeMillis(), performMaintenance = false).trustedTransactions,
             trustedOriginal = transactions::trustedRefundOriginal,
             canonicalCategoryId = categories::canonicalId
         )
