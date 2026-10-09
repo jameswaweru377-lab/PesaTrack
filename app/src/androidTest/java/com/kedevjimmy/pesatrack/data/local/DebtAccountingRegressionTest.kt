@@ -166,6 +166,28 @@ class DebtAccountingRegressionTest {
     }
 
     @Test
+    fun eventFinalBalanceIncludesItsOwnDrawdownWithoutCreatingAmbiguity() {
+        val liability = liability("OWN_EVENT_BALANCE")
+        drawdown(liability, 10_000L, T2, "observed-drawdown", outstanding = 35_000L)
+        assertEquals(35_000L, account(liability).outstandingMinor)
+        assertEquals(DebtBalanceQuality.OBSERVED, account(liability).balanceQuality)
+        assertFalse(drawdown(liability, 10_000L, T2, "observed-drawdown", outstanding = 35_000L).inserted)
+        assertEquals(DebtBalanceQuality.OBSERVED, account(liability).balanceQuality)
+    }
+
+    @Test
+    fun laterObservationResolvesEqualTimestampAmbiguityRegardlessOfImportOrder() {
+        val liability = liability("AMBIGUITY_RESOLVED")
+        drawdown(liability, 10_000L, T2, "new-loan")
+        repayment(liability, 50_000L, T2, "full", DebtCompletion.FULL)
+        assertEquals(DebtBalanceQuality.UNKNOWN, account(liability).balanceQuality)
+        assertFalse(account(liability).isSettled)
+        store.recordObservedOutstanding(liability, 10_000L, T3)
+        assertEquals(10_000L, account(liability).outstandingMinor)
+        assertEquals(DebtBalanceQuality.OBSERVED, account(liability).balanceQuality)
+    }
+
+    @Test
     fun observedZeroWithoutCoincidentDistinctMovementProvesSettlement() {
         val liability = liability("ZERO_CONTROL")
         drawdown(liability, 50_000L, T1, "original")

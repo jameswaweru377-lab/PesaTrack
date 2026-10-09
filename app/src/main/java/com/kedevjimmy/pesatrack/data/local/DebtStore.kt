@@ -2600,7 +2600,8 @@ class DebtStore private constructor(context: Context) {
         val outstandingAfterMinor: Long?,
         val completion: String?,
         val atEpochMs: Long,
-        val principalKnown: Boolean
+        val principalKnown: Boolean,
+        val eventKey: String
     )
 
     /** The account row retains genuine observations, never arrival-order estimates. */
@@ -2609,7 +2610,8 @@ class DebtStore private constructor(context: Context) {
         val movements = db.rawQuery(
             """
             SELECT event_type, amount_minor, fee_minor, outstanding_after_minor,
-                   repayment_completion, occurred_at_epoch_ms, amount_is_net_proceeds
+                   repayment_completion, occurred_at_epoch_ms, amount_is_net_proceeds,
+                   event_key
             FROM debt_events WHERE debt_account_id = ?
             ORDER BY occurred_at_epoch_ms, event_key
             """.trimIndent(), arrayOf(account.id)
@@ -2622,7 +2624,8 @@ class DebtStore private constructor(context: Context) {
                         outstandingAfterMinor = if (cursor.isNull(3)) null else cursor.getLong(3),
                         completion = if (cursor.isNull(4)) null else cursor.getString(4),
                         atEpochMs = cursor.getLong(5),
-                        principalKnown = !cursor.isNull(6) && cursor.getInt(6) == 0
+                        principalKnown = !cursor.isNull(6) && cursor.getInt(6) == 0,
+                        eventKey = cursor.getString(7)
                     ))
                 }
             }
@@ -2632,10 +2635,12 @@ class DebtStore private constructor(context: Context) {
             account.balanceQuality == DebtBalanceQuality.OBSERVED
         }
         var balance = if (anchorAt != null) account.outstandingMinor else 0L
-        fun anchor(value: Long, at: Long) {
+        var anchorEventKey: String? = null
+        fun anchor(value: Long, at: Long, eventKey: String? = null) {
             if (anchorAt == null || at >= anchorAt!!) {
                 balance = max(0L, value)
                 anchorAt = at
+                anchorEventKey = eventKey
             }
         }
         // Recover genuine observations even when an older app overwrote its
@@ -2656,10 +2661,16 @@ class DebtStore private constructor(context: Context) {
             val observed = movement.outstandingAfterMinor ?: 0L.takeIf {
                 movement.type == DebtEventType.REPAYMENT && movement.completion == DebtCompletion.FULL.name
             }
-            if (observed != null) anchor(observed, movement.atEpochMs)
+            if (observed != null) anchor(observed, movement.atEpochMs, movement.eventKey)
         }
 
-        var known = anchorAt != null
+        // SMS timestamps may have minute precision. An event's own final
+        // balance includes that event, but proves no ordering against another
+        // movement with the same timestamp. Stable keys are identity, not time.
+        val ambiguousAnchor = anchorAt != null && movements.any {
+            it.atEpochMs == anchorAt && it.eventKey != anchorEventKey
+        }
+        var known = anchorAt != null && !ambiguousAnchor
         var quality = if (known) DebtBalanceQuality.OBSERVED else DebtBalanceQuality.UNKNOWN
         var sawMovement = false
         movements.filter { anchorAt == null || it.atEpochMs > anchorAt!! }.forEach { movement ->
@@ -2685,7 +2696,9 @@ class DebtStore private constructor(context: Context) {
             balanceQuality = quality,
             observedAtEpochMs = anchorAt,
             hasUnresolvedDrawdown = if (quality == DebtBalanceQuality.OBSERVED && balance == 0L) false
-                else account.hasUnresolvedDrawdown
+                else account.hasUnresolvedDrawdown || (ambiguousAnchor && movements.any {
+                    it.atEpochMs == anchorAt && it.type == DebtEventType.DRAWDOWN
+                })
         )
     }
 

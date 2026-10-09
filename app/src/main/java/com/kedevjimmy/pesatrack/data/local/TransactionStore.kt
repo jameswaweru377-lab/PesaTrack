@@ -4298,7 +4298,7 @@ class TransactionStore private constructor(context: Context) {
         private const val REFUND_RECONCILIATION_KEY =
             "refund_reconciliation_v2"
         private val EXPLICIT_COMPLETED_REFUND = Regex(
-            """\b(?:payment|amount|money)\s+(?:(?:has\s+been|was|is)\s+)?(?:refunded|returned)\b|\brefund\s+(?:of|for)\b[^.!?]*\b(?:credited|received|completed)\b""",
+            """\b(?:payment|amount|money)\s+(?:(?:has\s+been|was|is)\s+)?(?:refunded|returned)\b""",
             RegexOption.IGNORE_CASE
         )
         const val RELATION_REFUND = "REFUND"
