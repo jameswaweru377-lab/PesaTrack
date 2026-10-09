@@ -15,7 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.TimeZone
 
-/** Informational measurements: real parsed-message persistence/replay/query paths, invented data only. */
+/** Informational measurements: ordinary per-record persistence/replay/query paths, invented data only. */
 @RunWith(AndroidJUnit4::class)
 class SyntheticHistoryMeasurementTest {
     private lateinit var context: Context
@@ -58,16 +58,13 @@ class SyntheticHistoryMeasurementTest {
                     rawMessage = "Invented parsed payment fixture $days/$index. No personal message source."
                 )
             }
-            val database = PesaTrackDatabase.get(context).writableDatabase
+            // Open the store's own helper before timing, without holding another helper's transaction.
+            assertNull(store.findByTransactionCode("SYNTHETIC_INITIALIZATION_ONLY"))
             var inserted = 0
             val importStarted = System.nanoTime()
-            database.beginTransaction()
-            try {
-                rows.forEachIndexed { index, parsed ->
-                    if (persist(store, parsed, timestamp(index))) inserted++
-                }
-                database.setTransactionSuccessful()
-            } finally { database.endTransaction() }
+            rows.forEachIndexed { index, parsed ->
+                if (persist(store, parsed, timestamp(index))) inserted++
+            }
             val importNs = System.nanoTime() - importStarted
             assertEquals(expectedRows, inserted)
 
@@ -84,13 +81,9 @@ class SyntheticHistoryMeasurementTest {
 
             var replayInserted = 0
             val replayStarted = System.nanoTime()
-            database.beginTransaction()
-            try {
-                rows.forEachIndexed { index, parsed ->
-                    if (persist(store, parsed, timestamp(index))) replayInserted++
-                }
-                database.setTransactionSuccessful()
-            } finally { database.endTransaction() }
+            rows.forEachIndexed { index, parsed ->
+                if (persist(store, parsed, timestamp(index))) replayInserted++
+            }
             val replayNs = System.nanoTime() - replayStarted
             assertEquals(0, replayInserted)
             assertSnapshot(snapshot(store, days), expectedRows, expectedSpent, expectedFees)
@@ -107,14 +100,16 @@ class SyntheticHistoryMeasurementTest {
             })
         }
         val evidence = JsonObject().apply {
-            addProperty("fixture", "invented-history-v1")
+            addProperty("fixture", "invented-history-v2")
             addProperty("days", days)
             addProperty("rows", expectedRows)
             addProperty("schema_version", 34)
             addProperty("api", Build.VERSION.SDK_INT)
             addProperty("manufacturer", Build.MANUFACTURER)
             addProperty("model", Build.MODEL)
-            addProperty("measurement_scope", "parsed_message_batch_persistence_duplicate_replay_activity_snapshot")
+            addProperty("measurement_scope", "parsed_message_per_record_persistence_duplicate_replay_activity_snapshot")
+            addProperty("transaction_mode", "production_per_record")
+            addProperty("fresh_runs", 3)
             addProperty("thresholds", "informational_only")
             add("runs", runs)
         }

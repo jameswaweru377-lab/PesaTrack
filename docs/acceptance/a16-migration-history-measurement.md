@@ -29,13 +29,13 @@ gradle :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArgume
 
 The measured phases are:
 
-1. Persist already parsed payments through the production `TransactionStore.insertIfNew` path in one batch transaction.
+1. Persist already parsed payments through the production `TransactionStore.insertIfNew` path with its ordinary per-record transaction ownership. The store database is opened before timing; the harness holds no transaction on another helper.
 2. Query the full period through production Activity snapshot logic, followed by five repeated query samples.
 3. Replay every parsed payment through the same persistence API, checking that no rows are inserted and all trusted totals remain identical.
 
 The 30-day totals are spending 3,148,500 and fees 15,000 minor units; the 90-day totals are spending 9,445,500 and fees 45,000. All records use automatic classifications. The snapshots therefore exercise ordinary trust and duplicate-candidate logic as well as persistence.
 
-Measurements report device API/manufacturer/model, fixture version, row count, per-phase milliseconds and all repeated samples. The first snapshot is the first query following insertion; it does not represent a cold operating-system page cache. Row generation and semantic assertions are outside the persistence timing. No timing threshold determines test success.
+Measurements report device API/manufacturer/model, fixture version `invented-history-v2`, production per-record transaction mode, row count, per-phase milliseconds and all repeated samples. Three fresh repetitions remain unchanged; timing budgets do not alter semantic expectations. The first snapshot is the first query following insertion; it does not represent a cold operating-system page cache. Row generation and semantic assertions are outside the persistence timing. No timing threshold determines test success.
 
 Run on a dedicated test emulator or an explicitly designated test device; instrumentation replaces the app's test database:
 
@@ -47,7 +47,7 @@ adb logcat -d -v raw 'PesaTrackMeasurement:I' '*:S' > history-measurements.jsonl
 
 The test also emits lines prefixed `PESATRACK_HISTORY_MEASUREMENT` through instrumentation stdout. Retain those lines and the instrumentation result XML with the tested commit SHA, emulator image, Gradle/SDK versions and machine details. Compare runs using equivalent emulator/device and host configurations; do not treat differences between hardware types as a product regression.
 
-This measurement covers parsed-message batch persistence, duplicate replay and Activity queries. SMS-provider lookup, parsing, relationship/mirror reconciliation, pay-cycle rebuilding, backup recovery, rendering, and permission handling need their own acceptance evidence.
+This measurement covers parsed-message per-record persistence, duplicate replay and Activity queries. SMS-provider lookup, parsing, relationship/mirror reconciliation, pay-cycle rebuilding, backup recovery, rendering, and permission handling need their own acceptance evidence.
 
 ## Remaining external acceptance gates
 
@@ -60,3 +60,4 @@ Record these results separately before release:
 - Backup/restore journeys and interruption recovery on representative devices.
 
 The automated synthetic and migration tests provide no physical-device or manual-accessibility result. Timing values remain unrecorded until CI or the designated test device actually executes them.
+

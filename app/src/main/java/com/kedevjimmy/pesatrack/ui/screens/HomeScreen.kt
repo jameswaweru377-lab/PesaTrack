@@ -637,7 +637,7 @@ fun HomeScreen(
     val activeDebtAccounts =
         debtAccounts
             .filter {
-                !it.isSettled && (it.outstandingMinor > 0L || it.balanceQuality == com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality.UNKNOWN)
+                it.isActive
             }
             .sortedWith(
                 compareByDescending<

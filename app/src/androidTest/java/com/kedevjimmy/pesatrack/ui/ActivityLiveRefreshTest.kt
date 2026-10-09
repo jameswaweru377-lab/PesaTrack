@@ -7,6 +7,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -67,7 +68,9 @@ class ActivityLiveRefreshTest {
             cache.data?.snapshot?.transactions?.any { it.counterparty == "Initial merchant" } == true
         }
         // LazyColumn does not compose rows below the summary on a compact viewport.
-        compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex))
+        val verticalList = SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex) and
+            SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
+        compose.onNode(verticalList)
             .performScrollToNode(hasText("Initial merchant"))
         compose.onNode(hasText("Initial merchant")).assertIsDisplayed()
 
@@ -77,7 +80,7 @@ class ActivityLiveRefreshTest {
         compose.waitUntil(15_000L) {
             cache.data?.snapshot?.transactions?.any { it.counterparty == "Fresh merchant" } == true
         }
-        compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex))
+        compose.onNode(verticalList)
             .performScrollToNode(hasText("Fresh merchant"))
         compose.onNode(hasText("Fresh merchant")).assertIsDisplayed()
     }
