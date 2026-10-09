@@ -3,7 +3,8 @@ object BalancePresentationPolicy {
     fun totalKnown(balances: List<Long?>): Long? {
         val known = balances.filterNotNull()
         if (known.isEmpty()) return null
-        return try { known.fold(java.math.BigInteger.ZERO) { sum, value -> sum + java.math.BigInteger.valueOf(value) }.longValueExact() } catch (_: ArithmeticException) { null }
+        val sum = known.fold(java.math.BigInteger.ZERO) { total, value -> total + java.math.BigInteger.valueOf(value) }
+        return if (sum.bitLength() <= 63) sum.toLong() else null
     }
     fun savingsBalance(balance: Long?, savings: Boolean, reconstructed: Boolean): Long? = balance?.takeUnless { savings && reconstructed && it < 0L }
 }

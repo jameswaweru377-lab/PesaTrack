@@ -8,6 +8,8 @@ class BalancePresentationPolicyTest {
         assertEquals(0L, BalancePresentationPolicy.totalKnown(listOf(null, 0L)))
         assertEquals(300L, BalancePresentationPolicy.totalKnown(listOf(400L, null, -100L)))
         assertNull(BalancePresentationPolicy.totalKnown(listOf(Long.MAX_VALUE, 1L)))
+        assertNull(BalancePresentationPolicy.totalKnown(listOf(Long.MIN_VALUE, -1L)))
+        assertEquals(Long.MAX_VALUE, BalancePresentationPolicy.totalKnown(listOf(Long.MAX_VALUE, 1L, -1L)))
     }
 
     @Test fun incompleteNegativeSavingsEstimateIsNotPresentedAsAvailableMoney() {
