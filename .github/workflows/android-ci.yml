@@ -8,12 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       run_instrumentation:
-        description: "Run emulator tests for a completed review batch (required for APK publication)"
+        description: "Run emulator tests for an explicit review (optional for preview APK publication)"
         type: boolean
-        default: true
+        default: false
 
 concurrency:
-  group: android-ci-${{ github.workflow }}-${{ github.ref }}-${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_instrumentation) || (github.event_name == 'pull_request' && (github.event.action == 'ready_for_review' || (github.event.action == 'opened' && github.event.pull_request.draft == false)))) && 'review' || 'build' }}
+  group: android-ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.run_instrumentation && 'review' || 'build' }}
   cancel-in-progress: true
 
 permissions:
@@ -146,9 +146,9 @@ jobs:
           retention-days: 3
 
 
-  # PR updates build an APK; emulator tests run once the batch is ready.
+  # Build and publish previews automatically; emulator review is opt-in.
   instrumentation:
-    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_instrumentation) || (github.event_name == 'pull_request' && (github.event.action == 'ready_for_review' || (github.event.action == 'opened' && github.event.pull_request.draft == false))) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_instrumentation }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
@@ -206,7 +206,7 @@ jobs:
 
   publish:
     needs: [build, instrumentation]
-    if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    if: always() && needs.build.result == 'success' && (needs.instrumentation.result == 'success' || needs.instrumentation.result == 'skipped') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -223,6 +223,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          ANDROID_REVIEW_RESULT: ${{ needs.instrumentation.result }}
         shell: bash
         run: |
           set -euo pipefail
@@ -238,9 +239,12 @@ jobs:
             gh release create ci-apk \
               --target "$GITHUB_SHA" \
               --title "PesaTrack Rolling CI APK" \
-              --notes "Rolling prerelease containing the latest PesaTrack debug APK from main that passed build, lint, unit tests and Android instrumentation. The attached PesaTrack-debug.apk is authoritative; the release source archive remains tied to the original ci-apk tag." \
+              --notes "Rolling prerelease containing the latest PesaTrack debug APK from main that passed build, lint and unit tests. Android instrumentation is optional and runs only when explicitly requested for review. The attached PesaTrack-debug.apk is authoritative; the release source archive remains tied to the original ci-apk tag." \
               --prerelease
           fi
+
+          gh release edit ci-apk \
+            --notes "Rolling development preview built from commit $GITHUB_SHA after successful build, lint and unit tests. Android emulator review for this run: $ANDROID_REVIEW_RESULT. Instrumentation runs only when explicitly requested. The attached PesaTrack-debug.apk is authoritative; the source archive remains tied to the original ci-apk tag."
 
           cp "$apk" PesaTrack-debug.apk
 
