@@ -1,5 +1,7 @@
 # Audit integration acceptance
 
+Historical audit verification record. The preview publication policy changed on 9 October 2026: main requires build checks for rolling development APKs, while emulator review is manual. The main build/instrumentation protection statement below describes the audit-time gate; current policy is in `CURRENT_STATE.md` and `docs/RELEASE_GATES.md`. Signed production-release validation remains separate.
+
 This branch combines independently reviewed audit changes for verification. It is not merged or released. The notification-source approval implementation is excluded because its source publication was rejected by automatic review; its local review package and PR297 describe the pending action.
 
 ## Required automated evidence

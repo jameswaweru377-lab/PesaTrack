@@ -73,8 +73,8 @@ The public enrichment Worker is rate limited, and provider credentials remain se
   - Android JVM unit tests;
   - Android lint;
   - debug APK assembly;
-  - Android instrumentation on API 35.
-- The rolling debug APK is published only after both the build and instrumentation jobs pass.
+- Android instrumentation on API 35 is available through an explicit manual review run; PR updates and merges do not start it automatically.
+- Pushes to main publish the rolling development debug APK after build, lint and unit tests pass, without requiring emulator tests. Manual review runs retain artifacts but do not replace the rolling release. Signed production releases keep their manual Android validation gate.
 - Canonical ingestion uses an explicit SQLite transaction boundary with rollback coverage.
 - Migration coverage includes fresh v33 plus selected historical upgrades including v1, v30 and v31/v32 to v33.
 - App lock, biometric unlock and passphrase-encrypted backup/restore are implemented.

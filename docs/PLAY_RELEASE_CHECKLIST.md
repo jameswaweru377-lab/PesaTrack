@@ -54,7 +54,7 @@ https://support.google.com/googleplay/android-developer/answer/13849271
 - [ ] Configure the release signing key/secrets outside the repository.
 - [ ] Run and retain the first verified signed Android App Bundle (AAB) for Play.
 - [ ] Keep the rolling debug APK separate from public release artifacts.
-- [x] Debug APK publication is gated on build + lint + unit tests + instrumentation.
+- [x] Rolling development debug APK publication on pushes to main is gated on build + lint + unit tests; emulator instrumentation is an explicit manual review. Signed releases retain same-commit Android validation.
 - [x] GitHub Actions are pinned to immutable commit SHAs.
 - [x] Wrangler is pinned to an exact version in CI/deployment workflows.
 - [ ] Protect `main` and require CI before merge.

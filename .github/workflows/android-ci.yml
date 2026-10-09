@@ -243,9 +243,6 @@ jobs:
               --prerelease
           fi
 
-          gh release edit ci-apk \
-            --notes "Rolling development preview built from commit $GITHUB_SHA after successful build, lint and unit tests. Android emulator review for this run: $ANDROID_REVIEW_RESULT. Instrumentation runs only when explicitly requested. The attached PesaTrack-debug.apk is authoritative; the source archive remains tied to the original ci-apk tag."
-
           cp "$apk" PesaTrack-debug.apk
 
           gh release delete-asset ci-apk app-debug.apk --yes >/dev/null 2>&1 || true
@@ -253,4 +250,7 @@ jobs:
           gh release upload ci-apk \
             PesaTrack-debug.apk \
             --clobber
+
+          gh release edit ci-apk \
+            --notes "Rolling development preview built from commit $GITHUB_SHA after successful build, lint and unit tests. Android emulator review for this run: $ANDROID_REVIEW_RESULT. Instrumentation runs only when explicitly requested. The attached PesaTrack-debug.apk is authoritative; the source archive remains tied to the original ci-apk tag."
 
