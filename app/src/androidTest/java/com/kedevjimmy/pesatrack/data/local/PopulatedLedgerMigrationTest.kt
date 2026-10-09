@@ -168,7 +168,7 @@ class PopulatedLedgerMigrationTest {
         db.execSQL("""
             INSERT INTO debt_events(id,event_key,debt_account_id,event_type,amount_minor,outstanding_after_minor,linked_transaction_id,related_debt_event_id,funding_account_id,funding_link_user_decision,source_kind,occurred_at_epoch_ms,created_at_epoch_ms)
             VALUES(202,'fixture-repayment','fixture-debt','REPAYMENT',3000,47000,103,201,?,'USER_LINKED','SYNTHETIC_TEST',?,?)
-        """.trimIndent(), arrayOf(AccountStore.DEFAULT_MPESA_ID, EPOCH + 7200000, EPOCH + 7200000))
+        """.trimIndent(), arrayOf<Any>(AccountStore.DEFAULT_MPESA_ID, EPOCH + 7200000, EPOCH + 7200000))
         db.execSQL("INSERT INTO category_budgets VALUES('GROCERIES',80000,$EPOCH,$EPOCH)")
         db.execSQL("""
             INSERT INTO identity_nodes(identity_id,kind,canonical_name,ownership,confidence,user_confirmed,first_seen_epoch_ms,last_seen_epoch_ms,updated_at_epoch_ms)
@@ -181,7 +181,7 @@ class PopulatedLedgerMigrationTest {
         db.execSQL("""
             INSERT INTO identity_observations(transaction_id,identity_id,account_id,direction,observed_name,occurred_at_epoch_ms)
             VALUES(101,'fixture-merchant',?,'EXPENSE','Invented Grocer',?)
-        """.trimIndent(), arrayOf(AccountStore.DEFAULT_MPESA_ID, EPOCH))
+        """.trimIndent(), arrayOf<Any>(AccountStore.DEFAULT_MPESA_ID, EPOCH))
         db.execSQL("""
             INSERT INTO identity_category_preferences(identity_id,category_id,direction,confirmation_count,source_transaction_id,created_at_epoch_ms,updated_at_epoch_ms)
             VALUES('fixture-merchant','GROCERIES','EXPENSE',4,101,$EPOCH,$EPOCH)
@@ -210,6 +210,7 @@ class PopulatedLedgerMigrationTest {
         private const val DAY = 86400000L
     }
 }
+
 
 
 
