@@ -11,6 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
@@ -89,6 +94,13 @@ fun AccountsScreen(
     onAccountClick: ((String) -> Unit)? = null,
     onManageInstitutions: (() -> Unit)? = null
 ) {
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
+    if (selectedTab == 3) {
+        DebtsScreen(scaffoldPadding, onBack = { selectedTab = 0 },
+            header = { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) },
+            onReviewRelationships = onManageInstitutions)
+        return
+    }
     val context = LocalContext.current
     val accountStore =
         remember {
@@ -218,293 +230,87 @@ fun AccountsScreen(
         presentations.count {
             it.balanceMinor != null
         }
-    val debtOutstandingMinor = if (activeDebts.any { it.balanceQuality == DebtBalanceQuality.UNKNOWN }) null
-        else CheckedMoney.orNull { activeDebts.checkedMoneySumOf {
-            it.outstandingMinor
-        } }
-
-    LazyColumn(
-        modifier = Modifier
-            .padding(scaffoldPadding)
-            .background(
-                MaterialTheme.colorScheme
-                    .background
-            ),
-        contentPadding =
-            PaddingValues(
-                horizontal = 16.dp,
-                vertical = 14.dp
-            ),
-        verticalArrangement =
-            Arrangement.spacedBy(14.dp)
-    ) {
-        if (accountsLoading || accountsError) item { FinancialReadBanner("Accounts", accountsLoading, accountsError) { accountsRetry++ } }
+    val visible = presentations.filter {
+        when (selectedTab) {
+            1 -> it.group.type != AccountType.MOBILE_WALLET
+            2 -> it.group.type == AccountType.MOBILE_WALLET
+            else -> true
+        }
+    }
+    LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) }
+        if (accountsLoading || accountsError) item {
+            FinancialReadBanner("Accounts", accountsLoading, accountsError) { accountsRetry++ }
+        }
         item {
-            DetailPageHeader(
-                title = "Your accounts",
-                subtitle =
-                    "Matched from your messages and confirmed account evidence.",
-                onBack = onBack
-            )
-        }
-
-        item {
-            ConceptEmeraldHero(
-                title = "Known balances",
-                amount =
-                    if (knownTotalMinor == null) {
-                        "Balance unavailable"
-                    } else if (knownBalanceCount > 0) {
-                        formatDetailMoney(knownTotalMinor)
-                    } else {
-                        "Waiting for balances"
-                    },
-                subtitle =
-                    when {
-                        presentations.isEmpty() ->
-                            "Accounts appear here after PesaTrack can match them with evidence."
-                        knownBalanceCount == 0 ->
-                            presentations.size.toString() +
-                                " confirmed accounts • no balance observed yet"
-                        else ->
-                            knownBalanceCount.toString() +
-                                " of " +
-                                presentations.size +
-                                " confirmed accounts currently have a known balance"
-                    },
-                artwork = true,
-                footer = "Missing balances are never guessed."
-            )
-        }
-
-        if (onManageInstitutions != null) {
-            item {
-                PesaCard(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable(
-                                onClick =
-                                    onManageInstitutions
-                            )
-                ) {
-                    Row(
-                        modifier =
-                            Modifier.padding(
-                                15.dp
-                            ),
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-                        IconBubble(
-                            icon =
-                                Icons.Rounded
-                                    .AccountBalance,
-                            size = 42.dp
-                        )
-                        Column(
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .padding(
-                                        start = 11.dp
-                                    )
-                        ) {
-                            Text(
-                                "My financial institutions",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .titleMedium
-                            )
-                            Text(
-                                "Confirm which banks, wallets and savings accounts are actually yours.",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                        }
-                        Icon(
-                            Icons.Rounded
-                                .ChevronRight,
-                            contentDescription =
-                                null,
-                            tint =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
+            PesaCard {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Known balances", style = MaterialTheme.typography.titleMedium)
+                    Text(if (knownBalanceCount == 0) "Waiting for balances" else formatDetailMoney(knownTotalMinor),
+                        style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text("$knownBalanceCount of ${presentations.size} confirmed accounts • unknown balances excluded",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
+        if (visible.isEmpty()) item {
+            PesaCard { Column(Modifier.padding(18.dp)) {
+                Text("No confirmed accounts here yet", style = MaterialTheme.typography.titleMedium)
+                Text("Accounts appear after their ownership is confirmed. Missing balances are never guessed.",
+                    style = MaterialTheme.typography.bodySmall)
+            } }
+        }
+        items(visible.size, key = { visible[it].group.key }) { index ->
+            AccountBalanceCard(visible[index], index, onAccountClick?.let { callback ->
+                { visible[index].group.accounts.firstOrNull()?.id?.let(callback); Unit }
+            })
+        }
+        if (selectedTab == 0 && activeDebts.isNotEmpty()) {
+            item { Text("Debts", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+            items(activeDebts.size, key = { "debt:" + activeDebts[it].id }) { index ->
+                DebtAccountCard(activeDebts[index], index)
+            }
+            item { TextButton(onClick = { selectedTab = 3 }) { Text("View all debts") } }
+        }
+        if (onManageInstitutions != null) item { RelationshipReviewCard(onManageInstitutions) }
+    }
+}
 
-
-        if (onDebtsClick != null) {
-            item {
-                PesaCard(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable(
-                                onClick =
-                                    onDebtsClick
-                            )
-                ) {
-                    Row(
-                        modifier =
-                            Modifier.padding(
-                                15.dp
-                            ),
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-                        IconBubble(
-                            icon =
-                                Icons.Rounded
-                                    .CreditCard,
-                            size = 42.dp
-                        )
-                        Column(
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .padding(
-                                        start = 11.dp
-                                    )
-                        ) {
-                            Text(
-                                "Debt",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .titleMedium
-                            )
-                            Text(
-                                if (
-                                    activeDebts
-                                        .isEmpty()
-                                ) {
-                                    "No active tracked debt"
-                                } else {
-                                    activeDebts
-                                        .size
-                                        .toString() +
-                                        " active account" +
-                                        if (
-                                            activeDebts
-                                                .size ==
-                                            1
-                                        ) {
-                                            ""
-                                        } else {
-                                            "s"
-                                        }
-                                },
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                        }
-                        Text(
-                            if (
-                                debtOutstandingMinor != null && debtOutstandingMinor >
-                                0L
-                            ) {
-                                formatDetailMoney(
-                                    debtOutstandingMinor
-                                )
-                            } else if (debtOutstandingMinor == null) {
-                                "Balance pending"
-                            } else if (activeDebts.isNotEmpty()) {
-                                "Confirmation pending"
-                            } else {
-                                "None"
-                            },
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .titleSmall,
-                            fontWeight =
-                                FontWeight.SemiBold
-                        )
-                        Icon(
-                            Icons.Rounded
-                                .ChevronRight,
-                            contentDescription =
-                                null,
-                            modifier =
-                                Modifier.padding(
-                                    start = 5.dp
-                                ),
-                            tint =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-                }
+@Composable
+private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
+    onBack: (() -> Unit)?, onManage: (() -> Unit)?) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onBack != null) IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+            }
+            Text("Accounts", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold)
+            if (onManage != null) IconButton(onClick = onManage) {
+                Icon(Icons.Rounded.Add, contentDescription = "Add or confirm accounts")
             }
         }
+        ScrollableTabRow(selectedTabIndex = selected, edgePadding = 0.dp) {
+            listOf("All", "Bank accounts", "Mobile money", "Debts").forEachIndexed { index, label ->
+                Tab(selected = selected == index, onClick = { onSelected(index) }, text = { Text(label) })
+            }
+        }
+    }
+}
 
-        if (presentations.isEmpty()) {
-            item {
-                PesaCard {
-                    Column(
-                        modifier =
-                            Modifier.padding(18.dp)
-                    ) {
-                        Text(
-                            "No confirmed accounts yet",
-                            style =
-                                MaterialTheme.typography
-                                    .titleMedium
-                        )
-                        Text(
-                            "When PesaTrack confidently identifies one of your wallets, banks or savings accounts, it will appear here.",
-                            modifier =
-                                Modifier.padding(top = 5.dp),
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-                }
+@Composable
+private fun RelationshipReviewCard(onClick: () -> Unit) {
+    PesaCard(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconBubble(Icons.Rounded.AccountBalance, size = 40.dp)
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text("Review relationships", style = MaterialTheme.typography.titleMedium)
+                Text("Check which accounts are yours, shared or someone else's.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        } else {
-            items(
-                count = presentations.size,
-                key = { index ->
-                    presentations[index]
-                        .group.key
-                }
-            ) { index ->
-                AccountBalanceCard(
-                    presentation =
-                        presentations[index],
-                    tone = index,
-                    onClick =
-                        onAccountClick?.let { callback ->
-                            {
-                                presentations[index]
-                                    .group.accounts
-                                    .firstOrNull()
-                                    ?.id
-                                    ?.let(callback)
-                            }
-                        }
-                )
-            }
+            Icon(Icons.Rounded.ChevronRight, contentDescription = null)
         }
     }
 }
@@ -512,7 +318,9 @@ fun AccountsScreen(
 @Composable
 fun DebtsScreen(
     scaffoldPadding: PaddingValues,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    header: (@Composable () -> Unit)? = null,
+    onReviewRelationships: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val debtStore =
@@ -602,12 +410,9 @@ fun DebtsScreen(
     ) {
         if (debtsLoading || debtsError) item { FinancialReadBanner("Debt", debtsLoading, debtsError) { debtsRetry++ } }
         item {
-            DetailPageHeader(
-                title = "Debt",
-                subtitle =
-                    "Outstanding borrowing only. Fully repaid or zero-balance accounts stay out of the way.",
-                onBack = onBack
-            )
+            if (header != null) header() else DetailPageHeader(
+                title = "Debts", subtitle = "Borrowing supports payments; it is not income.", onBack = onBack)
+
         }
 
         item {
@@ -622,9 +427,9 @@ fun DebtsScreen(
                         } else if (
                             unknownBalanceCount > 0
                         ) {
-                            "Known outstanding debt"
+                            "Known outstanding"
                         } else {
-                            "Total outstanding debt"
+                            "Known outstanding"
                         },
                         style =
                             MaterialTheme.typography
@@ -742,6 +547,7 @@ fun DebtsScreen(
                 DebtAccountCard(settledDebts[index], index)
             }
         }
+        if (onReviewRelationships != null) item { RelationshipReviewCard(onReviewRelationships) }
 
     }
 }
@@ -1028,107 +834,52 @@ private fun AccountBalanceCard(
 }
 
 @Composable
-private fun DebtAccountCard(
-    debt: DebtAccountSnapshot,
-    tone: Int
-) {
-    val accent =
-        premiumCategoryColor(tone)
-
+private fun DebtAccountCard(debt: DebtAccountSnapshot, tone: Int) {
+    val unknown = hasUnknownDebtBalance(debt)
+    val accent = premiumCategoryColor(tone)
     PesaCard {
-        Row(
-            modifier =
-                Modifier.padding(15.dp),
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
-            IconBubble(
-                icon =
-                    Icons.Rounded.CreditCard,
-                size = 44.dp,
-                background =
-                    accent.copy(alpha = .16f),
-                tint = accent
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp)
-            ) {
-                Text(
-                    debt.name,
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium,
-                    fontWeight =
-                        FontWeight.SemiBold
-                )
-                Text(
-                    when {
-                        debt.needsSettlementConfirmation ->
-                            "Estimated zero • repayment confirmation pending"
-                        hasUnknownDebtBalance(
-                            debt
-                        ) ->
-                            "Outstanding balance unknown • more loan history needed"
-                        debt.balanceQuality ==
-                            DebtBalanceQuality.OBSERVED ->
-                            "Observed outstanding balance"
-                        else ->
-                            "Estimated from recorded loan activity"
-                    },
-                    modifier =
-                        Modifier.padding(top = 2.dp),
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
-                if (debt.lastRepaymentMinor != null && debt.lastRepaymentAtEpochMs != null) {
-                    Text("Last repayment ${formatDetailMoney(debt.lastRepaymentMinor)} • ${formatDetailDateTime(debt.lastRepaymentAtEpochMs)}",
-                        style = MaterialTheme.typography.bodySmall)
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBubble(Icons.Rounded.CreditCard, size = 42.dp,
+                    background = accent.copy(alpha = .16f), tint = accent)
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(debt.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(when {
+                        unknown -> "Excluded from known total"
+                        debt.isSettled -> "Settled • confirmed zero"
+                        debt.needsSettlementConfirmation -> "Settlement confirmation pending"
+                        debt.balanceQuality == DebtBalanceQuality.OBSERVED -> "Observed"
+                        else -> "Estimated from recorded activity"
+                    }, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                debt.observedAtEpochMs
-                    ?.let {
-                        Text(
-                            "Last observed " +
-                                formatDetailDateTime(
-                                    it
-                                ),
-                            modifier =
-                                Modifier.padding(
-                                    top = 3.dp
-                                ),
-                            style =
-                                MaterialTheme.typography
-                                    .labelSmall,
-                            color =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
             }
-            Text(
-                if (
-                    hasUnknownDebtBalance(
-                        debt
-                    )
-                ) {
-                    "—"
-                } else {
-                    formatDetailMoney(
-                        debt.outstandingMinor
-                    )
-                },
-                style =
-                    MaterialTheme.typography
-                        .titleMedium,
-                fontWeight =
-                    FontWeight.Bold
-            )
+            Surface(shape = RoundedCornerShape(12.dp), color = if (unknown)
+                MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.errorContainer) {
+                Text(if (unknown) "Outstanding unknown" else formatDetailMoney(debt.outstandingMinor),
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
+                    color = if (unknown) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onErrorContainer)
+            }
+            Text(when {
+                unknown -> "Loan activity recorded; balance evidence needed."
+                debt.needsSettlementConfirmation -> "Estimated zero is not a confirmed settlement."
+                debt.isSettled -> "No outstanding borrowing recorded."
+                else -> "Borrowing supports payments; it is not income."
+            }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            debt.observedAtEpochMs?.let {
+                Text((if (debt.balanceQuality == DebtBalanceQuality.OBSERVED) "Observed " else "Balance evidence ") +
+                    formatDetailDateTime(it), style = MaterialTheme.typography.labelSmall)
+            }
+            if (debt.lastRepaymentMinor != null && debt.lastRepaymentAtEpochMs != null) {
+                HorizontalDivider()
+                Text("Last repayment", style = MaterialTheme.typography.bodySmall)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(formatDetailMoney(debt.lastRepaymentMinor), fontWeight = FontWeight.Bold)
+                    Text("Recorded • " + formatDetailDateTime(debt.lastRepaymentAtEpochMs),
+                        style = MaterialTheme.typography.labelSmall)
+                }
+            }
         }
     }
 }

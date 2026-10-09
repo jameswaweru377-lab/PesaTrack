@@ -94,6 +94,8 @@ import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.RulePreset
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.onboarding.MessageAccessPolicy
+import com.kedevjimmy.pesatrack.domain.onboarding.MessageAccessAction
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingDiscoveryEngine
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingSalarySuggestion
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingTransactionObservation
@@ -211,6 +213,10 @@ fun SmartOnboardingSetupScreen(
     var stage by rememberSaveable {
         mutableStateOf(SmartSetupStage.SMS_PERMISSION)
     }
+    var disclosureAccepted by rememberSaveable { mutableStateOf(false) }
+    var accessStarted by rememberSaveable { mutableStateOf(false) }
+    var smsHandled by rememberSaveable { mutableStateOf(false) }
+    var notificationsHandled by rememberSaveable { mutableStateOf(false) }
     var importMonths by rememberSaveable {
         mutableStateOf(3)
     }
@@ -337,6 +343,8 @@ fun SmartOnboardingSetupScreen(
         ) { granted ->
             smsGranted = granted
             smsDenied = !granted
+            smsHandled = true
+            if (!granted) accessStarted = false
         }
 
     val appInfoLauncher =
@@ -352,6 +360,8 @@ fun SmartOnboardingSetupScreen(
                     SmartSetupStage.SMS_PERMISSION
             ) {
                 smsPromptLaunched = false
+                smsHandled = false
+                accessStarted = disclosureAccepted
             }
         }
 
@@ -362,6 +372,9 @@ fun SmartOnboardingSetupScreen(
         ) {
             notificationGranted =
                 smartHasNotificationAccess(context)
+            if (stage == SmartSetupStage.SMS_PERMISSION) {
+                notificationsHandled = true
+            }
             if (
                 stage ==
                     SmartSetupStage.LIVE_CAPTURE
@@ -409,33 +422,27 @@ fun SmartOnboardingSetupScreen(
         }
     }
 
-    LaunchedEffect(
-        stage,
-        smsGranted,
-        smsPromptLaunched
-    ) {
-        if (
-            stage ==
-            SmartSetupStage.SMS_PERMISSION
-        ) {
-            if (smsGranted) {
-                // Stay on the Connect Messages concept
-                // until the user chooses Continue.
-            } else if (
-                smartIsLikelySideloaded(
-                    context
-                ) &&
-                !smsAppInfoVisited
-            ) {
-                // Sideloaded builds can be blocked by
-                // Android restricted-settings protection.
-                // The user must explicitly enable that
-                // system setting before we request SMS.
-            } else if (!smsPromptLaunched) {
-                smsPromptLaunched = true
-                smsPermissionLauncher.launch(
-                    Manifest.permission.READ_SMS
-                )
+    LaunchedEffect(stage, disclosureAccepted, accessStarted, smsHandled, notificationsHandled) {
+        if (stage != SmartSetupStage.SMS_PERMISSION) return@LaunchedEffect
+        when (MessageAccessPolicy.next(disclosureAccepted, accessStarted,
+            smsHandled || smsGranted, notificationsHandled || notificationGranted)) {
+            MessageAccessAction.WAIT -> Unit
+            MessageAccessAction.REQUEST_SMS -> {
+                if (!smsPromptLaunched) {
+                    smsPromptLaunched = true
+                    smsPermissionLauncher.launch(Manifest.permission.READ_SMS)
+                }
+            }
+            MessageAccessAction.OPEN_NOTIFICATIONS -> {
+                if (!notificationSettingsVisited) {
+                    notificationSettingsVisited = true
+                    runCatching { settingsLauncher.launch(smartNotificationAccessIntent(context)) }
+                        .onFailure { notificationsHandled = true }
+                }
+            }
+            MessageAccessAction.CONTINUE -> {
+                accessStarted = false
+                stage = SmartSetupStage.IMPORT
             }
         }
     }
@@ -1522,6 +1529,36 @@ fun SmartOnboardingSetupScreen(
             }
     }
 
+    if (stage == SmartSetupStage.SMS_PERMISSION) {
+        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+            .windowInsetsPadding(WindowInsets.safeDrawing).padding(scaffoldPadding).padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            BrandWordmark(compact = true)
+            StageProgress(stage)
+            SmartSmsPermissionPage(
+                accepted = disclosureAccepted, busy = accessStarted, denied = smsDenied,
+                restrictedHelp = smsDenied && smartIsLikelySideloaded(context),
+                onAccepted = { disclosureAccepted = it },
+                onOpenAppInfo = {
+                    smsAppInfoVisited = true
+                    appInfoLauncher.launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:" + context.packageName)))
+                },
+                onTryAgain = {
+                    if (disclosureAccepted) {
+                        smsDenied = false
+                        smsHandled = false
+                        smsPromptLaunched = false
+                        accessStarted = true
+                    }
+                },
+                onContinue = { if (disclosureAccepted) accessStarted = true },
+                onContinueWithout = { importMonths = 0; accessStarted = false; stage = SmartSetupStage.IMPORT }
+            )
+        }
+        return
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -1581,88 +1618,7 @@ fun SmartOnboardingSetupScreen(
                 }
             }
 
-            SmartSetupStage.SMS_PERMISSION -> {
-                item {
-                    SmartSmsPermissionPage(
-                        smsGranted = smsGranted,
-                        denied = smsDenied,
-                        restrictedHelp =
-                            !smsGranted &&
-                                smartIsLikelySideloaded(
-                                    context
-                                ) &&
-                                (
-                                    !smsAppInfoVisited ||
-                                        smsDenied
-                                    ),
-                        notificationEnabled =
-                            notificationGranted,
-                        onOpenAppInfo = {
-                            smsAppInfoVisited =
-                                true
-                            appInfoLauncher.launch(
-                                Intent(
-                                    Settings
-                                        .ACTION_APPLICATION_DETAILS_SETTINGS,
-                                    Uri.parse(
-                                        "package:" +
-                                            context.packageName
-                                    )
-                                )
-                            )
-                        },
-                        onTryAgain = {
-                            smsDenied = false
-                            smsPromptLaunched =
-                                true
-                            smsPermissionLauncher
-                                .launch(
-                                    Manifest.permission
-                                        .READ_SMS
-                                )
-                        },
-                        onEnableNotifications = {
-                            if (notificationGranted) {
-                                Unit
-                            } else if (
-                                smartIsLikelySideloaded(
-                                    context
-                                ) &&
-                                !smsAppInfoVisited
-                            ) {
-                                smsAppInfoVisited = true
-                                appInfoLauncher.launch(
-                                    Intent(
-                                        Settings
-                                            .ACTION_APPLICATION_DETAILS_SETTINGS,
-                                        Uri.parse(
-                                            "package:" +
-                                                context.packageName
-                                        )
-                                    )
-                                )
-                            } else {
-                                notificationSettingsVisited =
-                                    true
-                                settingsLauncher.launch(
-                                    smartNotificationAccessIntent(
-                                        context
-                                    )
-                                )
-                            }
-                        },
-                        onContinue = {
-                            stage =
-                                SmartSetupStage.IMPORT
-                        },
-                        onContinueWithout = {
-                            importMonths = 0
-                            stage =
-                                SmartSetupStage.IMPORT
-                        }
-                    )
-                }
-            }
+            SmartSetupStage.SMS_PERMISSION -> Unit
 
             SmartSetupStage.ANALYZE -> {
                 item {
