@@ -46,7 +46,9 @@ jobs:
           npx --yes wrangler@4.148.0 deploy --config wrangler.jsonc --dry-run --outdir /tmp/pesatrack-worker-dry-run
 
       - name: Generate invented financial message variants
-        run: python3 -m tools.python_lab.synthetic_corpus
+        run: |
+          python3 -m tools.python_lab.synthetic_corpus
+          python3 -m tools.python_lab.financial_contracts generate
 
       - name: Unit tests, lint and debug APK
         env:
@@ -55,6 +57,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
           gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace 2>&1 | tee /tmp/pesatrack-build.log
 
       - name: Summarize Kotlin regression evidence
@@ -68,7 +71,7 @@ jobs:
           suites = [ET.parse(path).getroot() for path in reports]
           totals = {key: sum(int(suite.attrib.get(key, 0)) for suite in suites) for key in ("tests", "failures", "errors", "skipped")}
           assert totals["failures"] == totals["errors"] == 0
-          required = {"OfflineMoneyPolicyTest", "GoalSavingHistoryPolicyTest", "FinancialWhitespaceTest", "SyntheticFinancialCorpusTest"}
+          required = {"OfflineMoneyPolicyTest", "GoalSavingHistoryPolicyTest", "FinancialWhitespaceTest", "SyntheticFinancialCorpusTest", "FinancialContractLabTest"}
           verified = set()
           for suite in suites:
               name = suite.attrib["name"].split(".")[-1]
@@ -105,7 +108,20 @@ jobs:
           python3 -m tools.python_lab.kotlin_evaluation > app/build/python-lab/evaluation.json
           cat app/build/python-lab/evaluation.json
 
+      - name: Evaluate four invented financial contract groups
+        if: success() || failure()
+        shell: bash
+        run: |
+          export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
+          if [ -f app/build/python-lab/financial-contract-output.json ]; then
+            python3 -m tools.python_lab.financial_contracts evaluate
+          else
+            echo "Kotlin contract output unavailable; preceding build did not complete the contract suite."
+            exit 1
+          fi
+
       - name: Upload sanitized Python lab evaluation evidence
+        if: success() || failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: python-kotlin-sanitized-evaluation

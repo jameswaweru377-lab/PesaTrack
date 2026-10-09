@@ -30,6 +30,9 @@ class OwnAccountTransferDetectorTest {
         )
     )
 
+    // Notification titles identify an institution, not which of two wallets sent it.
+    private val notificationAccounts = accounts.filterNot { it.id == "other-wallet" }
+
     @Test
     fun normalizesKenyanPhoneFormats() {
         assertEquals(
@@ -96,7 +99,7 @@ class OwnAccountTransferDetectorTest {
                     title = "MPESA",
                     body =
                         "Ksh 2,500 transferred to Equity account 1234567890 successfully",
-                    accounts = accounts
+                    accounts = notificationAccounts
                 )
 
         assertEquals(
@@ -122,7 +125,7 @@ class OwnAccountTransferDetectorTest {
                     title = "MPESA",
                     body =
                         "Ksh 2,500 transferred to Equity account 9999999999 successfully",
-                    accounts = accounts
+                    accounts = notificationAccounts
                 )
         )
     }
@@ -130,7 +133,7 @@ class OwnAccountTransferDetectorTest {
     @Test
     fun shortOwnedIdentifierRequiresAccountContext() {
         val shortIdAccounts =
-            accounts.map {
+            notificationAccounts.map {
                 if (it.id == "equity") {
                     it.copy(
                         identifier = "7890"
@@ -175,6 +178,23 @@ class OwnAccountTransferDetectorTest {
                 accounts = accounts
             )
         )
+    }
+
+    @Test
+    fun fullBankIdentifierKeepsFormattingButRequiresAccountContext() {
+        val match = OwnAccountTransferDetector.matchConfiguredNotification(
+            "MPESA", "Ksh 250.00 transferred to Equity account no. 123 456-7890 successfully", notificationAccounts)
+        assertEquals("equity", match?.destinationAccountId)
+        assertNull(OwnAccountTransferDetector.matchConfiguredNotification(
+            "MPESA", "Ksh 250.00 sent successfully. Reference 1234567890.", notificationAccounts))
+        assertNull(OwnAccountTransferDetector.matchConfiguredNotification(
+            "MPESA", "Ksh 250.00 transferred to Equity account 91234567890 successfully", notificationAccounts))
+    }
+
+    @Test
+    fun ambiguousWalletSenderDoesNotChooseFirstConfiguredAccount() {
+        assertNull(OwnAccountTransferDetector.matchConfiguredNotification(
+            "MPESA", "Ksh 250.00 transferred to Equity account 1234567890 successfully", accounts))
     }
 
     private fun sample(

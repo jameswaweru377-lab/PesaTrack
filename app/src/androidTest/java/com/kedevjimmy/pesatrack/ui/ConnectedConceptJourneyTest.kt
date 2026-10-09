@@ -36,10 +36,17 @@ class ConnectedConceptJourneyTest {
         assertEquals(5000000L,SavingGoalMetadataStore.get(context).get(created.id)?.totalTargetMinor)
         assertEquals(0,TransactionStore.get(context).snapshot().transactionCount)
         compose.waitForIdle()
-        compose.onNodeWithTag("saving-goals-list")
-            .performScrollToNode(
-                hasText("Emergency fund")
-            )
+        // Persistence completes before the screen's IO snapshot is applied.
+        // Wait for the actual goal card, rather than scrolling a stale empty list.
+        compose.waitUntil(10000) {
+            try {
+                compose.onNodeWithTag("saving-goals-list")
+                    .performScrollToNode(hasText("Emergency fund"))
+                true
+            } catch (_: AssertionError) {
+                false
+            }
+        }
         compose.waitUntil(10000) {
             compose.onAllNodesWithText(
                 "Emergency fund"
