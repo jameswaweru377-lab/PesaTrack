@@ -31,10 +31,10 @@ class FinancialReadFailureUiTest {
         val recreate = removeTable("transactions")
         compose.setContent { PesaTrackTheme { ActivityScreen(PaddingValues()) } }
         waitFor("Activity could not load")
-        compose.onNodeWithText("Net").assertDoesNotExist()
+        compose.onNodeWithText("Money in").assertDoesNotExist()
         PesaTrackDatabase.get(context).writableDatabase.execSQL(recreate)
         compose.onNodeWithText("Try again").performClick()
-        waitFor("Net")
+        waitFor("Money in")
         compose.onNodeWithText("Activity could not load").assertDoesNotExist()
     }
 

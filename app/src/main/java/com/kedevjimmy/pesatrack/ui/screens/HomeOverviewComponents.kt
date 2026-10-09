@@ -489,8 +489,8 @@ private fun billDueLabel(
 
 @Composable
 fun HomeWhereMoneyWentCard(
-    items: List<HomeSpendingItem>,
-    totalMinor: Long,
+    items: List<HomeSpendingItem>?,
+    totalMinor: Long?,
     onPlanClick: () -> Unit,
     onReviewClick: () -> Unit = {}
 ) {
@@ -548,7 +548,9 @@ fun HomeWhereMoneyWentCard(
                 )
             }
 
-            if (items.isEmpty()) {
+            if (items == null) {
+                Text("Spending breakdown unavailable", Modifier.padding(top = 14.dp))
+            } else if (items.isEmpty()) {
                 Text(
                     "No trusted spending categories yet.",
                     modifier =
@@ -564,9 +566,7 @@ fun HomeWhereMoneyWentCard(
                 )
             } else {
                 val denominator =
-                    items.checkedMoneySumOf {
-                        it.amountMinor
-                    }.coerceAtLeast(1L)
+                    items.sumOf { it.amountMinor.toDouble() }.coerceAtLeast(1.0)
                 val needsBetterCategories =
                     items
                         .filter {
@@ -579,9 +579,7 @@ fun HomeWhereMoneyWentCard(
                                     ignoreCase = true
                                 )
                         }
-                        .checkedMoneySumOf {
-                            it.amountMinor
-                        }.toDouble() / denominator.toDouble() >= .70
+                        .sumOf { it.amountMinor.toDouble() } / denominator >= .70
 
                 if (needsBetterCategories) {
                     Surface(

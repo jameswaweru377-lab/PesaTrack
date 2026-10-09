@@ -72,7 +72,7 @@ class MoneyAggregateSafetyIntegrationTest {
             confidence = InterpretationConfidence.HIGH), null, "invented-partial-repayment", null,
             "TEST", start + 60_000L)
         PesaTrackDatabase.resetForTests()
-        val reloaded = DebtStore.get(context).accounts().single()
+        val reloaded = DebtStore.get(context).accounts().single { it.providerKey == liability.providerKey }
         assertEquals(0L, reloaded.outstandingMinor)
         assertEquals(DebtBalanceQuality.ESTIMATED, reloaded.balanceQuality)
         assertFalse(reloaded.isSettled)
@@ -100,11 +100,12 @@ class MoneyAggregateSafetyIntegrationTest {
                 confidence = InterpretationConfidence.HIGH), null, key, null, "TEST", at)
         draw(Long.MAX_VALUE, start, "first")
         draw(1L, start + 60_000L, "second")
-        val account = store.accounts().single()
+        val account = store.accounts().single { it.providerKey == liability.providerKey }
         assertEquals(DebtBalanceQuality.UNKNOWN, account.balanceQuality)
         assertFalse(account.isSettled)
         assertFalse(draw(1L, start + 60_000L, "second").inserted)
-        assertEquals(DebtBalanceQuality.UNKNOWN, store.accounts().single().balanceQuality)
+        assertEquals(DebtBalanceQuality.UNKNOWN,
+            store.accounts().single { it.providerKey == liability.providerKey }.balanceQuality)
     }
 
     @Test fun reconstructedAccountOverflowShowsUnknownBalanceRatherThanWrappedNegative() {

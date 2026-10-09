@@ -25,7 +25,6 @@ class EstimatedDebtSettlementUiTest {
     @Before fun setup() {
         context = ApplicationProvider.getApplicationContext()
         PesaTrackDatabase.resetForTests(); context.deleteDatabase("pesatrack.db")
-        seedEstimatedZero()
     }
     @After fun cleanup() {
         compose.runOnIdle { }
@@ -33,6 +32,7 @@ class EstimatedDebtSettlementUiTest {
     }
 
     @Test fun accountsRetainsZeroEstimateAsAnActiveDebtAwaitingConfirmation() {
+        seedEstimatedZero()
         compose.setContent { PesaTrackTheme { AccountsScreen(PaddingValues()) } }
         waitFor("Known balances")
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("1 active account"))
@@ -42,6 +42,7 @@ class EstimatedDebtSettlementUiTest {
     }
 
     @Test fun homeRetainsZeroEstimateAsAnActiveDebtAwaitingConfirmation() {
+        seedEstimatedZero()
         compose.setContent { PesaTrackTheme { HomeScreen(PaddingValues()) } }
         waitFor("Tracked funds")
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("1 active debt account"))
@@ -51,6 +52,7 @@ class EstimatedDebtSettlementUiTest {
     }
 
     @Test fun debtPageKeepsZeroEstimateOutOfSettledDebts() {
+        seedEstimatedZero()
         compose.setContent { PesaTrackTheme { DebtsScreen(PaddingValues(), {}) } }
         waitFor("Total outstanding debt")
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Synthetic repayment lender"))
@@ -59,7 +61,24 @@ class EstimatedDebtSettlementUiTest {
         compose.onNodeWithText("You're clear here").assertDoesNotExist()
     }
 
+    @Test fun untouchedSeedDoesNotInventActiveDebtOnHome() {
+        // Keep the schema's untouched Fuliza seed to check production eligibility.
+        PesaTrackDatabase.get(context).writableDatabase
+        compose.setContent { PesaTrackTheme { HomeScreen(PaddingValues()) } }
+        waitFor("Tracked funds")
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("0 active debt accounts"))
+        compose.onNodeWithText("0 active debt accounts").assertExists()
+        compose.onNodeWithText("1 active debt account").assertDoesNotExist()
+    }
+
     private fun seedEstimatedZero() {
+        // Schema creates a dormant Fuliza placeholder. It is unrelated to this
+        // fixture and must not mask the missing active lender in count assertions.
+        PesaTrackDatabase.get(context).writableDatabase.execSQL("""
+            DELETE FROM debt_accounts WHERE id = 'debt-fuliza-mpesa'
+              AND last_observed_at_epoch_ms IS NULL
+              AND NOT EXISTS (SELECT 1 FROM debt_events WHERE debt_account_id = 'debt-fuliza-mpesa')
+        """.trimIndent())
         val at = System.currentTimeMillis() - 180_000L
         val reference = FinancialAccountReference(entityKey = "synthetic:repayment-lender",
             displayName = "Synthetic repayment lender", providerKey = "synthetic:repayment-lender",
@@ -72,7 +91,7 @@ class EstimatedDebtSettlementUiTest {
             availableCreditAfterMinor = null, walletBalanceAfterMinor = null,
             confidence = InterpretationConfidence.HIGH), null, "invented-partial-repayment", null,
             "TEST", at + 60_000L)
-        val account = store.accounts().single()
+        val account = store.accounts().single { it.providerKey == reference.providerKey }
         assertEquals(0L, account.outstandingMinor)
         assertEquals(DebtBalanceQuality.ESTIMATED, account.balanceQuality)
         assertFalse(account.isSettled)
