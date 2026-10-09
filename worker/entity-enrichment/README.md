@@ -106,3 +106,16 @@ Current repository policy:
 The install ID improves fairness but is client-generated and therefore not trusted identity. The larger edge-wide cap remains necessary to limit abuse from clients that rotate IDs. These rate limits protect provider quota and abuse exposure; they are not authentication and are not accounting controls. Cloudflare's Worker limiter is permissive/eventually consistent and local to an edge location, so monitoring upstream usage still matters.
 
 If enrichment is throttled or unavailable, PesaTrack must continue with local ledger truth and local entity intelligence.
+
+## Resource limits
+
+After rate-limit evaluation, resolve requests are read with a 4 KiB byte cap before JSON parsing. Oversized bodies return HTTP 413, including streamed bodies without a Content-Length header. Provider responses have a 64 KiB byte cap and a 5-second application deadline covering both fetch and response-body reading; failures return the existing HTTP 503 fallback. The Android client independently caps successful responses at 64 KiB and uses a monotonic 12-second request deadline with a disconnect watchdog. Descriptor privacy checks and online lookup consent remain required.
+
+Run both Worker suites with `npm test` in this directory, or directly with `node test.mjs` and `node resource-test.mjs`. Android JVM resource tests are under `app/src/test/java/com/kedevjimmy/pesatrack/data/remote`. Without an Android build installation, the production Java reader can be checked from the repository root with JDK 17:
+
+```text
+javac -encoding UTF-8 -d build/resource-check app/src/main/java/com/kedevjimmy/pesatrack/data/remote/BoundedEnrichmentResponse.java tools/EnrichmentResourceBoundsCheck.java
+java -cp build/resource-check EnrichmentResourceBoundsCheck
+```
+
+This standalone check covers byte and elapsed-time handling; it does not compile the Android/Kotlin integration or replace device verification.
