@@ -26,7 +26,7 @@ import com.kedevjimmy.pesatrack.ui.components.ConceptWalletIllustration
 fun OnboardingScreen(
     onContinue: () -> Unit
 ) {
-    val host = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    val host = androidx.activity.compose.LocalActivity.current
     androidx.compose.runtime.DisposableEffect(host) {
         val controller = host?.let { androidx.core.view.WindowCompat.getInsetsController(it.window, it.window.decorView) }
         val previousStatus = controller?.isAppearanceLightStatusBars

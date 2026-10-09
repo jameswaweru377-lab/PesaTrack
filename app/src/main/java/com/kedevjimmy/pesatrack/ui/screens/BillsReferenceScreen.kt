@@ -82,7 +82,7 @@ private data class BillVisual(
 @Composable
 private fun billVisual(bill: ScheduledBill): BillVisual {
     val title = (bill.rule.displayLabel ?: bill.rule.name)
-        .lowercase(Locale.getDefault())
+        .lowercase(Locale.ROOT)
     return when {
         "rent" in title ->
             BillVisual(Icons.Rounded.Home, com.kedevjimmy.pesatrack.ui.components.pesaToneContent("red"))
