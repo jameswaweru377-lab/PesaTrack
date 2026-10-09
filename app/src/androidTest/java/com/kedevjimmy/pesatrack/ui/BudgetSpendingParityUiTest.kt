@@ -3,7 +3,6 @@ package com.kedevjimmy.pesatrack.ui
 import android.content.Context
 import android.content.ContentValues
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasText
@@ -123,6 +122,7 @@ class BudgetSpendingParityUiTest {
         ))
     }
 }
+
 
 
 
