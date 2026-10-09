@@ -25,7 +25,7 @@ gradle :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArgume
 
 ## Repeatable history measurement
 
-`SyntheticHistoryMeasurementTest` runs independent 30-day/3,000-row and 90-day/9,000-row fixtures, with 100 payments per day and three freshly created databases per fixture. Each day contains amounts 1,000 through 1,099 minor units and a fee of 5 per payment. Times, codes and merchant identities are deterministic.
+`SyntheticHistoryMeasurementTest.thirtyAndNinetyDayHistoriesHaveStableTotalsAfterDuplicateReplay` runs 30-day/3,000-row and 90-day/9,000-row fixtures in one instrumentation test and one database lifetime, with 100 payments per day and three empty-ledger runs per fixture. The same database file and helper remain open for all six runs across both periods; only transactions with source kind `SYNTHETIC_HISTORY_MEASUREMENT` and their external references are deleted before each run, outside timing. The harness checks `SELECT COUNT(*) FROM transactions = 0` across the entire ledger before insertion, as well as the empty period snapshot. Each day contains amounts 1,000 through 1,099 minor units and a fee of 5 per payment. Times, codes and merchant identities are deterministic.
 
 The measured phases are:
 
@@ -35,7 +35,7 @@ The measured phases are:
 
 The 30-day totals are spending 3,148,500 and fees 15,000 minor units; the 90-day totals are spending 9,445,500 and fees 45,000. All records use automatic classifications. The snapshots therefore exercise ordinary trust and duplicate-candidate logic as well as persistence.
 
-Measurements report device API/manufacturer/model, fixture version `invented-history-v2`, production per-record transaction mode, row count, per-phase milliseconds and all repeated samples. Three fresh repetitions remain unchanged; timing budgets do not alter semantic expectations. The first snapshot is the first query following insertion; it does not represent a cold operating-system page cache. Row generation and semantic assertions are outside the persistence timing. No timing threshold determines test success.
+Measurements report device API/manufacturer/model, fixture version `invented-history-v3`, production per-record transaction mode, row count, per-phase milliseconds and all repeated samples. Three repetitions remain unchanged; timing budgets do not alter semantic expectations. The recorded first snapshot is the first query following insertion in each run. Database creation, connection reuse, the empty-ledger validation and previous repetitions warm the filesystem and query paths; these measurements represent neither cold process startup nor a cold operating-system page cache. Row generation, database/ledger setup and semantic assertions are outside the persistence timing. The stable helper lifetime avoids unlinking a database still referenced by process-scoped stores. No timing threshold determines test success.
 
 Run on a dedicated test emulator or an explicitly designated test device; instrumentation replaces the app's test database:
 
@@ -60,4 +60,7 @@ Record these results separately before release:
 - Backup/restore journeys and interruption recovery on representative devices.
 
 The automated synthetic and migration tests provide no physical-device or manual-accessibility result. Timing values remain unrecorded until CI or the designated test device actually executes them.
+
+
+
 
