@@ -2382,7 +2382,13 @@ class TransactionStore private constructor(context: Context) {
         transactionId: Long,
         rawMessage: String
     ): Boolean {
-        if (!EXPLICIT_COMPLETED_REFUND.containsMatchIn(rawMessage)) return false
+        // Completion words inside a denial, condition or promise are not
+        // affirmative evidence. Keep unrelated sentences out of that decision.
+        val completedRefund = rawMessage.split(REFUND_SENTENCE_BOUNDARY).any { sentence ->
+            EXPLICIT_COMPLETED_REFUND.containsMatchIn(sentence) &&
+                !UNCERTAIN_REFUND_CONTEXT.containsMatchIn(sentence)
+        }
+        if (!completedRefund) return false
         val incoming = getById(transactionId) ?: return false
         if (
             incoming.type != MpesaTransactionType.RECEIVED.name &&
@@ -4299,6 +4305,11 @@ class TransactionStore private constructor(context: Context) {
             "refund_reconciliation_v2"
         private val EXPLICIT_COMPLETED_REFUND = Regex(
             """\b(?:payment|amount|money)\s+(?:(?:has\s+been|was|is)\s+)?(?:refunded|returned)\b""",
+            RegexOption.IGNORE_CASE
+        )
+        private val REFUND_SENTENCE_BOUNDARY = Regex("""(?:\.(?!\d)|[!?\r\n])+""")
+        private val UNCERTAIN_REFUND_CONTEXT = Regex(
+            """\b(?:no|not|never|if|unless|may|might|will|would|could|should|pending|requested|request|please)\b""",
             RegexOption.IGNORE_CASE
         )
         const val RELATION_REFUND = "REFUND"
