@@ -7,6 +7,7 @@ import com.google.gson.JsonPrimitive
 /** Parses all values before any preference editor or ledger transaction is opened. */
 internal object BackupPreferences {
     fun allowed(name: String): Boolean = name != AppLockManager.PREFS_NAME &&
+        name != com.kedevjimmy.pesatrack.ingestion.NotificationSourceTrustStore.PREFS_NAME &&
         !name.startsWith("androidx.") && !name.startsWith("com.google.") &&
         !name.contains("workmanager", ignoreCase = true) &&
         name.isNotBlank() && name.none { it == '/' || it == '\\' || it == '\u0000' }

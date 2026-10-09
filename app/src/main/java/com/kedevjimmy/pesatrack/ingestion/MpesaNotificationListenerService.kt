@@ -60,6 +60,13 @@ class MpesaNotificationListenerService :
             return
         }
 
+        val sourceTrust = NotificationSourceTrustStore(applicationContext)
+        val appLabel = applicationLabel(packageName)
+        sourceTrust.observe(packageName, appLabel)
+        if (!sourceTrust.isApproved(packageName)) {
+            return
+        }
+
         val notificationTitle =
             notification.extras
                 .getCharSequence(
@@ -79,10 +86,6 @@ class MpesaNotificationListenerService :
                     it > 0L
                 }
                 ?: System.currentTimeMillis()
-        val appLabel =
-            applicationLabel(
-                packageName
-            )
         val interpretationTitle =
             FinancialNotificationCapturePolicy
                 .interpretationTitle(
@@ -100,7 +103,8 @@ class MpesaNotificationListenerService :
                         packageName,
                     selfPackage =
                         applicationContext
-                            .packageName
+                            .packageName,
+                    sourceApproved = true
                 )
         val likelyMpesa =
             MpesaMessageDetector
@@ -110,6 +114,7 @@ class MpesaNotificationListenerService :
                 )
 
         executor.execute {
+          sourceTrust.withApprovedSource(packageName) {
             val rules =
                 RuleStore.get(
                     applicationContext
@@ -136,7 +141,7 @@ class MpesaNotificationListenerService :
                 !likelyMpesa &&
                 configuredRule == null
             ) {
-                return@execute
+                return@withApprovedSource
             }
 
             if (
@@ -153,7 +158,7 @@ class MpesaNotificationListenerService :
                             receivedAt
                     )
             ) {
-                return@execute
+                return@withApprovedSource
             }
 
             LedgerUpdateBus
@@ -191,7 +196,7 @@ class MpesaNotificationListenerService :
                     interpreted
                         .consumesLegacyTransactionParsing
                 ) {
-                    return@execute
+                    return@withApprovedSource
                 }
 
                 if (likelyMpesa) {
@@ -200,7 +205,7 @@ class MpesaNotificationListenerService :
                     // wording is still unknown, preserve any
                     // already-recorded balance/diagnostic facts
                     // but do not invent a legacy transaction.
-                    return@execute
+                    return@withApprovedSource
                 }
 
                 val evidenceCandidate =
@@ -235,7 +240,7 @@ class MpesaNotificationListenerService :
                     configuredRule ==
                     null
                 ) {
-                    return@execute
+                    return@withApprovedSource
                 }
 
                 val parsed =
@@ -247,7 +252,7 @@ class MpesaNotificationListenerService :
                             rule =
                                 configuredRule
                         )
-                        ?: return@execute
+                        ?: return@withApprovedSource
 
                 store.insertIfNew(
                     parsed = parsed,
@@ -269,6 +274,7 @@ class MpesaNotificationListenerService :
                         changed
                     )
             }
+          }
         }
     }
 

@@ -7,6 +7,15 @@ import org.junit.Test
 
 class FinancialNotificationCapturePolicyTest {
     @Test
+    fun financialContentFromUnapprovedForwarderIsRejected() {
+        assertFalse(FinancialNotificationCapturePolicy.assess(
+            title = "M-PESA",
+            body = "KES 2,500.00 was debited from account 1234 for a card purchase.",
+            sourcePackage = "ke.example.forwarder",
+            selfPackage = "com.kedevjimmy.pesatrack"
+        ).shouldIngest)
+    }
+    @Test
     fun transactionAlertWithFinancialBodyIsAccepted() {
         val result =
             FinancialNotificationCapturePolicy
@@ -18,7 +27,8 @@ class FinancialNotificationCapturePolicyTest {
                     sourcePackage =
                         "ke.example.bank",
                     selfPackage =
-                        "com.kedevjimmy.pesatrack"
+                        "com.kedevjimmy.pesatrack",
+                    sourceApproved = true
                 )
 
         assertTrue(
@@ -38,7 +48,8 @@ class FinancialNotificationCapturePolicyTest {
                     sourcePackage =
                         "ke.example.bank",
                     selfPackage =
-                        "com.kedevjimmy.pesatrack"
+                        "com.kedevjimmy.pesatrack",
+                    sourceApproved = true
                 )
 
         assertTrue(
@@ -58,7 +69,8 @@ class FinancialNotificationCapturePolicyTest {
                     sourcePackage =
                         "ke.example.bank",
                     selfPackage =
-                        "com.kedevjimmy.pesatrack"
+                        "com.kedevjimmy.pesatrack",
+                    sourceApproved = true
                 )
 
         assertFalse(
@@ -78,7 +90,8 @@ class FinancialNotificationCapturePolicyTest {
                     sourcePackage =
                         "ke.example.lender",
                     selfPackage =
-                        "com.kedevjimmy.pesatrack"
+                        "com.kedevjimmy.pesatrack",
+                    sourceApproved = true
                 )
 
         assertFalse(
@@ -98,7 +111,8 @@ class FinancialNotificationCapturePolicyTest {
                     sourcePackage =
                         "com.kedevjimmy.pesatrack",
                     selfPackage =
-                        "com.kedevjimmy.pesatrack"
+                        "com.kedevjimmy.pesatrack",
+                    sourceApproved = true
                 )
 
         assertFalse(

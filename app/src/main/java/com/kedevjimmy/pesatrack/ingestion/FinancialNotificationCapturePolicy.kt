@@ -14,8 +14,15 @@ object FinancialNotificationCapturePolicy {
         title: String?,
         body: String,
         sourcePackage: String?,
-        selfPackage: String
+        selfPackage: String,
+        sourceApproved: Boolean = false
     ): FinancialNotificationScreening {
+        if (!sourceApproved || !NotificationSourceTrustPolicy.isEligible(sourcePackage, selfPackage)) {
+            return FinancialNotificationScreening(
+                shouldIngest = false,
+                relevance = FinancialMessageRelevance(false, 0, emptySet())
+            )
+        }
         val relevanceBody =
             listOfNotNull(
                 title
