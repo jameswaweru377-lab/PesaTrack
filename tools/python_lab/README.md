@@ -1,0 +1,114 @@
+# PesaTrack Python Financial Intelligence Lab
+
+This is an opt-in, offline, **development-only** Python experiment, deliberately separate from the production Kotlin Android application. It is not a financial-accounting authority or a replacement for Financial Intelligence V2, Message Packs, the existing SQLite ledger, or Android tests.
+
+## Strict safety boundary
+
+- No Android Gradle plugin downgrade, embedded Python runtime, APK dependency, Internet permission, manifest change, database migration, telemetry, or cloud service.
+- No ability to access Android SMS, SQLite, real balances, accounts, transactions, or user corrections.
+- Synthetic, invented, developer-authored fixtures only. Never place personal or exported SMS in this repository. No third-party processing is required.
+- All proposed labels are non-authoritative and may explicitly abstain. No prediction writes ledger data.
+- Existing Kotlin tests and device acceptance remain required before *any* Android integration.
+
+## Five experiments
+
+1. **Message interpretation research:** a provider-neutral nearest-example baseline that suggests a label or abstains. Similarity is **not** a confidence probability.
+2. **Accounting QA:** synthetic validation of money, dates, duplicate IDs, transfers, refund provenance and no-movement evidence; safeguards against incorrect loan/transfer income totals.
+3. **Insights:** category summaries and spending-change candidates calculated from intentionally structured synthetic events only.
+4. **Learning evaluation:** reproducible leave-one-out measurement of correct, wrong and abstained predictions. No trained production ML model, dynamic personal learning or on-device inference is added.
+5. **Planning forecasts:** an illustrative savings-goal estimate based on synthetic contributions, not an authoritative balance or a guaranteed outcome.
+
+## Run it
+
+From repository root with Python 3.11 or newer and no pip installs:
+
+    python -m unittest discover -s tools/python_lab -p 'test_*.py' -v
+    python -m tools.python_lab.financial_lab
+
+The demonstration only loads the checked-in file at tools/python_lab/fixtures/synthetic_cases.json. There is intentionally no CLI argument that imports user SMS or data exports.
+
+## Release gates before any future integration
+
+- Create representative **sanitized** held-out fixtures reflecting actual provider-neutral grammar and transaction outcomes.
+- Compare against the existing Kotlin engine's outputs. Measure false-positive money movements, transfers mistaken for income, duplicate bank/wallet observations, Fuliza refund and debt chains, M-Shwari savings and pay-cycle edge cases.
+- Block a model if it invents a balance, creates an ungrounded financial event, overrides a user correction or raises accounting error rates.
+- Assess real-device latency, memory, APK size, resource pressure and maintainability separately.
+- A deliberate schema adapter, privacy review and Android tests would be required to make any future result available in the app.
+
+## Scope of this stage
+
+This is **a research and testing scaffold**, not five new production features. A first local evaluation may show low coverage or wrong labels; these are actionable experimental findings, not grounds for automatic deployment. Production Android and Worker code remain unchanged. The existing Android CI build job now runs lab tests and an opt-in Kotlin export/evaluation after the normal unit/lint/build checks. This costs additional CI time; no additional workflow jobs are introduced.
+
+Reversibility: remove this folder, with no app database or APK changes.
+
+## Read-only Kotlin comparison (next safe step)
+
+The bridge uses **19 explicitly reviewed sanitized fixtures** from
+`FinancialMessageFixtureCorpus`, with TST codes and SAMPLE counterparties.
+It does not scan resource directories, accept arbitrary file arguments, read a
+phone, import exported SMS, or access a ledger. The approved manifest contains
+only these test messages. Extending it requires review of every new fixture.
+
+`PythonFinancialLabExportTest` checks the manifest hashes against the Kotlin
+corpus, runs the real interpreter and canonical mapping, asserts current expected
+record kinds, and exports only IDs, text hashes, actual kinds and interpretation
+flags. Ordinary unit tests validate the manifest but skip exporting unless
+`PESATRACK_PYTHON_LAB_EXPORT=1`. Output is an ignored build artifact, never an
+application asset. Python predicts from the reviewed manifest, not imported text.
+
+From a **clean checkout**, with the repository's existing Gradle 9.5/JDK 17/Android
+SDK toolchain (no plugin downgrade), run on a POSIX shell:
+
+    python3 -m unittest discover -s tools/python_lab -p 'test_*.py' -v
+    export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
+    export PESATRACK_PYTHON_LAB_EXPORT=1
+    rm -f app/build/python-lab/kotlin-output.json
+    gradle :app:testDebugUnitTest --tests '*FinancialMessageInterpreterTest' --tests '*FinancialMessageFixtureCorpusTest' --tests '*PythonFinancialLabExportTest' --rerun-tasks
+    python3 -m tools.python_lab.kotlin_evaluation
+
+PowerShell: set the two environment variables via `$env:...`, using the current
+`git rev-parse HEAD` value for the SHA, then run the same Python/Gradle commands.
+Delete only the old generated export before rerunning. The SHA is an explicit
+provenance assertion by the test runner, not a signature or proof of a clean tree.
+CI derives it from the checked-out commit and regenerates the export.
+
+### Acceptance criteria for the bridge
+
+- Existing production Kotlin, Gradle versions, manifest, persistence and local-first
+  behavior remain unchanged; existing Android checks still run.
+- Kotlin validates exact fixture membership/hashes and actual kinds before export.
+- Python rejects wrong schema/SHA/corpus, duplicate/missing/extra IDs, unreviewed
+  hashes, unknown kinds, non-boolean flags and unexpected fields (including SMS).
+- Test fixtures remain disjoint from the fixed synthetic training examples.
+- Repeated evaluation is deterministic and read-only, with all 19 cases counted.
+- CI runs the full Python suite, existing JVM/lint/APK checks and instrumentation,
+  then exports actual Kotlin results and uploads a sanitized evidence artifact.
+- Missing/invalid exports fail CI; **experimental label errors remain reported**
+  and block the candidate, rather than breaking unrelated accounting tests.
+
+### Meaning and limits of the report
+
+The report separates correct compatible labels, wrong labels, abstentions and
+unsupported cases. Coverage uses only comparable cases as its denominator.
+Payment maps to expense; transfers allow transfer/savings-transfer compatibility
+without verifying the savings subtype. Debt kinds remain comparable even when
+persistence needs fallback. Auxiliary fees/balance/available-credit observations
+are not additional principal movements. Standalone observations mean no movement
+only if there is no legacy fallback. Mixed principal events remain unsupported.
+
+**Receipt does not imply income.** Receipts (including the merchant-refund-shaped
+receipt), cash movements, reversals and unresolved evidence remain unscored.
+The report counts non-income cases suggested as income and no-movement cases
+suggested as movement. These are label-level risk indicators, not ledger writes.
+Any comparable incorrect suggestion sets `candidate_gate=blocked`; a report with
+no errors still says `not_assessed_for_integration`, never production ready.
+
+This step does **not** compare money amounts, invent balances, verify ownership,
+deduplicate wallet/bank observations, validate Fuliza purchase/refund/repayment
+chains, prove refund provenance, evaluate pay cycles, or replay user corrections.
+Those need separate Kotlin/ledger acceptance work and representative held-out
+fixtures before any integration. Do not tune on this evaluation corpus and then
+claim held-out improvement.
+
+Reversibility for the bridge: remove its Kotlin test class, lab folder and the
+three added lab CI steps. No app database, runtime or APK dependency changes.
