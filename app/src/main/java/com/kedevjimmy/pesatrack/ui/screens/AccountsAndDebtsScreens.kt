@@ -187,8 +187,7 @@ fun AccountsScreen(
             withContext(Dispatchers.IO) {
                 debtStore.accounts()
                     .filter {
-                        !it.isSettled && (it.outstandingMinor > 0L ||
-                            it.balanceQuality == DebtBalanceQuality.UNKNOWN)
+                        it.isActive
                     }
                     .sortedByDescending {
                         it.outstandingMinor
@@ -427,6 +426,8 @@ fun AccountsScreen(
                                 )
                             } else if (debtOutstandingMinor == null) {
                                 "Balance pending"
+                            } else if (activeDebts.isNotEmpty()) {
+                                "Confirmation pending"
                             } else {
                                 "None"
                             },
@@ -545,9 +546,7 @@ fun DebtsScreen(
             }
         val nextActive = loaded
                     .filter {
-                        !it.isSettled && (it.outstandingMinor > 0L ||
-                            it.hasUnresolvedDrawdown || it.lastRepaymentAtEpochMs != null ||
-                            it.balanceQuality == DebtBalanceQuality.UNKNOWN)
+                        it.isActive
                     }
                     .sortedWith(
                         compareByDescending<
@@ -635,7 +634,9 @@ fun DebtsScreen(
                                 .onSurfaceVariant
                     )
                     Text(
-                        if (
+                        if (activeDebts.isNotEmpty() && activeDebts.all { it.needsSettlementConfirmation }) {
+                            "Confirmation pending"
+                        } else if (
                             activeDebts.isNotEmpty() &&
                             unknownBalanceCount ==
                                 activeDebts.size
@@ -1064,6 +1065,8 @@ private fun DebtAccountCard(
                 )
                 Text(
                     when {
+                        debt.needsSettlementConfirmation ->
+                            "Estimated zero • repayment confirmation pending"
                         hasUnknownDebtBalance(
                             debt
                         ) ->

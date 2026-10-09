@@ -867,6 +867,8 @@ fun HomeMoneyPictureCard(
                         )
                     } else if (debtOutstandingMinor == null) {
                         "Balance pending"
+                    } else if (debtAccountCount > 0) {
+                        "Confirmation pending"
                     } else {
                         "None"
                     },

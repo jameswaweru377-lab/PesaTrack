@@ -57,6 +57,14 @@ data class DebtAccountSnapshot(
     val isSettled: Boolean
         get() = balanceQuality == DebtBalanceQuality.OBSERVED &&
             outstandingMinor == 0L && !hasUnresolvedDrawdown
+
+    /** Untouched schema placeholders are not evidence that a user has borrowed. */
+    val isActive: Boolean
+        get() = !isSettled && (outstandingMinor > 0L || hasUnresolvedDrawdown ||
+            lastRepaymentAtEpochMs != null || observedAtEpochMs != null)
+
+    val needsSettlementConfirmation: Boolean
+        get() = isActive && outstandingMinor == 0L && balanceQuality == DebtBalanceQuality.ESTIMATED
 }
 
 data class DebtEventRecord(
