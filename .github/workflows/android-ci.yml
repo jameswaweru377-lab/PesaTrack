@@ -206,7 +206,7 @@ jobs:
 
   publish:
     needs: [build, instrumentation]
-    if: always() && needs.build.result == 'success' && (needs.instrumentation.result == 'success' || needs.instrumentation.result == 'skipped') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    if: always() && needs.build.result == 'success' && (needs.instrumentation.result == 'success' || needs.instrumentation.result == 'skipped') && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
