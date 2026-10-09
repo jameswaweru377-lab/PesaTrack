@@ -51,7 +51,7 @@ class TransactionDetailJourneyTest {
             directionOverride = MoneyDirection.EXPENSE, categoryOverride = TransactionCategory.GROCERIES,
             reviewStateOverride = ReviewState.USER_CLASSIFIED
         )
-        return store.getByTransactionCode("UITEST0001")!!
+        return store.snapshot().latestTransaction!!
     }
 
     @Test fun categoryPickerScrollsAndNoteActionPersistsWithoutChangingMoney() {
