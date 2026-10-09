@@ -1,0 +1,693 @@
+{
+  "schema_version": 1,
+  "synthetic_only": true,
+  "cases": [
+    {
+      "id": "ownership-body-bank",
+      "group": "ownership",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "Service",
+          "text": "KES 250.00 transferred from Equity to M-PESA 0712000000.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            }
+          ],
+          "expected": {
+            "match": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "ownership-sender-conflict",
+      "group": "ownership",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "Absa",
+          "text": "KES 250.00 transferred from Equity to M-PESA 0712000000.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            }
+          ],
+          "expected": {
+            "match": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "ownership-no-sender",
+      "group": "ownership",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "",
+          "text": "KES 250.00 transferred from Equity to M-PESA 0712000000.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            }
+          ],
+          "expected": {
+            "match": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "ownership-duplicate-bank",
+      "group": "ownership",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "Equity",
+          "text": "KES 250.00 transferred to M-PESA 0712000000.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            },
+            {
+              "id": "equity-2",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800003333"
+            }
+          ],
+          "expected": {
+            "match": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "ownership-equity",
+      "group": "ownership",
+      "steps": [
+        {
+          "mode": "bank_identity",
+          "title": "Equity",
+          "expected": {
+            "bank": "equity"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ownership-kcb",
+      "group": "ownership",
+      "steps": [
+        {
+          "mode": "bank_identity",
+          "title": "KCB",
+          "expected": {
+            "bank": "kcb"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ownership-absa",
+      "group": "ownership",
+      "steps": [
+        {
+          "mode": "bank_identity",
+          "title": "Absa",
+          "expected": {
+            "bank": "absa"
+          }
+        }
+      ]
+    },
+    {
+      "id": "transfer-wallet-bank",
+      "group": "transfer",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "MPESA",
+          "text": "KES 250.00 transferred to Equity account 8800001111.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            }
+          ],
+          "expected": {
+            "match": "wallet>equity"
+          }
+        }
+      ]
+    },
+    {
+      "id": "transfer-bank-wallet",
+      "group": "transfer",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "Equity",
+          "text": "KES 250.00 transferred to M-PESA 0712000000.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            }
+          ],
+          "expected": {
+            "match": "equity>wallet"
+          }
+        }
+      ]
+    },
+    {
+      "id": "transfer-other-person",
+      "group": "transfer",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "MPESA",
+          "text": "KES 250.00 transferred to KCB account 8800009999 for SAMPLE PERSON.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            }
+          ],
+          "expected": {
+            "match": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "transfer-name-only",
+      "group": "transfer",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "MPESA",
+          "text": "KES 250.00 transferred to SAMPLE PERSON at Equity Bank.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            }
+          ],
+          "expected": {
+            "match": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "transfer-receipt",
+      "group": "transfer",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "Equity",
+          "text": "KES 250.00 received from SAMPLE PERSON.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            }
+          ],
+          "expected": {
+            "match": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "transfer-duplicate-destination",
+      "group": "transfer",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "MPESA",
+          "text": "KES 250.00 transferred to Equity account 8800001111.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            },
+            {
+              "id": "equity-copy",
+              "name": "Other Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            }
+          ],
+          "expected": {
+            "match": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "transfer-identifier-substring",
+      "group": "transfer",
+      "steps": [
+        {
+          "mode": "notification",
+          "title": "MPESA",
+          "text": "KES 250.00 transferred to Equity account 988000011110.",
+          "accounts": [
+            {
+              "id": "wallet",
+              "name": "M-Pesa",
+              "type": "MOBILE_WALLET",
+              "identifier": "+254712000000"
+            },
+            {
+              "id": "equity",
+              "name": "Equity Bank",
+              "type": "BANK",
+              "identifier": "8800001111"
+            },
+            {
+              "id": "kcb",
+              "name": "KCB Bank",
+              "type": "BANK",
+              "identifier": "8800002222"
+            }
+          ],
+          "expected": {
+            "match": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "debt-known-history",
+      "group": "debt",
+      "steps": [
+        {
+          "mode": "debt",
+          "title": "Finance",
+          "text": "M-Shwari amount is Ksh 2,500.00. Total M-Shwari outstanding amount is Ksh 2,500.00.",
+          "expected": {
+            "kind": "DEBT_DRAWDOWN",
+            "amount": 250000,
+            "outstanding": 250000,
+            "credit": -1,
+            "completion": "NA"
+          }
+        },
+        {
+          "mode": "debt",
+          "title": "MPESA",
+          "text": "Ksh 500.00 from your M-PESA has been used to partially pay your outstanding M-Shwari. Total M-Shwari outstanding balance is Ksh 2,000.00.",
+          "expected": {
+            "kind": "DEBT_REPAYMENT",
+            "amount": 50000,
+            "outstanding": 200000,
+            "credit": -1,
+            "completion": "PARTIAL"
+          }
+        }
+      ]
+    },
+    {
+      "id": "debt-known-unknown-balance",
+      "group": "debt",
+      "steps": [
+        {
+          "mode": "debt",
+          "title": "MPESA",
+          "text": "Ksh 500.00 from your M-PESA has been used to partially pay your outstanding M-Shwari. Your M-PESA balance is Ksh 300.00.",
+          "expected": {
+            "kind": "DEBT_REPAYMENT",
+            "amount": 50000,
+            "outstanding": -1,
+            "credit": -1,
+            "completion": "PARTIAL"
+          }
+        }
+      ]
+    },
+    {
+      "id": "debt-known-credit-limit",
+      "group": "debt",
+      "steps": [
+        {
+          "mode": "debt",
+          "title": "MPESA",
+          "text": "Ksh 500.00 from your M-PESA has been used to fully pay your outstanding M-Shwari. Available M-Shwari limit is Ksh 3,000.00.",
+          "expected": {
+            "kind": "DEBT_REPAYMENT",
+            "amount": 50000,
+            "outstanding": 0,
+            "credit": 300000,
+            "completion": "FULL"
+          }
+        }
+      ]
+    },
+    {
+      "id": "debt-generic-history",
+      "group": "debt",
+      "steps": [
+        {
+          "mode": "debt",
+          "title": "Finance",
+          "text": "Nova Credit amount is Ksh 2,500.00. Total Nova Credit outstanding amount is Ksh 2,500.00.",
+          "expected": {
+            "kind": "DEBT_DRAWDOWN",
+            "amount": 250000,
+            "outstanding": 250000,
+            "credit": -1,
+            "completion": "NA"
+          }
+        },
+        {
+          "mode": "debt",
+          "title": "MPESA",
+          "text": "Ksh 500.00 from your M-PESA has been used to partially pay your outstanding Nova Credit. Total Nova Credit outstanding balance is Ksh 2,000.00.",
+          "expected": {
+            "kind": "DEBT_REPAYMENT",
+            "amount": 50000,
+            "outstanding": 200000,
+            "credit": -1,
+            "completion": "PARTIAL"
+          }
+        }
+      ]
+    },
+    {
+      "id": "debt-generic-unknown-balance",
+      "group": "debt",
+      "steps": [
+        {
+          "mode": "debt",
+          "title": "MPESA",
+          "text": "Ksh 500.00 from your M-PESA has been used to partially pay your outstanding Nova Credit. Your M-PESA balance is Ksh 300.00.",
+          "expected": {
+            "kind": "DEBT_REPAYMENT",
+            "amount": 50000,
+            "outstanding": -1,
+            "credit": -1,
+            "completion": "PARTIAL"
+          }
+        }
+      ]
+    },
+    {
+      "id": "debt-generic-credit-limit",
+      "group": "debt",
+      "steps": [
+        {
+          "mode": "debt",
+          "title": "MPESA",
+          "text": "Ksh 500.00 from your M-PESA has been used to fully pay your outstanding Nova Credit. Available Nova Credit limit is Ksh 3,000.00.",
+          "expected": {
+            "kind": "DEBT_REPAYMENT",
+            "amount": 50000,
+            "outstanding": 0,
+            "credit": 300000,
+            "completion": "FULL"
+          }
+        }
+      ]
+    },
+    {
+      "id": "debt-ordinary-payment",
+      "group": "debt",
+      "steps": [
+        {
+          "mode": "debt",
+          "title": "Service",
+          "text": "We have received your payment of KES 500.00. Thank you.",
+          "expected": {
+            "kind": "NONE",
+            "amount": -1,
+            "outstanding": -1,
+            "credit": -1,
+            "completion": "NA"
+          }
+        }
+      ]
+    },
+    {
+      "id": "merchant-remembered",
+      "group": "merchant",
+      "steps": [
+        {
+          "mode": "merchant",
+          "source_name": "SAMPLE WATERFALL MARKET",
+          "name": " sample waterfall market ",
+          "source_phone": "",
+          "phone": "",
+          "expected": {
+            "match": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "merchant-spacing",
+      "group": "merchant",
+      "steps": [
+        {
+          "mode": "merchant",
+          "source_name": "SAMPLE WATERFALL MARKET",
+          "name": "SAMPLE   WATERFALL MARKET",
+          "source_phone": "",
+          "phone": "",
+          "expected": {
+            "match": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "merchant-unicode",
+      "group": "merchant",
+      "steps": [
+        {
+          "mode": "merchant",
+          "source_name": "SAMPLE WATERFALL MARKET",
+          "name": "SAMPLE WATERFALL MARKET",
+          "source_phone": "",
+          "phone": "",
+          "expected": {
+            "match": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "merchant-substring",
+      "group": "merchant",
+      "steps": [
+        {
+          "mode": "merchant",
+          "source_name": "SAMPLE WATERFALL MARKET",
+          "name": "SAMPLE WATERFALL MARKET SERVICES",
+          "source_phone": "",
+          "phone": "",
+          "expected": {
+            "match": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "merchant-phone-match",
+      "group": "merchant",
+      "steps": [
+        {
+          "mode": "merchant",
+          "source_name": "SAMPLE WATERFALL MARKET",
+          "name": "DIFFERENT DISPLAY",
+          "source_phone": "0712000000",
+          "phone": "+254712000000",
+          "expected": {
+            "match": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "merchant-phone-conflict",
+      "group": "merchant",
+      "steps": [
+        {
+          "mode": "merchant",
+          "source_name": "SAMPLE WATERFALL MARKET",
+          "name": "SAMPLE WATERFALL MARKET",
+          "source_phone": "0712000000",
+          "phone": "0712000001",
+          "expected": {
+            "match": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "merchant-missing-phone",
+      "group": "merchant",
+      "steps": [
+        {
+          "mode": "merchant",
+          "source_name": "SAMPLE WATERFALL MARKET",
+          "name": "SAMPLE WATERFALL MARKET",
+          "source_phone": "0712000000",
+          "phone": "",
+          "expected": {
+            "match": false
+          }
+        }
+      ]
+    }
+  ]
+}
