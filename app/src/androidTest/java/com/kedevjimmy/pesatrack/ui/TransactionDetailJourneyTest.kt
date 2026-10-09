@@ -30,12 +30,14 @@ class TransactionDetailJourneyTest {
         context = ApplicationProvider.getApplicationContext()
         PesaTrackDatabase.resetForTests()
         context.deleteDatabase("pesatrack.db")
+        context.getSharedPreferences("transaction_annotations", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     @After fun cleanup() {
         compose.runOnIdle { }
         PesaTrackDatabase.resetForTests()
         context.deleteDatabase("pesatrack.db")
+        context.getSharedPreferences("transaction_annotations", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     private fun payment(): StoredTransaction {
@@ -62,8 +64,11 @@ class TransactionDetailJourneyTest {
         list.performScrollToNode(hasText("Change"))
         compose.onNodeWithText("Change").performClick()
         compose.onNodeWithText("Add category").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Groceries", useUnmergedTree = true).performScrollTo().performClick()
-        compose.waitForIdle()
+        compose.onNodeWithText("Transport", useUnmergedTree = true).performScrollTo().performClick()
+        compose.waitUntil(5000) {
+            TransactionStore.get(context).getById(payment.id)?.category ==
+                CategoryStore.get(context).canonicalId(TransactionCategory.TRANSPORT.name)
+        }
         list.performScrollToNode(hasText("Add note or receipt"))
         compose.onNodeWithText("Add note or receipt").performClick()
         compose.onNodeWithText("Personal note").performTextInput("Weekly shopping")
