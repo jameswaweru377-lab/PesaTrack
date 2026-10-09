@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -103,8 +104,8 @@ fun AvailableToLiveHero(
     safeToday: String? = null
 ) {
     val dark = isPesaDarkTheme()
-    val start = if (dark) Color(0xFF24213F) else Color(0xFF4F46D8)
-    val end = if (dark) Color(0xFF3933A8) else Color(0xFF6F63F2)
+    val start = if (dark) Color(0xFF181818) else Color(0xFF181818)
+    val end = if (dark) Color(0xFF181818) else Color(0xFF181818)
     val showDailyMetrics =
         !spentToday.isNullOrBlank() ||
             !safeToday.isNullOrBlank()
@@ -112,11 +113,11 @@ fun AvailableToLiveHero(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(
+            .heightIn(min =
                 if (showDailyMetrics) {
-                    198.dp
+                    172.dp
                 } else {
-                    150.dp
+                    124.dp
                 }
             )
             .clip(RoundedCornerShape(24.dp))
@@ -219,7 +220,7 @@ fun AvailableToLiveHero(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(12.dp))
 
             if (showDailyMetrics) {
                 Row(
@@ -640,9 +641,9 @@ fun SmartInsightCard(
 ) {
     val dark = isPesaDarkTheme()
     val colors = if (dark) {
-        listOf(Color(0xFF2C2516), Color(0xFF3A2D18))
+        listOf(Color(0xFF29251E), Color(0xFF3A3022))
     } else {
-        listOf(Color(0xFFFFF6DA), Color(0xFFFFEDB8))
+        listOf(Color(0xFFFFF6E6), Color(0xFFFFF1D9))
     }
 
     Surface(
@@ -685,6 +686,6 @@ fun premiumCategoryColor(index: Int): Color =
         PremiumCyan,
         PremiumGold,
         PremiumPurple,
-        Color(0xFFFF7E67),
-        Color(0xFF6FA8FF)
+        Color(0xFFB54345),
+        Color(0xFF356B98)
     )[index % 6]

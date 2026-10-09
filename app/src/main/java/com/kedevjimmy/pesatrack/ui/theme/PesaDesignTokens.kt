@@ -8,21 +8,21 @@ import androidx.compose.ui.unit.dp
  */
 object PesaDesignTokens {
     val screenHorizontalPadding =
-        18.dp
+        16.dp
     val screenVerticalPadding =
         16.dp
 
     val sectionGap =
-        14.dp
+        12.dp
     val cardContentPadding =
         16.dp
     val compactGap =
         8.dp
 
     val cardRadius =
-        22.dp
+        18.dp
     val elevatedRadius =
-        26.dp
+        22.dp
     val innerRadius =
         16.dp
     val controlRadius =
@@ -31,5 +31,5 @@ object PesaDesignTokens {
         13.dp
 
     val iconBubble =
-        42.dp
+        36.dp
 }

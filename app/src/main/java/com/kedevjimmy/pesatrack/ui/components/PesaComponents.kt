@@ -59,7 +59,7 @@ fun PesaLogoMark(modifier: Modifier = Modifier, size: Dp = PesaDesignTokens.icon
     Surface(
         modifier = modifier.size(size),
         shape = RoundedCornerShape(size * 0.28f),
-        color = Color.Transparent
+        color = Color.White
     ) {
         androidx.compose.foundation.Image(
             painter = painterResource(R.drawable.ic_pesatrack_logo),
@@ -131,12 +131,10 @@ fun PesaCard(
         ),
         border = BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outline.copy(
-                alpha = if (isPesaDarkTheme()) .34f else .58f
-            )
+            MaterialTheme.colorScheme.outlineVariant
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isPesaDarkTheme()) 0.dp else 2.dp
+            defaultElevation = 0.dp
         )
     ) {
         content()
@@ -211,11 +209,11 @@ fun LandscapeBackdrop(
     content: @Composable () -> Unit
 ) {
     val useDark = dark ?: isPesaDarkTheme()
-    val base = if (useDark) Color(0xFF17162C) else Color(0xFFF0EFFF)
-    val hill1 = if (useDark) Color(0xFF25214B) else Color(0xFFDED9FF)
-    val hill2 = if (useDark) Color(0xFF332B68) else Color(0xFFC8C0FF)
-    val hill3 = if (useDark) Color(0xFF1A3150) else Color(0xFFA9DDF2)
-    val sun = if (useDark) Color(0xFF55E6D1).copy(alpha = .18f) else Color(0xFFFFE6B0)
+    val base = if (useDark) Color(0xFF1B1B1B) else Color(0xFFF2F2F2)
+    val hill1 = if (useDark) Color(0xFF303030) else Color(0xFFDEDEDE)
+    val hill2 = if (useDark) Color(0xFF484848) else Color(0xFFC8C8C8)
+    val hill3 = if (useDark) Color(0xFF393939) else Color(0xFFB8B8B8)
+    val sun = if (useDark) Color(0xFF9AD2BB).copy(alpha = .18f) else Color(0xFFE7E7E7)
 
     Box(
         modifier = modifier
@@ -341,9 +339,20 @@ fun pesaToneContent(tone: String): Color {
         when (tone) {
             "amber" -> Color(0xFF9B650C)
             "blue" -> Color(0xFF176A99)
-            "violet" -> Color(0xFF60459F)
+            "violet" -> MaterialTheme.colorScheme.onSurfaceVariant
             "red" -> Color(0xFFB33B49)
             else -> MaterialTheme.colorScheme.primary
         }
     }
 }
+
+/** The chart and its legend use the same theme-aware, distinct palette. */
+@Composable
+fun pesaChartColors(): List<Color> = listOf(
+    MaterialTheme.colorScheme.onSurface,
+    MaterialTheme.colorScheme.secondary,
+    MaterialTheme.colorScheme.tertiary,
+    if (isPesaDarkTheme()) Color(0xFFA6CAE3) else Color(0xFF356B98),
+    MaterialTheme.colorScheme.onSurfaceVariant,
+    if (isPesaDarkTheme()) Color(0xFFD0D0D0) else Color(0xFF8A8A8A)
+)

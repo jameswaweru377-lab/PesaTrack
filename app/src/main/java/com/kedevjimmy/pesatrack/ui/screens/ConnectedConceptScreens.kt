@@ -74,14 +74,7 @@ private fun SpendingDonut(
     total: Long,
     modifier: Modifier = Modifier
 ) {
-    val palette = listOf(
-        Color(0xFF5B55E7),
-        Color(0xFF6F63F2),
-        Color(0xFF55E6D1),
-        Color(0xFFA69CFF),
-        Color(0xFFE2DFFF),
-        Color(0xFF14B8A6)
-    )
+    val palette = pesaChartColors()
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             var start = -90f
@@ -608,12 +601,7 @@ fun ReportsInsightsScreen(
                                     Surface(
                                         modifier = Modifier.size(9.dp),
                                         shape = androidx.compose.foundation.shape.CircleShape,
-                                        color = listOf(
-                                            Color(0xFF5B55E7),
-                                            Color(0xFF6F63F2),
-                                            Color(0xFF55E6D1),
-                                            Color(0xFFA69CFF)
-                                        )[index]
+                                        color = pesaChartColors()[index]
                                     ) {}
                                     Text(
                                         entry.first,

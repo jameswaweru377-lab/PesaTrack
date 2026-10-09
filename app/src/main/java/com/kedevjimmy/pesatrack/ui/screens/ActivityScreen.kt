@@ -2751,13 +2751,13 @@ private fun ActivitySummaryCard(
     val dark = isPesaDarkTheme()
     val gradient = if (dark) {
         listOf(
-            Color(0xFF24213F),
-            Color(0xFF3933A8)
+            Color(0xFF181818),
+            Color(0xFF181818)
         )
     } else {
         listOf(
-            Color(0xFF4F46D8),
-            Color(0xFF6F63F2)
+            Color(0xFF181818),
+            Color(0xFF181818)
         )
     }
 
@@ -2785,7 +2785,7 @@ private fun ActivitySummaryCard(
                             Icons.Rounded.BarChart,
                             contentDescription = null,
                             modifier = Modifier.size(21.dp),
-                            tint = Color(0xFFF4C768)
+                            tint = Color(0xFFE8C18C)
                         )
                     }
                 }
@@ -2833,9 +2833,9 @@ private fun ActivitySummaryCard(
                     .padding(top = 15.dp),
                 shape = RoundedCornerShape(15.dp),
                 color = if (dark) {
-                    Color(0xFF3A2E1C)
+                    Color(0xFF332A1E)
                 } else {
-                    Color(0xFFFFE8AC)
+                    Color(0xFFFFF3DF)
                 }
             ) {
                 Row(
@@ -2995,9 +2995,9 @@ private fun SummaryComparison(
     val tint = if (percent == 0) {
         Color.White.copy(alpha = .66f)
     } else if (favorable) {
-        Color(0xFF55E6D1)
+        Color(0xFF9AD2BB)
     } else {
-        Color(0xFFFF92A3)
+        Color(0xFFF0B4B6)
     }
 
     Row(

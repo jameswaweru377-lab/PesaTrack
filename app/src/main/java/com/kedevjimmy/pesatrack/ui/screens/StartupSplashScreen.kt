@@ -23,9 +23,9 @@ fun StartupSplashScreen() {
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF3933A8),
-                        Color(0xFF24213F),
-                        Color(0xFF111827)
+                        Color(0xFF181818),
+                        Color(0xFF181818),
+                        Color(0xFF191919)
                     )
                 )
             )
@@ -55,7 +55,7 @@ fun StartupSplashScreen() {
                     .displaySmall,
             color = Color.White,
             fontWeight =
-                FontWeight.ExtraBold,
+                FontWeight.SemiBold,
             textAlign =
                 TextAlign.Center
         )

@@ -108,9 +108,9 @@ fun AppLockScreen(
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            Color(0xFF24213F),
-                            Color(0xFF111827),
-                            Color(0xFF090D18)
+                            Color(0xFF181818),
+                            Color(0xFF191919),
+                            Color(0xFF101010)
                         )
                     )
                 )
@@ -147,7 +147,7 @@ fun AppLockScreen(
                     contentDescription =
                         null,
                     tint =
-                        Color(0xFFA69CFF),
+                        Color(0xFFEEEEEE),
                     modifier =
                         Modifier.size(
                             30.dp
