@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -64,19 +65,15 @@ internal fun SmartSmsPermissionPage(
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
     val compact = maxHeight < 600.dp
+    val constrained = maxHeight < 480.dp || LocalDensity.current.fontScale > 1.3f
     val disclosureScroll = rememberScrollState()
     LaunchedEffect(denied) { if (denied) disclosureScroll.scrollTo(0) }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)) {
-        Text("Build your money picture privately",
-            style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold)
-        Text("PesaTrack understands financial messages on this device.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        FinancialMessagesIllustration(compact = compact)
+        if (!constrained) MessageAccessIntroduction(compact)
         PesaCard(modifier = Modifier.fillMaxWidth().weight(1f)) {
             Column(Modifier.fillMaxSize().verticalScroll(disclosureScroll).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (constrained) MessageAccessIntroduction(compact = true)
                 consentError?.let { Text(it, color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall) }
         if (denied) {
@@ -98,13 +95,10 @@ internal fun SmartSmsPermissionPage(
                     style = MaterialTheme.typography.bodySmall)
                 Text("Android will ask you to allow SMS access and open notification-access settings. You can deny access, continue without it, or change permissions later in Android settings. PesaTrack cannot enable restricted settings for you.",
                     style = MaterialTheme.typography.bodySmall)
+                if (constrained) MessageAccessAgreement(accepted, busy, onAccepted)
             }
         }
-        Row(Modifier.fillMaxWidth().toggleable(value = accepted, enabled = !busy,
-            role = Role.Checkbox, onValueChange = onAccepted), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = accepted, onCheckedChange = null, enabled = !busy)
-            Text("I agree to this use of my financial messages", style = MaterialTheme.typography.bodySmall)
-        }
+        if (!constrained) MessageAccessAgreement(accepted, busy, onAccepted)
         Button(onClick = onContinue, enabled = accepted && !busy,
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
             Text(if (busy) "Waiting for Android…" else "Continue")
@@ -113,6 +107,26 @@ internal fun SmartSmsPermissionPage(
             Text("Continue without access")
         }
     }
+    }
+}
+
+@Composable
+private fun MessageAccessIntroduction(compact: Boolean) {
+    Text("Build your money picture privately",
+        style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold)
+    Text("PesaTrack understands financial messages on this device.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+    FinancialMessagesIllustration(compact = compact)
+}
+
+@Composable
+private fun MessageAccessAgreement(accepted: Boolean, busy: Boolean, onAccepted: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().toggleable(value = accepted, enabled = !busy,
+        role = Role.Checkbox, onValueChange = onAccepted), verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = accepted, onCheckedChange = null, enabled = !busy)
+        Text("I agree to this use of my financial messages", style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -399,3 +413,4 @@ internal fun smartNotificationAccessIntent(
             .ACTION_NOTIFICATION_LISTENER_SETTINGS
     )
 }
+
