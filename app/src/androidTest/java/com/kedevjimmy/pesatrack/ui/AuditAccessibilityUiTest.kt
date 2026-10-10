@@ -80,10 +80,27 @@ class AuditAccessibilityUiTest {
             File(artifactDir, "$artifactName.png").outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG, 100, it) }
             screenshot.recycle()
         }
+        // AGP removes the tested app after the suite; preserve only these invented
+        // screenshots outside its app directory before that cleanup occurs.
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            instrumentation.uiAutomation.executeShellCommand(
+                "mkdir -p /sdcard/Download/pesatrack-audit-accessibility && cp ${artifactDir.absolutePath}/$artifactName.txt /sdcard/Download/pesatrack-audit-accessibility/ && cp ${artifactDir.absolutePath}/$artifactName.png /sdcard/Download/pesatrack-audit-accessibility/"
+            )
+        ).use { it.readBytes() }
         val bounds = rendered.map { (text, layout, rect) ->
-            assertFalse("Critical text must not overflow at ${fontScale}x: $text\n$diagnostics", layout.hasVisualOverflow)
+            // GetTextLayoutResult retains the paragraph's available width for wrap-content Text.
+            // CI at 1.3x: paragraph=756px, title node=308px, lineRight=307.66406px.
+            // didOverflowWidth compares paragraph width with node width, so it reports overflow
+            // even though the painted line fits. Check line extents against the measured node
+            // instead; preserve independent height, ellipsis, containment and overlap checks.
+            // androidx source: TextLayoutResult.didOverflowWidth = size.width < multiParagraph.width.
+            assertFalse("Critical text must not overflow vertically at ${fontScale}x: $text\n$diagnostics", layout.didOverflowHeight)
             for (line in 0 until layout.lineCount) {
                 assertFalse("Critical text must not be ellipsized: $text\n$diagnostics", layout.isLineEllipsized(line))
+                assertTrue("Painted line must fit horizontally in its measured text node: $text\n$diagnostics",
+                    layout.getLineLeft(line) >= 0f && layout.getLineRight(line) <= layout.size.width.toFloat())
+                assertTrue("Painted line must fit vertically in its measured text node: $text\n$diagnostics",
+                    layout.getLineTop(line) >= 0f && layout.getLineBottom(line) <= layout.size.height.toFloat())
             }
             assertTrue("Critical text must fit horizontally inside the hero\n$diagnostics", rect.left >= hero.left && rect.right <= hero.right)
             assertTrue("Critical text must fit vertically inside the hero\n$diagnostics", rect.top >= hero.top && rect.bottom <= hero.bottom)
