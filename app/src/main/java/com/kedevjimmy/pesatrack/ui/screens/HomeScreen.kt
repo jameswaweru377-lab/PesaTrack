@@ -1088,12 +1088,19 @@ fun HomeScreen(
                 )
                 ConceptMetricTile(
                     icon = Icons.Rounded.NorthEast,
-                    label = "Spent",
+                    label = "Net spent",
                     value = formatMoney(totalTrustedSpendingMinor),
                     modifier = Modifier.weight(1f),
                     positive = false
                 )
             }
+        }
+        item {
+            Text(
+                "Net spent includes tracked fees and subtracts refunds. Reports shows expenses separately.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         item {
