@@ -91,3 +91,10 @@ Read the attached blueprint PDF plus this tracker, then inspect live `main`/PRs 
 - No schema, parser or SMS permissions changes. Unit tests cover independent product ownership and absence of implied M-Shwari accounts when M-Pesa is confirmed.
 - Manual salary remains available earlier in review; a dedicated final salary page and ordering to match the seven-screen concept remains a *future separate work package*. Do not claim all screens finished.
 - Requires exact-head PR unit tests/lint/APK and eventual post-merge main CI; instrumentation/device flows unverified until explicitly run.
+
+## Final approved onboarding salary screen (next PR after #335)
+- Base: merged M-Shwari consent #335 at `d4d43f104368159e683f1fe1754fe08438ab2c90`; post-merge main CI [run 38083542774](https://github.com/jameswaweru377-lab/PesaTrack/actions/runs/38083542774) must be confirmed before merging the next PR.
+- Branch: `feature/pesatrack2-onboarding-salary-finish-v1`.
+- Places optional salary choice **after** account details and before setup completion. Review Detected Accounts no longer asks for salary in the same screen.
+- Existing salary receipt form remains authoritative: accepted detected salary only creates/reapplies a salary **rule**, not a second cash receipt; manual entry requires money actually received.
+- No schema, data parser, new permission or off-device financial evidence. Test initial skip, declining suggested salary, source matching, routing and user intent. A feature-branch CI build does not substitute for emulator/Redmi acceptance.

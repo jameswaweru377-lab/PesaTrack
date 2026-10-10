@@ -4,6 +4,8 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.ui.screens.ReviewDiscoveryPage
+import com.kedevjimmy.pesatrack.ui.screens.OnboardingSalaryChoicePage
+import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingSalarySuggestion
 import com.kedevjimmy.pesatrack.ui.screens.OwnershipCandidateCard
 import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingOwnershipChoice
@@ -26,20 +28,18 @@ class OnboardingDiscoveryUiTest {
             PesaTrackTheme(darkTheme = true) {
                 ReviewDiscoveryPage(
                     sources = emptyList(), ownershipCandidates = emptyList(),
-                    ownershipChoices = emptyMap(), salarySuggestion = null,
-                    salaryAccepted = false, importResult = null, applying = false,
-                    onSalaryAccepted = {}, onOwnershipChoice = { _, _ -> }, onManualSalary = {},
+                    ownershipChoices = emptyMap(), importResult = null, applying = false,
+                    onOwnershipChoice = { _, _ -> },
                     onContinue = { continued = true }
                 )
             }
         }
-        compose.onNodeWithText("Set up salary manually").assertExists()
-        compose.onNodeWithText("Hide optional setup").performClick()
-        compose.onNodeWithText("Set up salary manually").assertDoesNotExist()
+        compose.onNodeWithText("Salary setup comes after confirming your accounts. You can skip it.").assertExists()
+        compose.onNodeWithText("Hide account options").performClick()
         compose.onNodeWithText("Continue").assertIsDisplayed().performClick()
         compose.runOnIdle { assertTrue(continued) }
-        compose.onNodeWithText("Personalize accounts and salary (optional)").performClick()
-        compose.onNodeWithText("Set up salary manually").assertExists()
+        compose.onNodeWithText("Review account options").performClick()
+        compose.onNodeWithText("Add a missing bank or service").assertExists()
     }
     @Test fun accountOwnershipHasExplicitMineNotMineAndUnsureChoices() {
         var decision = OnboardingOwnershipChoice.UNSURE
@@ -79,13 +79,9 @@ class OnboardingDiscoveryUiTest {
                     sources = emptyList(),
                     ownershipCandidates = emptyList(),
                     ownershipChoices = emptyMap(),
-                    salarySuggestion = null,
-                    salaryAccepted = false,
                     importResult = null,
                     applying = false,
-                    onSalaryAccepted = {},
                     onOwnershipChoice = { _, _ -> },
-                    onManualSalary = {},
                     onContinue = {},
                     onAddMissingInstitution = { directoryOpened++ }
                 )
@@ -93,5 +89,38 @@ class OnboardingDiscoveryUiTest {
         }
         compose.onNodeWithText("Add a missing bank or service").performClick()
         compose.runOnIdle { assertEquals(1, directoryOpened) }
+    }
+
+    @Test fun optionalSalaryStepDoesNotAutomaticallyAcceptSuggestedIncome() {
+        var confirmed = false
+        var skipped = false
+        val synthetic = OnboardingSalarySuggestion(
+            label = "SYNTHETIC PAYROLL",
+            accountId = "synthetic-bank",
+            occurrenceCount = 3,
+            monthCount = 3,
+            representativeAmountMinor = 5_200_000L
+        )
+        compose.setContent {
+            PesaTrackTheme(darkTheme = true) {
+                OnboardingSalaryChoicePage(
+                    suggestion = synthetic,
+                    saving = false,
+                    error = null,
+                    onConfirmDetected = { confirmed = true },
+                    onEnterManually = {},
+                    onNotMySalary = {},
+                    onSkip = { skipped = true }
+                )
+            }
+        }
+        compose.runOnIdle {
+            assertTrue(!confirmed)
+            assertTrue(!skipped)
+        }
+        compose.onNodeWithText("Not now — continue without salary").performClick()
+        compose.runOnIdle { assertTrue(skipped); assertTrue(!confirmed) }
+        compose.onNodeWithText("Yes, this is my salary").performClick()
+        compose.runOnIdle { assertTrue(confirmed) }
     }
 }
