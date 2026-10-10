@@ -10,6 +10,10 @@ on:
       - 'gradle/wrapper/**'
   workflow_dispatch:
     inputs:
+      run_instrumentation:
+        description: "Run Android emulator validation only when explicitly requested"
+        type: boolean
+        default: false
       version_name:
         description: "Release version name, for example 0.2.0"
         required: true
@@ -152,7 +156,7 @@ jobs:
 
 
   validate_android:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_instrumentation }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
@@ -211,7 +215,7 @@ jobs:
             ANDROID_TEST_SOURCE_SHA.txt
 
   release:
-    if: github.event_name == 'workflow_dispatch'
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.validate_build.result == 'success' && (needs.validate_android.result == 'success' || needs.validate_android.result == 'skipped') }}
     needs: [validate_build, validate_android]
     runs-on: ubuntu-latest
     timeout-minutes: 35
