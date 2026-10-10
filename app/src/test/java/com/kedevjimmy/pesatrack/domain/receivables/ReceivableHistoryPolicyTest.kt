@@ -20,6 +20,13 @@ class ReceivableHistoryPolicyTest {
         assertFalse(ReceivableHistoryPolicy.match("Norman", null, "Norman Mwangi", null).bulkEligible)
         assertEquals(HistoryMatchKind.NONE, ReceivableHistoryPolicy.match("", null, null, null).kind)
     }
+    @Test fun sameNameDifferentPhonesCannotBeSelectedTogetherWithoutConfirmedPhone() {
+        val first = ReceivableHistoryPolicy.match("Norman Mwangi",null,"Norman Mwangi","0712345678")
+        val second = ReceivableHistoryPolicy.match("Norman Mwangi",null,"Norman Mwangi","0798765432")
+        assertFalse(first.bulkEligible)
+        assertFalse(second.bulkEligible)
+        assertFalse(ReceivableHistoryPolicy.match("Norman Mwangi",null,"Norman Mwangi",null).bulkEligible)
+    }
     @Test fun malformedPhonesNeverBecomeStrongMatches() {
         assertNotEquals(HistoryMatchKind.PHONE, ReceivableHistoryPolicy.match("Norman", "1234567", "Other", "1234567").kind)
     }
