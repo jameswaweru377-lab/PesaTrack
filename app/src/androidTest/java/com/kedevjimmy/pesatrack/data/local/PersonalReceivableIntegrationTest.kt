@@ -123,4 +123,45 @@ class PersonalReceivableIntegrationTest {
         assertEquals(0L, receivables.people().single().outstandingMinor)
         assertEquals(25_000L, transactions.getById(payment)!!.amountMinor)
     }
+
+    @Test fun schema34MigrationAndEncryptedRestorePreserveLedger() = migrateAndRestore(34)
+    @Test fun schema35MigrationAndEncryptedRestorePreserveAllocations() = migrateAndRestore(35)
+
+    private fun migrateAndRestore(oldVersion: Int) {
+        val payment = transaction(20 + oldVersion, 50_000L, "EXPENSE")
+        val legacy = db
+        if (oldVersion == 35) legacy.execSQL(
+            "INSERT INTO transaction_allocations(transaction_id, position, category, amount_minor) VALUES (?, 0, 'EATING_OUT', 50000)",
+            arrayOf<Any>(payment))
+        legacy.execSQL("DROP TABLE personal_receivable_events")
+        legacy.execSQL("DROP TABLE personal_receivable_people")
+        if (oldVersion == 34) {
+            legacy.execSQL("DROP TABLE transaction_allocations")
+            legacy.execSQL("DROP TABLE flexible_budget_options")
+            legacy.execSQL("DROP TABLE statement_import_entries")
+        }
+        legacy.version = oldVersion
+        val manager = com.kedevjimmy.pesatrack.security.PesaBackupManager(context)
+        val encrypted = manager.exportEncryptedBytes("invented-migration-passphrase")
+        PesaTrackDatabase.resetForTests()
+        assertEquals(36, db.version)
+        assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
+        assertTrue(receivables.people().isEmpty())
+        repeat(2) {
+            manager.previewEncryptedBytes(encrypted, "invented-migration-passphrase")
+            manager.restoreEncryptedBytes(encrypted, "invented-migration-passphrase")
+            assertEquals(36, db.version)
+            assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
+            assertTrue(receivables.people().isEmpty())
+            assertTrue(receivables.linkedShares().isEmpty())
+            db.rawQuery("SELECT COUNT(*) FROM transaction_allocations WHERE transaction_id = ?",
+                arrayOf(payment.toString())).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(if (oldVersion == 35) 1 else 0, cursor.getInt(0))
+            }
+        }
+        PesaTrackDatabase.resetForTests()
+        assertEquals(36, db.version)
+        assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
+    }
 }
