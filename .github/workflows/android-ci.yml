@@ -146,7 +146,7 @@ jobs:
           retention-days: 3
 
 
-  # Build and publish previews automatically; emulator review is opt-in.
+  # Emulator review runs only after the user explicitly requests it.
   instrumentation:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_instrumentation }}
     runs-on: ubuntu-latest
@@ -205,8 +205,8 @@ jobs:
             ANDROID_TEST_SOURCE_SHA.txt
 
   publish:
-    needs: [build, instrumentation]
-    if: always() && needs.build.result == 'success' && (needs.instrumentation.result == 'success' || needs.instrumentation.result == 'skipped') && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build]
+    if: needs.build.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -223,7 +223,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          ANDROID_REVIEW_RESULT: ${{ needs.instrumentation.result }}
         shell: bash
         run: |
           set -euo pipefail
@@ -252,5 +251,5 @@ jobs:
             --clobber
 
           gh release edit ci-apk \
-            --notes "Rolling development preview built from commit $GITHUB_SHA after successful build, lint and unit tests. Android emulator review for this run: $ANDROID_REVIEW_RESULT. Instrumentation runs only when explicitly requested. The attached PesaTrack-debug.apk is authoritative; the source archive remains tied to the original ci-apk tag."
+            --notes "Rolling development preview built from commit $GITHUB_SHA after successful build, lint and unit tests. Instrumentation is optional and runs only when explicitly requested; this publication reports build, lint and unit-test verification. The attached PesaTrack-debug.apk is authoritative; the source archive remains tied to the original ci-apk tag."
 

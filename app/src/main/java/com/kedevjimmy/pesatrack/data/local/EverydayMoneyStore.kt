@@ -46,6 +46,7 @@ class EverydayMoneyStore(context:Context) {
   val row=transactions.getById(id) ?: error("Payment no longer exists.")
   require(row.direction==MoneyDirection.EXPENSE.name && row.reviewState!=ReviewState.NEEDS_REVIEW.name && row.reviewState!=ReviewState.EXCLUDED.name && row.relationType==null && row.reversalOfCode==null){"Confirm this expense before splitting it."}
   require(EverydayMoneyPolicy.validSplit(row.amountMinor,parts)){"Parts must add up to the payment, with different categories."}
+  require(PersonalReceivableStore(app).eventForTransaction(id)==null){"Remove the personal loan link before splitting this payment into spending categories."}
   require(parts.all {CategoryStore.get(app).find(it.category)?.budgetable==true}){"Choose spending categories."}
   val db=database.writableDatabase;db.beginTransaction();try {
    db.delete("transaction_allocations","transaction_id = ?",arrayOf(id.toString()))

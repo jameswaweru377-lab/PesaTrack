@@ -158,6 +158,7 @@ private data class ReportLoadedState(
     val health: MoneyPictureHealth,
     val periodLabel: String,
     val categorySpending: Map<String,Long> = emptyMap(),
+    val loanShares: Map<Long, Long> = emptyMap(),
     val categoryReview: List<ReportReviewCandidate> = emptyList()
 )
 
@@ -189,6 +190,7 @@ fun ReportsInsightsScreen(
     var previousSnapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
     var reportPeriodLabel by remember { mutableStateOf<String?>(null) }
     var categorySpending by remember { mutableStateOf<Map<String,Long>>(emptyMap()) }
+    var loanShares by remember { mutableStateOf<Map<Long,Long>>(emptyMap()) }
     var categoryReview by remember { mutableStateOf<List<ReportReviewCandidate>>(emptyList()) }
     var showCategoryReview by remember(period) { mutableStateOf(false) }
     var labels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
@@ -269,11 +271,13 @@ fun ReportsInsightsScreen(
                 TransactionStore.get(context)
             val current = store.activitySnapshotBetween(start,end,now)
             val allocations = com.kedevjimmy.pesatrack.data.local.EverydayMoneyStore(context).allAllocations()
+            val receivableShares = com.kedevjimmy.pesatrack.data.local.PersonalReceivableStore(context).linkedShares()
             val categoryStore = CategoryStore.get(context)
             val categoryTotals = com.kedevjimmy.pesatrack.data.local.BudgetSpendingProjection.calculate(
                 current.trustedTransactions.map { it.copy(feeMinor = 0L) },
                 store::trustedRefundOriginal, categoryStore::canonicalId,
-                { allocations[it].orEmpty() }
+                receivableLent = { receivableShares[it]?.lentMinor ?: 0L },
+                allocations = { allocations[it].orEmpty() }
             )
             ReportLoadedState(
                 periodLabel = when (period) {
@@ -286,8 +290,9 @@ fun ReportsInsightsScreen(
                         SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date(start))
                 },
                 categorySpending = categoryTotals,
+                loanShares = receivableShares.mapValues { it.value.lentMinor },
                 categoryReview = reportCategoryReview(current.trustedTransactions.map { row ->
-                    ReportReviewCandidate(row.id, row.counterparty, row.amountMinor,
+                    ReportReviewCandidate(row.id, row.counterparty, Math.subtractExact(row.amountMinor, receivableShares[row.id]?.lentMinor ?: 0L),
                         categoryStore.canonicalId(row.category), row.direction == MoneyDirection.EXPENSE.name,
                         row.relationType == TransactionStore.RELATION_REFUND, allocations[row.id].orEmpty().isNotEmpty())
                 }),
@@ -321,6 +326,7 @@ fun ReportsInsightsScreen(
         labels = loaded.labels
         moneyHealth = loaded.health
         categorySpending = loaded.categorySpending
+        loanShares = loaded.loanShares
         categoryReview = loaded.categoryReview
 
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
@@ -703,7 +709,7 @@ fun ReportsInsightsScreen(
                                         timeInMillis = it.occurredAtEpochMs
                                     }.get(Calendar.DAY_OF_MONTH).let { (it - 1) / 7 + 1 } == week
                             }
-                            .sumOf { it.amountMinor }
+                            .sumOf { Math.subtractExact(it.amountMinor, loanShares[it.id] ?: 0L) }
                     }
                     PesaCard {
                         Column(Modifier.padding(16.dp)) {

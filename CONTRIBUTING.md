@@ -16,7 +16,7 @@ Historical project notes are useful context, but current code and `CURRENT_STATE
 1. Branch from current `main`.
 2. Keep one coherent risk area per pull request and batch related edits before review.
 3. PR updates and merges run build, lint, unit tests and debug APK assembly. These checks must pass before merge.
-4. Emulator instrumentation runs only on an explicit manual review request. Marking a PR ready or pushing more edits does not start emulator tests.
+4. Emulator instrumentation runs only when the user explicitly requests it for the current task. Default to build, unit tests, lint and APK assembly, then publication on a successful push to main. Do not enable automatic instrumentation for a PR, add it as a publication dependency, or run it to satisfy an older plan without the user's current request. Marking a PR ready or pushing more edits does not start emulator tests.
 5. For Android device review, use Actions → Android CI → Run workflow on the feature branch and enable `run_instrumentation`. Inspect the successful run's source revision; skipped instrumentation means no device tests ran.
 6. Device compatibility and Android 7 security workflows are manual review tools. Their existing emulator suites are retained; weekly automatic compatibility runs are disabled.
 7. Prefer small migrations and decompositions over broad rewrites.
@@ -29,7 +29,7 @@ For every Android change, run or rely on CI for:
 - Android lint;
 - debug APK assembly.
 
-Run Android instrumentation when explicitly requested for device review. Signed releases retain their manual Android validation gate.
+Run Android instrumentation when explicitly requested for device review. Signed releases also default to build-only validation; enable run_instrumentation only after the user explicitly requests emulator review.
 
 The debug APK is available as the `pesatrack-debug-apk` artifact after build checks succeed. Merges to `main` publish the rolling preview APK after successful build checks without requiring instrumentation. A manual Android CI run defaults to build-only; enabling `run_instrumentation` adds emulator tests. Manual runs retain downloadable artifacts but never replace the rolling APK, so a slower review cannot overwrite a newer preview. The rolling APK is a development preview, not a signed production release.
 

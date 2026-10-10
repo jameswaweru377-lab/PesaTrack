@@ -40,6 +40,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createCycleProtectionTable(db)
         createSavingGoalMetadataTable(db)
         createEverydayMoneyTables(db)
+        createPersonalReceivableTables(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -499,6 +500,8 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
             // that net cash received was the principal owed.
             addColumnIfMissing(db, "debt_events", "amount_is_net_proceeds", "INTEGER")
         }
+
+        if (oldVersion < 36) createPersonalReceivableTables(db)
 
         createIndexes(db)
         createTriggers(db)
@@ -1377,6 +1380,34 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createPersonalReceivableTables(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS personal_receivable_people (
+                id TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL,
+                phone TEXT,
+                created_at_epoch_ms INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS personal_receivable_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_key TEXT NOT NULL UNIQUE,
+                person_id TEXT NOT NULL,
+                kind TEXT NOT NULL CHECK (kind IN ('LENT', 'REPAID')),
+                amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+                occurred_at_epoch_ms INTEGER NOT NULL,
+                linked_transaction_id INTEGER,
+                memo TEXT,
+                created_at_epoch_ms INTEGER NOT NULL,
+                FOREIGN KEY(person_id) REFERENCES personal_receivable_people(id)
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_receivable_events_person ON personal_receivable_events(person_id, occurred_at_epoch_ms)")
+        // NULL allows multiple explicitly recorded non-cash manual events.
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_receivable_linked_transaction ON personal_receivable_events(linked_transaction_id) WHERE linked_transaction_id IS NOT NULL")
+    }
+
     private fun createEverydayMoneyTables(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE IF NOT EXISTS transaction_allocations (transaction_id INTEGER NOT NULL, position INTEGER NOT NULL, category TEXT NOT NULL, amount_minor INTEGER NOT NULL CHECK(amount_minor > 0), PRIMARY KEY(transaction_id, position), FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED)")
         db.execSQL("CREATE TABLE IF NOT EXISTS flexible_budget_options (category TEXT PRIMARY KEY, cadence TEXT NOT NULL, anchor INTEGER NOT NULL, carry_unused INTEGER NOT NULL, starts_at_epoch_ms INTEGER NOT NULL)")
@@ -1659,6 +1690,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 35
+        private const val DATABASE_VERSION = 36
     }
 }
