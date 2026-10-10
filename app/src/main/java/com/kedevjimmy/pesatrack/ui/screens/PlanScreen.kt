@@ -942,11 +942,11 @@ fun PlanScreen(
                                 snapshot.startingFundsMinor
                             )
                             AccountingRow(
-                                "Other income",
+                                "Other money received",
                                 snapshot.additionalIncomeMinor
                             )
                             AccountingRow(
-                                "Spent",
+                                "Cash paid",
                                 -snapshot.spentMinor
                             )
                             AccountingRow(
