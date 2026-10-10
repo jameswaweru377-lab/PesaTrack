@@ -75,8 +75,6 @@ import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import java.math.RoundingMode
-import java.text.NumberFormat
-import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -107,6 +105,8 @@ fun BudgetScreen(
     var customCategoryName by remember { mutableStateOf("") }
     var categoryExpanded by remember { mutableStateOf(false) }
     var showBudgetSheet by remember { mutableStateOf(false) }
+    var pendingBudgetRemoval by remember { mutableStateOf<MonthlyBudget?>(null) }
+    var removeError by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
     var saving by remember { mutableStateOf(false) }
@@ -259,6 +259,75 @@ fun BudgetScreen(
         )
     }
 
+pendingBudgetRemoval?.let { candidate ->
+        AlertDialog(
+            onDismissRequest = {
+                if (!saving) {
+                    pendingBudgetRemoval = null
+                    removeError = null
+                }
+            },
+            title = { Text("Remove budget?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Remove the limit for ${categoryStore.labelFor(candidate.categoryId)}? " +
+                            "Existing transactions and categories will remain unchanged."
+                    )
+                    removeError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !saving,
+                    onClick = {
+                        if (!saving) {
+                            saving = true
+                            val categoryId = candidate.categoryId
+                            scope.launch {
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        budgetStore.delete(categoryId)
+                                    }
+                                    if (selectedCategoryId == categoryId) {
+                                        selectedCategoryId = null
+                                        amount = ""
+                                    }
+                                    pendingBudgetRemoval = null
+                                    removeError = null
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (failure: Exception) {
+                                    removeError = "Could not remove this budget. Try again."
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text(
+                        if (saving) "Removing…" else "Remove budget",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !saving,
+                    onClick = {
+                        pendingBudgetRemoval = null
+                        removeError = null
+                    }
+                ) {
+                    Text("Keep budget")
+                }
+            }
+        )
+    }
+
     val selectedCategory = selectedCategoryId
         ?.let(categoryStore::find)
 
@@ -329,14 +398,17 @@ fun BudgetScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "Add budget",
-                        style = MaterialTheme.typography.titleLarge
+                        if (budgets.isEmpty()) "Create your first budget" else "Add another budget",
+                        style = if (budgets.isEmpty()) MaterialTheme.typography.titleLarge
+                            else MaterialTheme.typography.titleMedium
                     )
-                    Text(
-                        "Choose a category. Activity will track the spending automatically.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (budgets.isEmpty()) {
+                        Text(
+                            "Choose a category, then set its spending limit.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
                     Surface(
                         modifier = Modifier
@@ -491,22 +563,8 @@ fun BudgetScreen(
                     },
                     onDelete = {
                         if (!saving) {
-                            saving = true
-                            val id = budgets[index].categoryId
-                            scope.launch {
-                                try {
-                                    withContext(Dispatchers.IO) { budgetStore.delete(id) }
-                                    if (selectedCategoryId == id) {
-                                        selectedCategoryId = null
-                                        amount = ""
-                                    }
-                                    error = null
-                                } catch (cancelled: CancellationException) {
-                                    throw cancelled
-                                } catch (failure: Exception) {
-                                    error = "Could not delete budget. Try again."
-                                } finally { saving = false }
-                            }
+                            removeError = null
+                            pendingBudgetRemoval = budgets[index]
                         }
                     }
                 )
@@ -605,9 +663,8 @@ private fun BudgetEditorSheet(
             color = MaterialTheme.colorScheme.primaryContainer
         ) {
             Text(
-                "Set the most you want to use for " +
-                    category.label.lowercase() +
-                    " this month. PesaTrack will compare it with trusted Activity transactions.",
+                "Set a spending limit for " + category.label.lowercase() + ". " +
+                    "You can change its period after saving.",
                 modifier = Modifier.padding(14.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -691,6 +748,12 @@ private fun ExistingBudgetRow(
                 )
             }
 
+            Text(
+                "Spent " + formatBudgetMoney(spentMinor) +
+                    " of " + formatBudgetMoney(budget.limitMinor),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             LinearProgressIndicator(
                 progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth()
@@ -721,11 +784,11 @@ private fun ExistingBudgetRow(
                 ) {
                     Text("Edit")
                 }
-                OutlinedButton(
+                TextButton(
                     onClick = onDelete,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 ) {
-                    Text("Remove")
+                    Text("Remove", color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -782,13 +845,6 @@ private fun parseBudgetMoneyMinor(raw: String): Long? =
             .setScale(0, RoundingMode.HALF_UP)
             .longValueExact()
     }.getOrNull()
-
-private fun formatBudgetMoney(minor: Long): String {
-    val formatter = NumberFormat.getNumberInstance(Locale.US).apply {
-        maximumFractionDigits = 0
-    }
-    return "KES " + formatter.format(minor / 100.0)
-}
 
 private fun formatEditableMoney(minor: Long): String =
     if (minor % 100L == 0L) {
