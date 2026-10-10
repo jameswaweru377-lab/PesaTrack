@@ -45,7 +45,7 @@ class EstimatedDebtSettlementUiTest {
     @Test fun homeRetainsZeroEstimateAsAnActiveDebtAwaitingConfirmation() {
         seedEstimatedZero()
         compose.setContent { PesaTrackTheme { HomeScreen(PaddingValues()) } }
-        waitFor("Tracked funds")
+        waitFor("Account balances")
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("1 active debt account"))
         compose.onNodeWithText("1 active debt account").assertExists()
         compose.onNodeWithText("0 active debt accounts").assertDoesNotExist()
@@ -66,7 +66,7 @@ class EstimatedDebtSettlementUiTest {
         // Keep the schema's untouched Fuliza seed to check production eligibility.
         PesaTrackDatabase.get(context).writableDatabase
         compose.setContent { PesaTrackTheme { HomeScreen(PaddingValues()) } }
-        waitFor("Tracked funds")
+        waitFor("Account balances")
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("0 active debt accounts"))
         compose.onNodeWithText("0 active debt accounts").assertExists()
         compose.onNodeWithText("1 active debt account").assertDoesNotExist()
