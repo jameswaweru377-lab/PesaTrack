@@ -169,4 +169,21 @@ class PersonalReceivableIntegrationTest {
         assertEquals(36, db.version)
         assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
     }
+
+    @Test fun invalidatedLoanAfterRepaymentKeepsHistoryAvailableForCorrection() {
+        val payment = transaction(90, 50_000L, "EXPENSE")
+        val date = System.currentTimeMillis() - 60000L
+        receivables.record(null, "Recovery Borrower", null,
+            PersonalReceivableStore.LENT, 50_000L, date, payment)
+        val person = receivables.people().single()
+        val repayment = receivables.record(person.id, person.name, null,
+            PersonalReceivableStore.REPAID, 20_000L, date)
+        db.update("transactions", ContentValues().apply { put("review_state", "EXCLUDED") },
+            "id = ?", arrayOf(payment.toString()))
+        assertEquals(person.id, receivables.people().single().id)
+        assertEquals(2, receivables.events(person.id).size)
+        receivables.removeEvent(repayment)
+        assertEquals(0L, receivables.people().single().outstandingMinor)
+        assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
+    }
 }
