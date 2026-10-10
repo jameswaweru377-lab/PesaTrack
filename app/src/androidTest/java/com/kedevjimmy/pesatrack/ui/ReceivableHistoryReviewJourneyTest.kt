@@ -56,7 +56,7 @@ class ReceivableHistoryReviewJourneyTest {
     @Test fun defaultsStayUnselectedAndClosingDoesNotWriteDebt() {
         val loan = row(1,"EXPENSE")
         open(); scrollTo("loan-choice-" + loan)
-        compose.onNodeWithTag("loan-choice-" + loan).assertIsNotChecked()
+        compose.onNodeWithTag("loan-choice-" + loan).assertIsOff()
         compose.onNodeWithText("Close").performClick()
         assertTrue(PersonalReceivableStore(context).people().isEmpty())
     }
@@ -74,7 +74,7 @@ class ReceivableHistoryReviewJourneyTest {
         scrollTo("history-repayments")
         compose.onNodeWithTag("history-repayments").performClick()
         scrollTo("loan-choice-" + receipt)
-        compose.onNodeWithTag("loan-choice-" + receipt).assertIsNotChecked().performClick()
+        compose.onNodeWithTag("loan-choice-" + receipt).assertIsOff().performClick()
         compose.onNodeWithTag("history-preview").performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithText("Still owed: KES 500.00").fetchSemanticsNodes().isNotEmpty() }
         assertTrue(PersonalReceivableStore(context).people().isEmpty())
