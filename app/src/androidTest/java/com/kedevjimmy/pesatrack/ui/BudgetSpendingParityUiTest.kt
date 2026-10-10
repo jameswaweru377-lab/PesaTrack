@@ -10,6 +10,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertExists
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
@@ -63,9 +65,27 @@ class BudgetSpendingParityUiTest {
         // A user-authoritative category alone cannot turn a receipt into spending.
         insert("BUDGETINC01", MoneyDirection.INCOME, 100_000L, 0L)
         compose.setContent { PesaTrackTheme { BudgetScreen(PaddingValues(), onBack = {}) } }
-        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Your monthly budgets"))
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Your budgets"))
         awaitBudgetLoaded()
         compose.onNodeWithText("KES 0 / KES 5,000").performScrollTo().assertExists()
+    }
+
+    @Test fun removingABudgetRequiresConfirmationAndCancellationPreservesIt() {
+        compose.setContent { PesaTrackTheme { BudgetScreen(PaddingValues(), onBack = {}) } }
+        awaitBudgetLoaded()
+        compose.onAllNodes(hasScrollAction()).onFirst()
+            .performScrollToNode(hasText("Remove"))
+        compose.onNodeWithText("Remove").performClick()
+        compose.onNodeWithText("Remove budget?").assertExists()
+        // Opening the dialog must never delete without deliberate confirmation.
+        org.junit.Assert.assertEquals(1, BudgetStore.get(context).list().size)
+        compose.onNodeWithText("Keep budget").performClick()
+        org.junit.Assert.assertEquals(1, BudgetStore.get(context).list().size)
+
+        compose.onNodeWithText("Remove").performClick()
+        compose.onNodeWithText("Remove budget").performClick()
+        compose.waitUntil(15_000L) { BudgetStore.get(context).list().isEmpty() }
+        org.junit.Assert.assertTrue(BudgetStore.get(context).list().isEmpty())
     }
 
     @Test fun planBudgetSubtractsTrustedTransferDirectionRefund() {
