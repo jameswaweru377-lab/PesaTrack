@@ -98,3 +98,10 @@ Read the attached blueprint PDF plus this tracker, then inspect live `main`/PRs 
 - Places optional salary choice **after** account details and before setup completion. Review Detected Accounts no longer asks for salary in the same screen.
 - Existing salary receipt form remains authoritative: accepted detected salary only creates/reapplies a salary **rule**, not a second cash receipt; manual entry requires money actually received.
 - No schema, data parser, new permission or off-device financial evidence. Test initial skip, declining suggested salary, source matching, routing and user intent. A feature-branch CI build does not substitute for emulator/Redmi acceptance.
+
+## Phase B1 — pure evidence matching contract (unwired, no DB migration)
+- Branch: `feature/pesatrack2-evidence-match-policy-v1` from main `d5b22af8a7ecc11e0261134e538934797a4def87`. Post-onboarding main CI run [38084525308](https://github.com/jameswaweru377-lab/PesaTrack/actions/runs/38084525308) pending final confirmation at branch creation.
+- Adds an offline pure policy comparing two cash observations with source-scope/native-key replay identity, confirmed account, direction, positive amount, currency, date window and independent transaction references. It returns **review candidates**, never direct ledger authorization.
+- A shared reference across sources is only a strong candidate pending unique canonical linkage; same amount/time without a common reference is review only. Different references or accounts are distinct; source identity with contradictory amount/date/ownership is conflict. Payslips and planned income cannot produce cash matches.
+- Unwired to `TransactionStore`, SMS ingest, CSV importer and SQLite. No schema, salary, report, backup or totals changes in B1. Existing source-specific dedupe remains active until B2 design/migration tests pass.
+- B2 will require additive evidence_observations/evidence_links persistence, foreign keys, unique source scope/native key, account id provenance, migration from v37, backup/restore and correction/replay tests before any engine write. B1 by itself does not complete Phase B.
