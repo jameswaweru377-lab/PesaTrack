@@ -146,9 +146,9 @@ jobs:
           retention-days: 3
 
 
-  # Build and publish previews automatically; emulator review is opt-in.
+  # PR #317 requires emulator evidence before merge; other previews retain opt-in review.
   instrumentation:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_instrumentation }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_instrumentation) || (github.event_name == 'pull_request' && github.event.pull_request.number == 317) }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
