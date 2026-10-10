@@ -29,7 +29,7 @@ For every Android change, run or rely on CI for:
 - Android lint;
 - debug APK assembly.
 
-Run Android instrumentation when explicitly requested for device review. Signed releases retain their manual Android validation gate.
+Run Android instrumentation when explicitly requested for device review. Signed releases also default to build-only validation; enable run_instrumentation only after the user explicitly requests emulator review.
 
 The debug APK is available as the `pesatrack-debug-apk` artifact after build checks succeed. Merges to `main` publish the rolling preview APK after successful build checks without requiring instrumentation. A manual Android CI run defaults to build-only; enabling `run_instrumentation` adds emulator tests. Manual runs retain downloadable artifacts but never replace the rolling APK, so a slower review cannot overwrite a newer preview. The rolling APK is a development preview, not a signed production release.
 
