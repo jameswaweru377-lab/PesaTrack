@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,7 @@ fun PersonalReceivablesScreen(
     header: (@Composable () -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
     val store = remember { PersonalReceivableStore(context) }
     val revision by LedgerUpdateBus.state.collectAsState()
     var people by remember { mutableStateOf<List<ReceivablePerson>>(emptyList()) }
@@ -186,7 +188,7 @@ fun PersonalReceivablesScreen(
                         Column(Modifier.weight(1f)) {
                             Text(if (event.kind == PersonalReceivableStore.LENT) "Money lent" else "Repayment",
                                 fontWeight = FontWeight.Medium)
-                            Text(SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(event.occurredAt),
+                            Text(SimpleDateFormat("d MMM yyyy", locale).format(event.occurredAt),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(if (!event.active) "Source changed — excluded from balance"
@@ -304,6 +306,7 @@ private fun ReceivableEntryDialog(
     onSaved: () -> Unit
 ) {
     val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
     val store = remember { PersonalReceivableStore(context) }
     val scope = rememberCoroutineScope()
     var selectedId by remember(initialPersonId, linkedTransaction?.id) { mutableStateOf(initialPersonId) }
@@ -365,7 +368,7 @@ private fun ReceivableEntryDialog(
                             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)
                         ).apply { datePicker.maxDate = System.currentTimeMillis() }.show()
                     }) {
-                        Text("Date: " + SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(date))
+                        Text("Date: " + SimpleDateFormat("d MMM yyyy", locale).format(date))
                     }
                 }
                 OutlinedTextField(value = note, onValueChange = { if (it.length <= 250) note = it },
