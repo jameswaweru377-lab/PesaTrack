@@ -54,6 +54,7 @@ class SmartRuleConsentUiTest {
         }
         compose.onNodeWithText("Monthly salary").performScrollTo().performClick()
         compose.onNodeWithText("Internet", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("M-Pesa name").performScrollTo().performClick()
         compose.onNodeWithText("Recipient or merchant name").performScrollTo()
             .performTextInput("Invented Internet")
         compose.onNodeWithText("Preview rule").performScrollTo().performClick()
