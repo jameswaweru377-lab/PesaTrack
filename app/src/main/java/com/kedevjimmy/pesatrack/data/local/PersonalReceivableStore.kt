@@ -96,6 +96,7 @@ class PersonalReceivableStore(context: Context) {
             total = if (it.kind == LENT) Math.addExact(total, it.amountMinor)
                     else Math.subtractExact(total, it.amountMinor)
         }
+        check(total >= 0L) { "A repayment exceeds valid loan evidence. Review the source transactions." }
         return total
     }
 
@@ -210,7 +211,15 @@ class PersonalReceivableStore(context: Context) {
         val db = database.writableDatabase
         db.beginTransaction()
         try {
-            db.delete("personal_receivable_events", "id = ?", arrayOf(eventId.toString()))
+            val person = db.rawQuery(
+                "SELECT person_id FROM personal_receivable_events WHERE id = ?",
+                arrayOf(eventId.toString())
+            ).use { if (it.moveToFirst()) it.getString(0) else null }
+            if (person != null) {
+                db.delete("personal_receivable_events", "id = ?", arrayOf(eventId.toString()))
+                // A loan must not be removed while retained repayments would create a negative balance.
+                balance(events(person))
+            }
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
