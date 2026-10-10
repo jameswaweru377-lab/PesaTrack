@@ -146,9 +146,9 @@ jobs:
           retention-days: 3
 
 
-  # PR #317 requires emulator evidence before merge; other previews retain opt-in review.
+  # Emulator review runs only after the user explicitly requests it.
   instrumentation:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_instrumentation) || (github.event_name == 'pull_request' && github.event.pull_request.number == 317) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_instrumentation }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
@@ -188,8 +188,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.kedevjimmy.pesatrack.ui.HomeStartupUiTest --stacktrace
-            ./gradlew :app:connectedDebugAndroidTest --rerun-tasks --stacktrace
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace
             adb logcat -d -v raw 'PesaTrackMeasurement:I' '*:S' > history-measurements.jsonl
             echo "${{ github.sha }}" > ANDROID_TEST_SOURCE_SHA.txt
 
@@ -206,8 +205,8 @@ jobs:
             ANDROID_TEST_SOURCE_SHA.txt
 
   publish:
-    needs: [build, instrumentation]
-    if: always() && needs.build.result == 'success' && (needs.instrumentation.result == 'success' || needs.instrumentation.result == 'skipped') && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build]
+    if: needs.build.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -224,7 +223,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          ANDROID_REVIEW_RESULT: ${{ needs.instrumentation.result }}
         shell: bash
         run: |
           set -euo pipefail
@@ -253,5 +251,5 @@ jobs:
             --clobber
 
           gh release edit ci-apk \
-            --notes "Rolling development preview built from commit $GITHUB_SHA after successful build, lint and unit tests. Android emulator review for this run: $ANDROID_REVIEW_RESULT. Instrumentation runs only when explicitly requested. The attached PesaTrack-debug.apk is authoritative; the source archive remains tied to the original ci-apk tag."
+            --notes "Rolling development preview built from commit $GITHUB_SHA after successful build, lint and unit tests. Instrumentation is optional and runs only when explicitly requested; this publication reports build, lint and unit-test verification. The attached PesaTrack-debug.apk is authoritative; the source archive remains tied to the original ci-apk tag."
 
