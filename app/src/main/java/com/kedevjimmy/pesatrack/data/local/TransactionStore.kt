@@ -2865,7 +2865,7 @@ class TransactionStore private constructor(context: Context) {
         )
     }
 
-    private fun getByTransactionCode(code: String): StoredTransaction? =
+    internal fun getByTransactionCode(code: String): StoredTransaction? =
         database.readableDatabase.rawQuery(
             BASE_SELECT + " WHERE transaction_code = ? LIMIT 1",
             arrayOf(code.trim().uppercase())
@@ -4067,7 +4067,7 @@ class TransactionStore private constructor(context: Context) {
             }
         }
 
-    private fun transactionsBetween(
+    internal fun transactionsBetween(
         startEpochMs: Long,
         endEpochMsExclusive: Long
     ): List<StoredTransaction> =
