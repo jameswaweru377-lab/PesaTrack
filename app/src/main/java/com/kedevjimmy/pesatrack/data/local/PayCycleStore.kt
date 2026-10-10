@@ -460,6 +460,7 @@ class PayCycleStore private constructor(context: Context) {
             """.trimIndent(),
             args
         ).use { cursor ->
+            val personalShares = PersonalReceivableStore(appContext).linkedShares()
             var additionalIncome = 0L
             var spent = 0L
             var fees = 0L
@@ -485,9 +486,9 @@ class PayCycleStore private constructor(context: Context) {
                         isTrustedExpense(relatedTransactionId) ->
                         refunds = CheckedMoney.add(refunds, amount)
                     id != startTransactionId && direction == MoneyDirection.INCOME.name ->
-                        additionalIncome = CheckedMoney.add(additionalIncome, amount)
+                        additionalIncome = CheckedMoney.add(additionalIncome, Math.subtractExact(amount, personalShares[id]?.repaidMinor ?: 0L))
                     direction == MoneyDirection.EXPENSE.name ->
-                        spent = CheckedMoney.add(spent, amount)
+                        spent = CheckedMoney.add(spent, Math.subtractExact(amount, personalShares[id]?.lentMinor ?: 0L))
                     direction == MoneyDirection.TRANSFER.name &&
                         category in setOf(
                             "SAVINGS",
