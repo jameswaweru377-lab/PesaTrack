@@ -112,8 +112,9 @@ fun PersonalReceivablesScreen(
         }
         if (selected == null) {
             if (!loading && error == null) {
-                val active = people.filter { it.outstandingMinor > 0L }
-                val total = runCatching { active.fold(0L) { s, p -> Math.addExact(s, p.outstandingMinor) } }.getOrNull()
+                val active = people.filter { (it.outstandingMinor ?: 0L) > 0L }
+                val total = if (people.any { it.outstandingMinor == null }) null
+                    else runCatching { active.fold(0L) { s, p -> Math.addExact(s, p.outstandingMinor!!) } }.getOrNull()
                 item {
                     PesaCard {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -147,11 +148,12 @@ fun PersonalReceivablesScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(person.name, fontWeight = FontWeight.SemiBold)
-                                Text(if (person.outstandingMinor == 0L) "Settled" else "Outstanding",
+                                Text(if (person.outstandingMinor == null) "Review loan and repayment history"
+                                     else if (person.outstandingMinor == 0L) "Settled" else "Outstanding",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text(receivableMoney(person.outstandingMinor), fontWeight = FontWeight.Bold)
+                            Text(person.outstandingMinor?.let(::receivableMoney) ?: "Balance unavailable", fontWeight = FontWeight.Bold)
                             Icon(Icons.Rounded.ChevronRight, contentDescription = null)
                         }
                     }
@@ -162,9 +164,11 @@ fun PersonalReceivablesScreen(
                 PesaCard {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Outstanding balance", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(receivableMoney(selected.outstandingMinor),
+                        Text(selected.outstandingMinor?.let(::receivableMoney) ?: "Balance unavailable",
                             style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                        Text("Only confirmed loan and repayment records are included.",
+                        Text(if (selected.outstandingMinor == null)
+                            "Source evidence changed. Review the history and remove incorrect repayment records. No balance is assumed."
+                            else "Only confirmed loan and repayment records are included.",
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -174,7 +178,7 @@ fun PersonalReceivablesScreen(
                     Button(onClick = { createKind = PersonalReceivableStore.LENT },
                         modifier = Modifier.weight(1f)) { Text("Add loan") }
                     OutlinedButton(onClick = { createKind = PersonalReceivableStore.REPAID },
-                        enabled = selected.outstandingMinor > 0L,
+                        enabled = (selected.outstandingMinor ?: 0L) > 0L,
                         modifier = Modifier.weight(1f)) { Text("Record repayment") }
                 }
             }
@@ -374,7 +378,7 @@ private fun ReceivableEntryDialog(
                 OutlinedTextField(value = note, onValueChange = { if (it.length <= 250) note = it },
                     label = { Text("Note (optional)") }, modifier = Modifier.fillMaxWidth())
                 if (kind == PersonalReceivableStore.REPAID && existing != null)
-                    Text("Outstanding: " + receivableMoney(existing.outstandingMinor),
+                    Text("Outstanding: " + (existing.outstandingMinor?.let(::receivableMoney) ?: "Balance unavailable"),
                         style = MaterialTheme.typography.bodySmall)
                 if (error != null) Text(error.orEmpty(), color = MaterialTheme.colorScheme.error)
             }
