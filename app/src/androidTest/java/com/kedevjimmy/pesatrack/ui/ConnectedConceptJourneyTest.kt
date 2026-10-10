@@ -69,14 +69,14 @@ class ConnectedConceptJourneyTest {
     }
     @Test fun profileNameIsEditableAndPersisted() {
         compose.setContent {PesaTrackTheme(darkTheme=true) {ProfileScreen(PaddingValues(),{}, {})}}
-        compose.onNodeWithText("Personal information").performScrollTo().performClick()
+        compose.onNodeWithText("Personal details").performScrollTo().performClick()
         compose.onNodeWithText("Your name").performTextInput("Test user")
-        compose.onNodeWithText("Save").performClick()
+        compose.onNodeWithText("Save details").performClick()
         compose.waitUntil(5000){context.getSharedPreferences("pesatrack_preferences",0).getString("profile_name","")=="Test user"}
     }
     @Test fun reportsSwitchBetweenPeriodsWithoutAStuckLoadingState() {
         compose.setContent {PesaTrackTheme {ReportsInsightsScreen(PaddingValues(),{})}}
-        compose.waitUntil(10000){compose.onAllNodesWithText("No trusted spending in this period yet.").fetchSemanticsNodes().isNotEmpty()}
+        compose.waitUntil(10000){compose.onAllNodesWithText("No recorded spending in this period yet.").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("Year").performClick()
         compose.onNodeWithText("Week").performClick()
         compose.onNodeWithText("Month").performClick()
