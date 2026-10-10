@@ -1,13 +1,13 @@
 # PesaTrack 2.0 Advanced — implementation tracker
 
-Status: **Phase A foundation slice in draft review — NOT released or connected to live ingestion**  
+Status: **A1 merged (contracts only); A3 onboarding history-window adjustment under review — not yet in main**  
 Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page planning document, 10 October 2026). The PDF is a proposal, not proof of implementation.
 
 ## Baseline (recheck at every subsequent chat / PR)
 - Repository: `jameswaweru377-lab/PesaTrack`.
-- Branch base: `main` at `f9730a5596f65b8233af4fb53cc40d4586fdcead` (10 October 2026).
+- Latest A3 branch base: `main` at `958fb2c5b231802a604cee325866d75abe9ddf10` (10 October 2026), merged A1.
 - Current-state doc on this base: schema **v37**; live canonical accounting in `TransactionStore`, salary in `SalaryReceiptRepository` / `PayCycleStore`, CSV import in `EverydayMoneyStore`.
-- Baseline Android CI: [successful main workflow 38072584173](https://github.com/jameswaweru377-lab/PesaTrack/actions/runs/38072584173); this **does not** prove this branch builds.
+- A1 PR #321 branch CI was green at `82fd306`, APK produced; merge commit `958fb2c` now on main. Post-merge main CI [run 38075357968](https://github.com/jameswaweru377-lab/PesaTrack/actions/runs/38075357968) must be checked independently. Neither certifies the A3 branch.
 - Debt/receivable and budget UI PRs were no longer open on the audit; only dependency-update PRs #254-260 remained open.
 - `main` was not protected on this audit. Do **not** merge, publish, or alter another agent's branches as part of this tracker.
 - Repo authority: `AGENTS.md`, `CURRENT_STATE.md`, `docs/PRODUCT_CHARTER.md`, then current Kotlin and tests. Re-read all on a new baseline.
@@ -30,9 +30,9 @@ Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page plannin
 | Gate | Work | State | Exit evidence |
 |---|---|---|---|
 | Gate 0 | Inspect live main/PRs/schema/CI | Partly complete | Baseline CI green; Android instrumentation, physical Redmi and populated restore gate not yet independently checked |
-| A1 | Pure evidence source taxonomy and authority gate | **Implemented in feature branch; CI pending** | `FinancialEvidenceContract.kt` plus `FinancialEvidenceContractTest.kt` |
+| A1 | Pure evidence source taxonomy and authority gate | **Merged into main (#321); branch CI passed** | `FinancialEvidenceContract.kt` plus `FinancialEvidenceContractTest.kt` |
 | A2 | Manual salary received vs planned semantics | Not started | Integration tests T01, T02, preserving existing SMS paths and totals |
-| A3 | Import 1/2/3 **previous completed** months plus current | Not started | Date/timezone tests; no change to standalone historical reimport |
+| A3 | Import 1/2/3 **previous completed** months plus current | **Implemented on isolated A3 branch; CI pending** | Date/timezone tests; no change to standalone historical reimport |
 | A4 | Small ownership/skip-salary onboarding UX | Not started | Owned/external/unsure and skip journeys in Compose |
 | B | Evidence repository/link audit, replay-safe statement/SMS/manual adapters | Not started | Migration/restore/idempotency and provenance; T03, T04, T12 |
 | C | Payroll journal, deduction type/asset/liability classifications and multiple settlements | Not started | T05-T09, T16; no invented account balance |
@@ -41,20 +41,18 @@ Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page plannin
 | Release | CI, lint, APK, migration/backup/restore, full physical device tests | Not started | T01-T20 passing where in scope; verified APK and user-reviewed merge |
 
 ## Current change and isolation
-- Feature branch: `feature/pesatrack2-evidence-contract-v1`.
-- Files added:
-  - `app/src/main/java/com/kedevjimmy/pesatrack/domain/evidence/FinancialEvidenceContract.kt`
-  - `app/src/test/java/com/kedevjimmy/pesatrack/domain/evidence/FinancialEvidenceContractTest.kt`
-  - this tracker.
+- A1 foundation: PR #321 was merged into main after green branch CI; production ingestion still does not use the new evidence contract.
+- Current A3 feature branch: `feature/pesatrack2-onboarding-history-window-v1`.
+- A3 files: new `domain/rules/OnboardingHistoryWindow.kt` and JVM test `OnboardingHistoryWindowTest.kt`; four onboarding scan/candidate cutoff calls and import-selection explanatory UI copy updated in `SmartOnboardingSetupScreen.kt`, plus this tracker. Existing `HistoryImportWindow` API, standalone historical reimport and other tests untouched.
 - No changes to `PesaTrackDatabase.kt`, schema, existing `TransactionStore`, Android permissions, Gradle, home screens, SMS capture, statement import, remote services or existing active PR branches.
 - The new policy returns `RECONCILE_CASH_CANDIDATE`, **not** permission to insert a transaction. It is intentionally not wired into production yet.
 - The unit tests validate source gates for manual received/planned, SMS, notifications, statement confirmation, unknown ownership, payslip payroll-only, and no assumed deposit. They **do not** establish complete end-to-end T01-T20 acceptance, duplicate safety or migrations.
-- Review note: `docs/SALARY_UI_AND_CORRECTIONS.md` says manual-only receipts are excluded from totals; `TransactionStore.accountingEligible` does not explicitly exclude `sourceKind=manual_setup`. Verify the intended salary-vs-cash totals independently before Phase A2, rather than applying an untested fix.
+- Audit correction: `docs/SALARY_UI_AND_CORRECTIONS.md` says manual-only receipts are excluded from totals **when removed**, not while active. Existing `SalaryReceiptRepositoryTest` asserts manual receipt becomes genuine income and its removal subtracts it. A2 remains only the additional planned-vs-received UX/acceptance review; do not change correct accounting.
 
 ## Next safe steps
-1. Inspect **this branch's exact PR CI head SHA** for `:app:testDebugUnitTest`, `:app:lintDebug`, `:app:assembleDebug` and APK artifact. Do not equate successful baseline/main CI with this PR.
+1. Inspect **the A3 branch's exact PR CI head SHA** for `:app:testDebugUnitTest`, `:app:lintDebug`, `:app:assembleDebug` and APK artifact. Do not equate successful baseline/main CI with this PR.
 2. Read and review every line of the new contract. Fix any unsafe source authority or validation logic without modifying `main`.
-3. Test current manual salary behavior on synthetic seeded Android SQLite scenarios; resolve the docs/ledger total discrepancy and establish actual expected behavior **before** implementing A2.
+3. Preserve already-covered manual salary received vs removed behavior; add any missing expected-vs-received UI/contract coverage before A2. A3 must not alter standalone history or pay-cycle semantics.
 4. Advance in separate narrow PRs after review, using the same tracker. No releases or merges without user approval and verification.
 
 ## Handoff contract to another chat

@@ -105,7 +105,7 @@ import com.kedevjimmy.pesatrack.domain.intelligence.SalaryCandidateRemotePolicy
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
-import com.kedevjimmy.pesatrack.domain.rules.HistoryImportWindow
+import com.kedevjimmy.pesatrack.domain.rules.OnboardingHistoryWindow
 import com.kedevjimmy.pesatrack.domain.rules.SalaryHistoryMonthPolicy
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
@@ -465,7 +465,7 @@ fun SmartOnboardingSetupScreen(
         }
 
         val startEpochMs =
-            HistoryImportWindow
+            OnboardingHistoryWindow
                 .importStartEpochMs(
                     importMonths
                 )
@@ -777,7 +777,7 @@ fun SmartOnboardingSetupScreen(
         }
 
         val startEpochMs =
-            HistoryImportWindow
+            OnboardingHistoryWindow
                 .importStartEpochMs(
                     importMonths
                         .coerceAtLeast(1)
@@ -1309,7 +1309,7 @@ fun SmartOnboardingSetupScreen(
                     smsGranted &&
                     importMonths > 0
                 ) {
-                    HistoryImportWindow
+                    OnboardingHistoryWindow
                         .importStartEpochMs(
                             importMonths
                         )
@@ -1376,7 +1376,7 @@ fun SmartOnboardingSetupScreen(
             }
 
             val cutoff =
-                HistoryImportWindow
+                OnboardingHistoryWindow
                     .importStartEpochMs(
                         importMonths
                             .coerceAtLeast(1)
@@ -2169,7 +2169,7 @@ private fun ImportChoicePage(
         SmartSetupHero(
             icon = Icons.Rounded.History,
             title = "Start with your recent money",
-            body = "We'll identify transactions and match the accounts already visible in your messages."
+            body = "Choose 1–3 completed previous months. We also include this month to date. SMS import is optional."
         )
 
         Row(
@@ -2207,7 +2207,7 @@ private fun ImportChoicePage(
                                 else MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            if (months == 1) "month" else "months",
+                            if (months == 1) "prior month" else "prior months",
                             style = MaterialTheme.typography.bodySmall,
                             color =
                                 if (selected) MaterialTheme.colorScheme.onPrimary.copy(alpha = .82f)
@@ -2242,8 +2242,8 @@ private fun ImportChoicePage(
                 )
                 Text(
                     if (selectedMonths > 0) {
-                        "We'll scan messages from the last $selectedMonths " +
-                            if (selectedMonths == 1) "month." else "months."
+                        "We'll scan this month to date and the previous $selectedMonths completed " +
+                            (if (selectedMonths == 1) "month." else "months.")
                     } else {
                         "History import is off. You can start fresh."
                     },
