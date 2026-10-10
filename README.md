@@ -76,7 +76,7 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 - Android instrumentation on API 35 is available through an explicit manual review run; PR updates and merges do not start it automatically.
 - Pushes to main publish the rolling development debug APK after build, lint and unit tests pass, without requiring emulator tests. Manual review runs retain artifacts but do not replace the rolling release. Signed release runs also default to build-only validation; enable run_instrumentation only when the user explicitly requests emulator review.
 - Canonical ingestion uses an explicit SQLite transaction boundary with rollback coverage.
-- Migration coverage includes fresh v33 plus selected historical upgrades including v1, v30 and v31/v32 to v33.
+- Migration coverage includes fresh v37 plus selected historical upgrades including v1, v30 and v31/v32 to v37.
 - App lock, biometric unlock and passphrase-encrypted backup/restore are implemented.
 
 ## Release and security documents

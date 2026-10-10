@@ -39,7 +39,7 @@ object ReceivableHistoryPolicy {
                 return HistoryMatch(HistoryMatchKind.CONFLICT, false)
             return HistoryMatch(HistoryMatchKind.NONE, false)
         }
-        if (sameName) return HistoryMatch(HistoryMatchKind.NAME, true)
+        if (sameName) return HistoryMatch(HistoryMatchKind.NAME, false)
         if (expectedName.length >= 2 && actualName.contains(expectedName))
             return HistoryMatch(HistoryMatchKind.PARTIAL, false)
         return HistoryMatch(HistoryMatchKind.NONE, false)

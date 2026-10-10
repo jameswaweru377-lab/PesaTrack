@@ -26,7 +26,7 @@ Show Debts → Owed to me on confirmed loans and Debts → Repayment received on
 
 ## Identity and evidence
 
-Normalize valid Kenyan phone formats for matching. Exact phone matches are stronger suggestions; normalized full-name matches are weaker. Partial-name searches help discovery but never establish identity. Conflicting phones are flagged and require individual review; they are excluded from Select all. Names alone never merge people. Existing person selection is explicit. No new permissions, analytics, network processing, or raw-SMS upload.
+Normalize valid Kenyan phone formats for matching. Exact phone matches are stronger suggestions; normalized full-name matches are weaker. Partial-name searches help discovery but never establish identity. Conflicting phones are flagged and require individual review; they are excluded from Select all. Names alone never merge people. Bulk loan selection requires matching phone evidence; name-only matches remain individually confirmable. Existing person selection is explicit. No new permissions, analytics, network processing, or raw-SMS upload.
 
 ## Accounting and recovery
 

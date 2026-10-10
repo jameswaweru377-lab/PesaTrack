@@ -283,4 +283,19 @@ class PersonalReceivableIntegrationTest {
             assertEquals(80000L,receivables.people().single().outstandingMinor)
         }
     }
+
+    @Test fun categoryLinkedReceiptCannotRepayALaterLoan() {
+        val earlierReceipt = transaction(150,30000,"INCOME")
+        val laterLoan = transaction(151,80000,"EXPENSE")
+        val loanRow = transactions.getById(laterLoan)!!
+        receivables.record(null,"Sample Borrower",null,"LENT",80000,loanRow.occurredAtEpochMs,laterLoan)
+        val person = receivables.people().single()
+        try {
+            receivables.record(person.id,person.name,null,"REPAID",30000,
+                transactions.getById(earlierReceipt)!!.occurredAtEpochMs,earlierReceipt)
+            throw AssertionError("Earlier receipt paid a later loan")
+        } catch (_: IllegalArgumentException) {}
+        assertEquals(80000L,receivables.people().single().outstandingMinor)
+        assertEquals(null,receivables.eventForTransaction(earlierReceipt))
+    }
 }

@@ -6,6 +6,8 @@ import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import java.util.UUID
+import com.kedevjimmy.pesatrack.domain.receivables.DebtMovement
+import com.kedevjimmy.pesatrack.domain.receivables.ReceivableBatchPolicy
 
 /** Personal money owed TO the user. Separate from institutional liabilities in DebtStore. */
 data class ReceivablePerson(
@@ -166,6 +168,8 @@ class PersonalReceivableStore(context: Context) {
         val db = database.writableDatabase
         db.beginTransaction()
         try {
+            val eventDate = transactionId?.let { transactions.getById(it)?.occurredAtEpochMs } ?: occurredAt
+            require(eventDate > 0 && eventDate <= System.currentTimeMillis()) { "Review the transaction date." }
             if (transactionId != null) {
                 require(activeLinkedTransaction(transactionId, kind, amountMinor)) { "Confirm a valid money movement before linking it." }
                 val original = transactions.getById(transactionId) ?: error("Transaction not found.")
@@ -190,14 +194,18 @@ class PersonalReceivableStore(context: Context) {
                     })
                 }
             }
-            if (kind == REPAID) {
-                val outstanding = balance(events(id))
-                require(outstanding >= amountMinor) { "Repayment exceeds this person's outstanding debt." }
-            }
+            val existing = events(id)
+            require(existing.all { it.active }) { "Review changed source evidence before adding a record." }
+            ReceivableBatchPolicy.validate(
+                existing.map { DebtMovement(it.transactionId,it.kind,it.amountMinor,it.occurredAt) },
+                listOf(DebtMovement(transactionId,kind,amountMinor,eventDate))
+            )
+            if (transactionId != null) db.delete("personal_receivable_review_exclusions",
+                "person_id = ? AND transaction_id = ?",arrayOf(id,transactionId.toString()))
             val eventId = db.insertOrThrow("personal_receivable_events", null, ContentValues().apply {
                 put("event_key", "user:" + UUID.randomUUID())
                 put("person_id", id); put("kind", kind); put("amount_minor", amountMinor)
-                put("occurred_at_epoch_ms", occurredAt); put("linked_transaction_id", transactionId)
+                put("occurred_at_epoch_ms", eventDate); put("linked_transaction_id", transactionId)
                 put("memo", memo?.trim()); put("created_at_epoch_ms", System.currentTimeMillis())
             })
             db.setTransactionSuccessful()

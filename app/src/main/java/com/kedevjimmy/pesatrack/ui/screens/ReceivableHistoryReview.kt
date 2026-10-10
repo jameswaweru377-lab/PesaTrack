@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -121,7 +122,7 @@ internal fun ReceivableHistoryReview(
                     style = MaterialTheme.typography.bodySmall)
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (error != null) Text(error.orEmpty(),color = MaterialTheme.colorScheme.error)
-                LazyColumn(Modifier.weight(1f),verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                LazyColumn(Modifier.weight(1f).testTag("receivable-history-list"),verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (!confirming) {
                         item {
                             Box {
@@ -161,13 +162,15 @@ internal fun ReceivableHistoryReview(
                                         label = { Text("Money sent") })
                                     Spacer(Modifier.width(8.dp))
                                     FilterChip(selected = showRepayments,onClick = { showRepayments = true },
-                                        label = { Text("Possible repayments") })
+                                        label = { Text("Possible repayments") },modifier = Modifier.testTag("history-repayments"))
                                 }
-                                if (!showRepayments) TextButton(enabled = !busy,onClick = {
+                                if (!showRepayments) TextButton(enabled = !busy,modifier = Modifier.testTag("select-page-loans"),onClick = {
                                     rows.filter { it.row.direction == "EXPENSE" && it.problem == null &&
                                         it.match.bulkEligible && !it.giftExcluded && it.row.id !in gifts }
                                         .forEach { choose(it,"LENT") }
                                 }) { Text("Select all eligible loans on this page") }
+                                Text("Bulk selection requires a matching phone. Name-only matches need individual review.",
+                                    style = MaterialTheme.typography.bodySmall)
                                 Text("Selected: " + selected.size + " debt records • " + gifts.size + " gifts/not loans",
                                     style = MaterialTheme.typography.labelLarge)
                             }
@@ -199,15 +202,15 @@ internal fun ReceivableHistoryReview(
                                                     amountInputs = amountInputs + (row.id to input)
                                                     selected = selected - row.id; preview = null
                                                 },enabled = !busy,label = { Text(if (kind == "LENT") "Loan share in KES" else "Repayment in KES") },
-                                                singleLine = true,modifier = Modifier.fillMaxWidth())
+                                                singleLine = true,modifier = Modifier.fillMaxWidth().testTag("history-amount-" + row.id))
                                             Row {
-                                                Checkbox(checked = choice != null,enabled = !busy,
+                                                Checkbox(checked = choice != null,enabled = !busy,modifier = Modifier.testTag("loan-choice-" + row.id),
                                                     onCheckedChange = { choose(candidate,if (it) kind else null) })
                                                 Text(if (kind == "LENT") "Money lent" else "Confirm repayment",
                                                     modifier = Modifier.padding(top = 12.dp))
                                             }
                                             if (kind == "LENT") Row {
-                                                Checkbox(checked = row.id in gifts,enabled = !busy,
+                                                Checkbox(checked = row.id in gifts,enabled = !busy,modifier = Modifier.testTag("gift-choice-" + row.id),
                                                     onCheckedChange = { choose(candidate,if (it) "GIFT" else null) })
                                                 Text("Gift / not a loan",modifier = Modifier.padding(top = 12.dp))
                                             }
@@ -247,7 +250,7 @@ internal fun ReceivableHistoryReview(
                 }
                 if (!confirming) Button(
                     enabled = !busy && (selected.isNotEmpty() || gifts.isNotEmpty()) && selected.size + gifts.size <= 500,
-                    modifier = Modifier.fillMaxWidth(),onClick = {
+                    modifier = Modifier.fillMaxWidth().testTag("history-preview"),onClick = {
                         busy = true; error = null
                         scope.launch {
                             try {
