@@ -1,5 +1,9 @@
 package com.kedevjimmy.pesatrack.ui
 
+import com.kedevjimmy.pesatrack.data.local.*
+import com.kedevjimmy.pesatrack.domain.model.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import android.content.Context
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.*
@@ -52,6 +56,57 @@ class HomeStartupUiTest {
         compose.onNodeWithText("Try again").performClick()
         waitForText("Account balances")
         compose.onNodeWithText("Your money picture could not load").assertDoesNotExist()
+    }
+
+
+    @Test fun partialLoanKeepsCashOutflowButProjectsPersonalSpending() {
+        val now = System.currentTimeMillis()
+        val transactions = TransactionStore.get(context)
+        val salary = RuleStore.get(context).save(
+            name = "Invented salary", counterpartyContains = "",
+            counterpartyExact = "Invented employer", displayLabel = "Invented employer",
+            category = TransactionCategory.INCOME, direction = MoneyDirection.INCOME,
+            preset = RulePreset.SALARY, startsPayCycle = true,
+            accountId = AccountStore.DEFAULT_MPESA_ID,
+            payWindowStartDay = 1, payWindowEndDay = 31
+        )
+        assertTrue(transactions.insertManualIncome(
+            1_000_000L, now - 60_000L, "Invented employer", salary
+        ))
+        assertTrue(transactions.insertIfNew(
+            parsed = ParsedMpesaTransaction(
+                transactionCode = "LOANHOME01", type = MpesaTransactionType.SENT_MONEY,
+                amountMinor = 160_000L, counterparty = "Invented restaurant",
+                counterpartyPhone = null, feeMinor = 2_000L, balanceMinor = null,
+                occurredAtText = null, rawMessage = "Invented home loan fixture"
+            ),
+            sourcePackage = null, sourceKind = "test", receivedAtEpochMs = now,
+            occurredAtEpochMs = now, rebuildPayCycles = false,
+            runRelationshipReconciliation = false, runMirrorCorrelation = false,
+            accountIdOverride = AccountStore.DEFAULT_MPESA_ID,
+            directionOverride = MoneyDirection.EXPENSE,
+            categoryOverride = TransactionCategory.EATING_OUT,
+            reviewStateOverride = ReviewState.USER_CLASSIFIED
+        ))
+        val payment = requireNotNull(transactions.findByTransactionCode("LOANHOME01"))
+        PersonalReceivableStore(context).record(
+            null, "Invented borrower", null, PersonalReceivableStore.LENT, 80_000L, now, payment.id
+        )
+        BudgetStore.get(context).save(
+            CategoryStore.get(context).canonicalId(TransactionCategory.EATING_OUT.name), 200_000L
+        )
+        PayCycleStore.get(context).rebuild()
+        assertEquals(160_000L, transactions.getById(payment.id)!!.amountMinor)
+        assertEquals(838_000L, PayCycleStore.get(context).snapshot().availableToLiveMinor)
+        showHome()
+        waitForText("After planned payments")
+        val list = compose.onNode(hasScrollToIndexAction())
+        list.performScrollToNode(hasText("Spent today"))
+        compose.onNode(hasText("KES 820") and hasParent(hasAnyChild(hasText("Spent today")))).assertExists()
+        list.performScrollToNode(hasText("Monthly plan"))
+        compose.onNodeWithText("KES 820 of KES 2,000 used").assertExists()
+        list.performScrollToNode(hasText("Where money went"))
+        compose.onNodeWithText("KES 820 this month").assertExists()
     }
 
     private fun showHome() {
