@@ -5,7 +5,7 @@ import com.kedevjimmy.pesatrack.domain.model.checkedMoneySum
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import java.util.Calendar
 
-data class ProgressItem(val id: String, val name: String, val saved: Long, val target: Long)
+data class ProgressItem(val id: String, val name: String, val saved: Long, val target: Long, val periodKey: String = "")
 data class FinancialProgress(val accounts: Int, val budgets: List<ProgressItem>, val goals: List<ProgressItem>)
 class FinancialProgressRepository(private val context: Context) {
     fun read(): FinancialProgress = synchronized(CanonicalStoreLock.monitor) {
@@ -28,6 +28,6 @@ class FinancialProgressRepository(private val context: Context) {
             val target = metadata[rule.id]?.totalTargetMinor?.takeIf { it > 0 } ?: rule.plannedAmountMinor ?: return@mapNotNull null
             ProgressItem(rule.id, (rule.displayLabel?.takeIf { it.isNotBlank() } ?: rule.name.ifBlank { "Savings goal" }) + if (hasTotal) "" else " (this month)", saved, target)
         }
-        FinancialProgress(count, BudgetStore.get(context).list().map { ProgressItem(it.categoryId, categories.labelFor(it.categoryId), spending[it.categoryId] ?: 0, it.limitMinor) }, goals)
+        FinancialProgress(count, BudgetStore.get(context).list().map { ProgressItem(it.categoryId, categories.labelFor(it.categoryId) + " (" + it.periodLabel.lowercase() + ")", spending[it.categoryId] ?: 0, it.limitMinor, it.periodStart.toString()) }, goals)
     }
 }

@@ -39,6 +39,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createPaydaySnapshotTables(db)
         createCycleProtectionTable(db)
         createSavingGoalMetadataTable(db)
+        createEverydayMoneyTables(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -490,6 +491,8 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         if (oldVersion < 32) {
             createSavingGoalMetadataTable(db)
         }
+
+        if (oldVersion < 35) createEverydayMoneyTables(db)
 
         if (oldVersion < 34) {
             // NULL means legacy provenance was not recorded; never assume
@@ -1374,6 +1377,13 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createEverydayMoneyTables(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS transaction_allocations (transaction_id INTEGER NOT NULL, position INTEGER NOT NULL, category TEXT NOT NULL, amount_minor INTEGER NOT NULL CHECK(amount_minor > 0), PRIMARY KEY(transaction_id, position), FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS flexible_budget_options (category TEXT PRIMARY KEY, cadence TEXT NOT NULL, anchor INTEGER NOT NULL, carry_unused INTEGER NOT NULL, starts_at_epoch_ms INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS statement_import_entries (import_key TEXT PRIMARY KEY, account_id TEXT NOT NULL)")
+        db.execSQL("CREATE TRIGGER IF NOT EXISTS trg_delete_transaction_allocations AFTER DELETE ON transactions BEGIN DELETE FROM transaction_allocations WHERE transaction_id = OLD.id; END")
+    }
+
     private fun createSavingGoalMetadataTable(
         db: SQLiteDatabase
     ) {
@@ -1649,6 +1659,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 34
+        private const val DATABASE_VERSION = 35
     }
 }

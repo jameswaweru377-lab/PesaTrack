@@ -155,7 +155,7 @@ fun BudgetScreen(
         selectedCategoryId = category.id
         amount = budgets
             .firstOrNull { it.categoryId == category.id }
-            ?.limitMinor
+            ?.baseLimitMinor
             ?.let(::formatEditableMoney)
             .orEmpty()
         error = null
@@ -314,7 +314,7 @@ fun BudgetScreen(
                 Column(Modifier.weight(1f)) {
                     Text("Budgets", style = MaterialTheme.typography.headlineMedium)
                     Text(
-                        "Set a monthly limit. Activity does the tracking.",
+                        "Choose a limit. Activity tracks your spending.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -329,7 +329,7 @@ fun BudgetScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "Add monthly budget",
+                        "Add budget",
                         style = MaterialTheme.typography.titleLarge
                     )
                     Text(
@@ -440,7 +440,7 @@ fun BudgetScreen(
 
         item {
             Text(
-                "Your monthly budgets",
+                "Your budgets",
                 style = MaterialTheme.typography.titleLarge
             )
         }
@@ -617,7 +617,7 @@ private fun BudgetEditorSheet(
         OutlinedTextField(
             value = amount,
             onValueChange = onAmountChanged,
-            label = { Text("Monthly budget") },
+            label = { Text("Budget amount") },
             prefix = { Text("KES ") },
             placeholder = { Text("2,500") },
             keyboardOptions = KeyboardOptions(
@@ -712,6 +712,8 @@ private fun ExistingBudgetRow(
                 }
             )
 
+            if (budget.limitMinor > budget.baseLimitMinor) Text("Includes " + formatBudgetMoney(budget.limitMinor - budget.baseLimitMinor) + " carried forward", style = MaterialTheme.typography.bodySmall)
+            BudgetTimingAction(budget)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = onEdit,

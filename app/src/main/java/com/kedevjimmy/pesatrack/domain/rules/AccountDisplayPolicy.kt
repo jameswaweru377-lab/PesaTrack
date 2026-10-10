@@ -62,7 +62,8 @@ object AccountDisplayPolicy {
     }
 
     fun groups(
-        accounts: List<MoneyAccount>
+        accounts: List<MoneyAccount>,
+        includeCash: Boolean = false
     ): List<TrackedAccountGroup> {
         val eligible =
             accounts
@@ -70,7 +71,7 @@ object AccountDisplayPolicy {
                 .filter { it.enabled }
                 .filter {
                     it.type in
-                        supportedTypes
+                        supportedTypes || (includeCash && it.type == AccountType.CASH)
                 }
                 .filter {
                     isMeaningfulAccountName(
@@ -266,6 +267,7 @@ object AccountDisplayPolicy {
             } ->
                 AccountType.BANK
 
+            accounts.all { it.type == AccountType.CASH } -> AccountType.CASH
             else ->
                 AccountType.SAVINGS
         }

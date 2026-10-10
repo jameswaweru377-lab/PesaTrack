@@ -806,6 +806,8 @@ fun ActivityScreen(
                 )
             }
 
+            item { ActivityMoneyActions(onChanged = { refresh() }) }
+
             item {
                 OutlinedTextField(
                     value = searchQuery,

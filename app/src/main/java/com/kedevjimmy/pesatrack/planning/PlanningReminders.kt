@@ -48,9 +48,9 @@ object PlanningReminders {
         val progress=FinancialProgressRepository(c).read()
         if(enabled(c,"budgets")) progress.budgets.forEach { budget ->
             val level=PlanningReminderPolicy.budgetLevel(budget.saved,budget.target) ?: return@forEach
-            post(c,"budgets", "budget:${budget.id}:$month:${budget.target}:$level",
+            post(c,"budgets", "budget:${budget.id}:${budget.periodKey.ifBlank { month }}:${budget.target}:$level",
                 if(level=="over") "Budget limit reached" else "Getting close to your budget",
-                "${budget.name}: you've used ${PlanningReminderPolicy.share(budget.saved,budget.target)} of this month's budget.","budgets")
+                "${budget.name}: you've used ${PlanningReminderPolicy.share(budget.saved,budget.target)} of your budget.","budgets")
         }
         if(enabled(c,"goals")) {
             val store=TransactionStore.get(c)

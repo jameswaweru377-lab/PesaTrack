@@ -3617,6 +3617,7 @@ class TransactionStore private constructor(context: Context) {
         markTransfer: Boolean = false
     ) {
         synchronized(CanonicalStoreLock.monitor) {
+        database.writableDatabase.delete("transaction_allocations", "transaction_id = ?", arrayOf(id.toString()))
         val canonicalCategory = CategoryStore
             .get(appContext)
             .canonicalId(categoryId)

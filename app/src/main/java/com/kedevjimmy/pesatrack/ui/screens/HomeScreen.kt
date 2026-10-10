@@ -624,14 +624,14 @@ fun HomeScreen(
 
     val visibleAccountGroups =
         AccountDisplayPolicy.groups(
-            trackedAccounts
+            trackedAccounts, includeCash = true
         ).filter { group ->
             group.accounts.any {
                 AccountDisplayPolicy
                     .isConfirmedOwned(
                         account = it,
                         confirmedAccountIds =
-                            confirmedAccountIds
+                            confirmedAccountIds, includeCash = true
                     )
             }
         }
@@ -1042,7 +1042,7 @@ fun HomeScreen(
                 amount =
                     if (cycleSnapshot.cycle == null) {
                         com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.totalKnown(
-                            accountBalanceSnapshots.filter { snapshot -> trackedAccounts.any { it.id == snapshot.accountId && AccountDisplayPolicy.isConfirmedOwned(it, confirmedAccountIds) } }.map { snapshot ->
+                            accountBalanceSnapshots.filter { snapshot -> trackedAccounts.any { it.id == snapshot.accountId && AccountDisplayPolicy.isConfirmedOwned(it, confirmedAccountIds, includeCash = true) } }.map { snapshot ->
                                 val account = trackedAccounts.first { it.id == snapshot.accountId }
                                 com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.savingsBalance(snapshot.balanceMinor, account.type == AccountType.SAVINGS, snapshot.quality == com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality.RECONSTRUCTED)
                             }

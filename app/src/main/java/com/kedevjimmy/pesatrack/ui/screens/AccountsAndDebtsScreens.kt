@@ -156,14 +156,14 @@ fun AccountsScreen(
                         .confirmedAccountIds()
                 val groups =
                     AccountDisplayPolicy.groups(
-                        accounts
+                        accounts, includeCash = true
                     ).filter { group ->
                         group.accounts.any {
                             AccountDisplayPolicy
                                 .isConfirmedOwned(
                                     account = it,
                                     confirmedAccountIds =
-                                        confirmedAccountIds
+                                        confirmedAccountIds, includeCash = true
                                 )
                         }
                     }
@@ -223,7 +223,7 @@ fun AccountsScreen(
     val visible = presentations.filter {
         val mobileMoney = FinancialProviderRegistry.isMobileMoneyAccount(it.group.displayName, it.group.type)
         when (selectedTab) {
-            1 -> !mobileMoney
+            1 -> !mobileMoney && it.group.type != AccountType.CASH
             2 -> mobileMoney
             else -> true
         }
@@ -259,6 +259,7 @@ fun AccountsScreen(
                 }
             }
         }
+        item { AccountBalanceCheckAction() }
         if (visible.isEmpty()) item {
             PesaCard { Column(Modifier.padding(18.dp)) {
                 Text("No confirmed accounts here yet", style = MaterialTheme.typography.titleMedium)

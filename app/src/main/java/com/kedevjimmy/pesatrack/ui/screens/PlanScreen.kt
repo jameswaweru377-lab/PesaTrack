@@ -288,7 +288,7 @@ fun PlanScreen(
                             )
                             Column(Modifier.weight(1f).padding(start = 11.dp)) {
                                 Text(
-                                    "Monthly budget",
+                                    "Current budgets",
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
