@@ -23,6 +23,10 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: signed-release-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
