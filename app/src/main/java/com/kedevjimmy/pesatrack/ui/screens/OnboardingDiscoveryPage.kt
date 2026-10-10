@@ -29,15 +29,10 @@ internal fun ReviewDiscoveryPage(
         List<DiscoveredFinancialEntity>,
     ownershipChoices:
         Map<String, OnboardingOwnershipChoice>,
-    salarySuggestion:
-        OnboardingSalarySuggestion?,
-    salaryAccepted: Boolean,
     importResult: HistoricalImportResult?,
     applying: Boolean,
-    onSalaryAccepted: (Boolean) -> Unit,
     onOwnershipChoice:
         (DiscoveredFinancialEntity, OnboardingOwnershipChoice) -> Unit,
-    onManualSalary: () -> Unit,
     onContinue: () -> Unit,
     onAddMissingInstitution: () -> Unit = {}
 ) {
@@ -88,161 +83,18 @@ internal fun ReviewDiscoveryPage(
             }
         }
 
-        if (salarySuggestion != null) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onSalaryAccepted(
-                            !salaryAccepted
-                        )
-                    },
-                shape =
-                    RoundedCornerShape(22.dp),
-                color =
-                    if (salaryAccepted) {
-                        pesaToneContainer("amber")
-                    } else {
-                        MaterialTheme.colorScheme
-                            .surface
-                    }
-            ) {
-                Row(
-                    modifier =
-                        Modifier.padding(16.dp),
-                    verticalAlignment =
-                        Alignment.CenterVertically
-                ) {
-                    IconBubble(
-                        Icons.Rounded.Payments,
-                        size = 46.dp,
-                        background =
-                            pesaToneContainer(
-                                "amber"
-                            ),
-                        tint =
-                            pesaToneContent("amber")
-                    )
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 12.dp)
-                    ) {
-                        Text(
-                            "Possible salary",
-                            style =
-                                MaterialTheme.typography
-                                    .labelLarge,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .primary
-                        )
-                        Text(
-                            salarySuggestion.label,
-                            style =
-                                MaterialTheme.typography
-                                    .titleMedium,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurface
-                        )
-                        Text(
-                            salarySuggestion
-                                .monthCount
-                                .toString() +
-                                " months • recent " +
-                                formatSetupMoney(
-                                    salarySuggestion
-                                        .representativeAmountMinor
-                                ),
-                            style =
-                                MaterialTheme.typography
-                                    .bodySmall,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-                    Icon(
-                        if (salaryAccepted) {
-                            Icons.Rounded.CheckCircle
-                        } else {
-                            Icons.Rounded.Payments
-                        },
-                        contentDescription =
-                            if (salaryAccepted) {
-                                "Marked as salary"
-                            } else {
-                                "Not marked as salary"
-                            },
-                        tint =
-                            if (salaryAccepted) {
-                                MaterialTheme.colorScheme
-                                    .primary
-                            } else {
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                            }
-                    )
-                }
-            }
-
-            Text(
-                "This is only a suggestion. Tap the card to confirm it, or skip salary setup and continue.",
-                style =
-                    MaterialTheme.typography
-                        .bodySmall,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-            )
-        } else if (showOptions) {
-            PesaCard {
-                Row(
-                    Modifier.padding(16.dp),
-                    verticalAlignment =
-                        Alignment.CenterVertically
-                ) {
-                    IconBubble(
-                        Icons.Rounded.Payments,
-                        size = 44.dp
-                    )
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .padding(
-                                start = 11.dp
-                            )
-                    ) {
-                        Text(
-                            "Salary wasn't found",
-                            style =
-                                MaterialTheme.typography
-                                    .titleMedium,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurface
-                        )
-                        Text(
-                            "Salary setup is optional. Add it later if you want planning around payday; accounts and spending work without it.",
-                            style =
-                                MaterialTheme.typography
-                                    .bodySmall,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
+        Text(
+            "Salary setup comes after confirming your accounts. You can skip it.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         TextButton(
             onClick = { showOptions = !showOptions },
             enabled = !applying,
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
         ) {
-            Text(if (showOptions) "Hide optional setup" else "Personalize accounts and salary (optional)")
+            Text(if (showOptions) "Hide account options" else "Review account options")
         }
         if (
             showOptions && ownershipCandidates.isNotEmpty()
@@ -291,23 +143,6 @@ internal fun ReviewDiscoveryPage(
                 shape = RoundedCornerShape(18.dp)
             ) {
                 Text("Add a missing bank or service")
-            }
-        }
-
-        if (
-            showOptions && (salarySuggestion == null || !salaryAccepted)
-        ) {
-            OutlinedButton(
-                onClick = onManualSalary,
-                enabled = !applying,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 54.dp),
-                shape =
-                    RoundedCornerShape(18.dp)
-            ) {
-                Text("Set up salary manually")
             }
         }
 

@@ -141,6 +141,7 @@ private enum class SmartSetupStage {
     SMS_PERMISSION,
     ANALYZE,
     REVIEW,
+    SALARY_OPTIONAL,
     SALARY_MANUAL,
     MPESA_CONFIRM,
     LINKED_SAVINGS,
@@ -278,6 +279,8 @@ fun SmartOnboardingSetupScreen(
     var manualMpesaPhone by rememberSaveable {
         mutableStateOf("")
     }
+    var salaryConfirmationSaving by remember { mutableStateOf(false) }
+    var salaryConfirmationError by remember { mutableStateOf<String?>(null) }
     var linkedSavingsChoices by remember { mutableStateOf<Map<String, OnboardingOwnershipChoice>>(emptyMap()) }
     var linkedSavingsSaving by remember { mutableStateOf(false) }
     var linkedSavingsError by remember { mutableStateOf<String?>(null) }
@@ -1544,7 +1547,7 @@ fun SmartOnboardingSetupScreen(
                         "pesatrack_preferences", Context.MODE_PRIVATE
                     ).edit().putString("profile_name", profileName.trim()).commit())
                 }
-                stage = SmartSetupStage.COMPLETE
+                stage = SmartSetupStage.SALARY_OPTIONAL
             } catch (_: Exception) {
                 identityError = "Could not save your account details. Try again or skip."
             } finally {
@@ -1556,6 +1559,8 @@ fun SmartOnboardingSetupScreen(
     val onboardingBusy =
         reviewSaving ||
             mpesaConfirmationBusy ||
+            linkedSavingsSaving ||
+            salaryConfirmationSaving ||
             identitySaving ||
             manualSalarySaving ||
             completionNavigating ||
@@ -1596,9 +1601,12 @@ fun SmartOnboardingSetupScreen(
                     SmartSetupStage.ANALYZE
                 }
 
+                SmartSetupStage.SALARY_OPTIONAL ->
+                    SmartSetupStage.ACCOUNT_DETAILS
+
                 SmartSetupStage
                     .SALARY_MANUAL ->
-                    SmartSetupStage.REVIEW
+                    SmartSetupStage.SALARY_OPTIONAL
 
                 SmartSetupStage
                     .MPESA_CONFIRM ->
@@ -1626,15 +1634,7 @@ fun SmartOnboardingSetupScreen(
 
                 SmartSetupStage
                     .COMPLETE ->
-                    if (
-                        mpesaPhoneSuggestion !=
-                        null
-                    ) {
-                        SmartSetupStage
-                            .MPESA_CONFIRM
-                    } else {
-                        SmartSetupStage.REVIEW
-                    }
+                    SmartSetupStage.SALARY_OPTIONAL
 
                 SmartSetupStage.IMPORT ->
                     SmartSetupStage.WELCOME
@@ -1811,17 +1811,10 @@ fun SmartOnboardingSetupScreen(
                             pendingOwnershipEntities,
                         ownershipChoices =
                             ownershipChoices,
-                        salarySuggestion =
-                            salarySuggestion,
-                        salaryAccepted =
-                            salaryAccepted,
                         importResult =
                             importResult,
                         applying =
                             reviewSaving,
-                        onSalaryAccepted = {
-                            salaryAccepted = it
-                        },
                         onOwnershipChoice = {
                                 entity, choice ->
                             ownershipChoices =
@@ -1832,18 +1825,9 @@ fun SmartOnboardingSetupScreen(
                                 }
                         },
                         onAddMissingInstitution = { chooseInstitutions = true },
-                        onManualSalary = {
-                            setupScope.launch {
-                                applySelectedAccountOwnership()
-                                stage =
-                                    SmartSetupStage
-                                        .SALARY_MANUAL
-                            }
-                        },
                         onContinue = {
                             setupScope.launch {
                                 applySelectedAccountOwnership()
-                                applySalaryIfConfirmed()
                                 stage =
                                     if (
                                         mpesaPhoneSuggestion !=
@@ -1992,16 +1976,7 @@ fun SmartOnboardingSetupScreen(
                                         if (
                                             applyManualSalary()
                                         ) {
-                                            stage =
-                                                if (
-                                                    mpesaPhoneSuggestion !=
-                                                    null
-                                                ) {
-                                                    SmartSetupStage
-                                                        .MPESA_CONFIRM
-                                                } else {
-                                                    nextAfterIdentitySetup()
-                                                }
+                                            stage = SmartSetupStage.COMPLETE
                                         }
                                     } catch (
                                         error: Throwable
@@ -2016,16 +1991,7 @@ fun SmartOnboardingSetupScreen(
                             }
                         },
                         onSkip = {
-                            stage =
-                                if (
-                                    mpesaPhoneSuggestion !=
-                                    null
-                                ) {
-                                    SmartSetupStage
-                                        .MPESA_CONFIRM
-                                } else {
-                                    nextAfterIdentitySetup()
-                                }
+                            stage = SmartSetupStage.SALARY_OPTIONAL
                         }
                     )
                 }
@@ -2064,8 +2030,7 @@ fun SmartOnboardingSetupScreen(
                                                 suggested
                                             )
                                         ) {
-                                            applySalaryIfConfirmed()
-                                            stage =
+                                                                                        stage =
                                                 nextAfterMpesaSetup()
                                         }
                                     } finally {
@@ -2091,8 +2056,7 @@ fun SmartOnboardingSetupScreen(
                                                 manualMpesaPhone
                                             )
                                         ) {
-                                            applySalaryIfConfirmed()
-                                            stage =
+                                                                                        stage =
                                                 nextAfterMpesaSetup()
                                         }
                                     } finally {
@@ -2104,8 +2068,7 @@ fun SmartOnboardingSetupScreen(
                         },
                         onSkip = {
                             setupScope.launch {
-                                    applySalaryIfConfirmed()
-                                    stage =
+                                                                        stage =
                                         nextAfterMpesaSetup()
                                 }
                         }
@@ -2158,7 +2121,53 @@ fun SmartOnboardingSetupScreen(
                             identityError = null
                         },
                         onSaveAndContinue = { saveAccountDetails() },
-                        onSkip = { stage = SmartSetupStage.COMPLETE }
+                        onSkip = { stage = SmartSetupStage.SALARY_OPTIONAL }
+                    )
+                }
+            }
+
+            SmartSetupStage.SALARY_OPTIONAL -> {
+                item {
+                    OnboardingSalaryChoicePage(
+                        suggestion = salarySuggestion,
+                        saving = salaryConfirmationSaving,
+                        error = salaryConfirmationError,
+                        onConfirmDetected = {
+                            if (!salaryConfirmationSaving && salarySuggestion != null) {
+                                salaryConfirmationSaving = true
+                                salaryConfirmationError = null
+                                salaryAccepted = true
+                                setupScope.launch {
+                                    try {
+                                        applySalaryIfConfirmed()
+                                        stage = SmartSetupStage.COMPLETE
+                                    } catch (_: Exception) {
+                                        salaryAccepted = false
+                                        salaryConfirmationError = "Could not save salary yet. Please try again or skip."
+                                    } finally {
+                                        salaryConfirmationSaving = false
+                                    }
+                                }
+                            }
+                        },
+                        onEnterManually = {
+                            if (!salaryConfirmationSaving) {
+                                salaryAccepted = false
+                                stage = SmartSetupStage.SALARY_MANUAL
+                            }
+                        },
+                        onNotMySalary = {
+                            if (!salaryConfirmationSaving) {
+                                salaryAccepted = false
+                                stage = SmartSetupStage.COMPLETE
+                            }
+                        },
+                        onSkip = {
+                            if (!salaryConfirmationSaving) {
+                                salaryAccepted = false
+                                stage = SmartSetupStage.COMPLETE
+                            }
+                        }
                     )
                 }
             }
@@ -2281,7 +2290,7 @@ private fun StageProgress(
         SmartSetupStage.REVIEW -> 2
         SmartSetupStage.MPESA_CONFIRM, SmartSetupStage.LINKED_SAVINGS -> 3
         SmartSetupStage.ACCOUNT_DETAILS -> 4
-        SmartSetupStage.SALARY_MANUAL -> 5
+        SmartSetupStage.SALARY_OPTIONAL, SmartSetupStage.SALARY_MANUAL -> 5
         SmartSetupStage.LIVE_CAPTURE -> 5
         SmartSetupStage.COMPLETE -> 6
     }
@@ -3513,7 +3522,7 @@ private fun SetupCompletePage(
         }
 
         Text(
-            "Your money picture\nis ready",
+            "You’re all set!",
             modifier = Modifier.padding(top = 18.dp),
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onBackground,
