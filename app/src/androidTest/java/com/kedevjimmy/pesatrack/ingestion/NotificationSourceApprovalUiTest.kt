@@ -6,10 +6,12 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.ui.screens.NotificationSourceApprovalSheet
+import com.kedevjimmy.pesatrack.ui.screens.NotificationSourceApprovalContent
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -38,5 +40,24 @@ class NotificationSourceApprovalUiTest {
         compose.runOnIdle { assertTrue(trust.isApproved("ke.example.bank")) }
         toggle.performClick().assertIsOff()
         compose.runOnIdle { assertFalse(trust.isApproved("ke.example.bank")) }
+    }
+
+    @Test fun expandingAvailableAppsDoesNotApproveSources() {
+        val hiddenSource = ObservedNotificationSource("ke.example.reader", "Sample Reader")
+        compose.setContent {
+            MaterialTheme {
+                NotificationSourceApprovalContent(availableSources = listOf(hiddenSource), onDismiss = {})
+            }
+        }
+        val toggle = compose.onNodeWithContentDescription("Approve financial notifications from Sample Reader")
+        toggle.assertDoesNotExist()
+        compose.onNodeWithText("Show all available apps").performClick()
+        toggle.assertIsOff()
+        compose.runOnIdle { assertFalse(trust.isApproved(hiddenSource.packageName)) }
+        compose.onNodeWithText("Show suggested apps").performClick()
+        toggle.assertDoesNotExist()
+        compose.onNodeWithText("Show all available apps").performClick()
+        toggle.assertIsOff().performClick().assertIsOn()
+        compose.runOnIdle { assertTrue(trust.isApproved(hiddenSource.packageName)) }
     }
 }

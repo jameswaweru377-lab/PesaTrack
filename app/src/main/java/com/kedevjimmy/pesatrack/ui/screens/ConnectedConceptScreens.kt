@@ -157,7 +157,8 @@ private data class ReportLoadedState(
     val labels: Map<String, String>,
     val health: MoneyPictureHealth,
     val periodLabel: String,
-    val categorySpending: Map<String,Long> = emptyMap()
+    val categorySpending: Map<String,Long> = emptyMap(),
+    val categoryReview: List<ReportReviewCandidate> = emptyList()
 )
 
 private fun reportChangePercent(
@@ -178,7 +179,8 @@ private fun reportChangePercent(
 fun ReportsInsightsScreen(
     scaffoldPadding: PaddingValues,
     onBack: () -> Unit,
-    onReviewClick: () -> Unit = {}
+    onReviewClick: () -> Unit = {},
+    onTransactionClick: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current
     val revision by LedgerUpdateBus.state.collectAsState()
@@ -187,6 +189,8 @@ fun ReportsInsightsScreen(
     var previousSnapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
     var reportPeriodLabel by remember { mutableStateOf<String?>(null) }
     var categorySpending by remember { mutableStateOf<Map<String,Long>>(emptyMap()) }
+    var categoryReview by remember { mutableStateOf<List<ReportReviewCandidate>>(emptyList()) }
+    var showCategoryReview by remember(period) { mutableStateOf(false) }
     var labels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var moneyHealth by remember {
         mutableStateOf<MoneyPictureHealth?>(null)
@@ -196,6 +200,7 @@ fun ReportsInsightsScreen(
     var retryLoad by remember { mutableIntStateOf(0) }
     LaunchedEffect(revision.revision, period, retryLoad) {
         loadError = null
+        categoryReview = emptyList()
         try {
         val loaded = withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
@@ -281,6 +286,11 @@ fun ReportsInsightsScreen(
                         SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date(start))
                 },
                 categorySpending = categoryTotals,
+                categoryReview = reportCategoryReview(current.trustedTransactions.map { row ->
+                    ReportReviewCandidate(row.id, row.counterparty, row.amountMinor,
+                        categoryStore.canonicalId(row.category), row.direction == MoneyDirection.EXPENSE.name,
+                        row.relationType == TransactionStore.RELATION_REFUND, allocations[row.id].orEmpty().isNotEmpty())
+                }),
                 current =
                     store.activitySnapshotBetween(
                         start,
@@ -311,6 +321,7 @@ fun ReportsInsightsScreen(
         labels = loaded.labels
         moneyHealth = loaded.health
         categorySpending = loaded.categorySpending
+        categoryReview = loaded.categoryReview
 
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
         } catch (failure: Exception) {
@@ -530,6 +541,34 @@ fun ReportsInsightsScreen(
                 PesaCard { Text("No recorded spending in this period yet.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         } else {
+            item {
+                PesaCard {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("About your categories", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Other is a broad spending category. Uncategorized means a category has not been assigned. Both are included in these totals; they do not by themselves mean a transaction is wrong.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Review a transaction to choose a more useful category. Changes happen only when you save them, and choosing a category does not change its amount.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (categoryReview.isNotEmpty()) {
+                            TextButton(onClick = { showCategoryReview = !showCategoryReview }) {
+                                Text(if (showCategoryReview) "Hide review examples" else "Review largest Other / Uncategorized expenses")
+                            }
+                            if (showCategoryReview) {
+                                Text("Up to three expenses in this period, largest first. Amounts below are original transaction amounts, before refunds; split expenses are excluded.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                categoryReview.forEach { row ->
+                                    TextButton(onClick = { onTransactionClick(row.id) }, modifier = Modifier.fillMaxWidth()) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(row.counterparty?.takeIf { it.isNotBlank() } ?: "Expense without a merchant name")
+                                            Text(if (row.category == "OTHER") "Other" else "Uncategorized", style = MaterialTheme.typography.labelSmall)
+                                        }
+                                        Text(conceptMoney(row.amountMinor))
+                                    }
+                                }
+                            }
+                        } else if (lowQualityMinor > 0L) {
+                            Text("No unsplit Other or Uncategorized expense examples in this period. Split allocations or refunds may still affect the category totals.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
             if (lowQualityShare >= 70) {
                 item {
                     PesaCard {

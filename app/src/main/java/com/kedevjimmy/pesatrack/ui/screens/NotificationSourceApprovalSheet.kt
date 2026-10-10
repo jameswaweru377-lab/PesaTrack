@@ -20,16 +20,26 @@ import com.kedevjimmy.pesatrack.ingestion.ObservedNotificationSource
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationSourceApprovalSheet(onDismiss: () -> Unit) {
+    NotificationSourceApprovalContent(onDismiss = onDismiss)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun NotificationSourceApprovalContent(
+    availableSources: List<ObservedNotificationSource>? = null,
+    onDismiss: () -> Unit
+) {
     val context = LocalContext.current
     val trust = remember { NotificationSourceTrustStore(context) }
-    val sources = remember {
-        val visible = runCatching {
+    val defaultSmsPackage = remember { runCatching { Telephony.Sms.getDefaultSmsPackage(context) }.getOrNull() }
+    val sources = remember(availableSources) {
+        val visible = availableSources ?: runCatching {
             context.packageManager.getInstalledApplications(PackageManager.GET_META_DATA).map { info ->
                 ObservedNotificationSource(info.packageName, context.packageManager.getApplicationLabel(info).toString())
             }
         }.getOrDefault(emptyList())
         val sms = runCatching {
-            Telephony.Sms.getDefaultSmsPackage(context)?.let { name ->
+            defaultSmsPackage?.let { name ->
                 val info = context.packageManager.getApplicationInfo(name, 0)
                 ObservedNotificationSource(name, context.packageManager.getApplicationLabel(info).toString())
             }
@@ -41,8 +51,9 @@ fun NotificationSourceApprovalSheet(onDismiss: () -> Unit) {
     }
     var query by remember { mutableStateOf("") }
     var details by remember { mutableStateOf(false) }
+    var showAll by remember { mutableStateOf(false) }
     val observed = remember { trust.observedSources().map { it.packageName }.toSet() }
-    val filtered = sources.filter { source -> if(query.isNotBlank()) source.label.contains(query,true) || source.packageName.contains(query,true) else source.packageName in observed || trust.isApproved(source.packageName) || Regex("mpesa|m-pesa|equity|kcb|ncba|co.op|absa|bank",RegexOption.IGNORE_CASE).containsMatchIn(source.label) }
+    val filtered = sources.filter { source -> if(query.isNotBlank()) source.label.contains(query,true) || source.packageName.contains(query,true) else showAll || source.packageName == defaultSmsPackage || source.packageName in observed || trust.isApproved(source.packageName) || Regex("mpesa|m-pesa|equity|kcb|ncba|co.op|absa|bank",RegexOption.IGNORE_CASE).containsMatchIn(source.label) }
     var error by remember { mutableStateOf<String?>(null) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(
@@ -56,18 +67,21 @@ fun NotificationSourceApprovalSheet(onDismiss: () -> Unit) {
                 Text("Turn on your bank, mobile-money or SMS app. We only add money updates from apps you choose.")
                 Spacer(Modifier.height(8.dp))
                 Text("Choose the actual app you use. Avoid chat apps or forwarded messages.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Start with your bank app, mobile-money app (such as M-PESA), or your phone's SMS app.", style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(query, { query=it }, label = { Text("Find an app") }, modifier = Modifier.fillMaxWidth())
+                TextButton(onClick = { showAll = !showAll }) { Text(if (showAll) "Show suggested apps" else "Show all available apps") }
                 TextButton(onClick = { details=!details }) { Text(if(details) "Hide technical names" else "Show technical names") }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
             if (filtered.isEmpty()) item {
-                Text("Apps will appear here after posting a notification. Only their app name and package are retained before approval.")
+                Text("No matching apps. Search by app name or show all available apps. Apps can also appear after sending a notification; only their name and technical identifier are saved before you approve them.")
             }
             items(filtered, key = { it.packageName }) { source ->
                 var checked by remember(source.packageName) { mutableStateOf(trust.isApproved(source.packageName)) }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(source.label, style = MaterialTheme.typography.titleMedium)
+                        if (source.packageName == defaultSmsPackage) Text("Your phone's SMS app", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (details) Text(source.packageName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Switch(
