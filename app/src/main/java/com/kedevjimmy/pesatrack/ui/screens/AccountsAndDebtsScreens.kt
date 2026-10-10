@@ -338,6 +338,11 @@ fun DebtsScreen(
     header: (@Composable () -> Unit)? = null,
     onReviewRelationships: (() -> Unit)? = null
 ) {
+    var showOwedToMe by rememberSaveable { mutableStateOf(false) }
+    if (showOwedToMe) {
+        PersonalReceivablesScreen(scaffoldPadding, onLiabilities = { showOwedToMe = false }, header = header)
+        return
+    }
     val context = LocalContext.current
     val debtStore =
         remember {
@@ -431,6 +436,14 @@ fun DebtsScreen(
 
         }
 
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {}, enabled = false, modifier = Modifier.weight(1f)) { Text("I owe") }
+                OutlinedButton(onClick = { showOwedToMe = true }, modifier = Modifier.weight(1f)) {
+                    Text("Owed to me")
+                }
+            }
+        }
         if (activeDebts.isNotEmpty()) item {
             PesaCard {
                 Column(
