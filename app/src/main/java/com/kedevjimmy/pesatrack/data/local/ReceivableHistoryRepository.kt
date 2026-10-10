@@ -70,7 +70,7 @@ class ReceivableHistoryRepository(context: Context) {
                 selections: List<ReceivableHistorySelection>, gifts: List<StoredTransaction>): String =
         synchronized(CanonicalStoreLock.monitor) {
             require(name.trim().length in 2..100) { "Enter the person's full name." }
-            require(phone.isNullOrBlank() || ReceivableHistoryPolicy.normalizedPhone(phone) != null) { "Check the phone number." }
+            require(personId != null || phone.isNullOrBlank() || ReceivableHistoryPolicy.normalizedPhone(phone) != null) { "Check the phone number." }
             require(selections.isNotEmpty() || gifts.isNotEmpty()) { "Select records to confirm." }
             require(selections.size + gifts.size <= 500) { "Confirm up to 500 records at a time." }
             val ids = selections.map { it.row.id } + gifts.map { it.id }

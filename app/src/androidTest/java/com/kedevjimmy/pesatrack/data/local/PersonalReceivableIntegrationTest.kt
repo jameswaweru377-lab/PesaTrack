@@ -298,4 +298,17 @@ class PersonalReceivableIntegrationTest {
         assertEquals(80000L,receivables.people().single().outstandingMinor)
         assertEquals(null,receivables.eventForTransaction(earlierReceipt))
     }
+
+    @Test fun legacyPhoneStillAllowsExplicitIndividualConfirmation() {
+        receivables.record(null,"Sample Borrower","1234567","LENT",1000,System.currentTimeMillis() - 60000)
+        val person = receivables.people().single()
+        val outgoing = transaction(160,80000,"EXPENSE")
+        val repo = ReceivableHistoryRepository(context)
+        val match = repo.search("Sample Borrower",person.id,person.name,person.phone).single()
+        assertFalse(match.match.bulkEligible)
+        receivables.confirmHistory(person.id,person.name,person.phone,
+            listOf(ReceivableHistorySelection(transactions.getById(outgoing)!!,"LENT",80000)),emptyList())
+        assertEquals(81000L,receivables.people().single().outstandingMinor)
+        assertEquals("1234567",receivables.people().single().phone)
+    }
 }
