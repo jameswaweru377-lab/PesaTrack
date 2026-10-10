@@ -234,6 +234,34 @@ class PersonalReceivableStore(context: Context) {
         }
     }
 
+    /** Reused by history search and revalidated inside its atomic save. */
+    internal fun linkProblem(id: Long, kind: String, amount: Long): String? = synchronized(CanonicalStoreLock.monitor) {
+        val row = transactions.getById(id) ?: return@synchronized "Transaction is no longer available."
+        if (kind !in setOf(LENT, REPAID) || amount <= 0 || amount > row.amountMinor)
+            return@synchronized "Check the loan or repayment amount."
+        if (row.occurredAtEpochMs <= 0 || row.occurredAtEpochMs > System.currentTimeMillis())
+            return@synchronized "Review the transaction date."
+        if (eventForTransaction(id) != null) return@synchronized "Already linked to a personal debt."
+        if (!activeLinkedTransaction(id,kind,amount)) return@synchronized "Source requires review or is a transfer, reversal or refund."
+        val split = database.readableDatabase.rawQuery(
+            "SELECT 1 FROM transaction_allocations WHERE transaction_id = ? LIMIT 1",arrayOf(id.toString())
+        ).use { it.moveToFirst() }
+        if (split) "Remove the existing category split before linking a borrowed share." else null
+    }
+
+    fun confirmHistory(personId: String?, name: String, phone: String?,
+        selections: List<ReceivableHistorySelection>, exclusions: List<StoredTransaction>): String =
+        ReceivableHistoryRepository(app).confirm(personId,name,phone,selections,exclusions)
+
+    fun linkedEvents(): Map<Long, ReceivableEvent> = synchronized(CanonicalStoreLock.monitor) {
+        database.readableDatabase.rawQuery(
+            "SELECT linked_transaction_id FROM personal_receivable_events WHERE linked_transaction_id IS NOT NULL",null
+        ).use { c -> buildMap { while (c.moveToNext()) {
+            val id = c.getLong(0)
+            eventForTransaction(id)?.let { put(id,it) }
+        } } }
+    }
+
     fun nameFor(personId: String): String? = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             "SELECT display_name FROM personal_receivable_people WHERE id = ?", arrayOf(personId)

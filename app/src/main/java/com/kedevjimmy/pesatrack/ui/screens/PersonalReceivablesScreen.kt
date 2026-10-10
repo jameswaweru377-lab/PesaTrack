@@ -56,6 +56,7 @@ fun PersonalReceivablesScreen(
     var deleteEvent by remember { mutableStateOf<ReceivableEvent?>(null) }
     var history by remember { mutableStateOf<List<ReceivableEvent>>(emptyList()) }
     var retry by remember { mutableIntStateOf(0) }
+    var reviewHistory by remember { mutableStateOf(false) }
     LaunchedEffect(revision.revision, selectedPersonId, retry) {
         loading = true
         error = null
@@ -135,6 +136,11 @@ fun PersonalReceivablesScreen(
                         Text("Record money lent")
                     }
                 }
+                item {
+                    OutlinedButton(onClick = { reviewHistory = true },modifier = Modifier.fillMaxWidth()) {
+                        Text("Find in transactions")
+                    }
+                }
                 if (people.isEmpty()) item {
                     PesaCard {
                         Text("No personal loans recorded yet. Record a loan or open a payment in Activity to link it.",
@@ -182,6 +188,17 @@ fun PersonalReceivablesScreen(
                         modifier = Modifier.weight(1f)) { Text("Record repayment") }
                 }
             }
+            item {
+                OutlinedButton(onClick = { reviewHistory = true },modifier = Modifier.fillMaxWidth()) {
+                    Text("Find loans and repayments in transactions")
+                }
+                val lent = runCatching { history.filter { it.active && it.kind == PersonalReceivableStore.LENT }
+                    .fold(0L) { sum, event -> Math.addExact(sum,event.amountMinor) } }.getOrNull()
+                val repaid = runCatching { history.filter { it.active && it.kind == PersonalReceivableStore.REPAID }
+                    .fold(0L) { sum, event -> Math.addExact(sum,event.amountMinor) } }.getOrNull()
+                Text("Money lent: " + (lent?.let(::receivableMoney) ?: "Unavailable"))
+                Text("Repaid: " + (repaid?.let(::receivableMoney) ?: "Unavailable"))
+            }
             item { Text("History", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             items(history, key = { it.id }) { event ->
                 PesaCard {
@@ -211,6 +228,11 @@ fun PersonalReceivablesScreen(
                 }
             }
         }
+    }
+    if (reviewHistory) {
+        ReceivableHistoryReview(selectedPersonId,selected?.name.orEmpty(),selected?.phone,
+            onDismiss = { reviewHistory = false },
+            onSaved = { id -> reviewHistory = false; selectedPersonId = id; retry++ })
     }
     if (createKind != null) {
         ReceivableEntryDialog(
@@ -262,6 +284,8 @@ internal fun PersonalReceivableTransactionAction(row: StoredTransaction, onChang
     var people by remember { mutableStateOf<List<ReceivablePerson>>(emptyList()) }
     var current by remember(row.id) { mutableStateOf<ReceivableEvent?>(null) }
     var open by rememberSaveable(row.id) { mutableStateOf(false) }
+    var reviewHistory by remember(row.id) { mutableStateOf(false) }
+    var reviewPersonId by remember(row.id) { mutableStateOf<String?>(null) }
     LaunchedEffect(row.id, revision.revision) {
         try {
             val result = withContext(Dispatchers.IO) { store.people() to store.eventForTransaction(row.id) }
@@ -281,27 +305,44 @@ internal fun PersonalReceivableTransactionAction(row: StoredTransaction, onChang
     } else {
         PesaCard {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("Personal debt linked", fontWeight = FontWeight.SemiBold)
-                Text((store.nameFor(current!!.personId) ?: "Person") + " • " +
+                Text(if (current!!.kind == PersonalReceivableStore.LENT) "Debts → Owed to me" else "Debts → Repayment received",
+                    fontWeight = FontWeight.SemiBold)
+                Text((people.firstOrNull { it.id == current!!.personId }?.name ?: "Person") + " • " +
                     receivableMoney(current!!.amountMinor) +
                     if (!current!!.active) " • Source requires review" else "")
+                TextButton(onClick = { reviewPersonId = current!!.personId; reviewHistory = true }) {
+                    Text("Review this person's history")
+                }
                 Text("Edit or remove this link from Accounts → Debts → Owed to me.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
+    if (reviewHistory) {
+        LaunchedEffect(row.id) {
+            try { reviewPersonId = withContext(Dispatchers.IO) { store.eventForTransaction(row.id)?.personId } }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { reviewHistory = false }
+        }
+        if (reviewPersonId != null) ReceivableHistoryReview(reviewPersonId,row.counterparty.orEmpty(),row.counterpartyPhone,
+            onDismiss = { reviewHistory = false },
+            onSaved = { reviewHistory = false; onChanged() })
+    }
     if (open) ReceivableEntryDialog(
         people = people, initialPersonId = null,
         kind = if (row.direction == MoneyDirection.EXPENSE.name) PersonalReceivableStore.LENT else PersonalReceivableStore.REPAID,
         linkedTransaction = row,
         onDismiss = { open = false },
-        onSaved = { open = false; onChanged() }
+        onSaved = {
+            open = false; onChanged()
+            reviewPersonId = null; reviewHistory = true
+        }
     )
 }
 
 @Composable
-private fun ReceivableEntryDialog(
+internal fun ReceivableEntryDialog(
     people: List<ReceivablePerson>,
     initialPersonId: String?,
     kind: String,
@@ -411,7 +452,7 @@ private fun ReceivableEntryDialog(
     )
 }
 
-private fun receivableMoney(minor: Long): String =
+internal fun receivableMoney(minor: Long): String =
     "KES " + java.text.NumberFormat.getNumberInstance(Locale.US).apply {
         minimumFractionDigits = 2; maximumFractionDigits = 2
     }.format(java.math.BigDecimal.valueOf(minor, 2))

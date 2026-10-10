@@ -138,6 +138,8 @@ class PersonalReceivableIntegrationTest {
         if (oldVersion == 35) legacy.execSQL(
             "INSERT INTO transaction_allocations(transaction_id, position, category, amount_minor) VALUES (?, 0, 'EATING_OUT', 50000)",
             arrayOf<Any>(payment))
+        legacy.execSQL("DROP TABLE personal_receivable_review_exclusions")
+        legacy.execSQL("DROP TRIGGER IF EXISTS trg_delete_receivable_review")
         legacy.execSQL("DROP TABLE personal_receivable_events")
         legacy.execSQL("DROP TABLE personal_receivable_people")
         if (oldVersion == 34) {
@@ -149,13 +151,13 @@ class PersonalReceivableIntegrationTest {
         val manager = com.kedevjimmy.pesatrack.security.PesaBackupManager(context)
         val encrypted = manager.exportEncryptedBytes("invented-migration-passphrase")
         PesaTrackDatabase.resetForTests()
-        assertEquals(36, db.version)
+        assertEquals(37, db.version)
         assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
         assertTrue(receivables.people().isEmpty())
         repeat(2) {
             manager.previewEncryptedBytes(encrypted, "invented-migration-passphrase")
             manager.restoreEncryptedBytes(encrypted, "invented-migration-passphrase")
-            assertEquals(36, db.version)
+            assertEquals(37, db.version)
             assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
             assertTrue(receivables.people().isEmpty())
             assertTrue(receivables.linkedShares().isEmpty())
@@ -166,7 +168,7 @@ class PersonalReceivableIntegrationTest {
             }
         }
         PesaTrackDatabase.resetForTests()
-        assertEquals(36, db.version)
+        assertEquals(37, db.version)
         assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
     }
 
@@ -190,5 +192,95 @@ class PersonalReceivableIntegrationTest {
         receivables.removeEvent(secondRepayment)
         assertEquals(0L, receivables.people().single().outstandingMinor)
         assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
+    }
+
+    @Test fun historyBatchConfirmsPartialLoanAndReceiptButKeepsGiftOut() {
+        val outgoing = transaction(100,160000,"EXPENSE")
+        val incoming = transaction(101,30000,"INCOME")
+        val gift = transaction(102,10000,"EXPENSE")
+        val repo = ReceivableHistoryRepository(context)
+        val rows = repo.search("Sample Borrower",null,"Sample Borrower","0712000000")
+        assertEquals(3,rows.size)
+        val person = receivables.confirmHistory(null,"Sample Borrower","0712000000",
+            listOf(ReceivableHistorySelection(transactions.getById(outgoing)!!,"LENT",80000),
+                ReceivableHistorySelection(transactions.getById(incoming)!!,"REPAID",30000)),
+            listOf(transactions.getById(gift)!!))
+        assertEquals(50000L,receivables.people().single().outstandingMinor)
+        assertEquals(setOf(gift),repo.exclusions(person))
+        assertEquals(null,receivables.eventForTransaction(gift))
+        assertEquals(160000L,transactions.getById(outgoing)!!.amountMinor)
+        assertEquals("EATING_OUT",transactions.getById(outgoing)!!.category)
+        assertEquals(30000L,transactions.getById(incoming)!!.amountMinor)
+    }
+
+    @Test fun staleBatchRollsBackAllDecisions() {
+        val outgoing = transaction(110,80000,"EXPENSE")
+        val gift = transaction(111,10000,"EXPENSE")
+        val selected = ReceivableHistorySelection(transactions.getById(outgoing)!!,"LENT",80000)
+        val oldGift = transactions.getById(gift)!!
+        db.update("transactions",ContentValues().apply { put("review_state","EXCLUDED") },
+            "id = ?",arrayOf(gift.toString()))
+        try {
+            receivables.confirmHistory(null,"Sample Borrower",null,listOf(selected),listOf(oldGift))
+            throw AssertionError("Stale history was accepted")
+        } catch (_: IllegalArgumentException) {}
+        assertTrue(receivables.people().isEmpty())
+        assertEquals(null,receivables.eventForTransaction(outgoing))
+        assertEquals(80000L,transactions.getById(outgoing)!!.amountMinor)
+    }
+
+    @Test fun repeatedConfirmationCannotDuplicateDebt() {
+        val outgoing = transaction(120,80000,"EXPENSE")
+        val selected = ReceivableHistorySelection(transactions.getById(outgoing)!!,"LENT",80000)
+        val person = receivables.confirmHistory(null,"Sample Borrower",null,listOf(selected),emptyList())
+        try {
+            receivables.confirmHistory(person,"Sample Borrower",null,listOf(selected),emptyList())
+            throw AssertionError("Duplicate debt was accepted")
+        } catch (_: IllegalArgumentException) {}
+        assertEquals(1,receivables.events(person).size)
+        assertEquals(80000L,receivables.people().single().outstandingMinor)
+    }
+
+    @Test fun historySearchIsBoundedAcrossAccountsAndExcludesUnsafeLinks() {
+        val outgoing = transaction(130,80000,"EXPENSE")
+        val incoming = transaction(131,30000,"INCOME")
+        db.update("transactions",ContentValues().apply {
+            put("account_id","synthetic-bank"); put("counterparty_phone","+254712000000")
+        },"id = ?",arrayOf(incoming.toString()))
+        val transfer = transaction(132,10000,"TRANSFER")
+        val repo = ReceivableHistoryRepository(context)
+        val matches = repo.search("0712000000",null,"Sample Borrower","0712000000")
+        assertEquals(setOf(outgoing,incoming,transfer),matches.map { it.row.id }.toSet())
+        assertTrue(matches.first { it.row.id == incoming }.match.bulkEligible)
+        assertTrue(matches.first { it.row.id == transfer }.problem != null)
+        assertEquals(2,repo.search("Sample Borrower",null,"Sample Borrower",null,2).size)
+        assertEquals(1,repo.search("Sample Borrower",null,"Sample Borrower",null,2,2).size)
+    }
+
+    @Test fun schema36AndEncryptedRestorePreserveLoansThenGiftDecisions() {
+        val outgoing = transaction(140,80000,"EXPENSE")
+        val gift = transaction(141,10000,"EXPENSE")
+        val person = receivables.confirmHistory(null,"Sample Borrower","0712000000",
+            listOf(ReceivableHistorySelection(transactions.getById(outgoing)!!,"LENT",80000)),emptyList())
+        db.execSQL("DROP TABLE personal_receivable_review_exclusions")
+        db.execSQL("DROP TRIGGER IF EXISTS trg_delete_receivable_review")
+        db.version = 36
+        val manager = com.kedevjimmy.pesatrack.security.PesaBackupManager(context)
+        val oldBackup = manager.exportEncryptedBytes("invented-history-passphrase")
+        PesaTrackDatabase.resetForTests()
+        assertEquals(37,db.version)
+        repeat(2) {
+            manager.previewEncryptedBytes(oldBackup,"invented-history-passphrase")
+            manager.restoreEncryptedBytes(oldBackup,"invented-history-passphrase")
+            assertEquals(80000L,receivables.people().single().outstandingMinor)
+            assertEquals(1,receivables.events(person).size)
+        }
+        receivables.confirmHistory(person,"Sample Borrower","0712000000",emptyList(),listOf(transactions.getById(gift)!!))
+        val newBackup = manager.exportEncryptedBytes("invented-history-passphrase")
+        repeat(2) {
+            manager.restoreEncryptedBytes(newBackup,"invented-history-passphrase")
+            assertEquals(setOf(gift),ReceivableHistoryRepository(context).exclusions(person))
+            assertEquals(80000L,receivables.people().single().outstandingMinor)
+        }
     }
 }

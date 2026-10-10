@@ -41,6 +41,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createSavingGoalMetadataTable(db)
         createEverydayMoneyTables(db)
         createPersonalReceivableTables(db)
+        createReceivableReviewTables(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -502,6 +503,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         if (oldVersion < 36) createPersonalReceivableTables(db)
+        if (oldVersion < 37) createReceivableReviewTables(db)
 
         createIndexes(db)
         createTriggers(db)
@@ -1380,6 +1382,20 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createReceivableReviewTables(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS personal_receivable_review_exclusions (
+                person_id TEXT NOT NULL,
+                transaction_id INTEGER NOT NULL,
+                created_at_epoch_ms INTEGER NOT NULL,
+                PRIMARY KEY(person_id, transaction_id),
+                FOREIGN KEY(person_id) REFERENCES personal_receivable_people(id),
+                FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE TRIGGER IF NOT EXISTS trg_delete_receivable_review AFTER DELETE ON transactions BEGIN DELETE FROM personal_receivable_review_exclusions WHERE transaction_id = OLD.id; END")
+    }
+
     private fun createPersonalReceivableTables(db: SQLiteDatabase) {
         db.execSQL("""
             CREATE TABLE IF NOT EXISTS personal_receivable_people (
@@ -1690,6 +1706,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 36
+        private const val DATABASE_VERSION = 37
     }
 }
