@@ -56,7 +56,7 @@ class MoneyAggregateSafetyIntegrationTest {
         assertEquals(Long.MIN_VALUE, result.summary.netMinor)
         assertEquals(Long.MAX_VALUE, result.summary.spentMinor)
         assertEquals(1L, result.summary.feesMinor)
-        assertEquals("- KES 92,233,720,368,547,760", formatSignedMoney(result.summary.netMinor))
+        assertEquals("-KES 92,233,720,368,547,758.08", formatSignedMoney(result.summary.netMinor))
     }
 
     @Test fun estimatedZeroRepaymentDoesNotBecomeSettledAfterDatabaseReopens() {

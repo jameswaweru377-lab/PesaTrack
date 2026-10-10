@@ -49,16 +49,7 @@ import com.kedevjimmy.pesatrack.domain.intelligence.ForecastStatus
 import com.kedevjimmy.pesatrack.domain.intelligence.OfflineMoneyPolicy
 import kotlin.math.roundToInt
 
-private fun goalMoney(minor: Long): String {
-    val absolute = abs(minor)
-    val hasCents = absolute % 100L != 0L
-    val formatter = NumberFormat.getNumberInstance(Locale.US).apply {
-        minimumFractionDigits = if (hasCents) 2 else 0
-        maximumFractionDigits = if (hasCents) 2 else 0
-    }
-    return (if (minor < 0L) "-KSh " else "KSh ") +
-        formatter.format(absolute / 100.0)
-}
+private fun goalMoney(minor: Long): String = formatKesAmount(minor)
 
 private fun goalDate(epochMs: Long, locale: Locale): String =
     SimpleDateFormat("d MMM yyyy", locale).format(Date(epochMs))
@@ -406,7 +397,7 @@ private fun GoalHeroMetric(
     value: String,
     label: String,
     modifier: Modifier = Modifier,
-    tone: Color = Color(0xFF7C6FF2)
+    tone: Color = Color(0xFFC5BCFF)
 ) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Surface(
@@ -423,14 +414,15 @@ private fun GoalHeroMetric(
                 value,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1,
+                color = Color.White,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 label,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
+                color = Color(0xFFDCE4F4), // Legible on fixed dark hero in both themes.
+                maxLines = 2
             )
         }
     }
@@ -470,7 +462,7 @@ private fun GoalHero(
                         Text(
                             "Total Goal Savings",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = .74f)
+                            color = Color.White.copy(alpha = .88f)
                         )
                         Icon(
                             Icons.Rounded.Visibility,

@@ -39,30 +39,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.max
 
-private fun conceptMoney(minor: Long): String {
-    val hasCents =
-        kotlin.math.abs(minor) % 100L != 0L
-    val f =
-        NumberFormat
-            .getNumberInstance(Locale.US)
-            .apply {
-                minimumFractionDigits =
-                    if (hasCents) 2 else 0
-                maximumFractionDigits =
-                    if (hasCents) 2 else 0
-            }
-    return (
-        if (minor < 0) {
-            "-KES "
-        } else {
-            "KES "
-        }
-        ) +
-        f.format(
-            kotlin.math.abs(minor) /
-                100.0
-        )
-}
+private fun conceptMoney(minor: Long): String = formatKesAmount(minor)
 
 private fun conceptDate(epoch: Long): String =
     SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(epoch))
@@ -122,7 +99,7 @@ private fun WeeklySpendingBars(
     weeks: List<Long>,
     modifier: Modifier = Modifier
 ) {
-    val maxValue = (weeks.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    val barHeights = spendingBarHeightsDp(weeks)
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -134,19 +111,25 @@ private fun WeeklySpendingBars(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    conceptMoney(amount).removePrefix("KES "),
+                    formatKesNumber(amount),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(
-                            (28 + 68 * amount.toFloat() / maxValue.toFloat()).dp
-                        ),
-                    shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
-                    color = MaterialTheme.colorScheme.primary
-                ) {}
+                // Zero is an empty plot column, not a minimum-height purple bar.
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(88.dp),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    if (barHeights[index] > 0) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(barHeights[index].dp),
+                            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+                            color = MaterialTheme.colorScheme.primary
+                        ) {}
+                    }
+                }
                 Text(
                     if (index == 4) "29+" else "${index * 7 + 1}–${index * 7 + 7}",
                     modifier = Modifier.padding(top = 5.dp),
@@ -173,6 +156,7 @@ private data class ReportLoadedState(
     val previous: ActivityLedgerSnapshot,
     val labels: Map<String, String>,
     val health: MoneyPictureHealth,
+    val periodLabel: String,
     val categorySpending: Map<String,Long> = emptyMap()
 )
 
@@ -201,6 +185,7 @@ fun ReportsInsightsScreen(
     var period by remember { mutableStateOf("Month") }
     var snapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
     var previousSnapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
+    var reportPeriodLabel by remember { mutableStateOf<String?>(null) }
     var categorySpending by remember { mutableStateOf<Map<String,Long>>(emptyMap()) }
     var labels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var moneyHealth by remember {
@@ -286,6 +271,15 @@ fun ReportsInsightsScreen(
                 { allocations[it].orEmpty() }
             )
             ReportLoadedState(
+                periodLabel = when (period) {
+                    "Week" -> "Week · " +
+                        SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(start)) +
+                        "–" + SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(end - 1L))
+                    "Year" -> "Calendar year · " +
+                        SimpleDateFormat("yyyy", Locale.getDefault()).format(Date(start))
+                    else -> "Calendar month · " +
+                        SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date(start))
+                },
                 categorySpending = categoryTotals,
                 current =
                     store.activitySnapshotBetween(
@@ -313,6 +307,7 @@ fun ReportsInsightsScreen(
         }
         snapshot = loaded.current
         previousSnapshot = loaded.previous
+        reportPeriodLabel = loaded.periodLabel
         labels = loaded.labels
         moneyHealth = loaded.health
         categorySpending = loaded.categorySpending
@@ -407,7 +402,7 @@ fun ReportsInsightsScreen(
                     } else {
                         "Fees are tracked separately from spending"
                     },
-                eyebrow = period
+                eyebrow = reportPeriodLabel ?: period
             )
         }
         item {
@@ -674,9 +669,14 @@ fun ReportsInsightsScreen(
                     PesaCard {
                         Column(Modifier.padding(16.dp)) {
                             Text(
-                                "Spending by date",
+                                "Expense events by week",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "Days of month · Fees and refunds are not included in these bars.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             WeeklySpendingBars(
                                 weeks = weeks,
@@ -685,6 +685,13 @@ fun ReportsInsightsScreen(
                                     .height(150.dp)
                                     .padding(top = 12.dp)
                             )
+                            if (weeks.any { it < 0L }) {
+                                Text(
+                                    "Negative adjustments appear as values, not positive bars.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }

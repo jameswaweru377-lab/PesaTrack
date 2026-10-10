@@ -251,10 +251,10 @@ fun AccountsScreen(
         item {
             PesaCard {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Known balances", style = MaterialTheme.typography.titleMedium)
+                    Text("Last known account balances", style = MaterialTheme.typography.titleMedium)
                     Text(if (knownBalanceCount == 0) "No balance yet" else formatDetailMoney(knownTotalMinor),
                         style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text("Balances available for $knownBalanceCount of ${visible.size} accounts",
+                    Text("Snapshots for $knownBalanceCount of ${visible.size} accounts · not a monthly total",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -1035,22 +1035,8 @@ private fun mshwariComponentLabel(
     }
 }
 
-private fun formatDetailMoney(
-    minor: Long?
-): String {
-    if (minor == null) return "Balance unavailable"
-    val formatter =
-        NumberFormat.getNumberInstance(
-            Locale.US
-        ).apply {
-            minimumFractionDigits = 2
-            maximumFractionDigits = 2
-        }
-    return "KES " +
-        formatter.format(
-            minor / 100.0
-        )
-}
+private fun formatDetailMoney(minor: Long?): String =
+    minor?.let(::formatKesAmount) ?: "Balance unavailable"
 
 @Composable
 private fun FinancialReadStatus(padding: PaddingValues, label: String, loading: Boolean,

@@ -1068,6 +1068,13 @@ fun HomeScreen(
         }
 
         item {
+            Text(
+                "This calendar month · " + monthLabel(System.currentTimeMillis()),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1081,12 +1088,19 @@ fun HomeScreen(
                 )
                 ConceptMetricTile(
                     icon = Icons.Rounded.NorthEast,
-                    label = "Spent",
+                    label = "Net spent",
                     value = formatMoney(totalTrustedSpendingMinor),
                     modifier = Modifier.weight(1f),
                     positive = false
                 )
             }
+        }
+        item {
+            Text(
+                "Net spent includes tracked fees and subtracts refunds. Reports shows expenses separately.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         item {
@@ -1968,17 +1982,8 @@ private fun homeInsight(
     }
 }
 
-private fun formatMoney(minor: Long?): String {
-    if (minor == null) return "Amount unavailable"
-    val formatter = NumberFormat.getNumberInstance(Locale.US).apply {
-        maximumFractionDigits = 0
-    }
-    return if (minor < 0) {
-        "-KES " + formatter.format(-minor.toDouble() / 100.0)
-    } else {
-        "KES " + formatter.format(minor / 100.0)
-    }
-}
+private fun formatMoney(minor: Long?): String =
+    minor?.let(::formatKesAmount) ?: "Amount unavailable"
 
 private fun formatShortDate(epochMs: Long): String =
     SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(epochMs))

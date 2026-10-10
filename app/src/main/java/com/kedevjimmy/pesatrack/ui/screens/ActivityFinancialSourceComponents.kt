@@ -977,12 +977,9 @@ internal fun amountLabel(
     return "$sign ${formatActivityMoney(item.amountMinor)}".trim()
 }
 
-internal fun formatActivityMoney(minor: Long): String =
-    "KES ${NumberFormat.getNumberInstance(Locale.US).format(minor / 100.0)}"
+internal fun formatActivityMoney(minor: Long): String = formatKesAmount(minor)
 
-internal fun formatSignedMoney(minor: Long): String =
-    if (minor < 0) "- KES ${NumberFormat.getNumberInstance(Locale.US).format(-minor.toDouble() / 100.0)}"
-    else formatActivityMoney(minor)
+internal fun formatSignedMoney(minor: Long): String = formatKesAmount(minor)
 
 internal fun formatTime(epochMs: Long): String =
     SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(Date(epochMs))
