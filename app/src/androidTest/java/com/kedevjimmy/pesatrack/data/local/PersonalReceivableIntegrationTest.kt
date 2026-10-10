@@ -71,6 +71,11 @@ class PersonalReceivableIntegrationTest {
             receivableLent = { receivables.linkedShares()[it]?.lentMinor ?: 0L }
         )
         assertEquals(80_000L, projected["EATING_OUT"])
+        val snapshot = transactions.activitySnapshotBetween(now - 700000L, now,
+            performMaintenance = false)
+        assertEquals(0L, snapshot.summary.incomeMinor)
+        assertEquals(80_000L, snapshot.summary.spentMinor)
+        assertEquals(-130_000L, snapshot.summary.netMinor)
     }
 
     @Test fun linkedLoanCannotExceedPrincipalOrBeLinkedTwice() {
