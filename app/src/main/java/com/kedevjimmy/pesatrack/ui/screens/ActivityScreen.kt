@@ -84,6 +84,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
@@ -308,6 +311,9 @@ fun ActivityScreen(
     var searchQuery by rememberSaveable {
         mutableStateOf("")
     }
+    // The ledger is the primary Activity task. Keep the full monthly breakdown
+    // available on demand instead of forcing it above every transaction.
+    var showDetailedSummary by rememberSaveable { mutableStateOf(false) }
     var selectedFinancialSource by rememberSaveable {
         mutableStateOf<String?>(null)
     }
@@ -865,12 +871,55 @@ fun ActivityScreen(
                 )
             }
 
-            item {
-                ActivitySummaryCard(
-                    snapshot = snapshot,
-                    previousSnapshot = previousSnapshot,
-                    monthLabel = selectedMonthLabel
-                )
+            item(key = "monthly-summary-toggle") {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("activity-summary-toggle")
+                        .semantics {
+                            stateDescription = if (showDetailedSummary) "Expanded" else "Collapsed"
+                        }
+                        .clickable { showDetailedSummary = !showDetailedSummary },
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 1.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "$selectedMonthLabel totals",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "In " + formatActivityMoney(snapshot.summary.incomeMinor) +
+                                    "  •  Spent " + formatActivityMoney(snapshot.summary.spentMinor),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2
+                            )
+                        }
+                        Icon(
+                            if (showDetailedSummary) Icons.Rounded.ExpandLess
+                            else Icons.Rounded.ExpandMore,
+                            contentDescription = if (showDetailedSummary) "Hide monthly details"
+                            else "Show monthly details",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            if (showDetailedSummary) {
+                item(key = "monthly-summary-details") {
+                    ActivitySummaryCard(
+                        snapshot = snapshot,
+                        previousSnapshot = previousSnapshot,
+                        monthLabel = selectedMonthLabel
+                    )
+                }
             }
 
             val needsAttentionCount =
@@ -886,7 +935,7 @@ fun ActivityScreen(
                         .size +
                     identityReviewCount
 
-            item {
+            if (needsAttentionCount > 0 || selectedGlobalQueue == "Attention") item {
                 NeedsAttentionCard(
                     count = needsAttentionCount,
                     expanded =
@@ -2766,6 +2815,7 @@ private fun ActivitySummaryCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("activity-summary-details")
             .clip(RoundedCornerShape(22.dp))
             .background(
                 Brush.linearGradient(gradient)
@@ -3986,7 +4036,9 @@ private fun ActivityRow(
 
                 Text(
                     displayName,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 Row(
                     modifier = Modifier.padding(top = 3.dp),
