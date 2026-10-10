@@ -22,8 +22,8 @@ class FlexibleBudgetRepository(context:Context) {
  fun delete(category:String)=synchronized(CanonicalStoreLock.monitor){database.writableDatabase.delete("flexible_budget_options","category = ?",arrayOf(category))}
  fun status(category:String,base:Long,now:Long=System.currentTimeMillis()):FlexibleBudgetStatus=synchronized(CanonicalStoreLock.monitor){
   val config=options(category);val current=BudgetPeriods.containing(now,config.cadence,config.anchor)
-  val tx=TransactionStore.get(app);val categories=CategoryStore.get(app);val allocations=EverydayMoneyStore(app).allAllocations()
-  fun spent(start:Long,end:Long):Long=BudgetSpendingProjection.calculate(tx.activitySnapshotBetween(start,end,now,performMaintenance=false).trustedTransactions,tx::trustedRefundOriginal,categories::canonicalId){allocations[it].orEmpty()}[category] ?: 0L
+  val tx=TransactionStore.get(app);val categories=CategoryStore.get(app);val allocations=EverydayMoneyStore(app).allAllocations();val shares=PersonalReceivableStore(app).linkedShares()
+  fun spent(start:Long,end:Long):Long=BudgetSpendingProjection.calculate(tx.activitySnapshotBetween(start,end,now,performMaintenance=false).trustedTransactions,tx::trustedRefundOriginal,categories::canonicalId,receivableLent={shares[it]?.lentMinor ?: 0L},allocations={allocations[it].orEmpty()})[category] ?: 0L
   var carry=0L
   if(config.carryUnused && config.startsAt>0 && config.startsAt<current.start){
    var period=BudgetPeriods.containing(config.startsAt,config.cadence,config.anchor);var steps=0
