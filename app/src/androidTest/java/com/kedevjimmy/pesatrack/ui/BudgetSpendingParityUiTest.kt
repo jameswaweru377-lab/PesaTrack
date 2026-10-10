@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.assertExists
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
@@ -67,7 +66,8 @@ class BudgetSpendingParityUiTest {
         compose.setContent { PesaTrackTheme { BudgetScreen(PaddingValues(), onBack = {}) } }
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Your budgets"))
         awaitBudgetLoaded()
-        compose.onNodeWithText("KES 0 / KES 5,000").performScrollTo().assertExists()
+        compose.onNodeWithText("Spent KES 0").performScrollTo().assertExists()
+        compose.onNodeWithText("KES 5,000 limit").assertExists()
     }
 
     @Test fun removingABudgetRequiresConfirmationAndCancellationPreservesIt() {
