@@ -12,7 +12,7 @@ data class ReceivablePerson(
     val id: String,
     val name: String,
     val phone: String?,
-    val outstandingMinor: Long,
+    val outstandingMinor: Long?,
     val lastActivityAt: Long?
 )
 
@@ -47,7 +47,9 @@ class PersonalReceivableStore(context: Context) {
                 while (c.moveToNext()) {
                     val id = c.getString(0)
                     val history = events(id)
-                    val outstanding = balance(history)
+                    val outstanding = try { balance(history) }
+                    catch (_: IllegalStateException) { null }
+                    catch (_: ArithmeticException) { null }
                     add(ReceivablePerson(id, c.getString(1),
                         if (c.isNull(2)) null else c.getString(2),
                         outstanding, history.firstOrNull()?.occurredAt))
@@ -212,13 +214,18 @@ class PersonalReceivableStore(context: Context) {
         db.beginTransaction()
         try {
             val person = db.rawQuery(
-                "SELECT person_id FROM personal_receivable_events WHERE id = ?",
+                "SELECT person_id, kind FROM personal_receivable_events WHERE id = ?",
                 arrayOf(eventId.toString())
-            ).use { if (it.moveToFirst()) it.getString(0) else null }
+            ).use { if (it.moveToFirst()) it.getString(0) to it.getString(1) else null }
             if (person != null) {
                 db.delete("personal_receivable_events", "id = ?", arrayOf(eventId.toString()))
                 // A loan must not be removed while retained repayments would create a negative balance.
-                balance(events(person))
+                try { balance(events(person.first)) }
+                catch (failure: IllegalStateException) {
+                    // Removing a repayment improves an invalid negative history.
+                    // Keep allowing correction one annotation at a time.
+                    if (person.second != REPAID) throw failure
+                }
             }
             db.setTransactionSuccessful()
         } finally {
