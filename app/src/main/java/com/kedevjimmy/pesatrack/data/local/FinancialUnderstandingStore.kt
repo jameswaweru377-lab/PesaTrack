@@ -447,6 +447,21 @@ class FinancialUnderstandingStore private constructor(
             }
     }
 
+    // Presentation only: these observations allow a question, never establish ownership.
+    fun ownershipReviewEvidence(): Map<String, com.kedevjimmy.pesatrack.domain.identity.OwnershipReviewEvidence> =
+        synchronized(CanonicalStoreLock.monitor) {
+            val balances = latestBalances().filter { it.confidence == InterpretationConfidence.HIGH }
+                .map { it.entityKey }.toSet()
+            pendingEntities().associate { entity ->
+                entity.entityKey to com.kedevjimmy.pesatrack.domain.identity.OwnershipReviewEvidence(
+                    hasBalance = entity.entityKey in balances,
+                    transferCount = pendingTransfersForEntity(entity.entityKey)
+                        .filter { it.confidence == InterpretationConfidence.HIGH }
+                        .distinctBy { it.eventKey }.size
+                )
+            }
+        }
+
     fun latestBalances(): List<ObservedAccountBalance> = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             """

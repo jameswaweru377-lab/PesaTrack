@@ -163,7 +163,7 @@ fun IdentityReviewScreen(
                                 .headlineMedium
                     )
                     Text(
-                        "Teach PesaTrack who belongs to you and what repeated counterparties really are.",
+                        "Check your names and numbers. Other labels are optional.",
                         style =
                             MaterialTheme
                                 .typography
@@ -318,7 +318,7 @@ fun IdentityReviewScreen(
 }
 
 @Composable
-private fun IdentityReviewCard(
+internal fun IdentityReviewCard(
     prompt: IdentityReviewPrompt,
     busy: Boolean,
     disabled: Boolean,
@@ -353,11 +353,11 @@ private fun IdentityReviewCard(
 
                     IdentityReviewPromptType
                         .CONFIRM_SELF_NAME ->
-                        "Is this your transaction name?"
+                        "Is this your name?"
 
                     IdentityReviewPromptType
                         .CLASSIFY_COUNTERPARTY ->
-                        "What is this counterparty?"
+                        "How would you label this recipient?"
                 },
                 style =
                     MaterialTheme
@@ -374,7 +374,11 @@ private fun IdentityReviewCard(
             )
 
             Text(
-                prompt.reason,
+                when (prompt.promptType) {
+                    IdentityReviewPromptType.CONFIRM_SELF_PHONE,
+                    IdentityReviewPromptType.CONFIRM_SELF_NAME -> "Seen in a possible own-account transfer. Confirm only if it is yours."
+                    IdentityReviewPromptType.CLASSIFY_COUNTERPARTY -> prompt.reason
+                },
                 style =
                     MaterialTheme
                         .typography
@@ -438,7 +442,7 @@ private fun IdentityReviewCard(
                             if (busy) {
                                 "Saving…"
                             } else {
-                                "Yes, mine"
+                                "Yes"
                             }
                         )
                     }
@@ -450,7 +454,7 @@ private fun IdentityReviewCard(
                         modifier =
                             Modifier.weight(1f)
                     ) {
-                        Text("Not mine")
+                        Text("No")
                     }
                 }
             }
@@ -459,13 +463,7 @@ private fun IdentityReviewCard(
                 onClick = onDefer,
                 enabled = !disabled
             ) {
-                Text(
-                    if (busy) {
-                        "Saving…"
-                    } else {
-                        "Not sure yet"
-                    }
-                )
+                Text("Not now")
             }
         }
     }

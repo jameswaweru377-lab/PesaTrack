@@ -115,6 +115,7 @@ import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.identity.OwnershipReviewEvidence
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.HistoryImportWindow
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
@@ -156,7 +157,8 @@ data class ActivitySupplementalData(
     val relationshipReviews: List<RelationshipReviewItem>,
     val pendingFinancialEntities: List<DiscoveredFinancialEntity>,
     val financialDiagnostics: List<FinancialIngestionDiagnostic>,
-    val identityReviewCount: Int
+    val identityReviewCount: Int,
+    val ownershipEvidence: Map<String, OwnershipReviewEvidence> = emptyMap()
 )
 
 data class ActivityScreenData(
@@ -169,7 +171,8 @@ data class ActivityScreenData(
     val financialDiagnostics: List<FinancialIngestionDiagnostic>,
     val accountsById: Map<String, MoneyAccount>,
     val confirmedAccountIds: Set<String>,
-    val identityReviewCount: Int
+    val identityReviewCount: Int,
+    val ownershipEvidence: Map<String, OwnershipReviewEvidence> = emptyMap()
 )
 
 class ActivityScreenCache {
@@ -323,6 +326,9 @@ fun ActivityScreen(
                 ?: emptyList()
         )
     }
+    var ownershipEvidence by remember {
+        mutableStateOf(warmData?.ownershipEvidence ?: emptyMap())
+    }
     var accountsById by remember {
         mutableStateOf<Map<String, MoneyAccount>>(
             warmData?.accountsById
@@ -428,7 +434,9 @@ fun ActivityScreen(
     suspend fun loadActivitySupplementalData():
         ActivitySupplementalData =
         withContext(Dispatchers.IO) {
+            val evidence = financialStore.ownershipReviewEvidence()
             ActivitySupplementalData(
+                ownershipEvidence = evidence,
                 globalOverview =
                     store.activityReviewOverview(
                         performMaintenance =
@@ -439,7 +447,7 @@ fun ActivityScreen(
                         .pendingReviews(),
                 pendingFinancialEntities =
                     financialStore
-                        .pendingEntities(),
+                        .pendingEntities().filter { evidence[it.entityKey]?.canAsk == true }.distinctBy { it.entityKey },
                 financialDiagnostics =
                     diagnosticsStore
                         .recent(500)
@@ -474,6 +482,7 @@ fun ActivityScreen(
     fun applyActivitySupplementalData(
         supplemental: ActivitySupplementalData
     ) {
+        ownershipEvidence = supplemental.ownershipEvidence
         globalOverview =
             supplemental.globalOverview
         relationshipReviews =
@@ -496,6 +505,7 @@ fun ActivityScreen(
                 monthEpochMs
             it.data =
                 ActivityScreenData(
+                    ownershipEvidence = supplemental.ownershipEvidence,
                     monthBuckets =
                         core.monthBuckets,
                     snapshot =
@@ -970,14 +980,6 @@ fun ActivityScreen(
                         .isNotEmpty()
                 ) {
                     item {
-                        AttentionQuestionHeader(
-                            title =
-                                "Is this your account?",
-                            subtitle =
-                                "Confirm ownership only when PesaTrack has enough financial evidence to ask."
-                        )
-                    }
-                    item {
                         FinancialAccountDiscoveryCard(
                             entity =
                                 reviewableFinancialEntities
@@ -986,6 +988,7 @@ fun ActivityScreen(
                                 financialDiagnostics,
                             accountsById =
                                 accountsById,
+                            evidence = ownershipEvidence[reviewableFinancialEntities.first().entityKey] ?: OwnershipReviewEvidence(),
                             remainingCount =
                                 reviewableFinancialEntities
                                     .size - 1,
@@ -1004,9 +1007,9 @@ fun ActivityScreen(
                     item {
                         AttentionQuestionHeader(
                             title =
-                                "Who or what is this?",
+                                "Your names and numbers",
                             subtitle =
-                                "Confirm only the identities that matter to your money picture."
+                                "Check possible own-account transfers."
                         )
                     }
                     item {
@@ -1025,7 +1028,7 @@ fun ActivityScreen(
                                         "s"
                                     },
                             subtitle =
-                                "Confirm your numbers, names, accounts or repeated counterparties.",
+                                "Review names and phone numbers linked to possible own-account transfers.",
                             tone = "blue",
                             onClick =
                                 onIdentityReviewClick
@@ -1627,6 +1630,7 @@ fun ActivityScreen(
 
     accountReviewEntity?.let { entity ->
         FinancialAccountReviewDialog(
+            evidence = ownershipEvidence[entity.entityKey] ?: OwnershipReviewEvidence(),
             entity = entity,
             diagnostics =
                 financialDiagnostics,
@@ -1763,6 +1767,7 @@ private fun FinancialAccountDiscoveryCard(
         List<FinancialIngestionDiagnostic>,
     accountsById:
         Map<String, com.kedevjimmy.pesatrack.domain.model.MoneyAccount>,
+    evidence: OwnershipReviewEvidence,
     remainingCount: Int,
     onReview: () -> Unit
 ) {
@@ -1800,7 +1805,7 @@ private fun FinancialAccountDiscoveryCard(
                         .padding(start = 12.dp)
                 ) {
                     Text(
-                        "Account ownership needs review",
+                        "Is this your account?",
                         style =
                             MaterialTheme.typography
                                 .titleMedium
@@ -1816,7 +1821,7 @@ private fun FinancialAccountDiscoveryCard(
             }
 
             Text(
-                "PesaTrack saw financial evidence connected to this account name, but it has not assumed the account belongs to you.",
+                ownershipEvidenceSummary(evidence),
                 style =
                     MaterialTheme.typography
                         .bodyMedium,
@@ -1875,6 +1880,7 @@ private fun FinancialAccountReviewDialog(
         List<FinancialIngestionDiagnostic>,
     accountsById:
         Map<String, com.kedevjimmy.pesatrack.domain.model.MoneyAccount>,
+    evidence: OwnershipReviewEvidence,
     isWorking: Boolean,
     errorText: String?,
     onDismiss: () -> Unit,
@@ -1896,7 +1902,7 @@ private fun FinancialAccountReviewDialog(
         },
         title = {
             Text(
-                "Does this account belong to you?"
+                "Is this your account?"
             )
         },
         text = {
@@ -1924,10 +1930,10 @@ private fun FinancialAccountReviewDialog(
                             .onSurfaceVariant
                 )
                 Text(
-                    "Choose “Yes, my account” only if this is one of your own bank, wallet or savings accounts."
+                    ownershipEvidenceSummary(evidence)
                 )
                 Text(
-                    "Why it matters: PesaTrack uses ownership to decide whether money is income/expense or simply moving between your own accounts.",
+                    "Yes lets PesaTrack treat transfers between your accounts as your own money moving.",
                     style =
                         MaterialTheme.typography
                             .bodySmall,
@@ -1939,7 +1945,7 @@ private fun FinancialAccountReviewDialog(
                     if (isWorking) {
                         "Saving your decision…"
                     } else {
-                        "Nothing is changed until you confirm below."
+                        "Choose Yes only if you own this account."
                     },
                     style =
                         MaterialTheme.typography
@@ -1972,7 +1978,7 @@ private fun FinancialAccountReviewDialog(
                     if (isWorking) {
                         "Saving…"
                     } else {
-                        "Yes, my account"
+                        "Yes"
                     }
                 )
             }
@@ -1988,7 +1994,7 @@ private fun FinancialAccountReviewDialog(
                     enabled =
                         !isWorking
                 ) {
-                    Text("Cancel")
+                    Text("Not now")
                 }
                 OutlinedButton(
                     onClick =
@@ -1996,7 +2002,7 @@ private fun FinancialAccountReviewDialog(
                     enabled =
                         !isWorking
                 ) {
-                    Text("No, not mine")
+                    Text("No")
                 }
             }
         }
