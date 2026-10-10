@@ -674,6 +674,7 @@ fun TransactionDetailScreen(
             TransactionDetailSummary(current, categoryVisual(categoryStore.canonicalId(current.category)).icon)
         }
         item { SplitPaymentAction(current, onChanged = { refresh() }) }
+        item { PersonalReceivableTransactionAction(current, onChanged = { refresh() }) }
         item {
             TransactionDetailFacts(
                 item = current,
