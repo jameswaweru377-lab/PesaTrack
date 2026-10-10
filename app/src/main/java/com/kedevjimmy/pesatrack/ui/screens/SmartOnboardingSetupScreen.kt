@@ -569,6 +569,7 @@ fun SmartOnboardingSetupScreen(
                                     )
 
                             if (
+                                resolved == null ||
                                 type == null ||
                                 name == null
                             ) {
