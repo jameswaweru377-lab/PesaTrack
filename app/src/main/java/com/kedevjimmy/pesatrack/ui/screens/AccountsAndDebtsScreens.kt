@@ -23,6 +23,8 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -71,14 +73,14 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import androidx.compose.material3.LinearProgressIndicator
 
-private data class AccountComponentPresentation(
+internal data class AccountComponentPresentation(
     val label: String,
     val balanceMinor: Long?,
     val observedAtEpochMs: Long?,
     val quality: PaydayBalanceQuality
 )
 
-private data class AccountBalancePresentation(
+internal data class AccountBalancePresentation(
     val group: TrackedAccountGroup,
     val balanceMinor: Long?,
     val observedAtEpochMs: Long?,
@@ -87,13 +89,20 @@ private data class AccountBalancePresentation(
         List<AccountComponentPresentation>
 )
 
+class AccountsScreenCache {
+    internal var presentations: List<AccountBalancePresentation> = emptyList()
+    internal var debts: List<DebtAccountSnapshot> = emptyList()
+    internal var revision: Long = -1L
+}
+
 @Composable
 fun AccountsScreen(
     scaffoldPadding: PaddingValues,
     onBack: (() -> Unit)? = null,
     onDebtsClick: (() -> Unit)? = null,
     onAccountClick: ((String) -> Unit)? = null,
-    onManageInstitutions: (() -> Unit)? = null
+    onManageInstitutions: (() -> Unit)? = null,
+    stateCache: AccountsScreenCache? = null
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     if (selectedTab == 3) {
@@ -125,20 +134,21 @@ fun AccountsScreen(
 
     val revision =
         ledgerUpdateState.revision
+    val initialCache = remember { stateCache?.takeIf { it.revision == revision } }
 
     var presentations:
         List<AccountBalancePresentation> by
         remember {
-            mutableStateOf(emptyList())
+            mutableStateOf(initialCache?.presentations ?: emptyList())
         }
     var activeDebts:
         List<DebtAccountSnapshot> by
         remember {
-            mutableStateOf(emptyList())
+            mutableStateOf(initialCache?.debts ?: emptyList())
         }
 
     var accountsLoading by remember { mutableStateOf(true) }
-    var accountsLoaded by remember { mutableStateOf(false) }
+    var accountsLoaded by remember { mutableStateOf(initialCache != null) }
     var accountsError by remember { mutableStateOf(false) }
     var accountsRetry by remember { mutableStateOf(0) }
     LaunchedEffect(revision, accountsRetry) {
@@ -209,6 +219,9 @@ fun AccountsScreen(
         presentations = loadedPresentations
         activeDebts = loadedDebts
         accountsLoaded = true
+        stateCache?.presentations = loadedPresentations
+        stateCache?.debts = loadedDebts
+        stateCache?.revision = revision
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (failure: Exception) {
             android.util.Log.e("PesaTrackAccounts", "Accounts could not load", failure)
@@ -327,6 +340,11 @@ fun DebtsScreen(
     header: (@Composable () -> Unit)? = null,
     onReviewRelationships: (() -> Unit)? = null
 ) {
+    var showOwedToMe by rememberSaveable { mutableStateOf(false) }
+    if (showOwedToMe) {
+        PersonalReceivablesScreen(scaffoldPadding, onLiabilities = { showOwedToMe = false }, header = header)
+        return
+    }
     val context = LocalContext.current
     val debtStore =
         remember {
@@ -421,6 +439,14 @@ fun DebtsScreen(
         }
 
         item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {}, enabled = false, modifier = Modifier.weight(1f)) { Text("I owe") }
+                OutlinedButton(onClick = { showOwedToMe = true }, modifier = Modifier.weight(1f)) {
+                    Text("Owed to me")
+                }
+            }
+        }
+        if (activeDebts.isNotEmpty()) item {
             PesaCard {
                 Column(
                     modifier =
@@ -510,7 +536,7 @@ fun DebtsScreen(
                             Modifier.padding(18.dp)
                     ) {
                         Text(
-                            "No current debt recorded",
+                            "No outstanding debt is currently recorded.",
                             style =
                                 MaterialTheme.typography
                                     .titleMedium

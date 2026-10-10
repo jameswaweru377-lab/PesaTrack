@@ -84,6 +84,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
@@ -112,6 +115,7 @@ import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.identity.OwnershipReviewEvidence
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.HistoryImportWindow
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
@@ -153,7 +157,8 @@ data class ActivitySupplementalData(
     val relationshipReviews: List<RelationshipReviewItem>,
     val pendingFinancialEntities: List<DiscoveredFinancialEntity>,
     val financialDiagnostics: List<FinancialIngestionDiagnostic>,
-    val identityReviewCount: Int
+    val identityReviewCount: Int,
+    val ownershipEvidence: Map<String, OwnershipReviewEvidence> = emptyMap()
 )
 
 data class ActivityScreenData(
@@ -166,7 +171,8 @@ data class ActivityScreenData(
     val financialDiagnostics: List<FinancialIngestionDiagnostic>,
     val accountsById: Map<String, MoneyAccount>,
     val confirmedAccountIds: Set<String>,
-    val identityReviewCount: Int
+    val identityReviewCount: Int,
+    val ownershipEvidence: Map<String, OwnershipReviewEvidence> = emptyMap()
 )
 
 class ActivityScreenCache {
@@ -228,6 +234,12 @@ fun ActivityScreen(
         IdentityGraphStore.get(context)
     }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
+    var receivableLinks by remember { mutableStateOf<Map<Long,ReceivableActivityLink>>(emptyMap()) }
+    LaunchedEffect(ledgerUpdateState.revision) {
+        try { receivableLinks = withContext(Dispatchers.IO) { loadReceivableActivityLinks(context) } }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { receivableLinks = emptyMap() }
+    }
     val currentMonthEpochMs = remember {
         monthStart(System.currentTimeMillis())
     }
@@ -308,6 +320,9 @@ fun ActivityScreen(
     var searchQuery by rememberSaveable {
         mutableStateOf("")
     }
+    // The ledger is the primary Activity task. Keep the full monthly breakdown
+    // available on demand instead of forcing it above every transaction.
+    var showDetailedSummary by rememberSaveable { mutableStateOf(false) }
     var selectedFinancialSource by rememberSaveable {
         mutableStateOf<String?>(null)
     }
@@ -316,6 +331,9 @@ fun ActivityScreen(
             warmData?.financialDiagnostics
                 ?: emptyList()
         )
+    }
+    var ownershipEvidence by remember {
+        mutableStateOf(warmData?.ownershipEvidence ?: emptyMap())
     }
     var accountsById by remember {
         mutableStateOf<Map<String, MoneyAccount>>(
@@ -422,7 +440,9 @@ fun ActivityScreen(
     suspend fun loadActivitySupplementalData():
         ActivitySupplementalData =
         withContext(Dispatchers.IO) {
+            val evidence = financialStore.ownershipReviewEvidence()
             ActivitySupplementalData(
+                ownershipEvidence = evidence,
                 globalOverview =
                     store.activityReviewOverview(
                         performMaintenance =
@@ -433,7 +453,7 @@ fun ActivityScreen(
                         .pendingReviews(),
                 pendingFinancialEntities =
                     financialStore
-                        .pendingEntities(),
+                        .pendingEntities().filter { evidence[it.entityKey]?.canAsk == true }.distinctBy { it.entityKey },
                 financialDiagnostics =
                     diagnosticsStore
                         .recent(500)
@@ -468,6 +488,7 @@ fun ActivityScreen(
     fun applyActivitySupplementalData(
         supplemental: ActivitySupplementalData
     ) {
+        ownershipEvidence = supplemental.ownershipEvidence
         globalOverview =
             supplemental.globalOverview
         relationshipReviews =
@@ -490,6 +511,7 @@ fun ActivityScreen(
                 monthEpochMs
             it.data =
                 ActivityScreenData(
+                    ownershipEvidence = supplemental.ownershipEvidence,
                     monthBuckets =
                         core.monthBuckets,
                     snapshot =
@@ -733,6 +755,8 @@ fun ActivityScreen(
 
         val matchesFilter =
             when (selectedFilter) {
+                "Owed to me" -> receivableLinks[item.id]?.let { it.active && it.kind == "LENT" } == true
+                "Repayments" -> receivableLinks[item.id]?.let { it.active && it.kind == "REPAID" } == true
                 "Needs review" ->
                     item.reviewState ==
                         ReviewState.NEEDS_REVIEW.name
@@ -753,7 +777,8 @@ fun ActivityScreen(
                 item.counterparty?.contains(query, ignoreCase = true) == true ||
                 item.evidenceLabel?.contains(query, ignoreCase = true) == true ||
                 categoryStore.labelFor(item.category)
-                    .contains(query, ignoreCase = true)
+                    .contains(query, ignoreCase = true) ||
+                receivableLinks[item.id]?.description?.contains(query,ignoreCase = true) == true
 
         matchesFilter && matchesSearch
     }
@@ -865,12 +890,55 @@ fun ActivityScreen(
                 )
             }
 
-            item {
-                ActivitySummaryCard(
-                    snapshot = snapshot,
-                    previousSnapshot = previousSnapshot,
-                    monthLabel = selectedMonthLabel
-                )
+            item(key = "monthly-summary-toggle") {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("activity-summary-toggle")
+                        .semantics {
+                            stateDescription = if (showDetailedSummary) "Expanded" else "Collapsed"
+                        }
+                        .clickable { showDetailedSummary = !showDetailedSummary },
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 1.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "$selectedMonthLabel totals",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "In " + formatActivityMoney(snapshot.summary.incomeMinor) +
+                                    "  •  Spent " + formatActivityMoney(snapshot.summary.spentMinor),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2
+                            )
+                        }
+                        Icon(
+                            if (showDetailedSummary) Icons.Rounded.ExpandLess
+                            else Icons.Rounded.ExpandMore,
+                            contentDescription = if (showDetailedSummary) "Hide monthly details"
+                            else "Show monthly details",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            if (showDetailedSummary) {
+                item(key = "monthly-summary-details") {
+                    ActivitySummaryCard(
+                        snapshot = snapshot,
+                        previousSnapshot = previousSnapshot,
+                        monthLabel = selectedMonthLabel
+                    )
+                }
             }
 
             val needsAttentionCount =
@@ -886,7 +954,7 @@ fun ActivityScreen(
                         .size +
                     identityReviewCount
 
-            item {
+            if (needsAttentionCount > 0 || selectedGlobalQueue == "Attention") item {
                 NeedsAttentionCard(
                     count = needsAttentionCount,
                     expanded =
@@ -921,14 +989,6 @@ fun ActivityScreen(
                         .isNotEmpty()
                 ) {
                     item {
-                        AttentionQuestionHeader(
-                            title =
-                                "Is this your account?",
-                            subtitle =
-                                "Confirm ownership only when PesaTrack has enough financial evidence to ask."
-                        )
-                    }
-                    item {
                         FinancialAccountDiscoveryCard(
                             entity =
                                 reviewableFinancialEntities
@@ -937,6 +997,7 @@ fun ActivityScreen(
                                 financialDiagnostics,
                             accountsById =
                                 accountsById,
+                            evidence = ownershipEvidence[reviewableFinancialEntities.first().entityKey] ?: OwnershipReviewEvidence(),
                             remainingCount =
                                 reviewableFinancialEntities
                                     .size - 1,
@@ -955,9 +1016,9 @@ fun ActivityScreen(
                     item {
                         AttentionQuestionHeader(
                             title =
-                                "Who or what is this?",
+                                "Your names and numbers",
                             subtitle =
-                                "Confirm only the identities that matter to your money picture."
+                                "Check possible own-account transfers."
                         )
                     }
                     item {
@@ -976,7 +1037,7 @@ fun ActivityScreen(
                                         "s"
                                     },
                             subtitle =
-                                "Confirm your numbers, names, accounts or repeated counterparties.",
+                                "Review names and phone numbers linked to possible own-account transfers.",
                             tone = "blue",
                             onClick =
                                 onIdentityReviewClick
@@ -1342,7 +1403,9 @@ fun ActivityScreen(
                                 "Needs review",
                                 "Spending",
                                 "Income",
-                                "Transfers"
+                                "Transfers",
+                                "Owed to me",
+                                "Repayments"
                             ).forEach { label ->
                                 item {
                                     FilterChip(
@@ -1510,6 +1573,7 @@ fun ActivityScreen(
                             ) { transaction ->
                                 ActivityRow(
                                     item = transaction,
+                                    debtLink = receivableLinks[transaction.id],
                                     accountName =
                                         transaction
                                             .accountId
@@ -1578,6 +1642,7 @@ fun ActivityScreen(
 
     accountReviewEntity?.let { entity ->
         FinancialAccountReviewDialog(
+            evidence = ownershipEvidence[entity.entityKey] ?: OwnershipReviewEvidence(),
             entity = entity,
             diagnostics =
                 financialDiagnostics,
@@ -1714,6 +1779,7 @@ private fun FinancialAccountDiscoveryCard(
         List<FinancialIngestionDiagnostic>,
     accountsById:
         Map<String, com.kedevjimmy.pesatrack.domain.model.MoneyAccount>,
+    evidence: OwnershipReviewEvidence,
     remainingCount: Int,
     onReview: () -> Unit
 ) {
@@ -1751,7 +1817,7 @@ private fun FinancialAccountDiscoveryCard(
                         .padding(start = 12.dp)
                 ) {
                     Text(
-                        "Account ownership needs review",
+                        "Is this your account?",
                         style =
                             MaterialTheme.typography
                                 .titleMedium
@@ -1767,7 +1833,7 @@ private fun FinancialAccountDiscoveryCard(
             }
 
             Text(
-                "PesaTrack saw financial evidence connected to this account name, but it has not assumed the account belongs to you.",
+                ownershipEvidenceSummary(evidence),
                 style =
                     MaterialTheme.typography
                         .bodyMedium,
@@ -1826,6 +1892,7 @@ private fun FinancialAccountReviewDialog(
         List<FinancialIngestionDiagnostic>,
     accountsById:
         Map<String, com.kedevjimmy.pesatrack.domain.model.MoneyAccount>,
+    evidence: OwnershipReviewEvidence,
     isWorking: Boolean,
     errorText: String?,
     onDismiss: () -> Unit,
@@ -1847,7 +1914,7 @@ private fun FinancialAccountReviewDialog(
         },
         title = {
             Text(
-                "Does this account belong to you?"
+                "Is this your account?"
             )
         },
         text = {
@@ -1875,10 +1942,10 @@ private fun FinancialAccountReviewDialog(
                             .onSurfaceVariant
                 )
                 Text(
-                    "Choose “Yes, my account” only if this is one of your own bank, wallet or savings accounts."
+                    ownershipEvidenceSummary(evidence)
                 )
                 Text(
-                    "Why it matters: PesaTrack uses ownership to decide whether money is income/expense or simply moving between your own accounts.",
+                    "Yes lets PesaTrack treat transfers between your accounts as your own money moving.",
                     style =
                         MaterialTheme.typography
                             .bodySmall,
@@ -1890,7 +1957,7 @@ private fun FinancialAccountReviewDialog(
                     if (isWorking) {
                         "Saving your decision…"
                     } else {
-                        "Nothing is changed until you confirm below."
+                        "Choose Yes only if you own this account."
                     },
                     style =
                         MaterialTheme.typography
@@ -1923,7 +1990,7 @@ private fun FinancialAccountReviewDialog(
                     if (isWorking) {
                         "Saving…"
                     } else {
-                        "Yes, my account"
+                        "Yes"
                     }
                 )
             }
@@ -1939,7 +2006,7 @@ private fun FinancialAccountReviewDialog(
                     enabled =
                         !isWorking
                 ) {
-                    Text("Cancel")
+                    Text("Not now")
                 }
                 OutlinedButton(
                     onClick =
@@ -1947,7 +2014,7 @@ private fun FinancialAccountReviewDialog(
                     enabled =
                         !isWorking
                 ) {
-                    Text("No, not mine")
+                    Text("No")
                 }
             }
         }
@@ -2766,6 +2833,7 @@ private fun ActivitySummaryCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("activity-summary-details")
             .clip(RoundedCornerShape(22.dp))
             .background(
                 Brush.linearGradient(gradient)
@@ -3915,6 +3983,7 @@ private fun ActivityDateHeader(
 @Composable
 private fun ActivityRow(
     item: StoredTransaction,
+    debtLink: ReceivableActivityLink? = null,
     accountName: String?,
     linkedAccountName: String?,
     onClick: () -> Unit
@@ -3986,7 +4055,9 @@ private fun ActivityRow(
 
                 Text(
                     displayName,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 Row(
                     modifier = Modifier.padding(top = 3.dp),
@@ -4004,6 +4075,7 @@ private fun ActivityRow(
                     )
                     val activityLabel =
                         when {
+                            debtLink != null -> debtLink.description
                             needsReview ->
                                 "Needs review"
                             isRefund ->
@@ -4037,7 +4109,7 @@ private fun ActivityRow(
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = pesaToneContent(tone),
-                        maxLines = 1,
+                        maxLines = if (debtLink != null) 2 else 1,
                         overflow =
                             androidx.compose.ui.text
                                 .style.TextOverflow

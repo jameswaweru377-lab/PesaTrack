@@ -69,18 +69,52 @@ class ConnectedConceptJourneyTest {
     }
     @Test fun profileNameIsEditableAndPersisted() {
         compose.setContent {PesaTrackTheme(darkTheme=true) {ProfileScreen(PaddingValues(),{}, {})}}
-        compose.onNodeWithText("Personal information").performScrollTo().performClick()
+        compose.onNodeWithText("Personal details").performScrollTo().performClick()
         compose.onNodeWithText("Your name").performTextInput("Test user")
-        compose.onNodeWithText("Save").performClick()
+        compose.onNodeWithText("Save details").performClick()
         compose.waitUntil(5000){context.getSharedPreferences("pesatrack_preferences",0).getString("profile_name","")=="Test user"}
     }
     @Test fun reportsSwitchBetweenPeriodsWithoutAStuckLoadingState() {
         compose.setContent {PesaTrackTheme {ReportsInsightsScreen(PaddingValues(),{})}}
-        compose.waitUntil(10000){compose.onAllNodesWithText("No trusted spending in this period yet.").fetchSemanticsNodes().isNotEmpty()}
+        compose.waitUntil(10000){compose.onAllNodesWithText("No recorded spending in this period yet.").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("Year").performClick()
         compose.onNodeWithText("Week").performClick()
         compose.onNodeWithText("Month").performClick()
         compose.onNodeWithText("Reports & insights").assertIsDisplayed()
         compose.onNodeWithText("Couldn't load this page. Your saved data is unchanged.").assertDoesNotExist()
     }
+    @Test fun manualPersonalLoanRepaymentAndRemovalNeverCreateCash() {
+        compose.setContent { PesaTrackTheme {
+            PersonalReceivablesScreen(PaddingValues(), onLiabilities = {})
+        } }
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText("Record money lent").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Record money lent").performScrollTo().performClick()
+        compose.onNodeWithText("Person's name").performTextInput("Invented borrower")
+        compose.onNodeWithText("Amount in KES").performScrollTo().performTextInput("5000")
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText("Invented borrower").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Invented borrower").performScrollTo().performClick()
+        compose.onNodeWithText("Record repayment").performScrollTo().performClick()
+        compose.onNodeWithText("Amount in KES").performScrollTo().performTextInput("2000")
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(10000) {
+            PersonalReceivableStore(context).people().single().outstandingMinor == 300_000L &&
+                compose.onAllNodesWithText("KES 3,000.00").fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(0, TransactionStore.get(context).snapshot().transactionCount)
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Repayment"))
+        compose.onAllNodesWithContentDescription("Remove personal debt record").onFirst().performClick()
+        compose.onNodeWithText("Remove record").performClick()
+        compose.waitUntil(10000) {
+            PersonalReceivableStore(context).people().single().outstandingMinor == 500_000L
+        }
+        assertEquals(1, PersonalReceivableStore(context).events(
+            PersonalReceivableStore(context).people().single().id).size)
+        assertEquals(0, TransactionStore.get(context).snapshot().transactionCount)
+    }
+
 }

@@ -65,6 +65,39 @@ class BudgetSpendingProjectionTest {
         assertEquals(200L, BudgetSpendingProjection.calculate(listOf(purchase, refund), {original}, {it}) {if(it==1L)parts else emptyList()}["GROCERIES"])
     }
 
+    @Test fun restaurantBorrowedShareIsNotSpendingButFeeStillCounts() {
+        val payment = row(44, 160_000L, 200L, "EXPENSE", "EATING_OUT")
+        assertEquals(mapOf("EATING_OUT" to 80_200L), BudgetSpendingProjection.calculate(
+            listOf(payment), { null }, { it },
+            receivableLent = { if (it == 44L) 80_000L else 0L }
+        ))
+    }
+
+    @Test fun wholePersonalLoanIsNotFoodOrPersonalSpending() {
+        val payment = row(45, 50_000L, 0L, "EXPENSE", "EATING_OUT")
+        assertEquals(mapOf("EATING_OUT" to 0L), BudgetSpendingProjection.calculate(
+            listOf(payment), { null }, { it },
+            receivableLent = { 50_000L }
+        ))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun invalidLoanShareCannotProduceFalseZeroSpending() {
+        BudgetSpendingProjection.calculate(
+            listOf(row(46, 10_000L, 0L, "EXPENSE")), { null }, { it },
+            receivableLent = { 15_000L }
+        )
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun oldCategorySplitCannotOverlapPersonalLoanAllocation() {
+        BudgetSpendingProjection.calculate(
+            listOf(row(47, 10_000L, 0L, "EXPENSE")), { null }, { it },
+            receivableLent = { 5_000L },
+            allocations = { listOf(com.kedevjimmy.pesatrack.domain.everyday.MoneyPart("GROCERIES", 10_000L)) }
+        )
+    }
+
     private fun row(id: Long, amount: Long, fee: Long, direction: String, category: String = "TRANSPORT") =
         StoredTransaction(
             id = id, transactionCode = "INVENTED$id", fingerprint = "invented$id", type = "SENT_MONEY",

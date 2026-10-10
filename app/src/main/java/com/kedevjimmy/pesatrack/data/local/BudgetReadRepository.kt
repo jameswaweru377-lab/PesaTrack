@@ -9,6 +9,7 @@ object BudgetSpendingProjection {
         trustedRows: List<StoredTransaction>,
         trustedOriginal: (Long) -> StoredTransaction?,
         canonicalCategoryId: (String) -> String,
+        receivableLent: (Long) -> Long = { 0L },
         allocations: (Long) -> List<com.kedevjimmy.pesatrack.domain.everyday.MoneyPart> = { emptyList() }
     ): Map<String, Long> {
         val totals = linkedMapOf<String, Long>()
@@ -21,12 +22,25 @@ object BudgetSpendingProjection {
                 val original = row.relatedTransactionId?.let(trustedOriginal)
                 if (original != null) {
                     val parts = allocations(original.id)
-                    if (parts.isEmpty()) add(original.category, Math.negateExact(row.amountMinor))
+                    if (parts.isEmpty()) {
+                        // A refund of a loan-linked payment suspends the loan link
+                        // until reviewed; the original full cash refund is accounted here.
+                        add(original.category, Math.negateExact(row.amountMinor))
+                    }
                     else com.kedevjimmy.pesatrack.domain.everyday.EverydayMoneyPolicy.apportion(row.amountMinor, parts).forEach { add(it.category, Math.negateExact(it.minor)) }
                 }
             } else if (row.direction == MoneyDirection.EXPENSE.name) {
                 val parts = allocations(row.id)
-                if (parts.isEmpty()) add(row.category, row.amountMinor) else parts.forEach { add(it.category, it.minor) }
+                if (parts.isEmpty()) {
+                    val lent = receivableLent(row.id)
+                    require(lent in 0L..row.amountMinor) { "Invalid personal-loan share." }
+                    add(row.category, Math.subtractExact(row.amountMinor, lent))
+                } else {
+                    // The write path rejects a simultaneous old category split and
+                    // personal-loan allocation. Never count those principal parts twice.
+                    check(receivableLent(row.id) == 0L) { "Review overlapping allocations." }
+                    parts.forEach { add(it.category, it.minor) }
+                }
             }
             // Transfers do not consume a budget's principal, but their fees do.
             if (row.feeMinor != 0L) add(row.category, row.feeMinor)
@@ -43,10 +57,12 @@ class BudgetReadRepository(private val context: Context) {
         val start = java.util.Calendar.getInstance().apply { set(java.util.Calendar.DAY_OF_MONTH,1); set(java.util.Calendar.HOUR_OF_DAY,0); set(java.util.Calendar.MINUTE,0); set(java.util.Calendar.SECOND,0); set(java.util.Calendar.MILLISECOND,0) }
         val end = (start.clone() as java.util.Calendar).apply { add(java.util.Calendar.MONTH,1) }
         val allocations = EverydayMoneyStore(context).allAllocations()
+        val shares = PersonalReceivableStore(context).linkedShares()
         val out = BudgetSpendingProjection.calculate(
             trustedRows = transactions.activitySnapshotBetween(start.timeInMillis, end.timeInMillis, System.currentTimeMillis(), performMaintenance = false).trustedTransactions,
             trustedOriginal = transactions::trustedRefundOriginal,
             canonicalCategoryId = categories::canonicalId,
+            receivableLent = { shares[it]?.lentMinor ?: 0L },
             allocations = { allocations[it].orEmpty() }
         ).toMutableMap()
         val repository = FlexibleBudgetRepository(context)

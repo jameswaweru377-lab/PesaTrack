@@ -27,6 +27,8 @@ class OnboardingDiscoveryUiTest {
                 )
             }
         }
+        compose.onNodeWithText("Set up salary manually").assertExists()
+        compose.onNodeWithText("Hide optional setup").performClick()
         compose.onNodeWithText("Set up salary manually").assertDoesNotExist()
         compose.onNodeWithText("Continue").assertIsDisplayed().performClick()
         compose.runOnIdle { assertTrue(continued) }

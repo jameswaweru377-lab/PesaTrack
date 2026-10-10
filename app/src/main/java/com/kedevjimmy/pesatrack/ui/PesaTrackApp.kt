@@ -53,6 +53,8 @@ fun PesaTrackApp(
     planningOpenRequest: Int = 0, planningRoute: String = "budgets"
 ) {
     val navController = rememberNavController()
+    val planScreenCache = remember { com.kedevjimmy.pesatrack.ui.screens.PlanScreenCache() }
+    val accountsScreenCache = remember { com.kedevjimmy.pesatrack.ui.screens.AccountsScreenCache() }
     val homeScreenCache =
         remember {
             HomeScreenCache()
@@ -204,6 +206,7 @@ fun PesaTrackApp(
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 AccountsScreen(
+                    stateCache = accountsScreenCache,
                     scaffoldPadding = padding,
                     onDebtsClick = {
                         navController.navigate(
@@ -358,6 +361,7 @@ fun PesaTrackApp(
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 PlanScreen(
+                    stateCache = planScreenCache,
                     scaffoldPadding = padding,
                     onBudgetClick = {
                         navController.navigate(
@@ -422,6 +426,7 @@ fun PesaTrackApp(
                     onBack = {
                         navController.popBackStack()
                     },
+                    onTransactionClick = { id -> navController.navigate("transaction-detail/$id") },
                     onReviewClick = {
                         navigateToTab(
                             MainTab.ACTIVITY

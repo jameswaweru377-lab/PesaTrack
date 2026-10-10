@@ -3,6 +3,9 @@ package com.kedevjimmy.pesatrack.ui
 import android.content.Context
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performScrollToNode
@@ -83,6 +86,39 @@ class ActivityLiveRefreshTest {
         compose.onNode(verticalList)
             .performScrollToNode(hasText("Fresh merchant"))
         compose.onNode(hasText("Fresh merchant")).assertIsDisplayed()
+    }
+
+    @Test
+    fun monthlyTotalsStartCompactAndCanBeExpandedWithoutHidingLedger() {
+        val now = System.currentTimeMillis()
+        insertExpense("RCCOMPACT01", "Very long synthetic merchant display name for activity", now)
+        val cache = ActivityScreenCache()
+        compose.setContent {
+            PesaTrackTheme {
+                ActivityScreen(
+                    scaffoldPadding = PaddingValues(),
+                    stateCache = cache
+                )
+            }
+        }
+        compose.waitUntil(15_000L) {
+            cache.data?.snapshot?.transactions?.any { it.counterparty?.contains("Very long synthetic") == true } == true
+        }
+        val list = SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex) and
+            SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
+        compose.onNode(list).performScrollToNode(hasTestTag("activity-summary-toggle"))
+        compose.onNodeWithTag("activity-summary-details").assertDoesNotExist()
+        compose.onNodeWithTag("activity-summary-toggle").performClick()
+        compose.onNode(list).performScrollToNode(hasTestTag("activity-summary-details"))
+        compose.onNodeWithTag("activity-summary-details").assertExists()
+        compose.onNode(list).performScrollToNode(hasTestTag("activity-summary-toggle"))
+        compose.onNodeWithTag("activity-summary-toggle").performClick()
+        compose.onNodeWithTag("activity-summary-details").assertDoesNotExist()
+        compose.onNode(list).performScrollToNode(
+            hasText("Very long synthetic merchant display name", substring = true)
+        )
+        compose.onNode(hasText("Very long synthetic merchant display name", substring = true))
+            .assertIsDisplayed()
     }
 
     private fun insertExpense(

@@ -411,19 +411,11 @@ class IdentityGraphStore private constructor(
         val reviewDecisions =
             reviewDecisions(db)
 
-        return candidates
+        return com.kedevjimmy.pesatrack.domain.identity.OwnershipReviewPolicy.distinctDecisions(candidates
             .filter { includeOptional || IdentityGraphPolicy.requiresFinancialAttention(it) }
             .distinctBy {
                 it.promptType to
                     it.identityId
-            }
-            .filter {
-                IdentityGraphPolicy
-                    .shouldPresentReviewPrompt(
-                        prompt = it,
-                        decisions =
-                            reviewDecisions
-                    )
             }
             .sortedWith(
                 compareBy<
@@ -436,7 +428,9 @@ class IdentityGraphStore private constructor(
                     it.observationCount
                 }
             )
-            .take(
+            ).filter {
+                IdentityGraphPolicy.shouldPresentReviewPrompt(it, reviewDecisions)
+            }.take(
                 limit.coerceIn(
                     1,
                     100

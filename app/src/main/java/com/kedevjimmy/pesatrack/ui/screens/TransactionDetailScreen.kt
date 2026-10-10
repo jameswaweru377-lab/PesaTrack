@@ -79,6 +79,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -181,6 +182,18 @@ fun TransactionDetailScreen(
         remember {
             PersonalLearningStore.get(context)
         }
+    var debtCategoryOpen by remember(transactionId) { mutableStateOf(false) }
+    var receivablePeople by remember { mutableStateOf<List<com.kedevjimmy.pesatrack.data.local.ReceivablePerson>>(emptyList()) }
+    var receivableLinks by remember { mutableStateOf<Map<Long,ReceivableActivityLink>>(emptyMap()) }
+    LaunchedEffect(transactionId,ledgerUpdateState.revision) {
+        try {
+            val data = withContext(Dispatchers.IO) {
+                com.kedevjimmy.pesatrack.data.local.PersonalReceivableStore(context).people() to loadReceivableActivityLinks(context)
+            }
+            receivablePeople = data.first; receivableLinks = data.second
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { receivablePeople = emptyList(); receivableLinks = emptyMap() }
+    }
     var transaction by remember(transactionId) {
         mutableStateOf(store.getById(transactionId))
     }
@@ -346,6 +359,12 @@ fun TransactionDetailScreen(
     }
 
     var showCategoryPicker by remember(transactionId) { mutableStateOf(false) }
+    var pendingCorrection by remember(transactionId) {
+        mutableStateOf<TransactionCorrectionAction?>(null)
+    }
+    var correctionBusy by remember(transactionId) { mutableStateOf(false) }
+    var correctionError by remember(transactionId) { mutableStateOf<String?>(null) }
+    var correctionResult by remember(transactionId) { mutableStateOf<String?>(null) }
     var messageExpanded by remember(transactionId) { mutableStateOf(true) }
     var messageEvidence by remember(transactionId) { mutableStateOf<TransactionMessageEvidenceResult?>(null) }
     var evidenceRefresh by remember(transactionId) { mutableStateOf(0) }
@@ -358,12 +377,110 @@ fun TransactionDetailScreen(
             }
         }
     }
+    if (current != null && pendingCorrection != null) {
+        val selectedAction = pendingCorrection!!
+        val prompt = transactionCorrectionPrompt(selectedAction)
+        AlertDialog(
+            onDismissRequest = { if (!correctionBusy) pendingCorrection = null },
+            title = { Text(prompt.title) },
+            text = {
+                Column {
+                    Text(prompt.explanation)
+                    Text(
+                        "Current entry: " + formatTransactionDetailMoney(current.amountMinor),
+                        modifier = Modifier.padding(top = 12.dp),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    correctionError?.let {
+                        Text(
+                            it,
+                            modifier = Modifier.padding(top = 8.dp),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !correctionBusy,
+                    onClick = { pendingCorrection = null; correctionError = null }
+                ) { Text("Cancel") }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !correctionBusy,
+                    onClick = {
+                        correctionBusy = true
+                        correctionError = null
+                        scope.launch {
+                            try {
+                                val applied = withContext(Dispatchers.IO) {
+                                    val latest = store.getById(current.id)
+                                    when {
+                                        latest == null -> false
+                                        selectedAction == TransactionCorrectionAction.ACCEPT_IDENTITY ->
+                                            latest.counterparty.isNullOrBlank() &&
+                                                !latest.evidenceLabel.isNullOrBlank() &&
+                                                store.acceptEvidenceIdentity(latest.id)
+                                        selectedAction == TransactionCorrectionAction.REMOVE_REFUND_LINK ->
+                                            latest.relationType == TransactionStore.RELATION_REFUND &&
+                                                store.unlinkRefund(latest.id)
+                                        selectedAction == TransactionCorrectionAction.MARK_OWN_TRANSFER ->
+                                            if (latest.relationType != null ||
+                                                latest.direction == MoneyDirection.TRANSFER.name ||
+                                                latest.reviewState == ReviewState.EXCLUDED.name
+                                            ) false else {
+                                                store.classifyManually(
+                                                    id = latest.id,
+                                                    category = TransactionCategory.TRANSFER,
+                                                    direction = MoneyDirection.TRANSFER,
+                                                    markTransfer = true
+                                                )
+                                                true
+                                            }
+                                        selectedAction == TransactionCorrectionAction.EXCLUDE_ENTRY ->
+                                            if (latest.reviewState == ReviewState.EXCLUDED.name) false
+                                            else {
+                                                store.excludeFromBudget(latest.id)
+                                                LedgerUpdateBus.notifyChanged()
+                                                true
+                                            }
+                                        else -> false
+                                    }
+                                }
+                                if (applied) {
+                                    pendingCorrection = null
+                                    correctionResult = "Correction saved. Review the updated transaction and totals."
+                                    refresh()
+                                } else {
+                                    correctionError = "This correction no longer applies. Refresh and review the current entry."
+                                }
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (failure: Exception) {
+                                correctionError = "Couldn't save this correction. Your entry is unchanged."
+                            } finally {
+                                correctionBusy = false
+                            }
+                        }
+                    }
+                ) { Text(if (correctionBusy) "Saving…" else prompt.confirmLabel) }
+            }
+        )
+    }
+
     if (showCategoryPicker && current != null) {
         AlertDialog(
             onDismissRequest = { showCategoryPicker = false },
             title = { Text("Choose a category") },
             text = {
                 Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                if (current.direction in setOf("EXPENSE","INCOME") && receivableLinks[current.id] == null) {
+                    OutlinedButton(onClick = { showCategoryPicker = false; debtCategoryOpen = true },
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text(if (current.direction == "EXPENSE") "Debts → Owed to me" else "Debts → Repayment received")
+                    }
+                }
                 CategoryGrid(
                     currentCategoryId = categoryStore.canonicalId(current.category),
                     onSelected = { category -> showCategoryPicker = false; applyCategory(category) }
@@ -373,6 +490,12 @@ fun TransactionDetailScreen(
             confirmButton = { TextButton(onClick = { showCategoryPicker = false }) { Text("Close") } }
         )
     }
+    if (debtCategoryOpen && current != null) ReceivableEntryDialog(
+        people = receivablePeople,initialPersonId = null,
+        kind = if (current.direction == "EXPENSE") "LENT" else "REPAID",
+        linkedTransaction = current,
+        onDismiss = { debtCategoryOpen = false },
+        onSaved = { debtCategoryOpen = false; refresh() })
     val appliedRule =
         current?.ruleId
             ?.let(
@@ -576,15 +699,82 @@ fun TransactionDetailScreen(
             TransactionDetailSummary(current, categoryVisual(categoryStore.canonicalId(current.category)).icon)
         }
         item { SplitPaymentAction(current, onChanged = { refresh() }) }
+        item { PersonalReceivableTransactionAction(current, onChanged = { refresh() }) }
         item {
             TransactionDetailFacts(
                 item = current,
                 accountLabel = current.accountId?.let { id -> accountStore.listAccounts(enabledOnly = false).firstOrNull { it.id == id }?.name } ?: "Not identified",
-                categoryLabel = categoryStore.labelFor(categoryStore.canonicalId(current.category)),
+                categoryLabel = receivableLinks[current.id]?.description ?: categoryStore.labelFor(categoryStore.canonicalId(current.category)),
                 onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
                 onCategory = if (current.relationType != TransactionStore.RELATION_REFUND) ({ showCategoryPicker = true }) else null
             )
         }
+        item(key = "transaction-correction-actions") {
+            SectionHeader("Correct transaction")
+            PesaCard(Modifier.testTag("transaction-corrections")) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        "Check the original message evidence before correcting money movements. " +
+                            "Changes here can affect your financial summaries.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    correctionResult?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary)
+                    }
+                    if (current.counterparty.isNullOrBlank() &&
+                        !current.evidenceLabel.isNullOrBlank()
+                    ) {
+                        ActionRow(
+                            icon = Icons.Rounded.CheckCircle,
+                            label = "Use suggested identity",
+                            onClick = {
+                                correctionError = null
+                                pendingCorrection = TransactionCorrectionAction.ACCEPT_IDENTITY
+                            }
+                        )
+                    }
+                    if (current.relationType == TransactionStore.RELATION_REFUND) {
+                        ActionRow(
+                            icon = Icons.Rounded.SwapHoriz,
+                            label = "This was not a refund",
+                            onClick = {
+                                correctionError = null
+                                pendingCorrection = TransactionCorrectionAction.REMOVE_REFUND_LINK
+                            }
+                        )
+                    } else if (current.relationType == null &&
+                        current.direction != MoneyDirection.TRANSFER.name &&
+                        current.reviewState != ReviewState.EXCLUDED.name
+                    ) {
+                        ActionRow(
+                            icon = Icons.Rounded.SwapHoriz,
+                            label = "Mark as own-account transfer",
+                            onClick = {
+                                correctionError = null
+                                pendingCorrection = TransactionCorrectionAction.MARK_OWN_TRANSFER
+                            }
+                        )
+                    }
+                    if (current.reviewState != ReviewState.EXCLUDED.name) {
+                        ActionRow(
+                            icon = Icons.Rounded.Block,
+                            label = "Exclude from tracked activity",
+                            tintError = true,
+                            onClick = {
+                                correctionError = null
+                                pendingCorrection = TransactionCorrectionAction.EXCLUDE_ENTRY
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
         if (
             current.fulizaFinancedMinor > 0L
         ) {
@@ -786,96 +976,6 @@ fun TransactionDetailScreen(
                             MaterialTheme
                                 .colorScheme
                                 .error
-                    )
-                }
-            }
-        }
-
-        item {
-            SectionHeader("Actions")
-            PesaCard {
-                Column(
-                    Modifier.padding(
-                        horizontal = 14.dp,
-                        vertical = 4.dp
-                    )
-                ) {
-                    if (
-                        current.counterparty
-                            .isNullOrBlank() &&
-                        !current.evidenceLabel
-                            .isNullOrBlank()
-                    ) {
-                        ActionRow(
-                            icon =
-                                Icons.Rounded
-                                    .CheckCircle,
-                            label =
-                                "Use suggested identity",
-                            onClick = {
-                                store.acceptEvidenceIdentity(
-                                    current.id
-                                )
-                                refresh()
-                            }
-                        )
-                    }
-
-                    if (
-                        current.relationType ==
-                        TransactionStore
-                            .RELATION_REFUND
-                    ) {
-                        ActionRow(
-                            icon =
-                                Icons.Rounded
-                                    .SwapHoriz,
-                            label =
-                                "This was not a refund",
-                            onClick = {
-                                store.unlinkRefund(
-                                    current.id
-                                )
-                                refresh()
-                            }
-                        )
-                    } else {
-                        ActionRow(
-                            icon =
-                                Icons.Rounded
-                                    .SwapHoriz,
-                            label =
-                                "Mark as own-account transfer",
-                            onClick = {
-                                store.classifyManually(
-                                    id =
-                                        current.id,
-                                    category =
-                                        TransactionCategory
-                                            .TRANSFER,
-                                    direction =
-                                        MoneyDirection
-                                            .TRANSFER,
-                                    markTransfer =
-                                        true
-                                )
-                                refresh()
-                            }
-                        )
-                    }
-
-                    ActionRow(
-                        icon =
-                            Icons.Rounded.Block,
-                        label =
-                            "Exclude from budget",
-                        tintError = true,
-                        onClick = {
-                            store.excludeFromBudget(
-                                current.id
-                            )
-                            refresh()
-                        }
                     )
                 }
             }

@@ -852,3 +852,4 @@ private fun formatEditableMoney(minor: Long): String =
             .stripTrailingZeros()
             .toPlainString()
     }
+

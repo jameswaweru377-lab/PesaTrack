@@ -28,7 +28,7 @@ class MainTabNavigationTest {
         }
 
         compose.waitUntil(15_000L) {
-            compose.onAllNodes(hasText("Tracked funds"))
+            compose.onAllNodes(hasText("Account balances"))
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
@@ -46,7 +46,7 @@ class MainTabNavigationTest {
         ).performClick()
 
         compose.waitUntil(15_000L) {
-            compose.onAllNodes(hasText("Tracked funds"))
+            compose.onAllNodes(hasText("Account balances"))
                 .fetchSemanticsNodes().isNotEmpty()
         }
 

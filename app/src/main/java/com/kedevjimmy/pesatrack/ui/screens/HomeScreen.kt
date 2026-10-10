@@ -49,6 +49,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.CanonicalStoreLock
+import com.kedevjimmy.pesatrack.data.local.PersonalReceivableStore
+import com.kedevjimmy.pesatrack.data.local.ReceivableShare
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivitySummary
@@ -111,6 +114,7 @@ data class HomeCoreState(
     val cycleSnapshot: PayCycleSnapshot,
     val ledgerSnapshot: LedgerSnapshot,
     val activitySnapshot: ActivityLedgerSnapshot,
+    val receivableShares: Map<Long, ReceivableShare> = emptyMap(),
     val debtAccounts: List<DebtAccountSnapshot>,
     val trackedAccounts: List<MoneyAccount>,
     val monthlyBudgets: List<MonthlyBudget>,
@@ -132,6 +136,7 @@ data class HomeLoadedState(
     val cycleSnapshot: PayCycleSnapshot,
     val ledgerSnapshot: LedgerSnapshot,
     val activitySnapshot: ActivityLedgerSnapshot,
+    val receivableShares: Map<Long, ReceivableShare> = emptyMap(),
     val debtAccounts: List<DebtAccountSnapshot>,
     val trackedAccounts: List<MoneyAccount>,
     val monthlyBudgets: List<MonthlyBudget>,
@@ -287,6 +292,7 @@ fun HomeScreen(
                 ?: emptyActivitySnapshot()
         )
     }
+    var receivableShares by remember { mutableStateOf(warmHome?.receivableShares ?: emptyMap()) }
     var debtAccounts by remember {
         mutableStateOf<
             List<DebtAccountSnapshot>
@@ -380,17 +386,17 @@ fun HomeScreen(
                             referenceEpochMs
                     )
 
+            val activityAndShares = synchronized(CanonicalStoreLock.monitor) {
+                val activity = transactionStore.activitySnapshot(nowEpochMs = referenceEpochMs)
+                activity to PersonalReceivableStore(context).linkedShares()
+            }
             HomeCoreState(
                 cycleSnapshot =
                     cycleStore.snapshot(),
                 ledgerSnapshot =
                     transactionStore.snapshot(),
-                activitySnapshot =
-                    transactionStore
-                        .activitySnapshot(
-                            nowEpochMs =
-                                referenceEpochMs
-                        ),
+                activitySnapshot = activityAndShares.first,
+                receivableShares = activityAndShares.second,
                 debtAccounts =
                     debtStore.accounts(),
                 trackedAccounts =
@@ -465,6 +471,7 @@ fun HomeScreen(
             core.cycleSnapshot
         ledgerSnapshot =
             core.ledgerSnapshot
+        receivableShares = core.receivableShares
         activitySnapshot =
             core.activitySnapshot
         debtAccounts =
@@ -505,6 +512,7 @@ fun HomeScreen(
                     core.ledgerSnapshot,
                 activitySnapshot =
                     core.activitySnapshot,
+                receivableShares = core.receivableShares,
                 debtAccounts =
                     core.debtAccounts,
                 trackedAccounts =
@@ -567,6 +575,7 @@ fun HomeScreen(
                                         core.ledgerSnapshot,
                                     activitySnapshot =
                                         core.activitySnapshot,
+                                    receivableShares = core.receivableShares,
                                     debtAccounts =
                                         core.debtAccounts,
                                     trackedAccounts =
@@ -754,7 +763,7 @@ fun HomeScreen(
                     .availableToLiveMinor
             )
 
-    val spendSlices = remember(activitySnapshot) {
+    val spendSlices = remember(activitySnapshot, receivableShares) {
         try {
         activitySnapshot.trustedTransactions
             .filter {
@@ -789,7 +798,7 @@ fun HomeScreen(
                                 0L
                             }
                         } else {
-                            CheckedMoney.add(item.amountMinor, item.feeMinor)
+                            CheckedMoney.add(CheckedMoney.subtract(item.amountMinor, receivableShares[item.id]?.lentMinor ?: 0L), item.feeMinor)
                         }
                     }
                 )
@@ -809,6 +818,7 @@ fun HomeScreen(
 
     val spentTodayMinor = remember(
         activitySnapshot,
+        receivableShares,
         ledgerUpdateState.revision
     ) { CheckedMoney.orNull {
         val startCalendar =
@@ -863,7 +873,7 @@ fun HomeScreen(
                             0L
                         }
                     } else {
-                        CheckedMoney.add(item.amountMinor, item.feeMinor)
+                        CheckedMoney.add(CheckedMoney.subtract(item.amountMinor, receivableShares[item.id]?.lentMinor ?: 0L), item.feeMinor)
                     }
                 }
         )
@@ -921,7 +931,7 @@ fun HomeScreen(
                     it.reviewState != ReviewState.NEEDS_REVIEW.name &&
                     categoryStore.canonicalId(it.category) in monthlyBudgetCategoryIds
             }
-            .checkedMoneySumOf { CheckedMoney.add(it.amountMinor, it.feeMinor) }
+            .checkedMoneySumOf { CheckedMoney.add(CheckedMoney.subtract(it.amountMinor, receivableShares[it.id]?.lentMinor ?: 0L), it.feeMinor) }
             .coerceAtLeast(0L)
 
     }
@@ -1038,6 +1048,7 @@ fun HomeScreen(
 
         item {
             ConceptEmeraldHero(
+                artwork = false,
                 title = if (cycleSnapshot.cycle == null) "Account balances" else "After planned payments",
                 amount =
                     if (cycleSnapshot.cycle == null) {

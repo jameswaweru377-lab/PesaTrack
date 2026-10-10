@@ -85,7 +85,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private data class PlanReferenceData(
+internal data class PlanReferenceData(
     val snapshot: PayCycleSnapshot,
     val recurring: List<RecurringPatternCandidate>,
     val budgets: List<MonthlyBudget>,
@@ -94,12 +94,18 @@ private data class PlanReferenceData(
     val bills: List<ScheduledBill>
 )
 
+class PlanScreenCache {
+    internal var data: PlanReferenceData? = null
+    internal var revision: Long = -1L
+}
+
 @Composable
 fun PlanScreen(
     scaffoldPadding: PaddingValues,
     onBudgetClick: (() -> Unit)? = null,
     onGoalsClick: (() -> Unit)? = null,
-    onSalaryClick: (() -> Unit)? = null
+    onSalaryClick: (() -> Unit)? = null,
+    stateCache: PlanScreenCache? = null
 ) {
     val context = LocalContext.current
     val store = remember {
@@ -117,36 +123,40 @@ fun PlanScreen(
         rememberCoroutineScope()
     val ledgerUpdateState by
         LedgerUpdateBus.state.collectAsState()
+    val initialData = remember {
+        stateCache?.takeIf { it.revision == ledgerUpdateState.revision }?.data
+    }
     var snapshot by remember {
         mutableStateOf(
-            emptyPlanSnapshot()
+            initialData?.snapshot ?: emptyPlanSnapshot()
         )
     }
     var recurringSuggestions by remember {
         mutableStateOf<
             List<RecurringPatternCandidate>
-        >(emptyList())
+        >(initialData?.recurring ?: emptyList())
     }
     var localRefresh by remember {
         mutableStateOf(0)
     }
     var monthlyBudgets by remember {
-        mutableStateOf<List<MonthlyBudget>>(emptyList())
+        mutableStateOf<List<MonthlyBudget>>(initialData?.budgets ?: emptyList())
     }
     var spentByBudgetCategory by remember {
-        mutableStateOf<Map<String, Long>>(emptyMap())
+        mutableStateOf<Map<String, Long>>(initialData?.spentByCategory ?: emptyMap())
     }
     var savingsGoals by remember {
-        mutableStateOf<List<SmartRule>>(emptyList())
+        mutableStateOf<List<SmartRule>>(initialData?.goals ?: emptyList())
     }
     var upcomingBills by remember {
-        mutableStateOf<List<ScheduledBill>>(emptyList())
+        mutableStateOf<List<ScheduledBill>>(initialData?.bills ?: emptyList())
     }
     var showPlanDetails by remember {
         mutableStateOf(false)
     }
 
     var loading by remember { mutableStateOf(true) }
+    var hasLoaded by remember { mutableStateOf(initialData != null) }
     var loadError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(
@@ -186,6 +196,9 @@ fun PlanScreen(
         spentByBudgetCategory = loaded.spentByCategory
         savingsGoals = loaded.goals
         upcomingBills = loaded.bills
+        hasLoaded = true
+        stateCache?.data = loaded
+        stateCache?.revision = ledgerUpdateState.revision
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
@@ -193,7 +206,7 @@ fun PlanScreen(
         } finally { loading = false }
     }
 
-    if (loading || loadError != null) {
+    if (!hasLoaded && (loading || loadError != null)) {
         Column(Modifier.padding(scaffoldPadding).padding(18.dp)) {
             Text(if (loading) "Loading your plan…" else loadError.orEmpty())
             if (!loading) TextButton(onClick = { localRefresh += 1 }) { Text("Retry") }
@@ -215,12 +228,18 @@ fun PlanScreen(
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        if (loading || loadError != null) item {
+            Column {
+                Text(if (loading) "Refreshing your plan…" else "Showing your last loaded plan. ${loadError.orEmpty()}")
+                if (!loading) TextButton(onClick = { localRefresh += 1 }) { Text("Retry") }
+            }
+        }
         item {
             Column {
                 Text("Plan your month", style = MaterialTheme.typography.headlineLarge)
                 Text(
                     if (snapshot.cycle == null) {
-                        "Your plan will begin when PesaTrack recognizes a salary."
+                        "Bills, budgets and goals in one place."
                     } else {
                         "Budget, commitments and goals for your current pay cycle."
                     },
@@ -923,11 +942,11 @@ fun PlanScreen(
                                 snapshot.startingFundsMinor
                             )
                             AccountingRow(
-                                "Other income",
+                                "Other money received",
                                 snapshot.additionalIncomeMinor
                             )
                             AccountingRow(
-                                "Spent",
+                                "Cash paid",
                                 -snapshot.spentMinor
                             )
                             AccountingRow(
@@ -961,7 +980,7 @@ private fun PlanHero(
             title = "Monthly plan",
             amount = "Waiting for salary",
             subtitle = "Your plan starts from a real salary receipt, not an expected payday.",
-            artwork = true
+            artwork = false
         )
     } else {
         val usedMinor =
@@ -985,7 +1004,7 @@ private fun PlanHero(
                 footer =
                     (progress * 100).toInt().toString() +
                         "% of starting funds allocated, spent or saved",
-                artwork = true
+                artwork = false
             )
             Surface(
                 modifier = Modifier.fillMaxWidth(),

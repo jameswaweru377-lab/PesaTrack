@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -32,6 +33,7 @@ import com.kedevjimmy.pesatrack.ingestion.NotificationSourceTrustStore
 import com.kedevjimmy.pesatrack.planning.BillSchedules
 import com.kedevjimmy.pesatrack.planning.PlanningReminders
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
+import com.kedevjimmy.pesatrack.R
 
 @Composable
 internal fun EverydayPage(title: String, padding: PaddingValues, onBack: () -> Unit, content: LazyListScope.() -> Unit) {
@@ -85,13 +87,17 @@ internal fun PrivacyPage(padding: PaddingValues, back: () -> Unit, access: () ->
     val context = LocalContext.current
     val prefs = remember { EntityEnrichmentPreferences.get(context) }
     var lookup by remember { mutableStateOf(prefs.isOnlineLookupEnabled()) }
+    var details by rememberSaveable { mutableStateOf(false) }
     EverydayPage("Privacy", padding, back) {
-        item { Text("Your money data", style = MaterialTheme.typography.titleMedium); Text("Your transaction records are kept on this phone. PesaTrack does not upload the full text of your SMS or bank-app notifications.") }
-        item { Text("You choose what we read", style = MaterialTheme.typography.titleMedium); Text("SMS needs your agreement and Android permission. You also choose which apps we can read money updates from. Turning access off stops new reading; your saved transactions remain.") }
+        item { Text("Saved on this phone", style = MaterialTheme.typography.titleMedium); Text("Your transactions stay on this phone. You choose which money messages PesaTrack can read.") }
         item { EverydayRow(Icons.Rounded.Message, "Manage message access", "See permissions and stop access", access) }
         item { ChoiceSwitch("Help identify businesses online", "Optional. A cleaned business name may be sent to look it up. Full messages, amounts, balances, transaction codes and phone or account numbers are not sent.", lookup) { lookup = it; prefs.setOnlineLookupEnabled(it) } }
-        item { Text("Voice entry", style = MaterialTheme.typography.titleMedium); Text("Voice entry uses your phone's speech service, which may process audio online. You can type instead, and check the result before saving.") }
-        item { Text("Backups and app lock", style = MaterialTheme.typography.titleMedium); Text("Backups are protected with the passphrase you choose. Keep it safe. A backup does not grant message access. App lock helps keep your records private on a shared phone.") }
+        item { TextButton(onClick = { details = !details }) { Text(if (details) "Hide privacy details" else "More privacy details") } }
+        if (details) {
+            item { Text("You choose what we read", style = MaterialTheme.typography.titleMedium); Text("SMS needs your agreement and Android permission. You also choose which apps we can read money updates from. Turning access off stops new reading; your saved transactions remain. Full SMS and bank-app notification text is not uploaded.") }
+            item { Text("Voice entry", style = MaterialTheme.typography.titleMedium); Text("Voice entry uses your phone's speech service, which may process audio online. You can type instead, and check the result before saving.") }
+            item { Text("Backups and app lock", style = MaterialTheme.typography.titleMedium); Text("Backups are protected with the passphrase you choose. Keep it safe. A backup does not grant message access. App lock helps keep your records private on a shared phone.") }
+        }
     }
 }
 @Composable
@@ -100,9 +106,14 @@ internal fun MoneyAccessPage(padding: PaddingValues, back: () -> Unit, history: 
     var refresh by remember { mutableIntStateOf(0) }
     var sources by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var details by rememberSaveable { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { refresh++ }
     val sms = remember(refresh) { SmsAccessConsentStore.canRead(context) }
     val notifications = remember(refresh) { NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName) }
+    val approvedApps = remember(refresh) {
+        val trust = NotificationSourceTrustStore(context)
+        trust.observedSources().count { trust.isApproved(it.packageName) }
+    }
     if (sources) NotificationSourceApprovalSheet { sources = false; refresh++ }
     EverydayPage("Money message access", padding, back) {
         item { Text("Read money messages to keep your transactions up to date. This is separate from reminders sent by PesaTrack.") }
@@ -110,7 +121,7 @@ internal fun MoneyAccessPage(padding: PaddingValues, back: () -> Unit, history: 
         item { EverydayRow(Icons.Rounded.Notifications, "Bank-app updates", if (notifications) "Android notification access is on" else "Allow access in Android settings") {
             launcher.launch(smartNotificationAccessIntent(context))
         } }
-        item { EverydayRow(Icons.Rounded.Apps, "Apps to read money updates from", "Choose your bank, mobile-money or SMS app") { sources = true } }
+        item { EverydayRow(Icons.Rounded.Apps, "Apps to read money updates from", if (approvedApps == 0) "No apps approved · Choose your bank, mobile-money or SMS app" else pluralStringResource(R.plurals.approved_money_apps, approvedApps, approvedApps)) { sources = true } }
         item { OutlinedButton(onClick = {
             val smsSaved = SmsAccessConsentStore.setAccepted(context, false)
             val appsSaved = NotificationSourceTrustStore(context).revokeAll()
@@ -118,9 +129,11 @@ internal fun MoneyAccessPage(padding: PaddingValues, back: () -> Unit, history: 
             error = if (smsSaved && appsSaved) "Message reading is off. Your saved transactions remain." else "Couldn't save every choice. Please try again."
         }, modifier = Modifier.fillMaxWidth()) { Text("Stop reading money messages") } }
         item { TextButton(onClick = { launcher.launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))) }) { Text("Open Android app settings") } }
-        item { error?.let { Text(it) }; Text("If Android blocks notification access on a downloaded APK, open App info, then the menu, and choose Allow restricted settings. PesaTrack cannot change that setting for you.", style = MaterialTheme.typography.bodyMedium) }
+        item { error?.let { Text(it) }; TextButton(onClick = { details = !details }) { Text(if (details) "Hide access details" else "More about message access") } }
+        if (details) item { Text("Android access alone does not approve an app: choose each source above. Stopping access keeps your saved transactions. If Android blocks access on a downloaded APK, open App info, then the menu, and choose Allow restricted settings.", style = MaterialTheme.typography.bodyMedium) }
     }
 }
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun RemindersPage(padding: PaddingValues, back: () -> Unit) {
     val context = LocalContext.current
@@ -138,7 +151,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit) {
         if (!allowed) item { Button(onClick = { settings.launch(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }, modifier = Modifier.fillMaxWidth()) { Text("Allow PesaTrack notifications") } }
         item { ChoiceSwitch("Upcoming bills", "Remind me before a scheduled bill is due", billOn) { billOn = it; bills.setGlobalReminderLeadDays(lead, it); if(it) ask() } }
         item { Text("Before a bill is due", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(1,3,7).forEach { days -> FilterChip(selected = lead == days, onClick = { lead = days; bills.setGlobalReminderLeadDays(days, billOn) }, label = { Text("$days days") }) } } }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { listOf(1,3,7).forEach { days -> FilterChip(selected = lead == days, enabled = billOn, onClick = { lead = days; bills.setGlobalReminderLeadDays(days, billOn) }, label = { Text(pluralStringResource(R.plurals.bill_reminder_days, days, days)) }) } } }
         item { ChoiceSwitch("Budget warnings", "Tell me when a monthly category budget reaches 95% or goes over", budgetOn) { budgetOn = it; PlanningReminders.setEnabled(context, "budgets", it); if(it) ask() } }
         item { ChoiceSwitch("Savings reminders", "Remind me when a monthly goal has no contribution for a month", goalOn) { goalOn = it; PlanningReminders.setEnabled(context, "goals", it); if(it) ask() } }
         item { Text("Amounts are hidden on the lock screen. You can turn each reminder off here or in Android settings.", style = MaterialTheme.typography.bodyMedium) }

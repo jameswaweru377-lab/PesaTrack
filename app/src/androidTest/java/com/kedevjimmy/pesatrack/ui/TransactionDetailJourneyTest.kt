@@ -78,6 +78,59 @@ class TransactionDetailJourneyTest {
         assertEquals(2300L, TransactionStore.get(context).getById(payment.id)!!.feeMinor)
     }
 
+    @Test fun transferCorrectionRequiresConfirmationAndDoesNotAlterAmount() {
+        val payment = payment()
+        val store = TransactionStore.get(context)
+        compose.setContent {
+            PesaTrackTheme {
+                TransactionDetailScreen(PaddingValues(), payment.id, {})
+            }
+        }
+        val list = compose.onNodeWithTag("transaction-details-list")
+        list.performScrollToNode(hasTestTag("transaction-corrections"))
+        compose.onNodeWithText("Mark as own-account transfer").performClick()
+        compose.onNodeWithText("Mark as own-account transfer?").assertIsDisplayed()
+        assertEquals(MoneyDirection.EXPENSE.name, store.getById(payment.id)!!.direction)
+        compose.onNodeWithText("Cancel").performClick()
+        assertEquals(MoneyDirection.EXPENSE.name, store.getById(payment.id)!!.direction)
+
+        compose.onNodeWithText("Mark as own-account transfer").performClick()
+        compose.onNodeWithText("Mark as transfer").performClick()
+        compose.waitUntil(5_000L) {
+            store.getById(payment.id)?.direction == MoneyDirection.TRANSFER.name
+        }
+        val updated = store.getById(payment.id)!!
+        assertEquals(TransactionCategory.TRANSFER.name, updated.category)
+        assertEquals(200_000L, updated.amountMinor)
+        assertEquals(2_300L, updated.feeMinor)
+    }
+
+    @Test fun exclusionWarningExplainsActivityImpactAndCancelIsSafe() {
+        val payment = payment()
+        val store = TransactionStore.get(context)
+        compose.setContent {
+            PesaTrackTheme {
+                TransactionDetailScreen(PaddingValues(), payment.id, {})
+            }
+        }
+        val list = compose.onNodeWithTag("transaction-details-list")
+        list.performScrollToNode(hasTestTag("transaction-corrections"))
+        compose.onNodeWithText("Exclude from tracked activity").performClick()
+        compose.onNodeWithText("Exclude from tracked activity?").assertIsDisplayed()
+        compose.onNodeWithText(
+            "This is more than excluding a budget category.", substring = true
+        ).assertIsDisplayed()
+        compose.onNodeWithText("Cancel").performClick()
+        assertEquals(ReviewState.USER_CLASSIFIED.name, store.getById(payment.id)!!.reviewState)
+
+        compose.onNodeWithText("Exclude from tracked activity").performClick()
+        compose.onNodeWithText("Exclude entry").performClick()
+        compose.waitUntil(5_000L) {
+            store.getById(payment.id)?.reviewState == ReviewState.EXCLUDED.name
+        }
+        assertEquals(200_000L, store.getById(payment.id)!!.amountMinor)
+    }
+
     @Test fun originalMessageExpandsAndReferenceCopiesInDarkTheme() {
         val payment = payment()
         val body = "UITEST0001 Confirmed. Ksh2,000.00 paid to Invented grocer."

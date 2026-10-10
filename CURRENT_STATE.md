@@ -1,6 +1,6 @@
 # PesaTrack Current State
 
-_Last refreshed: 9 October 2026_
+_Last refreshed: 10 October 2026_
 
 This file is the short engineering source of truth. Historical audits, design explorations and `PROJECT_CONTEXT.md` are useful background, but they must not override current code or this snapshot when they conflict.
 
@@ -12,7 +12,7 @@ The current product includes the canonical ledger, provider-neutral financial in
 
 ## Data and accounting
 
-- Schema: **v33**
+- Schema: **v37**
 - `PesaTrackDatabase.get(...)` is the process-scoped database owner.
 - Canonical financial-message ingestion is transaction-wrapped.
 - Replay/idempotency and rollback are covered by Android tests.
@@ -60,7 +60,7 @@ The Android CI workflow has three responsibilities:
 2. `instrumentation`: run Android instrumentation only when explicitly requested through a manual workflow run with `run_instrumentation` enabled (default off).
 3. `publish`: after successful build checks on a push to `main`, replace the rolling development `ci-apk` asset without requiring instrumentation. Manual review/build runs retain artifacts but cannot replace the rolling release.
 
-PR updates and merges run build checks automatically. Marking a PR ready does not start another run. Android 7 security and API compatibility emulator suites are manual review tools; the former weekly compatibility schedule is disabled. Manual signed releases still require same-commit Android validation.
+PR updates and merges run build checks automatically. Marking a PR ready does not start another run. Android 7 security and API compatibility emulator suites are manual review tools; the former weekly compatibility schedule is disabled. Manual signed releases also default to build-only validation. Emulator validation is opt-in through run_instrumentation; when explicitly enabled, it must pass before signing. Agents must not start instrumentation based on an older plan without a current user request.
 
 The build/test jobs require only read access to repository contents. Release write permission is scoped to the publish job.
 
@@ -103,3 +103,15 @@ Not yet public-store ready. Remaining release blockers include:
 ## Architecture rule for next work
 
 Do not start another broad feature or visual redesign phase before hardening/decomposition. Preserve the current Home / Activity / Plan / Accounts / More product hierarchy and keep parser expansion evidence-driven.
+
+## Owed to me history review
+
+Personal receivables use a separate local journal. Find in transactions searches imported M-Pesa and bank history by name or phone. Loans and possible repayments require explicit user confirmation; gifts/not-loan decisions are remembered per person. Bulk selection includes only eligible displayed outgoing rows and all selected records are previewed before an atomic save. Shared bills preserve the user's remaining expense category and fees; original cash movements are never duplicated. Activity exposes Owed to me/Repayments filters and debt labels. Schema 37 adds personal_receivable_review_exclusions; encrypted backups from schema 34–36 are bridged with missing tables empty.
+
+Implementation verification is tracked in the history-review PR. Android instrumentation and device acceptance remain unrun unless explicitly requested. Build/lint/unit evidence does not prove physical-device migration or user journeys.
+
+### Shared-bill refinement (implementation verification pending)
+
+Activity now separates Money lent (full-payment recipient prefill) from Shared bill (blank person and amount, explicit existing-person/local-record selection). Shared bill retains the source category and requires a positive share strictly below the payment in both UI and atomic save. Detail and person history show the person, category, original bill and remaining own share; fees remain separate. Existing category allocations retain edit/remove access, but the new Split payment action is replaced by Shared bill. Existing partial loans are not guessed to be shared bills.
+
+Explicit shared intent uses the existing journal event_key namespace shared:UUID; kind remains LENT, schema stays 37 and generic encrypted backup preserves the key. No previous journal rows are rewritten. Source snapshots are revalidated before entry save. No new permissions, telemetry or remote financial processing. Instrumentation remains off; new integration/journey fixtures may be compiled without being executed.
