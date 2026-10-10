@@ -21,6 +21,8 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -54,6 +56,7 @@ import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
+import com.kedevjimmy.pesatrack.domain.rules.RuleSetupPreview
 import java.math.RoundingMode
 
 private enum class MatcherMode {
@@ -197,7 +200,9 @@ fun MoneySetupScreen(
         error = null
     }
 
-    fun saveRule() {
+    var previewText by remember { mutableStateOf<String?>(null) }
+
+    fun saveRule(apply: Boolean = false) {
         error = null
         val ruleConfig = config()
 
@@ -262,7 +267,38 @@ fun MoneySetupScreen(
         val display = customLabel.trim().takeIf { it.isNotBlank() }
             ?: ruleConfig.label
 
-        ruleStore.save(
+        if (!apply) {
+            val draft = SmartRule(
+                id = "preview",
+                name = display,
+                counterpartyContains = if (matcherMode == MatcherMode.MPESA_NAME) counterparty.trim() else "",
+                notificationTitleContains = if (matcherMode == MatcherMode.NOTIFICATION) notificationTitle.trim() else "",
+                messageContains = if (matcherMode == MatcherMode.NOTIFICATION) messagePhrase.trim() else "",
+                category = ruleConfig.category,
+                direction = ruleConfig.direction,
+                preset = preset,
+                plannedAmountMinor = amountMinor,
+                startsPayCycle = ruleConfig.startsPayCycle
+            )
+            val matches = if (matcherMode == MatcherMode.MPESA_NAME) {
+                transactionStore.matchingPendingCount(draft)
+            } else 0
+            val matchSummary = if (matcherMode == MatcherMode.MPESA_NAME) {
+                "Name includes “" + counterparty.trim() + "”"
+            } else {
+                listOf(notificationTitle.trim(), messagePhrase.trim())
+                    .filter { it.isNotBlank() }.joinToString(" + ") { "“$it”" }
+            }
+            val accountSummary = accounts.firstOrNull { it.id == selectedAccountId }?.name.orEmpty()
+            val linkedSummary = accounts.firstOrNull { it.id == linkedAccountId }?.name
+            val amountSummary = amountMinor?.let { "\nExpected amount: " + formatDisplayMoney(it) }.orEmpty()
+            previewText = display + " • " + ruleConfig.category.prettyName() +
+                "\n" + accountSummary + (linkedSummary?.let { " → " + it } ?: "") +
+                amountSummary + "\nMatch: " + matchSummary + "\n\n" +
+                RuleSetupPreview.describe(draft, matches)
+            return
+        }
+        val savedRule = ruleStore.save(
             name = display,
             counterpartyContains = if (matcherMode == MatcherMode.MPESA_NAME) counterparty else "",
             notificationTitleContains = if (matcherMode == MatcherMode.NOTIFICATION) notificationTitle else "",
@@ -281,7 +317,7 @@ fun MoneySetupScreen(
         )
 
         transactionStore.reapplyCounterpartyRules(
-            ruleStore.listRules(enabledOnly = true)
+            listOf(savedRule)
         )
         payCycleStore.rebuild()
         reload()
@@ -291,6 +327,22 @@ fun MoneySetupScreen(
         messagePhrase = ""
         plannedAmount = ""
         customLabel = ""
+    }
+
+    previewText?.let { preview ->
+        AlertDialog(
+            onDismissRequest = { previewText = null },
+            title = { Text("Review this rule") },
+            text = { Text(preview) },
+            confirmButton = {
+                TextButton(onClick = { previewText = null; saveRule(apply = true) }) {
+                    Text("Save and apply")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { previewText = null }) { Text("Keep editing") }
+            }
+        )
     }
 
     LazyColumn(
@@ -411,10 +463,15 @@ fun MoneySetupScreen(
         }
 
         item {
-            SectionHeader("Teach PesaTrack")
+            SectionHeader("Teach PesaTrack with an example")
             Spacer(Modifier.height(6.dp))
             PesaCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "For example: salary from your employer, rent to your landlord, or internet paid to your provider. Choose the task, then enter the name or phrase you see in that message.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     SelectionField(
                         label = "What is this?",
                         selectedLabel = presetConfig(preset, customCategory, customDirection).label,
@@ -456,7 +513,7 @@ fun MoneySetupScreen(
                         OutlinedTextField(
                             value = counterparty,
                             onValueChange = { counterparty = it },
-                            label = { Text("Name contains") },
+                            label = { Text("Recipient or merchant name") },
                             placeholder = { Text("Recipient or merchant name") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
@@ -465,7 +522,7 @@ fun MoneySetupScreen(
                         OutlinedTextField(
                             value = notificationTitle,
                             onValueChange = { notificationTitle = it },
-                            label = { Text("Sender/title contains") },
+                            label = { Text("Bank or sender name") },
                             placeholder = { Text("Example: your bank name") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
@@ -473,7 +530,7 @@ fun MoneySetupScreen(
                         OutlinedTextField(
                             value = messagePhrase,
                             onValueChange = { messagePhrase = it },
-                            label = { Text("Message contains") },
+                            label = { Text("Recognizable phrase in the message") },
                             placeholder = { Text("Example: employer or transfer phrase") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
@@ -575,12 +632,12 @@ fun MoneySetupScreen(
                     }
 
                     Button(
-                        onClick = ::saveRule,
+                        onClick = { saveRule() },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(18.dp)
                     ) {
                         Icon(Icons.Rounded.Add, contentDescription = null)
-                        Text("Save rule", modifier = Modifier.padding(start = 8.dp))
+                        Text("Preview rule", modifier = Modifier.padding(start = 8.dp))
                     }
                 }
             }

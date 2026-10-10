@@ -1038,6 +1038,7 @@ fun HomeScreen(
 
         item {
             ConceptEmeraldHero(
+                artwork = false,
                 title = if (cycleSnapshot.cycle == null) "Account balances" else "After planned payments",
                 amount =
                     if (cycleSnapshot.cycle == null) {

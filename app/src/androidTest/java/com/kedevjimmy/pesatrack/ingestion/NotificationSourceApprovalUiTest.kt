@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -38,5 +39,14 @@ class NotificationSourceApprovalUiTest {
         compose.runOnIdle { assertTrue(trust.isApproved("ke.example.bank")) }
         toggle.performClick().assertIsOff()
         compose.runOnIdle { assertFalse(trust.isApproved("ke.example.bank")) }
+    }
+
+    @Test fun expandingAvailableAppsDoesNotApproveSources() {
+        compose.setContent { MaterialTheme { NotificationSourceApprovalSheet(onDismiss = {}) } }
+        compose.onNodeWithText("Show all available apps").performClick()
+        compose.onNodeWithContentDescription("Approve financial notifications from A Invented Bank").assertIsOff()
+        compose.runOnIdle { assertFalse(trust.isApproved("ke.example.bank")) }
+        compose.onNodeWithText("Show suggested apps").performClick()
+        compose.onNodeWithContentDescription("Approve financial notifications from A Invented Bank").assertIsOff()
     }
 }
