@@ -133,6 +133,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
 private enum class SmartSetupStage {
+    WELCOME,
     IMPORT,
     SMS_PERMISSION,
     ANALYZE,
@@ -216,7 +217,7 @@ fun SmartOnboardingSetupScreen(
         }
 
     var stage by rememberSaveable {
-        mutableStateOf(SmartSetupStage.SMS_PERMISSION)
+        mutableStateOf(SmartSetupStage.WELCOME)
     }
     var disclosureAccepted by rememberSaveable { mutableStateOf(SmsAccessConsentStore.hasConsent(context)) }
     var consentError by remember { mutableStateOf<String?>(null) }
@@ -449,7 +450,7 @@ fun SmartOnboardingSetupScreen(
             }
             MessageAccessAction.CONTINUE -> {
                 accessStarted = false
-                stage = SmartSetupStage.IMPORT
+                stage = SmartSetupStage.ANALYZE
             }
         }
     }
@@ -1483,8 +1484,8 @@ fun SmartOnboardingSetupScreen(
 
     BackHandler(
         enabled =
-            stage !=
-                SmartSetupStage.SMS_PERMISSION
+            stage != SmartSetupStage.SMS_PERMISSION &&
+                stage != SmartSetupStage.WELCOME
     ) {
         if (onboardingBusy) {
             return@BackHandler
@@ -1543,7 +1544,10 @@ fun SmartOnboardingSetupScreen(
                     }
 
                 SmartSetupStage.IMPORT ->
-                    SmartSetupStage.SMS_PERMISSION
+                    SmartSetupStage.WELCOME
+
+                SmartSetupStage.WELCOME ->
+                    SmartSetupStage.WELCOME
             }
     }
 
@@ -1598,7 +1602,7 @@ fun SmartOnboardingSetupScreen(
                         disclosureAccepted = false
                         importMonths = 0
                         accessStarted = false
-                        stage = SmartSetupStage.IMPORT
+                        stage = SmartSetupStage.ANALYZE
                     } else consentError = "Your choice could not be saved. Please try again."
                 }
             )
@@ -1636,6 +1640,18 @@ fun SmartOnboardingSetupScreen(
         }
 
         when (stage) {
+            SmartSetupStage.WELCOME -> {
+                item {
+                    PesaTrackWelcomePage(
+                        onGetStarted = { stage = SmartSetupStage.IMPORT },
+                        onSkip = {
+                            importMonths = 0
+                            stage = SmartSetupStage.ANALYZE
+                        }
+                    )
+                }
+            }
+
             SmartSetupStage.IMPORT -> {
                 item {
                     ImportChoicePage(
@@ -1694,7 +1710,6 @@ fun SmartOnboardingSetupScreen(
             }
 
             SmartSetupStage.REVIEW -> {
-                item { OutlinedButton(onClick = { chooseInstitutions = true }, modifier = Modifier.fillMaxWidth()) { Text("Choose banks and mobile-money accounts") } }
                 item {
                     ReviewDiscoveryPage(
                         sources =
@@ -1723,6 +1738,7 @@ fun SmartOnboardingSetupScreen(
                                     ownershipChoices + (entity.entityKey to choice)
                                 }
                         },
+                        onAddMissingInstitution = { chooseInstitutions = true },
                         onManualSalary = {
                             setupScope.launch {
                                 applySelectedAccountOwnership()
@@ -2111,57 +2127,42 @@ fun SmartOnboardingSetupScreen(
 private fun StageProgress(
     stage: SmartSetupStage
 ) {
+    val steps = listOf(
+        "Welcome", "Scan messages", "Review accounts", "Account identity",
+        "Salary (optional)", "Live tracking", "Ready"
+    )
     val visibleIndex = when (stage) {
-        SmartSetupStage.SMS_PERMISSION -> 0
-        SmartSetupStage.IMPORT, SmartSetupStage.ANALYZE,
-        SmartSetupStage.REVIEW, SmartSetupStage.SALARY_MANUAL,
-        SmartSetupStage.MPESA_CONFIRM -> 1
-        SmartSetupStage.LIVE_CAPTURE, SmartSetupStage.COMPLETE -> 2
+        SmartSetupStage.WELCOME -> 0
+        SmartSetupStage.IMPORT, SmartSetupStage.SMS_PERMISSION,
+        SmartSetupStage.ANALYZE -> 1
+        SmartSetupStage.REVIEW -> 2
+        SmartSetupStage.MPESA_CONFIRM -> 3
+        SmartSetupStage.SALARY_MANUAL -> 4
+        SmartSetupStage.LIVE_CAPTURE -> 5
+        SmartSetupStage.COMPLETE -> 6
     }
     Text(
-        text = "${visibleIndex + 1} of 3 • " +
-            listOf("Connect messages", "Import history", "Ready")[visibleIndex],
+        text = "${visibleIndex + 1} of ${steps.size} • ${steps[visibleIndex]}",
         modifier = Modifier.fillMaxWidth(),
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
     )
-
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement =
-            Arrangement.Center
+        horizontalArrangement = Arrangement.Center
     ) {
-        repeat(3) { index ->
+        repeat(steps.size) { index ->
             Surface(
                 modifier = Modifier
                     .padding(horizontal = 3.dp)
-                    .size(
-                        width =
-                            if (
-                                index ==
-                                visibleIndex
-                            ) {
-                                26.dp
-                            } else {
-                                7.dp
-                            },
-                        height = 7.dp
-                    ),
+                    .size(width = if (index == visibleIndex) 25.dp else 7.dp, height = 7.dp),
                 shape = CircleShape,
-                color =
-                    if (
-                        index <=
-                        visibleIndex
-                    ) {
-                        MaterialTheme
-                            .colorScheme
-                            .primary
-                    } else {
-                        MaterialTheme
-                            .colorScheme
-                            .outlineVariant
-                    }
+                color = if (index <= visibleIndex) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant
+                }
             ) {}
         }
     }
@@ -2179,8 +2180,8 @@ private fun ImportChoicePage(
     ) {
         SmartSetupHero(
             icon = Icons.Rounded.History,
-            title = "Start with your recent money",
-            body = "Choose 1–3 completed previous months. We also include this month to date. SMS import is optional."
+            title = "Scan financial SMS messages",
+            body = "With your permission, PesaTrack scans relevant messages locally. Choose 1–3 completed previous months plus this month to date, or start fresh."
         )
 
         Row(

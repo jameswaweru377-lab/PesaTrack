@@ -1,6 +1,6 @@
 # PesaTrack 2.0 Advanced — implementation tracker
 
-Status: **A1 and A3 merged; Phase A4 explicit ownership and optional salary consent in isolated review branch — CI pending.**  
+Status: **A1, A3 and A4 merged; approved seven-screen onboarding redesign underway in staged PRs. Welcome + scan sequencing + secondary missing-institution route is current draft.**  
 Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page planning document, 10 October 2026). The PDF is a proposal, not proof of implementation.
 
 ## Baseline (recheck at every subsequent chat / PR)
@@ -33,7 +33,7 @@ Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page plannin
 | A1 | Pure evidence source taxonomy and authority gate | **Merged into main (#321); branch CI passed** | `FinancialEvidenceContract.kt` plus `FinancialEvidenceContractTest.kt` |
 | A2 | Manual salary received vs planned semantics | Not started | Integration tests T01, T02, preserving existing SMS paths and totals |
 | A3 | Import 1/2/3 **previous completed** months plus current | **Merged PR #325; branch CI passed** | Date/timezone tests; no change to standalone historical reimport |
-| A4 | Small ownership/skip-salary onboarding UX | **Implemented on isolated branch; CI pending** | Owned/external/unsure and skip journeys in Compose |
+| A4 | Small ownership/skip-salary onboarding UX | **Merged PR #327; post-merge main CI green** | Owned/external/unsure and skip journeys in Compose |
 | B | Evidence repository/link audit, replay-safe statement/SMS/manual adapters | Not started | Migration/restore/idempotency and provenance; T03, T04, T12 |
 | C | Payroll journal, deduction type/asset/liability classifications and multiple settlements | Not started | T05-T09, T16; no invented account balance |
 | D | Offline local payslip PDF/image extractor, OCR fallback, field review | Not started | Local only, API24/low-memory, synthetic layout corpus, T14-T15 |
@@ -66,3 +66,11 @@ Read the attached blueprint PDF plus this tracker, then inspect live `main`/PRs 
 - Added JVM tests for excluded/unsure decisions and salary consent plus a Compose interaction test (instrumentation compilation in CI; device execution remains a separate gate).
 - This PR must pass `:app:testDebugUnitTest`, `:app:lintDebug`, `:app:assembleDebug`, `:app:compileDebugAndroidTestKotlin`, and repository financial contract tests on its own exact head before merge.
 - Release caution: additional on-device UI / ownership-reconciliation tests are still required at later release checkpoints. A green branch build alone does not assert every real-data scenario is covered.
+
+## Approved seven-screen onboarding redesign (implementation in progress)
+- User approved proposed conceptual seven-screen journey: Welcome > Optional SMS scanning > Confirm detected institutions/accounts > M-Pesa account identity/locked savings > Other bank/SACCO identity > Optional salary > Finish. Reuse the actual PesaTrack theme; **do not use green hardcoding**.
+- First isolated work package `feature/pesatrack2-onboarding-welcome-scan-v1`, base main `97450be869c01ea30e16266c18c9ee49cd49bad8` (post-merge main CI [run 38077829487](https://github.com/jameswaweru377-lab/PesaTrack/actions/runs/38077829487) green).
+- Implements real native Compose welcome with optional skip, moves import-month selection BEFORE requesting permissions, permission continuation directly into scan/analysis, improves seven-step progress narrative; puts institution directory behind secondary **Add a missing bank or service** in detected-account review. Existing permission consent, import and ledger processing reused. No mandatory SMS.
+- The existing M-Pesa confirmation, identity management, salary, notification and completion screens remain in place until safe new counterparts are connected and tested. **Do not mark all seven screens implemented**.
+- Planned subsequent coherent work packages: A4b detected institution/account reconciliation UI and profile identity flow (name only a hint, never ownership proof); A4c distinct M-Shwari Lock Savings semantics and optional bank/SACCO details; A4d salary/finish integration, UI regression and device acceptance.
+- Exact branch checks required: unit tests, lint, APK, existing financial contract tests, instrumentation source compilation. Emulator execution requires separate explicit user request. Do not merge until CI passes.
