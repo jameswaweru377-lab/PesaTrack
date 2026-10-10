@@ -649,7 +649,7 @@ private fun BudgetEditorSheet(
                     style = MaterialTheme.typography.headlineSmall
                 )
                 Text(
-                    "Tracked this month: " +
+                    "Tracked in this budget period: " +
                         formatBudgetMoney(spentMinor),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
