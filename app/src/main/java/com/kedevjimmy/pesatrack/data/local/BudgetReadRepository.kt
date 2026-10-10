@@ -32,7 +32,9 @@ object BudgetSpendingProjection {
             } else if (row.direction == MoneyDirection.EXPENSE.name) {
                 val parts = allocations(row.id)
                 if (parts.isEmpty()) {
-                    add(row.category, Math.subtractExact(row.amountMinor, receivableLent(row.id)))
+                    val lent = receivableLent(row.id)
+                    require(lent in 0L..row.amountMinor) { "Invalid personal-loan share." }
+                    add(row.category, Math.subtractExact(row.amountMinor, lent))
                 } else {
                     // The write path rejects a simultaneous old category split and
                     // personal-loan allocation. Never count those principal parts twice.
