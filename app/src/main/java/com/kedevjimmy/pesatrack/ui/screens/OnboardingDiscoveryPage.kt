@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingSalarySuggestion
+import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingOwnershipChoice
 import com.kedevjimmy.pesatrack.ingestion.HistoricalImportResult
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -26,16 +27,16 @@ internal fun ReviewDiscoveryPage(
     sources: List<DetectedSetupSource>,
     ownershipCandidates:
         List<DiscoveredFinancialEntity>,
-    selectedOwnershipEntityKeys:
-        Set<String>,
+    ownershipChoices:
+        Map<String, OnboardingOwnershipChoice>,
     salarySuggestion:
         OnboardingSalarySuggestion?,
     salaryAccepted: Boolean,
     importResult: HistoricalImportResult?,
     applying: Boolean,
     onSalaryAccepted: (Boolean) -> Unit,
-    onToggleAccount:
-        (DiscoveredFinancialEntity) -> Unit,
+    onOwnershipChoice:
+        (DiscoveredFinancialEntity, OnboardingOwnershipChoice) -> Unit,
     onManualSalary: () -> Unit,
     onContinue: () -> Unit
 ) {
@@ -186,7 +187,7 @@ internal fun ReviewDiscoveryPage(
             }
 
             Text(
-                "Tap the salary card if this is not your pay. PesaTrack creates the salary rule only after your confirmation.",
+                "This is only a suggestion. Tap the card to confirm it, or skip salary setup and continue.",
                 style =
                     MaterialTheme.typography
                         .bodySmall,
@@ -235,6 +236,52 @@ internal fun ReviewDiscoveryPage(
             }
         }
 
+        TextButton(
+            onClick = { showOptions = !showOptions },
+            enabled = !applying,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        ) {
+            Text(if (showOptions) "Hide optional setup" else "Personalize accounts and salary (optional)")
+        }
+        if (
+            showOptions && ownershipCandidates.isNotEmpty()
+        ) {
+            Text(
+                "Which accounts belong to you?",
+                style =
+                    MaterialTheme.typography
+                        .titleMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurface,
+                fontWeight =
+                    FontWeight.SemiBold
+            )
+            Text(
+                "Mine confirms ownership. Not mine excludes a recipient's account. Unsure leaves ownership unchanged. You can skip this for now.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+
+            ownershipCandidates
+                .forEach { entity ->
+                    OwnershipCandidateCard(
+                        entity = entity,
+                        choice =
+                            ownershipChoices[entity.entityKey]
+                                ?: OnboardingOwnershipChoice.UNSURE,
+                        enabled = !applying,
+                        onChoice = { choice ->
+                            onOwnershipChoice(entity, choice)
+                        }
+                    )
+                }
+        }
+
         Button(
             onClick = onContinue,
             enabled = !applying,
@@ -260,54 +307,6 @@ internal fun ReviewDiscoveryPage(
             } else {
                 Text("Continue")
             }
-        }
-
-        TextButton(
-            onClick = { showOptions = !showOptions },
-            enabled = !applying,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-        ) {
-            Text(if (showOptions) "Hide optional setup" else "Personalize accounts and salary (optional)")
-        }
-        if (
-            showOptions && ownershipCandidates.isNotEmpty()
-        ) {
-            Text(
-                "Which accounts are yours?",
-                style =
-                    MaterialTheme.typography
-                        .titleMedium,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurface,
-                fontWeight =
-                    FontWeight.SemiBold
-            )
-            Text(
-                "Select only your own accounts. A bank mentioned in a payment may belong to someone else.",
-                style =
-                    MaterialTheme.typography
-                        .bodySmall,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-            )
-
-            ownershipCandidates
-                .forEach { entity ->
-                    OwnershipCandidateCard(
-                        entity = entity,
-                        selected =
-                            entity.entityKey in
-                                selectedOwnershipEntityKeys,
-                        enabled = !applying,
-                        onToggle = {
-                            onToggleAccount(
-                                entity
-                            )
-                        }
-                    )
-                }
         }
 
         if (

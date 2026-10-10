@@ -1,6 +1,6 @@
 # PesaTrack 2.0 Advanced — implementation tracker
 
-Status: **A1 merged (contracts only); A3 onboarding history-window adjustment under review — not yet in main**  
+Status: **A1 and A3 merged; Phase A4 explicit ownership and optional salary consent in isolated review branch — CI pending.**  
 Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page planning document, 10 October 2026). The PDF is a proposal, not proof of implementation.
 
 ## Baseline (recheck at every subsequent chat / PR)
@@ -32,8 +32,8 @@ Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page plannin
 | Gate 0 | Inspect live main/PRs/schema/CI | Partly complete | Baseline CI green; Android instrumentation, physical Redmi and populated restore gate not yet independently checked |
 | A1 | Pure evidence source taxonomy and authority gate | **Merged into main (#321); branch CI passed** | `FinancialEvidenceContract.kt` plus `FinancialEvidenceContractTest.kt` |
 | A2 | Manual salary received vs planned semantics | Not started | Integration tests T01, T02, preserving existing SMS paths and totals |
-| A3 | Import 1/2/3 **previous completed** months plus current | **Implemented on isolated A3 branch; CI pending** | Date/timezone tests; no change to standalone historical reimport |
-| A4 | Small ownership/skip-salary onboarding UX | Not started | Owned/external/unsure and skip journeys in Compose |
+| A3 | Import 1/2/3 **previous completed** months plus current | **Merged PR #325; branch CI passed** | Date/timezone tests; no change to standalone historical reimport |
+| A4 | Small ownership/skip-salary onboarding UX | **Implemented on isolated branch; CI pending** | Owned/external/unsure and skip journeys in Compose |
 | B | Evidence repository/link audit, replay-safe statement/SMS/manual adapters | Not started | Migration/restore/idempotency and provenance; T03, T04, T12 |
 | C | Payroll journal, deduction type/asset/liability classifications and multiple settlements | Not started | T05-T09, T16; no invented account balance |
 | D | Offline local payslip PDF/image extractor, OCR fallback, field review | Not started | Local only, API24/low-memory, synthetic layout corpus, T14-T15 |
@@ -57,3 +57,12 @@ Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page plannin
 
 ## Handoff contract to another chat
 Read the attached blueprint PDF plus this tracker, then inspect live `main`/PRs and the actual code. Quote branch, base/head SHAs, changed paths, real CI run outcomes and unresolved acceptance IDs. Implement one thin slice at a time on an isolated branch. Preserve canonical ledger authority, no mandatory document uploads, no raw SMS or payslip upload to third parties. Report blockers precisely; no assumed green checks, APK, signed release or device acceptance.
+
+## A4 ownership and salary consent work package
+- Branch: `feature/pesatrack2-onboarding-ownership-consent-v1`, created from merged main `f2ecc30b2f24b6dab981406bc55464bdd01e0d82`.
+- New pure Kotlin policy: Mine/Not mine/Unsure only acts on currently pending discovered entities; unknown keys and Unsure are ignored. Existing `FinancialUnderstandingStore.confirmEntityOwned` and `markEntityExternal` implement explicit choices, without new schema or SMS parsing.
+- Onboarding now exposes three explicit account decisions in the existing branded Compose card, above Continue; manual salary remains optional.
+- Salary suggestions now start unconfirmed and stay unconfirmed unless explicitly accepted. A refresh only retains an accepted salary if the full proposed salary observation remains equal; changed suggestions require new consent, never automatic salary-rule creation.
+- Added JVM tests for excluded/unsure decisions and salary consent plus a Compose interaction test (instrumentation compilation in CI; device execution remains a separate gate).
+- This PR must pass `:app:testDebugUnitTest`, `:app:lintDebug`, `:app:assembleDebug`, `:app:compileDebugAndroidTestKotlin`, and repository financial contract tests on its own exact head before merge.
+- Release caution: additional on-device UI / ownership-reconciliation tests are still required at later release checkpoints. A green branch build alone does not assert every real-data scenario is covered.

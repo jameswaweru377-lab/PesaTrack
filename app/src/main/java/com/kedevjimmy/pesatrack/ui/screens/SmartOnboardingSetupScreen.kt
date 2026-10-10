@@ -50,6 +50,7 @@ import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Wallet
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -70,6 +71,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -106,6 +108,8 @@ import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.OnboardingHistoryWindow
+import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingOwnershipChoice
+import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingReviewPolicy
 import com.kedevjimmy.pesatrack.domain.rules.SalaryHistoryMonthPolicy
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
@@ -244,9 +248,9 @@ fun SmartOnboardingSetupScreen(
             List<DiscoveredFinancialEntity>
         >(emptyList())
     }
-    var selectedOwnershipEntityKeys by remember {
-        mutableStateOf<Set<String>>(
-            emptySet()
+    var ownershipChoices by remember {
+        mutableStateOf<Map<String, OnboardingOwnershipChoice>>(
+            emptyMap()
         )
     }
     var chooseInstitutions by rememberSaveable { mutableStateOf(false) }
@@ -257,7 +261,7 @@ fun SmartOnboardingSetupScreen(
         mutableStateOf<OnboardingSalarySuggestion?>(null)
     }
     var salaryAccepted by rememberSaveable {
-        mutableStateOf(true)
+        mutableStateOf(false)
     }
     var mpesaPhoneSuggestion by remember {
         mutableStateOf<String?>(null)
@@ -607,8 +611,8 @@ fun SmartOnboardingSetupScreen(
                         .pendingEntities()
                 )
             }
-        selectedOwnershipEntityKeys =
-            emptySet()
+        ownershipChoices =
+            emptyMap()
         if (
             manualSalaryAccountId.isBlank()
         ) {
@@ -715,7 +719,7 @@ fun SmartOnboardingSetupScreen(
         salarySuggestion =
             incomeDiscovery.first
         salaryAccepted =
-            incomeDiscovery.first != null
+            false // An inferred income pattern is not consent to create a salary rule.
         mpesaPhoneSuggestion =
             incomeDiscovery.second
         delay(MIN_PROGRESS_STEP_MS)
@@ -1286,9 +1290,15 @@ fun SmartOnboardingSetupScreen(
 
         reviewSaving = true
         try {
-            val selectedKeys =
-                selectedOwnershipEntityKeys
+            val plan = OnboardingReviewPolicy.ownershipPlan(
+                pendingOwnershipEntities.map { it.entityKey },
+                ownershipChoices
+            )
+            val selectedKeys = plan.mineKeys
             withContext(Dispatchers.IO) {
+                plan.notMineKeys.forEach { entityKey ->
+                    financialUnderstandingStore.markEntityExternal(entityKey)
+                }
                 selectedKeys.forEach {
                         entityKey ->
                     financialUnderstandingStore
@@ -1346,8 +1356,8 @@ fun SmartOnboardingSetupScreen(
                     financialUnderstandingStore
                         .pendingEntities()
                 )
-            selectedOwnershipEntityKeys =
-                emptySet()
+            ownershipChoices =
+                emptyMap()
 
             if (
                 availableAccounts.none {
@@ -1434,10 +1444,16 @@ fun SmartOnboardingSetupScreen(
                     )
                 }
 
+            val previousSuggestion = salarySuggestion
+            val userAccepted = salaryAccepted
             salarySuggestion =
                 refreshedSalary
             salaryAccepted =
-                refreshedSalary != null
+                OnboardingReviewPolicy.retainSalaryAcceptance(
+                    previousSuggestion,
+                    refreshedSalary,
+                    userAccepted
+                )
             if (
                 refreshedSalary != null
             ) {
@@ -1685,8 +1701,8 @@ fun SmartOnboardingSetupScreen(
                             detectedSources,
                         ownershipCandidates =
                             pendingOwnershipEntities,
-                        selectedOwnershipEntityKeys =
-                            selectedOwnershipEntityKeys,
+                        ownershipChoices =
+                            ownershipChoices,
                         salarySuggestion =
                             salarySuggestion,
                         salaryAccepted =
@@ -1698,18 +1714,13 @@ fun SmartOnboardingSetupScreen(
                         onSalaryAccepted = {
                             salaryAccepted = it
                         },
-                        onToggleAccount = {
-                                entity ->
-                            selectedOwnershipEntityKeys =
-                                if (
-                                    entity.entityKey in
-                                    selectedOwnershipEntityKeys
-                                ) {
-                                    selectedOwnershipEntityKeys -
-                                        entity.entityKey
+                        onOwnershipChoice = {
+                                entity, choice ->
+                            ownershipChoices =
+                                if (choice == OnboardingOwnershipChoice.UNSURE) {
+                                    ownershipChoices - entity.entityKey
                                 } else {
-                                    selectedOwnershipEntityKeys +
-                                        entity.entityKey
+                                    ownershipChoices + (entity.entityKey to choice)
                                 }
                         },
                         onManualSalary = {
@@ -2514,89 +2525,60 @@ private fun AnalysisRow(
 @Composable
 internal fun OwnershipCandidateCard(
     entity: DiscoveredFinancialEntity,
-    selected: Boolean,
+    choice: OnboardingOwnershipChoice,
     enabled: Boolean,
-    onToggle: () -> Unit
+    onChoice: (OnboardingOwnershipChoice) -> Unit
 ) {
     PesaCard {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        enabled = enabled,
-                        onClick = onToggle
-                    )
-                    .padding(16.dp),
-            verticalAlignment =
-                Alignment.CenterVertically
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            IconBubble(
-                icon =
-                    when (
-                        runCatching {
-                            AccountType
-                                .valueOf(
-                                    entity
-                                        .accountTypeHint
-                                )
-                        }.getOrDefault(
-                            AccountType.OTHER
-                        )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBubble(
+                    icon = when (
+                        runCatching { AccountType.valueOf(entity.accountTypeHint) }
+                            .getOrDefault(AccountType.OTHER)
                     ) {
-                        AccountType.BANK ->
-                            Icons.Rounded
-                                .AccountBalance
-                        AccountType.MOBILE_WALLET ->
-                            Icons.Rounded
-                                .PhoneAndroid
-                        else ->
-                            Icons.Rounded
-                                .Savings
+                        AccountType.BANK -> Icons.Rounded.AccountBalance
+                        AccountType.MOBILE_WALLET -> Icons.Rounded.PhoneAndroid
+                        else -> Icons.Rounded.Savings
                     },
-                size = 44.dp
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 11.dp)
-            ) {
-                Text(
-                    entity.displayName,
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium,
-                    fontWeight =
-                        FontWeight.SemiBold
+                    size = 44.dp
                 )
-                Text(
-                    "Detected account • ownership not assumed",
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
+                Column(Modifier.padding(start = 11.dp)) {
+                    Text(
+                        entity.displayName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Detected account • ownership not assumed",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            if (selected) {
-                Icon(
-                    Icons.Rounded.CheckCircle,
-                    contentDescription =
-                        "Selected as my account",
-                    tint =
-                        MaterialTheme.colorScheme
-                            .primary
-                )
-            } else {
-                Text(
-                    "This is mine",
-                    color =
-                        MaterialTheme.colorScheme
-                            .primary,
-                    fontWeight =
-                        FontWeight.SemiBold
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf(
+                    OnboardingOwnershipChoice.MINE to "Mine",
+                    OnboardingOwnershipChoice.NOT_MINE to "Not mine",
+                    OnboardingOwnershipChoice.UNSURE to "Unsure"
+                ).forEach { (option, label) ->
+                    FilterChip(
+                        selected = choice == option,
+                        onClick = { onChoice(option) },
+                        label = { Text(label) },
+                        enabled = enabled,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                            .testTag("ownership-${entity.entityKey}-${option.name}")
+                    )
+                }
             }
         }
     }
