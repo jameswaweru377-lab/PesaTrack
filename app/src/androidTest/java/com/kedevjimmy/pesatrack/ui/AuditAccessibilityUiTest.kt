@@ -82,11 +82,16 @@ class AuditAccessibilityUiTest {
         }
         // AGP removes the tested app after the suite; preserve only these invented
         // screenshots outside its app directory before that cleanup occurs.
-        android.os.ParcelFileDescriptor.AutoCloseInputStream(
-            instrumentation.uiAutomation.executeShellCommand(
-                "mkdir -p /sdcard/Download/pesatrack-audit-accessibility && cp ${artifactDir.absolutePath}/$artifactName.txt /sdcard/Download/pesatrack-audit-accessibility/ && cp ${artifactDir.absolutePath}/$artifactName.png /sdcard/Download/pesatrack-audit-accessibility/"
-            )
-        ).use { it.readBytes() }
+        // executeShellCommand launches a command directly; shell operators are not parsed.
+        listOf(
+            "mkdir -p /sdcard/Download/pesatrack-audit-accessibility",
+            "cp ${artifactDir.absolutePath}/$artifactName.txt /sdcard/Download/pesatrack-audit-accessibility/",
+            "cp ${artifactDir.absolutePath}/$artifactName.png /sdcard/Download/pesatrack-audit-accessibility/"
+        ).forEach { command ->
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(
+                instrumentation.uiAutomation.executeShellCommand(command)
+            ).use { Log.i("AuditAccessibility", "artifact command output: ${it.readBytes().toString(Charsets.UTF_8)}") }
+        }
         val bounds = rendered.map { (text, layout, rect) ->
             // GetTextLayoutResult retains the paragraph's available width for wrap-content Text.
             // CI at 1.3x: paragraph=756px, title node=308px, lineRight=307.66406px.

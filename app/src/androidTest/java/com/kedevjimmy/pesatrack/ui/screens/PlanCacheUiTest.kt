@@ -41,5 +41,13 @@ class PlanCacheUiTest {
         data = PlanReferenceData(PayCycleSnapshot(null, 0, 0, 0, 0, 0, 0, 0, null, null, emptyList(), null),
             emptyList(), emptyList(), emptyMap(), emptyList(), emptyList())
     }
-    private fun waitFor(text: String) { compose.waitUntil(15_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
+    private fun waitFor(text: String) {
+        try {
+            compose.waitUntil(15_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+        } catch (failure: Throwable) {
+            android.util.Log.i("PesaTrackMeasurement", "Plan cache test revision=${LedgerUpdateBus.state.value.revision} expectedText=$text")
+            android.util.Log.i("PesaTrackMeasurement", compose.onRoot().printToString())
+            throw failure
+        }
+    }
 }
