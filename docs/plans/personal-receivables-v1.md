@@ -1,6 +1,6 @@
 # Personal receivables – isolated implementation plan (10 Oct 2026)
 
-Status: approved product direction; feature branch only. Do not merge without green build, accounting/migration tests, and on-device verification.
+Status: approved product direction; feature branch only. User updated verification policy on 10 October 2026: skip instrumentation unless explicitly requested. Do not merge without green build/accounting checks and the remaining on-device acceptance.
 
 ## Scope
 - Keep institutional liabilities (Fuliza, M-Shwari, banks) unchanged.
@@ -31,4 +31,4 @@ Linked entries reference canonical transactions. Manual entries are non-cash rec
 An accounting projection must derive spending/income portions rather than mutating the original SMS amount.
 
 ## Release gate
-Gradle unit + lint + debug APK build; migration and Android UI tests, including shared-bill and repayments; synthetic Redmi real-device acceptance. A green workflow alone is not a real-device result. No merge/release until verified.
+Default CI: Gradle unit tests, lint, debug APK assembly and synthetic financial contract checks. Successful main builds publish the rolling APK without waiting for instrumentation. Android migration/UI tests remain available through manual workflow dispatch with run_instrumentation enabled, only when the user explicitly requests them; they are not an automatic PR or publication gate. Synthetic Redmi acceptance remains untested and separate from build evidence. Skipped/cancelled instrumentation must never be reported as passing.
