@@ -9,6 +9,8 @@ import com.kedevjimmy.pesatrack.domain.identity.IdentityAliasType
 import com.kedevjimmy.pesatrack.domain.identity.IdentityConfidence
 import com.kedevjimmy.pesatrack.domain.identity.IdentityEvidenceSource
 import com.kedevjimmy.pesatrack.domain.identity.IdentityGraphPolicy
+import com.kedevjimmy.pesatrack.domain.identity.SelfNameEvidencePolicy
+import com.kedevjimmy.pesatrack.domain.identity.SelfNameEvidenceLevel
 import com.kedevjimmy.pesatrack.domain.identity.IdentityGraphSnapshot
 import com.kedevjimmy.pesatrack.domain.identity.IdentityNode
 import com.kedevjimmy.pesatrack.domain.identity.IdentityNodeKind
@@ -26,6 +28,9 @@ import com.kedevjimmy.pesatrack.domain.intelligence.LocalSeedEntityEnrichmentPro
 class IdentityGraphStore private constructor(
     context: Context
 ) {
+    private val profilePreferences = context.applicationContext.getSharedPreferences(
+        "pesatrack_preferences", Context.MODE_PRIVATE
+    )
     private val database =
         PesaTrackDatabase.get(
             context.applicationContext
@@ -235,6 +240,9 @@ class IdentityGraphStore private constructor(
             mutableListOf<
                 IdentityReviewPrompt
             >()
+        // Read the user's optional name live. Name matching only creates
+        // review evidence; it cannot post cash or change transaction direction.
+        val configuredName = profilePreferences.getString("profile_name", null)
 
         db.rawQuery(
             """
@@ -304,6 +312,15 @@ class IdentityGraphStore private constructor(
             WHERE a.alias_type = ?
               AND a.identity_id != ?
               AND o.own_transfer_candidate = 1
+              AND EXISTS (
+                  SELECT 1 FROM money_accounts src
+                  JOIN money_accounts dst
+                    ON dst.id = o.linked_account_id
+                  WHERE src.id = o.account_id
+                    AND src.enabled = 1
+                    AND dst.enabled = 1
+                    AND src.id != dst.id
+              )
               AND n.kind IN (?, ?)
               AND NOT EXISTS (
                   SELECT 1
@@ -326,20 +343,21 @@ class IdentityGraphStore private constructor(
                 IdentityNodeKind.PERSON.name,
                 IdentityGraphPolicy.SELF_ID,
                 IdentityAliasType.NAME.name,
-                IdentityGraphPolicy
-                    .SELF_NAME_PROMPT_MIN_OBSERVATIONS
-                    .toString()
+                "1"
             )
         ).use { cursor ->
             while (cursor.moveToNext()) {
                 val display =
                     cursor.getString(1)
-                if (
-                    IdentityGraphPolicy
-                        .isPlausiblePersonName(
-                            display
-                        )
-                ) {
+                val observationCount = cursor.getInt(3)
+                val evidence = SelfNameEvidencePolicy.compare(configuredName, display)
+                val eligible = when (evidence) {
+                    SelfNameEvidenceLevel.EXACT_THREE_NAMES,
+                    SelfNameEvidenceLevel.TWO_OF_THREE_REVIEW -> true
+                    SelfNameEvidenceLevel.NO_MATCH ->
+                        observationCount >= IdentityGraphPolicy.SELF_NAME_PROMPT_MIN_OBSERVATIONS
+                }
+                if (eligible && IdentityGraphPolicy.isPlausiblePersonName(display)) {
                     candidates +=
                         IdentityReviewPrompt(
                             promptType =
@@ -356,7 +374,14 @@ class IdentityGraphStore private constructor(
                             observationCount =
                                 cursor.getInt(3),
                             reason =
-                                "This name repeatedly appears in transfers between accounts PesaTrack believes are yours."
+                                when (evidence) {
+                                    SelfNameEvidenceLevel.EXACT_THREE_NAMES ->
+                                        "All three names match your profile in a transfer already associated with two enabled accounts. This is strong identity evidence, not proof of a new transfer. Confirm only if this is you."
+                                    SelfNameEvidenceLevel.TWO_OF_THREE_REVIEW ->
+                                        "Two of your three names match. Please confirm if this is you; similarity alone cannot turn a payment into a self-transfer."
+                                    SelfNameEvidenceLevel.NO_MATCH ->
+                                        "This name repeatedly appears in transfers between accounts PesaTrack believes are yours."
+                                }
                         )
                 }
             }

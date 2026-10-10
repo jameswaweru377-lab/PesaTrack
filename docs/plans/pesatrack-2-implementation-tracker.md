@@ -120,3 +120,11 @@ Read the attached blueprint PDF plus this tracker, then inspect live `main`/PRs 
 - Salary defaults to **Not now** and is not applied until the user selects Yes and presses Continue.
 - Existing SMS restricted-settings permission/help step and SMS import-window semantics remain connected; the Maybe later action must bypass access requests without importing messages.
 - Delivery gate: one comprehensive PR, one branch CI cycle after all changes, and post-merge main CI if green. Instrumentation/physical Redmi visual acceptance still required before claiming pixel-perfect parity.
+
+## Profile-name evidence for Activity identity review — October 2026
+- Previously the optional onboarding full name was persisted under `pesatrack_preferences/profile_name` but unused in Activity's transfer identity-review prompt creation.
+- This slice reads that profile locally when preparing Activity identity prompts. Exact three distinct names = strong **identity evidence**; two matching names = user-review evidence. Existing unrelated repetitive identity prompts retain their previous threshold.
+- Queries require previously observed transfer candidates spanning two different enabled money accounts. An observed name cannot itself change any income, expense, transfer, ownership or user correction. Exact three names are not yet automatic cash transfer classification.
+- Existing rejected/deferred self review prompts remain respected. No new SQLite schema or permissions, no off-device processing.
+- Statement import: current Activity import accepts CSV with on-device duplicate/mirror preview; PDF and payslip extraction are later offline import adapters requiring text-layer detection, possible OCR, password-protection policy, and evidence-link tests. No PDF support claimed here.
+- Verify JVM name-policy tests, Android compilation/lint/APK and regression CI on branch; physical device Activity review remains separately unverified.
