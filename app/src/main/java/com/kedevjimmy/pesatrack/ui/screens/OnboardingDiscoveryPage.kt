@@ -283,33 +283,6 @@ internal fun ReviewDiscoveryPage(
                 }
         }
 
-        Button(
-            onClick = onContinue,
-            enabled = !applying,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp),
-            shape =
-                RoundedCornerShape(18.dp)
-        ) {
-            if (applying) {
-                CircularProgressIndicator(
-                    modifier =
-                        Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
-                Text(
-                    "Saving accounts…",
-                    modifier =
-                        Modifier.padding(
-                            start = 10.dp
-                        )
-                )
-            } else {
-                Text("Continue")
-            }
-        }
-
         if (showOptions) {
             OutlinedButton(
                 onClick = onAddMissingInstitution,
@@ -337,6 +310,34 @@ internal fun ReviewDiscoveryPage(
                 Text("Set up salary manually")
             }
         }
+
+        Button(
+            onClick = onContinue,
+            enabled = !applying,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+            shape =
+                RoundedCornerShape(18.dp)
+        ) {
+            if (applying) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    "Saving accounts…",
+                    modifier =
+                        Modifier.padding(
+                            start = 10.dp
+                        )
+                )
+            } else {
+                Text("Continue")
+            }
+        }
+
 
     }
 }

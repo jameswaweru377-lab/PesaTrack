@@ -2180,8 +2180,8 @@ private fun ImportChoicePage(
     ) {
         SmartSetupHero(
             icon = Icons.Rounded.History,
-            title = "Start with your recent money",
-            body = "Choose 1–3 completed previous months. We also include this month to date. SMS import is optional."
+            title = "Scan financial SMS messages",
+            body = "With your permission, PesaTrack scans relevant messages locally. Choose 1–3 completed previous months plus this month to date, or start fresh."
         )
 
         Row(
