@@ -717,7 +717,7 @@ fun SmartOnboardingSetupScreen(
         salarySuggestion =
             incomeDiscovery.first
         salaryAccepted =
-            incomeDiscovery.first != null
+            false // An inferred income pattern is not consent to create a salary rule.
         mpesaPhoneSuggestion =
             incomeDiscovery.second
         delay(MIN_PROGRESS_STEP_MS)
