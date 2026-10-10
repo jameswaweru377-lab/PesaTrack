@@ -1457,13 +1457,21 @@ class TransactionStore private constructor(context: Context) {
             accountingEligible(item, reversedCodes, possibleDuplicateIds)
         }
 
+        // Original principal is the cash movement; only the user-confirmed
+        // receivable part is removed from economic income and spending.
+        // netMinor below deliberately remains the complete cash-flow delta.
+        val receivableShares = PersonalReceivableStore(appContext).linkedShares()
         val income = effective
             .filter { it.direction == MoneyDirection.INCOME.name }
-            .checkedMoneySumOf { it.amountMinor }
+            .checkedMoneySumOf { row ->
+                Math.subtractExact(row.amountMinor, receivableShares[row.id]?.repaidMinor ?: 0L)
+            }
 
         val grossSpent = effective
             .filter { it.direction == MoneyDirection.EXPENSE.name }
-            .checkedMoneySumOf { it.amountMinor }
+            .checkedMoneySumOf { row ->
+                Math.subtractExact(row.amountMinor, receivableShares[row.id]?.lentMinor ?: 0L)
+            }
 
         val refunds = effective
             .filter {
