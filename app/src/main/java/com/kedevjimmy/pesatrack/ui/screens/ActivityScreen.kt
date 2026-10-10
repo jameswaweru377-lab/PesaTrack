@@ -234,6 +234,12 @@ fun ActivityScreen(
         IdentityGraphStore.get(context)
     }
     val ledgerUpdateState by LedgerUpdateBus.state.collectAsState()
+    var receivableLinks by remember { mutableStateOf<Map<Long,ReceivableActivityLink>>(emptyMap()) }
+    LaunchedEffect(ledgerUpdateState.revision) {
+        try { receivableLinks = withContext(Dispatchers.IO) { loadReceivableActivityLinks(context) } }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { receivableLinks = emptyMap() }
+    }
     val currentMonthEpochMs = remember {
         monthStart(System.currentTimeMillis())
     }
@@ -749,6 +755,8 @@ fun ActivityScreen(
 
         val matchesFilter =
             when (selectedFilter) {
+                "Owed to me" -> receivableLinks[item.id]?.let { it.active && it.kind == "LENT" } == true
+                "Repayments" -> receivableLinks[item.id]?.let { it.active && it.kind == "REPAID" } == true
                 "Needs review" ->
                     item.reviewState ==
                         ReviewState.NEEDS_REVIEW.name
@@ -769,7 +777,8 @@ fun ActivityScreen(
                 item.counterparty?.contains(query, ignoreCase = true) == true ||
                 item.evidenceLabel?.contains(query, ignoreCase = true) == true ||
                 categoryStore.labelFor(item.category)
-                    .contains(query, ignoreCase = true)
+                    .contains(query, ignoreCase = true) ||
+                receivableLinks[item.id]?.description?.contains(query,ignoreCase = true) == true
 
         matchesFilter && matchesSearch
     }
@@ -1394,7 +1403,9 @@ fun ActivityScreen(
                                 "Needs review",
                                 "Spending",
                                 "Income",
-                                "Transfers"
+                                "Transfers",
+                                "Owed to me",
+                                "Repayments"
                             ).forEach { label ->
                                 item {
                                     FilterChip(
@@ -1562,6 +1573,7 @@ fun ActivityScreen(
                             ) { transaction ->
                                 ActivityRow(
                                     item = transaction,
+                                    debtLink = receivableLinks[transaction.id],
                                     accountName =
                                         transaction
                                             .accountId
@@ -3971,6 +3983,7 @@ private fun ActivityDateHeader(
 @Composable
 private fun ActivityRow(
     item: StoredTransaction,
+    debtLink: ReceivableActivityLink? = null,
     accountName: String?,
     linkedAccountName: String?,
     onClick: () -> Unit
@@ -4062,6 +4075,7 @@ private fun ActivityRow(
                     )
                     val activityLabel =
                         when {
+                            debtLink != null -> debtLink.description
                             needsReview ->
                                 "Needs review"
                             isRefund ->
@@ -4095,7 +4109,7 @@ private fun ActivityRow(
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = pesaToneContent(tone),
-                        maxLines = 1,
+                        maxLines = if (debtLink != null) 2 else 1,
                         overflow =
                             androidx.compose.ui.text
                                 .style.TextOverflow

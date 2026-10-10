@@ -65,7 +65,7 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 
 ## Engineering status
 
-- Database schema: **v33**
+- Database schema: **v37**
 - Android minSdk: **24**
 - target/compile SDK: **36**
 - Current CI runs:
@@ -76,7 +76,7 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 - Android instrumentation on API 35 is available through an explicit manual review run; PR updates and merges do not start it automatically.
 - Pushes to main publish the rolling development debug APK after build, lint and unit tests pass, without requiring emulator tests. Manual review runs retain artifacts but do not replace the rolling release. Signed release runs also default to build-only validation; enable run_instrumentation only when the user explicitly requests emulator review.
 - Canonical ingestion uses an explicit SQLite transaction boundary with rollback coverage.
-- Migration coverage includes fresh v33 plus selected historical upgrades including v1, v30 and v31/v32 to v33.
+- Migration coverage includes fresh v37 plus selected historical upgrades including v1, v30 and v31/v32 to v37.
 - App lock, biometric unlock and passphrase-encrypted backup/restore are implemented.
 
 ## Release and security documents
@@ -100,3 +100,9 @@ Before public release, the project is prioritizing:
 - broader API/migration/performance test matrices.
 
 See [CURRENT_STATE.md](CURRENT_STATE.md) for the source-of-truth engineering snapshot and [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for chronological implementation history.
+
+## Owed to me history review
+
+Personal receivables use a separate local journal. Find in transactions searches imported M-Pesa and bank history by name or phone. Loans and possible repayments require explicit user confirmation; gifts/not-loan decisions are remembered per person. Bulk selection includes only eligible displayed outgoing rows and all selected records are previewed before an atomic save. Shared bills preserve the user's remaining expense category and fees; original cash movements are never duplicated. Activity exposes Owed to me/Repayments filters and debt labels. Schema 37 adds personal_receivable_review_exclusions; encrypted backups from schema 34–36 are bridged with missing tables empty.
+
+Implementation verification is tracked in the history-review PR. Android instrumentation and device acceptance remain unrun unless explicitly requested. Build/lint/unit evidence does not prove physical-device migration or user journeys.

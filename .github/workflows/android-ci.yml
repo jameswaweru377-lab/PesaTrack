@@ -65,7 +65,7 @@ jobs:
         run: |
           set -o pipefail
           export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
-          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace 2>&1 | tee /tmp/pesatrack-build.log
+          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:compileDebugAndroidTestKotlin --stacktrace 2>&1 | tee /tmp/pesatrack-build.log
 
       - name: Summarize Kotlin regression evidence
         shell: bash

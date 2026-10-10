@@ -43,8 +43,9 @@ import java.nio.charset.CodingErrorAction
  val revision by LedgerUpdateBus.state.collectAsState()
  var savedParts by remember(row.id) {mutableStateOf<List<MoneyPart>>(emptyList())}
  LaunchedEffect(row.id,revision.revision) {try {savedParts=withContext(Dispatchers.IO){EverydayMoneyStore(c).allocations(row.id)}} catch(e:CancellationException){throw e} catch(e:Exception){android.util.Log.e("PesaTrackScreens","Could not load split",e)}}
+ if(savedParts.isEmpty())return
  var open by rememberSaveable(row.id){mutableStateOf(false)}
- OutlinedButton(onClick={open=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.CallSplit,null);Spacer(Modifier.width(8.dp));Text(if(savedParts.isEmpty())"Split payment"else"Edit split (${savedParts.size} categories)")}
+ OutlinedButton(onClick={open=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.CallSplit,null);Spacer(Modifier.width(8.dp));Text("Edit saved category split (${savedParts.size} categories)")}
  if(open)SplitPaymentSheet(row,{open=false},onChanged)
 }
 @Composable private fun SplitPaymentSheet(row:StoredTransaction,onDismiss:()->Unit,onChanged:()->Unit) {
@@ -52,7 +53,7 @@ import java.nio.charset.CodingErrorAction
  var categories by remember {mutableStateOf<List<PesaCategory>>(emptyList())};var loaded by remember {mutableStateOf(false)};var busy by remember {mutableStateOf(false)};var error by remember {mutableStateOf<String?>(null)};var hadSplit by remember {mutableStateOf(false)}
  LaunchedEffect(row.id){try{val data=withContext(Dispatchers.IO){CategoryStore.get(c).budgetCategories() to store.allocations(row.id)};categories=data.first;hadSplit=data.second.isNotEmpty();parts.addAll(if(hadSplit)data.second.map {it.category to amountText(it.minor)} else listOf(row.category to "","" to ""));loaded=true}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load this payment."}}
  val summary=SplitAmountSummary.from(row.amountMinor,parts.toList())
- MoneyToolSheet("Split payment","Divide this payment between categories. Match the full amount to save. Fees stay separate; your account total stays the same.",busy,onDismiss){
+ MoneyToolSheet("Edit saved category split","Edit this previously saved category split. Match the full amount to save. Fees stay separate; your account total stays the same.",busy,onDismiss){
   item {Text("Payment: ${toolMoney(row.amountMinor)}",style=MaterialTheme.typography.titleLarge)}
   items(parts.size,key={it}){i->val p=parts[i];PesaCard{Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){ChoiceField("Category ${i+1}",categories.firstOrNull{it.id==p.first}?.label ?: "Choose category",categories.map {it.id to it.label},!busy){parts[i]=it to parts[i].second};MoneyAmount(p.second,enabled=!busy){parts[i]=parts[i].first to it};if(parts.size>2)TextButton(onClick={parts.removeAt(i)},enabled=!busy){Text("Remove part")}}}}
   if(parts.size<20)item{TextButton(onClick={parts.add("" to "")},enabled=!busy){Icon(Icons.Rounded.Add,null);Text("Add part")}}

@@ -79,6 +79,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -181,6 +182,18 @@ fun TransactionDetailScreen(
         remember {
             PersonalLearningStore.get(context)
         }
+    var debtCategoryOpen by remember(transactionId) { mutableStateOf(false) }
+    var receivablePeople by remember { mutableStateOf<List<com.kedevjimmy.pesatrack.data.local.ReceivablePerson>>(emptyList()) }
+    var receivableLinks by remember { mutableStateOf<Map<Long,ReceivableActivityLink>>(emptyMap()) }
+    LaunchedEffect(transactionId,ledgerUpdateState.revision) {
+        try {
+            val data = withContext(Dispatchers.IO) {
+                com.kedevjimmy.pesatrack.data.local.PersonalReceivableStore(context).people() to loadReceivableActivityLinks(context)
+            }
+            receivablePeople = data.first; receivableLinks = data.second
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { receivablePeople = emptyList(); receivableLinks = emptyMap() }
+    }
     var transaction by remember(transactionId) {
         mutableStateOf(store.getById(transactionId))
     }
@@ -462,6 +475,12 @@ fun TransactionDetailScreen(
             title = { Text("Choose a category") },
             text = {
                 Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                if (current.direction in setOf("EXPENSE","INCOME") && receivableLinks[current.id] == null) {
+                    OutlinedButton(onClick = { showCategoryPicker = false; debtCategoryOpen = true },
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text(if (current.direction == "EXPENSE") "Debts → Owed to me" else "Debts → Repayment received")
+                    }
+                }
                 CategoryGrid(
                     currentCategoryId = categoryStore.canonicalId(current.category),
                     onSelected = { category -> showCategoryPicker = false; applyCategory(category) }
@@ -471,6 +490,12 @@ fun TransactionDetailScreen(
             confirmButton = { TextButton(onClick = { showCategoryPicker = false }) { Text("Close") } }
         )
     }
+    if (debtCategoryOpen && current != null) ReceivableEntryDialog(
+        people = receivablePeople,initialPersonId = null,
+        kind = if (current.direction == "EXPENSE") "LENT" else "REPAID",
+        linkedTransaction = current,
+        onDismiss = { debtCategoryOpen = false },
+        onSaved = { debtCategoryOpen = false; refresh() })
     val appliedRule =
         current?.ruleId
             ?.let(
@@ -679,7 +704,7 @@ fun TransactionDetailScreen(
             TransactionDetailFacts(
                 item = current,
                 accountLabel = current.accountId?.let { id -> accountStore.listAccounts(enabledOnly = false).firstOrNull { it.id == id }?.name } ?: "Not identified",
-                categoryLabel = categoryStore.labelFor(categoryStore.canonicalId(current.category)),
+                categoryLabel = receivableLinks[current.id]?.description ?: categoryStore.labelFor(categoryStore.canonicalId(current.category)),
                 onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
                 onCategory = if (current.relationType != TransactionStore.RELATION_REFUND) ({ showCategoryPicker = true }) else null
             )

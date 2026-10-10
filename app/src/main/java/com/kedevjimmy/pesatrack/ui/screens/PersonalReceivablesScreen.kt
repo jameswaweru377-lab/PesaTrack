@@ -22,6 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import com.kedevjimmy.pesatrack.domain.receivables.SharedBillPolicy
+import com.kedevjimmy.pesatrack.domain.receivables.ReceivableHistoryPolicy
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.*
@@ -55,16 +58,19 @@ fun PersonalReceivablesScreen(
     var createKind by remember { mutableStateOf<String?>(null) }
     var deleteEvent by remember { mutableStateOf<ReceivableEvent?>(null) }
     var history by remember { mutableStateOf<List<ReceivableEvent>>(emptyList()) }
+    var historyLinks by remember { mutableStateOf<Map<Long,ReceivableActivityLink>>(emptyMap()) }
     var retry by remember { mutableIntStateOf(0) }
+    var reviewHistory by remember { mutableStateOf(false) }
     LaunchedEffect(revision.revision, selectedPersonId, retry) {
         loading = true
         error = null
         try {
             val data = withContext(Dispatchers.IO) {
-                store.people() to selectedPersonId?.let(store::events).orEmpty()
+                Triple(store.people(),selectedPersonId?.let(store::events).orEmpty(),loadReceivableActivityLinks(context))
             }
             people = data.first
             history = data.second
+            historyLinks = data.third
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
@@ -95,7 +101,7 @@ fun PersonalReceivablesScreen(
                     }
                     Column {
                         Text(selected.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        Text("Personal loan history", style = MaterialTheme.typography.bodySmall,
+                        Text("Loans and shared bills", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -133,6 +139,11 @@ fun PersonalReceivablesScreen(
                         Icon(Icons.Rounded.Add, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text("Record money lent")
+                    }
+                }
+                item {
+                    OutlinedButton(onClick = { reviewHistory = true },modifier = Modifier.fillMaxWidth()) {
+                        Text("Find in transactions")
                     }
                 }
                 if (people.isEmpty()) item {
@@ -182,6 +193,17 @@ fun PersonalReceivablesScreen(
                         modifier = Modifier.weight(1f)) { Text("Record repayment") }
                 }
             }
+            item {
+                OutlinedButton(onClick = { reviewHistory = true },modifier = Modifier.fillMaxWidth()) {
+                    Text("Find loans and repayments in transactions")
+                }
+                val lent = runCatching { history.filter { it.active && it.kind == PersonalReceivableStore.LENT }
+                    .fold(0L) { sum, event -> Math.addExact(sum,event.amountMinor) } }.getOrNull()
+                val repaid = runCatching { history.filter { it.active && it.kind == PersonalReceivableStore.REPAID }
+                    .fold(0L) { sum, event -> Math.addExact(sum,event.amountMinor) } }.getOrNull()
+                Text("Money lent: " + (lent?.let(::receivableMoney) ?: "Unavailable"))
+                Text("Repaid: " + (repaid?.let(::receivableMoney) ?: "Unavailable"))
+            }
             item { Text("History", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             items(history, key = { it.id }) { event ->
                 PesaCard {
@@ -190,7 +212,9 @@ fun PersonalReceivablesScreen(
                              else Icons.Rounded.ReceiptLong, contentDescription = null)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(if (event.kind == PersonalReceivableStore.LENT) "Money lent" else "Repayment",
+                            val link = event.transactionId?.let { historyLinks[it] }
+                            Text((link?.title ?: if (event.kind == PersonalReceivableStore.LENT) "Money lent" else "Repayment") +
+                                (link?.sourceCategory?.let { " · " + it } ?: ""),
                                 fontWeight = FontWeight.Medium)
                             Text(SimpleDateFormat("d MMM yyyy", locale).format(event.occurredAt),
                                 style = MaterialTheme.typography.bodySmall,
@@ -201,6 +225,7 @@ fun PersonalReceivablesScreen(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (!event.active) MaterialTheme.colorScheme.error
                                         else MaterialTheme.colorScheme.onSurfaceVariant)
+                            link?.billSummary?.let { Text(it,style = MaterialTheme.typography.labelSmall) }
                             if (!event.memo.isNullOrBlank()) Text(event.memo, style = MaterialTheme.typography.labelSmall)
                         }
                         Text(receivableMoney(event.amountMinor), fontWeight = FontWeight.Bold)
@@ -211,6 +236,11 @@ fun PersonalReceivablesScreen(
                 }
             }
         }
+    }
+    if (reviewHistory) {
+        ReceivableHistoryReview(selectedPersonId,selected?.name.orEmpty(),selected?.phone,
+            onDismiss = { reviewHistory = false },
+            onSaved = { id -> reviewHistory = false; selectedPersonId = id; retry++ })
     }
     if (createKind != null) {
         ReceivableEntryDialog(
@@ -262,50 +292,88 @@ internal fun PersonalReceivableTransactionAction(row: StoredTransaction, onChang
     var people by remember { mutableStateOf<List<ReceivablePerson>>(emptyList()) }
     var current by remember(row.id) { mutableStateOf<ReceivableEvent?>(null) }
     var open by rememberSaveable(row.id) { mutableStateOf(false) }
+    var sharedBill by rememberSaveable(row.id) { mutableStateOf(false) }
+    var presentation by remember(row.id) { mutableStateOf<ReceivableActivityLink?>(null) }
+    var hasCategorySplit by remember(row.id) { mutableStateOf(false) }
+    var actionLoading by remember(row.id) { mutableStateOf(true) }
+    var actionError by remember(row.id) { mutableStateOf(false) }
+    var reviewHistory by remember(row.id) { mutableStateOf(false) }
+    var reviewPersonId by remember(row.id) { mutableStateOf<String?>(null) }
     LaunchedEffect(row.id, revision.revision) {
+        actionLoading = true; actionError = false
         try {
-            val result = withContext(Dispatchers.IO) { store.people() to store.eventForTransaction(row.id) }
+            val result = withContext(Dispatchers.IO) {
+                Triple(store.people(),store.eventForTransaction(row.id),
+                    loadReceivableActivityLinks(context)[row.id] to EverydayMoneyStore(context).allocations(row.id).isNotEmpty())
+            }
             people = result.first; current = result.second
+            presentation = result.third.first; hasCategorySplit = result.third.second
         } catch (cancelled: CancellationException) { throw cancelled }
-        catch (failure: Exception) { android.util.Log.e("PesaTrackReceivables", "Could not load personal loan link", failure) }
+        catch (_: Exception) { actionError = true }
+        finally { actionLoading = false }
     }
-    if (current == null) {
-        OutlinedButton(
-            onClick = { open = true },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-        ) {
-            Icon(Icons.Rounded.Person, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(if (row.direction == MoneyDirection.EXPENSE.name) "Money lent / shared bill" else "Received debt repayment")
+    if (actionLoading) {
+        LinearProgressIndicator(Modifier.fillMaxWidth())
+    } else if (actionError) {
+        Text("Could not read the debt link. Close and reopen this payment to try again.",color = MaterialTheme.colorScheme.error)
+    } else if (current == null) {
+        if (hasCategorySplit) {
+            Text("This payment has a saved category split. Remove it using Edit saved category split before recording a loan or shared bill.",
+                style = MaterialTheme.typography.bodySmall)
+        } else {
+            OutlinedButton(onClick = { sharedBill = false; open = true },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("record-money-lent")) {
+                Text(if (row.direction == MoneyDirection.EXPENSE.name) "Money lent" else "Received debt repayment")
+            }
+            if (row.direction == MoneyDirection.EXPENSE.name) {
+                OutlinedButton(onClick = { sharedBill = true; open = true },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("record-shared-bill")) {
+                    Text("Shared bill")
+                }
+            }
         }
     } else {
         PesaCard {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("Personal debt linked", fontWeight = FontWeight.SemiBold)
-                Text((store.nameFor(current!!.personId) ?: "Person") + " • " +
-                    receivableMoney(current!!.amountMinor) +
-                    if (!current!!.active) " • Source requires review" else "")
+                Text(presentation?.description ?: "Personal debt record",fontWeight = FontWeight.SemiBold)
+                presentation?.billSummary?.let { Text(it,style = MaterialTheme.typography.bodySmall) }
+                TextButton(onClick = { reviewPersonId = current!!.personId; reviewHistory = true }) {
+                    Text("Review this person's history")
+                }
                 Text("Edit or remove this link from Accounts → Debts → Owed to me.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    style = MaterialTheme.typography.bodySmall,color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+    if (reviewHistory) {
+        LaunchedEffect(row.id) {
+            try { reviewPersonId = withContext(Dispatchers.IO) { store.eventForTransaction(row.id)?.personId } }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { reviewHistory = false }
+        }
+        if (reviewPersonId != null) ReceivableHistoryReview(reviewPersonId,row.counterparty.orEmpty(),row.counterpartyPhone,
+            onDismiss = { reviewHistory = false },
+            onSaved = { reviewHistory = false; onChanged() })
     }
     if (open) ReceivableEntryDialog(
         people = people, initialPersonId = null,
         kind = if (row.direction == MoneyDirection.EXPENSE.name) PersonalReceivableStore.LENT else PersonalReceivableStore.REPAID,
-        linkedTransaction = row,
+        linkedTransaction = row, sharedBill = sharedBill,
         onDismiss = { open = false },
-        onSaved = { open = false; onChanged() }
+        onSaved = {
+            open = false; onChanged()
+            reviewPersonId = null; reviewHistory = true
+        }
     )
 }
 
 @Composable
-private fun ReceivableEntryDialog(
+internal fun ReceivableEntryDialog(
     people: List<ReceivablePerson>,
     initialPersonId: String?,
     kind: String,
     linkedTransaction: StoredTransaction?,
+    sharedBill: Boolean = false,
     onDismiss: () -> Unit,
     onSaved: () -> Unit
 ) {
@@ -313,15 +381,21 @@ private fun ReceivableEntryDialog(
     val locale = LocalConfiguration.current.locales[0]
     val store = remember { PersonalReceivableStore(context) }
     val scope = rememberCoroutineScope()
-    var selectedId by remember(initialPersonId, linkedTransaction?.id) { mutableStateOf(initialPersonId) }
+    var selectedId by remember(initialPersonId, linkedTransaction?.id) {
+        val sourcePhone = if (sharedBill) null else ReceivableHistoryPolicy.normalizedPhone(linkedTransaction?.counterpartyPhone)
+        val matches = if (sourcePhone == null) emptyList() else people.filter {
+            ReceivableHistoryPolicy.normalizedPhone(it.phone) == sourcePhone
+        }
+        mutableStateOf(initialPersonId ?: matches.singleOrNull()?.id)
+    }
     var name by remember(linkedTransaction?.id) {
-        mutableStateOf(linkedTransaction?.counterparty.orEmpty())
+        mutableStateOf(if (sharedBill) "" else linkedTransaction?.counterparty.orEmpty())
     }
     var phone by remember(linkedTransaction?.id) {
-        mutableStateOf(linkedTransaction?.counterpartyPhone.orEmpty())
+        mutableStateOf(if (sharedBill) "" else linkedTransaction?.counterpartyPhone.orEmpty())
     }
     var amount by remember(linkedTransaction?.id) {
-        mutableStateOf(linkedTransaction?.amountMinor?.let { java.math.BigDecimal.valueOf(it, 2).toPlainString() }.orEmpty())
+        mutableStateOf(if (sharedBill) "" else linkedTransaction?.amountMinor?.let { java.math.BigDecimal.valueOf(it, 2).toPlainString() }.orEmpty())
     }
     var note by remember { mutableStateOf("") }
     var date by remember { mutableLongStateOf(linkedTransaction?.occurredAtEpochMs ?: System.currentTimeMillis()) }
@@ -331,17 +405,35 @@ private fun ReceivableEntryDialog(
     val money = EverydayMoneyPolicy.money(amount)
     val valid = money != null && money > 0L &&
         (linkedTransaction == null || money <= linkedTransaction.amountMinor) &&
+        (!sharedBill || (linkedTransaction != null && SharedBillPolicy.validAmount(linkedTransaction.amountMinor,money))) &&
         (existing != null || name.trim().length >= 2)
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(if (kind == PersonalReceivableStore.LENT) "Record money lent" else "Record repayment") },
+        title = { Text(if (sharedBill) "Record shared bill" else if (kind == PersonalReceivableStore.LENT) "Record money lent" else "Record repayment") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(if (linkedTransaction == null)
+                Text(if (sharedBill)
+                    "Choose who shared this bill and enter their share. The payment recipient is the merchant, so no person is selected automatically."
+                else if (linkedTransaction == null)
                     "This is a manual debt record, not a new bank or M-Pesa transaction."
-                else "Link some or all of this transaction to a person. The original wallet movement remains unchanged.",
+                else if (kind == PersonalReceivableStore.LENT)
+                    "Record the full payment as money lent. For part of a bill, choose Shared bill instead."
+                else "Link some or all of this receipt to a repayment. The original wallet movement remains unchanged.",
                     style = MaterialTheme.typography.bodySmall)
-                if (people.isNotEmpty()) {
+                if (sharedBill) {
+                    SharedBillPersonFields(people,selectedId,existing?.name ?: name,existing?.phone ?: phone,busy,
+                        onExisting = { person -> selectedId = person?.id; name = person?.name.orEmpty(); phone = person?.phone.orEmpty() },
+                        onName = { name = it; phone = "" },onPhone = { phone = it },
+                        onIdentity = { fullName,number ->
+                            val normalized = ReceivableHistoryPolicy.normalizedPhone(number)
+                            val matches = people.filter { normalized != null &&
+                                ReceivableHistoryPolicy.normalizedPhone(it.phone) == normalized &&
+                                ReceivableHistoryPolicy.normalizedName(it.name) == ReceivableHistoryPolicy.normalizedName(fullName) }
+                            selectedId = matches.singleOrNull()?.id
+                            name = fullName; phone = number.orEmpty()
+                        })
+                }
+                if (!sharedBill && people.isNotEmpty()) {
                     Text("Choose an existing person", style = MaterialTheme.typography.labelLarge)
                     people.forEach { person ->
                         Row(Modifier.fillMaxWidth().clickable { selectedId = person.id },
@@ -352,14 +444,26 @@ private fun ReceivableEntryDialog(
                     }
                     TextButton(onClick = { selectedId = null }) { Text("Different person / new person") }
                 }
-                if (existing == null) {
+                if (!sharedBill && existing == null) {
                     OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true,
                         label = { Text("Person's name") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = phone, onValueChange = { phone = it }, singleLine = true,
                         label = { Text("M-Pesa phone (optional)") }, modifier = Modifier.fillMaxWidth())
                 }
                 OutlinedTextField(value = amount, onValueChange = { amount = it }, singleLine = true,
-                    label = { Text("Amount in KES") }, modifier = Modifier.fillMaxWidth())
+                    readOnly = linkedTransaction != null && kind == PersonalReceivableStore.LENT && !sharedBill,
+                    enabled = !busy,label = { Text(if (sharedBill) "Their share in KES" else "Amount in KES") },
+                    modifier = Modifier.fillMaxWidth().testTag("receivable-entry-amount"))
+                if (sharedBill && linkedTransaction != null) {
+                    Text("Bill: " + receivableMoney(linkedTransaction.amountMinor) + " · " +
+                        CategoryStore.get(context).labelFor(linkedTransaction.category),style = MaterialTheme.typography.bodySmall)
+                    if (money != null && SharedBillPolicy.validAmount(linkedTransaction.amountMinor,money)) {
+                        Text("Owed to me: " + receivableMoney(money) + " • Your share: " +
+                            receivableMoney(SharedBillPolicy.ownShare(linkedTransaction.amountMinor,money)) + " • Fees stay separate",
+                            style = MaterialTheme.typography.bodySmall)
+                    } else if (amount.isNotBlank()) Text("Enter a share greater than zero and less than the bill.",
+                        color = MaterialTheme.colorScheme.error,style = MaterialTheme.typography.bodySmall)
+                }
                 if (linkedTransaction == null) {
                     TextButton(onClick = {
                         val cal = Calendar.getInstance().apply { timeInMillis = date }
@@ -397,7 +501,7 @@ private fun ReceivableEntryDialog(
                                 amountMinor = money ?: throw IllegalArgumentException("Invalid amount."),
                                 occurredAt = date,
                                 transactionId = linkedTransaction?.id,
-                                memo = note
+                                memo = note,sharedBill = sharedBill,expectedTransaction = linkedTransaction
                             )
                         }
                         onSaved()
@@ -411,7 +515,7 @@ private fun ReceivableEntryDialog(
     )
 }
 
-private fun receivableMoney(minor: Long): String =
+internal fun receivableMoney(minor: Long): String =
     "KES " + java.text.NumberFormat.getNumberInstance(Locale.US).apply {
         minimumFractionDigits = 2; maximumFractionDigits = 2
     }.format(java.math.BigDecimal.valueOf(minor, 2))

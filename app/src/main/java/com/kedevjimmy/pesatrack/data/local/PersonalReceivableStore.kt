@@ -6,6 +6,9 @@ import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import java.util.UUID
+import com.kedevjimmy.pesatrack.domain.receivables.SharedBillPolicy
+import com.kedevjimmy.pesatrack.domain.receivables.DebtMovement
+import com.kedevjimmy.pesatrack.domain.receivables.ReceivableBatchPolicy
 
 /** Personal money owed TO the user. Separate from institutional liabilities in DebtStore. */
 data class ReceivablePerson(
@@ -24,7 +27,8 @@ data class ReceivableEvent(
     val occurredAt: Long,
     val transactionId: Long?,
     val memo: String?,
-    val active: Boolean
+    val active: Boolean,
+    val sharedBill: Boolean = false
 )
 
 data class ReceivableShare(val lentMinor: Long = 0L, val repaidMinor: Long = 0L)
@@ -61,7 +65,7 @@ class PersonalReceivableStore(context: Context) {
     fun events(personId: String): List<ReceivableEvent> = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(
             """SELECT id, kind, amount_minor, occurred_at_epoch_ms,
-                      linked_transaction_id, memo FROM personal_receivable_events
+                      linked_transaction_id, memo, event_key FROM personal_receivable_events
                WHERE person_id = ? ORDER BY occurred_at_epoch_ms DESC, id DESC""",
             arrayOf(personId)
         ).use { c ->
@@ -72,7 +76,8 @@ class PersonalReceivableStore(context: Context) {
                     val amount = c.getLong(2)
                     add(ReceivableEvent(c.getLong(0), personId, kind, amount, c.getLong(3),
                         tx, if (c.isNull(5)) null else c.getString(5),
-                        tx == null || activeLinkedTransaction(tx, kind, amount)))
+                        tx == null || activeLinkedTransaction(tx, kind, amount, SharedBillPolicy.isSharedEvent(c.getString(6))),
+                        SharedBillPolicy.isSharedEvent(c.getString(6))))
                 }
             }
         }
@@ -81,13 +86,14 @@ class PersonalReceivableStore(context: Context) {
     fun eventForTransaction(transactionId: Long): ReceivableEvent? =
         synchronized(CanonicalStoreLock.monitor) {
             database.readableDatabase.rawQuery(
-                "SELECT id, person_id, kind, amount_minor, occurred_at_epoch_ms, memo FROM personal_receivable_events WHERE linked_transaction_id = ? LIMIT 1",
+                "SELECT id, person_id, kind, amount_minor, occurred_at_epoch_ms, memo, event_key FROM personal_receivable_events WHERE linked_transaction_id = ? LIMIT 1",
                 arrayOf(transactionId.toString())
             ).use { c ->
                 if (!c.moveToFirst()) null else ReceivableEvent(
                     c.getLong(0), c.getString(1), c.getString(2), c.getLong(3),
                     c.getLong(4), transactionId, if (c.isNull(5)) null else c.getString(5),
-                    activeLinkedTransaction(transactionId, c.getString(2), c.getLong(3)))
+                    activeLinkedTransaction(transactionId, c.getString(2), c.getLong(3), SharedBillPolicy.isSharedEvent(c.getString(6))),
+                    SharedBillPolicy.isSharedEvent(c.getString(6)))
             }
         }
 
@@ -102,8 +108,9 @@ class PersonalReceivableStore(context: Context) {
         return total
     }
 
-    private fun activeLinkedTransaction(id: Long, kind: String, amount: Long): Boolean {
+    private fun activeLinkedTransaction(id: Long, kind: String, amount: Long, sharedBill: Boolean = false): Boolean {
         val original = transactions.getById(id) ?: return false
+        if (sharedBill && (kind != LENT || !SharedBillPolicy.validAmount(original.amountMinor,amount))) return false
         if (original.reviewState == ReviewState.EXCLUDED.name ||
             original.reviewState == ReviewState.NEEDS_REVIEW.name ||
             original.relationType != null || original.reversalOfCode != null ||
@@ -131,13 +138,13 @@ class PersonalReceivableStore(context: Context) {
     fun linkedShares(): Map<Long, ReceivableShare> = synchronized(CanonicalStoreLock.monitor) {
         val result = linkedMapOf<Long, ReceivableShare>()
         database.readableDatabase.rawQuery(
-            "SELECT linked_transaction_id, kind, amount_minor FROM personal_receivable_events WHERE linked_transaction_id IS NOT NULL", null
+            "SELECT linked_transaction_id, kind, amount_minor, event_key FROM personal_receivable_events WHERE linked_transaction_id IS NOT NULL", null
         ).use { c ->
             while (c.moveToNext()) {
                 val id = c.getLong(0)
                 val kind = c.getString(1)
                 val amount = c.getLong(2)
-                if (!activeLinkedTransaction(id, kind, amount)) continue
+                if (!activeLinkedTransaction(id, kind, amount, SharedBillPolicy.isSharedEvent(c.getString(3)))) continue
                 val old = result[id] ?: ReceivableShare()
                 result[id] = if (kind == LENT) old.copy(lentMinor = Math.addExact(old.lentMinor, amount))
                              else old.copy(repaidMinor = Math.addExact(old.repaidMinor, amount))
@@ -155,8 +162,12 @@ class PersonalReceivableStore(context: Context) {
         amountMinor: Long,
         occurredAt: Long,
         transactionId: Long? = null,
-        memo: String? = null
+        memo: String? = null,
+        sharedBill: Boolean = false,
+        expectedTransaction: StoredTransaction? = null
     ): Long = synchronized(CanonicalStoreLock.monitor) {
+        require(!sharedBill || (kind == LENT && transactionId != null)) { "Shared bills must link an outgoing payment." }
+        require(expectedTransaction == null || expectedTransaction.id == transactionId) { "Check the source payment." }
         require(kind == LENT || kind == REPAID) { "Select loan or repayment." }
         require(amountMinor > 0 && occurredAt > 0 && occurredAt <= System.currentTimeMillis()) { "Check the amount and date." }
         require(name.trim().length in 2..100) { "Enter the person's name." }
@@ -166,10 +177,18 @@ class PersonalReceivableStore(context: Context) {
         val db = database.writableDatabase
         db.beginTransaction()
         try {
+            require(expectedTransaction == null || transactions.getById(expectedTransaction.id) == expectedTransaction) {
+                "The payment changed. Close and reopen it before saving."
+            }
+            val eventDate = transactionId?.let { transactions.getById(it)?.occurredAtEpochMs } ?: occurredAt
+            require(eventDate > 0 && eventDate <= System.currentTimeMillis()) { "Review the transaction date." }
             if (transactionId != null) {
                 require(activeLinkedTransaction(transactionId, kind, amountMinor)) { "Confirm a valid money movement before linking it." }
                 val original = transactions.getById(transactionId) ?: error("Transaction not found.")
                 require(amountMinor <= original.amountMinor) { "Amount exceeds the payment." }
+                require(!sharedBill || SharedBillPolicy.validAmount(original.amountMinor,amountMinor)) {
+                    "The shared amount must be greater than zero and less than the bill. Use Money lent for a full loan."
+                }
                 require(eventForTransaction(transactionId) == null) { "This transaction is already linked to a personal debt." }
                 val hasSplit = db.rawQuery(
                     "SELECT 1 FROM transaction_allocations WHERE transaction_id = ? LIMIT 1",
@@ -190,14 +209,18 @@ class PersonalReceivableStore(context: Context) {
                     })
                 }
             }
-            if (kind == REPAID) {
-                val outstanding = balance(events(id))
-                require(outstanding >= amountMinor) { "Repayment exceeds this person's outstanding debt." }
-            }
+            val existing = events(id)
+            require(existing.all { it.active }) { "Review changed source evidence before adding a record." }
+            ReceivableBatchPolicy.validate(
+                existing.map { DebtMovement(it.transactionId,it.kind,it.amountMinor,it.occurredAt) },
+                listOf(DebtMovement(transactionId,kind,amountMinor,eventDate))
+            )
+            if (transactionId != null) db.delete("personal_receivable_review_exclusions",
+                "person_id = ? AND transaction_id = ?",arrayOf(id,transactionId.toString()))
             val eventId = db.insertOrThrow("personal_receivable_events", null, ContentValues().apply {
-                put("event_key", "user:" + UUID.randomUUID())
+                put("event_key", (if (sharedBill) SharedBillPolicy.EVENT_PREFIX else "user:") + UUID.randomUUID())
                 put("person_id", id); put("kind", kind); put("amount_minor", amountMinor)
-                put("occurred_at_epoch_ms", occurredAt); put("linked_transaction_id", transactionId)
+                put("occurred_at_epoch_ms", eventDate); put("linked_transaction_id", transactionId)
                 put("memo", memo?.trim()); put("created_at_epoch_ms", System.currentTimeMillis())
             })
             db.setTransactionSuccessful()
@@ -232,6 +255,34 @@ class PersonalReceivableStore(context: Context) {
             db.endTransaction()
             LedgerUpdateBus.notifyChanged()
         }
+    }
+
+    /** Reused by history search and revalidated inside its atomic save. */
+    internal fun linkProblem(id: Long, kind: String, amount: Long): String? = synchronized(CanonicalStoreLock.monitor) {
+        val row = transactions.getById(id) ?: return@synchronized "Transaction is no longer available."
+        if (kind !in setOf(LENT, REPAID) || amount <= 0 || amount > row.amountMinor)
+            return@synchronized "Check the loan or repayment amount."
+        if (row.occurredAtEpochMs <= 0 || row.occurredAtEpochMs > System.currentTimeMillis())
+            return@synchronized "Review the transaction date."
+        if (eventForTransaction(id) != null) return@synchronized "Already linked to a personal debt."
+        if (!activeLinkedTransaction(id,kind,amount)) return@synchronized "Source requires review or is a transfer, reversal or refund."
+        val split = database.readableDatabase.rawQuery(
+            "SELECT 1 FROM transaction_allocations WHERE transaction_id = ? LIMIT 1",arrayOf(id.toString())
+        ).use { it.moveToFirst() }
+        if (split) "Remove the existing category split before linking a borrowed share." else null
+    }
+
+    fun confirmHistory(personId: String?, name: String, phone: String?,
+        selections: List<ReceivableHistorySelection>, exclusions: List<StoredTransaction>): String =
+        ReceivableHistoryRepository(app).confirm(personId,name,phone,selections,exclusions)
+
+    fun linkedEvents(): Map<Long, ReceivableEvent> = synchronized(CanonicalStoreLock.monitor) {
+        database.readableDatabase.rawQuery(
+            "SELECT linked_transaction_id FROM personal_receivable_events WHERE linked_transaction_id IS NOT NULL",null
+        ).use { c -> buildMap { while (c.moveToNext()) {
+            val id = c.getLong(0)
+            eventForTransaction(id)?.let { put(id,it) }
+        } } }
     }
 
     fun nameFor(personId: String): String? = synchronized(CanonicalStoreLock.monitor) {
