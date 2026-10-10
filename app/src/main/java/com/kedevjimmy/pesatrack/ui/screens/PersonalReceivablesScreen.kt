@@ -312,12 +312,11 @@ internal fun PersonalReceivableTransactionAction(row: StoredTransaction, onChang
         catch (_: Exception) { actionError = true }
         finally { actionLoading = false }
     }
-    if (actionLoading) { LinearProgressIndicator(Modifier.fillMaxWidth()); return }
-    if (actionError) {
+    if (actionLoading) {
+        LinearProgressIndicator(Modifier.fillMaxWidth())
+    } else if (actionError) {
         Text("Could not read the debt link. Close and reopen this payment to try again.",color = MaterialTheme.colorScheme.error)
-        return
-    }
-    if (current == null) {
+    } else if (current == null) {
         if (hasCategorySplit) {
             Text("This payment has a saved category split. Remove it using Edit saved category split before recording a loan or shared bill.",
                 style = MaterialTheme.typography.bodySmall)
@@ -425,7 +424,14 @@ internal fun ReceivableEntryDialog(
                     SharedBillPersonFields(people,selectedId,existing?.name ?: name,existing?.phone ?: phone,busy,
                         onExisting = { person -> selectedId = person?.id; name = person?.name.orEmpty(); phone = person?.phone.orEmpty() },
                         onName = { name = it; phone = "" },onPhone = { phone = it },
-                        onIdentity = { fullName,number -> name = fullName; phone = number.orEmpty() })
+                        onIdentity = { fullName,number ->
+                            val normalized = ReceivableHistoryPolicy.normalizedPhone(number)
+                            val matches = people.filter { normalized != null &&
+                                ReceivableHistoryPolicy.normalizedPhone(it.phone) == normalized &&
+                                ReceivableHistoryPolicy.normalizedName(it.name) == ReceivableHistoryPolicy.normalizedName(fullName) }
+                            selectedId = matches.singleOrNull()?.id
+                            name = fullName; phone = number.orEmpty()
+                        })
                 }
                 if (!sharedBill && people.isNotEmpty()) {
                     Text("Choose an existing person", style = MaterialTheme.typography.labelLarge)

@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.ui.screens.ReceivableEntryDialog
+import com.kedevjimmy.pesatrack.ui.screens.PersonalReceivableTransactionAction
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import org.junit.*
 import org.junit.Assert.*
@@ -85,6 +86,22 @@ class SharedBillEntryJourneyTest {
         assertTrue(store.eventForTransaction(merchant.id)!!.sharedBill)
         assertEquals(null,store.eventForTransaction(friend.id))
         assertEquals(20000L,TransactionStore.get(context).getById(merchant.id)!!.amountMinor)
+    }
+
+    @Test fun ledgerRefreshKeepsAnOpenSharedBillAndTypedInputs() {
+        val merchant = row(4,"Sample Restaurant","0712345678",20000)
+        compose.setContent {
+            PesaTrackTheme { PersonalReceivableTransactionAction(merchant,{}) }
+        }
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("record-shared-bill").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("record-shared-bill").performClick()
+        compose.onNodeWithTag("shared-person-name").performTextInput("Norman")
+        compose.onNodeWithTag("receivable-entry-amount").performTextInput("120")
+        compose.runOnIdle { LedgerUpdateBus.notifyChanged() }
+        compose.waitForIdle()
+        assertEquals("Norman",text("shared-person-name"))
+        assertEquals("120",text("receivable-entry-amount"))
+        assertTrue(PersonalReceivableStore(context).people().isEmpty())
     }
 
     @Test fun moneyLentUsesTransactionRecipientAndFullAmount() {
