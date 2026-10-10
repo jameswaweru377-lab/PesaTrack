@@ -201,6 +201,7 @@ fun MoneySetupScreen(
     }
 
     var previewText by remember { mutableStateOf<String?>(null) }
+    var advanced by remember { mutableStateOf(false) }
 
     fun saveRule(apply: Boolean = false) {
         error = null
@@ -576,13 +577,17 @@ fun MoneySetupScreen(
                             value = plannedAmount,
                             onValueChange = { plannedAmount = it },
                             label = { Text("Expected amount (optional)") },
-                            placeholder = { Text("Used to reserve this money in your plan") },
+                            placeholder = { Text("Used by eligible bills and savings commitments") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
                     }
 
-                    if (config.startsPayCycle) {
+                    TextButton(onClick = { advanced = !advanced }) { Text(if (advanced) "Hide advanced options" else "Advanced options") }
+                    if (advanced) {
+                        Text("Names and phrases match part of a message, ignoring letter case. A rule only applies to eligible financial entries. Check the preview before saving.", style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (advanced && config.startsPayCycle) {
                         Text(
                             "Usual payday window (optional)",
                             style = MaterialTheme.typography.titleSmall
