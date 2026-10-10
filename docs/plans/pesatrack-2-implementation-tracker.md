@@ -98,3 +98,9 @@ Read the attached blueprint PDF plus this tracker, then inspect live `main`/PRs 
 - Places optional salary choice **after** account details and before setup completion. Review Detected Accounts no longer asks for salary in the same screen.
 - Existing salary receipt form remains authoritative: accepted detected salary only creates/reapplies a salary **rule**, not a second cash receipt; manual entry requires money actually received.
 - No schema, data parser, new permission or off-device financial evidence. Test initial skip, declining suggested salary, source matching, routing and user intent. A feature-branch CI build does not substitute for emulator/Redmi acceptance.
+
+## Approved seven-screen visual correction — checkbox account review
+- Audited `main` at `d5b22af8a7ecc11e0261134e538934797a4def87`: original design image had a single compact checkbox list, not two sets of cards and Mine/Not mine/Unsure chips. Existing permission flow remains in `SmartOnboardingPermissionComponents.kt` and must not be deleted.
+- Branch `feature/onboarding-approved-checkbox-review-v1`: unifies detected sources and pending account candidates into one compact **unchecked by default** checkbox list. Only an explicit tick authorizes an account. Checking M-Pesa routes to phone confirmation; it is NOT auto-confirmed from SMS.
+- Distinct M-Shwari/Lock Savings confirmation remains separate. Other approved mockup layout differences (M-Pesa detail form, bank detail cards, salary radio controls) are **not yet verified as pixel-matched** and require next isolated UI packages.
+- Exact-head Android unit/lint/APK CI, Compose test-source compilation, regression and main post-merge build must pass. Device visual acceptance not yet performed.
