@@ -51,6 +51,8 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Wallet
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -110,6 +112,7 @@ import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.OnboardingHistoryWindow
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingOwnershipChoice
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingReviewPolicy
+import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingLastFourHintPolicy
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingAccountDetailsPolicy
 import com.kedevjimmy.pesatrack.domain.onboarding.LinkedSavingsOnboardingPolicy
 import com.kedevjimmy.pesatrack.domain.model.FinancialInstitutionDirectory
@@ -144,7 +147,6 @@ private enum class SmartSetupStage {
     SALARY_OPTIONAL,
     SALARY_MANUAL,
     MPESA_CONFIRM,
-    LINKED_SAVINGS,
     ACCOUNT_DETAILS,
     LIVE_CAPTURE,
     COMPLETE
@@ -280,6 +282,7 @@ fun SmartOnboardingSetupScreen(
     var salaryConfirmationSaving by remember { mutableStateOf(false) }
     var salaryConfirmationError by remember { mutableStateOf<String?>(null) }
     var linkedSavingsChoices by remember { mutableStateOf<Map<String, OnboardingOwnershipChoice>>(emptyMap()) }
+    var mpesaWasSelected by rememberSaveable { mutableStateOf(false) }
     var linkedSavingsSaving by remember { mutableStateOf(false) }
     var linkedSavingsError by remember { mutableStateOf<String?>(null) }
     val linkedSavingsOptions = remember {
@@ -292,6 +295,7 @@ fun SmartOnboardingSetupScreen(
             .getString("profile_name", "").orEmpty())
     }
     var bankReferenceEdits by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var bankLastFourHints by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var identitySaving by remember { mutableStateOf(false) }
     var identityError by remember { mutableStateOf<String?>(null) }
     var phoneError by remember {
@@ -1450,7 +1454,7 @@ fun SmartOnboardingSetupScreen(
         SmartSetupStage.ACCOUNT_DETAILS
 
     fun nextAfterMpesaSetup(): SmartSetupStage =
-        SmartSetupStage.LINKED_SAVINGS
+        SmartSetupStage.ACCOUNT_DETAILS
 
     suspend fun applyLinkedSavingsChoices(): Boolean {
         if (linkedSavingsSaving) return false
@@ -1502,6 +1506,14 @@ fun SmartOnboardingSetupScreen(
             identityError = validation.error
             return
         }
+        val hintValidation = OnboardingLastFourHintPolicy.validate(
+            availableAccounts.filter { it.type == AccountType.BANK }.map { it.id }.toSet(),
+            bankLastFourHints
+        )
+        if (hintValidation.error != null) {
+            identityError = hintValidation.error
+            return
+        }
         identityError = null
         identitySaving = true
         setupScope.launch {
@@ -1510,6 +1522,13 @@ fun SmartOnboardingSetupScreen(
                     validation.entries.forEach { (id, ref) ->
                         accountStore.updateIdentifier(id, ref)
                     }
+                    val hintsEditor = context.getSharedPreferences(
+                        "pesatrack_account_last_four_hints", Context.MODE_PRIVATE
+                    ).edit()
+                    hintValidation.entries.forEach { (accountId, digits) ->
+                        hintsEditor.putString(accountId, digits)
+                    }
+                    require(hintsEditor.commit())
                     require(context.getSharedPreferences(
                         "pesatrack_preferences", Context.MODE_PRIVATE
                     ).edit().putString("profile_name", profileName.trim()).commit())
@@ -1579,12 +1598,8 @@ fun SmartOnboardingSetupScreen(
                     .MPESA_CONFIRM ->
                     SmartSetupStage.REVIEW
 
-                SmartSetupStage.LINKED_SAVINGS ->
-                    if (mpesaPhoneSuggestion != null) SmartSetupStage.MPESA_CONFIRM
-                    else SmartSetupStage.REVIEW
-
                 SmartSetupStage.ACCOUNT_DETAILS ->
-                    if (mpesaPhoneSuggestion != null) SmartSetupStage.LINKED_SAVINGS
+                    if (mpesaWasSelected) SmartSetupStage.MPESA_CONFIRM
                     else SmartSetupStage.REVIEW
 
                 SmartSetupStage
@@ -1721,6 +1736,11 @@ fun SmartOnboardingSetupScreen(
                             importMonths = it
                             smsDenied = false
                         },
+                        onLater = {
+                            importMonths = 0
+                            smsDenied = false
+                            stage = SmartSetupStage.ANALYZE
+                        },
                         onContinue = {
                             if (
                                 importMonths == 0 ||
@@ -1790,6 +1810,7 @@ fun SmartOnboardingSetupScreen(
                                     it.reference.providerKey == "SAFARICOM_MPESA" &&
                                         it.reference.entityKey in selectedOwnedKeys
                                 }
+                                mpesaWasSelected = wantsMpesa
                                 applySelectedAccountOwnership()
                                 if (wantsMpesa && mpesaPhoneSuggestion.isNullOrBlank()) {
                                     manualPhoneMode = true
@@ -1968,6 +1989,17 @@ fun SmartOnboardingSetupScreen(
                         error = phoneError,
                         busy =
                             mpesaConfirmationBusy,
+                        lockedAccountChecked =
+                            linkedSavingsChoices["NCBA_MSHWARI_LOCK_SAVINGS"] == OnboardingOwnershipChoice.MINE,
+                        onLockedAccountChanged = { enabled ->
+                            linkedSavingsChoices = if (enabled) {
+                                linkedSavingsChoices + (
+                                    "NCBA_MSHWARI_LOCK_SAVINGS" to OnboardingOwnershipChoice.MINE
+                                )
+                            } else {
+                                linkedSavingsChoices - "NCBA_MSHWARI_LOCK_SAVINGS"
+                            }
+                        },
                         onManualChanged = {
                             manualMpesaPhone = it
                             phoneError = null
@@ -1988,8 +2020,13 @@ fun SmartOnboardingSetupScreen(
                                                 suggested
                                             )
                                         ) {
-                                            stage =
-                                                nextAfterMpesaSetup()
+                                            if (linkedSavingsChoices["NCBA_MSHWARI_LOCK_SAVINGS"] != OnboardingOwnershipChoice.MINE ||
+                                                applyLinkedSavingsChoices()
+                                            ) {
+                                                stage = nextAfterMpesaSetup()
+                                            } else {
+                                                phoneError = linkedSavingsError
+                                            }
                                         }
                                     } finally {
                                         mpesaConfirmationBusy =
@@ -2014,8 +2051,13 @@ fun SmartOnboardingSetupScreen(
                                                 manualMpesaPhone
                                             )
                                         ) {
-                                            stage =
-                                                nextAfterMpesaSetup()
+                                            if (linkedSavingsChoices["NCBA_MSHWARI_LOCK_SAVINGS"] != OnboardingOwnershipChoice.MINE ||
+                                                applyLinkedSavingsChoices()
+                                            ) {
+                                                stage = nextAfterMpesaSetup()
+                                            } else {
+                                                phoneError = linkedSavingsError
+                                            }
                                         }
                                     } finally {
                                         mpesaConfirmationBusy =
@@ -2034,48 +2076,22 @@ fun SmartOnboardingSetupScreen(
                 }
             }
 
-            SmartSetupStage.LINKED_SAVINGS -> {
-                item {
-                    LinkedSavingsReviewPage(
-                        options = linkedSavingsOptions,
-                        choices = linkedSavingsChoices,
-                        saving = linkedSavingsSaving,
-                        error = linkedSavingsError,
-                        onChoice = { key, choice ->
-                            linkedSavingsChoices = if (choice == OnboardingOwnershipChoice.UNSURE) {
-                                linkedSavingsChoices - key
-                            } else {
-                                linkedSavingsChoices + (key to choice)
-                            }
-                            linkedSavingsError = null
-                        },
-                        onContinue = {
-                            setupScope.launch {
-                                if (applyLinkedSavingsChoices()) {
-                                    stage = SmartSetupStage.ACCOUNT_DETAILS
-                                }
-                            }
-                        },
-                        onSkip = {
-                            if (!linkedSavingsSaving) {
-                                stage = SmartSetupStage.ACCOUNT_DETAILS
-                            }
-                        }
-                    )
-                }
-            }
-
             SmartSetupStage.ACCOUNT_DETAILS -> {
                 item {
                     PesaTrackAccountDetailsPage(
                         accounts = availableAccounts,
                         profileName = profileName,
                         editedReferences = bankReferenceEdits,
+                        lastFourHints = bankLastFourHints,
                         saving = identitySaving,
                         error = identityError,
                         onNameChanged = { profileName = it },
                         onReferenceChanged = { id, ref ->
                             bankReferenceEdits = bankReferenceEdits + (id to ref)
+                            identityError = null
+                        },
+                        onLastFourChanged = { id, suffix ->
+                            bankLastFourHints = bankLastFourHints + (id to suffix)
                             identityError = null
                         },
                         onSaveAndContinue = { saveAccountDetails() },
@@ -2206,19 +2222,7 @@ fun SmartOnboardingSetupScreen(
             SmartSetupStage.COMPLETE -> {
                 item {
                     SetupCompletePage(
-                        sources =
-                            detectedSources,
-                        salaryAccepted =
-                            salaryApplied ||
-                                (
-                                    salaryAccepted &&
-                                        salarySuggestion !=
-                                        null
-                                    ),
-                        notificationEnabled =
-                            notificationGranted,
-                        navigating =
-                            completionNavigating,
+                        navigating = completionNavigating,
                         onHome = {
                             if (!completionNavigating) {
                                 completionNavigating =
@@ -2246,7 +2250,7 @@ private fun StageProgress(
         SmartSetupStage.IMPORT, SmartSetupStage.SMS_PERMISSION,
         SmartSetupStage.ANALYZE -> 1
         SmartSetupStage.REVIEW -> 2
-        SmartSetupStage.MPESA_CONFIRM, SmartSetupStage.LINKED_SAVINGS -> 3
+        SmartSetupStage.MPESA_CONFIRM -> 3
         SmartSetupStage.ACCOUNT_DETAILS -> 4
         SmartSetupStage.SALARY_OPTIONAL, SmartSetupStage.SALARY_MANUAL -> 5
         SmartSetupStage.LIVE_CAPTURE -> 5
@@ -2283,125 +2287,76 @@ private fun StageProgress(
 private fun ImportChoicePage(
     selectedMonths: Int,
     onSelected: (Int) -> Unit,
+    onLater: () -> Unit,
     onContinue: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        SmartSetupHero(
-            icon = Icons.Rounded.History,
-            title = "Scan financial SMS messages",
-            body = "With your permission, PesaTrack scans relevant messages locally. Choose 1–3 completed previous months plus this month to date, or start fresh."
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf(1, 2, 3).forEach { months ->
-                val selected = selectedMonths == months
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 92.dp)
-                        .clickable { onSelected(months) },
-                    shape = RoundedCornerShape(18.dp),
-                    color =
-                        if (selected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.surface,
-                    border =
-                        androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (selected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outlineVariant
-                        )
-                ) {
-                    Column(
-                        Modifier.padding(horizontal = 8.dp, vertical = 14.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            months.toString(),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color =
-                                if (selected) MaterialTheme.colorScheme.onPrimary
-                                else MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            if (months == 1) "prior month" else "prior months",
-                            style = MaterialTheme.typography.bodySmall,
-                            color =
-                                if (selected) MaterialTheme.colorScheme.onPrimary.copy(alpha = .82f)
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (selected) {
-                            Icon(
-                                Icons.Rounded.CheckCircle,
-                                contentDescription = null,
-                                modifier = Modifier.padding(top = 5.dp).size(18.dp),
-                                tint = MaterialTheme.colorScheme.onPrimary
-                            )
-                        }
-                    }
+        Box(Modifier.fillMaxWidth().height(142.dp), contentAlignment = Alignment.Center) {
+            Surface(
+                modifier = Modifier.size(112.dp), shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.AutoMirrored.Rounded.Message, null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(62.dp))
                 }
             }
         }
-
+        Text("Scan SMS messages",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center)
+        Text(
+            "We'll look for messages from your banks, M-Pesa and other financial services.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
         Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Rounded.CalendarMonth,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    if (selectedMonths > 0) {
-                        "We'll scan this month to date and the previous $selectedMonths completed " +
-                            (if (selectedMonths == 1) "month." else "months.")
-                    } else {
-                        "History import is off. You can start fresh."
-                    },
+            Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Lock, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary)
+                Text("All scanning happens on your phone. Your messages are never uploaded.",
                     modifier = Modifier.padding(start = 10.dp),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Text("Choose how far back to scan",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()) {
+            listOf(1, 2, 3).forEach { n ->
+                FilterChip(
+                    selected = selectedMonths == n,
+                    onClick = { onSelected(n) },
+                    label = { Text(if (n == 1) "1 month" else "$n months") },
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
-
-        OutlinedButton(
-            onClick = { onSelected(0) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            Text(if (selectedMonths == 0) "Starting fresh" else "Not now — start fresh")
-        }
-
-        Button(
-            onClick = onContinue,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            Text(if (selectedMonths == 0) "Continue" else "Scan my messages")
-            Icon(
-                Icons.AutoMirrored.Rounded.ArrowForward,
-                contentDescription = null,
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        }
-
         Text(
-            "You can change the history window later. Raw message text is not kept as your ledger.",
+            "Your selection covers completed previous months plus this month to date.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Button(onClick = onContinue,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+            shape = RoundedCornerShape(12.dp)) {
+            Text(if (selectedMonths == 0) "Continue" else "Scan messages")
+        }
+        TextButton(onClick = onLater, modifier = Modifier.fillMaxWidth()) {
+            Text("Maybe later")
+        }
     }
 }
 
@@ -3154,12 +3109,14 @@ private fun SalaryAccountChoice(
 }
 
 @Composable
-private fun MpesaConfirmationPage(
+internal fun MpesaConfirmationPage(
     suggestedPhone: String,
     manualMode: Boolean,
     manualPhone: String,
     error: String?,
     busy: Boolean,
+    lockedAccountChecked: Boolean,
+    onLockedAccountChanged: (Boolean) -> Unit,
     onManualChanged: (String) -> Unit,
     onConfirmSuggested: () -> Unit,
     onChooseAnother: () -> Unit,
@@ -3168,270 +3125,153 @@ private fun MpesaConfirmationPage(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement =
-            Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
-    SmartSetupHero(
-        icon = Icons.Rounded.PhoneAndroid,
-        title = "Is this your M-Pesa number?",
-        body =
-            "We noticed this destination repeatedly. Confirming ownership helps PesaTrack separate your transfers from money sent to someone else."
-    )
-
-    PesaCard {
-        Column(
-            modifier =
-                Modifier.padding(20.dp),
-            horizontalAlignment =
-                Alignment.CenterHorizontally
-        ) {
-            Text(
-                "M-Pesa (" +
-                    maskPhone(
-                        suggestedPhone
-                    ) +
-                    ")",
-                style =
-                    MaterialTheme.typography
-                        .headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                "Only ownership is being confirmed.",
-                modifier =
-                    Modifier.padding(top = 5.dp),
-                style =
-                    MaterialTheme.typography
-                        .bodySmall,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-            )
-        }
-    }
-
-    if (!manualMode) {
-        Button(
-            onClick = onConfirmSuggested,
-            enabled = !busy,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 54.dp),
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            if (busy) {
-                CircularProgressIndicator(
-                    modifier =
-                        Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
-                Text(
-                    "Confirming…",
-                    modifier =
-                        Modifier.padding(
-                            start = 10.dp
-                        )
-                )
-            } else {
-                Text("Yes, this is mine")
+        Text("M-Pesa account details",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold)
+        Text("Help us match your transactions accurately.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        PesaCard {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconBubble(Icons.Rounded.PhoneAndroid, size = 42.dp)
+                    Column(Modifier.padding(start = 10.dp)) {
+                        Text("M-Pesa", fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleMedium)
+                        Text("Detected from messages",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                if (!manualMode && suggestedPhone.isNotBlank()) {
+                    OutlinedTextField(
+                        value = suggestedPhone.filter(Char::isDigit).takeLast(4),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Phone number (last 4 digits)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Text("Confirm the suggested number, or choose a different one.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = onChooseAnother, enabled = !busy) {
+                        Text("Use a different number")
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = manualPhone,
+                        onValueChange = onManualChanged,
+                        label = { Text("Your M-Pesa phone number") },
+                        placeholder = { Text("07XX XXX XXX") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Text("The complete number is required to verify self-transfers.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Do you have a locked M-Pesa account?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium)
+                        Text("M-Shwari Lock Savings is tracked separately.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(
+                        checked = lockedAccountChecked,
+                        onCheckedChange = onLockedAccountChanged,
+                        enabled = !busy,
+                        modifier = Modifier.testTag("mpesa-lock-savings-toggle")
+                    )
+                }
+                if (lockedAccountChecked) {
+                    Text("We'll also look for Lock Savings transactions. This does not create a balance.",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
-
-        OutlinedButton(
-            onClick = onChooseAnother,
-            enabled = !busy,
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-            Text("No, choose another")
-        }
-    } else {
-        OutlinedTextField(
-            value = manualPhone,
-            onValueChange = onManualChanged,
-            label = {
-                Text("Your M-Pesa number")
-            },
-            placeholder = {
-                Text("0712345678")
-            },
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType =
-                        KeyboardType.Phone
-                ),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-        error?.let {
-            Text(
-                it,
-                color =
-                    MaterialTheme.colorScheme
-                        .error,
-                style =
-                    MaterialTheme.typography
-                        .bodySmall
-            )
-        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
-            onClick = onSaveManual,
+            onClick = if (manualMode || suggestedPhone.isBlank()) onSaveManual else onConfirmSuggested,
             enabled = !busy,
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-            if (busy) {
-                CircularProgressIndicator(
-                    modifier =
-                        Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
-                Text(
-                    "Confirming…",
-                    modifier =
-                        Modifier.padding(
-                            start = 10.dp
-                        )
-                )
-            } else {
-                Text("Save and continue")
-            }
+            modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) { Text(if (busy) "Saving…" else "Continue") }
+        TextButton(onClick = onSkip, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+            Text("Back to this later")
         }
-    }
-
-    TextButton(
-        onClick = onSkip,
-        enabled = !busy,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("I'll do this later")
-    }
-
-    Text(
-        "PesaTrack never treats a number as yours without your confirmation.",
-        style =
-            MaterialTheme.typography
-                .bodySmall,
-        color =
-            MaterialTheme.colorScheme
-                .onSurfaceVariant
-    )
     }
 }
 
 @Composable
 private fun SetupCompletePage(
-    sources: List<DetectedSetupSource>,
-    salaryAccepted: Boolean,
-    notificationEnabled: Boolean,
     navigating: Boolean,
     onHome: () -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         Surface(
-            modifier = Modifier.size(104.dp),
+            modifier = Modifier.size(112.dp),
             shape = CircleShape,
-            color = pesaToneContainer("green")
+            color = MaterialTheme.colorScheme.primaryContainer
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Rounded.CheckCircle,
-                    contentDescription = null,
-                    tint = pesaToneContent("green"),
-                    modifier = Modifier.size(62.dp)
-                )
+                Icon(Icons.Rounded.CheckCircle, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(64.dp))
             }
         }
-
-        Text(
-            "You’re all set!",
-            modifier = Modifier.padding(top = 18.dp),
+        Text("You're all set!",
             style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            "We've matched what PesaTrack can prove from your transaction messages.",
-            modifier = Modifier.padding(top = 7.dp, bottom = 16.dp),
+            textAlign = TextAlign.Center)
+        Text("We've set up your accounts and are ready to start tracking your financial data.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-
-        if (sources.isNotEmpty()) {
-            PesaCard {
-                Column(
-                    Modifier.padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    sources.take(4).forEach { source ->
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconBubble(
-                                if (source.type.contains("BANK", true)) Icons.Rounded.AccountBalance
-                                else Icons.Rounded.AccountBalanceWallet,
-                                size = 40.dp
-                            )
-                            Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                                Text(source.name, style = MaterialTheme.typography.titleSmall)
-                                Text(
-                                    source.messageCount.toString() + " matching message" +
-                                        if (source.messageCount == 1) "" else "s",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Icon(
-                                Icons.Rounded.ChevronRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center)
+        PesaCard {
+            Column(Modifier.fillMaxWidth().padding(15.dp),
+                verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                Text("What happens next?",
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                listOf(
+                    "Import your transactions",
+                    "Automatically categorise your income and expenses",
+                    "Track balances, debts and savings",
+                    "You can always add or edit accounts later"
+                ).forEach { label ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.CheckCircle, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(19.dp))
+                        Text(label,
+                            modifier = Modifier.padding(start = 10.dp),
+                            style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
-        } else {
-            PesaCard {
-                CompletionRow("Accounts will be learned as messages arrive")
-            }
         }
-
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
-        ) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                CompletionRow(if (salaryAccepted) "Salary source matched" else "Salary can be added later")
-                CompletionRow(if (notificationEnabled) "Live tracking enabled" else "Live tracking can be enabled later")
-            }
-        }
-
         Button(
-            onClick = onHome,
-            enabled = !navigating,
-            modifier = Modifier.fillMaxWidth().padding(top = 20.dp).heightIn(min = 56.dp),
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            if (navigating) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text("Opening dashboard…", modifier = Modifier.padding(start = 10.dp))
-            } else {
-                Text("Open my dashboard")
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-        }
+            onClick = onHome, enabled = !navigating,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) { Text(if (navigating) "Opening…" else "Go to dashboard") }
     }
 }
 

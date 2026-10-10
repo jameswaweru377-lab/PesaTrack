@@ -111,3 +111,12 @@ Read the attached blueprint PDF plus this tracker, then inspect live `main`/PRs 
 - Branch `feature/onboarding-approved-checkbox-review-v1`: unifies detected sources and pending account candidates into one compact **unchecked by default** checkbox list. Only an explicit tick authorizes an account. Checking M-Pesa routes to phone confirmation; it is NOT auto-confirmed from SMS.
 - Distinct M-Shwari/Lock Savings confirmation remains separate. Other approved mockup layout differences (M-Pesa detail form, bank detail cards, salary radio controls) are **not yet verified as pixel-matched** and require next isolated UI packages.
 - Exact-head Android unit/lint/APK CI, Compose test-source compilation, regression and main post-merge build must pass. Device visual acceptance not yet performed.
+
+## Approved seven-screen consolidated UI implementation (10-11 October 2026)
+- Goal: match the 7-screen approved image, not an invented alternative. This **single next work package** updates welcome, scan (preserving SMS / restricted-settings consent), M-Pesa details with separate Lock Savings switch, optional bank account suffix hints, salary radio choice and finish screen.
+- Screen 3 compact, unchecked-by-default detected-account checklist is PR #338. It must pass its complete CI and merge before the consolidated UI branch is based on main.
+- M-Pesa Lock Savings is only explicitly selected by the user; skip and default-off do not create an account or balance. There is no extra linked-savings page in the new onboarding navigation. Existing product registry remains available for later account management.
+- The screen-5 four-digit account input is **only an optional local display hint**, never verification of ownership or an automatic self-transfer. The canonical bank-account identifier remains available separately in Accounts.
+- Salary defaults to **Not now** and is not applied until the user selects Yes and presses Continue.
+- Existing SMS restricted-settings permission/help step and SMS import-window semantics remain connected; the Maybe later action must bypass access requests without importing messages.
+- Delivery gate: one comprehensive PR, one branch CI cycle after all changes, and post-merge main CI if green. Instrumentation/physical Redmi visual acceptance still required before claiming pixel-perfect parity.
