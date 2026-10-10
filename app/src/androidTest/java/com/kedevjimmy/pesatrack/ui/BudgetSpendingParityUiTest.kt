@@ -63,7 +63,7 @@ class BudgetSpendingParityUiTest {
         // A user-authoritative category alone cannot turn a receipt into spending.
         insert("BUDGETINC01", MoneyDirection.INCOME, 100_000L, 0L)
         compose.setContent { PesaTrackTheme { BudgetScreen(PaddingValues(), onBack = {}) } }
-        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Your monthly budgets"))
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Your budgets"))
         awaitBudgetLoaded()
         compose.onNodeWithText("KES 0 / KES 5,000").performScrollTo().assertExists()
     }
