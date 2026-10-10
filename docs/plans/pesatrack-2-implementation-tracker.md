@@ -1,6 +1,6 @@
 # PesaTrack 2.0 Advanced — implementation tracker
 
-Status: **A1, A3 and A4 merged; approved seven-screen onboarding redesign underway in staged PRs. Welcome + scan sequencing + secondary missing-institution route is current draft.**  
+Status: **A1, A3, A4 and onboarding welcome/scan PR #328 merged; bank/profile identity page draft in progress.**  
 Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page planning document, 10 October 2026). The PDF is a proposal, not proof of implementation.
 
 ## Baseline (recheck at every subsequent chat / PR)
@@ -74,3 +74,10 @@ Read the attached blueprint PDF plus this tracker, then inspect live `main`/PRs 
 - The existing M-Pesa confirmation, identity management, salary, notification and completion screens remain in place until safe new counterparts are connected and tested. **Do not mark all seven screens implemented**.
 - Planned subsequent coherent work packages: A4b detected institution/account reconciliation UI and profile identity flow (name only a hint, never ownership proof); A4c distinct M-Shwari Lock Savings semantics and optional bank/SACCO details; A4d salary/finish integration, UI regression and device acceptance.
 - Exact branch checks required: unit tests, lint, APK, existing financial contract tests, instrumentation source compilation. Emulator execution requires separate explicit user request. Do not merge until CI passes.
+
+## Account-details screen (approved onboarding next slice)
+- Branch `feature/pesatrack2-onboarding-account-details-v1` based on `f3330792af1077fa852fe34a38a9bac7e159b910` (#328 merged). Check main run `38080338842` before merging.
+- Adds optional bank/profile screen after existing M-Pesa confirmation or detected-account review. Reuses local profile-name preference `pesatrack_preferences.profile_name` and `AccountStore.updateIdentifier`.
+- Only confirmed bank accounts display masked identifiers; a user must explicitly type **complete** account reference (minimum six alphanumeric characters). Four-digit suffix alone is not taken as evidence or used for matching. Name alone does not cause own-transfer classification.
+- Skip does not persist any data. No new schema, server, permissions or SMS reclassification logic. Synthetic JVM validation tests added.
+- Distinct M-Shwari Lock Savings account confirmation and a dedicated optional salary page remain to be implemented; do not mark the full seven-screen design complete. Await exact-head CI and check post-merge main before subsequent PR.

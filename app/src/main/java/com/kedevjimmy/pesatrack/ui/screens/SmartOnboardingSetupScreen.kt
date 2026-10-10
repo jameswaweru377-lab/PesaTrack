@@ -110,6 +110,7 @@ import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.OnboardingHistoryWindow
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingOwnershipChoice
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingReviewPolicy
+import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingAccountDetailsPolicy
 import com.kedevjimmy.pesatrack.domain.rules.SalaryHistoryMonthPolicy
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
@@ -140,6 +141,7 @@ private enum class SmartSetupStage {
     REVIEW,
     SALARY_MANUAL,
     MPESA_CONFIRM,
+    ACCOUNT_DETAILS,
     LIVE_CAPTURE,
     COMPLETE
 }
@@ -273,6 +275,13 @@ fun SmartOnboardingSetupScreen(
     var manualMpesaPhone by rememberSaveable {
         mutableStateOf("")
     }
+    var profileName by rememberSaveable {
+        mutableStateOf(context.getSharedPreferences("pesatrack_preferences", Context.MODE_PRIVATE)
+            .getString("profile_name", "").orEmpty())
+    }
+    var bankReferenceEdits by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var identitySaving by remember { mutableStateOf(false) }
+    var identityError by remember { mutableStateOf<String?>(null) }
     var phoneError by remember {
         mutableStateOf<String?>(null)
     }
@@ -1467,11 +1476,42 @@ fun SmartOnboardingSetupScreen(
     }
 
     fun nextAfterIdentitySetup(): SmartSetupStage =
-        SmartSetupStage.COMPLETE
+        SmartSetupStage.ACCOUNT_DETAILS
+
+    fun saveAccountDetails() {
+        if (identitySaving) return
+        val validation = OnboardingAccountDetailsPolicy.validate(
+            availableAccounts, bankReferenceEdits
+        )
+        if (validation.error != null) {
+            identityError = validation.error
+            return
+        }
+        identityError = null
+        identitySaving = true
+        setupScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    validation.entries.forEach { (id, ref) ->
+                        accountStore.updateIdentifier(id, ref)
+                    }
+                    require(context.getSharedPreferences(
+                        "pesatrack_preferences", Context.MODE_PRIVATE
+                    ).edit().putString("profile_name", profileName.trim()).commit())
+                }
+                stage = SmartSetupStage.COMPLETE
+            } catch (_: Exception) {
+                identityError = "Could not save your account details. Try again or skip."
+            } finally {
+                identitySaving = false
+            }
+        }
+    }
 
     val onboardingBusy =
         reviewSaving ||
             mpesaConfirmationBusy ||
+            identitySaving ||
             manualSalarySaving ||
             completionNavigating ||
             (
@@ -1518,6 +1558,10 @@ fun SmartOnboardingSetupScreen(
                 SmartSetupStage
                     .MPESA_CONFIRM ->
                     SmartSetupStage.REVIEW
+
+                SmartSetupStage.ACCOUNT_DETAILS ->
+                    if (mpesaPhoneSuggestion != null) SmartSetupStage.MPESA_CONFIRM
+                    else SmartSetupStage.REVIEW
 
                 SmartSetupStage
                     .LIVE_CAPTURE ->
@@ -2020,6 +2064,25 @@ fun SmartOnboardingSetupScreen(
                 }
             }
 
+            SmartSetupStage.ACCOUNT_DETAILS -> {
+                item {
+                    PesaTrackAccountDetailsPage(
+                        accounts = availableAccounts,
+                        profileName = profileName,
+                        editedReferences = bankReferenceEdits,
+                        saving = identitySaving,
+                        error = identityError,
+                        onNameChanged = { profileName = it },
+                        onReferenceChanged = { id, ref ->
+                            bankReferenceEdits = bankReferenceEdits + (id to ref)
+                            identityError = null
+                        },
+                        onSaveAndContinue = { saveAccountDetails() },
+                        onSkip = { stage = SmartSetupStage.COMPLETE }
+                    )
+                }
+            }
+
             SmartSetupStage.LIVE_CAPTURE -> {
                 item {
                     SmartLiveCapturePage(
@@ -2128,8 +2191,8 @@ private fun StageProgress(
     stage: SmartSetupStage
 ) {
     val steps = listOf(
-        "Welcome", "Scan messages", "Review accounts", "Account identity",
-        "Salary (optional)", "Live tracking", "Ready"
+        "Welcome", "Scan messages", "Review accounts", "M-Pesa identity",
+        "Bank details", "Salary (optional)", "Ready"
     )
     val visibleIndex = when (stage) {
         SmartSetupStage.WELCOME -> 0
@@ -2137,7 +2200,8 @@ private fun StageProgress(
         SmartSetupStage.ANALYZE -> 1
         SmartSetupStage.REVIEW -> 2
         SmartSetupStage.MPESA_CONFIRM -> 3
-        SmartSetupStage.SALARY_MANUAL -> 4
+        SmartSetupStage.ACCOUNT_DETAILS -> 4
+        SmartSetupStage.SALARY_MANUAL -> 5
         SmartSetupStage.LIVE_CAPTURE -> 5
         SmartSetupStage.COMPLETE -> 6
     }
