@@ -364,13 +364,20 @@ class PesaBackupManager(
             )
                 ?.asInt
                 ?: 0
-        if (backupSchema == 34 && currentSchema == 35) {
+        if (currentSchema == 36 && backupSchema in 34..35) {
             val tables = payload.getAsJsonObject("tables")
                 ?: throw IllegalArgumentException("This backup is missing its ledger tables.")
-            // Schema35 only adds optional tables. Preserve strict validation of every old table.
-            listOf("transaction_allocations", "flexible_budget_options", "statement_import_entries").forEach {
-                require(!tables.has(it)) { "Unexpected table in older backup." }
-                tables.add(it, com.google.gson.JsonArray())
+            // New tables have no pre-migration records. Never replace existing data.
+            val introducedAt35 = listOf(
+                "transaction_allocations", "flexible_budget_options", "statement_import_entries"
+            )
+            val introducedAt36 = listOf(
+                "personal_receivable_people", "personal_receivable_events"
+            )
+            val missing = (if (backupSchema == 34) introducedAt35 else emptyList()) + introducedAt36
+            missing.forEach { name ->
+                require(!tables.has(name)) { "Unexpected table in older backup." }
+                tables.add(name, com.google.gson.JsonArray())
             }
             payload.addProperty("schemaVersion", currentSchema)
         }
