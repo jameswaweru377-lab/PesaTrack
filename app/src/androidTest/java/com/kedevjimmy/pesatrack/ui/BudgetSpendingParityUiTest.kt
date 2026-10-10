@@ -10,6 +10,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
@@ -65,7 +66,26 @@ class BudgetSpendingParityUiTest {
         compose.setContent { PesaTrackTheme { BudgetScreen(PaddingValues(), onBack = {}) } }
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Your budgets"))
         awaitBudgetLoaded()
-        compose.onNodeWithText("KES 0 / KES 5,000").performScrollTo().assertExists()
+        compose.onNodeWithText("Spent KES 0").performScrollTo().assertExists()
+        compose.onNodeWithText("KES 5,000 limit").assertExists()
+    }
+
+    @Test fun removingABudgetRequiresConfirmationAndCancellationPreservesIt() {
+        compose.setContent { PesaTrackTheme { BudgetScreen(PaddingValues(), onBack = {}) } }
+        awaitBudgetLoaded()
+        compose.onAllNodes(hasScrollAction()).onFirst()
+            .performScrollToNode(hasText("Remove"))
+        compose.onNodeWithText("Remove").performClick()
+        compose.onNodeWithText("Remove budget?").assertExists()
+        // Opening the dialog must never delete without deliberate confirmation.
+        org.junit.Assert.assertEquals(1, BudgetStore.get(context).list().size)
+        compose.onNodeWithText("Keep budget").performClick()
+        org.junit.Assert.assertEquals(1, BudgetStore.get(context).list().size)
+
+        compose.onNodeWithText("Remove").performClick()
+        compose.onNodeWithText("Remove budget").performClick()
+        compose.waitUntil(15_000L) { BudgetStore.get(context).list().isEmpty() }
+        org.junit.Assert.assertTrue(BudgetStore.get(context).list().isEmpty())
     }
 
     @Test fun planBudgetSubtractsTrustedTransferDirectionRefund() {
@@ -122,6 +142,7 @@ class BudgetSpendingParityUiTest {
         ))
     }
 }
+
 
 
 
