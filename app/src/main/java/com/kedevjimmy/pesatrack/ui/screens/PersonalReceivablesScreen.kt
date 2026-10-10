@@ -387,7 +387,7 @@ private fun ReceivableEntryDialog(
                                 name = existing?.name ?: name,
                                 phone = existing?.phone ?: phone,
                                 kind = kind,
-                                amountMinor = money ?: error("Invalid amount."),
+                                amountMinor = money ?: throw IllegalArgumentException("Invalid amount."),
                                 occurredAt = date,
                                 transactionId = linkedTransaction?.id,
                                 memo = note
