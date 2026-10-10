@@ -1,5 +1,9 @@
 package com.kedevjimmy.pesatrack.ingestion
 
+import android.Manifest
+import androidx.test.rule.GrantPermissionRule
+import com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore
+import org.junit.Rule
 import android.content.ContentProvider
 import android.content.ContentResolver
 import android.content.ContentValues
@@ -24,6 +28,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @SdkSuppress(minSdkVersion = 29)
 class FinancialHistoryReprocessCancellationTest {
+    @get:Rule val smsPermission = GrantPermissionRule.grant(Manifest.permission.READ_SMS)
     private lateinit var context: Context
     private val now = 1_791_547_200_000L
 
@@ -32,6 +37,7 @@ class FinancialHistoryReprocessCancellationTest {
         PesaTrackDatabase.resetForTests()
         base.deleteDatabase("pesatrack.db")
         base.getSharedPreferences("financial_history_reprocess_state", Context.MODE_PRIVATE).edit().clear().commit()
+        check(SmsAccessConsentStore.setAccepted(base, true))
         val provider = InventedSmsProvider(now)
         provider.attachInfo(base, ProviderInfo().apply { authority = "sms"; exported = false })
         val resolver = ContentResolver.wrap(provider)
@@ -42,6 +48,7 @@ class FinancialHistoryReprocessCancellationTest {
     }
 
     @After fun teardown() {
+        SmsAccessConsentStore.setAccepted(context, false)
         PesaTrackDatabase.resetForTests()
         context.deleteDatabase("pesatrack.db")
         context.getSharedPreferences("financial_history_reprocess_state", Context.MODE_PRIVATE).edit().clear().commit()
