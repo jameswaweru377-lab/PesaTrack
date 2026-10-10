@@ -71,4 +71,27 @@ class OnboardingDiscoveryUiTest {
         compose.onNodeWithTag("ownership-${synthetic.entityKey}-MINE").performClick()
         compose.runOnIdle { assertEquals(OnboardingOwnershipChoice.MINE, decision) }
     }
+    @Test fun userCanOpenMissingInstitutionDirectoryOnlyOnDemand() {
+        var directoryOpened = 0
+        compose.setContent {
+            PesaTrackTheme(darkTheme = true) {
+                ReviewDiscoveryPage(
+                    sources = emptyList(),
+                    ownershipCandidates = emptyList(),
+                    ownershipChoices = emptyMap(),
+                    salarySuggestion = null,
+                    salaryAccepted = false,
+                    importResult = null,
+                    applying = false,
+                    onSalaryAccepted = {},
+                    onOwnershipChoice = { _, _ -> },
+                    onManualSalary = {},
+                    onContinue = {},
+                    onAddMissingInstitution = { directoryOpened++ }
+                )
+            }
+        }
+        compose.onNodeWithText("Add a missing bank or service").performClick()
+        compose.runOnIdle { assertEquals(1, directoryOpened) }
+    }
 }

@@ -38,7 +38,8 @@ internal fun ReviewDiscoveryPage(
     onOwnershipChoice:
         (DiscoveredFinancialEntity, OnboardingOwnershipChoice) -> Unit,
     onManualSalary: () -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    onAddMissingInstitution: () -> Unit = {}
 ) {
     var showOptions by rememberSaveable { mutableStateOf(true) }
     Column(
@@ -50,7 +51,7 @@ internal fun ReviewDiscoveryPage(
             icon = Icons.Rounded.CheckCircle,
             title = "Here's what we found",
             body =
-                "Choose the accounts you use. You can add more later."
+                "These accounts were mentioned in your messages. Confirm which accounts are yours; names alone do not prove ownership."
         )
 
         if (sources.isEmpty()) {
@@ -306,6 +307,17 @@ internal fun ReviewDiscoveryPage(
                 )
             } else {
                 Text("Continue")
+            }
+        }
+
+        if (showOptions) {
+            OutlinedButton(
+                onClick = onAddMissingInstitution,
+                enabled = !applying,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Text("Add a missing bank or service")
             }
         }
 
