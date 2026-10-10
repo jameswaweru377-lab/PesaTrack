@@ -105,3 +105,9 @@ Read the attached blueprint PDF plus this tracker, then inspect live `main`/PRs 
 - A shared reference across sources is only a strong candidate pending unique canonical linkage; same amount/time without a common reference is review only. Different references or accounts are distinct; source identity with contradictory amount/date/ownership is conflict. Payslips and planned income cannot produce cash matches.
 - Unwired to `TransactionStore`, SMS ingest, CSV importer and SQLite. No schema, salary, report, backup or totals changes in B1. Existing source-specific dedupe remains active until B2 design/migration tests pass.
 - B2 will require additive evidence_observations/evidence_links persistence, foreign keys, unique source scope/native key, account id provenance, migration from v37, backup/restore and correction/replay tests before any engine write. B1 by itself does not complete Phase B.
+
+## Approved seven-screen visual correction — checkbox account review
+- Audited `main` at `d5b22af8a7ecc11e0261134e538934797a4def87`: original design image had a single compact checkbox list, not two sets of cards and Mine/Not mine/Unsure chips. Existing permission flow remains in `SmartOnboardingPermissionComponents.kt` and must not be deleted.
+- Branch `feature/onboarding-approved-checkbox-review-v1`: unifies detected sources and pending account candidates into one compact **unchecked by default** checkbox list. Only an explicit tick authorizes an account. Checking M-Pesa routes to phone confirmation; it is NOT auto-confirmed from SMS.
+- Distinct M-Shwari/Lock Savings confirmation remains separate. Other approved mockup layout differences (M-Pesa detail form, bank detail cards, salary radio controls) are **not yet verified as pixel-matched** and require next isolated UI packages.
+- Exact-head Android unit/lint/APK CI, Compose test-source compilation, regression and main post-merge build must pass. Device visual acceptance not yet performed.

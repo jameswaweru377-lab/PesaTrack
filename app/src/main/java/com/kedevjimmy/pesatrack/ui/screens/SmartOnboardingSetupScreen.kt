@@ -175,7 +175,8 @@ private data class SmartSalaryDraft(
 internal data class DetectedSetupSource(
     val name: String,
     val type: String,
-    val messageCount: Int
+    val messageCount: Int,
+    val reference: com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 )
 
 @Composable
@@ -255,11 +256,8 @@ fun SmartOnboardingSetupScreen(
             List<DiscoveredFinancialEntity>
         >(emptyList())
     }
-    var ownershipChoices by remember {
-        mutableStateOf<Map<String, OnboardingOwnershipChoice>>(
-            emptyMap()
-        )
-    }
+    // Explicit selections only; detecting a message never checks a box.
+    var selectedOwnedKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
     var chooseInstitutions by rememberSaveable { mutableStateOf(false) }
     var reviewSaving by remember {
         mutableStateOf(false)
@@ -571,20 +569,16 @@ fun SmartOnboardingSetupScreen(
                                     )
 
                             if (
+                                resolved == null ||
                                 type == null ||
                                 name == null
                             ) {
                                 null
                             } else {
-                                name to type
+                                Triple(name, type, resolved)
                             }
                         }
-                        .groupBy {
-                            it.first
-                                .lowercase(
-                                    Locale.ROOT
-                                )
-                        }
+                        .groupBy { it.third.entityKey }
                         .values
                         .map { entries ->
                             val latest =
@@ -592,8 +586,8 @@ fun SmartOnboardingSetupScreen(
                             DetectedSetupSource(
                                 name = latest.first,
                                 type = latest.second,
-                                messageCount =
-                                    entries.size
+                                messageCount = entries.size,
+                                reference = latest.third
                             )
                         }
                         .sortedWith(
@@ -635,8 +629,7 @@ fun SmartOnboardingSetupScreen(
                         .pendingEntities()
                 )
             }
-        ownershipChoices =
-            emptyMap()
+        selectedOwnedKeys = emptySet()
         if (
             manualSalaryAccountId.isBlank()
         ) {
@@ -1304,58 +1297,33 @@ fun SmartOnboardingSetupScreen(
 
         reviewSaving = true
         try {
-            val plan = OnboardingReviewPolicy.ownershipPlan(
-                pendingOwnershipEntities.map { it.entityKey },
-                ownershipChoices
-            )
-            val selectedKeys = plan.mineKeys
+            val selectedKeys = selectedOwnedKeys
+            val pendingKeys = pendingOwnershipEntities.map { it.entityKey }.toSet()
+            val directSources = detectedSources.map { it.reference }
+                .filter { it.entityKey in selectedKeys && it.entityKey !in pendingKeys }
+                .filterNot { it.providerKey == "SAFARICOM_MPESA" }
+                .distinctBy { it.entityKey }
             withContext(Dispatchers.IO) {
-                plan.notMineKeys.forEach { entityKey ->
-                    financialUnderstandingStore.markEntityExternal(entityKey)
+                pendingOwnershipEntities.filter { it.entityKey in selectedKeys }.forEach { entity ->
+                    financialUnderstandingStore.confirmEntityOwned(entity.entityKey)
+                    financialCoordinator.reconcilePendingTransfers(
+                        entityKey = entity.entityKey, rebuildPayCycles = false
+                    )
                 }
-                selectedKeys.forEach {
-                        entityKey ->
-                    financialUnderstandingStore
-                        .confirmEntityOwned(
-                            entityKey
+                directSources.forEach { reference ->
+                    financialUnderstandingStore.setInstitutionOwned(reference)
+                    financialCoordinator.reconcilePendingTransfers(
+                        entityKey = reference.entityKey, rebuildPayCycles = false
+                    )
+                }
+                if (selectedKeys.isNotEmpty() && smsGranted && importMonths > 0) {
+                    OnboardingHistoryWindow.importStartEpochMs(importMonths)?.let { startEpochMs ->
+                        HistoricalSmsImporter(context.applicationContext).importSince(
+                            sinceEpochMs = startEpochMs, rebuildPayCycles = false
                         )
-                    financialCoordinator
-                        .reconcilePendingTransfers(
-                            entityKey =
-                                entityKey,
-                            rebuildPayCycles =
-                                false
-                        )
+                    }
                 }
-
-                if (
-                    selectedKeys.isNotEmpty() &&
-                    smsGranted &&
-                    importMonths > 0
-                ) {
-                    OnboardingHistoryWindow
-                        .importStartEpochMs(
-                            importMonths
-                        )
-                        ?.let {
-                            startEpochMs ->
-                            HistoricalSmsImporter(
-                                context
-                                    .applicationContext
-                            ).importSince(
-                                sinceEpochMs =
-                                    startEpochMs,
-                                rebuildPayCycles =
-                                    false
-                            )
-                        }
-                }
-
-                if (
-                    selectedKeys.isNotEmpty()
-                ) {
-                    payCycleStore.rebuild()
-                }
+                if (selectedKeys.isNotEmpty()) payCycleStore.rebuild()
             }
 
             availableAccounts =
@@ -1370,8 +1338,7 @@ fun SmartOnboardingSetupScreen(
                     financialUnderstandingStore
                         .pendingEntities()
                 )
-            ownershipChoices =
-                emptyMap()
+            selectedOwnedKeys = emptySet()
 
             if (
                 availableAccounts.none {
@@ -1809,35 +1776,26 @@ fun SmartOnboardingSetupScreen(
                             detectedSources,
                         ownershipCandidates =
                             pendingOwnershipEntities,
-                        ownershipChoices =
-                            ownershipChoices,
-                        importResult =
-                            importResult,
-                        applying =
-                            reviewSaving,
-                        onOwnershipChoice = {
-                                entity, choice ->
-                            ownershipChoices =
-                                if (choice == OnboardingOwnershipChoice.UNSURE) {
-                                    ownershipChoices - entity.entityKey
-                                } else {
-                                    ownershipChoices + (entity.entityKey to choice)
-                                }
+                        selectedOwnedKeys = selectedOwnedKeys,
+                        importResult = importResult,
+                        applying = reviewSaving,
+                        onToggleAccount = { key, checked ->
+                            selectedOwnedKeys = if (checked) selectedOwnedKeys + key
+                            else selectedOwnedKeys - key
                         },
                         onAddMissingInstitution = { chooseInstitutions = true },
                         onContinue = {
                             setupScope.launch {
+                                val wantsMpesa = detectedSources.any {
+                                    it.reference.providerKey == "SAFARICOM_MPESA" &&
+                                        it.reference.entityKey in selectedOwnedKeys
+                                }
                                 applySelectedAccountOwnership()
-                                stage =
-                                    if (
-                                        mpesaPhoneSuggestion !=
-                                        null
-                                    ) {
-                                        SmartSetupStage
-                                            .MPESA_CONFIRM
-                                    } else {
-                                        nextAfterIdentitySetup()
-                                    }
+                                if (wantsMpesa && mpesaPhoneSuggestion.isNullOrBlank()) {
+                                    manualPhoneMode = true
+                                }
+                                stage = if (wantsMpesa) SmartSetupStage.MPESA_CONFIRM
+                                else nextAfterIdentitySetup()
                             }
                         }
                     )
@@ -2673,137 +2631,6 @@ private fun AnalysisRow(
                     FontWeight.Normal
                 }
         )
-    }
-}
-
-@Composable
-internal fun OwnershipCandidateCard(
-    entity: DiscoveredFinancialEntity,
-    choice: OnboardingOwnershipChoice,
-    enabled: Boolean,
-    onChoice: (OnboardingOwnershipChoice) -> Unit
-) {
-    PesaCard {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconBubble(
-                    icon = when (
-                        runCatching { AccountType.valueOf(entity.accountTypeHint) }
-                            .getOrDefault(AccountType.OTHER)
-                    ) {
-                        AccountType.BANK -> Icons.Rounded.AccountBalance
-                        AccountType.MOBILE_WALLET -> Icons.Rounded.PhoneAndroid
-                        else -> Icons.Rounded.Savings
-                    },
-                    size = 44.dp
-                )
-                Column(Modifier.padding(start = 11.dp)) {
-                    Text(
-                        entity.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "Detected account • ownership not assumed",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                listOf(
-                    OnboardingOwnershipChoice.MINE to "Mine",
-                    OnboardingOwnershipChoice.NOT_MINE to "Not mine",
-                    OnboardingOwnershipChoice.UNSURE to "Unsure"
-                ).forEach { (option, label) ->
-                    FilterChip(
-                        selected = choice == option,
-                        onClick = { onChoice(option) },
-                        label = { Text(label) },
-                        enabled = enabled,
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 48.dp)
-                            .testTag("ownership-${entity.entityKey}-${option.name}")
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun DiscoveredSourceCard(
-    source: DetectedSetupSource
-) {
-    PesaCard {
-        Row(
-            modifier =
-                Modifier.padding(16.dp),
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
-            IconBubble(
-                icon =
-                    when (source.type) {
-                        "Bank" ->
-                            Icons.Rounded
-                                .AccountBalance
-                        "Wallet" ->
-                            Icons.Rounded.Wallet
-                        else ->
-                            Icons.Rounded.Payments
-                    },
-                size = 46.dp
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp)
-            ) {
-                Text(
-                    source.name,
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium,
-                    fontWeight =
-                        FontWeight.SemiBold
-                )
-                Text(
-                    source.type +
-                        " • " +
-                        source.messageCount +
-                        " captured message" +
-                        if (
-                            source.messageCount ==
-                            1
-                        ) {
-                            ""
-                        } else {
-                            "s"
-                        },
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
-            }
-            Icon(
-                Icons.Rounded.CheckCircle,
-                contentDescription = "Detected",
-                tint =
-                    MaterialTheme.colorScheme
-                        .primary
-            )
-        }
     }
 }
 

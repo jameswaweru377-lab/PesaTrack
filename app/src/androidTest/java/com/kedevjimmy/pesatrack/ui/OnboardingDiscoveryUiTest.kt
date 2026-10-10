@@ -6,7 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.ui.screens.ReviewDiscoveryPage
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingSalaryChoicePage
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingSalarySuggestion
-import com.kedevjimmy.pesatrack.ui.screens.OwnershipCandidateCard
+import com.kedevjimmy.pesatrack.ui.screens.DetectedAccountCheckRow
 import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingOwnershipChoice
 import com.kedevjimmy.pesatrack.domain.interpretation.AccountOwnershipHint
@@ -22,73 +22,57 @@ import org.junit.runner.RunWith
 class OnboardingDiscoveryUiTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun userCanContinueWithoutFillingSalaryOrAccountForms() {
+    @Test fun detectedAccountsAreUncheckedAndOnlyUserCanSelectThem() {
+        var selected = false
+        compose.setContent {
+            PesaTrackTheme(darkTheme = true) {
+                DetectedAccountCheckRow(
+                    key = "provider:synthetic-bank",
+                    name = "Example Bank",
+                    type = "Bank",
+                    checked = selected,
+                    enabled = true,
+                    onChecked = { selected = it }
+                )
+            }
+        }
+        compose.runOnIdle { assertTrue(!selected) }
+        compose.onNodeWithTag("detected-account-provider:synthetic-bank").performClick()
+        compose.runOnIdle { assertTrue(selected) }
+    }
+
+    @Test fun accountListSupportsSkippingWithoutAnyOwnershipSelection() {
         var continued = false
         compose.setContent {
             PesaTrackTheme(darkTheme = true) {
                 ReviewDiscoveryPage(
                     sources = emptyList(), ownershipCandidates = emptyList(),
-                    ownershipChoices = emptyMap(), importResult = null, applying = false,
-                    onOwnershipChoice = { _, _ -> },
+                    selectedOwnedKeys = emptySet(), importResult = null, applying = false,
+                    onToggleAccount = { _, _ -> },
                     onContinue = { continued = true }
                 )
             }
         }
-        compose.onNodeWithText("Salary setup comes after confirming your accounts. You can skip it.").assertExists()
-        compose.onNodeWithText("Hide account options").performClick()
-        compose.onNodeWithText("Continue").assertIsDisplayed().performClick()
+        compose.onNodeWithText("We found these financial sources").assertExists()
+        compose.onNodeWithText("+  Add another bank or service").assertExists()
+        compose.onNodeWithText("Continue").performClick()
         compose.runOnIdle { assertTrue(continued) }
-        compose.onNodeWithText("Review account options").performClick()
-        compose.onNodeWithText("Add a missing bank or service").assertExists()
     }
-    @Test fun accountOwnershipHasExplicitMineNotMineAndUnsureChoices() {
-        var decision = OnboardingOwnershipChoice.UNSURE
-        val synthetic = DiscoveredFinancialEntity(
-            entityKey = "synthetic:recipient",
-            displayName = "Example recipient bank",
-            providerKey = "SYNTHETIC_PROVIDER",
-            accountTypeHint = "BANK",
-            ownershipHint = AccountOwnershipHint.UNKNOWN,
-            natureHint = FinancialAccountNature.ASSET,
-            confirmedAccountId = null,
-            firstSeenEpochMs = 1L,
-            lastSeenEpochMs = 2L
-        )
-        compose.setContent {
-            PesaTrackTheme(darkTheme = true) {
-                OwnershipCandidateCard(
-                    entity = synthetic,
-                    choice = decision,
-                    enabled = true,
-                    onChoice = { decision = it }
-                )
-            }
-        }
-        compose.onNodeWithTag("ownership-${synthetic.entityKey}-NOT_MINE").performClick()
-        compose.runOnIdle { assertEquals(OnboardingOwnershipChoice.NOT_MINE, decision) }
-        compose.onNodeWithTag("ownership-${synthetic.entityKey}-UNSURE").performClick()
-        compose.runOnIdle { assertEquals(OnboardingOwnershipChoice.UNSURE, decision) }
-        compose.onNodeWithTag("ownership-${synthetic.entityKey}-MINE").performClick()
-        compose.runOnIdle { assertEquals(OnboardingOwnershipChoice.MINE, decision) }
-    }
-    @Test fun userCanOpenMissingInstitutionDirectoryOnlyOnDemand() {
-        var directoryOpened = 0
+
+    @Test fun missingBankDirectoryOpensOnlyWhenRequested() {
+        var openCount = 0
         compose.setContent {
             PesaTrackTheme(darkTheme = true) {
                 ReviewDiscoveryPage(
-                    sources = emptyList(),
-                    ownershipCandidates = emptyList(),
-                    ownershipChoices = emptyMap(),
-                    importResult = null,
-                    applying = false,
-                    onOwnershipChoice = { _, _ -> },
-                    onContinue = {},
-                    onAddMissingInstitution = { directoryOpened++ }
+                    sources = emptyList(), ownershipCandidates = emptyList(),
+                    selectedOwnedKeys = emptySet(), importResult = null, applying = false,
+                    onToggleAccount = { _, _ -> }, onContinue = {},
+                    onAddMissingInstitution = { openCount++ }
                 )
             }
         }
-        compose.onNodeWithText("Add a missing bank or service").performClick()
-        compose.runOnIdle { assertEquals(1, directoryOpened) }
+        compose.onNodeWithText("+  Add another bank or service").performClick()
+        compose.runOnIdle { assertTrue(openCount == 1) }
     }
 
     @Test fun optionalSalaryStepDoesNotAutomaticallyAcceptSuggestedIncome() {
