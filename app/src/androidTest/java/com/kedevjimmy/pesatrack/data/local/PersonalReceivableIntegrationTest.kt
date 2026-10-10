@@ -119,8 +119,6 @@ class PersonalReceivableIntegrationTest {
             PersonalReceivableStore.LENT, 20_000L, date, payment)
         val entry = receivables.eventForTransaction(payment)!!
         assertTrue(entry.active)
-        val secondRepayment = receivables.record(person.id, person.name, null,
-            PersonalReceivableStore.REPAID, 10_000L, date)
         db.update("transactions", ContentValues().apply { put("review_state", "EXCLUDED") },
             "id = ?", arrayOf(payment.toString()))
         assertFalse(receivables.eventForTransaction(payment)!!.active)
@@ -180,6 +178,8 @@ class PersonalReceivableIntegrationTest {
         val person = receivables.people().single()
         val repayment = receivables.record(person.id, person.name, null,
             PersonalReceivableStore.REPAID, 20_000L, date)
+        val secondRepayment = receivables.record(person.id, person.name, null,
+            PersonalReceivableStore.REPAID, 10_000L, date)
         db.update("transactions", ContentValues().apply { put("review_state", "EXCLUDED") },
             "id = ?", arrayOf(payment.toString()))
         assertEquals(person.id, receivables.people().single().id)
