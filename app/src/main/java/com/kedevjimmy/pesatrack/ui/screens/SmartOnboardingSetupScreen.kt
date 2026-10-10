@@ -2030,7 +2030,7 @@ fun SmartOnboardingSetupScreen(
                                                 suggested
                                             )
                                         ) {
-                                                                                        stage =
+                                            stage =
                                                 nextAfterMpesaSetup()
                                         }
                                     } finally {
@@ -2056,7 +2056,7 @@ fun SmartOnboardingSetupScreen(
                                                 manualMpesaPhone
                                             )
                                         ) {
-                                                                                        stage =
+                                            stage =
                                                 nextAfterMpesaSetup()
                                         }
                                     } finally {
@@ -2068,7 +2068,7 @@ fun SmartOnboardingSetupScreen(
                         },
                         onSkip = {
                             setupScope.launch {
-                                                                        stage =
+                                    stage =
                                         nextAfterMpesaSetup()
                                 }
                         }
