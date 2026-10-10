@@ -78,6 +78,56 @@ class PersonalReceivableIntegrationTest {
         assertEquals(-130_000L, snapshot.summary.netMinor)
     }
 
+    @Test fun explicitSharedBillPersistsPurposeCategoryAndAmountThroughEncryptedRestore() {
+        val payment = transaction(170,20000,"EXPENSE")
+        val source = transactions.getById(payment)!!
+        receivables.record(null,"Norman","0712000000","LENT",12000,source.occurredAtEpochMs,
+            payment,sharedBill = true,expectedTransaction = source)
+        val person = receivables.people().single()
+        assertTrue(receivables.events(person.id).single().sharedBill)
+        assertTrue(receivables.eventForTransaction(payment)!!.sharedBill)
+        assertEquals(12000L,receivables.linkedShares()[payment]!!.lentMinor)
+        assertEquals(8000L,BudgetSpendingProjection.calculate(listOf(source),{ null },{ it },
+            receivableLent = { receivables.linkedShares()[it]?.lentMinor ?: 0 })["EATING_OUT"])
+        assertEquals("EATING_OUT",transactions.getById(payment)!!.category)
+        assertEquals(20000L,transactions.getById(payment)!!.amountMinor)
+        val manager = com.kedevjimmy.pesatrack.security.PesaBackupManager(context)
+        val encrypted = manager.exportEncryptedBytes("invented-shared-passphrase")
+        manager.restoreEncryptedBytes(encrypted,"invented-shared-passphrase")
+        assertTrue(receivables.eventForTransaction(payment)!!.sharedBill)
+        assertEquals(12000L,receivables.people().single().outstandingMinor)
+    }
+
+    @Test fun sharedBillCannotEqualFullPaymentOrSaveChangedSource() {
+        val payment = transaction(171,20000,"EXPENSE")
+        val source = transactions.getById(payment)!!
+        try {
+            receivables.record(null,"Norman",null,"LENT",20000,source.occurredAtEpochMs,
+                payment,sharedBill = true,expectedTransaction = source)
+            throw AssertionError("Full payment accepted as shared bill")
+        } catch (_: IllegalArgumentException) {}
+        db.update("transactions",ContentValues().apply { put("category","TRANSPORT") },"id = ?",arrayOf(payment.toString()))
+        try {
+            receivables.record(null,"Norman",null,"LENT",12000,source.occurredAtEpochMs,
+                payment,sharedBill = true,expectedTransaction = source)
+            throw AssertionError("Changed source accepted")
+        } catch (_: IllegalArgumentException) {}
+        assertTrue(receivables.people().isEmpty())
+        assertEquals(null,receivables.eventForTransaction(payment))
+    }
+
+    @Test fun changedBillEqualToShareIsExcludedAndOldPartialLoansRemainLoans() {
+        val payment = transaction(172,20000,"EXPENSE")
+        val source = transactions.getById(payment)!!
+        receivables.record(null,"Norman",null,"LENT",12000,source.occurredAtEpochMs,payment,sharedBill = true)
+        db.update("transactions",ContentValues().apply { put("amount_minor",12000) },"id = ?",arrayOf(payment.toString()))
+        assertFalse(receivables.eventForTransaction(payment)!!.active)
+        assertTrue(receivables.linkedShares().isEmpty())
+        val old = transaction(173,20000,"EXPENSE")
+        receivables.record(null,"Legacy",null,"LENT",12000,source.occurredAtEpochMs,old)
+        assertFalse(receivables.eventForTransaction(old)!!.sharedBill)
+    }
+
     @Test fun linkedLoanCannotExceedPrincipalOrBeLinkedTwice() {
         val payment = transaction(3, 50_000L, "EXPENSE")
         val date = System.currentTimeMillis() - 60_000L
