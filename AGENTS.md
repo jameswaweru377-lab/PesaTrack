@@ -1,0 +1,79 @@
+# PesaTrack — Agent Development Instructions
+
+## Mission
+Build a trustworthy, local-first Android financial companion for Kenya. Prioritize accounting correctness, privacy, reliability, and maintainability over feature count.
+
+These instructions apply to AI-assisted development in this repository, including supported Codex and ChatGPT workflows.
+
+## Read before modifying code
+1. Read README.md, CONTRIBUTING.md, CURRENT_STATE.md, and docs/PRODUCT_CHARTER.md.
+2. Inspect the actual code, relevant tests, current branch, and open PRs.
+3. Treat current implementation and verified test evidence as more authoritative than outdated historical notes.
+4. Preserve existing product decisions unless the user explicitly approves a change.
+
+## Available plugin guidance
+Use installed, authorized tools when useful and supported by the current environment.
+
+- GitHub: Inspect source, issues, PRs, commits and CI. Prefer targeted changes on separate branches.
+- Context7: Consult current public Android, Kotlin, Jetpack Compose, Gradle or dependency documentation when API accuracy matters. Never include private financial data in queries.
+- Superpowers: Apply available planning, systematic debugging and test-driven development guidance.
+- Figma: Inspect approved design context or prepare editable UI proposals when visual work is required.
+- MagicPath: Explore interactive UI alternatives in isolated prototypes; do not replace native Android implementation with web prototype code.
+- Miro / tldraw: Use when architecture diagrams, workflows or user journeys improve understanding.
+- Vercel: Use only for approved Vercel-hosted components. Never assume the Android ledger belongs in the cloud.
+- PostHog: Do not activate financial telemetry, event collection or third-party analytics without explicit user approval.
+- Runway / Descript / Metricool / vidIQ: Use only for separately requested media or marketing work.
+
+A plugin may be unavailable in a particular ChatGPT or Codex environment. Check availability rather than claiming it was used. Do not invoke tools unnecessarily.
+
+## Financial correctness
+- Keep income, expenses, self-transfers, mirror observations, loans, repayments, fees, refunds, reversals and savings movements distinct.
+- Never count the two sides of an owned-account transfer as additional income or spending.
+- Never treat loan principal as earned income or automatically turn debt repayment principal into a new purchase.
+- Do not invent balances, debt amounts, transaction identities or unsupported financial facts.
+- Preserve user-authoritative corrections and deterministic replay/idempotency.
+- Ambiguous financial evidence must remain uncertain.
+- Keep provider-specific message language in bounded evidence and grammar, not expanding provider-specific business-logic chains.
+- Preserve atomic ledger writes and tested migrations.
+
+## Privacy and security
+- Treat SQLite on the Android device as the financial source of truth.
+- Never transmit raw financial SMS, personal transactions, account identifiers, balances, credentials or sensitive user data to third-party plugins or remote AI services.
+- Use sanitized synthetic Kenyan financial examples for tests and external research.
+- No new telemetry, permissions, cloud synchronization or external data processing without explicit approval.
+- Do not commit secrets, signing keys or production credentials.
+
+## Engineering workflow
+1. Identify the requested change and acceptance criteria.
+2. Inspect existing behavior and related regressions before editing.
+3. Choose the smallest safe implementation.
+4. Implement deterministic tests and relevant negative cases.
+5. Verify code with appropriate local checks and CI.
+6. Review the diff for unintended financial, security and UI effects.
+7. Report what changed, what passed, what remains unverified and what should happen next.
+
+Prefer focused fixes and architecture hardening over unapproved feature expansion.
+
+## Concurrent development
+- Do not modify another agent's active branch, worktree, PR or in-progress task.
+- Check the target branch before writing.
+- Keep unrelated changes on separate branches and PRs.
+- Do not merge, release, delete branches, change workflows or alter signing configuration without task-specific authorization.
+- If concurrent changes overlap, identify the conflict before implementation.
+
+## Verification and completion
+For Android changes, use the repository's documented unit tests, lint and APK assembly checks. Run instrumentation or physical-device tests when required.
+
+Financial changes also need synthetic regression fixtures, negative cases, duplicate/mirror safety, replay and migration checks where relevant.
+
+Do not claim tests, CI, deployments or APK publication succeeded without evidence. Report the checked commit SHA and exact remaining validation.
+
+Documentation-only changes must not be represented as application builds.
+
+## Final report
+Always summarize:
+- Verified facts
+- Files changed
+- Tests and CI evidence
+- Remaining risks and unverified behavior
+- Recommended safest next step
