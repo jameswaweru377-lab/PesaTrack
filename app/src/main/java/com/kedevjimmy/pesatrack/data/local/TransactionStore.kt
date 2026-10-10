@@ -1457,6 +1457,13 @@ class TransactionStore private constructor(context: Context) {
             accountingEligible(item, reversedCodes, possibleDuplicateIds)
         }
 
+        val cashIncome = effective
+            .filter { it.direction == MoneyDirection.INCOME.name }
+            .checkedMoneySumOf { it.amountMinor }
+        val cashExpense = effective
+            .filter { it.direction == MoneyDirection.EXPENSE.name }
+            .checkedMoneySumOf { it.amountMinor }
+
         // Original principal is the cash movement; only the user-confirmed
         // receivable part is removed from economic income and spending.
         // netMinor below deliberately remains the complete cash-flow delta.
@@ -1502,7 +1509,7 @@ class TransactionStore private constructor(context: Context) {
                 spentMinor = spent,
                 feesMinor = fees,
                 transferMinor = transfers,
-                netMinor = CheckedMoney.total(income, refunds, CheckedMoney.negate(grossSpent), CheckedMoney.negate(fees)),
+                netMinor = CheckedMoney.total(cashIncome, refunds, CheckedMoney.negate(cashExpense), CheckedMoney.negate(fees)),
                 needsReviewCount = monthTransactions.count {
                     it.id !in possibleDuplicateIds &&
                         (
