@@ -85,6 +85,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
@@ -874,6 +876,9 @@ fun ActivityScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("activity-summary-toggle")
+                        .semantics {
+                            stateDescription = if (showDetailedSummary) "Expanded" else "Collapsed"
+                        }
                         .clickable { showDetailedSummary = !showDetailedSummary },
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surface,
