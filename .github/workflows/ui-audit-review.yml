@@ -49,7 +49,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.kedevjimmy.pesatrack.ui.screens.PrivacyReminderSettingsUiTest,com.kedevjimmy.pesatrack.ingestion.NotificationSourceApprovalUiTest,com.kedevjimmy.pesatrack.ui.OwnershipReviewUiTest,com.kedevjimmy.pesatrack.data.local.OwnershipReviewEvidenceTest,com.kedevjimmy.pesatrack.ui.FinancialReadFailureUiTest,com.kedevjimmy.pesatrack.ui.AuditAccessibilityUiTest,com.kedevjimmy.pesatrack.ui.screens.PlanCacheUiTest --stacktrace
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.kedevjimmy.pesatrack.ui.screens.PrivacyReminderSettingsUiTest,com.kedevjimmy.pesatrack.ingestion.NotificationSourceApprovalUiTest,com.kedevjimmy.pesatrack.ui.OwnershipReviewUiTest,com.kedevjimmy.pesatrack.data.local.OwnershipReviewEvidenceTest,com.kedevjimmy.pesatrack.ui.FinancialReadFailureUiTest,com.kedevjimmy.pesatrack.ui.AuditAccessibilityUiTest,com.kedevjimmy.pesatrack.ui.screens.PlanCacheUiTest,com.kedevjimmy.pesatrack.ui.SmartRuleConsentUiTest --stacktrace
             adb logcat -d -v raw 'PesaTrackMeasurement:I' '*:S' > history-measurements.jsonl
             echo "${{ github.sha }}" > ANDROID_TEST_SOURCE_SHA.txt
 
