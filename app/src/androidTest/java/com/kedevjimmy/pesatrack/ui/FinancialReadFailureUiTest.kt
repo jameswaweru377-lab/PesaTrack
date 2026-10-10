@@ -43,11 +43,16 @@ class FinancialReadFailureUiTest {
             throw failure
         }
         compose.onNodeWithText("Money in").assertDoesNotExist()
+        compose.onNodeWithTag("activity-summary-toggle").assertDoesNotExist()
         PesaTrackDatabase.get(context).writableDatabase.execSQL(recreate)
         activityStore.activityMonths()
         compose.onNodeWithText("Try again").performClick()
-        waitFor("Money in")
+        compose.waitUntil(15_000) {
+            compose.onAllNodesWithTag("activity-summary-toggle").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("Activity could not load").assertDoesNotExist()
+        compose.onNodeWithTag("activity-summary-toggle").performClick()
+        waitFor("Money in")
     }
 
     @Test fun debtReadFailureCannotClaimUserHasNoOutstandingDebt() {

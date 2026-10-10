@@ -13,6 +13,10 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import android.graphics.Bitmap
+import android.util.Log
+import java.io.File
 import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import org.junit.Assert.*
@@ -46,7 +50,8 @@ class AuditAccessibilityUiTest {
             }
         }
         val hero = compose.onNodeWithTag("audit-hero").fetchSemanticsNode().boundsInRoot
-        val bounds = texts.map { text ->
+        // Gather all three layouts before asserting so the first failure does not hide evidence.
+        val rendered = texts.map { text ->
             val node = compose.onNodeWithText(text, useUnmergedTree = true)
             node.assertIsDisplayed()
             val layouts = mutableListOf<TextLayoutResult>()
@@ -54,15 +59,35 @@ class AuditAccessibilityUiTest {
                 assertTrue("Text must expose its rendered layout: $text", action(layouts))
             }
             assertEquals(1, layouts.size)
-            val layout = layouts.single()
-            assertFalse("Critical text must not overflow at ${fontScale}x: $text", layout.hasVisualOverflow)
+            Triple(text, layouts.single(), node.fetchSemanticsNode().boundsInRoot)
+        }
+        val diagnostics = buildString {
+            appendLine("fontScale=$fontScale dark=$dark hero=$hero")
+            rendered.forEach { (text, layout, rect) ->
+                appendLine("text=$text bounds=$rect size=${layout.size} constraints=${layout.layoutInput.constraints} density=${layout.layoutInput.density}")
+                appendLine("paragraphWidth=${layout.multiParagraph.width} paragraphHeight=${layout.multiParagraph.height} overflowWidth=${layout.didOverflowWidth} overflowHeight=${layout.didOverflowHeight} visualOverflow=${layout.hasVisualOverflow} maxLines=${layout.layoutInput.maxLines} style=${layout.layoutInput.style}")
+                for (line in 0 until layout.lineCount) {
+                    appendLine("line=$line top=${layout.getLineTop(line)} bottom=${layout.getLineBottom(line)} baseline=${layout.getLineBaseline(line)} left=${layout.getLineLeft(line)} right=${layout.getLineRight(line)} ellipsized=${layout.isLineEllipsized(line)}")
+                }
+            }
+        }
+        Log.i("AuditAccessibility", diagnostics)
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val artifactDir = File(instrumentation.targetContext.getExternalFilesDir(null), "audit-accessibility").apply { mkdirs() }
+        val artifactName = "hero-${fontScale}-${if (dark) "dark" else "light"}"
+        File(artifactDir, "$artifactName.txt").writeText(diagnostics)
+        instrumentation.uiAutomation.takeScreenshot()?.let { screenshot ->
+            File(artifactDir, "$artifactName.png").outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            screenshot.recycle()
+        }
+        val bounds = rendered.map { (text, layout, rect) ->
+            assertFalse("Critical text must not overflow at ${fontScale}x: $text\n$diagnostics", layout.hasVisualOverflow)
             for (line in 0 until layout.lineCount) {
-                assertFalse("Critical text must not be ellipsized: $text", layout.isLineEllipsized(line))
+                assertFalse("Critical text must not be ellipsized: $text\n$diagnostics", layout.isLineEllipsized(line))
             }
-            node.fetchSemanticsNode().boundsInRoot.also { rect ->
-                assertTrue("Critical text must fit horizontally inside the hero", rect.left >= hero.left && rect.right <= hero.right)
-                assertTrue("Critical text must fit vertically inside the hero", rect.top >= hero.top && rect.bottom <= hero.bottom)
-            }
+            assertTrue("Critical text must fit horizontally inside the hero\n$diagnostics", rect.left >= hero.left && rect.right <= hero.right)
+            assertTrue("Critical text must fit vertically inside the hero\n$diagnostics", rect.top >= hero.top && rect.bottom <= hero.bottom)
+            rect
         }
         assertTrue("Title and amount must not overlap", bounds[0].bottom <= bounds[1].top)
         assertTrue("Amount and explanation must not overlap", bounds[1].bottom <= bounds[2].top)
