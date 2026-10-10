@@ -7,6 +7,7 @@ import com.kedevjimmy.pesatrack.ui.screens.ReviewDiscoveryPage
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingSalaryChoicePage
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingSalarySuggestion
 import com.kedevjimmy.pesatrack.ui.screens.DetectedAccountCheckRow
+import com.kedevjimmy.pesatrack.ui.screens.MpesaConfirmationPage
 import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingOwnershipChoice
 import com.kedevjimmy.pesatrack.domain.interpretation.AccountOwnershipHint
@@ -75,7 +76,7 @@ class OnboardingDiscoveryUiTest {
         compose.runOnIdle { assertTrue(openCount == 1) }
     }
 
-    @Test fun optionalSalaryStepDoesNotAutomaticallyAcceptSuggestedIncome() {
+    @Test fun optionalSalaryRemainsUnconfirmedUntilRadioChoiceAndContinue() {
         var confirmed = false
         var skipped = false
         val synthetic = OnboardingSalarySuggestion(
@@ -88,23 +89,44 @@ class OnboardingDiscoveryUiTest {
         compose.setContent {
             PesaTrackTheme(darkTheme = true) {
                 OnboardingSalaryChoicePage(
-                    suggestion = synthetic,
-                    saving = false,
-                    error = null,
+                    suggestion = synthetic, saving = false, error = null,
                     onConfirmDetected = { confirmed = true },
-                    onEnterManually = {},
-                    onNotMySalary = {},
+                    onEnterManually = {}, onNotMySalary = {},
                     onSkip = { skipped = true }
                 )
             }
         }
-        compose.runOnIdle {
-            assertTrue(!confirmed)
-            assertTrue(!skipped)
-        }
-        compose.onNodeWithText("Not now — continue without salary").performClick()
-        compose.runOnIdle { assertTrue(skipped); assertTrue(!confirmed) }
-        compose.onNodeWithText("Yes, this is my salary").performClick()
+        compose.runOnIdle { assertTrue(!confirmed && !skipped) }
+        compose.onNodeWithText("Continue").performClick()
+        compose.runOnIdle { assertTrue(skipped && !confirmed) }
+        compose.onNodeWithText("Yes, set up my salary").performClick()
+        compose.onNodeWithText("Continue").performClick()
         compose.runOnIdle { assertTrue(confirmed) }
+    }
+
+    @Test fun mpesaLockSavingsToggleRequiresExplicitUserAction() {
+        var locked = false
+        compose.setContent {
+            PesaTrackTheme(darkTheme = false) {
+                MpesaConfirmationPage(
+                    suggestedPhone = "0712345678",
+                    manualMode = false,
+                    manualPhone = "",
+                    error = null,
+                    busy = false,
+                    lockedAccountChecked = locked,
+                    onLockedAccountChanged = { locked = it },
+                    onManualChanged = {},
+                    onConfirmSuggested = {},
+                    onChooseAnother = {},
+                    onSaveManual = {},
+                    onSkip = {}
+                )
+            }
+        }
+        compose.onNodeWithText("M-Pesa account details").assertExists()
+        compose.runOnIdle { assertTrue(!locked) }
+        compose.onNodeWithTag("mpesa-lock-savings-toggle").performClick()
+        compose.runOnIdle { assertTrue(locked) }
     }
 }

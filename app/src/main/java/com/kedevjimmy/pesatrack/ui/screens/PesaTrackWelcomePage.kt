@@ -1,137 +1,120 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Savings
-import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.automirrored.rounded.Message
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 
-/** Intro screen; no permissions or financial account mutations occur here. */
+/** Approved welcome screen: the user can proceed or skip without granting access. */
 @Composable
-internal fun PesaTrackWelcomePage(
-    onGetStarted: () -> Unit,
-    onSkip: () -> Unit
-) {
+internal fun PesaTrackWelcomePage(onGetStarted: () -> Unit, onSkip: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
+        Box(
+            modifier = Modifier.fillMaxWidth().height(148.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = Modifier.padding(vertical = 30.dp, horizontal = 18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(width = 86.dp, height = 116.dp)
             ) {
-                IconBubble(Icons.Rounded.PhoneAndroid, size = 62.dp)
-                IconBubble(Icons.Rounded.AccountBalance, size = 52.dp)
-                IconBubble(Icons.Rounded.Savings, size = 52.dp)
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.PhoneAndroid, null,
+                        modifier = Modifier.size(68.dp),
+                        tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+            Surface(
+                modifier = Modifier.align(Alignment.BottomEnd)
+                    .padding(end = 56.dp, bottom = 5.dp).size(58.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Search, null, modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+            Surface(
+                modifier = Modifier.align(Alignment.TopStart)
+                    .padding(start = 48.dp, top = 19.dp).size(34.dp),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.AutoMirrored.Rounded.Message, null,
+                        tint = MaterialTheme.colorScheme.primary)
+                }
             }
         }
         Text(
-            "Your money, better days",
+            "Welcome to\nPesaTrack",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
         Text(
-            "PesaTrack helps you understand your income, spending, transfers, debts and savings from financial messages — without guessing which accounts are yours.",
-            style = MaterialTheme.typography.bodyLarge,
+            "We'll help you track your income, expenses, debts and savings.",
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
-        PesaCard {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                WelcomeBenefit("Understand financial messages", "Read relevant SMS locally, only with your permission.")
-                WelcomeBenefit("Find possible accounts", "Review the institutions seen in messages; nothing is claimed as yours automatically.")
-                WelcomeBenefit("Confirm your identity", "Optionally check phone and account details to improve transfer matching.")
-                WelcomeBenefit("Add salary when you want", "Salary tracking is optional and needs your confirmation.")
-            }
-        }
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(16.dp)
+        Column(
+            Modifier.fillMaxWidth().padding(top = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(11.dp)
         ) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Rounded.Shield,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    "Your financial messages stay on your phone. Skip SMS access and add details later.",
-                    modifier = Modifier.padding(start = 10.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            WelcomeFeature(Icons.AutoMirrored.Rounded.Message, "Scan your SMS (with your permission)")
+            WelcomeFeature(Icons.Rounded.AccountBalance, "Find your banks and M-Pesa accounts")
+            WelcomeFeature(Icons.Rounded.Search, "Identify your accounts")
+            WelcomeFeature(Icons.Rounded.Savings, "Optionally set up salary tracking")
         }
+        Spacer(Modifier.height(4.dp))
         Button(
             onClick = onGetStarted,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            Text("Get started")
-            Icon(
-                Icons.AutoMirrored.Rounded.ArrowForward,
-                contentDescription = null,
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        }
-        TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
-            Text("Skip for now")
-        }
+            modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) { Text("Get started") }
+        TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) { Text("Skip for now") }
     }
 }
 
 @Composable
-private fun WelcomeBenefit(title: String, details: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun WelcomeFeature(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Surface(
-            modifier = Modifier.size(10.dp),
-            color = MaterialTheme.colorScheme.primary,
-            shape = CircleShape
-        ) {}
-        Column(Modifier.padding(start = 12.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            modifier = Modifier.size(38.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(21.dp))
+            }
         }
+        Text(
+            title,
+            modifier = Modifier.padding(start = 12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
