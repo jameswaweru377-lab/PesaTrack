@@ -107,6 +107,10 @@ class HomeStartupUiTest {
         compose.onNodeWithText("KES 820 of KES 2,000 used").assertExists()
         list.performScrollToNode(hasText("Where money went"))
         compose.onNodeWithText("KES 820 this month").assertExists()
+        val category = CategoryStore.get(context).labelFor(TransactionCategory.EATING_OUT.name)
+        list.performScrollToNode(hasText(category))
+        compose.onNode(hasText("KES 820") and hasAnyAncestor(hasAnyChild(hasText(category))))
+            .assertExists()
     }
 
     private fun showHome() {
