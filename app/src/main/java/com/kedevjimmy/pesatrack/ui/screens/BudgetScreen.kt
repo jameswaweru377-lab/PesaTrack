@@ -740,17 +740,14 @@ private fun ExistingBudgetRow(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    formatBudgetMoney(spentMinor) +
-                        " / " +
-                        formatBudgetMoney(budget.limitMinor),
+                    formatBudgetMoney(budget.limitMinor) + " limit",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Text(
-                "Spent " + formatBudgetMoney(spentMinor) +
-                    " of " + formatBudgetMoney(budget.limitMinor),
+                "Spent " + formatBudgetMoney(spentMinor),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
