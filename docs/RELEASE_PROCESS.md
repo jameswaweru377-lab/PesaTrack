@@ -30,7 +30,7 @@ The manual **Signed Android Release** workflow expects these GitHub repository s
 
 1. Open GitHub Actions -> **Signed Android Release**.
 2. Choose **Run workflow**.
-3. Enter an intentional version name and a version code greater than the last release.
+3. Enter an intentional version name and a version code greater than the last release. Leave run_instrumentation off by default; enable it only when the user explicitly requests emulator validation. When enabled, emulator checks must pass before signing.
 4. The workflow validates the Worker contract, runs JVM tests and release lint, then builds both:
    - signed AAB for Play;
    - signed APK for controlled testing.
