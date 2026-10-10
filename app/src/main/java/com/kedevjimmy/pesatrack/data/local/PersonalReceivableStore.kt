@@ -106,6 +106,14 @@ class PersonalReceivableStore(context: Context) {
             original.relationType != null || original.reversalOfCode != null ||
             original.amountMinor < amount) return false
         if (original.direction != (if (kind == LENT) MoneyDirection.EXPENSE.name else MoneyDirection.INCOME.name)) return false
+        // Once a refund has been observed, we cannot know whether the merchant
+        // refunded the user's share or the friend's share. Exclude the loan link
+        // until the user reviews the original accounting evidence.
+        val refundObserved = database.readableDatabase.rawQuery(
+            "SELECT 1 FROM transactions WHERE related_transaction_id = ? AND relation_type = 'REFUND' AND review_state != 'EXCLUDED' LIMIT 1",
+            arrayOf(id.toString())
+        ).use { it.moveToFirst() }
+        if (refundObserved) return false
         if (original.transactionCode != null) {
             val canceled = database.readableDatabase.rawQuery(
                 "SELECT 1 FROM transactions WHERE reversal_of_code = ? LIMIT 1",
