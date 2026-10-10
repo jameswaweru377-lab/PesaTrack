@@ -1068,6 +1068,13 @@ fun HomeScreen(
         }
 
         item {
+            Text(
+                "This calendar month · " + monthLabel(System.currentTimeMillis()),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1968,17 +1975,8 @@ private fun homeInsight(
     }
 }
 
-private fun formatMoney(minor: Long?): String {
-    if (minor == null) return "Amount unavailable"
-    val formatter = NumberFormat.getNumberInstance(Locale.US).apply {
-        maximumFractionDigits = 0
-    }
-    return if (minor < 0) {
-        "-KES " + formatter.format(-minor.toDouble() / 100.0)
-    } else {
-        "KES " + formatter.format(minor / 100.0)
-    }
-}
+private fun formatMoney(minor: Long?): String =
+    minor?.let(::formatKesAmount) ?: "Amount unavailable"
 
 private fun formatShortDate(epochMs: Long): String =
     SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(epochMs))
