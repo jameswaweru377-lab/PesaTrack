@@ -47,6 +47,24 @@ class BudgetSpendingProjectionTest {
         )
     }
 
+    @Test fun splitExpenseAndRefundKeepFeesSeparateAndPreserveTotal() {
+        val original = row(1, 10000, 100, "EXPENSE", "OTHER")
+        val refund = row(2, 3333, 0, "TRANSFER").copy(relationType = TransactionStore.RELATION_REFUND, relatedTransactionId = 1)
+        val parts = listOf(com.kedevjimmy.pesatrack.domain.everyday.MoneyPart("GROCERIES", 6000), com.kedevjimmy.pesatrack.domain.everyday.MoneyPart("HOME_HOUSEHOLD", 4000))
+        val result = BudgetSpendingProjection.calculate(listOf(original, refund), {original}, {it}) { if(it==1L) parts else emptyList() }
+        assertEquals(4000L, result["GROCERIES"])
+        assertEquals(2667L, result["HOME_HOUSEHOLD"])
+        assertEquals(100L, result["OTHER"])
+        assertEquals(6767L, result.values.sum())
+    }
+    @Test fun splitRefundOutsideExpensePeriodUsesSavedOriginalParts() {
+        val original = row(1, 10000, 0, "EXPENSE", "OTHER")
+        val refund = row(2, 3000, 0, "TRANSFER").copy(relationType = TransactionStore.RELATION_REFUND, relatedTransactionId = 1)
+        val purchase = row(3, 2000, 0, "EXPENSE", "GROCERIES")
+        val parts = listOf(com.kedevjimmy.pesatrack.domain.everyday.MoneyPart("GROCERIES", 6000), com.kedevjimmy.pesatrack.domain.everyday.MoneyPart("HOME_HOUSEHOLD", 4000))
+        assertEquals(200L, BudgetSpendingProjection.calculate(listOf(purchase, refund), {original}, {it}) {if(it==1L)parts else emptyList()}["GROCERIES"])
+    }
+
     private fun row(id: Long, amount: Long, fee: Long, direction: String, category: String = "TRANSPORT") =
         StoredTransaction(
             id = id, transactionCode = "INVENTED$id", fingerprint = "invented$id", type = "SENT_MONEY",

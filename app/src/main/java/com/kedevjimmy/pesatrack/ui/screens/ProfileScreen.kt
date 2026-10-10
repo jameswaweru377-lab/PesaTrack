@@ -52,7 +52,7 @@ fun ProfileScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit, onSettings
         if (progress == null && error == null) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         progress?.let { data ->
             item { EverydayRow(Icons.Rounded.AccountBalanceWallet, "${data.accounts} confirmed accounts", "See balances and account details", onAccountsClick ?: onSettingsClick) }
-            item { Text("Your financial progress", style = MaterialTheme.typography.titleLarge); Text("Budget use is for this month. Savings show recorded contributions towards each goal.", style = MaterialTheme.typography.bodyMedium) }
+            item { Text("Your financial progress", style = MaterialTheme.typography.titleLarge); Text("Budget use follows each budget’s dates. Savings show recorded contributions towards each goal.", style = MaterialTheme.typography.bodyMedium) }
             if (data.budgets.isEmpty() && data.goals.isEmpty()) item { Text("Set a budget or create a savings goal in Plan to see your progress here.") }
             data.budgets.forEach { budget -> item { FinancialProgressCard(budget, false) } }
             val active = data.goals.count { it.saved < it.target }

@@ -109,7 +109,7 @@ private fun SpendingDonut(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "Before refunds",
+                "By category",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -172,7 +172,8 @@ private data class ReportLoadedState(
     val current: ActivityLedgerSnapshot,
     val previous: ActivityLedgerSnapshot,
     val labels: Map<String, String>,
-    val health: MoneyPictureHealth
+    val health: MoneyPictureHealth,
+    val categorySpending: Map<String,Long> = emptyMap()
 )
 
 private fun reportChangePercent(
@@ -200,6 +201,7 @@ fun ReportsInsightsScreen(
     var period by remember { mutableStateOf("Month") }
     var snapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
     var previousSnapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
+    var categorySpending by remember { mutableStateOf<Map<String,Long>>(emptyMap()) }
     var labels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var moneyHealth by remember {
         mutableStateOf<MoneyPictureHealth?>(null)
@@ -275,7 +277,16 @@ fun ReportsInsightsScreen(
                     .timeInMillis
             val store =
                 TransactionStore.get(context)
+            val current = store.activitySnapshotBetween(start,end,now)
+            val allocations = com.kedevjimmy.pesatrack.data.local.EverydayMoneyStore(context).allAllocations()
+            val categoryStore = CategoryStore.get(context)
+            val categoryTotals = com.kedevjimmy.pesatrack.data.local.BudgetSpendingProjection.calculate(
+                current.trustedTransactions.map { it.copy(feeMinor = 0L) },
+                store::trustedRefundOriginal, categoryStore::canonicalId,
+                { allocations[it].orEmpty() }
+            )
             ReportLoadedState(
+                categorySpending = categoryTotals,
                 current =
                     store.activitySnapshotBetween(
                         start,
@@ -304,6 +315,7 @@ fun ReportsInsightsScreen(
         previousSnapshot = loaded.previous
         labels = loaded.labels
         moneyHealth = loaded.health
+        categorySpending = loaded.categorySpending
 
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
         } catch (failure: Exception) {
@@ -313,13 +325,10 @@ fun ReportsInsightsScreen(
     }
 
     val data = snapshot
-    val spending = remember(data, labels) {
-        data?.trustedTransactions
-            ?.filter { it.direction == MoneyDirection.EXPENSE.name && it.reviewState != "EXCLUDED" && it.reviewState != "NEEDS_REVIEW" }
-            ?.groupBy { it.category }
-            ?.map { (category, rows) -> (labels[category] ?: category.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }) to rows.sumOf { it.amountMinor } }
-            ?.sortedByDescending { it.second }
-            .orEmpty()
+    val spending = remember(categorySpending, labels) {
+        categorySpending.filterValues { it > 0L }
+            .map { (category, amount) -> (labels[category] ?: category.replace('_', ' ')) to amount }
+            .sortedByDescending { it.second }
     }
     val total = max(1L, spending.sumOf { it.second })
     val lowQualityMinor =

@@ -969,6 +969,7 @@ fun BillsRemindersScreen(
     ) {
         item { ConceptLoadError(loadError) { retryLoad++ } }
         item { BillsPageHeader(onBack) }
+        item { SuggestedBillsPanel() }
         item {
             BillsHero(
                 bills = bills,
