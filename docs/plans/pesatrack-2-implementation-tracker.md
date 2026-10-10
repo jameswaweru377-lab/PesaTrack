@@ -1,6 +1,6 @@
 # PesaTrack 2.0 Advanced — implementation tracker
 
-Status: **A1, A3, A4 and onboarding welcome/scan PR #328 merged; bank/profile identity page draft in progress.**  
+Status: **A1/A3/A4 and approved onboarding welcome (#328) and account details (#333) merged. Separate M-Shwari savings consent PR pending verification.**  
 Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page planning document, 10 October 2026). The PDF is a proposal, not proof of implementation.
 
 ## Baseline (recheck at every subsequent chat / PR)
@@ -81,3 +81,13 @@ Read the attached blueprint PDF plus this tracker, then inspect live `main`/PRs 
 - Only confirmed bank accounts display masked identifiers; a user must explicitly type **complete** account reference (minimum six alphanumeric characters). Four-digit suffix alone is not taken as evidence or used for matching. Name alone does not cause own-transfer classification.
 - Skip does not persist any data. No new schema, server, permissions or SMS reclassification logic. Synthetic JVM validation tests added.
 - Distinct M-Shwari Lock Savings account confirmation and a dedicated optional salary page remain to be implemented; do not mark the full seven-screen design complete. Await exact-head CI and check post-merge main before subsequent PR.
+
+## Linked M-Shwari savings consent (approved onboarding 3/3, 10 October 2026)
+- Base: main `0b154129013a9f8260483592112b4a7bac3edf68` with successful [Android CI run 38081402929](https://github.com/jameswaweru377-lab/PesaTrack/actions/runs/38081402929).
+- Branch: `feature/pesatrack2-onboarding-mshwari-consent-v1`.
+- M-Pesa phone confirmation no longer automatically marks M-Shwari Savings or M-Shwari Lock Savings as owned. Ingestion evidence elsewhere remains authoritative; this change does not rewrite it.
+- A separate optional savings confirmation screen asks Mine / Not mine / Unsure for **each** of the two distinct products and routes to the existing bank-identity page. Skipping writes nothing.
+- Explicit Mine uses the existing account registry and reconciliation; explicit Not mine demotes an existing financial entity; unknown/unsure does not create an account.
+- No schema, parser or SMS permissions changes. Unit tests cover independent product ownership and absence of implied M-Shwari accounts when M-Pesa is confirmed.
+- Manual salary remains available earlier in review; a dedicated final salary page and ordering to match the seven-screen concept remains a *future separate work package*. Do not claim all screens finished.
+- Requires exact-head PR unit tests/lint/APK and eventual post-merge main CI; instrumentation/device flows unverified until explicitly run.

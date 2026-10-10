@@ -111,6 +111,8 @@ import com.kedevjimmy.pesatrack.domain.rules.OnboardingHistoryWindow
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingOwnershipChoice
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingReviewPolicy
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingAccountDetailsPolicy
+import com.kedevjimmy.pesatrack.domain.onboarding.LinkedSavingsOnboardingPolicy
+import com.kedevjimmy.pesatrack.domain.model.FinancialInstitutionDirectory
 import com.kedevjimmy.pesatrack.domain.rules.SalaryHistoryMonthPolicy
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticsStore
@@ -141,6 +143,7 @@ private enum class SmartSetupStage {
     REVIEW,
     SALARY_MANUAL,
     MPESA_CONFIRM,
+    LINKED_SAVINGS,
     ACCOUNT_DETAILS,
     LIVE_CAPTURE,
     COMPLETE
@@ -274,6 +277,14 @@ fun SmartOnboardingSetupScreen(
     }
     var manualMpesaPhone by rememberSaveable {
         mutableStateOf("")
+    }
+    var linkedSavingsChoices by remember { mutableStateOf<Map<String, OnboardingOwnershipChoice>>(emptyMap()) }
+    var linkedSavingsSaving by remember { mutableStateOf(false) }
+    var linkedSavingsError by remember { mutableStateOf<String?>(null) }
+    val linkedSavingsOptions = remember {
+        FinancialInstitutionDirectory.options.filter {
+            it.reference.providerKey in LinkedSavingsOnboardingPolicy.providerKeys
+        }
     }
     var profileName by rememberSaveable {
         mutableStateOf(context.getSharedPreferences("pesatrack_preferences", Context.MODE_PRIVATE)
@@ -1272,16 +1283,6 @@ fun SmartOnboardingSetupScreen(
                         AccountStore
                             .DEFAULT_MPESA_ID
                 )
-            financialUnderstandingStore
-                .confirmProviderOwned(
-                    providerKey =
-                        "NCBA_MSHWARI_SAVINGS"
-                )
-            financialUnderstandingStore
-                .confirmProviderOwned(
-                    providerKey =
-                        "NCBA_MSHWARI_LOCK_SAVINGS"
-                )
             transactionStore
                 .reconcileOwnAccountTransfers(
                     rebuildPayCycles =
@@ -1478,6 +1479,50 @@ fun SmartOnboardingSetupScreen(
     fun nextAfterIdentitySetup(): SmartSetupStage =
         SmartSetupStage.ACCOUNT_DETAILS
 
+    fun nextAfterMpesaSetup(): SmartSetupStage =
+        SmartSetupStage.LINKED_SAVINGS
+
+    suspend fun applyLinkedSavingsChoices(): Boolean {
+        if (linkedSavingsSaving) return false
+        linkedSavingsSaving = true
+        linkedSavingsError = null
+        try {
+            val plan = LinkedSavingsOnboardingPolicy.plan(linkedSavingsChoices)
+            withContext(Dispatchers.IO) {
+                linkedSavingsOptions.forEach { option ->
+                    val ref = option.reference
+                    val providerKey = ref.providerKey ?: return@forEach
+                    when (providerKey) {
+                        in plan.mineKeys -> {
+                            financialUnderstandingStore.setInstitutionOwned(ref)
+                            financialCoordinator.reconcilePendingTransfers(
+                                entityKey = ref.entityKey,
+                                rebuildPayCycles = false
+                            )
+                        }
+                        in plan.notMineKeys -> {
+                            // Only a discovered existing entity can be marked external.
+                            // Do not invent a financial account from a negative response.
+                            financialUnderstandingStore.markEntityExternal(ref.entityKey)
+                        }
+                        else -> Unit
+                    }
+                }
+                if (plan.mineKeys.isNotEmpty() || plan.notMineKeys.isNotEmpty()) {
+                    transactionStore.reconcileOwnAccountTransfers(rebuildPayCycles = false)
+                    payCycleStore.rebuild()
+                }
+            }
+            availableAccounts = ownedSetupAccounts(accountStore, financialUnderstandingStore)
+            return true
+        } catch (_: Exception) {
+            linkedSavingsError = "Could not save savings choices. Try again or skip for now."
+            return false
+        } finally {
+            linkedSavingsSaving = false
+        }
+    }
+
     fun saveAccountDetails() {
         if (identitySaving) return
         val validation = OnboardingAccountDetailsPolicy.validate(
@@ -1559,8 +1604,12 @@ fun SmartOnboardingSetupScreen(
                     .MPESA_CONFIRM ->
                     SmartSetupStage.REVIEW
 
-                SmartSetupStage.ACCOUNT_DETAILS ->
+                SmartSetupStage.LINKED_SAVINGS ->
                     if (mpesaPhoneSuggestion != null) SmartSetupStage.MPESA_CONFIRM
+                    else SmartSetupStage.REVIEW
+
+                SmartSetupStage.ACCOUNT_DETAILS ->
+                    if (mpesaPhoneSuggestion != null) SmartSetupStage.LINKED_SAVINGS
                     else SmartSetupStage.REVIEW
 
                 SmartSetupStage
@@ -2017,7 +2066,7 @@ fun SmartOnboardingSetupScreen(
                                         ) {
                                             applySalaryIfConfirmed()
                                             stage =
-                                                nextAfterIdentitySetup()
+                                                nextAfterMpesaSetup()
                                         }
                                     } finally {
                                         mpesaConfirmationBusy =
@@ -2044,7 +2093,7 @@ fun SmartOnboardingSetupScreen(
                                         ) {
                                             applySalaryIfConfirmed()
                                             stage =
-                                                nextAfterIdentitySetup()
+                                                nextAfterMpesaSetup()
                                         }
                                     } finally {
                                         mpesaConfirmationBusy =
@@ -2057,8 +2106,39 @@ fun SmartOnboardingSetupScreen(
                             setupScope.launch {
                                     applySalaryIfConfirmed()
                                     stage =
-                                        nextAfterIdentitySetup()
+                                        nextAfterMpesaSetup()
                                 }
+                        }
+                    )
+                }
+            }
+
+            SmartSetupStage.LINKED_SAVINGS -> {
+                item {
+                    LinkedSavingsReviewPage(
+                        options = linkedSavingsOptions,
+                        choices = linkedSavingsChoices,
+                        saving = linkedSavingsSaving,
+                        error = linkedSavingsError,
+                        onChoice = { key, choice ->
+                            linkedSavingsChoices = if (choice == OnboardingOwnershipChoice.UNSURE) {
+                                linkedSavingsChoices - key
+                            } else {
+                                linkedSavingsChoices + (key to choice)
+                            }
+                            linkedSavingsError = null
+                        },
+                        onContinue = {
+                            setupScope.launch {
+                                if (applyLinkedSavingsChoices()) {
+                                    stage = SmartSetupStage.ACCOUNT_DETAILS
+                                }
+                            }
+                        },
+                        onSkip = {
+                            if (!linkedSavingsSaving) {
+                                stage = SmartSetupStage.ACCOUNT_DETAILS
+                            }
                         }
                     )
                 }
@@ -2199,7 +2279,7 @@ private fun StageProgress(
         SmartSetupStage.IMPORT, SmartSetupStage.SMS_PERMISSION,
         SmartSetupStage.ANALYZE -> 1
         SmartSetupStage.REVIEW -> 2
-        SmartSetupStage.MPESA_CONFIRM -> 3
+        SmartSetupStage.MPESA_CONFIRM, SmartSetupStage.LINKED_SAVINGS -> 3
         SmartSetupStage.ACCOUNT_DETAILS -> 4
         SmartSetupStage.SALARY_MANUAL -> 5
         SmartSetupStage.LIVE_CAPTURE -> 5
