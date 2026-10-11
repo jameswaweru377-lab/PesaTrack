@@ -49,6 +49,15 @@ internal object EvidenceJournalSchema {
         """.trimIndent())
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_evidence_link_transaction ON evidence_links(transaction_id)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_evidence_pending ON evidence_observations(status,occurred_at_epoch_ms)")
+        // Run before the FK cascade removes the link, so backup/restore never sees
+        // LINKED evidence with no canonical transaction. Do not silently re-link it.
+        db.execSQL("""
+            CREATE TRIGGER IF NOT EXISTS trg_evidence_reject_deleted_transaction BEFORE DELETE ON transactions
+            BEGIN
+                UPDATE evidence_observations SET status='REJECTED'
+                WHERE id IN (SELECT observation_id FROM evidence_links WHERE transaction_id=OLD.id);
+            END
+        """.trimIndent())
         db.execSQL("""
             CREATE TRIGGER IF NOT EXISTS trg_evidence_remove_transaction AFTER DELETE ON transactions
             BEGIN DELETE FROM evidence_links WHERE transaction_id=OLD.id; END
