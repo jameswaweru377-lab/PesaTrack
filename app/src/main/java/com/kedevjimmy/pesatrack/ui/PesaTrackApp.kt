@@ -441,6 +441,7 @@ fun PesaTrackApp(
                         navController.popBackStack()
                     },
                     onTransactionClick = { id -> navController.navigate("transaction-detail/$id") },
+                    onPaycheckClick = { navController.navigate("paycheck-analysis") },
                     onReviewClick = {
                         navigateToTab(
                             MainTab.ACTIVITY
