@@ -18,7 +18,8 @@ The current product includes the canonical ledger, provider-neutral financial in
 - Import statement and Payroll details offer local PDF extraction on Android15/API35+, with a transient masked password retry and specific safe failure codes. Native extraction runs in a private isolated process without ledger/backup initialization. One bounded M-Pesa text-column profile offers editable transactions with explicit wallet/field confirmation, date filtering and existing atomic dedup. Unsupported/partial layouts offer no transaction candidates. Payslip suggestions include explicitly labelled employer/month and NSSF/NHIF/other known amounts, including adjacent label/value text cells. API24–34 keep CSV/manual entry; scanned OCR, arbitrary bank layouts and unsupported encryption remain unavailable. Passwords are not persisted or logged; no decrypted PDF is written. Limits: 2 MB, 40 pages, 100,000 text characters; no new library, permission or document upload.
 - Document-preview service/lifecycle and physical-device behavior are not verified while instrumentation remains paused. See docs/plans/pesatrack-document-review-design.md.
 
-- Schema: **v39**
+- Schema: **v40**
+- Phase B evidence observations/links are additive and local-only. Manual and user-selected statement rows can persist immutable hashed provenance linked to an existing canonical transaction by strict account/amount/direction/time and reference rules. Ambiguous rows remain pending and do not alter income, spending, balance, or debts. Existing SMS/notification capture still owns canonical posting; comprehensive cross-source and historical backfill remains pending. Instrumentation is still paused. See docs/plans/pesatrack-2-phase-b-evidence-journal.md.
 - `PesaTrackDatabase.get(...)` is the process-scoped database owner.
 - Canonical financial-message ingestion is transaction-wrapped.
 - Replay/idempotency and rollback are covered by Android tests.
