@@ -724,8 +724,8 @@ fun TransactionDetailScreen(
                                 else -> "SMS"
                             }
                             Text(
-                                if (source.needsReview) "$" + "{label} • Recheck after editing this transaction"
-                                else "$" + "{label} • Matched, no extra money added",
+                                if (source.needsReview) label + " • Recheck after editing this transaction"
+                                else label + " • Matched, no extra money added",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
