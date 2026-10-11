@@ -37,6 +37,8 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
     var source by remember {mutableStateOf(PayrollSource.MANUAL)}
     var lines by remember {mutableStateOf<List<PayrollLineInput>>(emptyList())}
     var suggestions by remember {mutableStateOf<PayslipSuggestions?>(null)}
+    var extracted by remember {mutableStateOf<com.kedevjimmy.pesatrack.domain.evidence.PdfTextPreview?>(null)}
+    var showText by remember {mutableStateOf(false)}
     var reviewed by remember {mutableStateOf(false)};var busy by remember {mutableStateOf(false)}
     var error by remember {mutableStateOf<String?>(null)};var message by remember {mutableStateOf<String?>(null)}
     fun clear() {editing=null;employer="";gross="";net="";lines=emptyList();source=PayrollSource.MANUAL;reviewed=false;suggestions=null}
@@ -57,10 +59,8 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
     }
     LaunchedEffect(Unit) {busy=true;try {refresh()} catch(e:CancellationException){throw e}
         catch(_:Exception){error="Could not load payroll details. Your cash history is unchanged."} finally {busy=false}}
-    val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {uri ->if(uri!=null) {suggestions=null;perform {
-        val pdf=PdfTextReviewReader.read(context,uri)
-        suggestions=withContext(Dispatchers.Default) {PayslipFieldReview.read(pdf.pages)}
-    }}}
+    val pdfImport=rememberPdfImport(onSelected={suggestions=null;extracted=null;showText=false;error=null},onBusy={busy=it},onResult={pdf->extracted=pdf;suggestions=PayslipFieldReview.read(pdf.pages)})
+    PdfPasswordDialog(pdfImport)
     MoneyToolSheet("Payroll details","Record employer-reported earnings, deductions and contributions separately from money received. KES only. A payslip does not prove a bank deposit, remittance, savings balance or loan balance. One record per employer/month; edit existing records for corrections. Receipt matching and multiple-payslip aggregation are not available here.",busy,onDismiss) {
         item {
             Text(if(editing==null) "New payroll record" else "Edit payroll record",style=MaterialTheme.typography.titleMedium)
@@ -73,19 +73,28 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
         item {OutlinedTextField(gross,{gross=it;reviewed=false},label={Text("Gross earnings · KES")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-gross"))}
         item {OutlinedTextField(net,{net=it;reviewed=false},label={Text("Net payable · KES")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-net"))}
         item {
-            OutlinedButton(enabled=!busy&&Build.VERSION.SDK_INT>=35,onClick={picker.launch(arrayOf("application/pdf"))},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {Text("Review payslip PDF suggestions")}
-            Text(if(Build.VERSION.SDK_INT>=35) "Selectable text only, up to 2 MB/40 pages. Simple labelled KES rows may suggest fields; check the original. Scanned/protected PDFs and arbitrary tables are unsupported. No original file is kept." else "PDF text needs Android 15 or newer. Enter the payroll fields manually on this phone.",style=MaterialTheme.typography.bodySmall)
+            PdfImportButton("Import payslip PDF",!busy,pdfImport)
+            Text(if(Build.VERSION.SDK_INT>=35) "Extract locally, unlock with a document password if needed, then review employer, month, earnings and deductions. Selectable text only, up to 2 MB/40 pages. Unsupported layouts need manual corrections; scanned images need OCR, which is not available. No original file or password is saved." else "PDF text needs Android 15 or newer. Enter the payroll fields manually on this phone.",style=MaterialTheme.typography.bodySmall)
         }
         suggestions?.let {s ->item {
             s.warnings.forEach {Text(it,style=MaterialTheme.typography.bodySmall)}
+            Text("Employer: ${s.employer ?: "Enter manually"} · month: ${s.period ?: "Enter manually"}")
             Text("Suggested gross: ${s.grossMinor?.let {"KES "+PayrollJournalPolicy.money(it)} ?: "Unavailable"} · net: ${s.netMinor?.let {"KES "+PayrollJournalPolicy.money(it)} ?: "Unavailable"} · ${s.lines.size} lines")
             OutlinedButton(enabled=!busy,onClick={
+                employer=s.employer ?: "";period=s.period ?: ""
                 gross=s.grossMinor?.let {PayrollJournalPolicy.money(it)} ?: "";net=s.netMinor?.let {PayrollJournalPolicy.money(it)} ?: ""
                 lines=s.lines.map {PayrollLineInput(label=it.label,amount=PayrollJournalPolicy.money(it.amountMinor),type=it.type,role=it.role)}
                 source=PayrollSource.PDF_TEXT;reviewed=false;suggestions=null
-            }) {Text("Replace draft amounts with suggestions")}
+            }) {Text("Use extracted fields and review")}
             TextButton(enabled=!busy,onClick={suggestions=null}) {Text("Reject suggestions")}
         } }
+        extracted?.let {pdf ->
+            item {TextButton(enabled=!busy,onClick={showText=!showText}){Text(if(showText)"Hide extracted text"else"Show extracted text")}}
+            if(showText)pdf.pages.forEachIndexed {index,text->
+                item {Text("Page ${index+1}",style=MaterialTheme.typography.titleSmall)}
+                items(text.chunked(4000)){Text(it,style=MaterialTheme.typography.bodySmall)}
+            }
+        }
         item {
             Text("Employee deductions reduce net payable. Employer contributions are separate.",style=MaterialTheme.typography.bodySmall)
             OutlinedButton(enabled=!busy&&lines.size<PayrollJournalPolicy.MAX_LINES,onClick={lines=lines+PayrollLineInput();reviewed=false}) {Text("Add deduction / contribution")}
@@ -139,4 +148,3 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
             if(editing?.id==record.id)clear();deleting=null;refresh();message="Payroll details deleted. Cash history is unchanged."
         }}) {Text("Delete")}})}
 }
-

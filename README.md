@@ -36,7 +36,7 @@ The authoritative scope is in [docs/PRODUCT_CHARTER.md](docs/PRODUCT_CHARTER.md)
 - Saving goals
 - Bills and local reminders
 - Reports and CSV export
-- CSV statement import with duplicate review, plus local PDF text preview on Android15+ (text only; bank/payroll interpretation, scanned OCR and protected PDF support remain pending)
+- CSV statement import with duplicate/date review, plus local Android15+ PDF password unlock and extraction. Supported M-Pesa text rows offer editable confirmed import; labelled payroll fields offer reviewed journal entry. Arbitrary layouts, scanned OCR and older-Android PDF extraction remain unsupported; device acceptance remains pending.
 - Salary setup and manual salary receipts
 - Separate local payroll journal with typed deductions, employer contributions and reviewed API35 payslip suggestions; payroll never proves cash receipt
 - Identity review
