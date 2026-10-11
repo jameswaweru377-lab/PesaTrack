@@ -54,7 +54,7 @@ object PayslipFieldReview {
         ")\\s*$)|(?:\\b(?:"+
         Currency.getAvailableCurrencies().map{it.currencyCode}.filter{it!="KES"}.sorted().joinToString("|")+
         "|DOLLARS)\\b\\s*[0-9])|[$€£]",
-        setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
+        setOf(RegexOption.MULTILINE))
     private val employerTag = Regex("^(?:EMPLOYER(?: NAME)?|COMPANY(?: NAME)?|ORGANISATION(?: NAME)?|ORGANIZATION(?: NAME)?)\\s*[:=]\\s*(.+)$",RegexOption.IGNORE_CASE)
     private val periodTag = Regex("^(?:PAYROLL MONTH|SALARY MONTH|PAYSLIP MONTH|PAY PERIOD|PAYROLL PERIOD|PERIOD ENDING|MONTH YEAR|MONTH / YEAR|PAYSLIP FOR)\\s*[:=]?\\s+(.+)$",RegexOption.IGNORE_CASE)
     private val periodHeader = Regex("^(?:PAYSLIP|PAY SLIP|SALARY SLIP|PAY ADVICE)\\s+(?:FOR\\s+)?(.+)$",RegexOption.IGNORE_CASE)
