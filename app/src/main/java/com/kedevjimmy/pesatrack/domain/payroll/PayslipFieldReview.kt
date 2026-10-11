@@ -147,14 +147,20 @@ object PayslipFieldReview {
                     month(headerMatch.groupValues[1])?.let{periods+=it}
                 }
                 var label:String?=null;var value:String?=null
+                // "NSSF Tier 1" is a label, not an amount of KES 1.
+                if(i+1<lines.size && amountMinor(lines[i+1])!=null &&
+                    (aliases.containsKey(normalized(line.trimEnd('=',':'))) ||
+                        (section in setOf(Section.DEDUCTIONS,Section.EMPLOYER) && safeDeductionLabel(line)))) {
+                    label=line.trimEnd('=',':').trim();value=lines[i+1];i++
+                }
                 val multi=twoValues.matchEntire(line)
-                if(multi!=null && currentYtd!=0){
+                if(label==null && multi!=null && currentYtd!=0){
                     label=multi.groupValues[1].trimEnd('=',':',' ').trim()
                     value=multi.groupValues[if(currentYtd==1)2 else 3]
-                } else if(multi!=null) {
+                } else if(label==null && multi!=null) {
                     val key=aliases[normalized(multi.groupValues[1].trimEnd('=',':',' '))]?.key
                     if(key!=null){occurrences[key]=(occurrences[key]?:0)+1;malformed=true}
-                } else {
+                } else if(label==null) {
                     val pair=rowValue.matchEntire(line)
                     if(pair!=null) {
                         label=pair.groupValues[1].trimEnd('=',':',' ').trim()
