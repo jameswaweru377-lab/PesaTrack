@@ -4,10 +4,10 @@ data class PdfTextPreview(val pages: List<String>, val emptyPageNumbers: List<In
 
 /** Text availability is not a claim that a statement table or payroll was understood. */
 object PdfTextReviewPolicy {
-    const val MAX_BYTES = 3 * 1024 * 1024L
-    const val MAX_PAGES = 40
-    const val MAX_CHARACTERS = 100000
-    const val TIMEOUT_MS = 45000L
+    const val MAX_BYTES = 8 * 1024 * 1024L
+    const val MAX_PAGES = 160
+    const val MAX_CHARACTERS = 500000
+    const val TIMEOUT_MS = 90000L
     fun supported(api: Int) = api >= 35
     fun requireBytes(bytes: Long) {
         if(bytes<=0) throw PdfReadException(PdfFailure.EMPTY)
