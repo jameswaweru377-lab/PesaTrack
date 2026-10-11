@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.evidence.*
 import com.kedevjimmy.pesatrack.domain.identity.IdentityGraphPolicy
 import java.security.MessageDigest
+import org.json.JSONObject
 
 /** Link/review adapter over the canonical ledger; never imports or invents a cash movement. */
 class OwnedTransferReviewStore(context: Context) {
@@ -26,6 +27,8 @@ class OwnedTransferReviewStore(context: Context) {
             try {
                 val current = candidates(db).firstOrNull { it.pairKey == candidate.pairKey }
                 if (current == candidate) {
+                    val sourceBefore = if (decision == TransferPairDecision.CONFIRMED) captureProjection(db, current.source.id) else null
+                    val destinationBefore = if (decision == TransferPairDecision.CONFIRMED) captureProjection(db, current.destination.id) else null
                     if (decision == TransferPairDecision.CONFIRMED) {
                         TransactionStore.get(app).applyReviewedOwnedTransfer(db, current)
                     }
@@ -38,6 +41,8 @@ class OwnedTransferReviewStore(context: Context) {
                         put("source_ownership_revision", current.sourceOwnershipRevision)
                         put("destination_ownership_revision", current.destinationOwnershipRevision)
                         put("decision", decision.name)
+                        put("source_before", sourceBefore)
+                        put("destination_before", destinationBefore)
                         put("updated_at_epoch_ms", System.currentTimeMillis())
                     }, SQLiteDatabase.CONFLICT_REPLACE).also { check(it != -1L) { "Could not save transfer decision." } }
                     result = TransferDecisionResult.APPLIED
@@ -45,11 +50,59 @@ class OwnedTransferReviewStore(context: Context) {
                 db.setTransactionSuccessful()
             } finally { db.endTransaction() }
             if (result == TransferDecisionResult.APPLIED) {
-                if (decision == TransferPairDecision.CONFIRMED) PayCycleStore.get(app).rebuild()
-                LedgerUpdateBus.notifyChanged()
+                try { if (decision == TransferPairDecision.CONFIRMED) PayCycleStore.get(app).rebuild() }
+                finally { LedgerUpdateBus.notifyChanged() }
             }
             result
         }
+
+    fun isConfirmedPair(transactionId: Long): Boolean = synchronized(CanonicalStoreLock.monitor) {
+        database.readableDatabase.rawQuery("SELECT 1 FROM owned_transfer_review_decisions WHERE decision='CONFIRMED' AND (source_transaction_id=? OR destination_transaction_id=?) LIMIT 1",
+            arrayOf(transactionId.toString(), transactionId.toString())).use { it.moveToFirst() }
+    }
+
+    /** Undo both projections together. Only fields changed by confirmation are restored. */
+    fun undoConfirmedPair(transactionId: Long): Boolean = synchronized(CanonicalStoreLock.monitor) {
+        val db = database.writableDatabase
+        var changed = false
+        db.beginTransaction()
+        try {
+            db.rawQuery("SELECT * FROM owned_transfer_review_decisions WHERE decision='CONFIRMED' AND (source_transaction_id=? OR destination_transaction_id=?)",
+                arrayOf(transactionId.toString(), transactionId.toString())).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val pairKey = cursor.string("pair_key")!!
+                    val source = cursor.long("source_transaction_id")
+                    val destination = cursor.long("destination_transaction_id")
+                    val sourceBefore = decodeProjection(cursor.string("source_before"))
+                    val destinationBefore = decodeProjection(cursor.string("destination_before"))
+                    check(db.update("owned_transfer_review_decisions", ContentValues().apply {
+                        put("decision", "REJECTED"); put("updated_at_epoch_ms", System.currentTimeMillis())
+                    }, "pair_key=? AND decision='CONFIRMED'", arrayOf(pairKey)) == 1)
+                    check(db.update("transactions", sourceBefore, "id=?", arrayOf(source.toString())) == 1)
+                    check(db.update("transactions", destinationBefore, "id=?", arrayOf(destination.toString())) == 1)
+                    listOf(source to cursor.string("source_snapshot_hash"), destination to cursor.string("destination_snapshot_hash")).forEach { (id, snapshot) ->
+                        db.delete("account_balance_observations", "observation_key=?", arrayOf("reviewed-transfer-balance:$id:$snapshot"))
+                    }
+                    changed = true
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+        if (changed) { try { PayCycleStore.get(app).rebuild() } finally { LedgerUpdateBus.notifyChanged() } }
+        changed
+    }
+
+    private val projectionFields = listOf("direction", "category", "review_state", "linked_account_id", "evidence_source", "cycle_candidate_reason")
+    private fun captureProjection(db: SQLiteDatabase, id: Long): String = db.query("transactions", projectionFields.toTypedArray(), "id=?", arrayOf(id.toString()), null, null, null).use { cursor ->
+        check(cursor.moveToFirst())
+        JSONObject().apply { projectionFields.forEach { field -> put(field, cursor.string(field) ?: JSONObject.NULL) } }.toString()
+    }
+    private fun decodeProjection(raw: String?): ContentValues {
+        check(raw != null) { "This transfer match has no safe undo snapshot." }
+        val json = JSONObject(raw)
+        check(json.keys().asSequence().toSet() == projectionFields.toSet()) { "Invalid transfer undo snapshot." }
+        return ContentValues().apply { projectionFields.forEach { field -> if (json.isNull(field)) putNull(field) else put(field, json.getString(field)) } }
+    }
 
     private fun candidates(db: SQLiteDatabase): List<TransferReviewCandidate> {
         val consent = AccountOwnershipConsentStore.confirmed(db)

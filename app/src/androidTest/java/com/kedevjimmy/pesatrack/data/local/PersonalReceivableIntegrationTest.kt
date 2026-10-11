@@ -339,6 +339,8 @@ class PersonalReceivableIntegrationTest {
     private fun dropB2Tables(database: android.database.sqlite.SQLiteDatabase) {
         database.execSQL("DROP TRIGGER IF EXISTS trg_b2_delete_account_consent")
         database.execSQL("DROP TRIGGER IF EXISTS trg_b2_delete_transfer_review")
+        database.execSQL("DROP TRIGGER IF EXISTS trg_b2_guard_pair_update")
+        database.execSQL("DROP TRIGGER IF EXISTS trg_b2_guard_pair_delete")
         database.execSQL("DROP TABLE account_ownership_consents")
         database.execSQL("DROP TABLE owned_transfer_review_decisions")
     }

@@ -9,6 +9,9 @@ import com.kedevjimmy.pesatrack.domain.evidence.TransferDecisionResult
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
+import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.ingestion.TransactionFingerprint
 import org.junit.After
 import org.junit.Before
@@ -42,6 +45,76 @@ class OwnedTransferReviewStoreTest {
         consent.recordConsent(AccountStore.DEFAULT_MPESA_ID, true)
     }
     @Test fun legacyEnabledAccountsAreNotConsent() { assertTrue(store.pendingCandidates().isEmpty()) }
+    @Test fun confirmedPairRejectsIndividualEditsAcrossStoresAndDeletion() {
+        consent(); store.decide(store.pendingCandidates().single(), TransferPairDecision.CONFIRMED)
+        val transactions = TransactionStore.get(context)
+        for (id in listOf(101L, 102L)) {
+            assertTrue(runCatching { transactions.classifyManually(id, TransactionCategory.GROCERIES, MoneyDirection.EXPENSE) }.isFailure)
+            val exclusion = runCatching { transactions.excludeFromBudget(id) }
+            if (id == 101L) assertTrue(exclusion.isFailure) else assertTrue(exclusion.isSuccess) // Already excluded: no changed financial field.
+            assertTrue(runCatching { transactions.applyRuleToTransaction(id, SmartRule("synthetic-rule", "James", TransactionCategory.GROCERIES)) }.isFailure)
+            val db = PesaTrackDatabase.get(context).writableDatabase
+            assertTrue(runCatching { db.execSQL("UPDATE transactions SET amount_minor=20000 WHERE id=$id") }.isFailure)
+            assertTrue(runCatching { db.delete("transactions", "id=?", arrayOf(id.toString())) }.isFailure)
+        }
+        assertTrue(runCatching { transactions.markDebtRepayment(101, 999, "Synthetic debt", true) }.isFailure)
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE direction='TRANSFER'"))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE review_state='EXCLUDED'"))
+        assertTrue(store.isConfirmedPair(101)); assertTrue(store.isConfirmedPair(102))
+    }
+    @Test fun undoFromEitherSideRestoresBothThenAllowsAuthoritativeCorrectionAndReplay() {
+        consent(); store.decide(store.pendingCandidates().single(), TransferPairDecision.CONFIRMED)
+        assertTrue(store.undoConfirmedPair(102)); assertFalse(store.undoConfirmedPair(101))
+        assertFalse(store.isConfirmedPair(101)); assertFalse(store.isConfirmedPair(102))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE direction='EXPENSE' AND review_state='NEEDS_REVIEW' AND linked_account_id IS NULL"))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE direction='INCOME' AND review_state='NEEDS_REVIEW'"))
+        assertTrue(store.pendingCandidates().isEmpty())
+        TransactionStore.get(context).classifyManually(101, TransactionCategory.GROCERIES, MoneyDirection.EXPENSE)
+        replay(101, bankId, "EXPENSE", 100); replay(102, AccountStore.DEFAULT_MPESA_ID, "INCOME", 0)
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE category='GROCERIES' AND review_state='USER_CLASSIFIED'"))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE direction='INCOME'"))
+        assertEquals(2L, scalar("SELECT COUNT(*) FROM transactions"))
+    }
+    @Test fun laterBackdatedSalaryCanRebuildDerivedCyclesAroundAConfirmedPair() {
+        consent(); store.decide(store.pendingCandidates().single(), TransferPairDecision.CONFIRMED)
+        val salary = RuleStore.get(context).save(name = "Synthetic salary", counterpartyContains = "",
+            counterpartyExact = "Synthetic employer", category = TransactionCategory.INCOME,
+            direction = MoneyDirection.INCOME, startsPayCycle = true, accountId = bankId)
+        assertTrue(TransactionStore.get(context).insertManualIncome(500000, epoch - 60000, "Synthetic employer", salary))
+        PayCycleStore.get(context).rebuild(); PayCycleStore.get(context).rebuild()
+        assertTrue(store.isConfirmedPair(101)); assertTrue(store.isConfirmedPair(102))
+        assertEquals(2L, scalar("SELECT COUNT(*) FROM transactions WHERE id IN (101,102) AND pay_cycle_id IS NOT NULL"))
+        assertTrue(store.undoConfirmedPair(101))
+        assertEquals(2L, scalar("SELECT COUNT(*) FROM transactions WHERE id IN (101,102) AND pay_cycle_id IS NOT NULL"))
+    }
+    @Test fun interruptedUndoRollsBackBothRowsDecisionAndBalanceAnchors() {
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        db.execSQL("UPDATE transactions SET balance_minor=20000 WHERE id=102")
+        consent(); store.decide(store.pendingCandidates().single(), TransferPairDecision.CONFIRMED)
+        db.execSQL("CREATE TRIGGER synthetic_abort_undo BEFORE UPDATE ON transactions WHEN OLD.id=102 BEGIN SELECT RAISE(ABORT, 'synthetic undo failure'); END")
+        assertTrue(runCatching { store.undoConfirmedPair(101) }.isFailure)
+        assertTrue(store.isConfirmedPair(102))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE direction='TRANSFER'"))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE review_state='EXCLUDED'"))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM account_balance_observations"))
+    }
+    @Test fun restoredConfirmationCanUndoWithoutRemovingUnrelatedBalanceEvidence() {
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        db.execSQL("UPDATE transactions SET balance_minor=20000 WHERE id=102")
+        consent(); store.decide(store.pendingCandidates().single(), TransferPairDecision.CONFIRMED)
+        db.insertOrThrow("account_balance_observations", null, ContentValues().apply {
+            put("observation_key", "synthetic-unrelated-check"); put("entity_key", "account:$bankId"); put("account_id", bankId)
+            put("balance_minor", 90000); put("confidence", "HIGH"); put("observed_at_epoch_ms", epoch + 1)
+            put("source_kind", "user_balance_check"); put("created_at_epoch_ms", epoch + 1)
+        })
+        val manager = com.kedevjimmy.pesatrack.security.PesaBackupManager(context)
+        val password = "synthetic-paired-undo-password"
+        manager.restoreEncryptedBytes(manager.exportEncryptedBytes(password), password)
+        assertTrue(store.undoConfirmedPair(101))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM account_balance_observations WHERE observation_key='synthetic-unrelated-check'"))
+        assertEquals(0L, scalar("SELECT COUNT(*) FROM account_balance_observations WHERE observation_key LIKE 'reviewed-transfer-balance:%'"))
+        assertEquals(20000L, scalar("SELECT balance_minor FROM transactions WHERE id=102"))
+    }
     @Test fun confirmationIsAtomicIdempotentAndHasOneTransferEffect() {
         consent(); val candidate = store.pendingCandidates().single()
         assertEquals(TransferDecisionResult.APPLIED, store.decide(candidate, TransferPairDecision.CONFIRMED))

@@ -22,6 +22,42 @@ import java.util.Date
 import java.math.BigDecimal
 
 @Composable
+internal fun OwnedTransferUndoAction(transactionId: Long, onChanged: () -> Unit) {
+    val context = LocalContext.current
+    val store = remember { OwnedTransferReviewStore(context) }
+    val scope = rememberCoroutineScope()
+    var open by remember(transactionId) { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    PesaCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Confirmed transfer match", style = MaterialTheme.typography.titleMedium)
+            Text("These two entries are linked. Undo the match before editing either entry.")
+            OutlinedButton(onClick = { open = true; error = null }, enabled = !busy) { Text("Undo transfer match") }
+        }
+    }
+    if (open) AlertDialog(onDismissRequest = { if (!busy) open = false },
+        title = { Text("Undo this transfer match?") },
+        text = { Column {
+            Text("Both entries will return to their original classifications. Amounts, fees and original evidence stay intact. You can then correct either entry. This match will not be suggested again.")
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        } },
+        dismissButton = { TextButton(onClick = { open = false }, enabled = !busy) { Text("Cancel") } },
+        confirmButton = { Button(enabled = !busy, onClick = {
+            busy = true
+            scope.launch {
+                try {
+                    val changed = withContext(Dispatchers.IO) { store.undoConfirmedPair(transactionId) }
+                    if (changed) { open = false; onChanged() }
+                    else { error = "This match has already changed. Refresh and review the entries."; onChanged() }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { error = "Couldn't finish updating this match. Refresh and review both entries."; onChanged() }
+                finally { busy = false }
+            }
+        }) { Text("Undo both entries") } })
+}
+
+@Composable
 internal fun OwnedTransferReviewSection() {
     val context = LocalContext.current
     val store = remember { OwnedTransferReviewStore(context) }

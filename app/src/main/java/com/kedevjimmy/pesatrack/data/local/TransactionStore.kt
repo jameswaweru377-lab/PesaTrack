@@ -4415,6 +4415,9 @@ class TransactionStore private constructor(context: Context) {
             instance ?: synchronized(this) {
                 instance ?: TransactionStore(context.applicationContext).also { instance = it }
             }
+
+        /** Match the test database lifecycle; production retains one helper/store for the process. */
+        internal fun resetForTests() { synchronized(this) { instance = null } }
     }
 }
 
