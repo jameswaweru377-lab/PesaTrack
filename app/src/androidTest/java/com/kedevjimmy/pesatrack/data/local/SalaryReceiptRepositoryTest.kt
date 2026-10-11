@@ -29,6 +29,15 @@ class SalaryReceiptRepositoryTest {
         TransactionStore.get(context).insertIfNew(ParsedMpesaTransaction(code, MpesaTransactionType.RECEIVED,
             6000000, "XYZ SCHOOL", feeMinor = 0, balanceMinor = null, occurredAtText = null, rawMessage = code),
             null, "TEST_SMS", at(date), at(date), salary, accountIdOverride = AccountStore.DEFAULT_MPESA_ID)
+    @Test fun disabledReceivingAccountRejectsReceiptWithoutChangingHistory() {
+        val salary = rule()
+        AccountStore.get(context).setEnabled(AccountStore.DEFAULT_MPESA_ID, false)
+        assertThrows(IllegalArgumentException::class.java) {
+            repository.recordManualSalary(6000000, at("2025-09-28 00:00"), salary)
+        }
+        assertEquals(0, TransactionStore.get(context).snapshot().transactionCount)
+        assertNull(PayCycleStore.get(context).currentCycle())
+    }
     @Test fun removingManualEntryRebuildsBoundariesAndExplicitReentryRestoresOnlyOneRow() {
         val salary = rule(); val store = TransactionStore.get(context)
         repository.recordManualSalary(6000000, at("2025-08-28 00:00"), salary)

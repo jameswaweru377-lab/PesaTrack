@@ -49,6 +49,11 @@ data class StatementRow(val date:Long,val description:String,val signedMinor:Lon
 object StatementCsv {
  const val MAX_BYTES=2*1024*1024
  const val MAX_ROWS=2000
+ /** Validate every adapter row before querying history or opening a write transaction. */
+ fun validateRows(rows:List<StatementRow>,now:Long=System.currentTimeMillis()) {
+  require(rows.size<=MAX_ROWS){"Choose a file with up to 2,000 entries."}
+  require(rows.all {r->r.date>0 && r.date<=now && r.signedMinor!=0L && r.signedMinor!=Long.MIN_VALUE && r.description.trim().length in 1..200 && (r.reference==null || r.reference.length<=100)}){"Check the statement dates, descriptions, amounts and references."}
+ }
  fun parse(text:String):List<StatementRow> {
   require(text.toByteArray(Charsets.UTF_8).size<=MAX_BYTES) {"Choose a CSV smaller than 2 MB."}
   val rows=csv(text.removePrefix("\uFEFF"));require(rows.size>=2) {"This file has no entries."}

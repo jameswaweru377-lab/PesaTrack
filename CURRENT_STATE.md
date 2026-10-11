@@ -12,6 +12,11 @@ The current product includes the canonical ledger, provider-neutral financial in
 
 ## Data and accounting
 
+- A1 authority gating now protects manual entries, received salary and selected CSV statement adapters; existing canonical duplicate/replay checks still decide insertion. Expected salary and payslip information do not authorize cash.
+- Manual salary requires a current enabled receiving account. Disabling an account does not remove existing salary history.
+- Import statement offers optional memory-only PDF **text preview** on Android15/API35+. Native extraction runs in a private isolated process without ledger/backup initialization. No bank-table/payroll interpretation or PDF transaction import is provided. API24–34 keep CSV/manual entry; scanned OCR and protected PDFs remain unsupported. Limits: 2 MB, 40 pages, 100,000 text characters; no new library, permission or document upload.
+- Document-preview service/lifecycle and physical-device behavior are not verified while instrumentation remains paused. See docs/plans/pesatrack-document-review-design.md.
+
 - Schema: **v38**
 - `PesaTrackDatabase.get(...)` is the process-scoped database owner.
 - Canonical financial-message ingestion is transaction-wrapped.

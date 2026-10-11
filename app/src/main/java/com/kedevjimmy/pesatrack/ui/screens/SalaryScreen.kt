@@ -352,7 +352,7 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
                         Button(onClick = { tab = "Source" }) { Text("Set up salary source") }
                     } else {
                         Text((active.displayLabel ?: active.name) + " · " + (accounts.firstOrNull { it.id == active.accountId }?.name ?: "Receiving account"), style = MaterialTheme.typography.labelLarge)
-                        Text("Only record money you actually received.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Record only money that arrived in this account. You do not need an SMS, statement or payslip. An expected payday or payslip net pay alone is not received salary.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(amount, { amount = it }, label = { Text("Amount") }, prefix = { Text("KES ") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true,
                             modifier = Modifier.fillMaxWidth().testTag("salary-amount"), enabled = !busy)

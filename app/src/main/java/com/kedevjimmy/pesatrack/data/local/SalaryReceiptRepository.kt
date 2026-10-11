@@ -7,6 +7,7 @@ import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import java.util.Calendar
+import com.kedevjimmy.pesatrack.domain.evidence.*
 
 data class SalaryReceipt(
     val transactionId: Long,
@@ -88,6 +89,8 @@ class SalaryReceiptRepository(context: Context) {
             require(currentRule?.enabled == true && currentRule.startsPayCycle && currentRule.accountId == rule.accountId && !rule.accountId.isNullOrBlank()) {
                 "Save your salary source and receiving account first."
             }
+            val receivingAccount = AccountStore.get(appContext).listAccounts().firstOrNull { it.id == currentRule.accountId }
+            ReceivedSalaryEntryPolicy.validate(amountMinor, date, System.currentTimeMillis(), receivingAccount != null)
             val day = Calendar.getInstance().apply {
                 timeInMillis = date
                 set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)

@@ -36,6 +36,7 @@ The authoritative scope is in [docs/PRODUCT_CHARTER.md](docs/PRODUCT_CHARTER.md)
 - Saving goals
 - Bills and local reminders
 - Reports and CSV export
+- CSV statement import with duplicate review, plus local PDF text preview on Android15+ (text only; bank/payroll interpretation, scanned OCR and protected PDF support remain pending)
 - Salary setup and manual salary receipts
 - Identity review
 - Historical financial SMS import
