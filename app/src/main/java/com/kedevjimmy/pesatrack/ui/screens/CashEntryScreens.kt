@@ -37,14 +37,15 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 
-@Composable internal fun ActivityMoneyActions(onChanged:()->Unit) {
+@Composable internal fun ActivityMoneyActions(onChanged:()->Unit,onPaycheckClick:()->Unit = {}) {
  var add by rememberSaveable {mutableStateOf(false)};var importing by rememberSaveable {mutableStateOf(false)}
  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
   FilledTonalButton(onClick={add=true},modifier=Modifier.weight(1f).heightIn(min=48.dp)){Icon(Icons.Rounded.Add,null);Spacer(Modifier.width(6.dp));Text("Add entry")}
   OutlinedButton(onClick={importing=true},modifier=Modifier.weight(1f).heightIn(min=48.dp)){Icon(Icons.Rounded.UploadFile,null);Spacer(Modifier.width(6.dp));Text("Import")}
  }
+ OutlinedButton(onClick=onPaycheckClick,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {Text("Paycheck Analysis")}
  if(add) ManualEntrySheet(onDismiss={add=false},onChanged=onChanged)
- if(importing) StatementImportSheet(onDismiss={importing=false},onChanged=onChanged)
+ if(importing) StatementImportSheet(onDismiss={importing=false},onChanged=onChanged,onPaycheckClick=onPaycheckClick)
 }
 @Composable private fun ManualEntrySheet(onDismiss:()->Unit,onChanged:()->Unit) {
  val c=LocalContext.current;val store=remember {EverydayMoneyStore(c)};val scope=rememberCoroutineScope()
