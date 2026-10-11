@@ -691,9 +691,13 @@ class FinancialUnderstandingStore private constructor(
         entityKey: String
     ): String? {
         synchronized(CanonicalStoreLock.monitor) {
+        val consentDb = database.writableDatabase
+        consentDb.beginTransaction()
+        try {
+            val result = run {
         val entity =
             entityByKey(entityKey)
-                ?: return null
+                ?: return@run null
         require(
             entity.natureHint !=
                 FinancialAccountNature
@@ -852,7 +856,12 @@ class FinancialUnderstandingStore private constructor(
             )
 
         LedgerUpdateBus.notifyChanged()
-        return account.id
+        AccountOwnershipConsentStore.record(consentDb, account.id, true)
+        return@run account.id
+            }
+            consentDb.setTransactionSuccessful()
+            return result
+        } finally { consentDb.endTransaction() }
     }
     }
 
@@ -938,6 +947,10 @@ class FinancialUnderstandingStore private constructor(
         accountId: String? = null
     ): String? {
         synchronized(CanonicalStoreLock.monitor) {
+        val consentDb = database.writableDatabase
+        consentDb.beginTransaction()
+        try {
+            val result = run {
         val providerReference =
             FinancialProviderRegistry
                 .referenceForProviderKey(
@@ -998,7 +1011,8 @@ class FinancialUnderstandingStore private constructor(
         if (
             matchingEntities.isEmpty()
         ) {
-            return accountId
+            accountId?.let { AccountOwnershipConsentStore.record(consentDb, it, true) }
+            return@run accountId
         }
 
         val resolvedAccountId =
@@ -1039,7 +1053,7 @@ class FinancialUnderstandingStore private constructor(
                                 )
                         ).id
                     }
-                ?: return null
+                ?: return@run null
 
         val canonicalName =
             providerReference?.displayName
@@ -1110,7 +1124,12 @@ class FinancialUnderstandingStore private constructor(
         }
 
         LedgerUpdateBus.notifyChanged()
-        return resolvedAccountId
+        AccountOwnershipConsentStore.record(consentDb, resolvedAccountId, true)
+        return@run resolvedAccountId
+            }
+            consentDb.setTransactionSuccessful()
+            return result
+        } finally { consentDb.endTransaction() }
     }
     }
 
@@ -1118,6 +1137,10 @@ class FinancialUnderstandingStore private constructor(
         entityKey: String
     ): Boolean {
         synchronized(CanonicalStoreLock.monitor) {
+        val consentDb = database.writableDatabase
+        consentDb.beginTransaction()
+        try {
+            val result = run {
         val previousAccountId =
             database.readableDatabase.rawQuery(
                 """
@@ -1153,6 +1176,11 @@ class FinancialUnderstandingStore private constructor(
         ) > 0
 
         if (changed) {
+            // A withdrawal must fail closed for this new matching path.
+            // Sibling USER_OWNED flags can come from automatic provider mapping;
+            // they are not fresh explicit consent after this conflicting choice.
+            // Accounts lets the user explicitly reconfirm matching consent.
+            previousAccountId?.let { AccountOwnershipConsentStore.record(consentDb, it, false) }
             database.writableDatabase.update(
                 "account_balance_observations",
                 ContentValues().apply {
@@ -1200,7 +1228,11 @@ class FinancialUnderstandingStore private constructor(
 
             LedgerUpdateBus.notifyChanged()
         }
-        return changed
+        return@run changed
+            }
+            consentDb.setTransactionSuccessful()
+            return result
+        } finally { consentDb.endTransaction() }
     }
     }
 

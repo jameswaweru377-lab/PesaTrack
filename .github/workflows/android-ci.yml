@@ -78,7 +78,7 @@ jobs:
           suites = [ET.parse(path).getroot() for path in reports]
           totals = {key: sum(int(suite.attrib.get(key, 0)) for suite in suites) for key in ("tests", "failures", "errors", "skipped")}
           assert totals["failures"] == totals["errors"] == 0
-          required = {"OfflineMoneyPolicyTest", "GoalSavingHistoryPolicyTest", "FinancialWhitespaceTest", "SyntheticFinancialCorpusTest", "FinancialContractLabTest"}
+          required = {"OfflineMoneyPolicyTest", "GoalSavingHistoryPolicyTest", "FinancialWhitespaceTest", "SyntheticFinancialCorpusTest", "FinancialContractLabTest", "OwnedTransferReviewPolicyTest", "SelfNameEvidencePolicyTest"}
           verified = set()
           for suite in suites:
               name = suite.attrib["name"].split(".")[-1]
@@ -146,11 +146,12 @@ jobs:
           retention-days: 3
 
 
-  # Emulator review runs only after the user explicitly requests it.
+  # Emulator review is paused and stays opt-in through a new manual request.
   instrumentation:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_instrumentation }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # Full suite includes 3x 30/90-day per-record history replay measurements.
+    timeout-minutes: 75
 
     steps:
       - name: Checkout

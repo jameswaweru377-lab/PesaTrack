@@ -185,6 +185,7 @@ class PersonalReceivableIntegrationTest {
     private fun migrateAndRestore(oldVersion: Int) {
         val payment = transaction(20 + oldVersion, 50_000L, "EXPENSE")
         val legacy = db
+        dropB2Tables(legacy)
         if (oldVersion == 35) legacy.execSQL(
             "INSERT INTO transaction_allocations(transaction_id, position, category, amount_minor) VALUES (?, 0, 'EATING_OUT', 50000)",
             arrayOf<Any>(payment))
@@ -201,13 +202,13 @@ class PersonalReceivableIntegrationTest {
         val manager = com.kedevjimmy.pesatrack.security.PesaBackupManager(context)
         val encrypted = manager.exportEncryptedBytes("invented-migration-passphrase")
         PesaTrackDatabase.resetForTests()
-        assertEquals(37, db.version)
+        assertEquals(38, db.version)
         assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
         assertTrue(receivables.people().isEmpty())
         repeat(2) {
             manager.previewEncryptedBytes(encrypted, "invented-migration-passphrase")
             manager.restoreEncryptedBytes(encrypted, "invented-migration-passphrase")
-            assertEquals(37, db.version)
+            assertEquals(38, db.version)
             assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
             assertTrue(receivables.people().isEmpty())
             assertTrue(receivables.linkedShares().isEmpty())
@@ -218,7 +219,7 @@ class PersonalReceivableIntegrationTest {
             }
         }
         PesaTrackDatabase.resetForTests()
-        assertEquals(37, db.version)
+        assertEquals(38, db.version)
         assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
     }
 
@@ -312,13 +313,14 @@ class PersonalReceivableIntegrationTest {
         val gift = transaction(141,10000,"EXPENSE")
         val person = receivables.confirmHistory(null,"Sample Borrower","0712000000",
             listOf(ReceivableHistorySelection(transactions.getById(outgoing)!!,"LENT",80000)),emptyList())
+        dropB2Tables(db)
         db.execSQL("DROP TABLE personal_receivable_review_exclusions")
         db.execSQL("DROP TRIGGER IF EXISTS trg_delete_receivable_review")
         db.version = 36
         val manager = com.kedevjimmy.pesatrack.security.PesaBackupManager(context)
         val oldBackup = manager.exportEncryptedBytes("invented-history-passphrase")
         PesaTrackDatabase.resetForTests()
-        assertEquals(37,db.version)
+        assertEquals(38,db.version)
         repeat(2) {
             manager.previewEncryptedBytes(oldBackup,"invented-history-passphrase")
             manager.restoreEncryptedBytes(oldBackup,"invented-history-passphrase")
@@ -332,6 +334,15 @@ class PersonalReceivableIntegrationTest {
             assertEquals(setOf(gift),ReceivableHistoryRepository(context).exclusions(person))
             assertEquals(80000L,receivables.people().single().outstandingMinor)
         }
+    }
+
+    private fun dropB2Tables(database: android.database.sqlite.SQLiteDatabase) {
+        database.execSQL("DROP TRIGGER IF EXISTS trg_b2_delete_account_consent")
+        database.execSQL("DROP TRIGGER IF EXISTS trg_b2_delete_transfer_review")
+        database.execSQL("DROP TRIGGER IF EXISTS trg_b2_guard_pair_update")
+        database.execSQL("DROP TRIGGER IF EXISTS trg_b2_guard_pair_delete")
+        database.execSQL("DROP TABLE account_ownership_consents")
+        database.execSQL("DROP TABLE owned_transfer_review_decisions")
     }
 
     @Test fun categoryLinkedReceiptCannotRepayALaterLoan() {

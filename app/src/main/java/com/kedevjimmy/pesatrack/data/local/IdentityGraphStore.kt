@@ -256,6 +256,22 @@ class IdentityGraphStore private constructor(
             WHERE a.alias_type = ?
               AND a.identity_id != ?
               AND o.own_transfer_candidate = 1
+              AND EXISTS (
+                  SELECT 1 FROM transactions current_tx
+                  JOIN money_accounts source ON source.id=current_tx.account_id
+                  JOIN money_accounts destination ON destination.id=current_tx.linked_account_id
+                  JOIN account_ownership_consents source_consent ON source_consent.account_id=source.id
+                  JOIN account_ownership_consents destination_consent ON destination_consent.account_id=destination.id
+                  WHERE current_tx.id=o.transaction_id
+                    AND current_tx.direction='TRANSFER'
+                    AND current_tx.review_state != 'EXCLUDED'
+                    AND current_tx.account_id=o.account_id
+                    AND current_tx.linked_account_id=o.linked_account_id
+                    AND source.id != destination.id
+                    AND source.enabled=1 AND destination.enabled=1
+                    AND source_consent.decision='CONFIRMED'
+                    AND destination_consent.decision='CONFIRMED'
+              )
               AND NOT EXISTS (
                   SELECT 1
                   FROM identity_aliases self_alias
@@ -312,6 +328,22 @@ class IdentityGraphStore private constructor(
             WHERE a.alias_type = ?
               AND a.identity_id != ?
               AND o.own_transfer_candidate = 1
+              AND EXISTS (
+                  SELECT 1 FROM transactions current_tx
+                  JOIN money_accounts source ON source.id=current_tx.account_id
+                  JOIN money_accounts destination ON destination.id=current_tx.linked_account_id
+                  JOIN account_ownership_consents source_consent ON source_consent.account_id=source.id
+                  JOIN account_ownership_consents destination_consent ON destination_consent.account_id=destination.id
+                  WHERE current_tx.id=o.transaction_id
+                    AND current_tx.direction='TRANSFER'
+                    AND current_tx.review_state != 'EXCLUDED'
+                    AND current_tx.account_id=o.account_id
+                    AND current_tx.linked_account_id=o.linked_account_id
+                    AND source.id != destination.id
+                    AND source.enabled=1 AND destination.enabled=1
+                    AND source_consent.decision='CONFIRMED'
+                    AND destination_consent.decision='CONFIRMED'
+              )
               AND EXISTS (
                   SELECT 1 FROM money_accounts src
                   JOIN money_accounts dst
@@ -376,11 +408,11 @@ class IdentityGraphStore private constructor(
                             reason =
                                 when (evidence) {
                                     SelfNameEvidenceLevel.EXACT_THREE_NAMES ->
-                                        "All three names match your profile in a transfer already associated with two enabled accounts. This is strong identity evidence, not proof of a new transfer. Confirm only if this is you."
+                                        "All three names match your profile in a transfer already associated with two explicitly confirmed accounts. This is strong identity evidence, not proof of a new transfer. Confirm only if this is you."
                                     SelfNameEvidenceLevel.TWO_OF_THREE_REVIEW ->
                                         "Two of your three names match. Please confirm if this is you; similarity alone cannot turn a payment into a self-transfer."
                                     SelfNameEvidenceLevel.NO_MATCH ->
-                                        "This name repeatedly appears in transfers between accounts PesaTrack believes are yours."
+                                        "This name repeatedly appears in transfers between accounts you explicitly confirmed as yours."
                                 }
                         )
                 }

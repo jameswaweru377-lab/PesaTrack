@@ -197,6 +197,8 @@ fun TransactionDetailScreen(
     var transaction by remember(transactionId) {
         mutableStateOf(store.getById(transactionId))
     }
+    val transferReviewStore = remember { com.kedevjimmy.pesatrack.data.local.OwnedTransferReviewStore(context) }
+    var confirmedTransfer by remember(transactionId) { mutableStateOf(transferReviewStore.isConfirmedPair(transactionId)) }
     var pendingCategoryId by remember(transactionId) {
         mutableStateOf<String?>(null)
     }
@@ -235,6 +237,7 @@ fun TransactionDetailScreen(
         val updated =
             store.getById(transactionId)
         transaction = updated
+        confirmedTransfer = transferReviewStore.isConfirmedPair(transactionId)
         learningSuggestion =
             updated?.let(
                 personalLearningStore::
@@ -698,18 +701,19 @@ fun TransactionDetailScreen(
         item {
             TransactionDetailSummary(current, categoryVisual(categoryStore.canonicalId(current.category)).icon)
         }
-        item { SplitPaymentAction(current, onChanged = { refresh() }) }
-        item { PersonalReceivableTransactionAction(current, onChanged = { refresh() }) }
+        if (confirmedTransfer) item { OwnedTransferUndoAction(current.id, onChanged = { refresh() }) }
+        if (!confirmedTransfer) item { SplitPaymentAction(current, onChanged = { refresh() }) }
+        if (!confirmedTransfer) item { PersonalReceivableTransactionAction(current, onChanged = { refresh() }) }
         item {
             TransactionDetailFacts(
                 item = current,
                 accountLabel = current.accountId?.let { id -> accountStore.listAccounts(enabledOnly = false).firstOrNull { it.id == id }?.name } ?: "Not identified",
                 categoryLabel = receivableLinks[current.id]?.description ?: categoryStore.labelFor(categoryStore.canonicalId(current.category)),
                 onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
-                onCategory = if (current.relationType != TransactionStore.RELATION_REFUND) ({ showCategoryPicker = true }) else null
+                onCategory = if (!confirmedTransfer && current.relationType != TransactionStore.RELATION_REFUND) ({ showCategoryPicker = true }) else null
             )
         }
-        item(key = "transaction-correction-actions") {
+        if (!confirmedTransfer) item(key = "transaction-correction-actions") {
             SectionHeader("Correct transaction")
             PesaCard(Modifier.testTag("transaction-corrections")) {
                 Column(
@@ -829,7 +833,7 @@ fun TransactionDetailScreen(
                 hasAnnotation = annotation.note.isNotBlank() || annotation.receiptUri != null,
                 onAnnotation = { showAnnotationDialog = true }
             ) {
-            ClassificationCard(
+            if (!confirmedTransfer) ClassificationCard(
                 item = current,
                 appliedRule =
                     appliedRule,

@@ -31,9 +31,9 @@ class OwnershipReviewUiTest {
         compose.runOnIdle { assertEquals(0, confirmed); assertEquals(0, rejected) }
         compose.onNodeWithText("Not now").performClick()
         compose.runOnIdle { assertEquals(1, deferred); assertEquals(0, confirmed); assertEquals(0, rejected) }
-        compose.onNodeWithText("No").performClick()
+        compose.onNodeWithText("No, not me").performClick()
         compose.runOnIdle { assertEquals(1, rejected); assertEquals(0, confirmed) }
-        compose.onNodeWithText("Yes").performClick()
+        compose.onNodeWithText("Yes, this is me").performClick()
         compose.runOnIdle { assertEquals(1, confirmed) }
     }
 
@@ -52,7 +52,7 @@ class OwnershipReviewUiTest {
             }
         }
         compose.onNodeWithText("Saving…").assertIsNotEnabled()
-        compose.onNodeWithText("No").assertIsNotEnabled()
+        compose.onNodeWithText("No, not me").assertIsNotEnabled()
         compose.onNodeWithText("Not now").assertIsNotEnabled()
     }
 }

@@ -1,6 +1,6 @@
 # PesaTrack Current State
 
-_Last refreshed: 10 October 2026_
+_Last refreshed: 11 October 2026_
 
 This file is the short engineering source of truth. Historical audits, design explorations and `PROJECT_CONTEXT.md` are useful background, but they must not override current code or this snapshot when they conflict.
 
@@ -12,7 +12,7 @@ The current product includes the canonical ledger, provider-neutral financial in
 
 ## Data and accounting
 
-- Schema: **v37**
+- Schema: **v38**
 - `PesaTrackDatabase.get(...)` is the process-scoped database owner.
 - Canonical financial-message ingestion is transaction-wrapped.
 - Replay/idempotency and rollback are covered by Android tests.
@@ -115,3 +115,13 @@ Implementation verification is tracked in the history-review PR. Android instrum
 Activity now separates Money lent (full-payment recipient prefill) from Shared bill (blank person and amount, explicit existing-person/local-record selection). Shared bill retains the source category and requires a positive share strictly below the payment in both UI and atomic save. Detail and person history show the person, category, original bill and remaining own share; fees remain separate. Existing category allocations retain edit/remove access, but the new Split payment action is replaced by Shared bill. Existing partial loans are not guessed to be shared bills.
 
 Explicit shared intent uses the existing journal event_key namespace shared:UUID; kind remains LENT, schema stays 37 and generic encrypted backup preserves the key. No previous journal rows are rewritten. Source snapshots are revalidated before entry save. No new permissions, telemetry or remote financial processing. Instrumentation remains off; new integration/journey fixtures may be compiled without being executed.
+
+## B2 ownership and Activity review
+
+Explicit ownership consent is separate from identity and account discovery. Legacy accounts require an explicit transfer-matching choice; optional profile name and full phone number are only hints. Activity offers user-reviewed bank-to-M-Pesa pairs only with two confirmed owned accounts, complementary transactions, a transaction-code cross-reference, identical recorded movement timestamps and uniqueness. Ordered three-name evidence is strong, two names require review, and this implementation confirms neither automatically. Confirmation preserves both source observations, fees, native observed balances and authoritative corrections; stale/ambiguous pairs cannot apply.
+
+Schema v38 adds consent and pair decisions without backfill or ledger rewrites. Older supported encrypted v34–v37 backups migrate with empty consent. CSV import remains supported; PDF extraction, OCR and encrypted PDF import remain future phases. See the implementation tracker for exact validation and remaining acceptance gates.
+
+B2 correction safety: either confirmed entry offers Undo transfer match. The saved pre-confirm projection restores both rows atomically, marks the match rejected, and removes only balance anchors copied by that match. Individual financial edits/deletion are guarded until undo; salary-cycle IDs remain rebuildable derived grouping. Added source/mirror mutation, rule/debt/exclusion, interrupted undo, encrypted restore, unrelated balance-anchor, replay and real detail-screen cancel/undo regressions. Review approved conditional on final-head CI; execution remains pending.
+
+B2 review update: the user reinstated the instrumentation pause. Automatic B2 PR emulator execution has been removed; manual review remains opt-in only after a new explicit request. Final-head emulator and physical-device acceptance remain incomplete, independently of build/unit/lint success.

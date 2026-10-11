@@ -17,6 +17,7 @@ Historical project notes are useful context, but current code and `CURRENT_STATE
 2. Keep one coherent risk area per pull request and batch related edits before review.
 3. PR updates and merges run build, lint, unit tests and debug APK assembly. These checks must pass before merge.
 4. Emulator instrumentation runs only when the user explicitly requests it for the current task. Default to build, unit tests, lint and APK assembly, then publication on a successful push to main. Do not enable automatic instrumentation for a PR, add it as a publication dependency, or run it to satisfy an older plan without the user's current request. Marking a PR ready or pushing more edits does not start emulator tests.
+   The user reinstated the instrumentation pause during B2 PR #341. The temporary branch exception has been removed. Do not dispatch emulator review until a new explicit request resumes it; record incomplete emulator acceptance honestly.
 5. For Android device review, use Actions → Android CI → Run workflow on the feature branch and enable `run_instrumentation`. Inspect the successful run's source revision; skipped instrumentation means no device tests ran.
 6. Device compatibility and Android 7 security workflows are manual review tools. Their existing emulator suites are retained; weekly automatic compatibility runs are disabled.
 7. Prefer small migrations and decompositions over broad rewrites.

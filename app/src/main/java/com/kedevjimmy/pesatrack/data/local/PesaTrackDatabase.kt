@@ -42,6 +42,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createEverydayMoneyTables(db)
         createPersonalReceivableTables(db)
         createReceivableReviewTables(db)
+        createOwnedTransferReviewTables(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -504,6 +505,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 36) createPersonalReceivableTables(db)
         if (oldVersion < 37) createReceivableReviewTables(db)
+        if (oldVersion < 38) createOwnedTransferReviewTables(db)
 
         createIndexes(db)
         createTriggers(db)
@@ -1382,6 +1384,65 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createOwnedTransferReviewTables(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS account_ownership_consents (
+                account_id TEXT PRIMARY KEY,
+                decision TEXT NOT NULL CHECK(decision IN ('CONFIRMED','REJECTED')),
+                revision INTEGER NOT NULL CHECK(revision > 0),
+                updated_at_epoch_ms INTEGER NOT NULL,
+                FOREIGN KEY(account_id) REFERENCES money_accounts(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS owned_transfer_review_decisions (
+                pair_key TEXT PRIMARY KEY,
+                source_transaction_id INTEGER NOT NULL,
+                destination_transaction_id INTEGER NOT NULL,
+                source_snapshot_hash TEXT NOT NULL,
+                destination_snapshot_hash TEXT NOT NULL,
+                source_ownership_revision INTEGER NOT NULL CHECK(source_ownership_revision > 0),
+                destination_ownership_revision INTEGER NOT NULL CHECK(destination_ownership_revision > 0),
+                decision TEXT NOT NULL CHECK(decision IN ('CONFIRMED','REJECTED','DEFERRED')),
+                source_before TEXT,
+                destination_before TEXT,
+                updated_at_epoch_ms INTEGER NOT NULL,
+                CHECK(source_transaction_id != destination_transaction_id),
+                FOREIGN KEY(source_transaction_id) REFERENCES transactions(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+                FOREIGN KEY(destination_transaction_id) REFERENCES transactions(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TRIGGER IF NOT EXISTS trg_b2_delete_account_consent AFTER DELETE ON money_accounts
+            BEGIN DELETE FROM account_ownership_consents WHERE account_id=OLD.id; END
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TRIGGER IF NOT EXISTS trg_b2_delete_transfer_review AFTER DELETE ON transactions
+            BEGIN DELETE FROM owned_transfer_review_decisions
+                WHERE source_transaction_id=OLD.id OR destination_transaction_id=OLD.id; END
+        """.trimIndent())
+        val financialFields = listOf("id", "type", "direction", "category", "review_state", "account_id", "linked_account_id",
+            "amount_minor", "fee_minor", "balance_minor", "occurred_at_epoch_ms", "rule_id", "planning_month",
+            "relation_type", "related_transaction_id", "cycle_override", "cycle_candidate_reason",
+            "fuliza_financed_minor", "fuliza_access_fee_minor", "fuliza_outstanding_minor", "fuliza_event_code", "evidence_source")
+        val changed = financialFields.joinToString(" OR ") { "NEW.$it IS NOT OLD.$it" }
+        // The paired undo first changes the decision inside its own atomic transaction.
+        // This boundary also protects callers in other stores and future edit surfaces.
+        // pay_cycle_id is derived by broad salary rebuilds and may change without editing money.
+        db.execSQL("""
+            CREATE TRIGGER IF NOT EXISTS trg_b2_guard_pair_update BEFORE UPDATE ON transactions
+            WHEN ($changed) AND EXISTS (SELECT 1 FROM owned_transfer_review_decisions
+              WHERE decision='CONFIRMED' AND (source_transaction_id=OLD.id OR destination_transaction_id=OLD.id))
+            BEGIN SELECT RAISE(ABORT, 'Undo the transfer match before editing this entry.'); END
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TRIGGER IF NOT EXISTS trg_b2_guard_pair_delete BEFORE DELETE ON transactions
+            WHEN EXISTS (SELECT 1 FROM owned_transfer_review_decisions WHERE decision='CONFIRMED'
+              AND (source_transaction_id=OLD.id OR destination_transaction_id=OLD.id))
+            BEGIN SELECT RAISE(ABORT, 'Undo the transfer match before deleting this entry.'); END
+        """.trimIndent())
+    }
+
     private fun createReceivableReviewTables(db: SQLiteDatabase) {
         db.execSQL("""
             CREATE TABLE IF NOT EXISTS personal_receivable_review_exclusions (
@@ -1703,9 +1764,12 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 instance?.close()
                 instance = null
             }
+            // A cached store must not reopen the retired helper while another
+            // connection holds a migration/restore transaction in a test.
+            TransactionStore.resetForTests()
         }
 
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 37
+        private const val DATABASE_VERSION = 38
     }
 }

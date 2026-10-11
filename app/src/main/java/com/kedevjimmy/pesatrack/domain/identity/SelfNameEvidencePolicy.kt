@@ -17,13 +17,15 @@ object SelfNameEvidencePolicy {
         }
         val shared = candidate.toSet().intersect(profile.toSet()).size
         return when {
-            candidate.size == 3 && shared == 3 -> SelfNameEvidenceLevel.EXACT_THREE_NAMES
+            candidate == profile -> SelfNameEvidenceLevel.EXACT_THREE_NAMES
             shared == 2 -> SelfNameEvidenceLevel.TWO_OF_THREE_REVIEW
             else -> SelfNameEvidenceLevel.NO_MATCH
         }
     }
 
-    private fun tokens(value: String?): List<String> =
-        IdentityGraphPolicy.normalizeName(value)?.split(" ")
-            ?.filter { it.length >= 2 && it.all(Char::isLetter) }.orEmpty()
+    private fun tokens(value: String?): List<String> {
+        val normalized = value.orEmpty().trim().uppercase(java.util.Locale.ROOT)
+        if (!normalized.matches(Regex("""\p{L}{2,}(?:\s+\p{L}{2,})*"""))) return emptyList()
+        return normalized.split(Regex("""\s+"""))
+    }
 }

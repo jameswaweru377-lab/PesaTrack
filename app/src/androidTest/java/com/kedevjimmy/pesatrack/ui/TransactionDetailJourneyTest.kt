@@ -1,12 +1,16 @@
 package com.kedevjimmy.pesatrack.ui
 
-import android.content.ClipboardManager
+import android.view.View
 import android.content.Context
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
@@ -136,7 +140,11 @@ class TransactionDetailJourneyTest {
         val body = "UITEST0001 Confirmed. Ksh2,000.00 paid to Invented grocer."
         val evidence = TransactionMessageEvidenceResult(TransactionMessageEvidence("M-PESA", body,
             payment.receivedAtEpochMs, payment.transactionCode, listOf(payment.amountMinor)))
+        lateinit var screenClipboard: ClipboardManager
+        lateinit var screenView: View
         compose.setContent {
+            screenClipboard = LocalClipboardManager.current
+            screenView = LocalView.current
             PesaTrackTheme(darkTheme = true) {
                 var expanded by remember { mutableStateOf(true) }
                 LazyColumn(Modifier.testTag("evidence-test-list")) {
@@ -150,10 +158,18 @@ class TransactionDetailJourneyTest {
         compose.onNodeWithText(body).assertDoesNotExist()
         compose.onNodeWithText("Add note or receipt").assertIsDisplayed()
         compose.onNodeWithText("Message evidence").performClick()
-        compose.onNodeWithContentDescription("Copy reference").performScrollTo().performClick()
+        // API29+ clipboard access belongs to the focused screen. Read the same
+        // real CompositionLocal service used by its copy action, not a background context.
+        // View/window state must be read on the main thread, including polling.
+        compose.waitUntil(5_000) { compose.runOnIdle { screenView.rootView.hasWindowFocus() } }
         compose.runOnIdle {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            assertEquals(payment.transactionCode, clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+            screenClipboard.setText(AnnotatedString(""))
+            assertNotEquals(payment.transactionCode, screenClipboard.getText()?.text)
+        }
+        compose.onNodeWithContentDescription("Copy reference").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.runOnIdle { screenClipboard.getText()?.text == payment.transactionCode } }
+        compose.runOnIdle {
+            assertEquals(payment.transactionCode, screenClipboard.getText()?.text)
         }
     }
 }

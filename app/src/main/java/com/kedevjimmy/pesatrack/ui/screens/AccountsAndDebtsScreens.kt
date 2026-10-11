@@ -273,6 +273,7 @@ fun AccountsScreen(
             }
         }
         item { AccountBalanceCheckAction() }
+        item { TransferOwnershipConsentAction() }
         if (visible.isEmpty()) item {
             PesaCard { Column(Modifier.padding(18.dp)) {
                 Text("No confirmed accounts here yet", style = MaterialTheme.typography.titleMedium)
