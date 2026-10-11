@@ -171,6 +171,12 @@ object PayslipFieldReview {
                         label=line.trimEnd('=',':').trim();value=lines[i+1];i++
                     }
                 }
+                if(label==null && value==null) {
+                    // Invalid marked values must invalidate an earlier apparently valid occurrence.
+                    val marked=Regex("^(.{2,120}?)\\s*[:=]\\s*(.+)$").matchEntire(line)
+                    val badKey=marked?.let{aliases[normalized(it.groupValues[1])]?.key}
+                    if(badKey!=null){occurrences[badKey]=(occurrences[badKey]?:0)+1;malformed=true}
+                }
                 if(label!=null && value!=null){
                     val norm=normalized(label)
                     val field=aliases[norm]
