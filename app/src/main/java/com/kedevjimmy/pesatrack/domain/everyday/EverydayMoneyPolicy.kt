@@ -48,10 +48,10 @@ object BudgetPeriods {
 data class StatementRow(val date:Long,val description:String,val signedMinor:Long,val reference:String?)
 object StatementCsv {
  const val MAX_BYTES=2*1024*1024
- const val MAX_ROWS=2000
+ const val MAX_ROWS=5000
  /** Validate every adapter row before querying history or opening a write transaction. */
  fun validateRows(rows:List<StatementRow>,now:Long=System.currentTimeMillis()) {
-  require(rows.size<=MAX_ROWS){"Choose a file with up to 2,000 entries."}
+  require(rows.size<=MAX_ROWS){"Choose a file with up to 5,000 entries."}
   require(rows.all {r->r.date>0 && r.date<=now && r.signedMinor!=0L && r.signedMinor!=Long.MIN_VALUE && r.description.trim().length in 1..200 && (r.reference==null || r.reference.length<=100)}){"Check the statement dates, descriptions, amounts and references."}
  }
  fun parse(text:String,zone:TimeZone=TimeZone.getDefault()):List<StatementRow> {
@@ -61,7 +61,7 @@ object StatementCsv {
   require(header.distinct().size==header.size) {"Repeated column names."}
   val date=header.indexOf("date");val description=header.indexOf("description");val amount=header.indexOf("amount");val debit=header.indexOf("debit");val credit=header.indexOf("credit");val ref=header.indexOf("reference")
   require(date>=0 && description>=0 && ((amount>=0 && debit<0 && credit<0)||(amount<0 && debit>=0 && credit>=0))) {"Use date, description, amount and optional reference, or debit and credit instead of amount."}
-  require(rows.size-1<=MAX_ROWS) {"Choose a file with up to 2,000 entries."}
+  require(rows.size-1<=MAX_ROWS) {"Choose a file with up to 5,000 entries."}
   return rows.drop(1).mapIndexed {i,row->
    require(row.size==header.size) {"Row ${i+2}: columns do not match."}
    val label=row[description].trim();require(label.isNotEmpty() && label.length<=200) {"Row ${i+2}: check the description."}
