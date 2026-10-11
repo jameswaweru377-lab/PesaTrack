@@ -57,10 +57,10 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
     }
     LaunchedEffect(Unit) {busy=true;try {refresh()} catch(e:CancellationException){throw e}
         catch(_:Exception){error="Could not load payroll details. Your cash history is unchanged."} finally {busy=false}}
-    val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {uri ->if(uri!=null) perform {
+    val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {uri ->if(uri!=null) {suggestions=null;perform {
         val pdf=PdfTextReviewReader.read(context,uri)
         suggestions=withContext(Dispatchers.Default) {PayslipFieldReview.read(pdf.pages)}
-    }}
+    }}}
     MoneyToolSheet("Payroll details","Record employer-reported earnings, deductions and contributions separately from money received. KES only. A payslip does not prove a bank deposit, remittance, savings balance or loan balance. One record per employer/month; edit existing records for corrections. Receipt matching and multiple-payslip aggregation are not available here.",busy,onDismiss) {
         item {
             Text(if(editing==null) "New payroll record" else "Edit payroll record",style=MaterialTheme.typography.titleMedium)
