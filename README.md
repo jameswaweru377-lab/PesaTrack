@@ -67,7 +67,7 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 
 ## Engineering status
 
-- Database schema: **v39**
+- Database schema: **v40**
 - Android minSdk: **24**
 - target/compile SDK: **36**
 - Current CI runs:

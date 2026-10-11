@@ -44,6 +44,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createReceivableReviewTables(db)
         createOwnedTransferReviewTables(db)
         PayrollJournalSchema.statements.forEach { db.execSQL(it) }
+        EvidenceJournalSchema.create(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -508,6 +509,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         if (oldVersion < 37) createReceivableReviewTables(db)
         if (oldVersion < 38) createOwnedTransferReviewTables(db)
         if (oldVersion < 39) PayrollJournalSchema.statements.forEach { db.execSQL(it) }
+        if (oldVersion < 40) EvidenceJournalSchema.create(db)
 
         createIndexes(db)
         createTriggers(db)
@@ -1772,6 +1774,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 39
+        private const val DATABASE_VERSION = 40
     }
 }

@@ -81,7 +81,7 @@ class PayrollJournalIntegrationTest {
         val legacy=PesaTrackDatabase.get(context);val db=legacy.writableDatabase
         db.execSQL("DROP TABLE payroll_lines");db.execSQL("DROP TABLE payroll_records");db.version=38
         legacy.close();PesaTrackDatabase.resetForTests()
-        assertEquals(39,PesaTrackDatabase.get(context).writableDatabase.version)
+        assertEquals(40,PesaTrackDatabase.get(context).writableDatabase.version)
         assertTrue(PayrollJournalStore(context).records().isEmpty());assertCash(account)
         assertEquals(1L,AccountOwnershipConsentStore(context).confirmedRevisions()[account])
     }
@@ -91,13 +91,14 @@ class PayrollJournalIntegrationTest {
             val old=EncryptedBackupFixture.rewrite(exported,password) {payload ->
                 payload.addProperty("schemaVersion",version);val t=payload.getAsJsonObject("tables")
                 t.remove("payroll_records");t.remove("payroll_lines")
+                t.remove("evidence_observations");t.remove("evidence_links");t.remove("evidence_link_audit")
                 if(version<38){t.remove("account_ownership_consents");t.remove("owned_transfer_review_decisions")}
                 if(version<37)t.remove("personal_receivable_review_exclusions")
                 if(version<36){t.remove("personal_receivable_people");t.remove("personal_receivable_events")}
                 if(version<35){t.remove("transaction_allocations");t.remove("flexible_budget_options");t.remove("statement_import_entries")}
             }
             PayrollJournalStore(context).save(draft(),true)
-            assertEquals(39,manager.previewEncryptedBytes(old,password).schemaVersion)
+            assertEquals(40,manager.previewEncryptedBytes(old,password).schemaVersion)
             manager.restoreEncryptedBytes(old,password);assertTrue(PayrollJournalStore(context).records().isEmpty());assertCash(account)
         }
     }
