@@ -452,6 +452,7 @@ class PesaBackupManager(
             }
         }
         PayrollBackupValidation.validate(backupTables)
+        EvidenceBackupValidation.validate(backupTables)
         val preferences = root.getAsJsonObject("preferences")
             ?: throw IllegalArgumentException("This backup is missing its settings.")
         BackupPreferences.decode(preferences)
