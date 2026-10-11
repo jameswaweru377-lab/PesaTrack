@@ -9,6 +9,7 @@ import androidx.annotation.RequiresApi
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
 import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
+import com.kedevjimmy.pesatrack.domain.evidence.PdfTextChunkAssembler
 
 /** Private isolated process: receives only a read-only descriptor, never ledger access. */
 class PdfTextReviewService : Service() {
@@ -32,7 +33,21 @@ class PdfTextReviewService : Service() {
                 if (Build.VERSION.SDK_INT >= 35) {
                     val password=message.data.getString("password")
                     message.data.remove("password")
-                    response.putStringArrayList("pages", ArrayList(extract(descriptor,password)))
+                    val pages=extract(descriptor,password)
+                    val recipient=message.replyTo ?: throw PdfReadException(PdfFailure.SERVICE)
+                    pages.forEachIndexed { index, page ->
+                        val chunks=if(page.isEmpty()) listOf("") else page.chunked(PdfTextChunkAssembler.CHUNK_CHARACTERS)
+                        chunks.forEach { chunk ->
+                            recipient.send(Message.obtain().apply {
+                                data=Bundle().apply {
+                                    putInt("pageIndex",index)
+                                    putString("chunk",chunk)
+                                }
+                            })
+                        }
+                    }
+                    response.putBoolean("done",true)
+                    response.putInt("pageCount",pages.size)
                 } else throw PdfReadException(PdfFailure.VERSION)
             } catch (e: PdfReadException) {
                 response.putString("failure",e.failure.name)
