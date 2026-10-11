@@ -34,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.EvidenceJournalStore
 import com.kedevjimmy.pesatrack.data.local.TransactionAnnotation
 import com.kedevjimmy.pesatrack.data.local.TransactionAnnotationStore
 import androidx.compose.foundation.background
@@ -704,6 +705,35 @@ fun TransactionDetailScreen(
         if (confirmedTransfer) item { OwnedTransferUndoAction(current.id, onChanged = { refresh() }) }
         if (!confirmedTransfer) item { SplitPaymentAction(current, onChanged = { refresh() }) }
         if (!confirmedTransfer) item { PersonalReceivableTransactionAction(current, onChanged = { refresh() }) }
+        item(key = "transaction-provenance") {
+            val linkedSources = remember(current, evidenceRefresh) {
+                EvidenceJournalStore.sourcesFor(context, current.id)
+            }
+            if (linkedSources.isNotEmpty()) {
+                SectionHeader("Linked evidence")
+                PesaCard {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        linkedSources.forEach { source ->
+                            val label = when (source.sourceKind) {
+                                "STATEMENT" -> "Statement"
+                                "MANUAL" -> "Manual entry"
+                                "NOTIFICATION" -> "Notification"
+                                else -> "SMS"
+                            }
+                            Text(
+                                if (source.needsReview) "$" + "{label} • Recheck after editing this transaction"
+                                else "$" + "{label} • Matched, no extra money added",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
         item {
             TransactionDetailFacts(
                 item = current,
