@@ -154,18 +154,21 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
             }
             if(records.isNotEmpty()) item {
                 val recent=records.first()
-                val totalGross=records.fold(0L) {amount,row->Math.addExact(amount,row.draft.grossMinor)}
-                val totalNet=records.fold(0L) {amount,row->Math.addExact(amount,row.draft.netMinor)}
+                val totalGross=runCatching {records.fold(0L) {amount,row->Math.addExact(amount,row.draft.grossMinor)}}.getOrNull()
+                val totalNet=runCatching {records.fold(0L) {amount,row->Math.addExact(amount,row.draft.netMinor)}}.getOrNull()
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                         Text("Latest paycheck · ${recent.draft.period}",style=MaterialTheme.typography.titleMedium)
                         Text("Gross: KES ${PayrollJournalPolicy.money(recent.draft.grossMinor)}")
                         Text("Net payable: KES ${PayrollJournalPolicy.money(recent.draft.netMinor)}")
-                        Text("Saved payroll totals (${records.size}): gross KES ${PayrollJournalPolicy.money(totalGross)}, net KES ${PayrollJournalPolicy.money(totalNet)}",style=MaterialTheme.typography.bodySmall)
-                        val sacco=records.fold(0L) {amount,row->Math.addExact(amount,row.draft.lines.filter {
-                            it.type in setOf(PayrollLineType.SACCO_SHARES,PayrollLineType.SACCO_DEPOSIT)
-                        }.sumOf {it.amountMinor})}
-                        Text("Reported SACCO deductions: KES ${PayrollJournalPolicy.money(sacco)}",style=MaterialTheme.typography.bodySmall)
+                        Text("Saved payroll totals (${records.size}): gross ${totalGross?.let { "KES "+PayrollJournalPolicy.money(it) } ?: "Unavailable"}, net ${totalNet?.let { "KES "+PayrollJournalPolicy.money(it) } ?: "Unavailable"}",style=MaterialTheme.typography.bodySmall)
+                        val sacco=runCatching {records.fold(0L) {amount,row->
+                            val deductions=row.draft.lines.filter {
+                                it.type in setOf(PayrollLineType.SACCO_SHARES,PayrollLineType.SACCO_DEPOSIT)
+                            }.fold(0L) {total,line->Math.addExact(total,line.amountMinor)}
+                            Math.addExact(amount,deductions)
+                        }}.getOrNull()
+                        Text("Reported SACCO deductions: ${sacco?.let { "KES "+PayrollJournalPolicy.money(it) } ?: "Unavailable"}",style=MaterialTheme.typography.bodySmall)
                         Text("Contributions are reported, not verified SACCO deposits or available balances.",style=MaterialTheme.typography.bodySmall)
                     }
                 }
