@@ -10,12 +10,14 @@ object PdfTextReviewPolicy {
     const val TIMEOUT_MS = 45000L
     fun supported(api: Int) = api >= 35
     fun requireBytes(bytes: Long) {
-        require(bytes in 1..MAX_BYTES) { "Choose a PDF up to 2 MB." }
+        if(bytes<=0) throw PdfReadException(PdfFailure.EMPTY)
+        if(bytes>MAX_BYTES) throw PdfReadException(PdfFailure.TOO_LARGE)
     }
     fun preview(pages: List<String>): PdfTextPreview {
-        require(pages.size in 1..MAX_PAGES) { "Choose a PDF with 1–40 pages." }
-        require(pages.sumOf { it.length.toLong() } <= MAX_CHARACTERS) { "This PDF has too much text. Choose a shorter document." }
-        require(pages.any { it.isNotBlank() }) { "No selectable text was found. This may be a scanned PDF; OCR is not available." }
+        if(pages.isEmpty()) throw PdfReadException(PdfFailure.NO_TEXT)
+        if(pages.size>MAX_PAGES) throw PdfReadException(PdfFailure.TOO_MANY_PAGES)
+        if(pages.sumOf { it.length.toLong() }>MAX_CHARACTERS) throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
+        if(pages.none {it.isNotBlank()}) throw PdfReadException(PdfFailure.NO_TEXT)
         return PdfTextPreview(pages.toList(), pages.mapIndexedNotNull { i, text -> if (text.isBlank()) i + 1 else null })
     }
 }

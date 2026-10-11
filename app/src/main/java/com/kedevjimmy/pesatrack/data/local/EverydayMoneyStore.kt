@@ -74,8 +74,10 @@ class EverydayMoneyStore(context:Context) {
   }
  }
  /** Entire selected import either commits or rolls back; recheck duplicates inside the lock. */
- fun importRows(accountId:String,rows:List<StatementRow>):Int = synchronized(CanonicalStoreLock.monitor) {
-  requireOwned(accountId);require(rows.isNotEmpty());StatementCsv.validateRows(rows)
+ fun importRows(accountId:String,rows:List<StatementRow>,expectedAccountType:AccountType?=null):Int = synchronized(CanonicalStoreLock.monitor) {
+  val account=requireOwned(accountId)
+  require(expectedAccountType==null || account.type==expectedAccountType){"The statement account changed. Choose the correct account and review again."}
+  require(rows.isNotEmpty());StatementCsv.validateRows(rows)
   val db=database.writableDatabase;db.beginTransaction();var count=0
   try {
    preview(accountId,rows).filterNot {it.duplicate}.forEach {item->val r=item.row;val key=importKey(accountId,r)

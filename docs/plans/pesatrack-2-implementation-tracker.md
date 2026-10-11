@@ -1,9 +1,16 @@
 # PesaTrack 2.0 Advanced — implementation tracker
 
-Status: **A1/A3/A4 onboarding and B1 contracts are merged through #340; B2 owned-transfer review is merged #341; adapter guards/API35 text review are merged #343; C1/D1 journal/review is merged #344 with main CI38133439979 successful. Exact statement import dates are implemented on the current branch, delivery pending. Exact CI, merge and APK evidence is maintained in [master issue #322](https://github.com/jameswaweru377-lab/PesaTrack/issues/322).**
+Status: **A1/A3/A4 onboarding and B1 contracts are merged through #340; B2 owned-transfer review is merged #341; adapter guards/API35 text review are merged #343; C1/D1 journal/review is merged #344 with main CI38133439979 successful. Exact statement import dates merged #345; main CI38144499803/APK passed. PDF unlock/import review is implemented on the current branch, delivery pending. Exact CI, merge and APK evidence is maintained in [master issue #322](https://github.com/jameswaweru377-lab/PesaTrack/issues/322).**
 Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page planning document, 10 October 2026). The PDF is a proposal, not proof of implementation.
 
-## Exact statement import dates — current branch
+## PDF unlock and reviewed import — current branch
+
+- Shared API35 PDF picker unlocks locally with a transient masked password dialog; failures distinguish file access/copy/size, header, password/encryption, page/text limits, no text, native parsing, service and timeout. Password state clears on submit/cancel/background/disposal; no password persistence/logging/upload or decrypted document retention.
+- Payslip review adds labelled company/employer and month plus adjacent text-cell labels/amounts. NSSF/NHIF and original health labels remain typed payroll facts. Editable fields and explicit review precede journal save; no cash, balance or remittance inference.
+- One conservative M-Pesa completed-row text profile uses explicit KES and paid-in/withdrawn/balance headings. Unsupported/partial/ambiguous/repeated-reference evidence produces no import candidates. Supported rows can be corrected, date-filtered, deduped and explicitly confirmed against the selected wallet before the existing atomic import. No CSV conversion file is needed.
+- No schema, dependency, permission or workflow changes. Synthetic policy/parser checks and source review do not verify native password handling, device lifecycle or the user-reported landscape document; actual files were not provided and instrumentation remains paused. OCR, arbitrary Equity/bank tables, older Android and unsupported encryption remain future work.
+
+## Exact statement import dates — merged #345
 
 - Adds All statement dates / Custom date range with From/To native calendar pickers to the existing statement import sheet. Both selected days are included, without an invented 14-month cap or changes to onboarding's separate history window.
 - Filtering applies to supported CSV transaction rows before duplicate preview. Shows included/excluded counts and actual earliest/latest entry dates; no-match, reversed and future-date cases have clear explanations. Missing dates do not create transactions or imply that the document covers a full period.

@@ -3,9 +3,12 @@ package com.kedevjimmy.pesatrack.documents
 import android.app.Service
 import android.content.Intent
 import android.graphics.pdf.PdfRenderer
+import android.graphics.pdf.LoadParams
 import android.os.*
 import androidx.annotation.RequiresApi
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
+import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
+import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
 
 /** Private isolated process: receives only a read-only descriptor, never ledger access. */
 class PdfTextReviewService : Service() {
@@ -27,17 +30,19 @@ class PdfTextReviewService : Service() {
             val response = Bundle()
             try {
                 if (Build.VERSION.SDK_INT >= 35) {
-                    response.putStringArrayList("pages", ArrayList(extract(descriptor)))
-                } else throw IllegalArgumentException("Unsupported Android version")
+                    val password=message.data.getString("password")
+                    message.data.remove("password")
+                    response.putStringArrayList("pages", ArrayList(extract(descriptor,password)))
+                } else throw PdfReadException(PdfFailure.VERSION)
+            } catch (e: PdfReadException) {
+                response.putString("failure",e.failure.name)
             } catch (_: SecurityException) {
-                response.putString("error", "Protected PDFs cannot be read. Choose an unprotected copy or use manual entry.")
-            } catch (e: IllegalArgumentException) {
-                // Only our fixed policy messages may be shown; native errors can contain private content.
-                response.putString("error", "This PDF cannot be previewed. Use an unprotected document up to 2 MB, 40 pages and 100,000 text characters. Scanned PDFs need OCR, which is not available.")
+                response.putString("failure",PdfFailure.PASSWORD.name)
             } catch (_: Exception) {
-                response.putString("error", "Could not read this PDF. It may be damaged or unsupported. Nothing was imported.")
+                response.putString("failure",PdfFailure.PARSE.name)
             } finally {
-                descriptor.close()
+                message.data.remove("password")
+                runCatching {descriptor.close()}
             }
             try { message.replyTo?.send(Message.obtain().apply { data = response }) } catch (_: RemoteException) { }
             true
@@ -45,16 +50,17 @@ class PdfTextReviewService : Service() {
     }
 
     @RequiresApi(35)
-    private fun extract(descriptor: ParcelFileDescriptor): List<String> = PdfRenderer(descriptor).use { renderer ->
+    private fun extract(descriptor: ParcelFileDescriptor,password: String?): List<String> {
         PdfTextReviewPolicy.requireBytes(descriptor.statSize)
-        require(renderer.pageCount in 1..PdfTextReviewPolicy.MAX_PAGES)
+        return PdfRenderer(descriptor,LoadParams.Builder().setPassword(password).build()).use { renderer ->
+        if(renderer.pageCount>PdfTextReviewPolicy.MAX_PAGES) throw PdfReadException(PdfFailure.TOO_MANY_PAGES)
         var characters = 0L
         val pages = (0 until renderer.pageCount).map { index ->
             renderer.openPage(index).use { page ->
                 val text = StringBuilder()
                 for (content in page.textContents) {
                     characters += content.text.length + if (text.isNotEmpty()) 1L else 0L
-                    require(characters <= PdfTextReviewPolicy.MAX_CHARACTERS)
+                    if(characters>PdfTextReviewPolicy.MAX_CHARACTERS) throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
                     if (text.isNotEmpty()) text.append('\n')
                     text.append(content.text)
                 }
@@ -62,6 +68,7 @@ class PdfTextReviewService : Service() {
             }
         }
         PdfTextReviewPolicy.preview(pages).pages
+        }
     }
 
     override fun onBind(intent: Intent): IBinder = messenger.binder

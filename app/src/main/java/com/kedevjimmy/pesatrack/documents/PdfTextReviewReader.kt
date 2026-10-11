@@ -7,6 +7,8 @@ import androidx.annotation.RequiresApi
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextPreview
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
 import com.kedevjimmy.pesatrack.domain.evidence.DocumentCopySession
+import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
+import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
 import kotlinx.coroutines.*
 import java.io.File
 import java.util.UUID
@@ -23,20 +25,20 @@ object PdfTextReviewReader {
     fun clearAbandonedFiles(context: Context) {
         context.cacheDir.listFiles()?.filter { it.name.startsWith("pdf-review-") && it.name.endsWith(".pdf") }?.forEach { it.delete() }
     }
-    suspend fun read(context: Context, uri: Uri): PdfTextPreview {
-        require(Build.VERSION.SDK_INT >= 35) { "PDF text preview needs Android 15 or newer. CSV and manual entry remain available." }
+    suspend fun read(context: Context, uri: Uri, password: String? = null): PdfTextPreview {
+        if(Build.VERSION.SDK_INT<35)throw PdfReadException(PdfFailure.VERSION)
         val app = context.applicationContext
         val file = File.createTempFile("pdf-review-", ".pdf", app.cacheDir)
         try {
             return withTimeout(PdfTextReviewPolicy.TIMEOUT_MS) {
                 copySource(app, uri, file)
                 withContext(Dispatchers.Main) {
-                    if (Build.VERSION.SDK_INT >= 35) request(app, file)
-                    else throw IllegalArgumentException("PDF text preview needs Android 15 or newer.")
+                    if (Build.VERSION.SDK_INT >= 35) request(app, file, password)
+                    else throw PdfReadException(PdfFailure.VERSION)
                 }
             }
         } catch (_: TimeoutCancellationException) {
-            throw IllegalArgumentException("PDF review took too long. Try a smaller document. Nothing was imported.")
+            throw PdfReadException(PdfFailure.TIMEOUT)
         } finally { withContext(NonCancellable + Dispatchers.IO) { file.delete() } }
     }
 
@@ -44,8 +46,8 @@ object PdfTextReviewReader {
         val signal = CancellationSignal()
         val session = DocumentCopySession(
             open = {
-                val descriptor = app.contentResolver.openFileDescriptor(uri, "r", signal)
-                    ?: throw IllegalArgumentException("Could not open the PDF.")
+                val descriptor = try {app.contentResolver.openFileDescriptor(uri, "r", signal)
+                    ?: throw PdfReadException(PdfFailure.ACCESS)} catch(_: Exception) {throw PdfReadException(PdfFailure.ACCESS)}
                 ParcelFileDescriptor.AutoCloseInputStream(descriptor)
             },
             cancelOpen = { signal.cancel() }
@@ -61,11 +63,9 @@ object PdfTextReviewReader {
             try {
                 session.copyTo(file)
                 if (continuation.isActive) continuation.resume(Unit) else file.delete()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 file.delete()
-                if (continuation.isActive) continuation.resumeWithException(IllegalArgumentException(
-                    "Could not read this PDF. Choose a readable PDF up to 2 MB. Nothing was imported."
-                ))
+                if (continuation.isActive) continuation.resumeWithException(e as? PdfReadException ?: PdfReadException(PdfFailure.COPY))
             }
         }
         future.set(task)
@@ -77,22 +77,22 @@ object PdfTextReviewReader {
     }
 
     @RequiresApi(35)
-    private suspend fun request(app: Context, file: File): PdfTextPreview {
+    private suspend fun request(app: Context, file: File, password: String?): PdfTextPreview {
         var bound = false
         lateinit var connection: ServiceConnection
         try {
             return suspendCancellableCoroutine { continuation ->
-                fun fail(message: String) {
-                    if (continuation.isActive) continuation.resumeWithException(IllegalArgumentException(message))
+                fun fail(failure: PdfFailure) {
+                    if (continuation.isActive) continuation.resumeWithException(PdfReadException(failure))
                 }
                 val reply = Messenger(Handler(Looper.getMainLooper()) { message ->
                     if (continuation.isActive) {
-                        val error = message.data.getString("error")
-                        if (error != null) fail(error) else {
+                        val failure = message.data.getString("failure")
+                        if (failure != null) fail(PdfFailure.entries.firstOrNull {it.name==failure} ?: PdfFailure.PARSE) else {
                             try {
                                 val pages = message.data.getStringArrayList("pages") ?: emptyList()
                                 continuation.resume(PdfTextReviewPolicy.preview(pages))
-                            } catch (_: Exception) { fail("No readable PDF text was returned. Nothing was imported.") }
+                            } catch (e: Exception) { fail((e as? PdfReadException)?.failure ?: PdfFailure.PARSE) }
                         }
                     }
                     true
@@ -104,20 +104,20 @@ object PdfTextReviewReader {
                             ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
                                 Messenger(binder).send(Message.obtain().apply {
                                     replyTo = reply
-                                    data = Bundle().apply { putParcelable("file", descriptor) }
+                                    data = Bundle().apply { putParcelable("file", descriptor);putString("password",password) }
                                 })
                                 // The isolated process now owns a duplicated descriptor; retain no named document.
                                 file.delete()
                             }
-                        } catch (_: Exception) { fail("Could not start PDF text review. Nothing was imported.") }
+                        } catch (_: Exception) { fail(PdfFailure.SERVICE) }
                     }
-                    override fun onServiceDisconnected(name: ComponentName) { fail("PDF review stopped. Try a smaller document. Nothing was imported.") }
-                    override fun onBindingDied(name: ComponentName) { fail("PDF review stopped. Nothing was imported.") }
-                    override fun onNullBinding(name: ComponentName) { fail("PDF review is unavailable. Nothing was imported.") }
+                    override fun onServiceDisconnected(name: ComponentName) { fail(PdfFailure.SERVICE) }
+                    override fun onBindingDied(name: ComponentName) { fail(PdfFailure.SERVICE) }
+                    override fun onNullBinding(name: ComponentName) { fail(PdfFailure.SERVICE) }
                 }
                 bound = app.bindIsolatedService(Intent(app, PdfTextReviewService::class.java), Context.BIND_AUTO_CREATE,
                     UUID.randomUUID().toString().replace("-", ""), app.mainExecutor, connection)
-                if (!bound) fail("PDF text review is unavailable. Nothing was imported.")
+                if (!bound) fail(PdfFailure.SERVICE)
             }
         } finally { if (bound) app.unbindService(connection) }
     }

@@ -41,6 +41,7 @@ class DocumentCopySession(
                         val read = input.read(buffer)
                         checkActive()
                         if (read < 0) break
+                        if(read==0)continue
                         count += read
                         PdfTextReviewPolicy.requireBytes(count)
                         output.write(buffer, 0, read)
@@ -50,7 +51,7 @@ class DocumentCopySession(
             }
             val signature = ByteArray(5)
             val size = file.inputStream().use { it.read(signature) }
-            require(size == 5 && signature.contentEquals("%PDF-".toByteArray(Charsets.US_ASCII))) { "Choose a PDF document." }
+            if(size!=5 || !signature.contentEquals("%PDF-".toByteArray(Charsets.US_ASCII))) throw PdfReadException(PdfFailure.NOT_PDF)
             checkActive()
             successful = true
         } finally {
