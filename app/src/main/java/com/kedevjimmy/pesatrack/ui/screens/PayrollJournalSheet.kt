@@ -92,7 +92,7 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
         }
         item {
             PdfImportButton("Import payslip PDF",!busy,pdfImport)
-            Text(if(Build.VERSION.SDK_INT>=35) "Read locally, then review only relevant payroll fields. Up to 8 MB/160 pages; scanned images require OCR. No raw PDF text, password or unrelated staff information is saved." else "PDF text needs Android 15 or newer. Enter the payroll fields manually on this phone.",style=MaterialTheme.typography.bodySmall)
+            Text(if(Build.VERSION.SDK_INT>=35) "Read locally, then review only relevant payroll fields. Up to 8 MB PDF size; payslip review supports 40 pages and 100,000 characters. Scanned images require OCR. No raw PDF text, password or unrelated staff information is saved." else "PDF text needs Android 15 or newer. Enter the payroll fields manually on this phone.",style=MaterialTheme.typography.bodySmall)
         }
         item {message?.let {Text(it,color=MaterialTheme.colorScheme.primary)}}
         suggestions?.let {s ->item {
