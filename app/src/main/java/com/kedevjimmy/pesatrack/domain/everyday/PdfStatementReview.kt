@@ -10,6 +10,11 @@ data class PdfStatementCandidates(val rows: List<StatementRow>,val problems: Lis
 
 /** Bounded M-Pesa text-layout adapter. Unsupported/partial evidence offers no import candidates. */
 object PdfStatementReview {
+    fun requireUniqueReferences(rows: List<StatementRow>) {
+        val references=rows.map {it.reference.orEmpty().trim().uppercase(Locale.ROOT)}
+        require(references.all {Regex("[A-Z0-9]{10}").matches(it)}) {"Each entry needs the 10-letter/digit M-Pesa receipt reference from the statement."}
+        require(references.distinct().size==references.size) {"Two entries use the same receipt reference. Correct the reference or cancel this edit."}
+    }
     fun correct(date: String,description: String,amount: String,reference: String,zone: TimeZone,now: Long=System.currentTimeMillis()): StatementRow {
         require(Regex("[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}").matches(date)){"Use yyyy-MM-dd HH:mm:ss for the date and time."}
         val position=ParsePosition(0)

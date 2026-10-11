@@ -139,14 +139,25 @@ private fun readStatement(c:Context,uri:Uri):String {
     val chosen=preview.mapIndexedNotNull {i,p->if(selected[i]==true&&!p.duplicate)p.row else null}
     importing=true;error=null
     scope.launch{try{
-     val count=withContext(Dispatchers.IO){store.importRows(source.accountId,StatementImportDates.requireReviewed(source,reviewed,chosen),requiredType)}
+     val count=withContext(Dispatchers.IO){
+      if(requiredType!=null)PdfStatementReview.requireUniqueReferences(source.rows)
+      store.importRows(source.accountId,StatementImportDates.requireReviewed(source,reviewed,chosen),requiredType)
+     }
      onChanged();done="Added $count entries. Confirm them in Activity.";rows=emptyList();previewSource=null;dateResult=null;preview=emptyList();selected.clear()
     }catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not finish import. Check Activity before retrying."}finally{importing=false}}
    },enabled=!busy&&dateError==null&&previewSource==selection&&selected.values.any{it}&&(!pdfRows||(pdfConfirmed&&accounts.firstOrNull{it.id==accountId}?.type==AccountType.MOBILE_WALLET)),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Import ${selected.values.count{it}} entries")}}
    items(preview.size,key={it}){i->val p=preview[i];PesaCard{Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=selected[i]==true,onCheckedChange={selected[i]=it},enabled=!busy&&!p.duplicate);Column(Modifier.weight(1f)){Text(p.row.description,style=MaterialTheme.typography.titleSmall);Text(StatementImportDates.day(p.row.date,zoneId)+(if(p.duplicate)" · Already recorded"else if(p.possibleMatch)" · Possible match"else""),style=MaterialTheme.typography.bodySmall);if(pdfRows)TextButton(enabled=!busy,onClick={editingPdf=p.row}){Text("Edit extracted entry")}};Text(toolMoney(p.row.signedMinor),style=MaterialTheme.typography.bodySmall)}}}
   }
  }
- editingPdf?.let {original->PdfStatementRowDialog(original,zoneId,onDismiss={editingPdf=null},onSave={updated->val index=rows.indexOf(original);if(index>=0){invalidatePreview();rows=rows.toMutableList().apply {set(index,updated)}};editingPdf=null})}
+ editingPdf?.let {original->PdfStatementRowDialog(original,zoneId,onDismiss={editingPdf=null},onSave={updated->
+  val index=rows.indexOf(original)
+  if(index>=0){
+   val corrected=rows.toMutableList().apply {set(index,updated)}
+   PdfStatementReview.requireUniqueReferences(corrected)
+   invalidatePreview();rows=corrected
+  }
+  editingPdf=null
+ })}
 }
 
 @Composable private fun StatementImportDateButton(label:String,day:String,enabled:Boolean,onChanged:(String)->Unit) {
