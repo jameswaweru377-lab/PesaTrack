@@ -26,6 +26,7 @@ import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
 import com.kedevjimmy.pesatrack.ui.screens.FinancialInstitutionsScreen
 import com.kedevjimmy.pesatrack.ui.screens.IdentityReviewScreen
 import com.kedevjimmy.pesatrack.ui.screens.SalaryScreen
+import com.kedevjimmy.pesatrack.ui.screens.PayrollJournalSheet
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreenCache
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
@@ -196,7 +197,18 @@ fun PesaTrackApp(
 
         composable("salary") {
             AppScaffold(currentTab = MainTab.HOME, onTabSelected = ::navigateToTab) { padding ->
-                SalaryScreen(padding, onBack = { navController.popBackStack() })
+                SalaryScreen(padding, onBack = { navController.popBackStack() },
+                    onPaycheckClick = { navController.navigate("paycheck-analysis") })
+            }
+        }
+
+        composable("paycheck-analysis") {
+            AppScaffold(currentTab = MainTab.ACTIVITY, onTabSelected = ::navigateToTab) { padding ->
+                PayrollJournalSheet(
+                    onDismiss = { navController.popBackStack() },
+                    asPage = true,
+                    scaffoldPadding = padding
+                )
             }
         }
 
@@ -275,6 +287,7 @@ fun PesaTrackApp(
                 ActivityScreen(
                     scaffoldPadding = padding,
                     onSalaryClick = { navController.navigate("salary") },
+                    onPaycheckClick = { navController.navigate("paycheck-analysis") },
                     onTransactionClick = { id ->
                         navController.navigate(
                             "transaction-detail/$id"
@@ -304,6 +317,7 @@ fun PesaTrackApp(
                 ActivityScreen(
                     scaffoldPadding = padding,
                     onSalaryClick = { navController.navigate("salary") },
+                    onPaycheckClick = { navController.navigate("paycheck-analysis") },
                     onTransactionClick = { id ->
                         navController.navigate(
                             "transaction-detail/$id"
