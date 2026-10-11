@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,7 +29,8 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
     val amount: String="",val type: PayrollLineType=PayrollLineType.OTHER,
     val role: PayrollLineRole=PayrollLineRole.EMPLOYEE_DEDUCTION)
 
-@Composable internal fun PayrollJournalSheet(onDismiss: ()->Unit) {
+@Composable internal fun PayrollJournalSheet(onDismiss: ()->Unit, asPage: Boolean = false,
+    scaffoldPadding: PaddingValues = PaddingValues()) {
     val context=LocalContext.current;val scope=rememberCoroutineScope();val store=remember {PayrollJournalStore(context)}
     var records by remember {mutableStateOf<List<PayrollRecord>>(emptyList())}
     var editing by remember {mutableStateOf<PayrollRecord?>(null)}
@@ -37,8 +40,6 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
     var source by remember {mutableStateOf(PayrollSource.MANUAL)}
     var lines by remember {mutableStateOf<List<PayrollLineInput>>(emptyList())}
     var suggestions by remember {mutableStateOf<PayslipSuggestions?>(null)}
-    var extracted by remember {mutableStateOf<com.kedevjimmy.pesatrack.domain.evidence.PdfTextPreview?>(null)}
-    var showText by remember {mutableStateOf(false)}
     var reviewed by remember {mutableStateOf(false)};var busy by remember {mutableStateOf(false)}
     var error by remember {mutableStateOf<String?>(null)};var message by remember {mutableStateOf<String?>(null)}
     fun clear() {editing=null;employer="";gross="";net="";lines=emptyList();source=PayrollSource.MANUAL;reviewed=false;suggestions=null}
@@ -59,13 +60,13 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
     }
     LaunchedEffect(Unit) {busy=true;try {refresh()} catch(e:CancellationException){throw e}
         catch(_:Exception){error="Could not load payroll details. Your cash history is unchanged."} finally {busy=false}}
-    val pdfImport=rememberPdfImport(onSelected={suggestions=null;extracted=null;showText=false;error=null},onBusy={busy=it},onResult={pdf->extracted=pdf;suggestions=PayslipFieldReview.read(pdf.pages)})
+    val pdfImport=rememberPdfImport(onSelected={suggestions=null;error=null},onBusy={busy=it},onResult={pdf->suggestions=PayslipFieldReview.read(pdf.pages)})
     PdfPasswordDialog(pdfImport)
-    MoneyToolSheet("Payroll details","Record employer-reported earnings, deductions and contributions separately from money received. KES only. A payslip does not prove a bank deposit, remittance, savings balance or loan balance. One record per employer/month; edit existing records for corrections. Receipt matching and multiple-payslip aggregation are not available here.",busy,onDismiss) {
+    val details: LazyListScope.() -> Unit = {
         item {
             Text(if(editing==null) "New payroll record" else "Edit payroll record",style=MaterialTheme.typography.titleMedium)
             Text("Payroll facts only: saving does not record money received.")
-            Text("Draft fields stay only in memory until you save. Closing this sheet discards unsaved edits.",style=MaterialTheme.typography.bodySmall)
+            Text("Only employer, period and reviewed monetary payroll fields are saved. Staff number, name, email and address are not collected.",style=MaterialTheme.typography.bodySmall)
             if(editing!=null) TextButton(enabled=!busy,onClick={clear()}) {Text("New record instead")}
         }
         item {OutlinedTextField(employer,{employer=it;reviewed=false},label={Text("Employer")},singleLine=true,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-employer"))}
@@ -74,12 +75,15 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
         item {OutlinedTextField(net,{net=it;reviewed=false},label={Text("Net payable · KES")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-net"))}
         item {
             PdfImportButton("Import payslip PDF",!busy,pdfImport)
-            Text(if(Build.VERSION.SDK_INT>=35) "Extract locally, unlock with a document password if needed, then review employer, month, earnings and deductions. Selectable text only, up to 2 MB/40 pages. Unsupported layouts need manual corrections; scanned images need OCR, which is not available. No original file or password is saved." else "PDF text needs Android 15 or newer. Enter the payroll fields manually on this phone.",style=MaterialTheme.typography.bodySmall)
+            Text(if(Build.VERSION.SDK_INT>=35) "Read locally, then review only relevant payroll fields. Up to 3 MB/40 pages; scanned images require OCR. No raw PDF text, password or unrelated staff information is saved." else "PDF text needs Android 15 or newer. Enter the payroll fields manually on this phone.",style=MaterialTheme.typography.bodySmall)
         }
         suggestions?.let {s ->item {
             s.warnings.forEach {Text(it,style=MaterialTheme.typography.bodySmall)}
+            Text("Extracted payroll preview · No personal identifiers shown",style=MaterialTheme.typography.titleMedium)
             Text("Employer: ${s.employer ?: "Enter manually"} · month: ${s.period ?: "Enter manually"}")
-            Text("Suggested gross: ${s.grossMinor?.let {"KES "+PayrollJournalPolicy.money(it)} ?: "Unavailable"} · net: ${s.netMinor?.let {"KES "+PayrollJournalPolicy.money(it)} ?: "Unavailable"} · ${s.lines.size} lines")
+            Text("Suggested gross: ${s.grossMinor?.let {"KES "+PayrollJournalPolicy.money(it)} ?: "Unavailable"} · net: ${s.netMinor?.let {"KES "+PayrollJournalPolicy.money(it)} ?: "Unavailable"} · ${s.lines.size} deduction/contribution lines")
+            s.earnings.forEach {earning->Text("${earning.label}: KES ${PayrollJournalPolicy.money(earning.amountMinor)}",style=MaterialTheme.typography.bodySmall)}
+            Text("Earnings breakdown is shown for checking, but this version stores only gross/net and deduction/contribution lines.",style=MaterialTheme.typography.bodySmall)
             OutlinedButton(enabled=!busy,onClick={
                 employer=s.employer ?: "";period=s.period ?: ""
                 gross=s.grossMinor?.let {PayrollJournalPolicy.money(it)} ?: "";net=s.netMinor?.let {PayrollJournalPolicy.money(it)} ?: ""
@@ -88,13 +92,6 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
             }) {Text("Use extracted fields and review")}
             TextButton(enabled=!busy,onClick={suggestions=null}) {Text("Reject suggestions")}
         } }
-        extracted?.let {pdf ->
-            item {TextButton(enabled=!busy,onClick={showText=!showText}){Text(if(showText)"Hide extracted text"else"Show extracted text")}}
-            if(showText)pdf.pages.forEachIndexed {index,text->
-                item {Text("Page ${index+1}",style=MaterialTheme.typography.titleSmall)}
-                items(text.chunked(4000)){Text(it,style=MaterialTheme.typography.bodySmall)}
-            }
-        }
         item {
             Text("Employee deductions reduce net payable. Employer contributions are separate.",style=MaterialTheme.typography.bodySmall)
             OutlinedButton(enabled=!busy&&lines.size<PayrollJournalPolicy.MAX_LINES,onClick={lines=lines+PayrollLineInput();reviewed=false}) {Text("Add deduction / contribution")}
@@ -140,6 +137,42 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
             } }
         }
     }
+    if (asPage) {
+        LazyColumn(
+            modifier=Modifier.fillMaxSize().padding(scaffoldPadding).testTag("paycheck-analysis-page"),
+            contentPadding=PaddingValues(horizontal=16.dp,vertical=12.dp),
+            verticalArrangement=Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Row(modifier=Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    Column {
+                        Text("Paycheck Analysis",style=MaterialTheme.typography.headlineMedium)
+                        Text("Your payslip figures, privately reviewed",style=MaterialTheme.typography.bodySmall)
+                    }
+                    TextButton(onClick=onDismiss,enabled=!busy) {Text("Back")}
+                }
+            }
+            if(records.isNotEmpty()) item {
+                val recent=records.first()
+                val totalGross=records.fold(0L) {amount,row->Math.addExact(amount,row.draft.grossMinor)}
+                val totalNet=records.fold(0L) {amount,row->Math.addExact(amount,row.draft.netMinor)}
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                        Text("Latest paycheck · ${recent.draft.period}",style=MaterialTheme.typography.titleMedium)
+                        Text("Gross: KES ${PayrollJournalPolicy.money(recent.draft.grossMinor)}")
+                        Text("Net payable: KES ${PayrollJournalPolicy.money(recent.draft.netMinor)}")
+                        Text("Saved payroll totals (${records.size}): gross KES ${PayrollJournalPolicy.money(totalGross)}, net KES ${PayrollJournalPolicy.money(totalNet)}",style=MaterialTheme.typography.bodySmall)
+                        val sacco=records.fold(0L) {amount,row->Math.addExact(amount,row.draft.lines.filter {
+                            it.type in setOf(PayrollLineType.SACCO_SHARES,PayrollLineType.SACCO_DEPOSIT)
+                        }.sumOf {it.amountMinor})}
+                        Text("Reported SACCO deductions: KES ${PayrollJournalPolicy.money(sacco)}",style=MaterialTheme.typography.bodySmall)
+                        Text("Contributions are reported, not verified SACCO deposits or available balances.",style=MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            details()
+        }
+    } else MoneyToolSheet("Payroll details","Record employer-reported earnings, deductions and contributions separately from money received. KES only. A payslip does not prove a bank deposit, remittance, savings balance or loan balance. One record per employer/month; edit existing records for corrections. Receipt matching and multiple-payslip aggregation are not available here.",busy,onDismiss,details)
     deleting?.let {record ->AlertDialog(onDismissRequest={if(!busy)deleting=null},title={Text("Delete payroll details?")},
         text={Text("Only this employer/month payroll record is removed. Salary receipts and financial history stay unchanged.")},
         dismissButton={TextButton(enabled=!busy,onClick={deleting=null}) {Text("Cancel")}},
