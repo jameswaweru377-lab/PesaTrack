@@ -49,9 +49,12 @@ object PayslipFieldReview {
     private val twoValues = Regex("^(.{2,120}?)\\s+([0-9][0-9,.]*)\\s+([0-9][0-9,.]*)$",RegexOption.IGNORE_CASE)
     private val kes = Regex("\\b(?:KES|KSH|KSHS|KENYAN SHILLINGS?)\\b",RegexOption.IGNORE_CASE)
     private val declaration = Regex("^\\s*(?:PAY\\s+)?CURRENCY(?:\\s+CODE)?\\s*[:=]?\\s*(.*?)\\s*$",RegexOption.IGNORE_CASE)
-    private val foreign = Regex("\\b(?:"+
+    private val foreign = Regex("(?:^\\s*(?:"+
         Currency.getAvailableCurrencies().map{it.currencyCode}.filter{it!="KES"}.sorted().joinToString("|")+
-        "|DOLLARS)\\b|[$€£]",RegexOption.IGNORE_CASE)
+        ")\\s*$)|(?:\\b(?:"+
+        Currency.getAvailableCurrencies().map{it.currencyCode}.filter{it!="KES"}.sorted().joinToString("|")+
+        "|DOLLARS)\\b\\s*[0-9])|[$€£]",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
     private val employerTag = Regex("^(?:EMPLOYER(?: NAME)?|COMPANY(?: NAME)?|ORGANISATION(?: NAME)?|ORGANIZATION(?: NAME)?)\\s*[:=]\\s*(.+)$",RegexOption.IGNORE_CASE)
     private val periodTag = Regex("^(?:PAYROLL MONTH|SALARY MONTH|PAYSLIP MONTH|PAY PERIOD|PAYROLL PERIOD|PERIOD ENDING|MONTH YEAR|MONTH / YEAR|PAYSLIP FOR)\\s*[:=]?\\s+(.+)$",RegexOption.IGNORE_CASE)
     private val periodHeader = Regex("^(?:PAYSLIP|PAY SLIP|SALARY SLIP|PAY ADVICE)\\s+(?:FOR\\s+)?(.+)$",RegexOption.IGNORE_CASE)
@@ -71,7 +74,9 @@ object PayslipFieldReview {
         else -> null
     }
     private fun safeDeductionLabel(label:String):Boolean =
-        unknownSafe.matches(label) && !foreignIdentity.containsMatchIn(label) &&
+        unknownSafe.matches(label) && !Regex("[0-9]{3,}").containsMatchIn(label) &&
+        !Regex("\\b(?:EMPLOYEE|STAFF)\\b",RegexOption.IGNORE_CASE).containsMatchIn(label) &&
+        !foreignIdentity.containsMatchIn(label) &&
         !Regex("\\b(?:YTD|YEAR TO DATE|BALANCE|NET|GROSS|TOTAL|TAXABLE|RATE|PERCENT|REFERENCE|CODE|DATE)\\b",RegexOption.IGNORE_CASE)
             .containsMatchIn(label)
     private fun amountMinor(text:String):Long? = money.matchEntire(text.trim())?.groupValues?.get(1)
@@ -136,7 +141,10 @@ object PayslipFieldReview {
                 if(multi!=null && currentYtd!=0){
                     label=multi.groupValues[1].trimEnd('=',':',' ').trim()
                     value=multi.groupValues[if(currentYtd==1)2 else 3]
-                } else if(multi==null) {
+                } else if(multi!=null) {
+                    val key=aliases[normalized(multi.groupValues[1].trimEnd('=',':',' '))]?.key
+                    if(key!=null){occurrences[key]=(occurrences[key]?:0)+1;malformed=true}
+                } else {
                     val pair=rowValue.matchEntire(line)
                     if(pair!=null) {
                         label=pair.groupValues[1].trimEnd('=',':',' ').trim()
