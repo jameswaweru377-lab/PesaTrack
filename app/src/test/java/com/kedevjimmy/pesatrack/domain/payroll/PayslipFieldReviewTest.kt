@@ -5,13 +5,14 @@ import org.junit.Test
 
 class PayslipFieldReviewTest {
     private fun readKes(pages: List<String>) = PayslipFieldReview.read(listOf("Currency: KES") + pages)
-    @Test fun arbitraryForeignDeclarationAndUndeclaredCurrencyCannotPrefillKes() {
+    @Test fun foreignCurrencyIsRejectedButUndeclaredCurrencyRequiresExplicitKesReview() {
         for(currency in listOf("AED", "INR", "JPY", "CAD", "XYZ")) {
             val review=PayslipFieldReview.read(listOf("Currency: $currency\nGross Pay: KES 70000\nNet Pay: 52000"))
             assertNull(currency,review.grossMinor); assertNull(currency,review.netMinor); assertTrue(review.lines.isEmpty())
         }
         val undeclared=PayslipFieldReview.read(listOf("Gross Pay: 70000\nNet Pay: 52000"))
-        assertNull(undeclared.grossMinor); assertNull(undeclared.netMinor)
+        assertEquals(7000000L,undeclared.grossMinor); assertEquals(5200000L,undeclared.netMinor)
+        assertTrue(undeclared.warnings.any {it.contains("Currency is not printed")})
     }
     @Test fun onlyAnchoredSingleAmountsSuggestKnownLabels() {
         val review=readKes(listOf("Gross Pay: KES 70,000.00\nPAYE: 12,000.00\nNHIF: 1,500.00\nSACCO Deposit: 4,500.00\nNet Pay: 52,000.00"))
