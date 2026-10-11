@@ -116,7 +116,7 @@ object PdfTextReviewReader {
                     override fun onNullBinding(name: ComponentName) { fail("PDF review is unavailable. Nothing was imported.") }
                 }
                 bound = app.bindIsolatedService(Intent(app, PdfTextReviewService::class.java), Context.BIND_AUTO_CREATE,
-                    UUID.randomUUID().toString(), app.mainExecutor, connection)
+                    UUID.randomUUID().toString().replace("-", ""), app.mainExecutor, connection)
                 if (!bound) fail("PDF text review is unavailable. Nothing was imported.")
             }
         } finally { if (bound) app.unbindService(connection) }
