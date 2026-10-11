@@ -68,17 +68,26 @@ class EvidenceJournalSqliteTest(unittest.TestCase):
             if bad[0] == "b" * 64: bad[7] = 0
             if bad[0] == "c" * 64: bad[1] = "PAYSLIP"
             if bad[0] == "d" * 64: bad[5] = "account-not-owned"
-            with self.assertRaises(sqlite3.IntegrityError):
+            if bad[0] == "d" * 64:
+                # The account FK is DEFERRABLE INITIALLY DEFERRED: it fails at COMMIT.
                 db.execute(template, bad)
+                with self.assertRaises(sqlite3.IntegrityError):
+                    db.commit()
+                db.rollback()
+            else:
+                with self.assertRaises(sqlite3.IntegrityError):
+                    db.execute(template, bad)
         self.assertEqual(db.execute("SELECT COUNT(*) FROM evidence_observations").fetchone()[0], 0)
 
     def test_orphan_link_is_rejected(self):
         db = database()
         self.addCleanup(db.close)
+        db.execute("""INSERT INTO evidence_links
+            (observation_id,transaction_id,reason,transaction_snapshot_hash,created_at_epoch_ms)
+            VALUES (?,?,'REFERENCE',?,?)""", ("a" * 64, 999, "e" * 64, 1000))
         with self.assertRaises(sqlite3.IntegrityError):
-            db.execute("""INSERT INTO evidence_links
-                (observation_id,transaction_id,reason,transaction_snapshot_hash,created_at_epoch_ms)
-                VALUES (?,?,'REFERENCE',?,?)""", ("a" * 64, 999, "e" * 64, 1000))
+            db.commit()
+        db.rollback()
 
 
 if __name__ == "__main__":
