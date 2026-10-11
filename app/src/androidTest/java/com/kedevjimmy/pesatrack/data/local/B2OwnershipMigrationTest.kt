@@ -38,7 +38,7 @@ class B2OwnershipMigrationTest {
         db.version = 37
         legacy.close(); PesaTrackDatabase.resetForTests()
         val upgraded = PesaTrackDatabase.get(context).writableDatabase
-        assertEquals(38, upgraded.version)
+        assertEquals(39, upgraded.version)
         assertTrue(AccountOwnershipConsentStore(context).confirmedRevisions().isEmpty())
         upgraded.rawQuery("SELECT amount_minor,review_state,account_id FROM transactions WHERE fingerprint='b2-migration-salary'", null).use {
             assertTrue(it.moveToFirst()); assertEquals(5200000L, it.getLong(0))
@@ -67,13 +67,14 @@ class B2OwnershipMigrationTest {
             val old = EncryptedBackupFixture.rewrite(exported, password) { payload ->
                 payload.addProperty("schemaVersion", version)
                 val tables = payload.getAsJsonObject("tables")
+                tables.remove("payroll_records"); tables.remove("payroll_lines")
                 tables.remove("account_ownership_consents"); tables.remove("owned_transfer_review_decisions")
                 if (version < 37) tables.remove("personal_receivable_review_exclusions")
                 if (version < 36) { tables.remove("personal_receivable_people"); tables.remove("personal_receivable_events") }
                 if (version < 35) { tables.remove("transaction_allocations"); tables.remove("flexible_budget_options"); tables.remove("statement_import_entries") }
             }
             AccountOwnershipConsentStore(context).recordConsent(account.id, true)
-            assertEquals(38, manager.previewEncryptedBytes(old, password).schemaVersion)
+            assertEquals(39, manager.previewEncryptedBytes(old, password).schemaVersion)
             manager.restoreEncryptedBytes(old, password)
             assertTrue("Legacy restore cannot fabricate B2 consent", AccountOwnershipConsentStore(context).confirmedRevisions().isEmpty())
             assertTrue(AccountStore.get(context).listAccounts().any { it.id == account.id })

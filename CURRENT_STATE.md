@@ -17,12 +17,20 @@ The current product includes the canonical ledger, provider-neutral financial in
 - Import statement offers optional memory-only PDF **text preview** on Android15/API35+. Native extraction runs in a private isolated process without ledger/backup initialization. No bank-table/payroll interpretation or PDF transaction import is provided. API24–34 keep CSV/manual entry; scanned OCR and protected PDFs remain unsupported. Limits: 2 MB, 40 pages, 100,000 text characters; no new library, permission or document upload.
 - Document-preview service/lifecycle and physical-device behavior are not verified while instrumentation remains paused. See docs/plans/pesatrack-document-review-design.md.
 
-- Schema: **v38**
+- Schema: **v39**
 - `PesaTrackDatabase.get(...)` is the process-scoped database owner.
 - Canonical financial-message ingestion is transaction-wrapped.
 - Replay/idempotency and rollback are covered by Android tests.
 - User-authoritative corrections must not be silently overwritten by replay.
 - Unknown/ambiguous evidence must remain uncertain rather than being guessed.
+
+## Payroll journal
+
+- Salary overview now offers separate Payroll details / payslip review. User-reviewed employer/month gross/net, typed employee deductions and employer contributions live in a journal; no cash, account balance, debt or pay-cycle writes.
+- Checked KES arithmetic; exact replay returns the existing employer/month record; conflicting replay requires explicit edit. Full stored snapshots protect edits/deletion, including after restored revisions. Historical source labels survive.
+- Optional API35 PDF suggestions use exact labelled single amounts with aliases/conflicts left manual; field correction/review is mandatory. No arbitrary table/OCR/protected/API24 support. No raw document retained/uploaded.
+- Additive schema39 and encrypted34–38 restore compatibility. Journal semantics are validated before restore staging/deletion. JVM and synthetic SQLite tests are provided; device migration/restore/UI execution is unverified under the instrumentation pause.
+- Settlement links, multiple payouts/payslip aggregation and remittance/contribution balances remain planned. Reported net payable is never added to cash totals.
 
 ## Offline financial laboratory
 

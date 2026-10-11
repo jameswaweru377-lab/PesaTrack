@@ -1,11 +1,11 @@
 # PesaTrack 2.0 Advanced — implementation tracker
 
-Status: **A1/A3/A4 onboarding and B1 contracts are merged through #340. B2 owned-transfer review is implemented in #341. Exact CI, merge and APK evidence is maintained in [master issue #322](https://github.com/jameswaweru377-lab/PesaTrack/issues/322).**
+Status: **A1/A3/A4 onboarding and B1 contracts are merged through #340; B2 owned-transfer review is merged #341; adapter guards/API35 text review are merged #343. C1/D1 journal/review is implemented on the current branch, delivery pending. Exact CI, merge and APK evidence is maintained in [master issue #322](https://github.com/jameswaweru377-lab/PesaTrack/issues/322).**
 Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page planning document, 10 October 2026). The PDF is a proposal, not proof of implementation.
 
 ## 11 October follow-on bundle: A1 adapters / A2 safeguards / E1 text review
 
-Implemented on `feature/pesatrack2-document-review-a2-e1` from main `f4264f2`; review/CI delivery pending. Do not treat historical table rows below as this bundle's current delivery evidence.
+Implemented on `feature/pesatrack2-document-review-a2-e1` from main `f4264f2`; merged #343 at431dc57; main CI38130233838 and rolling APK publication passed. Do not treat historical table rows below as this bundle's current delivery evidence.
 
 - Shared A1 cash authority gate at manual-entry, received-salary and selected CSV boundaries, retaining canonical duplicate/replay behavior. No broad SMS/notification ingestion rewrite or general evidence-link repository.
 - A2: current enabled receiving account validation; manual receipt remains valid without supporting documents; expected salary/payslip alone never posts income. Added deterministic amount/date/account negative tests and disabled-account repository regression (compiled, not device-executed).
@@ -43,13 +43,13 @@ Implemented on `feature/pesatrack2-document-review-a2-e1` from main `f4264f2`; r
 |---|---|---|---|
 | Gate 0 | Inspect live main/PRs/schema/CI | Partly complete | Baseline CI green; Android instrumentation, physical Redmi and populated restore gate not yet independently checked |
 | A1 | Pure evidence source taxonomy and authority gate | **Merged into main (#321); branch CI passed** | `FinancialEvidenceContract.kt` plus `FinancialEvidenceContractTest.kt` |
-| A2 | Manual salary received vs planned semantics | Not started | Integration tests T01, T02, preserving existing SMS paths and totals |
+| A2 | Manual salary received vs planned semantics | Guards merged #343; device acceptance pending | Integration tests T01, T02, preserving existing SMS paths and totals |
 | A3 | Import 1/2/3 **previous completed** months plus current | **Merged PR #325; branch CI passed** | Date/timezone tests; no change to standalone historical reimport |
 | A4 | Small ownership/skip-salary onboarding UX | **Merged PR #327; post-merge main CI green** | Owned/external/unsure and skip journeys in Compose |
-| B | Evidence repository/link audit, replay-safe statement/SMS/manual adapters | B1 pure contract merged; B2 bounded review adapter in verification | Migration/restore/idempotency and provenance; T03, T04, T12 |
-| C | Payroll journal, deduction type/asset/liability classifications and multiple settlements | Not started | T05-T09, T16; no invented account balance |
-| D | Offline local payslip PDF/image extractor, OCR fallback, field review | Not started | Local only, API24/low-memory, synthetic layout corpus, T14-T15 |
-| E | Statement CSV/PDF adapters and safe reconciliation UX | Not started | T10-T13, account/replay/large-statement scenarios |
+| B | Evidence repository/link audit, replay-safe statement/SMS/manual adapters | B1 pure contract and B2 review merged #341; general registry pending | Migration/restore/idempotency and provenance; T03, T04, T12 |
+| C | Payroll journal, deduction type/asset/liability classifications and multiple settlements | C1 journal on current branch; delivery pending; settlements planned | T05-T09, T16; no invented account balance |
+| D | Offline local payslip PDF/image extractor, OCR fallback, field review | Bounded API35 field review on current branch; delivery pending; broader layouts/OCR planned | Local only, API24/low-memory, synthetic layout corpus, T14-T15 |
+| E | Statement CSV/PDF adapters and safe reconciliation UX | CSV active; API35 text preview merged #343; PDF table/reconciliation pending | T10-T13, account/replay/large-statement scenarios |
 | Release | CI, lint, APK, migration/backup/restore, full physical device tests | Not started | T01-T20 passing where in scope; verified APK and user-reviewed merge |
 
 ## Current change and isolation
@@ -156,3 +156,16 @@ Read the attached blueprint PDF plus this tracker, then inspect live `main`/PRs 
 - Review-driven safety limit: staggered bank/wallet observations remain independent and are not offered by B2, even with a matching code. The legacy transfer projection has one timestamp; settlement-aware account-leg timing needs a separate phase before such pairs can be confirmed. This intentionally narrows the original 48-hour proposal to preserve historical availability.
 
 B2 correction safety: either confirmed entry offers Undo transfer match. The saved pre-confirm projection restores both rows atomically, marks the match rejected, and removes only balance anchors copied by that match. Individual financial edits/deletion are guarded until undo; salary-cycle IDs remain rebuildable derived grouping. Added source/mirror mutation, rule/debt/exclusion, interrupted undo, encrypted restore, unrelated balance-anchor, replay and real detail-screen cancel/undo regressions. Review approved conditional on final-head CI; execution remains pending.
+
+## C1/D1 payroll journal and field review — current branch
+
+From merged main431dc5779f1b716399a6e04cc6bcbc441adf17a0, whose CI38130233838 and APK publication passed. One cohesive branch: feature/pesatrack2-payroll-journal-c1-d1; delivery pending exact-head review/CI.
+
+- Separate user-reviewed payroll journal: employer/month, gross earnings, net payable, typed employee deductions and employer contributions. KES only; employee arithmetic must match gross minus net. Tax, historical health labels, NSSF, pension, SACCO shares/deposit, insurance, loan principal/interest and unclassified lines remain distinct. No statutory-rate inference or source-label rewriting.
+- Save/edit/delete touches only journal tables. Complete snapshot and revision checks prevent stale edits/deletion, including restored revisions. Identical replay returns existing record; conflicting employer/month requires editing and never silently overwrites. One record per employer/month; supplemental-payslip aggregation and settlement links are pending.
+- Additive schema39 payroll_records/payroll_lines; legacy cash/account/consent history unchanged. Encrypted34–38 compatibility adds empty new tables, refuses unexpected supplied new tables and validates journal identities/arithmetic/orphans before restore staging/deletion.
+- Salary overview exposes Payroll details / payslip. Manual entry works without a salary rule or documents. Optional API35 isolated PDF text suggestions only accept exact one-column labels/single amounts; aliases/repeated/malformed fields remain manual. Explicit field correction/review precedes journal save. No OCR/protected PDF/API24 extraction or arbitrary bank/payroll table interpretation.
+- JVM negative/synthetic math/parser/backup/replay/snapshot tests, exact SQLite DDL lab constraints/rollback/replay tests, Android repository/migration/encrypted restore test sources. Instrumentation is prohibited and not run; compiled tests do not establish actual device migration/restore/UI/PDF lifecycle acceptance.
+- Full C/D remain partial: cash settlement/multiple payouts, general evidence links, verified remittance/posting, broad layout profiles/OCR/API24 and physical-device acceptance remain planned.
+
+Local final frozen-source validation passed:851 JVM cases, zero failures/errors/skips; lint/debug APK/Android-test-source compilation passed; Python37/37. Source review approved after alias/malformed-duplicate fixes and full-snapshot edit/delete protection. PR/CI/main/APK delivery remains pending; no instrumentation run.

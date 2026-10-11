@@ -74,6 +74,7 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
     var message by remember { mutableStateOf<String?>(null) }
     var failure by remember { mutableStateOf(false) }
     var removal by remember { mutableStateOf<SalaryReceipt?>(null) }
+    var showPayroll by rememberSaveable { mutableStateOf(false) }
     var reminders by remember { mutableStateOf(SalaryReminders.preferences(context).getBoolean("salary_reminders_enabled", false)) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         reminders = granted
@@ -187,6 +188,11 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
             }
         } }
         if (ready && tab == "Overview") {
+            item {
+                OutlinedButton(onClick = { showPayroll = true }, enabled = !busy,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Payroll details / payslip") }
+                Text("Review gross pay and deductions separately from salary received.", style = MaterialTheme.typography.bodySmall)
+            }
             val latest = receipts.firstOrNull()
             item {
                 SalarySection(if (latest == null) "No salary recorded yet" else "Salary recorded", highlighted = true) {
@@ -376,6 +382,7 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
             }
         }
     }
+    if (showPayroll) PayrollJournalSheet { showPayroll = false }
     removal?.let { receipt ->
         AlertDialog(onDismissRequest = { if (!busy) removal = null },
             title = { Text("Remove salary?") },
