@@ -3140,6 +3140,48 @@ class TransactionStore private constructor(context: Context) {
     }
     }
 
+    /** Called only after fresh snapshot/uniqueness checks inside the B2 adapter's transaction. */
+    internal fun applyReviewedOwnedTransfer(
+        db: SQLiteDatabase,
+        candidate: com.kedevjimmy.pesatrack.domain.evidence.TransferReviewCandidate
+    ) {
+        check(db.inTransaction()) { "Transfer confirmation must be atomic." }
+        // Retain native observed balances before excluding the corroborating row.
+        // This is evidence already present in the ledger, not a new balance estimate.
+        listOf(candidate.source, candidate.destination).forEach { observation ->
+            db.rawQuery("SELECT balance_minor,evidence_confidence,source_package,source_kind FROM transactions WHERE id=?",
+                arrayOf(observation.id.toString())).use { cursor ->
+                check(cursor.moveToFirst())
+                if (!cursor.isNull(0)) db.insertOrThrow("account_balance_observations", null, ContentValues().apply {
+                    put("observation_key", "reviewed-transfer-balance:${observation.id}:${observation.snapshotHash}")
+                    put("entity_key", "account:${observation.accountId}")
+                    put("account_id", observation.accountId)
+                    put("balance_minor", cursor.getLong(0))
+                    put("confidence", if (cursor.isNull(1)) "MEDIUM" else cursor.getString(1))
+                    put("observed_at_epoch_ms", observation.epochMs)
+                    if (!cursor.isNull(2)) put("source_package", cursor.getString(2))
+                    put("source_kind", cursor.getString(3))
+                    put("created_at_epoch_ms", System.currentTimeMillis())
+                })
+            }
+        }
+        val sourceValues = ContentValues().apply {
+            put("direction", MoneyDirection.TRANSFER.name)
+            put("category", TransactionCategory.TRANSFER.name)
+            put("review_state", ReviewState.USER_CLASSIFIED.name)
+            put("linked_account_id", candidate.destination.accountId)
+            put("evidence_source", "user_confirmed_owned_transfer_pair")
+            putNull("cycle_candidate_reason")
+        }
+        check(db.update("transactions", sourceValues, "id=?", arrayOf(candidate.source.id.toString())) == 1)
+        val destinationValues = ContentValues().apply {
+            put("review_state", ReviewState.EXCLUDED.name)
+            put("evidence_source", "user_confirmed_owned_transfer_mirror")
+            putNull("cycle_candidate_reason")
+        }
+        check(db.update("transactions", destinationValues, "id=?", arrayOf(candidate.destination.id.toString())) == 1)
+    }
+
     fun resolvePossibleDuplicate(
         pairKey: String,
         sameTransaction: Boolean

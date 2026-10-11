@@ -832,6 +832,7 @@ fun ActivityScreen(
             }
 
             item { ActivityMoneyActions(onChanged = { refresh() }) }
+            item { OwnedTransferReviewSection() }
 
             item {
                 OutlinedTextField(

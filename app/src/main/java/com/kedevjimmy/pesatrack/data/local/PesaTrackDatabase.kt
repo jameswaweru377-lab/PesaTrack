@@ -42,6 +42,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createEverydayMoneyTables(db)
         createPersonalReceivableTables(db)
         createReceivableReviewTables(db)
+        createOwnedTransferReviewTables(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -504,6 +505,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
 
         if (oldVersion < 36) createPersonalReceivableTables(db)
         if (oldVersion < 37) createReceivableReviewTables(db)
+        if (oldVersion < 38) createOwnedTransferReviewTables(db)
 
         createIndexes(db)
         createTriggers(db)
@@ -1382,6 +1384,43 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    private fun createOwnedTransferReviewTables(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS account_ownership_consents (
+                account_id TEXT PRIMARY KEY,
+                decision TEXT NOT NULL CHECK(decision IN ('CONFIRMED','REJECTED')),
+                revision INTEGER NOT NULL CHECK(revision > 0),
+                updated_at_epoch_ms INTEGER NOT NULL,
+                FOREIGN KEY(account_id) REFERENCES money_accounts(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS owned_transfer_review_decisions (
+                pair_key TEXT PRIMARY KEY,
+                source_transaction_id INTEGER NOT NULL,
+                destination_transaction_id INTEGER NOT NULL,
+                source_snapshot_hash TEXT NOT NULL,
+                destination_snapshot_hash TEXT NOT NULL,
+                source_ownership_revision INTEGER NOT NULL CHECK(source_ownership_revision > 0),
+                destination_ownership_revision INTEGER NOT NULL CHECK(destination_ownership_revision > 0),
+                decision TEXT NOT NULL CHECK(decision IN ('CONFIRMED','REJECTED','DEFERRED')),
+                updated_at_epoch_ms INTEGER NOT NULL,
+                CHECK(source_transaction_id != destination_transaction_id),
+                FOREIGN KEY(source_transaction_id) REFERENCES transactions(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+                FOREIGN KEY(destination_transaction_id) REFERENCES transactions(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TRIGGER IF NOT EXISTS trg_b2_delete_account_consent AFTER DELETE ON money_accounts
+            BEGIN DELETE FROM account_ownership_consents WHERE account_id=OLD.id; END
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TRIGGER IF NOT EXISTS trg_b2_delete_transfer_review AFTER DELETE ON transactions
+            BEGIN DELETE FROM owned_transfer_review_decisions
+                WHERE source_transaction_id=OLD.id OR destination_transaction_id=OLD.id; END
+        """.trimIndent())
+    }
+
     private fun createReceivableReviewTables(db: SQLiteDatabase) {
         db.execSQL("""
             CREATE TABLE IF NOT EXISTS personal_receivable_review_exclusions (
@@ -1706,6 +1745,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 37
+        private const val DATABASE_VERSION = 38
     }
 }

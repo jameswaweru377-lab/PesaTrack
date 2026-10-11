@@ -11,6 +11,9 @@ import org.junit.Test
 class IdentityGraphPolicyTest {
     @Test
     fun normalizesKenyanPhoneFormsToOneAlias() {
+        assertEquals("0112345678", IdentityGraphPolicy.normalizeKenyanPhone("112345678"))
+        assertEquals("0112345678", IdentityGraphPolicy.normalizeKenyanPhone("+254 (112) 345-678"))
+        assertNull(IdentityGraphPolicy.normalizeKenyanPhone("number:0712345678"))
         assertEquals(
             "0712345678",
             IdentityGraphPolicy

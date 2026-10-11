@@ -434,7 +434,8 @@ fun MoneySetupScreen(
                             Button(
                                 onClick = {
                                     runCatching {
-                                        accountStore.save(newAccountName, newAccountType)
+                                        com.kedevjimmy.pesatrack.data.local.AccountOwnershipConsentStore(context)
+                                            .createOwnedAccount(newAccountName, newAccountType)
                                     }.onSuccess { created ->
                                         showAddAccount = false
                                         newAccountName = ""

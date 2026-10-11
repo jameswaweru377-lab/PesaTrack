@@ -78,7 +78,7 @@ jobs:
           suites = [ET.parse(path).getroot() for path in reports]
           totals = {key: sum(int(suite.attrib.get(key, 0)) for suite in suites) for key in ("tests", "failures", "errors", "skipped")}
           assert totals["failures"] == totals["errors"] == 0
-          required = {"OfflineMoneyPolicyTest", "GoalSavingHistoryPolicyTest", "FinancialWhitespaceTest", "SyntheticFinancialCorpusTest", "FinancialContractLabTest"}
+          required = {"OfflineMoneyPolicyTest", "GoalSavingHistoryPolicyTest", "FinancialWhitespaceTest", "SyntheticFinancialCorpusTest", "FinancialContractLabTest", "OwnedTransferReviewPolicyTest", "SelfNameEvidencePolicyTest"}
           verified = set()
           for suite in suites:
               name = suite.attrib["name"].split(".")[-1]
@@ -146,9 +146,10 @@ jobs:
           retention-days: 3
 
 
-  # Emulator review runs only after the user explicitly requests it.
+  # The user explicitly requested emulator review for the cohesive B2 branch.
+  # Keep it in the same PR workflow; normal main publication remains unchanged.
   instrumentation:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_instrumentation }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_instrumentation) || (github.event_name == 'pull_request' && github.head_ref == 'feature/pesatrack2-owned-transfer-review-b2') }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
 

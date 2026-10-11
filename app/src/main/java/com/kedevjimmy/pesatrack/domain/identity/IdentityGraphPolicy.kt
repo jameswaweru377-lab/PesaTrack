@@ -13,7 +13,7 @@ object IdentityGraphPolicy {
     ): String? {
         val normalized =
             raw.orEmpty()
-                .uppercase()
+                .uppercase(java.util.Locale.ROOT)
                 .replace(
                     Regex("""[^A-Z0-9&'’]+"""),
                     " "
@@ -33,6 +33,7 @@ object IdentityGraphPolicy {
     fun normalizeKenyanPhone(
         raw: String?
     ): String? {
+        if (raw.isNullOrBlank() || raw.any { !it.isDigit() && it !in " +()-" }) return null
         val digits =
             raw.orEmpty()
                 .filter(Char::isDigit)
@@ -49,7 +50,7 @@ object IdentityGraphPolicy {
                     digits
 
                 digits.length == 9 &&
-                    digits.startsWith("7") ->
+                    (digits.startsWith("7") || digits.startsWith("1")) ->
                     "0$digits"
 
                 else -> return null

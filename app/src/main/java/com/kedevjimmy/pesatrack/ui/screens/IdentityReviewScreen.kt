@@ -376,7 +376,7 @@ internal fun IdentityReviewCard(
             Text(
                 when (prompt.promptType) {
                     IdentityReviewPromptType.CONFIRM_SELF_PHONE,
-                    IdentityReviewPromptType.CONFIRM_SELF_NAME -> "Seen in a possible own-account transfer. Confirm only if it is yours."
+                    IdentityReviewPromptType.CONFIRM_SELF_NAME -> prompt.reason + " Confirming your identity does not confirm account ownership or a transfer."
                     IdentityReviewPromptType.CLASSIFY_COUNTERPARTY -> prompt.reason
                 },
                 style =
@@ -442,7 +442,7 @@ internal fun IdentityReviewCard(
                             if (busy) {
                                 "Saving…"
                             } else {
-                                "Yes"
+                                "Yes, this is me"
                             }
                         )
                     }
@@ -454,7 +454,7 @@ internal fun IdentityReviewCard(
                         modifier =
                             Modifier.weight(1f)
                     ) {
-                        Text("No")
+                        Text("No, not me")
                     }
                 }
             }
