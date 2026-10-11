@@ -50,7 +50,7 @@ class PayrollBackupValidationTest {
         }
     }
     @Test fun supportedOlderVersionsAddOnlyTablesIntroducedLater() {
-        assertEquals(listOf("payroll_records","payroll_lines"),BackupSchemaCompatibility.emptyTables(38))
+        assertEquals(listOf("payroll_records","payroll_lines","evidence_observations","evidence_links","evidence_link_audit"),BackupSchemaCompatibility.emptyTables(38))
         assertTrue(BackupSchemaCompatibility.emptyTables(37).contains("account_ownership_consents"))
         assertTrue(BackupSchemaCompatibility.emptyTables(34).contains("transaction_allocations"))
         assertFalse(BackupSchemaCompatibility.emptyTables(36).contains("personal_receivable_people"))
