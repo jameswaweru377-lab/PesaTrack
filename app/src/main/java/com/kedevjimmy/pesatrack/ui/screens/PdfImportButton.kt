@@ -15,9 +15,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.SecureFlagPolicy
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kedevjimmy.pesatrack.documents.PdfTextReviewReader
 import com.kedevjimmy.pesatrack.domain.evidence.*
 import kotlinx.coroutines.*
@@ -38,12 +35,10 @@ internal class PdfImportState {
 @Composable internal fun rememberPdfImport(onSelected: ()->Unit,onBusy: (Boolean)->Unit,onResult: (PdfTextPreview)->Unit): PdfImportState {
     val context=LocalContext.current;val scope=rememberCoroutineScope();val state=remember {PdfImportState()}
     val selected by rememberUpdatedState(onSelected);val busy by rememberUpdatedState(onBusy);val result by rememberUpdatedState(onResult)
-    val owner=LocalLifecycleOwner.current
-    DisposableEffect(owner) {
-        val observer=LifecycleEventObserver {_,event->if(event==Lifecycle.Event.ON_STOP)state.cancel()}
-        owner.lifecycle.addObserver(observer)
-        onDispose {owner.lifecycle.removeObserver(observer);state.cancel()}
-    }
+    // Android's document picker can stop the host Activity temporarily.
+    // Cancelling on ON_STOP dropped the selected document and hid the result.
+    // Only dispose the job when the owning screen leaves composition.
+    DisposableEffect(state) { onDispose { state.cancel() } }
     state.read={uri,secret->
         if(!state.reading) {
             state.reading=true;busy(true);state.error=null;state.pending=null;state.password=""
