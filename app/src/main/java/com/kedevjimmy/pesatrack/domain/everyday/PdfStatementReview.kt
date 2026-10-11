@@ -70,13 +70,13 @@ object PdfStatementReview {
                 val description=row.groupValues[4].trim()
                 if(description.length !in 1..200)return unsupported("A transaction description exceeds the supported length. Use CSV or manual entry.")
                 rows+=StatementRow(date,description,paid-withdrawn,row.groupValues[1])
-                if(rows.size>StatementCsv.MAX_ROWS)return unsupported("This statement exceeds 2,000 transactions. Choose a shorter statement.")
+                if(rows.size>StatementCsv.MAX_ROWS)return unsupported("This statement exceeds 5,000 transactions. Choose a shorter statement.")
             }
             // A page with transaction column headings but no decodable receipts is never silently ignored.
             if(matches.isEmpty() && Regex("[0-9]{2}:[0-9]{2}:[0-9]{2}").containsMatchIn(page))
                 return unsupported("A page contains transaction times without readable receipt rows. No partial import was prepared.")
         }
-        if(rows.isEmpty())return unsupported("No supported M-Pesa transaction rows were found. Read the extracted text below or use CSV/manual entry.")
+        if(rows.isEmpty())return unsupported("No supported M-Pesa transaction rows were found. Try a shorter supported statement or CSV/manual entry.")
         if(rows.map {it.reference}.distinct().size!=rows.size)return unsupported("Repeated receipt references need review. No transactions were selected.")
         StatementCsv.validateRows(rows,now)
         return PdfStatementCandidates(rows,emptyList())
