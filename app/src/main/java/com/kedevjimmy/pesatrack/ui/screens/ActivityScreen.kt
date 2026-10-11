@@ -201,6 +201,7 @@ fun ActivityScreen(
     onProfileClick: () -> Unit = {},
     onIdentityReviewClick: () -> Unit = {},
     onSalaryClick: () -> Unit = {},
+    onPaycheckClick: () -> Unit = {},
     openNeedsAttention: Boolean = false,
     stateCache: ActivityScreenCache? = null
 ) {
@@ -831,7 +832,7 @@ fun ActivityScreen(
                 )
             }
 
-            item { ActivityMoneyActions(onChanged = { refresh() }) }
+            item { ActivityMoneyActions(onChanged = { refresh() }, onPaycheckClick = onPaycheckClick) }
             item { OwnedTransferReviewSection() }
 
             item {
