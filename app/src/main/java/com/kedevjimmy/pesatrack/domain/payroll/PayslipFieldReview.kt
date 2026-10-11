@@ -133,6 +133,16 @@ object PayslipFieldReview {
                 }
                 employerTag.matchEntire(line)?.let{companies+=it.groupValues[1].trim()}
                 periodTag.matchEntire(line)?.let{periods+=month(it.groupValues[1])}
+                if(i+1<lines.size && normalizedLine in setOf("EMPLOYER","EMPLOYER NAME",
+                    "COMPANY","COMPANY NAME","ORGANIZATION NAME","ORGANISATION NAME")) {
+                    val value=lines[i+1]
+                    if(value.length in 3..160 && !value.contains("@") &&
+                        !foreignIdentity.containsMatchIn(value) && value.none(Char::isISOControl))
+                        companies+=value
+                }
+                if(i+1<lines.size && normalizedLine in setOf("PAY PERIOD","PAYROLL MONTH",
+                    "PAYROLL PERIOD","PAYSLIP MONTH","SALARY MONTH","PERIOD ENDING"))
+                    periods+=month(lines[i+1])
                 periodHeader.matchEntire(line)?.let{headerMatch->
                     month(headerMatch.groupValues[1])?.let{periods+=it}
                 }
