@@ -1,5 +1,11 @@
 # PesaTrack 2.0 Advanced — implementation tracker
 
+## Phase B evidence journal — combined delivery under review (schema v40)
+
+One combined branch `feature/pesatrack2-phase-b-evidence-journal` is based on main `83383c90f2a9`. Changes include the additive observation/link/audit tables, strict hash-based source identity, safe reference-only statement linking, canonical fingerprint manual/statement lookups, stale provenance labels in Transaction Details, legacy backup bridging, and synthetic JVM/SQLite/Android-source tests. The detailed design and negative cases are in `docs/plans/pesatrack-2-phase-b-evidence-journal.md`.
+
+**Status: implementation prepared, not yet delivered/merged.** Run one final frozen-head PR build/test/lint/APK workflow only; instrumentation must remain skipped. Do not mark Phase B finished: arbitrary SMS-to-uncoded-manual matching, universal historical provenance backfill and full user resolution remain separately gated. This note must be refreshed with exact PR, CI and post-merge evidence before claiming delivery.
+
 Status: **A1/A3/A4 onboarding and B1 contracts are merged through #340; B2 owned-transfer review is merged #341; adapter guards/API35 text review are merged #343; C1/D1 journal/review is merged #344 with main CI38133439979 successful. Exact statement import dates merged #345; main CI38144499803/APK passed. PDF unlock/import review is implemented on the current branch, delivery pending. Exact CI, merge and APK evidence is maintained in [master issue #322](https://github.com/jameswaweru377-lab/PesaTrack/issues/322).**
 Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page planning document, 10 October 2026). The PDF is a proposal, not proof of implementation.
 
