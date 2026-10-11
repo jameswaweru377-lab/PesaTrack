@@ -33,6 +33,9 @@ class PesaTrackDatabaseMigrationTest {
 
             assertEquals(CURRENT_VERSION, db.version)
             assertTrue(db.hasTable("transactions"))
+            assertTrue(db.hasTable("evidence_observations"))
+            assertTrue(db.hasTable("evidence_links"))
+            assertTrue(db.hasTable("evidence_link_audit"))
             assertTrue(db.hasTable("recurring_pattern_decisions"))
             assertTrue(db.hasTable("saving_goal_metadata"))
             assertTrue(db.hasColumn("debt_events", "amount_is_net_proceeds"))
@@ -372,7 +375,7 @@ class PesaTrackDatabaseMigrationTest {
 
     private companion object {
         const val DATABASE_NAME = "pesatrack.db"
-        const val CURRENT_VERSION = 38
+        const val CURRENT_VERSION = 40
         const val V1_FINGERPRINT = "migration-fixture-v1"
         const val V30_FINGERPRINT = "migration-fixture-v30"
         const val TEST_AMOUNT_MINOR = 12_345L
