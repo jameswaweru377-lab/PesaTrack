@@ -382,7 +382,7 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}, onPayc
             }
         }
     }
-    if (showPayroll) PayrollJournalSheet { showPayroll = false }
+    if (showPayroll) PayrollJournalSheet(onDismiss = { showPayroll = false })
     removal?.let { receipt ->
         AlertDialog(onDismissRequest = { if (!busy) removal = null },
             title = { Text("Remove salary?") },
