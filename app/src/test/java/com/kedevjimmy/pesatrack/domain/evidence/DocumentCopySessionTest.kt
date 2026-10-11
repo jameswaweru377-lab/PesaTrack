@@ -44,7 +44,9 @@ class DocumentCopySessionTest {
             DocumentCopySession({ "%PDF-test".byteInputStream() }).copyTo(file)
             assertEquals("%PDF-test", file.readText())
             assertThrows(IllegalArgumentException::class.java) { DocumentCopySession({ "not a PDF".byteInputStream() }).copyTo(file) }
-            assertThrows(IllegalArgumentException::class.java) { DocumentCopySession({ ByteArray(2097153).inputStream() }).copyTo(file) }
+            val large=ByteArray(3 * 1024 * 1024 + 1).also { "%PDF-".toByteArray().copyInto(it) }
+            val error=assertThrows(PdfReadException::class.java) { DocumentCopySession({ large.inputStream() }).copyTo(file) }
+            assertEquals(PdfFailure.TOO_LARGE,error.failure)
         } finally { file.delete() }
     }
 }
