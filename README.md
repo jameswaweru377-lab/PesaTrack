@@ -38,6 +38,7 @@ The authoritative scope is in [docs/PRODUCT_CHARTER.md](docs/PRODUCT_CHARTER.md)
 - Reports and CSV export
 - CSV statement import with duplicate review, plus local PDF text preview on Android15+ (text only; bank/payroll interpretation, scanned OCR and protected PDF support remain pending)
 - Salary setup and manual salary receipts
+- Separate local payroll journal with typed deductions, employer contributions and reviewed API35 payslip suggestions; payroll never proves cash receipt
 - Identity review
 - Historical financial SMS import
 - Financial notification connection status
@@ -66,7 +67,7 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 
 ## Engineering status
 
-- Database schema: **v38**
+- Database schema: **v39**
 - Android minSdk: **24**
 - target/compile SDK: **36**
 - Current CI runs:

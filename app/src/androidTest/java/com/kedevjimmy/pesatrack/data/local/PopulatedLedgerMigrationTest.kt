@@ -38,7 +38,7 @@ class PopulatedLedgerMigrationTest {
         } finally { legacy.close() }
 
         val upgraded = PesaTrackDatabase.get(context).writableDatabase
-        assertEquals(38, upgraded.version)
+        assertEquals(39, upgraded.version)
         upgraded.rawQuery("""
             SELECT transaction_code, amount_minor, fee_minor, category, review_state,
                    account_id, rule_id, occurred_at_epoch_ms, planning_month
@@ -210,7 +210,3 @@ class PopulatedLedgerMigrationTest {
         private const val DAY = 86400000L
     }
 }
-
-
-
-
