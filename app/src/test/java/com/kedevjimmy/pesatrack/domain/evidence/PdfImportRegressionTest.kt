@@ -10,7 +10,7 @@ class PdfImportRegressionTest {
     @Test fun noTextAndLimitsHaveDistinctSafeFailures() {
         val blank=assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.preview(listOf(" "))}
         assertEquals(PdfFailure.NO_TEXT,blank.failure)
-        assertEquals(PdfFailure.TOO_LARGE,assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.requireBytes(2097153)}.failure)
+        assertEquals(PdfFailure.TOO_LARGE,assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.requireBytes(3145729)}.failure)
         assertEquals(PdfFailure.TOO_MANY_PAGES,assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.preview(List(41){"x"})}.failure)
         assertEquals(PdfFailure.TOO_MUCH_TEXT,assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.preview(listOf("x".repeat(100001)))}.failure)
     }
