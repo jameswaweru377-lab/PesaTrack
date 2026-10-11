@@ -1,7 +1,15 @@
 # PesaTrack 2.0 Advanced — implementation tracker
 
-Status: **A1/A3/A4 onboarding and B1 contracts are merged through #340; B2 owned-transfer review is merged #341; adapter guards/API35 text review are merged #343. C1/D1 journal/review is implemented on the current branch, delivery pending. Exact CI, merge and APK evidence is maintained in [master issue #322](https://github.com/jameswaweru377-lab/PesaTrack/issues/322).**
+Status: **A1/A3/A4 onboarding and B1 contracts are merged through #340; B2 owned-transfer review is merged #341; adapter guards/API35 text review are merged #343; C1/D1 journal/review is merged #344 with main CI38133439979 successful. Exact statement import dates are implemented on the current branch, delivery pending. Exact CI, merge and APK evidence is maintained in [master issue #322](https://github.com/jameswaweru377-lab/PesaTrack/issues/322).**
 Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page planning document, 10 October 2026). The PDF is a proposal, not proof of implementation.
+
+## Exact statement import dates — current branch
+
+- Adds All statement dates / Custom date range with From/To native calendar pickers to the existing statement import sheet. Both selected days are included, without an invented 14-month cap or changes to onboarding's separate history window.
+- Filtering applies to supported CSV transaction rows before duplicate preview. Shows included/excluded counts and actual earliest/latest entry dates; no-match, reversed and future-date cases have clear explanations. Missing dates do not create transactions or imply that the document covers a full period.
+- Captures one timezone for parsing, selection and display; calendar-day comparisons cover end-day timestamps, leap days and DST. Source money, timestamps, references and row order stay intact. Stale file/account/date/zone snapshots and outside-range selections are rejected before the existing atomic import adapter.
+- PDF transaction extraction/password flow remains planned. Current PDF text preview is neither date-filtered nor imported. The shared row policy is ready for future PDF adapters; no parser/security capability is claimed by this change.
+- Synthetic JVM regressions plus combined unit/lint/APK/Android-test-source compilation and reviewed branch/main CI required. No instrumentation, migration, dependency, permission or workflow changes. Exact delivery evidence maintained in master issue322.
 
 ## 11 October follow-on bundle: A1 adapters / A2 safeguards / E1 text review
 

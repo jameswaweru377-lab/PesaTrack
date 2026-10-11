@@ -54,7 +54,7 @@ object StatementCsv {
   require(rows.size<=MAX_ROWS){"Choose a file with up to 2,000 entries."}
   require(rows.all {r->r.date>0 && r.date<=now && r.signedMinor!=0L && r.signedMinor!=Long.MIN_VALUE && r.description.trim().length in 1..200 && (r.reference==null || r.reference.length<=100)}){"Check the statement dates, descriptions, amounts and references."}
  }
- fun parse(text:String):List<StatementRow> {
+ fun parse(text:String,zone:TimeZone=TimeZone.getDefault()):List<StatementRow> {
   require(text.toByteArray(Charsets.UTF_8).size<=MAX_BYTES) {"Choose a CSV smaller than 2 MB."}
   val rows=csv(text.removePrefix("\uFEFF"));require(rows.size>=2) {"This file has no entries."}
   val header=rows.first().map {it.trim().lowercase(Locale.ROOT)}
@@ -67,7 +67,7 @@ object StatementCsv {
    val label=row[description].trim();require(label.isNotEmpty() && label.length<=200) {"Row ${i+2}: check the description."}
    val epoch=listOf("yyyy-MM-dd","dd/MM/yyyy").firstNotNullOfOrNull {pattern->
     val value=row[date].trim();val expected=if(pattern=="yyyy-MM-dd")Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}")else Regex("[0-9]{2}/[0-9]{2}/[0-9]{4}")
-    if(!expected.matches(value))null else SimpleDateFormat(pattern,Locale.ROOT).apply {isLenient=false}.let {f->val pos=ParsePosition(0);f.parse(value,pos)?.time?.takeIf {pos.index==value.length}}
+    if(!expected.matches(value))null else SimpleDateFormat(pattern,Locale.ROOT).apply {isLenient=false;timeZone=zone}.let {f->val pos=ParsePosition(0);f.parse(value,pos)?.time?.takeIf {pos.index==value.length}}
    };require(epoch!=null && epoch>0 && epoch<=System.currentTimeMillis()) {"Row ${i+2}: use a valid past date (yyyy-MM-dd or dd/MM/yyyy)."}
    val signed=if(amount>=0)EverydayMoneyPolicy.money(row[amount]) else {
     val d=if(row[debit].isBlank())0L else EverydayMoneyPolicy.money(row[debit]);val c=if(row[credit].isBlank())0L else EverydayMoneyPolicy.money(row[credit])
