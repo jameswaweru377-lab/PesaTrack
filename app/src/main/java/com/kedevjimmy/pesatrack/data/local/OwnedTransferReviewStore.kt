@@ -107,6 +107,13 @@ class OwnedTransferReviewStore(context: Context) {
     private fun candidates(db: SQLiteDatabase): List<TransferReviewCandidate> {
         val consent = AccountOwnershipConsentStore.confirmed(db)
         if (consent.size < 2) return emptyList()
+        // Refuse a truncated cohort before loading references or relationship snapshots.
+        val rowCount = db.rawQuery("""
+            SELECT COUNT(*) FROM (SELECT t.id FROM transactions t
+              JOIN money_accounts a ON a.id=t.account_id
+              WHERE t.direction IN ('EXPENSE','INCOME') LIMIT 5001)
+        """.trimIndent(), null).use { cursor -> cursor.moveToFirst(); cursor.getInt(0) }
+        if (rowCount > 5000) return emptyList()
         val keptSeparate = db.rawQuery("SELECT first_transaction_id,second_transaction_id FROM duplicate_resolutions WHERE decision='KEEP_BOTH'", null).use { cursor ->
             buildSet { while (cursor.moveToNext()) {
                 val first = cursor.getLong(0); val second = cursor.getLong(1)
@@ -117,6 +124,7 @@ class OwnedTransferReviewStore(context: Context) {
         db.rawQuery("""
             SELECT r.transaction_id,r.reference_value FROM transaction_external_references r
             JOIN transactions t ON t.id=r.transaction_id
+            JOIN money_accounts a ON a.id=t.account_id
             WHERE t.direction IN ('EXPENSE','INCOME')
         """.trimIndent(), null).use { cursor ->
             while (cursor.moveToNext()) references.getOrPut(cursor.getLong(0)) { mutableSetOf() }.add(cursor.getString(1))

@@ -45,6 +45,23 @@ class OwnedTransferReviewStoreTest {
         consent.recordConsent(AccountStore.DEFAULT_MPESA_ID, true)
     }
     @Test fun legacyEnabledAccountsAreNotConsent() { assertTrue(store.pendingCandidates().isEmpty()) }
+    @Test fun oversizedHistoryFailsClosedAndInvalidatesAnOpenCard() {
+        consent(); val candidate = store.pendingCandidates().single()
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        db.beginTransaction()
+        try {
+            for (id in 1000L..5998L) seed(id, bankId, "EXPENSE", 0)
+            db.execSQL("UPDATE transactions SET amount_minor=20000,occurred_at_epoch_ms=? WHERE id>=1000", arrayOf(epoch + 7 * 24 * 60 * 60 * 1000L))
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+        assertEquals(5001L, scalar("SELECT COUNT(*) FROM transactions"))
+        assertTrue(store.pendingCandidates().isEmpty())
+        assertEquals(TransferDecisionResult.STALE, store.decide(candidate, TransferPairDecision.CONFIRMED))
+        assertEquals(0L, scalar("SELECT COUNT(*) FROM owned_transfer_review_decisions"))
+        db.delete("transactions", "id=1000", null)
+        assertEquals(5000L, scalar("SELECT COUNT(*) FROM transactions"))
+        assertEquals(candidate, store.pendingCandidates().single())
+    }
     @Test fun keepBothUserDecisionBlocksTheExactPairAndInvalidatesAnOpenCard() {
         val db = PesaTrackDatabase.get(context).writableDatabase
         db.execSQL("UPDATE transactions SET transaction_code=NULL WHERE id=102")
