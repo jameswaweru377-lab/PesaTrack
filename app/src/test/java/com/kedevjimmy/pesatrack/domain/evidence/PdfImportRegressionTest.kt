@@ -10,9 +10,9 @@ class PdfImportRegressionTest {
     @Test fun noTextAndLimitsHaveDistinctSafeFailures() {
         val blank=assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.preview(listOf(" "))}
         assertEquals(PdfFailure.NO_TEXT,blank.failure)
-        assertEquals(PdfFailure.TOO_LARGE,assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.requireBytes(3145729)}.failure)
-        assertEquals(PdfFailure.TOO_MANY_PAGES,assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.preview(List(41){"x"})}.failure)
-        assertEquals(PdfFailure.TOO_MUCH_TEXT,assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.preview(listOf("x".repeat(100001)))}.failure)
+        assertEquals(PdfFailure.TOO_LARGE,assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.requireBytes(8388609)}.failure)
+        assertEquals(PdfFailure.TOO_MANY_PAGES,assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.preview(List(161){"x"})}.failure)
+        assertEquals(PdfFailure.TOO_MUCH_TEXT,assertThrows(PdfReadException::class.java) {PdfTextReviewPolicy.preview(listOf("x".repeat(500001)))}.failure)
     }
     @Test fun labelledCompanyMonthAndSeparateTextCellsAreReviewed() {
         val s=PayslipFieldReview.read(listOf("Currency: KES\nCompany Name: Example Manufacturing Ltd\nPayroll Month: February 2025\nGross Pay\n70,000.00\nNSSF\n2,000.00\nNHIF\n1,500.00\nNet Pay\n66,500.00"))
