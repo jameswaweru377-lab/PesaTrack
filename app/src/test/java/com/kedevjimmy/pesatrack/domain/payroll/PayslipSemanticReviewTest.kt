@@ -90,4 +90,32 @@ class PayslipSemanticReviewTest {
         val report=PayslipFieldReview.read(listOf("Payroll month: 2026-09\nPay period: 2026-10\nGross Pay: 80000\nNet Pay: 57000"))
         assertNull(report.period)
     }
+
+    @Test fun splitTierLabelsUseFollowingAmountsRatherThanTierNumbers() {
+        val result=PayslipFieldReview.read(listOf("""
+            Employer: Example Ltd
+            Pay Period
+            September 2026
+            DEDUCTIONS
+            NSSF Tier 1
+            500.00
+            NSSF Tier 2
+            1,500.00
+            Gross Pay: 50000
+            Net Pay: 48000
+        """.trimIndent()))
+        assertEquals("2026-09",result.period)
+        assertEquals(listOf(50_000L,150_000L),result.lines.map{it.amountMinor})
+    }
+    @Test fun nssfCombinedTotalAndTiersCannotBothBecomeDeductions() {
+        val result=PayslipFieldReview.read(listOf("""
+            NSSF 2000
+            NSSF Tier 1 500
+            NSSF Tier 2 1500
+            Gross Pay: 50000
+            Net Pay: 48000
+        """.trimIndent()))
+        assertTrue(result.lines.isEmpty())
+        assertTrue(result.warnings.any { it.contains("double counting") })
+    }
 }
