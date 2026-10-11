@@ -34,7 +34,7 @@ class EstimatedDebtSettlementUiTest {
     @Test fun accountsRetainsZeroEstimateAsAnActiveDebtAwaitingConfirmation() {
         seedEstimatedZero()
         compose.setContent { PesaTrackTheme { AccountsScreen(PaddingValues(), onDebtsClick = {}) } }
-        waitFor("Known balances")
+        waitFor("Last known account balances")
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Synthetic repayment lender"))
         compose.onNodeWithText("Synthetic repayment lender").assertExists()
         compose.onNodeWithText("Settlement confirmation pending").assertExists()

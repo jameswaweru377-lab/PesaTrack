@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.evidence.*
@@ -18,7 +19,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 import java.math.BigDecimal
 
 @Composable
@@ -73,13 +73,14 @@ internal fun OwnedTransferReviewCard(
     busy: Boolean,
     onDecision: (TransferPairDecision) -> Unit
 ) {
+    val locale = LocalConfiguration.current.locales[0]
     PesaCard {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("$sourceName → $destinationName", style = MaterialTheme.typography.titleMedium)
             Text("KES ${BigDecimal.valueOf(candidate.source.amountMinor, 2).toPlainString()}")
             Text("Bank fee: KES ${BigDecimal.valueOf(candidate.source.feeMinor, 2).toPlainString()}", style = MaterialTheme.typography.bodySmall)
             Text("Bank reference: ${candidate.source.primaryReference.orEmpty()}\nM-Pesa reference: ${candidate.destination.primaryReference.orEmpty()}", style = MaterialTheme.typography.bodySmall)
-            val date = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
+            val date = SimpleDateFormat("dd MMM yyyy HH:mm", locale)
             Text("Bank: ${date.format(Date(candidate.source.epochMs))}\nM-Pesa: ${date.format(Date(candidate.destination.epochMs))}", style = MaterialTheme.typography.bodySmall)
             Text(when (candidate.nameEvidence) {
                 SelfNameEvidenceLevel.EXACT_THREE_NAMES -> "Three distinct names match your profile in order."

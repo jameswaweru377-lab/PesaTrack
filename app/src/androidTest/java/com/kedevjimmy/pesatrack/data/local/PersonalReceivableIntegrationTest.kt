@@ -185,6 +185,7 @@ class PersonalReceivableIntegrationTest {
     private fun migrateAndRestore(oldVersion: Int) {
         val payment = transaction(20 + oldVersion, 50_000L, "EXPENSE")
         val legacy = db
+        dropB2Tables(legacy)
         if (oldVersion == 35) legacy.execSQL(
             "INSERT INTO transaction_allocations(transaction_id, position, category, amount_minor) VALUES (?, 0, 'EATING_OUT', 50000)",
             arrayOf<Any>(payment))
@@ -312,6 +313,7 @@ class PersonalReceivableIntegrationTest {
         val gift = transaction(141,10000,"EXPENSE")
         val person = receivables.confirmHistory(null,"Sample Borrower","0712000000",
             listOf(ReceivableHistorySelection(transactions.getById(outgoing)!!,"LENT",80000)),emptyList())
+        dropB2Tables(db)
         db.execSQL("DROP TABLE personal_receivable_review_exclusions")
         db.execSQL("DROP TRIGGER IF EXISTS trg_delete_receivable_review")
         db.version = 36
@@ -332,6 +334,13 @@ class PersonalReceivableIntegrationTest {
             assertEquals(setOf(gift),ReceivableHistoryRepository(context).exclusions(person))
             assertEquals(80000L,receivables.people().single().outstandingMinor)
         }
+    }
+
+    private fun dropB2Tables(database: android.database.sqlite.SQLiteDatabase) {
+        database.execSQL("DROP TRIGGER IF EXISTS trg_b2_delete_account_consent")
+        database.execSQL("DROP TRIGGER IF EXISTS trg_b2_delete_transfer_review")
+        database.execSQL("DROP TABLE account_ownership_consents")
+        database.execSQL("DROP TABLE owned_transfer_review_decisions")
     }
 
     @Test fun categoryLinkedReceiptCannotRepayALaterLoan() {

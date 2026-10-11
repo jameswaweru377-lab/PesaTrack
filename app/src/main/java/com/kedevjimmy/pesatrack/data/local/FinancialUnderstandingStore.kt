@@ -1176,6 +1176,10 @@ class FinancialUnderstandingStore private constructor(
         ) > 0
 
         if (changed) {
+            // A withdrawal must fail closed for this new matching path.
+            // Sibling USER_OWNED flags can come from automatic provider mapping;
+            // they are not fresh explicit consent after this conflicting choice.
+            // Accounts lets the user explicitly reconfirm matching consent.
             previousAccountId?.let { AccountOwnershipConsentStore.record(consentDb, it, false) }
             database.writableDatabase.update(
                 "account_balance_observations",

@@ -28,7 +28,7 @@ class B2OwnershipMigrationTest {
         val account = AccountStore.get(context).save("Legacy Synthetic Bank", AccountType.BANK)
         db.insertOrThrow("transactions", null, ContentValues().apply {
             put("fingerprint", "b2-migration-salary"); put("type", "OTHER"); put("amount_minor", 5200000)
-            put("fee_minor", 0); put("raw_message", "Invented received salary")
+            put("fee_minor", 0);
             put("occurred_at_epoch_ms", 1000); put("received_at_epoch_ms", 2000); put("created_at_epoch_ms", 3000)
             put("source_kind", "manual_entry"); put("direction", "INCOME"); put("category", "INCOME")
             put("review_state", "USER_CLASSIFIED"); put("account_id", account.id)
@@ -95,5 +95,19 @@ class B2OwnershipMigrationTest {
         assertTrue(runCatching { AccountOwnershipConsentStore(context).createOwnedAccount("Synthetic Rollback Bank", AccountType.BANK) }.isFailure)
         assertFalse(AccountStore.get(context).listAccounts().any { it.name == "Synthetic Rollback Bank" })
         assertTrue(AccountOwnershipConsentStore(context).confirmedRevisions().isEmpty())
+    }
+    @Test fun conflictingEntityChoiceWithdrawsMatchingConsentUntilExplicitReconfirmation() {
+        val account = AccountOwnershipConsentStore(context).createOwnedAccount("Synthetic Sibling Bank", AccountType.BANK)
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        for (key in listOf("synthetic-entity-a", "synthetic-entity-b")) db.insertOrThrow("financial_entities", null, ContentValues().apply {
+            put("entity_key", key); put("display_name", "Synthetic Sibling Bank"); put("provider_key", "SYNTHETIC")
+            put("account_type_hint", "BANK"); put("ownership_hint", "USER_OWNED"); put("nature_hint", "ASSET")
+            put("confirmed_account_id", account.id); put("first_seen_epoch_ms", 1000); put("last_seen_epoch_ms", 1000)
+        })
+        assertTrue(FinancialUnderstandingStore.get(context).markEntityExternal("synthetic-entity-a"))
+        assertTrue(AccountStore.get(context).listAccounts().any { it.id == account.id })
+        assertFalse(account.id in AccountOwnershipConsentStore(context).confirmedRevisions())
+        AccountOwnershipConsentStore(context).recordConsent(account.id, true)
+        assertTrue(account.id in AccountOwnershipConsentStore(context).confirmedRevisions())
     }
 }

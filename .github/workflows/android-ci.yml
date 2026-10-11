@@ -151,7 +151,8 @@ jobs:
   instrumentation:
     if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_instrumentation) || (github.event_name == 'pull_request' && github.head_ref == 'feature/pesatrack2-owned-transfer-review-b2') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # Full suite includes 3x 30/90-day per-record history replay measurements.
+    timeout-minutes: 75
 
     steps:
       - name: Checkout

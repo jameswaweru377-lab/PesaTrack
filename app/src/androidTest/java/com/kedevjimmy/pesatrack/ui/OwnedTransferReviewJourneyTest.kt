@@ -52,7 +52,7 @@ class OwnedTransferReviewJourneyTest {
                 db.insertOrThrow("transactions", null, ContentValues().apply {
                     put("id", index + 101); put("fingerprint", "ui-b2-$index"); put("transaction_code", "UITXN01$index")
                     put("type", "OTHER"); put("amount_minor", 10000); put("fee_minor", 0)
-                    put("counterparty", "James Waweru"); put("raw_message", "Invented UI B2 $index")
+                    put("counterparty", "James Waweru");
                     put("occurred_at_epoch_ms", 1000); put("received_at_epoch_ms", 1000); put("created_at_epoch_ms", 1000)
                     put("source_kind", "statement_import"); put("direction", if (index == 0) "EXPENSE" else "INCOME")
                     put("category", "UNCATEGORIZED"); put("review_state", "NEEDS_REVIEW"); put("account_id", account)
@@ -66,7 +66,10 @@ class OwnedTransferReviewJourneyTest {
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Confirm transfer").fetchSemanticsNodes().isNotEmpty() }
             consent.recordConsent(bank.id, false) // Keep the already-rendered card deliberately stale.
             compose.onNodeWithText("Confirm transfer").performClick()
-            compose.waitUntil(10_000) { compose.onAllNodesWithText("This transfer changed. Check the refreshed details before deciding.").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText("This transfer changed. Check the refreshed details before deciding.").fetchSemanticsNodes().isNotEmpty() &&
+                    compose.onAllNodesWithText("Confirm transfer").fetchSemanticsNodes().isEmpty()
+            }
             compose.onNodeWithText("Confirm transfer").assertDoesNotExist()
             db.rawQuery("SELECT COUNT(*) FROM transactions WHERE direction='TRANSFER' OR review_state='EXCLUDED'", null).use {
                 assertTrue(it.moveToFirst()); assertEquals(0, it.getInt(0))

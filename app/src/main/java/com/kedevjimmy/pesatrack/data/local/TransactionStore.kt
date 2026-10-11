@@ -3152,7 +3152,12 @@ class TransactionStore private constructor(context: Context) {
             db.rawQuery("SELECT balance_minor,evidence_confidence,source_package,source_kind FROM transactions WHERE id=?",
                 arrayOf(observation.id.toString())).use { cursor ->
                 check(cursor.moveToFirst())
-                if (!cursor.isNull(0)) db.insertOrThrow("account_balance_observations", null, ContentValues().apply {
+                val hasPreferredAnchor = db.rawQuery(
+                    "SELECT 1 FROM account_balance_observations WHERE account_id=? AND observed_at_epoch_ms=? LIMIT 1",
+                    arrayOf(observation.accountId, observation.epochMs.toString())).use { it.moveToFirst() }
+                // Existing observation anchors outrank the legacy transaction balance.
+                // Do not introduce a same-time tie that could displace a user check.
+                if (!cursor.isNull(0) && !hasPreferredAnchor) db.insertOrThrow("account_balance_observations", null, ContentValues().apply {
                     put("observation_key", "reviewed-transfer-balance:${observation.id}:${observation.snapshotHash}")
                     put("entity_key", "account:${observation.accountId}")
                     put("account_id", observation.accountId)

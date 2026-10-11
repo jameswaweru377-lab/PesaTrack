@@ -89,6 +89,21 @@ class OwnedTransferReviewStoreTest {
         assertEquals(20000L, PaydaySnapshotStore.get(context).currentAccountSnapshot(wallet, epoch + 60000).balanceMinor)
         assertEquals(0L, scalar("SELECT COUNT(*) FROM owned_transfer_review_decisions"))
     }
+    @Test fun confirmationCannotDisplaceAnExistingHigherPriorityBalanceCheck() {
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        db.execSQL("UPDATE transactions SET balance_minor=20000 WHERE id=102")
+        db.insertOrThrow("account_balance_observations", null, ContentValues().apply {
+            put("observation_key", "synthetic-authoritative-check"); put("entity_key", "account:${AccountStore.DEFAULT_MPESA_ID}")
+            put("account_id", AccountStore.DEFAULT_MPESA_ID); put("balance_minor", 20500); put("confidence", "HIGH")
+            put("observed_at_epoch_ms", epoch); put("source_kind", "user_balance_check"); put("created_at_epoch_ms", epoch)
+        })
+        val wallet = AccountStore.get(context).listAccounts().single { it.id == AccountStore.DEFAULT_MPESA_ID }
+        val before = PaydaySnapshotStore.get(context).currentAccountSnapshot(wallet, epoch)
+        consent(); store.decide(store.pendingCandidates().single(), TransferPairDecision.CONFIRMED)
+        assertEquals(before, PaydaySnapshotStore.get(context).currentAccountSnapshot(wallet, epoch))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM account_balance_observations"))
+        assertEquals(20500L, before.balanceMinor)
+    }
     @Test fun ownershipRejectionMakesOpenCardStaleWithoutLedgerWrites() {
         consent(); val candidate = store.pendingCandidates().single()
         AccountOwnershipConsentStore(context).recordConsent(bankId, false)
@@ -170,8 +185,7 @@ class OwnedTransferReviewStoreTest {
         db.insertOrThrow("transactions", null, ContentValues().apply {
             put("id", id); put("fingerprint", TransactionFingerprint.of(parsed(id, direction, fee), epoch)); put("type", "OTHER")
             put("transaction_code", code(id, direction))
-            put("amount_minor", 10000); put("fee_minor", fee); put("counterparty", "James Mwangi Waweru")
-            put("raw_message", "Invented B2 observation $id"); put("received_at_epoch_ms", epoch)
+            put("amount_minor", 10000); put("fee_minor", fee); put("counterparty", "James Mwangi Waweru"); put("received_at_epoch_ms", epoch)
             put("created_at_epoch_ms", epoch)
             put("occurred_at_epoch_ms", epoch); put("source_kind", "statement_import")
             put("direction", direction); put("category", "UNCATEGORIZED"); put("review_state", "NEEDS_REVIEW")
