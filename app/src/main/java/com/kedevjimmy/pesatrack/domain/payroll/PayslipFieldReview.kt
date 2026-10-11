@@ -1,94 +1,268 @@
 package com.kedevjimmy.pesatrack.domain.payroll
 
-import java.util.Locale
 import java.util.Currency
+import java.util.Locale
 
 data class PayslipEarning(val label: String, val amountMinor: Long)
-data class PayslipSuggestions(val grossMinor: Long?, val netMinor: Long?, val lines: List<PayrollLine>, val warnings: List<String>,
-    val employer: String?=null,val period: String?=null,val earnings: List<PayslipEarning> = emptyList())
+data class PayslipSuggestions(
+    val grossMinor: Long?, val netMinor: Long?, val lines: List<PayrollLine>, val warnings: List<String>,
+    val employer: String? = null, val period: String? = null,
+    val earnings: List<PayslipEarning> = emptyList(),
+    val reportedDeductionsMinor: Long? = null, val grossSource: String? = null
+)
 
-/** Bounded one-column label suggestions. User correction/review remains mandatory; no cash authority. */
+/** Local, bounded payroll grammar, independent of individual employers or tax rates. */
 object PayslipFieldReview {
-    private data class Field(val key: String, val type: PayrollLineType? = null,
-        val role: PayrollLineRole = PayrollLineRole.EMPLOYEE_DEDUCTION)
-    private val labels = buildMap<String, Field> {
-        for(label in listOf("GROSS PAY","GROSS EARNINGS","TOTAL EARNINGS")) put(label,Field("GROSS"))
-        for(label in listOf("NET PAY","NET PAYABLE","NET SALARY")) put(label,Field("NET"))
-        for((label,kind) in listOf("BASIC PAY" to "BASIC","BASIC SALARY" to "BASIC",
-                "HOUSE ALLOWANCE" to "HOUSING","TOTAL CASH EARNINGS" to "TOTAL_CASH",
-                "GROSS TAX PAY" to "TAXABLE","GROSS TAXABLE PAY" to "TAXABLE"))
-            put(label,Field("EARNINGS:"+kind))
-        fun deduction(type: PayrollLineType,vararg names: String) { for(name in names) put(name,Field("EMPLOYEE:$type",type)) }
-        deduction(PayrollLineType.TAX,"PAYE","INCOME TAX")
-        deduction(PayrollLineType.HEALTH,"NHIF","SHIF","SHA","HEALTH CONTRIBUTION")
-        deduction(PayrollLineType.NSSF,"NSSF")
-        deduction(PayrollLineType.PENSION,"PENSION","EMPLOYEE PENSION")
-        deduction(PayrollLineType.SACCO_SHARES,"SACCO SHARES","SACCO SHARE CAPITAL")
-        deduction(PayrollLineType.SACCO_DEPOSIT,"SACCO DEPOSIT")
-        deduction(PayrollLineType.INSURANCE,"INSURANCE","INSURANCE PREMIUM")
-        deduction(PayrollLineType.LOAN_PRINCIPAL,"LOAN PRINCIPAL")
-        deduction(PayrollLineType.LOAN_INTEREST,"LOAN INTEREST")
-        for((name,type) in listOf("EMPLOYER PENSION" to PayrollLineType.PENSION,"EMPLOYER NSSF" to PayrollLineType.NSSF))
-            put(name,Field(name,type,PayrollLineRole.EMPLOYER_CONTRIBUTION))
-    }
-    private val row=Regex("^("+labels.keys.sortedByDescending {it.length}.joinToString("|"){Regex.escape(it)}+")(?:\\s*[:=]\\s*|\\s+)(.*)$",RegexOption.IGNORE_CASE)
-    private val value=Regex("^(?:KES\\s+|KSH\\s+)?([0-9][0-9,.]*)$",RegexOption.IGNORE_CASE)
-    private val kesCurrency=Regex("\\b(?:KES|KSH|KSHS|KENYAN SHILLINGS?)\\b",RegexOption.IGNORE_CASE)
-    private val declaredCurrency=Regex("^\\s*(?:PAY\\s+)?CURRENCY(?:\\s+CODE)?(?:\\s*[:=]\\s*|\\s+)(.*?)\\s*$",setOf(RegexOption.IGNORE_CASE,RegexOption.MULTILINE))
-    private val foreignCurrency=Regex("\\b(?:"+Currency.getAvailableCurrencies().map {it.currencyCode}.filter {it!="KES"}.sorted().joinToString("|")+"|DOLLARS)\\b|[$€£]",RegexOption.IGNORE_CASE)
-    private val metadata=Regex("^(EMPLOYER(?: NAME)?|COMPANY(?: NAME)?|PAYROLL MONTH|PAY PERIOD)\\s*[:=]\\s*(.*)$",RegexOption.IGNORE_CASE)
-    private val months=listOf("January","February","March","April","May","June","July","August","September","October","November","December")
-    private fun period(raw: String): String? {
-        if(Regex("(?:19|20|21)[0-9]{2}-(?:0[1-9]|1[0-2])").matches(raw))return raw
-        val m=Regex("([A-Za-z]+) ((?:19|20|21)[0-9]{2})").matchEntire(raw) ?: return null
-        val month=months.indexOfFirst {it.equals(m.groupValues[1],true)}+1
-        return if(month>0) "${m.groupValues[2]}-${month.toString().padStart(2,'0')}" else null
-    }
-    private fun cells(page: String): List<String> {
-        val input=page.lines().map {it.trim()}.filter {it.isNotEmpty()};val result=mutableListOf<String>();var i=0
-        while(i<input.size) {
-            val label=input[i].trimEnd(':','=')
-            if(label.uppercase(Locale.ROOT) in labels && i+1<input.size && value.matches(input[i+1])) {
-                result+="$label: ${input[i+1]}";i+=2
-            } else {result+=input[i];i++}
+    private data class Field(val key: String, val type: PayrollLineType? = null, val employer: Boolean = false)
+    private fun normalized(text: String) = text.uppercase(Locale.ROOT)
+        .replace(Regex("[^A-Z0-9]+"), " ").trim().replace(Regex("\\s+"), " ")
+    private val aliases = buildMap<String,Field> {
+        fun simple(key:String,vararg names:String) = names.forEach {put(normalized(it),Field(key))}
+        fun deduction(type:PayrollLineType,vararg names:String) = names.forEach {
+            put(normalized(it),Field("DEDUCT:"+type.name,type))
         }
-        return result
+        simple("GROSS","GROSS PAY","GROSS EARNINGS","GROSS SALARY","TOTAL GROSS EARNINGS")
+        simple("NET","NET PAY","NET PAYABLE","NET SALARY","TAKE HOME PAY","NET AMOUNT")
+        simple("CASH","TOTAL CASH EARNINGS","TOTAL CASH PAY","TOTAL CASH EMOLUMENTS")
+        simple("TAXABLE","GROSS TAX PAY","GROSS TAXABLE PAY","TAXABLE PAY","TAXABLE INCOME")
+        simple("BASIC","BASIC PAY","BASIC SALARY","BASE SALARY")
+        simple("HOUSING","HOUSE ALLOWANCE","HOUSING ALLOWANCE")
+        simple("TOTAL_DEDUCTIONS","TOTAL DEDUCTIONS","TOTAL EMPLOYEE DEDUCTIONS","DEDUCTIONS TOTAL")
+        deduction(PayrollLineType.TAX,"PAYE","PAYE TAX","P A Y E","INCOME TAX","PAY AS YOU EARN")
+        deduction(PayrollLineType.HEALTH,"NHIF","SHIF","SHA","SOCIAL HEALTH INSURANCE",
+            "SOCIAL HEALTH INSURANCE FUND","HEALTH CONTRIBUTION","MEDICAL CONTRIBUTION")
+        deduction(PayrollLineType.NSSF,"NSSF","NSSF EMPLOYEE","NSSF TIER I","NSSF TIER II",
+            "NSSF TIER 1","NSSF TIER 2","NSSF EMPLOYEE TIER 1","NSSF EMPLOYEE TIER 2")
+        deduction(PayrollLineType.PENSION,"PENSION","EMPLOYEE PENSION","RETIREMENT CONTRIBUTION")
+        deduction(PayrollLineType.SACCO_SHARES,"SACCO SHARES","SACCO SHARE CAPITAL")
+        deduction(PayrollLineType.SACCO_DEPOSIT,"SACCO DEPOSIT","SACCO CONTRIBUTION","SACCO SAVINGS")
+        deduction(PayrollLineType.INSURANCE,"INSURANCE","INSURANCE PREMIUM")
+        deduction(PayrollLineType.LOAN_PRINCIPAL,"LOAN PRINCIPAL","LOAN REPAYMENT PRINCIPAL")
+        deduction(PayrollLineType.LOAN_INTEREST,"LOAN INTEREST")
+        deduction(PayrollLineType.OTHER,"AFFORDABLE HOUSING LEVY","HOUSING LEVY",
+            "AHL","A H L","ROUNDING","UNION DUES")
+        put("EMPLOYER PENSION",Field("EMPLOYER:PENSION",PayrollLineType.PENSION,true))
+        put("EMPLOYER NSSF",Field("EMPLOYER:NSSF",PayrollLineType.NSSF,true))
     }
-    fun read(pages: List<String>): PayslipSuggestions {
-        require(pages.size in 1..40 && pages.sumOf { it.length.toLong() } <= 100000) { "Choose a shorter payslip." }
-        if(pages.any { it.isBlank() }) return PayslipSuggestions(null,null,emptyList(),listOf("Some pages have no selectable text. Enter payroll fields manually."))
-        if(pages.any { page -> foreignCurrency.containsMatchIn(page) || declaredCurrency.findAll(page).any { !kesCurrency.matches(it.groupValues[1]) } })
-            return PayslipSuggestions(null,null,emptyList(),listOf("A currency other than KES was found. KES fields were not prefilled."))
-        val needsKesConfirmation=pages.none { kesCurrency.containsMatchIn(it) }
-        data class Observed(val field: Field,val label: String,val amount: Long)
-        val observed=mutableListOf<Observed>();val occurrences=mutableMapOf<String,Int>();var unsupported=false
-        val employers=mutableListOf<String>();val periods=mutableListOf<String?>()
-        pages.forEach { page->cells(page).forEach { raw->
-            metadata.matchEntire(raw)?.let {m->
-                if(m.groupValues[1].startsWith("EMPLOYER",true)||m.groupValues[1].startsWith("COMPANY",true)) employers+=m.groupValues[2].trim()
-                else periods+=period(m.groupValues[2].trim())
+    private val money = Regex("^(?:(?:KES|KSH|KSHS)\\s*)?([0-9][0-9,.]*)$",RegexOption.IGNORE_CASE)
+    private val rowValue = Regex("^(.{2,120}?)\\s*[:=]?\\s+((?:(?:KES|KSH|KSHS)\\s*)?[0-9][0-9,.]*)$",RegexOption.IGNORE_CASE)
+    private val twoValues = Regex("^(.{2,120}?)\\s+([0-9][0-9,.]*)\\s+([0-9][0-9,.]*)$",RegexOption.IGNORE_CASE)
+    private val kes = Regex("\\b(?:KES|KSH|KSHS|KENYAN SHILLINGS?)\\b",RegexOption.IGNORE_CASE)
+    private val declaration = Regex("^\\s*(?:PAY\\s+)?CURRENCY(?:\\s+CODE)?\\s*[:=]?\\s*(.*?)\\s*$",RegexOption.IGNORE_CASE)
+    private val foreign = Regex("(?:^\\s*(?:"+
+        Currency.getAvailableCurrencies().map{it.currencyCode}.filter{it!="KES"}.sorted().joinToString("|")+
+        ")\\s*$)|(?:\\b(?:"+
+        Currency.getAvailableCurrencies().map{it.currencyCode}.filter{it!="KES"}.sorted().joinToString("|")+
+        "|DOLLARS)\\b\\s*[0-9])|[$€£]",
+        setOf(RegexOption.MULTILINE))
+    private val employerTag = Regex("^(?:EMPLOYER(?: NAME)?|COMPANY(?: NAME)?|ORGANISATION(?: NAME)?|ORGANIZATION(?: NAME)?)\\s*[:=]\\s*(.+)$",RegexOption.IGNORE_CASE)
+    private val periodTag = Regex("^(?:PAYROLL MONTH|SALARY MONTH|PAYSLIP MONTH|PAY PERIOD|PAYROLL PERIOD|PERIOD ENDING|MONTH YEAR|MONTH / YEAR|PAYSLIP FOR)\\s*[:=]?\\s+(.+)$",RegexOption.IGNORE_CASE)
+    private val periodHeader = Regex("^(?:PAYSLIP|PAY SLIP|SALARY SLIP|PAY ADVICE)\\s+(?:FOR\\s+)?(.+)$",RegexOption.IGNORE_CASE)
+    private val namedMonths = listOf("JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE",
+        "JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER")
+    private val foreignIdentity = Regex("\\b(?:STAFF\\s+(?:NO|NUMBER|NAME|ID)|EMPLOYEE\\s+(?:NO|NUMBER|NAME|ID)|EMAIL|E\\s*MAIL|ADDRESS|P\\s*O\\s*BOX|POSTAL|ACCOUNT\\s*(?:NO|NUMBER)|PHONE|MOBILE|NATIONAL\\s+ID|KRA\\s+PIN|GRADE|DEPARTMENT|DESIGNATION)\\b",RegexOption.IGNORE_CASE)
+    private val organizationSuffix = Regex("\\b(?:LTD|LIMITED|SCHOOL|SCHOOLS|UNIVERSITY|COLLEGE|HOSPITAL|COUNTY|MINISTRY|FOUNDATION|ORGANIZATION|ORGANISATION|COMPANY|GROUP|INC)\\b",RegexOption.IGNORE_CASE)
+    private val unknownSafe = Regex("[A-Za-z][A-Za-z0-9 &/().+'-]{1,89}")
+    private enum class Section { NONE, EARNINGS, DEDUCTIONS, EMPLOYER }
+    private fun heading(s:String):Section? = when(normalized(s)) {
+        "EARNINGS","EARNINGS AND ALLOWANCES","ALLOWANCES","PAY ELEMENTS" -> Section.EARNINGS
+        "DEDUCTIONS","STATUTORY DEDUCTIONS","EMPLOYEE DEDUCTIONS","OTHER DEDUCTIONS",
+        "DEDUCTIONS AND CONTRIBUTIONS" -> Section.DEDUCTIONS
+        "EMPLOYER CONTRIBUTIONS","EMPLOYER DEDUCTIONS" -> Section.EMPLOYER
+        "EMPLOYEE DETAILS","STAFF DETAILS","PERSONAL DETAILS","PAYROLL DETAILS","BANK DETAILS",
+        "PAYSLIP SUMMARY","SUMMARY","PAY INFORMATION" -> Section.NONE
+        else -> null
+    }
+    private fun safeDeductionLabel(label:String):Boolean =
+        unknownSafe.matches(label) && !Regex("[0-9]{3,}").containsMatchIn(label) &&
+        !Regex("\\b(?:EMPLOYEE|STAFF)\\b",RegexOption.IGNORE_CASE).containsMatchIn(label) &&
+        !foreignIdentity.containsMatchIn(label) &&
+        !Regex("\\b(?:YTD|YEAR TO DATE|BALANCE|NET|GROSS|TOTAL|TAXABLE|RATE|PERCENT|REFERENCE|CODE|DATE)\\b",RegexOption.IGNORE_CASE)
+            .containsMatchIn(label)
+    private fun amountMinor(text:String):Long? = money.matchEntire(text.trim())?.groupValues?.get(1)
+        ?.let(PayrollJournalPolicy::parseAmount)
+    private fun month(source:String):String? {
+        val raw=source.trim().uppercase(Locale.ROOT).replace(Regex("\\s+")," ")
+        Regex("(?:19|20|21)[0-9]{2}-(?:0[1-9]|1[0-2])").find(raw)?.let{return it.value}
+        Regex("(0?[1-9]|1[0-2])[/.-]((?:19|20|21)[0-9]{2})").find(raw)?.let{
+            return "${it.groupValues[2]}-${it.groupValues[1].padStart(2,'0')}"
+        }
+        Regex("\\b([A-Z]+)\\.?\\s+((?:19|20|21)[0-9]{2})\\b").find(raw)?.let {found ->
+            val name=found.groupValues[1];val index=namedMonths.indexOfFirst {
+                it==name || (name.length>=3 && it.startsWith(name))
             }
-            val text=raw.trim();val match=row.matchEntire(text)
-            if(match != null) {
-                val label=match.groupValues[1].trim(); val field=labels[label.uppercase(Locale.ROOT).replace(Regex("\\s+")," ")]
-                if(field!=null) occurrences[field.key]=(occurrences[field.key] ?: 0)+1
-                val amount=value.matchEntire(match.groupValues[2])?.let {PayrollJournalPolicy.parseAmount(it.groupValues[1])}
-                if(field!=null && amount!=null) observed+=Observed(field,label,amount) else unsupported=true
-            } // Unrelated staff IDs, emails, addresses and amounts are never imported.
-        } }
-        val warnings=mutableListOf("Suggestions are not verified payroll. Check every amount, missing line, payroll month and KES currency before saving.")
-        if(needsKesConfirmation) warnings+="Currency is not printed clearly. Confirm the amounts are KES before saving; no currency was assumed."
-        if(unsupported) warnings+="Some labels or table rows were not understood. Enter missing fields manually."
-        val groups=observed.groupBy { it.field.key }
-        val unique=groups.filter { (key,items)->items.size==1 && occurrences[key]==1 }.values.map { it.single() }
-        if(occurrences.values.any { it>1 }) warnings+="Repeated or conflicting labels were left blank. Check them manually; no values were summed."
-        if(employers.size!=1 || periods.size!=1 || periods.singleOrNull()==null) warnings+="Employer or payroll month was not uniquely identified. Check these fields manually."
-        return PayslipSuggestions(unique.firstOrNull {it.field.key=="GROSS"}?.amount,
-            unique.firstOrNull {it.field.key=="NET"}?.amount,
-            unique.filter {it.field.type!=null && it.amount>0}.take(100).map {PayrollLine(it.label,it.field.type!!,it.field.role,it.amount)},warnings,
-            employers.singleOrNull()?.takeIf {it.length in 1..160 && it.none {c->c.isISOControl()}},
-            periods.singleOrNull(),
-            unique.filter {it.field.key.startsWith("EARNINGS:") && it.amount>0}
-                .map {PayslipEarning(it.label,it.amount)})
+            if(index>=0)return "${found.groupValues[2]}-${(index+1).toString().padStart(2,'0')}"
+        }
+        Regex("((?:19|20|21)[0-9]{2})-(0[1-9]|1[0-2])-[0-3][0-9]").find(raw)?.let{
+            return "${it.groupValues[1]}-${it.groupValues[2]}"
+        }
+        Regex("[0-3][0-9][/.-](0?[1-9]|1[0-2])[/.-]((?:19|20|21)[0-9]{2})").find(raw)?.let{
+            return "${it.groupValues[2]}-${it.groupValues[1].padStart(2,'0')}"
+        }
+        return null
+    }
+    fun read(pages:List<String>):PayslipSuggestions {
+        require(pages.size in 1..40 && pages.sumOf {it.length.toLong()}<=100000) {"Choose a shorter payslip."}
+        if(pages.any{it.isBlank()})return PayslipSuggestions(null,null,emptyList(),
+            listOf("Some pages have no selectable text. Enter payroll fields manually."))
+        if(pages.any{page->foreign.containsMatchIn(page) || page.lines().any{line->
+            declaration.matchEntire(line.trim())?.let{!kes.matches(it.groupValues[1].trim())}==true
+        }})return PayslipSuggestions(null,null,emptyList(),
+            listOf("A currency other than KES was found. KES fields were not prefilled."))
+        val warnings=mutableListOf("Check the payroll month, currency, every amount and deduction before saving.")
+        if(pages.none {kes.containsMatchIn(it)})warnings+=
+            "Currency is not printed clearly. Confirm the amounts are KES before saving; no currency was assumed."
+        data class Seen(val key:String,val label:String,val amount:Long,val type:PayrollLineType?,val employer:Boolean)
+        val all=mutableListOf<Seen>();val occurrences=mutableMapOf<String,Int>()
+        val companies=mutableListOf<String>();val periods=mutableListOf<String?>()
+        var malformed=false;var unknown=0
+        for(page in pages) {
+            val lines=page.lines().map{it.trim()}.filter{it.isNotEmpty()}
+            var section=Section.NONE;var currentYtd=0;var i=0
+            while(i<lines.size) {
+                val line=lines[i]
+                val header=heading(line)
+                if(header!=null){section=header;currentYtd=0;i++;continue}
+                val normalizedLine=normalized(line)
+                if(normalizedLine in setOf("CURRENT YTD","DESCRIPTION CURRENT YTD",
+                    "CURRENT MONTH YEAR TO DATE","PARTICULARS CURRENT YTD")){
+                    currentYtd=1;i++;continue
+                }
+                if(normalizedLine in setOf("YTD CURRENT","DESCRIPTION YTD CURRENT")){
+                    currentYtd=-1;i++;continue
+                }
+                employerTag.matchEntire(line)?.let{companies+=it.groupValues[1].trim()}
+                periodTag.matchEntire(line)?.let{periods+=month(it.groupValues[1])}
+                if(i+1<lines.size && normalizedLine in setOf("EMPLOYER","EMPLOYER NAME",
+                    "COMPANY","COMPANY NAME","ORGANIZATION NAME","ORGANISATION NAME")) {
+                    val value=lines[i+1]
+                    if(value.length in 3..160 && !value.contains("@") &&
+                        !foreignIdentity.containsMatchIn(value) && value.none(Char::isISOControl))
+                        companies+=value
+                }
+                if(i+1<lines.size && normalizedLine in setOf("PAY PERIOD","PAYROLL MONTH",
+                    "PAYROLL PERIOD","PAYSLIP MONTH","SALARY MONTH","PERIOD ENDING"))
+                    periods+=month(lines[i+1])
+                periodHeader.matchEntire(line)?.let{headerMatch->
+                    month(headerMatch.groupValues[1])?.let{periods+=it}
+                }
+                var label:String?=null;var value:String?=null
+                // "NSSF Tier 1" is a label, not an amount of KES 1.
+                if(i+1<lines.size && amountMinor(lines[i+1])!=null &&
+                    (aliases.containsKey(normalized(line.trimEnd('=',':'))) ||
+                        (section in setOf(Section.DEDUCTIONS,Section.EMPLOYER) && safeDeductionLabel(line)))) {
+                    label=line.trimEnd('=',':').trim();value=lines[i+1];i++
+                }
+                val multi=twoValues.matchEntire(line)
+                if(label==null && multi!=null && currentYtd!=0){
+                    label=multi.groupValues[1].trimEnd('=',':',' ').trim()
+                    value=multi.groupValues[if(currentYtd==1)2 else 3]
+                } else if(label==null && multi!=null) {
+                    val firstLabel=normalized(multi.groupValues[1].trimEnd('=',':',' '))
+                    val key=aliases[firstLabel]?.key
+                    if(key!=null) {
+                        occurrences[key]=(occurrences[key]?:0)+1;malformed=true
+                    } else {
+                        // A numbered *label* (e.g. NSSF Tier 1) followed by one
+                        // monetary value is not a CURRENT/YTD two-money row.
+                        val paired=rowValue.matchEntire(line)
+                        val candidate=paired?.groupValues?.get(1)?.trimEnd('=',':',' ')
+                        if(candidate!=null && aliases.containsKey(normalized(candidate))) {
+                            label=candidate;value=paired.groupValues[2]
+                        }
+                    }
+                } else if(label==null) {
+                    val pair=rowValue.matchEntire(line)
+                    if(pair!=null) {
+                        label=pair.groupValues[1].trimEnd('=',':',' ').trim()
+                        value=pair.groupValues[2]
+                    } else if(i+1<lines.size && amountMinor(lines[i+1])!=null &&
+                        (aliases.containsKey(normalized(line.trimEnd('=',':'))) ||
+                            (section in setOf(Section.DEDUCTIONS,Section.EMPLOYER) && safeDeductionLabel(line)))) {
+                        label=line.trimEnd('=',':').trim();value=lines[i+1];i++
+                    }
+                }
+                if(label==null && value==null) {
+                    // Invalid marked values must invalidate an earlier apparently valid occurrence.
+                    val marked=Regex("^(.{2,120}?)\\s*[:=]\\s*(.+)$").matchEntire(line)
+                    val badKey=marked?.let{aliases[normalized(it.groupValues[1])]?.key}
+                    if(badKey!=null){occurrences[badKey]=(occurrences[badKey]?:0)+1;malformed=true}
+                }
+                if(label!=null && value!=null){
+                    val norm=normalized(label)
+                    val field=aliases[norm]
+                    val isUnknown=field==null && section in setOf(Section.DEDUCTIONS,Section.EMPLOYER)
+                        && safeDeductionLabel(label)
+                    if(field!=null || isUnknown) {
+                        val key=if(field!=null) {
+                            if(norm.contains("TIER"))"DEDUCT:NSSF:"+norm else field.key
+                        } else "OTHER:"+norm
+                        occurrences[key]=(occurrences[key]?:0)+1
+                        val parsed=amountMinor(value)
+                        if(parsed==null)malformed=true else {
+                            all+=Seen(key,label,parsed,field?.type ?:
+                                if(isUnknown)PayrollLineType.OTHER else null,
+                                field?.employer==true || section==Section.EMPLOYER)
+                            if(isUnknown)unknown++
+                        }
+                    }
+                }
+                i++
+            }
+            val first=lines.take(12)
+            val payslip=first.indexOfFirst {normalized(it) in setOf("PAYSLIP","PAY SLIP","EMPLOYER PAYSLIP","SALARY SLIP","PAY ADVICE")}
+            if(payslip>0)first.take(payslip).filter{
+                it.length in 3..160 && organizationSuffix.containsMatchIn(it) &&
+                !foreignIdentity.containsMatchIn(it) && !it.contains("@") &&
+                !it.contains(":") && it.none(Char::isDigit)
+            }.singleOrNull()?.let{companies+=it}
+        }
+        val unique=all.groupBy{it.key}.filter{(key,rows)->rows.size==1 && occurrences[key]==1}
+            .values.map{it.single()}
+        if(occurrences.values.any{it>1})warnings+="Repeated or conflicting labels were left blank for correction."
+        if(malformed)warnings+="Some payroll rows have invalid or multiple amounts; check them manually."
+        if(unknown>0)warnings+="Unrecognized deduction labels were retained as Other for your review."
+        val employers=companies.filter{it.length in 3..160 && !it.contains("@") &&
+            !foreignIdentity.containsMatchIn(it) && it.none(Char::isISOControl)}
+            .distinctBy{normalized(it)}
+        val months=periods.filterNotNull().distinct()
+        if(employers.size!=1)warnings+="Employer was not reliably identified; select or enter it manually."
+        if(months.size!=1)warnings+="Payroll month was not reliably identified; confirm the month."
+        val explicitGross=unique.firstOrNull{it.key=="GROSS"}?.amount
+        val cash=unique.firstOrNull{it.key=="CASH"}?.amount
+        val taxable=unique.firstOrNull{it.key=="TAXABLE"}?.amount
+        val gross=explicitGross?:cash
+        if(explicitGross==null && cash!=null)warnings+=
+            "Gross pay suggested from Total Cash Earnings; check before saving."
+        if(explicitGross!=null && cash!=null && explicitGross!=cash)
+            warnings+="Gross pay and Total Cash Earnings differ; review their meanings."
+        if(gross==null && taxable!=null)warnings+=
+            "Taxable pay does not necessarily equal gross cash pay; confirm gross manually."
+        val net=unique.firstOrNull{it.key=="NET"}?.amount
+        val statedDeductions=unique.firstOrNull{it.key=="TOTAL_DEDUCTIONS"}?.amount
+        val hasTiers=unique.any{it.key.startsWith("DEDUCT:NSSF:")}
+        val hasAggregate=unique.any{it.key=="DEDUCT:NSSF"}
+        if(hasTiers && hasAggregate)
+            warnings+="NSSF total and tier entries are both present. Review the values to prevent double counting."
+        val deductions=unique.filter{it.type!=null && it.amount>0 &&
+            !(hasTiers && hasAggregate && (it.key=="DEDUCT:NSSF" ||
+                it.key.startsWith("DEDUCT:NSSF:")))}
+            .take(PayrollJournalPolicy.MAX_LINES).map{
+            PayrollLine(it.label,it.type!!,
+                if(it.employer)PayrollLineRole.EMPLOYER_CONTRIBUTION else PayrollLineRole.EMPLOYEE_DEDUCTION,
+                it.amount)
+        }
+        val sum=runCatching{deductions.filter{it.role==PayrollLineRole.EMPLOYEE_DEDUCTION}
+            .fold(0L){acc,line->Math.addExact(acc,line.amountMinor)}}.getOrNull()
+        if(gross!=null && net!=null && gross>=net && sum!=null && sum!=gross-net)
+            warnings+="Deduction breakdown is incomplete or differs from gross minus net. Check the source; no deductions were invented."
+        if(statedDeductions!=null && sum!=null && statedDeductions!=sum)
+            warnings+="Total deductions differs from the identified lines; review missing entries."
+        return PayslipSuggestions(gross,net,deductions,warnings,employers.singleOrNull(),
+            months.singleOrNull(),
+            unique.filter{it.key in setOf("BASIC","HOUSING","CASH","TAXABLE") && it.amount>0}
+                .map{PayslipEarning(it.label,it.amount)},
+            statedDeductions,
+            if(explicitGross!=null)"Gross pay" else if(cash!=null)"Total Cash Earnings" else null)
     }
 }

@@ -38,7 +38,9 @@ The authoritative scope is in [docs/PRODUCT_CHARTER.md](docs/PRODUCT_CHARTER.md)
 - Reports and CSV export
 - CSV statement import with duplicate/date review, plus local Android15+ PDF password unlock and extraction. Supported M-Pesa text rows offer editable confirmed import; labelled payroll fields offer reviewed journal entry. Arbitrary layouts, scanned OCR and older-Android PDF extraction remain unsupported; device acceptance remains pending.
 - Salary setup and manual salary receipts
-- Dedicated Paycheck Analysis linked from Activity, Salary and Reports: privately reviewed payroll journal with gross/net, deductions and reported SACCO figures. Android15+ local PDF selection has a 3 MiB cap; raw PDF text is never shown. Earnings breakdowns are preview-only. Payroll never proves cash receipt.
+- Dedicated Paycheck Analysis linked from Activity, Salary and Reports: privately reviewed payroll journal with gross/net, deductions and reported SACCO figures.
+- Payslip review pre-fills recognised employer/month/gross/net/deductions when supported; gross cash earnings and taxable pay remain distinct. Unknown deduction rows from explicitly marked deduction tables need review. Gross-to-net mismatches must be resolved manually, never fabricated.
+ Android15+ local PDF selection has a 3 MiB cap; raw PDF text is never shown. Earnings breakdowns are preview-only. Payroll never proves cash receipt.
 - Identity review
 - Historical financial SMS import
 - Financial notification connection status

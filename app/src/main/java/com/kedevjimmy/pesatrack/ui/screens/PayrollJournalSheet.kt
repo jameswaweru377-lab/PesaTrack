@@ -35,19 +35,20 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
     var records by remember {mutableStateOf<List<PayrollRecord>>(emptyList())}
     var editing by remember {mutableStateOf<PayrollRecord?>(null)}
     var deleting by remember {mutableStateOf<PayrollRecord?>(null)}
-    var employer by remember {mutableStateOf("")};var period by remember {mutableStateOf(SimpleDateFormat("yyyy-MM",Locale.US).format(Date()))}
+    var employer by remember {mutableStateOf("")};var period by remember {mutableStateOf("")}
     var gross by remember {mutableStateOf("")};var net by remember {mutableStateOf("")}
     var source by remember {mutableStateOf(PayrollSource.MANUAL)}
     var lines by remember {mutableStateOf<List<PayrollLineInput>>(emptyList())}
     var suggestions by remember {mutableStateOf<PayslipSuggestions?>(null)}
+    var reviewForm by remember {mutableStateOf(false)}
     var reviewed by remember {mutableStateOf(false)};var busy by remember {mutableStateOf(false)}
     var error by remember {mutableStateOf<String?>(null)};var message by remember {mutableStateOf<String?>(null)}
-    fun clear() {editing=null;employer="";gross="";net="";lines=emptyList();source=PayrollSource.MANUAL;reviewed=false;suggestions=null}
+    fun clear() {editing=null;employer="";period="";gross="";net="";lines=emptyList();source=PayrollSource.MANUAL;reviewed=false;suggestions=null;reviewForm=false}
     fun edit(record: PayrollRecord) {
         editing=record;employer=record.draft.employer;period=record.draft.period
         gross=PayrollJournalPolicy.money(record.draft.grossMinor);net=PayrollJournalPolicy.money(record.draft.netMinor)
         source=record.draft.source;lines=record.draft.lines.map {PayrollLineInput(label=it.label,amount=PayrollJournalPolicy.money(it.amountMinor),type=it.type,role=it.role)}
-        reviewed=false;suggestions=null;error=null;message=null
+        reviewed=false;suggestions=null;reviewForm=true;error=null;message=null
     }
     suspend fun refresh() {records=withContext(Dispatchers.IO) {store.records(200)}}
     fun perform(action: suspend ()->Unit) {
@@ -60,7 +61,27 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
     }
     LaunchedEffect(Unit) {busy=true;try {refresh()} catch(e:CancellationException){throw e}
         catch(_:Exception){error="Could not load payroll details. Your cash history is unchanged."} finally {busy=false}}
-    val pdfImport=rememberPdfImport(onSelected={suggestions=null;error=null},onBusy={busy=it},onResult={pdf->suggestions=PayslipFieldReview.read(pdf.pages)})
+    fun applySuggestions(s: PayslipSuggestions) {
+        // Only reviewed financial fields can enter the draft. Never accept employee IDs or raw text.
+        s.employer?.let {employer=it}
+        s.period?.let {period=it}
+        gross=s.grossMinor?.let {PayrollJournalPolicy.money(it)} ?: ""
+        net=s.netMinor?.let {PayrollJournalPolicy.money(it)} ?: ""
+        lines=s.lines.map {PayrollLineInput(label=it.label,amount=PayrollJournalPolicy.money(it.amountMinor),type=it.type,role=it.role)}
+        source=PayrollSource.PDF_TEXT;reviewed=false;reviewForm=true
+    }
+    val pdfImport=rememberPdfImport(
+        onSelected={
+            suggestions=null;error=null;message=null
+            if(editing==null){employer="";period="";gross="";net="";lines=emptyList();reviewForm=false;reviewed=false}
+        },
+        onBusy={busy=it},
+        onResult={pdf->
+            val extracted=PayslipFieldReview.read(pdf.pages)
+            suggestions=extracted
+            if(editing==null)applySuggestions(extracted)
+        }
+    )
     PdfPasswordDialog(pdfImport)
     val details: LazyListScope.() -> Unit = {
         item {
@@ -69,29 +90,40 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
             Text("Only employer, period and reviewed monetary payroll fields are saved. Staff number, name, email and address are not collected.",style=MaterialTheme.typography.bodySmall)
             if(editing!=null) TextButton(enabled=!busy,onClick={clear()}) {Text("New record instead")}
         }
-        item {OutlinedTextField(employer,{employer=it;reviewed=false},label={Text("Employer")},singleLine=true,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-employer"))}
-        item {OutlinedTextField(period,{period=it;reviewed=false},label={Text("Payroll month · yyyy-MM")},singleLine=true,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-month"))}
-        item {OutlinedTextField(gross,{gross=it;reviewed=false},label={Text("Gross earnings · KES")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-gross"))}
-        item {OutlinedTextField(net,{net=it;reviewed=false},label={Text("Net payable · KES")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-net"))}
         item {
             PdfImportButton("Import payslip PDF",!busy,pdfImport)
             Text(if(Build.VERSION.SDK_INT>=35) "Read locally, then review only relevant payroll fields. Up to 3 MB/40 pages; scanned images require OCR. No raw PDF text, password or unrelated staff information is saved." else "PDF text needs Android 15 or newer. Enter the payroll fields manually on this phone.",style=MaterialTheme.typography.bodySmall)
         }
+        item {message?.let {Text(it,color=MaterialTheme.colorScheme.primary)}}
         suggestions?.let {s ->item {
             s.warnings.forEach {Text(it,style=MaterialTheme.typography.bodySmall)}
             Text("Extracted payroll preview · No personal identifiers shown",style=MaterialTheme.typography.titleMedium)
-            Text("Employer: ${s.employer ?: "Enter manually"} · month: ${s.period ?: "Enter manually"}")
-            Text("Suggested gross: ${s.grossMinor?.let {"KES "+PayrollJournalPolicy.money(it)} ?: "Unavailable"} · net: ${s.netMinor?.let {"KES "+PayrollJournalPolicy.money(it)} ?: "Unavailable"} · ${s.lines.size} deduction/contribution lines")
+            Text("Employer: ${s.employer ?: "Needs confirmation"} · month: ${s.period ?: "Needs confirmation"}")
+            Text("Gross: ${s.grossMinor?.let {"KES "+PayrollJournalPolicy.money(it)} ?: "Needs review"}${s.grossSource?.let {" · from "+it} ?: ""}")
+            Text("Net payable: ${s.netMinor?.let {"KES "+PayrollJournalPolicy.money(it)} ?: "Needs review"}")
+            Text("${s.lines.size} identified deduction/contribution lines")
+            s.reportedDeductionsMinor?.let {Text("Payslip total deductions: KES ${PayrollJournalPolicy.money(it)}")}
+            val deductionSum=runCatching {s.lines.filter {it.role==PayrollLineRole.EMPLOYEE_DEDUCTION}
+                .fold(0L){sum,line->Math.addExact(sum,line.amountMinor)}}.getOrNull()
+            if(s.grossMinor!=null && s.netMinor!=null && deductionSum!=null && s.grossMinor>=s.netMinor){
+                val remainder=s.grossMinor-s.netMinor-deductionSum
+                if(remainder!=0L)Text("Unexplained gross-to-net difference: KES ${PayrollJournalPolicy.money(remainder)}. Identify missing payroll lines before saving.",
+                    color=MaterialTheme.colorScheme.error)
+            }
             s.earnings.forEach {earning->Text("${earning.label}: KES ${PayrollJournalPolicy.money(earning.amountMinor)}",style=MaterialTheme.typography.bodySmall)}
             Text("Earnings breakdown is shown for checking, but this version stores only gross/net and deduction/contribution lines.",style=MaterialTheme.typography.bodySmall)
-            OutlinedButton(enabled=!busy,onClick={
-                employer=s.employer ?: "";period=s.period ?: ""
-                gross=s.grossMinor?.let {PayrollJournalPolicy.money(it)} ?: "";net=s.netMinor?.let {PayrollJournalPolicy.money(it)} ?: ""
-                lines=s.lines.map {PayrollLineInput(label=it.label,amount=PayrollJournalPolicy.money(it.amountMinor),type=it.type,role=it.role)}
-                source=PayrollSource.PDF_TEXT;reviewed=false;suggestions=null
-            }) {Text("Use extracted fields and review")}
-            TextButton(enabled=!busy,onClick={suggestions=null}) {Text("Reject suggestions")}
+            if(editing!=null) OutlinedButton(enabled=!busy,onClick={applySuggestions(s)}) {
+                Text("Apply imported fields to this record")
+            }
+            TextButton(enabled=!busy,onClick={suggestions=null; if(editing==null)clear()}) {Text("Discard extracted preview")}
         } }
+        if(!reviewForm) item {TextButton(onClick={reviewForm=true},enabled=!busy) {Text("Enter paycheck manually")}}
+        if(reviewForm) {
+        item {Text("Review and correct",style=MaterialTheme.typography.titleMedium)}
+        item {OutlinedTextField(employer,{employer=it;reviewed=false},label={Text("Employer")},singleLine=true,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-employer"))}
+        item {OutlinedTextField(period,{period=it;reviewed=false},label={Text("Payroll month · yyyy-MM")},singleLine=true,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-month"))}
+        item {OutlinedTextField(gross,{gross=it;reviewed=false},label={Text("Gross earnings · KES")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-gross"))}
+        item {OutlinedTextField(net,{net=it;reviewed=false},label={Text("Net payable · KES")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-net"))}
         item {
             Text("Employee deductions reduce net payable. Employer contributions are separate.",style=MaterialTheme.typography.bodySmall)
             OutlinedButton(enabled=!busy&&lines.size<PayrollJournalPolicy.MAX_LINES,onClick={lines=lines+PayrollLineInput();reviewed=false}) {Text("Add deduction / contribution")}
@@ -120,6 +152,7 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
             }},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("payroll-save")) {Text("Save payroll details")}
             ToolError(error);message?.let {Text(it)};if(busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         }
+        } // end reviewable payroll form
         item {Text("Saved payroll · up to 200 recent records",style=MaterialTheme.typography.titleMedium)
             Text("Reported figures only. Actual salary receipts appear separately in Salary and Activity. These amounts are not added to cash totals.",style=MaterialTheme.typography.bodySmall)}
         items(records,key={it.id}) {record ->
