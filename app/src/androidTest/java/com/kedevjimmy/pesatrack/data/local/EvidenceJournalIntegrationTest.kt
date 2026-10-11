@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.*
+import org.junit.Before
+import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -13,6 +15,9 @@ import org.junit.runner.RunWith
 class EvidenceJournalIntegrationTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val epoch = 1_790_000_000_000L
+
+    @Before fun before() { PesaTrackDatabase.resetForTests(); context.deleteDatabase("pesatrack.db") }
+    @After fun after() { PesaTrackDatabase.resetForTests(); context.deleteDatabase("pesatrack.db") }
 
     private fun seed(db: android.database.sqlite.SQLiteDatabase, code: String = "SYNTHETIC01",
         account: String = "account-mpesa", direction: String = "INCOME"): Long {
