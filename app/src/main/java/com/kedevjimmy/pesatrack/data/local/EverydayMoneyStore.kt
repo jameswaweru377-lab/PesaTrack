@@ -9,6 +9,7 @@ import java.util.UUID
 import java.util.Calendar
 import java.security.MessageDigest
 import com.kedevjimmy.pesatrack.domain.evidence.*
+import com.kedevjimmy.pesatrack.domain.ingestion.TransactionFingerprint
 
 /** Separate allocations never create extra cash movements. Writes share the ledger lock. */
 class EverydayMoneyStore(context:Context) {
@@ -22,8 +23,6 @@ class EverydayMoneyStore(context:Context) {
  private fun requireOwned(id:String):MoneyAccount=ownedAccounts().firstOrNull {it.id==id} ?: error("Choose one of your accounts.")
  fun addEntry(token:String,accountId:String,amount:Long,date:Long,label:String,category:String,income:Boolean):Boolean = synchronized(CanonicalStoreLock.monitor) {
   require(token.isNotBlank())
-  val alreadySaved=database.readableDatabase.rawQuery("SELECT 1 FROM transactions WHERE source_kind = ? AND raw_message = ? LIMIT 1",arrayOf("manual_entry","manual-entry|$token")).use {it.moveToFirst()}
-  if(alreadySaved)return@synchronized false
   requireOwned(accountId);require(amount>0 && date>0 && date<=System.currentTimeMillis()) {"Check the amount and date."}
   require(label.trim().length in 1..200){"Add a short description."}
   val cat=CategoryStore.get(app).find(category) ?: error("Choose a category.")
@@ -34,10 +33,19 @@ class EverydayMoneyStore(context:Context) {
    userConfirmed=true,ownAccountResolved=true
   ))
   val parsed=ParsedMpesaTransaction(null,MpesaTransactionType.OTHER,amount,label.trim(),feeMinor=0,balanceMinor=null,occurredAtText=null,rawMessage="manual-entry|$token",reversalOfCode=null)
-  val db=database.writableDatabase;db.beginTransaction()
+  val fingerprint=TransactionFingerprint.of(parsed,date)
+  val db=database.writableDatabase
+  val alreadySaved=db.rawQuery("SELECT 1 FROM transactions WHERE fingerprint=? LIMIT 1",arrayOf(fingerprint)).use {it.moveToFirst()}
+  if(alreadySaved)return@synchronized false
+  db.beginTransaction()
   try {
    val added=transactions.insertIfNew(parsed,null,"manual_entry",System.currentTimeMillis(),date,rebuildPayCycles=false,runRelationshipReconciliation=false,runMirrorCorrelation=false,accountIdOverride=accountId,allowLegacyAccountFallback=false,directionOverride=kind,reviewStateOverride=ReviewState.USER_CLASSIFIED)
-   if(added){val id=db.rawQuery("SELECT id FROM transactions WHERE raw_message = ?",arrayOf(parsed.rawMessage)).use {it.moveToFirst();it.getLong(0)};db.update("transactions",ContentValues().apply {put("category",cat.id)},"id = ?",arrayOf(id.toString()))}
+   if(added){
+    val id=db.rawQuery("SELECT id FROM transactions WHERE fingerprint=?",arrayOf(fingerprint)).use {it.moveToFirst();it.getLong(0)}
+    db.update("transactions",ContentValues().apply {put("category",cat.id)},"id = ?",arrayOf(id.toString()))
+    EvidenceJournalStore.observe(db,"MANUAL",accountId,token,accountId,
+      if(income)amount else -amount,date,null,id,"CREATED")
+   }
    db.setTransactionSuccessful();added
   } finally {db.endTransaction();LedgerUpdateBus.notifyChanged()}
  }
@@ -80,14 +88,27 @@ class EverydayMoneyStore(context:Context) {
   require(rows.isNotEmpty());StatementCsv.validateRows(rows)
   val db=database.writableDatabase;db.beginTransaction();var count=0
   try {
-   preview(accountId,rows).filterNot {it.duplicate}.forEach {item->val r=item.row;val key=importKey(accountId,r)
-    FinancialEvidenceContract.requireCashCandidate(FinancialEvidenceRequest(
-     FinancialEvidenceSource.STATEMENT, if(r.signedMinor>0)FinancialEvidenceClaim.CASH_RECEIVED else FinancialEvidenceClaim.CASH_SENT,
-     interpreted=true,userConfirmed=true,ownAccountResolved=true
-    ))
-    val p=ParsedMpesaTransaction(r.reference,MpesaTransactionType.OTHER,kotlin.math.abs(r.signedMinor),r.description,feeMinor=0,balanceMinor=null,occurredAtText=null,rawMessage="statement-entry|$key",reversalOfCode=null)
-    val added=transactions.insertIfNew(p,null,"statement_import",System.currentTimeMillis(),r.date,rebuildPayCycles=false,runRelationshipReconciliation=false,runMirrorCorrelation=false,accountIdOverride=accountId,allowLegacyAccountFallback=false,directionOverride=if(r.signedMinor>0)MoneyDirection.INCOME else MoneyDirection.EXPENSE,categoryOverride=TransactionCategory.UNCATEGORIZED,reviewStateOverride=ReviewState.NEEDS_REVIEW)
-    if(added){count++;db.insertOrThrow("statement_import_entries",null,ContentValues().apply {put("import_key",key);put("account_id",accountId)})}
+   preview(accountId,rows).forEach { item ->
+    val r=item.row;val key=importKey(accountId,r)
+    var target:Long?=null
+    var linkReason="REFERENCE"
+    if(!item.duplicate) {
+     FinancialEvidenceContract.requireCashCandidate(FinancialEvidenceRequest(
+      FinancialEvidenceSource.STATEMENT,if(r.signedMinor>0)FinancialEvidenceClaim.CASH_RECEIVED else FinancialEvidenceClaim.CASH_SENT,
+      interpreted=true,userConfirmed=true,ownAccountResolved=true
+     ))
+     val p=ParsedMpesaTransaction(r.reference,MpesaTransactionType.OTHER,kotlin.math.abs(r.signedMinor),r.description,feeMinor=0,balanceMinor=null,occurredAtText=null,rawMessage="statement-entry|$key",reversalOfCode=null)
+     val fingerprint=TransactionFingerprint.of(p,r.date)
+     val added=transactions.insertIfNew(p,null,"statement_import",System.currentTimeMillis(),r.date,rebuildPayCycles=false,runRelationshipReconciliation=false,runMirrorCorrelation=false,accountIdOverride=accountId,allowLegacyAccountFallback=false,directionOverride=if(r.signedMinor>0)MoneyDirection.INCOME else MoneyDirection.EXPENSE,categoryOverride=TransactionCategory.UNCATEGORIZED,reviewStateOverride=ReviewState.NEEDS_REVIEW)
+     if(added) {
+      count++
+      db.insertOrThrow("statement_import_entries",null,ContentValues().apply {put("import_key",key);put("account_id",accountId)})
+      target=db.rawQuery("SELECT id FROM transactions WHERE fingerprint=?",arrayOf(fingerprint)).use {it.moveToFirst();it.getLong(0)}
+      linkReason="CREATED"
+     }
+    }
+    if(target==null) target=r.reference?.let {transactions.getByTransactionCode(it)?.id}
+    EvidenceJournalStore.observe(db,"STATEMENT",accountId,key,accountId,r.signedMinor,r.date,r.reference,target,linkReason)
    };db.setTransactionSuccessful()
   }finally{db.endTransaction()};LedgerUpdateBus.notifyChanged();count
  }
