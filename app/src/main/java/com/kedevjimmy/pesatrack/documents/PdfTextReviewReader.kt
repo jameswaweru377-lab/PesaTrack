@@ -6,6 +6,7 @@ import android.os.*
 import androidx.annotation.RequiresApi
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextPreview
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
+import com.kedevjimmy.pesatrack.domain.evidence.PdfTextChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.DocumentCopySession
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
 import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
@@ -85,14 +86,20 @@ object PdfTextReviewReader {
                 fun fail(failure: PdfFailure) {
                     if (continuation.isActive) continuation.resumeWithException(PdfReadException(failure))
                 }
+                val assembly=PdfTextChunkAssembler()
                 val reply = Messenger(Handler(Looper.getMainLooper()) { message ->
                     if (continuation.isActive) {
                         val failure = message.data.getString("failure")
-                        if (failure != null) fail(PdfFailure.entries.firstOrNull {it.name==failure} ?: PdfFailure.PARSE) else {
-                            try {
-                                val pages = message.data.getStringArrayList("pages") ?: emptyList()
-                                continuation.resume(PdfTextReviewPolicy.preview(pages))
-                            } catch (e: Exception) { fail((e as? PdfReadException)?.failure ?: PdfFailure.PARSE) }
+                        if (failure != null) fail(PdfFailure.entries.firstOrNull {it.name==failure} ?: PdfFailure.PARSE)
+                        else try {
+                            val data=message.data
+                            if(data.containsKey("chunk")) {
+                                assembly.add(data.getInt("pageIndex",-1),data.getString("chunk") ?: "")
+                            } else if(data.getBoolean("done",false)) {
+                                continuation.resume(assembly.finish(data.getInt("pageCount",-1)))
+                            } else fail(PdfFailure.SERVICE)
+                        } catch (e: Exception) {
+                            fail((e as? PdfReadException)?.failure ?: PdfFailure.PARSE)
                         }
                     }
                     true
