@@ -3,8 +3,9 @@ package com.kedevjimmy.pesatrack.domain.payroll
 import java.util.Locale
 import java.util.Currency
 
+data class PayslipEarning(val label: String, val amountMinor: Long)
 data class PayslipSuggestions(val grossMinor: Long?, val netMinor: Long?, val lines: List<PayrollLine>, val warnings: List<String>,
-    val employer: String?=null,val period: String?=null)
+    val employer: String?=null,val period: String?=null,val earnings: List<PayslipEarning> = emptyList())
 
 /** Bounded one-column label suggestions. User correction/review remains mandatory; no cash authority. */
 object PayslipFieldReview {
@@ -13,6 +14,10 @@ object PayslipFieldReview {
     private val labels = buildMap<String, Field> {
         for(label in listOf("GROSS PAY","GROSS EARNINGS","TOTAL EARNINGS")) put(label,Field("GROSS"))
         for(label in listOf("NET PAY","NET PAYABLE","NET SALARY")) put(label,Field("NET"))
+        for((label,kind) in listOf("BASIC PAY" to "BASIC","BASIC SALARY" to "BASIC",
+                "HOUSE ALLOWANCE" to "HOUSING","TOTAL CASH EARNINGS" to "TOTAL_CASH",
+                "GROSS TAX PAY" to "TAXABLE","GROSS TAXABLE PAY" to "TAXABLE"))
+            put(label,Field("EARNINGS:"+kind))
         fun deduction(type: PayrollLineType,vararg names: String) { for(name in names) put(name,Field("EMPLOYEE:$type",type)) }
         deduction(PayrollLineType.TAX,"PAYE","INCOME TAX")
         deduction(PayrollLineType.HEALTH,"NHIF","SHIF","SHA","HEALTH CONTRIBUTION")
@@ -54,8 +59,7 @@ object PayslipFieldReview {
         if(pages.any { it.isBlank() }) return PayslipSuggestions(null,null,emptyList(),listOf("Some pages have no selectable text. Enter payroll fields manually."))
         if(pages.any { page -> foreignCurrency.containsMatchIn(page) || declaredCurrency.findAll(page).any { !kesCurrency.matches(it.groupValues[1]) } })
             return PayslipSuggestions(null,null,emptyList(),listOf("A currency other than KES was found. KES fields were not prefilled."))
-        if(pages.none { kesCurrency.containsMatchIn(it) })
-            return PayslipSuggestions(null,null,emptyList(),listOf("KES currency was not identified. Enter payroll fields manually and check their currency."))
+        val needsKesConfirmation=pages.none { kesCurrency.containsMatchIn(it) }
         data class Observed(val field: Field,val label: String,val amount: Long)
         val observed=mutableListOf<Observed>();val occurrences=mutableMapOf<String,Int>();var unsupported=false
         val employers=mutableListOf<String>();val periods=mutableListOf<String?>()
@@ -70,9 +74,10 @@ object PayslipFieldReview {
                 if(field!=null) occurrences[field.key]=(occurrences[field.key] ?: 0)+1
                 val amount=value.matchEntire(match.groupValues[2])?.let {PayrollJournalPolicy.parseAmount(it.groupValues[1])}
                 if(field!=null && amount!=null) observed+=Observed(field,label,amount) else unsupported=true
-            } else if(text.any { it.isDigit() }) unsupported=true
+            } // Unrelated staff IDs, emails, addresses and amounts are never imported.
         } }
         val warnings=mutableListOf("Suggestions are not verified payroll. Check every amount, missing line, payroll month and KES currency before saving.")
+        if(needsKesConfirmation) warnings+="Currency is not printed clearly. Confirm the amounts are KES before saving; no currency was assumed."
         if(unsupported) warnings+="Some labels or table rows were not understood. Enter missing fields manually."
         val groups=observed.groupBy { it.field.key }
         val unique=groups.filter { (key,items)->items.size==1 && occurrences[key]==1 }.values.map { it.single() }
@@ -81,6 +86,9 @@ object PayslipFieldReview {
         return PayslipSuggestions(unique.firstOrNull {it.field.key=="GROSS"}?.amount,
             unique.firstOrNull {it.field.key=="NET"}?.amount,
             unique.filter {it.field.type!=null && it.amount>0}.take(100).map {PayrollLine(it.label,it.field.type!!,it.field.role,it.amount)},warnings,
-            employers.singleOrNull()?.takeIf {it.length in 1..160 && it.none {c->c.isISOControl()}},periods.singleOrNull())
+            employers.singleOrNull()?.takeIf {it.length in 1..160 && it.none {c->c.isISOControl()}},
+            periods.singleOrNull(),
+            unique.filter {it.field.key.startsWith("EARNINGS:") && it.amount>0}
+                .map {PayslipEarning(it.label,it.amount)})
     }
 }
