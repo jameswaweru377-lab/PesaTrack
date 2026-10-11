@@ -202,13 +202,13 @@ class PersonalReceivableIntegrationTest {
         val manager = com.kedevjimmy.pesatrack.security.PesaBackupManager(context)
         val encrypted = manager.exportEncryptedBytes("invented-migration-passphrase")
         PesaTrackDatabase.resetForTests()
-        assertEquals(39, db.version)
+        assertEquals(40, db.version)
         assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
         assertTrue(receivables.people().isEmpty())
         repeat(2) {
             manager.previewEncryptedBytes(encrypted, "invented-migration-passphrase")
             manager.restoreEncryptedBytes(encrypted, "invented-migration-passphrase")
-            assertEquals(39, db.version)
+            assertEquals(40, db.version)
             assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
             assertTrue(receivables.people().isEmpty())
             assertTrue(receivables.linkedShares().isEmpty())
@@ -219,7 +219,7 @@ class PersonalReceivableIntegrationTest {
             }
         }
         PesaTrackDatabase.resetForTests()
-        assertEquals(39, db.version)
+        assertEquals(40, db.version)
         assertEquals(50_000L, transactions.getById(payment)!!.amountMinor)
     }
 
@@ -320,7 +320,7 @@ class PersonalReceivableIntegrationTest {
         val manager = com.kedevjimmy.pesatrack.security.PesaBackupManager(context)
         val oldBackup = manager.exportEncryptedBytes("invented-history-passphrase")
         PesaTrackDatabase.resetForTests()
-        assertEquals(39,db.version)
+        assertEquals(40, db.version)
         repeat(2) {
             manager.previewEncryptedBytes(oldBackup,"invented-history-passphrase")
             manager.restoreEncryptedBytes(oldBackup,"invented-history-passphrase")
