@@ -27,6 +27,11 @@
         android:usesCleartextTraffic="false"
         android:theme="@style/Theme.PesaTrack">
         <service
+            android:name=".documents.PdfTextReviewService"
+            android:process=":pdf_review"
+            android:isolatedProcess="true"
+            android:exported="false" />
+        <service
             android:name=".ingestion.MpesaNotificationListenerService"
             android:label="PesaTrack financial notification listener"
             android:exported="false"

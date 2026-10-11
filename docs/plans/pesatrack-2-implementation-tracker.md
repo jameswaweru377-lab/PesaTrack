@@ -3,6 +3,18 @@
 Status: **A1/A3/A4 onboarding and B1 contracts are merged through #340. B2 owned-transfer review is implemented in #341. Exact CI, merge and APK evidence is maintained in [master issue #322](https://github.com/jameswaweru377-lab/PesaTrack/issues/322).**
 Reference: **PesaTrack_2_0_Advanced_Development_Blueprint.pdf** (26-page planning document, 10 October 2026). The PDF is a proposal, not proof of implementation.
 
+## 11 October follow-on bundle: A1 adapters / A2 safeguards / E1 text review
+
+Implemented on `feature/pesatrack2-document-review-a2-e1` from main `f4264f2`; review/CI delivery pending. Do not treat historical table rows below as this bundle's current delivery evidence.
+
+- Shared A1 cash authority gate at manual-entry, received-salary and selected CSV boundaries, retaining canonical duplicate/replay behavior. No broad SMS/notification ingestion rewrite or general evidence-link repository.
+- A2: current enabled receiving account validation; manual receipt remains valid without supporting documents; expected salary/payslip alone never posts income. Added deterministic amount/date/account negative tests and disabled-account repository regression (compiled, not device-executed).
+- Statement adapters validate dates, amounts, descriptions, references and batch size before querying history or writing; CSV UX/dedup remain conservative.
+- E1 partial: local selectable-PDF **text preview only**, Android15/API35+, within Import statement and usable for inspecting payslips too. Native extraction in a private isolated process. Input capped at 2 MB/40 pages/100,000 text characters, transient memory-only preview, empty-page warnings, protected/scanned failure explanations. No ledger writes from PDF text.
+- No PDF runtime dependency, OCR, new permission, financial upload or database migration. Older Android PDF extraction, Equity/M-Pesa table layouts, payroll field review/persistence and reconciliation remain pending.
+- A3/A4 device-only acceptance remains deferred under the explicit no-instrumentation instruction. No phase A5 is defined by this blueprint; do not invent a new gate.
+- One final whole-branch review/build PR; instrumentation off; serialize main workflows and record exact delivery in master issue #322.
+
 ## Baseline (recheck at every subsequent chat / PR)
 - Repository: `jameswaweru377-lab/PesaTrack`.
 - Latest A3 branch base: `main` at `958fb2c5b231802a604cee325866d75abe9ddf10` (10 October 2026), merged A1.

@@ -56,6 +56,12 @@ data class FinancialEvidenceRequest(
  * recreated. Ambiguity remains pending.
  */
 object FinancialEvidenceContract {
+    /** Adapter boundary only; canonical duplicate/replay checks remain mandatory. */
+    fun requireCashCandidate(request: FinancialEvidenceRequest) {
+        require(disposition(request) == EvidenceDisposition.RECONCILE_CASH_CANDIDATE) {
+            "This evidence does not establish received or sent money for this account."
+        }
+    }
     fun disposition(request: FinancialEvidenceRequest): EvidenceDisposition =
         when (request.claim) {
             FinancialEvidenceClaim.PAYROLL_BREAKDOWN ->

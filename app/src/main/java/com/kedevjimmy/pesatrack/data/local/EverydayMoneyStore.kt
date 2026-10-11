@@ -8,6 +8,7 @@ import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import java.util.UUID
 import java.util.Calendar
 import java.security.MessageDigest
+import com.kedevjimmy.pesatrack.domain.evidence.*
 
 /** Separate allocations never create extra cash movements. Writes share the ledger lock. */
 class EverydayMoneyStore(context:Context) {
@@ -28,6 +29,10 @@ class EverydayMoneyStore(context:Context) {
   val cat=CategoryStore.get(app).find(category) ?: error("Choose a category.")
   require(income || cat.budgetable){"Choose a spending category."}
   val kind=if(income)MoneyDirection.INCOME else MoneyDirection.EXPENSE
+  FinancialEvidenceContract.requireCashCandidate(FinancialEvidenceRequest(
+   FinancialEvidenceSource.MANUAL,if(income)FinancialEvidenceClaim.CASH_RECEIVED else FinancialEvidenceClaim.CASH_SENT,
+   userConfirmed=true,ownAccountResolved=true
+  ))
   val parsed=ParsedMpesaTransaction(null,MpesaTransactionType.OTHER,amount,label.trim(),feeMinor=0,balanceMinor=null,occurredAtText=null,rawMessage="manual-entry|$token",reversalOfCode=null)
   val db=database.writableDatabase;db.beginTransaction()
   try {
@@ -58,7 +63,7 @@ class EverydayMoneyStore(context:Context) {
  fun removeSplit(id:Long)=synchronized(CanonicalStoreLock.monitor){database.writableDatabase.delete("transaction_allocations","transaction_id = ?",arrayOf(id.toString()));LedgerUpdateBus.notifyChanged()}
  data class Preview(val row:StatementRow,val duplicate:Boolean,val possibleMatch:Boolean=false)
  fun preview(accountId:String,rows:List<StatementRow>):List<Preview> = synchronized(CanonicalStoreLock.monitor) {
-  requireOwned(accountId);require(rows.size<=StatementCsv.MAX_ROWS)
+  requireOwned(accountId);StatementCsv.validateRows(rows)
   val existing=transactions.transactionsBetween(rows.minOfOrNull {it.date} ?: 0, (rows.maxOfOrNull {it.date} ?: 0)+2*86400000L)
   val seen=hashSetOf<String>()
   rows.map {r->
@@ -70,10 +75,14 @@ class EverydayMoneyStore(context:Context) {
  }
  /** Entire selected import either commits or rolls back; recheck duplicates inside the lock. */
  fun importRows(accountId:String,rows:List<StatementRow>):Int = synchronized(CanonicalStoreLock.monitor) {
-  requireOwned(accountId);require(rows.isNotEmpty() && rows.size<=StatementCsv.MAX_ROWS)
+  requireOwned(accountId);require(rows.isNotEmpty());StatementCsv.validateRows(rows)
   val db=database.writableDatabase;db.beginTransaction();var count=0
   try {
    preview(accountId,rows).filterNot {it.duplicate}.forEach {item->val r=item.row;val key=importKey(accountId,r)
+    FinancialEvidenceContract.requireCashCandidate(FinancialEvidenceRequest(
+     FinancialEvidenceSource.STATEMENT, if(r.signedMinor>0)FinancialEvidenceClaim.CASH_RECEIVED else FinancialEvidenceClaim.CASH_SENT,
+     interpreted=true,userConfirmed=true,ownAccountResolved=true
+    ))
     val p=ParsedMpesaTransaction(r.reference,MpesaTransactionType.OTHER,kotlin.math.abs(r.signedMinor),r.description,feeMinor=0,balanceMinor=null,occurredAtText=null,rawMessage="statement-entry|$key",reversalOfCode=null)
     val added=transactions.insertIfNew(p,null,"statement_import",System.currentTimeMillis(),r.date,rebuildPayCycles=false,runRelationshipReconciliation=false,runMirrorCorrelation=false,accountIdOverride=accountId,allowLegacyAccountFallback=false,directionOverride=if(r.signedMinor>0)MoneyDirection.INCOME else MoneyDirection.EXPENSE,categoryOverride=TransactionCategory.UNCATEGORIZED,reviewStateOverride=ReviewState.NEEDS_REVIEW)
     if(added){count++;db.insertOrThrow("statement_import_entries",null,ContentValues().apply {put("import_key",key);put("account_id",accountId)})}
