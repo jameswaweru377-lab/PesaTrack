@@ -50,7 +50,7 @@ internal fun parseSalaryAmount(text: String): Long? = runCatching {
 }.getOrNull()
 
 @Composable
-fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
+fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}, onPaycheckClick: (() -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -189,8 +189,8 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
         } }
         if (ready && tab == "Overview") {
             item {
-                OutlinedButton(onClick = { showPayroll = true }, enabled = !busy,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Payroll details / payslip") }
+                OutlinedButton(onClick = { if (onPaycheckClick != null) onPaycheckClick() else showPayroll = true }, enabled = !busy,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Paycheck Analysis / payslip") }
                 Text("Review gross pay and deductions separately from salary received.", style = MaterialTheme.typography.bodySmall)
             }
             val latest = receipts.firstOrNull()
@@ -382,7 +382,7 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}) {
             }
         }
     }
-    if (showPayroll) PayrollJournalSheet { showPayroll = false }
+    if (showPayroll) PayrollJournalSheet(onDismiss = { showPayroll = false })
     removal?.let { receipt ->
         AlertDialog(onDismissRequest = { if (!busy) removal = null },
             title = { Text("Remove salary?") },

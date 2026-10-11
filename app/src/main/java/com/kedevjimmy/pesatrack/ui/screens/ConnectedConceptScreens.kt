@@ -181,6 +181,7 @@ fun ReportsInsightsScreen(
     scaffoldPadding: PaddingValues,
     onBack: () -> Unit,
     onReviewClick: () -> Unit = {},
+    onPaycheckClick: () -> Unit = {},
     onTransactionClick: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -390,6 +391,7 @@ fun ReportsInsightsScreen(
     ) {
         item { ConceptLoadError(loadError) { retryLoad++ } }
         item { ConceptInnerHeader("Reports & insights", onBack) }
+        item { OutlinedButton(onClick=onPaycheckClick,modifier=Modifier.fillMaxWidth()) { Text("Paycheck Analysis · gross, net and contributions") } }
         item {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf("Week", "Month", "Year").forEachIndexed { index, label ->
