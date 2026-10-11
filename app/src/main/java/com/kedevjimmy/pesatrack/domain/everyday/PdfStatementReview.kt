@@ -16,8 +16,9 @@ object PdfStatementReview {
         val epoch=SimpleDateFormat("yyyy-MM-dd HH:mm:ss",Locale.ROOT).apply {isLenient=false;timeZone=zone}.parse(date,position)?.time
         require(epoch!=null && position.index==date.length){"Enter a valid date and time."}
         val money=requireNotNull(EverydayMoneyPolicy.money(amount)){"Enter a valid signed KES amount."}
-        require(reference.trim().isNotEmpty()){ "Enter the receipt reference from the statement." }
-        return StatementRow(epoch,description.trim(),money,reference.trim()).also {StatementCsv.validateRows(listOf(it),now)}
+        val canonicalReference=reference.trim().uppercase(Locale.ROOT)
+        require(Regex("[A-Z0-9]{10}").matches(canonicalReference)){ "Enter the 10-letter/digit M-Pesa receipt reference from the statement." }
+        return StatementRow(epoch,description.trim(),money,canonicalReference).also {StatementCsv.validateRows(listOf(it),now)}
     }
     private val start=Regex("(?m)^[ \\t]*(\\S+)\\s+(?=[0-9]{4}[-/]|[0-9]{2}[/.-])")
     private val status=Regex("\\b(?:COMPLETED|FAILED|REVERSED|PENDING)\\b")

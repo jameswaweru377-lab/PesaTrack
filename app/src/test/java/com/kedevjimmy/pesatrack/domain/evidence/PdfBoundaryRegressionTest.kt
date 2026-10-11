@@ -30,4 +30,10 @@ class PdfBoundaryRegressionTest {
         assertTrue(PdfStatementReview.read(listOf(header+text),zone).rows.isEmpty())
         assertTrue(PdfStatementReview.read(listOf(header+text.replace("\n"," ")),zone).rows.isEmpty())
     }
+    @Test fun correctedReceiptUsesCanonicalUppercaseForSmsReplayDedup() {
+        val row=PdfStatementReview.correct("2025-02-01 10:20:30","Payment","100"," qab1234567 ",zone)
+        assertEquals("QAB1234567",row.reference)
+        for(reference in listOf("BAD","QAB 1234567","QAB1234567\nQAB1234568"))
+            assertThrows(IllegalArgumentException::class.java){PdfStatementReview.correct("2025-02-01 10:20:30","Payment","100",reference,zone)}
+    }
 }
