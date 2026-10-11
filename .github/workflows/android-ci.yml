@@ -146,10 +146,9 @@ jobs:
           retention-days: 3
 
 
-  # The user explicitly requested emulator review for the cohesive B2 branch.
-  # Keep it in the same PR workflow; normal main publication remains unchanged.
+  # Emulator review is paused and stays opt-in through a new manual request.
   instrumentation:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_instrumentation) || (github.event_name == 'pull_request' && github.head_ref == 'feature/pesatrack2-owned-transfer-review-b2') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_instrumentation }}
     runs-on: ubuntu-latest
     # Full suite includes 3x 30/90-day per-record history replay measurements.
     timeout-minutes: 75
@@ -190,7 +189,6 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.kedevjimmy.pesatrack.ui.TransactionDetailJourneyTest#originalMessageExpandsAndReferenceCopiesInDarkTheme --stacktrace; fi
             ./gradlew :app:connectedDebugAndroidTest --stacktrace
             adb logcat -d -v raw 'PesaTrackMeasurement:I' '*:S' > history-measurements.jsonl
             echo "${{ github.sha }}" > ANDROID_TEST_SOURCE_SHA.txt
