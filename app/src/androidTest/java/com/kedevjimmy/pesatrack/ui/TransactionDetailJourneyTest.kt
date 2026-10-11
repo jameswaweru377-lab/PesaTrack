@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
@@ -159,7 +160,12 @@ class TransactionDetailJourneyTest {
         compose.onNodeWithText("Message evidence").performClick()
         // API29+ clipboard access belongs to the focused screen. Read the same
         // real CompositionLocal service used by its copy action, not a background context.
-        compose.waitUntil(5_000) { screenView.hasWindowFocus() }
+        // View/window state must be read on the main thread, including polling.
+        compose.waitUntil(5_000) { compose.runOnIdle { screenView.rootView.hasWindowFocus() } }
+        compose.runOnIdle {
+            screenClipboard.setText(AnnotatedString(""))
+            assertNotEquals(payment.transactionCode, screenClipboard.getText()?.text)
+        }
         compose.onNodeWithContentDescription("Copy reference").performScrollTo().performClick()
         compose.waitUntil(5_000) { compose.runOnIdle { screenClipboard.getText()?.text == payment.transactionCode } }
         compose.runOnIdle {

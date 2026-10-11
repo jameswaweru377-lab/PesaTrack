@@ -65,7 +65,7 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 
 ## Engineering status
 
-- Database schema: **v37**
+- Database schema: **v38**
 - Android minSdk: **24**
 - target/compile SDK: **36**
 - Current CI runs:
@@ -73,10 +73,10 @@ The public enrichment Worker is rate limited, and provider credentials remain se
   - Android JVM unit tests;
   - Android lint;
   - debug APK assembly;
-- Android instrumentation on API 35 is available through an explicit manual review run; PR updates and merges do not start it automatically.
+- Android instrumentation on API 35 normally uses an explicit manual review run. The user-authorized cohesive B2 branch also runs the complete emulator suite in its combined PR workflow; main publication remains build-only.
 - Pushes to main publish the rolling development debug APK after build, lint and unit tests pass, without requiring emulator tests. Manual review runs retain artifacts but do not replace the rolling release. Signed release runs also default to build-only validation; enable run_instrumentation only when the user explicitly requests emulator review.
 - Canonical ingestion uses an explicit SQLite transaction boundary with rollback coverage.
-- Migration coverage includes fresh v37 plus selected historical upgrades including v1, v30 and v31/v32 to v37.
+- Migration coverage includes fresh v38 plus selected historical upgrades including v1, v30, v31/v32 and populated v37 to v38; encrypted legacy/current restore is covered.
 - App lock, biometric unlock and passphrase-encrypted backup/restore are implemented.
 
 ## Release and security documents

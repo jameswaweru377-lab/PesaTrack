@@ -107,6 +107,12 @@ class OwnedTransferReviewStore(context: Context) {
     private fun candidates(db: SQLiteDatabase): List<TransferReviewCandidate> {
         val consent = AccountOwnershipConsentStore.confirmed(db)
         if (consent.size < 2) return emptyList()
+        val keptSeparate = db.rawQuery("SELECT first_transaction_id,second_transaction_id FROM duplicate_resolutions WHERE decision='KEEP_BOTH'", null).use { cursor ->
+            buildSet { while (cursor.moveToNext()) {
+                val first = cursor.getLong(0); val second = cursor.getLong(1)
+                add(minOf(first, second) to maxOf(first, second))
+            } }
+        }
         val references = mutableMapOf<Long, MutableSet<String>>()
         db.rawQuery("""
             SELECT r.transaction_id,r.reference_value FROM transaction_external_references r
@@ -169,6 +175,7 @@ class OwnedTransferReviewStore(context: Context) {
         } }
         return OwnedTransferReviewPolicy.candidates(rows, consent, preferences.getString("profile_name", null), walletPhone)
             .filter { candidate ->
+                if ((minOf(candidate.source.id, candidate.destination.id) to maxOf(candidate.source.id, candidate.destination.id)) in keptSeparate) return@filter false
                 val saved = decisions[candidate.pairKey]
                 saved == null || (saved[0] == "DEFERRED" && (saved[1] != candidate.source.snapshotHash ||
                     saved[2] != candidate.destination.snapshotHash || saved[3] != candidate.sourceOwnershipRevision.toString() ||

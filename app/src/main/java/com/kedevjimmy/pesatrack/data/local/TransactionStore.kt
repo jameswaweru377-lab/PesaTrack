@@ -3194,6 +3194,8 @@ class TransactionStore private constructor(context: Context) {
         synchronized(CanonicalStoreLock.monitor) {
         val ids = pairKey.split(":").mapNotNull(String::toLongOrNull)
         if (ids.size != 2) return false
+        val transferReview = OwnedTransferReviewStore(appContext)
+        if (ids.any(transferReview::isConfirmedPair)) return false
 
         val first = getById(ids[0]) ?: return false
         val second = getById(ids[1]) ?: return false

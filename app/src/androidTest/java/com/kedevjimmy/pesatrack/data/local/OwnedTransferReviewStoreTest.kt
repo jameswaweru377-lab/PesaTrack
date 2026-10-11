@@ -45,9 +45,24 @@ class OwnedTransferReviewStoreTest {
         consent.recordConsent(AccountStore.DEFAULT_MPESA_ID, true)
     }
     @Test fun legacyEnabledAccountsAreNotConsent() { assertTrue(store.pendingCandidates().isEmpty()) }
+    @Test fun keepBothUserDecisionBlocksTheExactPairAndInvalidatesAnOpenCard() {
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        db.execSQL("UPDATE transactions SET transaction_code=NULL WHERE id=102")
+        consent(); val candidate = store.pendingCandidates().single()
+        // Use the public duplicate decision path and reverse its ID order.
+        assertTrue(TransactionStore.get(context).resolvePossibleDuplicate("102:101", false))
+        assertTrue(store.pendingCandidates().isEmpty())
+        assertEquals(TransferDecisionResult.STALE, store.decide(candidate, TransferPairDecision.CONFIRMED))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE direction='INCOME'"))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE direction='EXPENSE'"))
+        assertEquals(0L, scalar("SELECT COUNT(*) FROM owned_transfer_review_decisions"))
+    }
     @Test fun confirmedPairRejectsIndividualEditsAcrossStoresAndDeletion() {
         consent(); store.decide(store.pendingCandidates().single(), TransferPairDecision.CONFIRMED)
         val transactions = TransactionStore.get(context)
+        assertFalse(transactions.resolvePossibleDuplicate("101:102", false))
+        assertFalse(transactions.resolvePossibleDuplicate("101:102", true))
+        assertEquals(0L, scalar("SELECT COUNT(*) FROM duplicate_resolutions"))
         for (id in listOf(101L, 102L)) {
             assertTrue(runCatching { transactions.classifyManually(id, TransactionCategory.GROCERIES, MoneyDirection.EXPENSE) }.isFailure)
             val exclusion = runCatching { transactions.excludeFromBudget(id) }
