@@ -205,7 +205,7 @@ object PayslipFieldReview {
                         && safeDeductionLabel(label)
                     if(field!=null || isUnknown) {
                         val key=if(field!=null) {
-                            if(norm.contains("TIER"))"DEDUCT:NSSF:"+norm else field.key
+                            if(norm.contains("TIER"))"DEDUCT:NSSF:"+norm else if(field.type==PayrollLineType.OTHER && field.key=="DEDUCT:OTHER")"DEDUCT:OTHER:"+norm else field.key
                         } else "OTHER:"+norm
                         occurrences[key]=(occurrences[key]?:0)+1
                         val parsed=amountMinor(value)
