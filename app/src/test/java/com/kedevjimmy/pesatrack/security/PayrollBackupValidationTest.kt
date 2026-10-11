@@ -54,7 +54,8 @@ class PayrollBackupValidationTest {
         assertTrue(BackupSchemaCompatibility.emptyTables(37).contains("account_ownership_consents"))
         assertTrue(BackupSchemaCompatibility.emptyTables(34).contains("transaction_allocations"))
         assertFalse(BackupSchemaCompatibility.emptyTables(36).contains("personal_receivable_people"))
-        assertTrue(BackupSchemaCompatibility.emptyTables(39).isEmpty())
-        for(version in listOf(0,33,40)) assertTrue(runCatching {BackupSchemaCompatibility.emptyTables(version)}.isFailure)
+        assertEquals(listOf("evidence_observations","evidence_links","evidence_link_audit"), BackupSchemaCompatibility.emptyTables(39))
+        assertTrue(BackupSchemaCompatibility.emptyTables(40).isEmpty())
+        for(version in listOf(0,33,41)) assertTrue(runCatching {BackupSchemaCompatibility.emptyTables(version)}.isFailure)
     }
 }
