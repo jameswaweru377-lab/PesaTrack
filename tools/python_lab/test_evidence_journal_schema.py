@@ -52,6 +52,9 @@ class EvidenceJournalSqliteTest(unittest.TestCase):
         db.execute("DELETE FROM transactions WHERE id=1")
         self.assertEqual(db.execute("SELECT COUNT(*) FROM evidence_links").fetchone()[0], 0)
         self.assertEqual(db.execute("SELECT COUNT(*) FROM evidence_observations").fetchone()[0], 1)
+        self.assertEqual(db.execute("SELECT status FROM evidence_observations").fetchone()[0], "REJECTED")
+        # A deleted movement must not be silently resurrected by provenance replay.
+
 
     def test_foreign_keys_invalid_amount_and_source_rejected(self):
         db = database()
