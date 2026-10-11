@@ -28,11 +28,13 @@ object PayslipFieldReview {
         simple("BASIC","BASIC PAY","BASIC SALARY","BASE SALARY")
         simple("HOUSING","HOUSE ALLOWANCE","HOUSING ALLOWANCE")
         simple("TOTAL_DEDUCTIONS","TOTAL DEDUCTIONS","TOTAL EMPLOYEE DEDUCTIONS","DEDUCTIONS TOTAL")
-        deduction(PayrollLineType.TAX,"PAYE","PAYE TAX","P A Y E","INCOME TAX","PAY AS YOU EARN")
+        deduction(PayrollLineType.TAX,"PAYE","PAYE TAX","P A Y E","P A Y E TAX","INCOME TAX","PAY AS YOU EARN")
         deduction(PayrollLineType.HEALTH,"NHIF","SHIF","SHA","SOCIAL HEALTH INSURANCE",
-            "SOCIAL HEALTH INSURANCE FUND","HEALTH CONTRIBUTION","MEDICAL CONTRIBUTION")
+            "SOCIAL HEALTH INSURANCE FUND","HEALTH CONTRIBUTION","MEDICAL CONTRIBUTION",
+            "S H I F","N H I F","S H A")
         deduction(PayrollLineType.NSSF,"NSSF","NSSF EMPLOYEE","NSSF TIER I","NSSF TIER II",
-            "NSSF TIER 1","NSSF TIER 2","NSSF EMPLOYEE TIER 1","NSSF EMPLOYEE TIER 2")
+            "NSSF TIER 1","NSSF TIER 2","NSSF EMPLOYEE TIER 1","NSSF EMPLOYEE TIER 2",
+            "N S S F TIER I","N S S F TIER II","N S S F TIER 1","N S S F TIER 2","N S S F")
         deduction(PayrollLineType.PENSION,"PENSION","EMPLOYEE PENSION","RETIREMENT CONTRIBUTION")
         deduction(PayrollLineType.SACCO_SHARES,"SACCO SHARES","SACCO SHARE CAPITAL")
         deduction(PayrollLineType.SACCO_DEPOSIT,"SACCO DEPOSIT","SACCO CONTRIBUTION","SACCO SAVINGS")
@@ -40,7 +42,9 @@ object PayslipFieldReview {
         deduction(PayrollLineType.LOAN_PRINCIPAL,"LOAN PRINCIPAL","LOAN REPAYMENT PRINCIPAL")
         deduction(PayrollLineType.LOAN_INTEREST,"LOAN INTEREST")
         deduction(PayrollLineType.OTHER,"AFFORDABLE HOUSING LEVY","HOUSING LEVY",
-            "AHL","A H L","ROUNDING","UNION DUES")
+            "AHL","A H L","ROUNDING","ROUNDING CFWD","ROUNDING CFWD KES",
+            "ROUNDING C FWD","UNION DUES","H E L B","HELB",
+            "HIGHER EDUCATION LOANS BOARD")
         put("EMPLOYER PENSION",Field("EMPLOYER:PENSION",PayrollLineType.PENSION,true))
         put("EMPLOYER NSSF",Field("EMPLOYER:NSSF",PayrollLineType.NSSF,true))
     }
@@ -63,12 +67,15 @@ object PayslipFieldReview {
     private val foreignIdentity = Regex("\\b(?:STAFF\\s+(?:NO|NUMBER|NAME|ID)|EMPLOYEE\\s+(?:NO|NUMBER|NAME|ID)|EMAIL|E\\s*MAIL|ADDRESS|P\\s*O\\s*BOX|POSTAL|ACCOUNT\\s*(?:NO|NUMBER)|PHONE|MOBILE|NATIONAL\\s+ID|KRA\\s+PIN|GRADE|DEPARTMENT|DESIGNATION)\\b",RegexOption.IGNORE_CASE)
     private val organizationSuffix = Regex("\\b(?:LTD|LIMITED|SCHOOL|SCHOOLS|UNIVERSITY|COLLEGE|HOSPITAL|COUNTY|MINISTRY|FOUNDATION|ORGANIZATION|ORGANISATION|COMPANY|GROUP|INC)\\b",RegexOption.IGNORE_CASE)
     private val unknownSafe = Regex("[A-Za-z][A-Za-z0-9 &/().+'-]{1,89}")
-    private enum class Section { NONE, EARNINGS, DEDUCTIONS, EMPLOYER }
+    private enum class Section { NONE, EARNINGS, DEDUCTIONS, EMPLOYER, CALCULATIONS }
     private fun heading(s:String):Section? = when(normalized(s)) {
         "EARNINGS","EARNINGS AND ALLOWANCES","ALLOWANCES","PAY ELEMENTS" -> Section.EARNINGS
-        "DEDUCTIONS","STATUTORY DEDUCTIONS","EMPLOYEE DEDUCTIONS","OTHER DEDUCTIONS",
+        "DEDUCTIONS","OUTFLOWS","OUTFLOWS AMOUNT","STATUTORY DEDUCTIONS",
+        "EMPLOYEE DEDUCTIONS","OTHER DEDUCTIONS",
         "DEDUCTIONS AND CONTRIBUTIONS" -> Section.DEDUCTIONS
         "EMPLOYER CONTRIBUTIONS","EMPLOYER DEDUCTIONS" -> Section.EMPLOYER
+        "CALCULATIONS","CALCULATIONS AMOUNT","TAX CALCULATIONS","PAYROLL CALCULATIONS",
+        "TAX COMPUTATION","TAX COMPUTATIONS","TAX RELIEFS" -> Section.CALCULATIONS
         "EMPLOYEE DETAILS","STAFF DETAILS","PERSONAL DETAILS","PAYROLL DETAILS","BANK DETAILS",
         "PAYSLIP SUMMARY","SUMMARY","PAY INFORMATION" -> Section.NONE
         else -> null
@@ -124,6 +131,9 @@ object PayslipFieldReview {
                 val header=heading(line)
                 if(header!=null){section=header;currentYtd=0;i++;continue}
                 val normalizedLine=normalized(line)
+                // The calculations column repeats some tax values and relief figures.
+                // It is explanatory, never a second source of employee deductions.
+                if(section==Section.CALCULATIONS){i++;continue}
                 if(normalizedLine in setOf("CURRENT YTD","DESCRIPTION CURRENT YTD",
                     "CURRENT MONTH YEAR TO DATE","PARTICULARS CURRENT YTD")){
                     currentYtd=1;i++;continue
@@ -195,7 +205,7 @@ object PayslipFieldReview {
                         && safeDeductionLabel(label)
                     if(field!=null || isUnknown) {
                         val key=if(field!=null) {
-                            if(norm.contains("TIER"))"DEDUCT:NSSF:"+norm else field.key
+                            if(norm.contains("TIER"))"DEDUCT:NSSF:"+norm else if(field.type==PayrollLineType.OTHER && field.key=="DEDUCT:OTHER")"DEDUCT:OTHER:"+norm else field.key
                         } else "OTHER:"+norm
                         occurrences[key]=(occurrences[key]?:0)+1
                         val parsed=amountMinor(value)
@@ -256,8 +266,15 @@ object PayslipFieldReview {
             .fold(0L){acc,line->Math.addExact(acc,line.amountMinor)}}.getOrNull()
         if(gross!=null && net!=null && gross>=net && sum!=null && sum!=gross-net)
             warnings+="Deduction breakdown is incomplete or differs from gross minus net. Check the source; no deductions were invented."
-        if(statedDeductions!=null && sum!=null && statedDeductions!=sum)
-            warnings+="Total deductions differs from the identified lines; review missing entries."
+        if(statedDeductions!=null && sum!=null && statedDeductions!=sum) {
+            val roundingLines=deductions.filter {line->
+                normalized(line.label).startsWith("ROUNDING")
+            }
+            val adjustment=runCatching {roundingLines.fold(0L){acc,line->Math.addExact(acc,line.amountMinor)}}.getOrNull()
+            if(adjustment!=null && adjustment>0 && sum-statedDeductions==adjustment)
+                warnings+="Rounding adjustment is separate from the payslip's Total Deductions; it also affects net payable."
+            else warnings+="Total deductions differs from the identified lines; review missing entries."
+        }
         return PayslipSuggestions(gross,net,deductions,warnings,employers.singleOrNull(),
             months.singleOrNull(),
             unique.filter{it.key in setOf("BASIC","HOUSING","CASH","TAXABLE") && it.amount>0}

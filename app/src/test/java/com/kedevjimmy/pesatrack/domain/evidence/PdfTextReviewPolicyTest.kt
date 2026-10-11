@@ -19,11 +19,11 @@ class PdfTextReviewPolicyTest {
         assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.preview(listOf("", " ")) }
     }
     @Test fun limitsFailInsteadOfTruncatingEvidence() {
-        assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.requireBytes(3 * 1024 * 1024 + 1L) }
-        assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.preview(List(41) { "x" }) }
-        assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.preview(listOf("x".repeat(100001))) }
+        assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.requireBytes(8 * 1024 * 1024 + 1L) }
+        assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.preview(List(161) { "x" }) }
+        assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.preview(listOf("x".repeat(500001))) }
         assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.preview(emptyList()) }
-        PdfTextReviewPolicy.requireBytes(3 * 1024 * 1024L)
-        assertEquals(100000, PdfTextReviewPolicy.preview(listOf("x".repeat(100000))).pages.single().length)
+        PdfTextReviewPolicy.requireBytes(8 * 1024 * 1024L)
+        assertEquals(500000, PdfTextReviewPolicy.preview(listOf("x".repeat(500000))).pages.single().length)
     }
 }
