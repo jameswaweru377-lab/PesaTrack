@@ -15,4 +15,4 @@ Execution: superpowers:executing-plans inline, whole-bundle review. Spec: pesatr
 
 Acceptance limits: C1 is journal and labelled summaries, not full settlement/evidence registry/remittance accounting. D1 is strict selectable text suggestions with manual correction, not arbitrary PDFs/imageOCR/API24 extraction. Actual migration/restore/UI/service/device execution is explicitly unverified under the pause. Test confidence alone is not physical device acceptance.
 
-Final frozen-source local validation:851 JVM cases0 failures/errors/skips, lint/APK/Android test Kotlin compilation successful. Python37/37; independent source review approved. No instrumentation or workflow/signing changes. Exact PR/main delivery evidence will be maintained in master issue322.
+Final frozen-source local validation:852 JVM cases0 failures/errors/skips, lint/APK/Android test Kotlin compilation successful. Python37/37; independent source review approved. No instrumentation or workflow/signing changes. Exact PR/main delivery evidence will be maintained in master issue322.

@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.domain.payroll
 
 import java.util.Locale
+import java.util.Currency
 
 data class PayslipSuggestions(val grossMinor: Long?, val netMinor: Long?, val lines: List<PayrollLine>, val warnings: List<String>)
 
@@ -26,11 +27,16 @@ object PayslipFieldReview {
     }
     private val row=Regex("^([A-Za-z][A-Za-z /()-]{0,79}?)(?:\\s*[:=]\\s*|\\t+| {2,})(.*)$",RegexOption.IGNORE_CASE)
     private val value=Regex("^(?:KES\\s+|KSH\\s+)?([0-9][0-9,.]*)$",RegexOption.IGNORE_CASE)
+    private val kesCurrency=Regex("\\b(?:KES|KSH|KSHS|KENYAN SHILLINGS?)\\b",RegexOption.IGNORE_CASE)
+    private val declaredCurrency=Regex("^\\s*(?:PAY\\s+)?CURRENCY(?:\\s+CODE)?(?:\\s*[:=]\\s*|\\s+)(.*?)\\s*$",setOf(RegexOption.IGNORE_CASE,RegexOption.MULTILINE))
+    private val foreignCurrency=Regex("\\b(?:"+Currency.getAvailableCurrencies().map {it.currencyCode}.filter {it!="KES"}.sorted().joinToString("|")+"|DOLLARS)\\b|[$€£]",RegexOption.IGNORE_CASE)
     fun read(pages: List<String>): PayslipSuggestions {
         require(pages.size in 1..40 && pages.sumOf { it.length.toLong() } <= 100000) { "Choose a shorter payslip." }
         if(pages.any { it.isBlank() }) return PayslipSuggestions(null,null,emptyList(),listOf("Some pages have no selectable text. Enter payroll fields manually."))
-        if(pages.any { Regex("\\b(?:USD|EUR|GBP|TZS|UGX|ZAR|DOLLARS)\\b|[$€£]",RegexOption.IGNORE_CASE).containsMatchIn(it) })
+        if(pages.any { page -> foreignCurrency.containsMatchIn(page) || declaredCurrency.findAll(page).any { !kesCurrency.matches(it.groupValues[1]) } })
             return PayslipSuggestions(null,null,emptyList(),listOf("A currency other than KES was found. KES fields were not prefilled."))
+        if(pages.none { kesCurrency.containsMatchIn(it) })
+            return PayslipSuggestions(null,null,emptyList(),listOf("KES currency was not identified. Enter payroll fields manually and check their currency."))
         data class Observed(val field: Field,val label: String,val amount: Long)
         val observed=mutableListOf<Observed>();val occurrences=mutableMapOf<String,Int>();var unsupported=false
         pages.forEach { page->page.lineSequence().forEach { raw->
