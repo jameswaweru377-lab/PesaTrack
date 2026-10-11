@@ -39,17 +39,19 @@ import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import android.os.Build
 import com.kedevjimmy.pesatrack.documents.PdfTextReviewReader
-import com.kedevjimmy.pesatrack.domain.evidence.PdfTextPreview
+import com.kedevjimmy.pesatrack.domain.evidence.FinancialPdfDocumentClassifier
+import com.kedevjimmy.pesatrack.domain.evidence.FinancialPdfDocumentKind
 
 private fun readStatement(c:Context,uri:Uri):String {
  val bytes=c.contentResolver.openInputStream(uri)?.use {input->val out=ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val n=input.read(buffer);if(n<0)break;require(out.size()+n<=StatementCsv.MAX_BYTES){"Choose a CSV smaller than 2 MB."};out.write(buffer,0,n)};out.toByteArray()} ?: error("Could not open the file.")
  return Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
 }
-@Composable internal fun StatementImportSheet(onDismiss:()->Unit,onChanged:()->Unit) {
+@Composable internal fun StatementImportSheet(onDismiss:()->Unit,onChanged:()->Unit,onPaycheckClick:()->Unit = {}) {
  val c=LocalContext.current;val store=remember {EverydayMoneyStore(c)};val scope=rememberCoroutineScope()
  var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable {mutableStateOf("")}
  var rows by remember {mutableStateOf<List<StatementRow>>(emptyList())};var preview by remember {mutableStateOf<List<EverydayMoneyStore.Preview>>(emptyList())}
- var pdfText by remember {mutableStateOf<PdfTextPreview?>(null)}
+ var pdfStatus by remember {mutableStateOf<String?>(null)}
+ var pdfPayslip by remember {mutableStateOf(false)}
  var pdfCandidates by remember {mutableStateOf<PdfStatementCandidates?>(null)}
  var pdfRows by remember {mutableStateOf(false)}
  var pdfConfirmed by remember {mutableStateOf(false)}
@@ -87,10 +89,24 @@ private fun readStatement(c:Context,uri:Uri):String {
   }catch(e:CancellationException){throw e}catch(e:Exception){dateError=e.message ?: "Could not check entries."}
   finally {if(preparing==source)preparing=null}
  }
- val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null&&!reading&&!importing&&preparing==null){reading=true;invalidatePreview();pdfText=null;pdfCandidates=null;pdfRows=false;rows=emptyList();scope.launch{try{rows=withContext(Dispatchers.IO){StatementCsv.parse(readStatement(c,uri),TimeZone.getTimeZone(zoneId))}}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not read this CSV. Check its format."}finally{reading=false}}}}
- val pdfImport=rememberPdfImport(onSelected={invalidatePreview();pdfText=null;pdfCandidates=null;pdfRows=false;rows=emptyList()},onBusy={reading=it},onResult={pdf->pdfText=pdf;pdfCandidates=PdfStatementReview.read(pdf.pages,TimeZone.getTimeZone(zoneId))})
+ val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null&&!reading&&!importing&&preparing==null){reading=true;invalidatePreview();pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;rows=emptyList();scope.launch{try{rows=withContext(Dispatchers.IO){StatementCsv.parse(readStatement(c,uri),TimeZone.getTimeZone(zoneId))}}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not read this CSV. Check its format."}finally{reading=false}}}}
+ val pdfImport=rememberPdfImport(
+  onSelected={invalidatePreview();pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;rows=emptyList()},
+  onBusy={reading=it},
+  onResult={pdf->
+   if(FinancialPdfDocumentClassifier.classify(pdf.pages)==FinancialPdfDocumentKind.PAYSLIP) {
+    pdfPayslip=true
+    pdfStatus="This PDF is a payslip, not an M-Pesa statement. Open Paycheck Analysis to review it privately."
+    pdfCandidates=null
+   } else {
+    pdfPayslip=false
+    pdfCandidates=PdfStatementReview.read(pdf.pages,TimeZone.getTimeZone(zoneId))
+    pdfStatus="PDF read locally. Only supported M-Pesa transaction rows can be reviewed. The full document text is not shown."
+   }
+  }
+ )
  PdfPasswordDialog(pdfImport)
- MoneyToolSheet("Import statement","Import entries from UTF-8 CSV, up to 2 MB and 2,000 entries, kept on this phone. Use date, description, amount and optional reference. Negative amounts are payments; positive amounts are money received. You can use debit and credit columns instead. Dates: yyyy-MM-dd or dd/MM/yyyy. PDF text preview is available on Android 15 or newer, up to 2 MB and 40 pages. PDFs are unlocked locally when a password is supplied. A supported M-Pesa text layout can produce editable transaction candidates; other layouts remain text-only. Scanned/image PDFs need OCR, which is unavailable. A payslip describes payroll, not proof that money reached this account. Exact duplicates are skipped. Possible matches start unchecked; select one only if it is a different payment. Imported entries need your review before reports use them.",busy,onDismiss) {
+ MoneyToolSheet("Import statement","Import entries from UTF-8 CSV, up to 2 MB and 2,000 entries, kept on this phone. Use date, description, amount and optional reference. Negative amounts are payments; positive amounts are money received. You can use debit and credit columns instead. Dates: yyyy-MM-dd or dd/MM/yyyy. PDF text preview is available on Android 15 or newer, up to 3 MB and 40 pages. PDFs are unlocked locally when a password is supplied. A supported M-Pesa text layout can produce editable transaction candidates; other layouts remain text-only. Scanned/image PDFs need OCR, which is unavailable. Payslips belong in Paycheck Analysis. This importer does not display raw document text. Exact duplicates are skipped. Possible matches start unchecked; select one only if it is a different payment. Imported entries need your review before reports use them.",busy,onDismiss) {
   item {ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy){if(accountId!=it){invalidatePreview();accountId=it}}}
   item {
    ChoiceField("Import dates",if(customDates)"Custom date range"else"All statement dates",listOf("all" to "All statement dates","custom" to "Custom date range"),!busy){val next=it=="custom";if(customDates!=next){invalidatePreview();customDates=next}}
@@ -113,23 +129,23 @@ private fun readStatement(c:Context,uri:Uri):String {
    selection.range?.let {range->if(dates.availableFromDay!=null && dates.availableToDay!=null && (range.fromDay<dates.availableFromDay || range.toDay>dates.availableToDay))
     Text("Some selected dates fall outside the dates of entries in this file. Only available entries can be imported.",style=MaterialTheme.typography.bodySmall)}
   }}
-  pdfText?.let {pdf->
-   item {
-    Text("Extracted document · ${pdf.pages.size} pages",style=MaterialTheme.typography.titleSmall)
-    Text("Extraction does not save transactions. Review every amount, date and reference against the original. Date filters apply to transaction candidates, not the text below.")
-    pdfCandidates?.let {candidates->
-     candidates.problems.forEach {Text(it,color=MaterialTheme.colorScheme.error)}
-     if(candidates.rows.isNotEmpty()) OutlinedButton(enabled=!busy&&accountId.isNotEmpty(),onClick={invalidatePreview();rows=candidates.rows;pdfRows=true;pdfCandidates=null}){Text("Review ${candidates.rows.size} extracted transactions")}
-    }
-    if(pdf.emptyPageNumbers.isNotEmpty())Text("No selectable text on pages ${pdf.emptyPageNumbers.joinToString()}. These pages may be scanned; this preview is incomplete.",color=MaterialTheme.colorScheme.error)
-    TextButton(onClick={pdfText=null;pdfCandidates=null},enabled=!busy){Text("Clear PDF preview")}
+  if(pdfStatus!=null || pdfCandidates!=null) item {
+   pdfStatus?.let {Text(it,style=MaterialTheme.typography.bodyMedium)}
+   if(pdfPayslip) Button(onClick={onDismiss();onPaycheckClick()},enabled=!busy,
+     modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {Text("Open Paycheck Analysis")}
+   pdfCandidates?.let { candidates ->
+    candidates.problems.forEach {Text(it,color=MaterialTheme.colorScheme.error)}
+    if(candidates.rows.isNotEmpty()) {
+     Text("Identified ${candidates.rows.size} transaction candidates. Review and correct them before saving.")
+     OutlinedButton(enabled=!busy&&accountId.isNotEmpty(),
+       onClick={invalidatePreview();rows=candidates.rows;pdfRows=true;pdfCandidates=null}) {
+       Text("Review ${candidates.rows.size} extracted transactions")
+     }
+    } else Text("No supported transaction rows were imported. Use a supported CSV or another statement PDF.")
    }
-   pdf.pages.forEachIndexed {index,text->
-    item {Text("Page ${index+1}",style=MaterialTheme.typography.titleSmall)}
-    if(text.isBlank())item {Text("No selectable text.")}
-    else items(text.chunked(4000)){part->Text(part,style=MaterialTheme.typography.bodySmall)}
-   }
+   TextButton(onClick={pdfStatus=null;pdfPayslip=false;pdfCandidates=null},enabled=!busy) {Text("Clear PDF result")}
   }
+
   if(previewSource==selection && preview.isNotEmpty()){
    if(pdfRows)item {Row(verticalAlignment=Alignment.CenterVertically){Checkbox(checked=pdfConfirmed,onCheckedChange={pdfConfirmed=it},enabled=!busy);Text("I checked the selected wallet, dates, signed amounts and receipt references against this M-Pesa statement.",Modifier.weight(1f))};if(accounts.firstOrNull{it.id==accountId}?.type!=AccountType.MOBILE_WALLET)Text("Choose the mobile-wallet account this M-Pesa statement belongs to.",color=MaterialTheme.colorScheme.error)}
    item {Text("${preview.count{!it.duplicate&&!it.possibleMatch}} new · ${preview.count{!it.duplicate&&it.possibleMatch}} possible matches · ${preview.count{it.duplicate}} already recorded",style=MaterialTheme.typography.titleSmall)}
