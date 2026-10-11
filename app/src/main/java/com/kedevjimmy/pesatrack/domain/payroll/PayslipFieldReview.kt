@@ -217,7 +217,14 @@ object PayslipFieldReview {
             "Taxable pay does not necessarily equal gross cash pay; confirm gross manually."
         val net=unique.firstOrNull{it.key=="NET"}?.amount
         val statedDeductions=unique.firstOrNull{it.key=="TOTAL_DEDUCTIONS"}?.amount
-        val deductions=unique.filter{it.type!=null && it.amount>0}.take(PayrollJournalPolicy.MAX_LINES).map{
+        val hasTiers=unique.any{it.key.startsWith("DEDUCT:NSSF:")}
+        val hasAggregate=unique.any{it.key=="DEDUCT:NSSF"}
+        if(hasTiers && hasAggregate)
+            warnings+="NSSF total and tier entries are both present. Review the values to prevent double counting."
+        val deductions=unique.filter{it.type!=null && it.amount>0 &&
+            !(hasTiers && hasAggregate && (it.key=="DEDUCT:NSSF" ||
+                it.key.startsWith("DEDUCT:NSSF:")))}
+            .take(PayrollJournalPolicy.MAX_LINES).map{
             PayrollLine(it.label,it.type!!,
                 if(it.employer)PayrollLineRole.EMPLOYER_CONTRIBUTION else PayrollLineRole.EMPLOYEE_DEDUCTION,
                 it.amount)
