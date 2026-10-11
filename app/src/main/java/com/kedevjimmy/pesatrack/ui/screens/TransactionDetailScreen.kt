@@ -725,7 +725,8 @@ fun TransactionDetailScreen(
                             }
                             Text(
                                 if (source.needsReview) label + " • Recheck after editing this transaction"
-                                else label + " • Matched, no extra money added",
+                                else if (source.reason == "REFERENCE") label + " • Matched to an existing transaction" 
+                                else label + " • Source recorded for this transaction",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
