@@ -3,7 +3,7 @@ package com.kedevjimmy.pesatrack.domain.evidence
 /** Fixed, non-sensitive failures only. Never display native exceptions or document contents. */
 enum class PdfFailure(val explanation: String) {
     EMPTY("The selected file is empty. Download the PDF again."),
-    TOO_LARGE("This PDF exceeds 2 MB. Request a shorter statement or a smaller PDF."),
+    TOO_LARGE("This PDF exceeds 3 MB. Request a shorter statement or a smaller PDF."),
     NOT_PDF("The selected file does not have a supported PDF header. Download the original PDF and try again."),
     ACCESS("The app could not open this file. Save it to Downloads, then choose that copy."),
     COPY("The app could not finish reading this file. Download it completely, then choose it from Downloads."),
