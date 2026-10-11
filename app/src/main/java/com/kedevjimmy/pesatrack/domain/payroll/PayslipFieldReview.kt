@@ -158,8 +158,19 @@ object PayslipFieldReview {
                     label=multi.groupValues[1].trimEnd('=',':',' ').trim()
                     value=multi.groupValues[if(currentYtd==1)2 else 3]
                 } else if(label==null && multi!=null) {
-                    val key=aliases[normalized(multi.groupValues[1].trimEnd('=',':',' '))]?.key
-                    if(key!=null){occurrences[key]=(occurrences[key]?:0)+1;malformed=true}
+                    val firstLabel=normalized(multi.groupValues[1].trimEnd('=',':',' '))
+                    val key=aliases[firstLabel]?.key
+                    if(key!=null) {
+                        occurrences[key]=(occurrences[key]?:0)+1;malformed=true
+                    } else {
+                        // A numbered *label* (e.g. NSSF Tier 1) followed by one
+                        // monetary value is not a CURRENT/YTD two-money row.
+                        val paired=rowValue.matchEntire(line)
+                        val candidate=paired?.groupValues?.get(1)?.trimEnd('=',':',' ')
+                        if(candidate!=null && aliases.containsKey(normalized(candidate))) {
+                            label=candidate;value=paired.groupValues[2]
+                        }
+                    }
                 } else if(label==null) {
                     val pair=rowValue.matchEntire(line)
                     if(pair!=null) {
