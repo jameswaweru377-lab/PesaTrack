@@ -16,7 +16,8 @@ class StatementWriteValidationTest {
         }
     }
     @Test fun largeBatchesFailWithoutPartialValidation() {
-        assertThrows(IllegalArgumentException::class.java) { StatementCsv.validateRows(List(2001) { row }, 2000) }
+        assertThrows(IllegalArgumentException::class.java) { StatementCsv.validateRows(List(5001) { row }, 2000) }
+        StatementCsv.validateRows(List(5000) { row }, 2000)
         StatementCsv.validateRows(emptyList(), 2000)
     }
 }
