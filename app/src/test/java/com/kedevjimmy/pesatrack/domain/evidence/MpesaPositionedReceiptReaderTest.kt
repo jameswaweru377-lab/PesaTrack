@@ -57,6 +57,54 @@ class MpesaPositionedReceiptReaderTest {
         assertEquals(listOf(-2000L,10000L,-5000L),candidates.rows.map {it.signedMinor})
     }
 
+    @Test fun onePhysicalBlockCanContainEntireReceiptWhileNextReceiptUsesSeparateColumns() {
+        val fragments=fragments()
+        val combined=fragment(
+            "QAB1234569\n2026-10-10 10:30:00\nShop purchase\nnumeric account 1234567890\n" +
+                "Completed\n-20.00\n490.00",
+            35f,100f,556f,108f
+        )
+        val mixed=fragments.filterNot {
+            it.text.startsWith("QAB1234569") || it.text=="Completed -20.00 490.00"
+        }+combined
+        val parsed=reconstructed(boxes=mixed)
+        assertTrue(parsed.toString(),parsed is MpesaPositionedRows.Ready)
+        val statement=PdfStatementReview.read(
+            (parsed as MpesaPositionedRows.Ready).pages,
+            TimeZone.getTimeZone("Africa/Nairobi")
+        )
+        assertTrue(statement.problems.joinToString(),statement.problems.isEmpty())
+        assertEquals(3,statement.rows.size)
+        assertEquals(-2000L,statement.rows.first().signedMinor)
+    }
+
+    @Test fun mixedRowWithUnknownFourthMoneyCellRejectsWholeGeometry() {
+        val combined=fragment(
+            "QAB1234569\n2026-10-10 10:30:00\nShop purchase\n" +
+                "Completed\n-20.00\n490.00\n40.00",
+            35f,100f,556f,108f
+        )
+        val mixed=fragments().filterNot {
+            it.text.startsWith("QAB1234569") || it.text=="Completed -20.00 490.00"
+        }+combined
+        assertEquals(
+            MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,
+            (reconstructed(boxes=mixed) as MpesaPositionedRows.Unsupported).reason
+        )
+    }
+
+    @Test fun duplicateCompletedInsideOnePhysicalBlockCannotCreateUnprovenRow() {
+        val combined=fragment(
+            "QAB1234569\n2026-10-10 10:30:00\nShop purchase\n" +
+                "Completed\n-20.00\n490.00\nCompleted\n40.00\n530.00",
+            35f,100f,556f,108f
+        )
+        val mixed=fragments().filterNot {
+            it.text.startsWith("QAB1234569") || it.text=="Completed -20.00 490.00"
+        }+combined
+        assertTrue(reconstructed(boxes=mixed) is MpesaPositionedRows.Unsupported)
+    }
+
     @Test fun nativeMultilineFragmentsMayBeCompleteEvenThoughLegacyReflowIsSingleLineOnly() {
         val boxes=fragments()
         assertTrue(boxes.any {it.text.contains("\n")})
