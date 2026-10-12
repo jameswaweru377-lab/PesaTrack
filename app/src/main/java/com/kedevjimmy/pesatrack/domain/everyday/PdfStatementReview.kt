@@ -50,8 +50,14 @@ object PdfStatementReview {
                 ?: if(Regex("CURRENCY(?: CODE)?\\s*[:=]?").matches(line))lines.getOrNull(i+1) ?: "" else null
         }
         val normalized=metadata.replace(Regex("\\s+")," ").uppercase(Locale.ROOT)
-        val declaredKes=declared.isNotEmpty() && declared.all { Regex("KES|KSH|KSHS").matches(it) }
-        if(declared.any {!Regex("KES|KSH|KSHS").matches(it)}) return unsupported(
+        val columnUnits=Regex("\\b(?:PAID IN|WITHDRAWN|BALANCE)\\s*\\(\\s*([A-Z]{3,8})\\s*\\)")
+            .findAll(normalized).map {it.groupValues[1]}.toList()
+        val titleUnits=Regex("\\bM-PESA\\s+STATEMENT\\s*\\(\\s*([A-Z]{3,8})\\s*\\)")
+            .findAll(normalized).map {it.groupValues[1]}.toList()
+        val currencies=declared+columnUnits+titleUnits
+        val declaredKes=currencies.isNotEmpty() &&
+            currencies.all {it in setOf("KES","KSH","KSHS")}
+        if(currencies.any {it !in setOf("KES","KSH","KSHS")}) return unsupported(
             "This statement declares a currency other than KES, or contains conflicting currency declarations. Nothing was imported."
         )
         // Safaricom's official M-Pesa statement layout may not print 'Currency: KES'.
@@ -70,7 +76,10 @@ object PdfStatementReview {
         )
         val currencyReview=if(declaredKes) null else
             "KES is inferred from the M-Pesa Kenya statement structure, not an explicit currency declaration. Confirm the original statement uses KES before importing."
-        val headers=Regex("(?:PAID IN WITHDRAWN|WITHDRAWN PAID IN) BALANCE").findAll(normalized).map {it.value}.toSet()
+        val normalizedHeader=normalized.replace(
+            Regex("\\s*\\(\\s*(?:KES|KSH|KSHS)\\s*\\)"),"")
+        val headers=Regex("(?:PAID IN WITHDRAWN|WITHDRAWN PAID IN) BALANCE")
+            .findAll(normalizedHeader).map {it.value}.toSet()
         if(headers.size!=1)return unsupported("The paid-in and withdrawn columns could not be identified consistently. No transactions were selected.")
         val paidFirst=headers.single().startsWith("PAID IN")
         val decoded=mutableListOf<DecodedRow>()
