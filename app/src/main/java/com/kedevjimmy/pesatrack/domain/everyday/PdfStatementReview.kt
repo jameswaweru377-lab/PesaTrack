@@ -12,7 +12,11 @@ data class PdfStatementCandidates(
     /** Statement layout identifies the Kenya currency, but authenticity is not verified. */
     val currencyReview: String? = null,
     /** Zero-value informational receipts are verified, but never posted as cash. */
-    val informationalRows: Int = 0
+    val informationalRows: Int = 0,
+    /** A partially reconciled receipt group requires explicit user review. */
+    val balanceReviewReferences: Set<String> = emptySet(),
+    val verifiedReceiptTransitions: Int = 0,
+    val totalReceiptTransitions: Int = 0
 )
 
 /** Bounded M-Pesa text-layout adapter. Unsupported/partial evidence offers no import candidates. */
@@ -293,9 +297,13 @@ object PdfStatementReview {
         // will be excluded from the import review, for duplicate references.
         if(runCatching {requireDistinctStatementLegs(decoded.map {it.row})}.isFailure)
             return unsupported("Identical receipt legs need review. No transactions were selected.")
-        // The omitted money column in a compact row requires corroborating
-        // evidence of direction. A zero receipt additionally requires an intact
-        // running balance across adjacent rows before it can be left out.
+        var balanceReviewReferences: Set<String> = emptySet()
+        var verifiedReceiptTransitions=0
+        var totalReceiptTransitions=0
+        // In real statements a receipt may contain separate payment, fee and
+        // loan legs with distinct interim balances. Per-row adjacent checks
+        // are not a valid proof. Verify a consistent wallet-balance anchor per
+        // receipt group and surface every irreconcilable boundary for review.
         if(decoded.any {it.compact} || informational>0) {
             if(decoded.size<2)
                 return unsupported("An informational receipt has no adjacent balance evidence. Nothing was imported.")
@@ -303,19 +311,21 @@ object PdfStatementReview {
                 (!structuredKenyanStatement || !paidFirst || decoded.none {it.signedDebit}))
                 return unsupported("The PDF omits empty money columns and their direction could not be proved. No transactions were selected.")
             val descending=decoded.first().row.date>=decoded.last().row.date
-            // A compact oldest zero record has no preceding balance to prove
-            // its zero movement. Refuse to drop a potentially missing debit.
             val oldest=if(descending) decoded.last() else decoded.first()
             if(oldest.compact && oldest.row.signedMinor==0L)
                 return unsupported("The oldest zero-value receipt has no earlier balance to verify its amount. Nothing was imported.")
-            for(i in 0 until decoded.size-1) {
-                val newer=if(descending)decoded[i] else decoded[i+1]
-                val older=if(descending)decoded[i+1] else decoded[i]
-                if(newer.row.date<older.row.date || runCatching {
-                        Math.addExact(older.balance,newer.row.signedMinor)
-                    }.getOrNull()!=newer.balance)
-                    return unsupported("The PDF's Paid In/Withdrawn columns could not be reconciled with successive balances. No transactions were selected.")
+            val audit=runCatching {
+                StatementReceiptBalanceAudit.verify(decoded.map {
+                    StatementBalanceLeg(it.row.reference.orEmpty(),it.row.date,it.row.signedMinor,it.balance)
+                })
+            }.getOrElse {
+                return unsupported("The statement has inconsistent receipt groups or dates. No transactions were selected.")
             }
+            if(!audit.credibleLayout)
+                return unsupported("The PDF's Paid In/Withdrawn columns could not be reconciled with receipt-group balances. No transactions were selected.")
+            balanceReviewReferences=audit.unverifiedReferences
+            verifiedReceiptTransitions=audit.verifiedTransitions
+            totalReceiptTransitions=audit.totalTransitions
         }
         val rows=decoded.map {it.row}.filter {it.signedMinor!=0L}
         if(rows.isEmpty())return unsupported(
@@ -325,6 +335,9 @@ object PdfStatementReview {
         if(validation.isFailure)return unsupported(
             "A statement amount, date or description failed validation. Nothing was imported."
         )
-        return PdfStatementCandidates(rows,emptyList(),currencyReview,informational)
+        return PdfStatementCandidates(
+            rows,emptyList(),currencyReview,informational,
+            balanceReviewReferences,verifiedReceiptTransitions,totalReceiptTransitions
+        )
     }
 }
