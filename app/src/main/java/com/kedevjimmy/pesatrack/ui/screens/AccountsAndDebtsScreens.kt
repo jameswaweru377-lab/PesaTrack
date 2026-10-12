@@ -489,11 +489,16 @@ fun DebtsScreen(
             PesaCard {
                 Column(Modifier.padding(16.dp)) {
                     Text(
-                        if (debtsLoaded) "Could not refresh your debts. Showing last verified information."
-                        else "Could not load debt accounts. Your saved records are unchanged.",
+                        if (debtsLoaded) "Could not refresh your debts."
+                        else "Debt could not load",
                         color = MaterialTheme.colorScheme.error
                     )
-                    TextButton(onClick = { debtsRetry += 1 }) { Text("Retry") }
+                    Text(
+                        if (debtsLoaded) "Showing last verified information."
+                        else "Your saved records are unchanged.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(onClick = { debtsRetry += 1 }) { Text("Try again") }
                 }
             }
         }
