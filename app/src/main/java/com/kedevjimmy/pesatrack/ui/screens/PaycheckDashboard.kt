@@ -83,13 +83,15 @@ private fun PaycheckPanel(modifier: Modifier = Modifier, tint: Color? = null, co
     val background = MaterialTheme.colorScheme.surfaceContainerLow
     val outline = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
     val shape = RoundedCornerShape(22.dp)
+    val panelBackground = if (tint == null) Modifier.background(background)
+        else Modifier.background(Brush.linearGradient(listOf(
+            tint.copy(alpha = if (MaterialTheme.colorScheme.background.luminance() < .5f) .25f else .11f),
+            background
+        )))
     Column(
         modifier
             .clip(shape)
-            .background(if (tint == null) background else Brush.linearGradient(listOf(
-                tint.copy(alpha = if (MaterialTheme.colorScheme.background.luminance() < .5f) .25f else .11f),
-                background
-            )))
+            .then(panelBackground)
             .border(1.dp, outline, shape)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
