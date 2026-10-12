@@ -72,6 +72,7 @@ object UniversalStatementTableInterpreter {
     private const val MAX_COLUMNS = 40
     private val whitespace = Regex("\\s+")
     private val numeric = Regex("[+-]?(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\\.[0-9]{1,2})?")
+    private val moneyLike = Regex("(?i)^(?:(?:KES|KSH|KSHS)\\s*)?[+-]?(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\\.[0-9]{1,2})?(?:\\s*(?:KES|KSH|KSHS))?$")
     private val currencyAlias = mapOf(
         "DATE" to StatementField.DATE,
         "TRANSACTION DATE" to StatementField.DATE,
@@ -131,6 +132,7 @@ object UniversalStatementTableInterpreter {
     private fun normalizedHeader(s: String): String =
         s.trim().uppercase(Locale.ROOT)
             .replace(Regex("[^A-Z0-9]+"), " ").replace(whitespace, " ").trim()
+            .replace(Regex("(?:^| )(?:KES|KSH|KSHS)$"), "").trim()
 
     private fun parseDate(input: String, zone: TimeZone, now: Long): Long? {
         val text = input.trim()
@@ -169,7 +171,12 @@ object UniversalStatementTableInterpreter {
         fun blocked(reason: StatementBlockReason, p: Int? = null, r: Int? = null) =
             StatementTableResult.Blocked(reason, p, r)
         if (pages.isEmpty()) return blocked(StatementBlockReason.EMPTY_DOCUMENT)
-        val aliases = currencyAlias + profile.aliases.mapKeys { normalizedHeader(it.key) }
+        val additionalAliases = profile.aliases.mapKeys { normalizedHeader(it.key) }
+        if (additionalAliases.any { (key, role) ->
+                key.isBlank() || role == StatementField.UNKNOWN ||
+                    (currencyAlias[key] != null && currencyAlias[key] != role)
+            }) return blocked(StatementBlockReason.AMBIGUOUS_HEADER)
+        val aliases = currencyAlias + additionalAliases
         if (pages.size > 160 || pages.map { it.pageNumber }.distinct().size != pages.size ||
             pages.any { it.pageNumber <= 0 } || pages.zipWithNext().any { (a,b) -> b.pageNumber <= a.pageNumber })
             return blocked(StatementBlockReason.INVALID_STRUCTURE)
@@ -203,7 +210,7 @@ object UniversalStatementTableInterpreter {
                 for (i in fields.indices) {
                     when (fields[i]) {
                         StatementField.UNKNOWN ->
-                            if (numeric.matches(row[i].trim()))
+                            if (moneyLike.matches(row[i].trim()))
                                 return blocked(StatementBlockReason.UNKNOWN_MONETARY_COLUMN, page.pageNumber, rowNumber)
                         StatementField.FEE ->
                             if (!row[i].isBlank() && row[i].trim() != "-" && !explicitZero(row[i]))
@@ -257,7 +264,10 @@ object UniversalStatementTableInterpreter {
                 }
                 // A repeated receipt reference may legitimately refer to separate
                 // financial legs. Only a completely identical row is rejected.
-                val unique = row.joinToString("\u001F") { it.trim() }
+                val unique = listOf(
+                    epoch.toString(), description, get(row, StatementField.REFERENCE),
+                    movement.toString(), balance.toString()
+                ).joinToString("|")
                 if (!exactRows.add(unique))
                     return blocked(StatementBlockReason.DUPLICATE_COMPLETE_ROW, page.pageNumber, rowNumber)
                 legs.add(StatementLegEvidence(
@@ -270,28 +280,35 @@ object UniversalStatementTableInterpreter {
         if (legs.isEmpty()) return blocked(StatementBlockReason.EMPTY_DOCUMENT)
         if (legs.size == 1 && openingBalanceMinor == null)
             return blocked(StatementBlockReason.INSUFFICIENT_BALANCE_PROOF)
-        // Both ascending and descending statements are supported. A tie with
-        // different movements is not enough to establish row chronology.
-        val descending = legs.first().occurredAt > legs.last().occurredAt
-        if (legs.size > 1 && legs.first().occurredAt == legs.last().occurredAt)
+        // Banks often print only a date, not a timestamp. Same-day rows are
+        // ordered by the source table and proven using adjacent balances.
+        val nonIncreasing = legs.zipWithNext().all { (a,b) -> a.occurredAt >= b.occurredAt }
+        val nonDecreasing = legs.zipWithNext().all { (a,b) -> a.occurredAt <= b.occurredAt }
+        if (!nonIncreasing && !nonDecreasing)
             return blocked(StatementBlockReason.INCONSISTENT_ORDER)
-        for (i in 0 until legs.size - 1) {
-            val newer = if (descending) legs[i] else legs[i + 1]
-            val older = if (descending) legs[i + 1] else legs[i]
-            if (newer.occurredAt <= older.occurredAt)
-                return blocked(StatementBlockReason.INCONSISTENT_ORDER, newer.pageNumber, newer.rowNumber)
-            val expected = runCatching {
-                Math.addExact(older.runningBalanceMinor, newer.movementMinor)
-            }.getOrNull()
-            if (expected != newer.runningBalanceMinor)
-                return blocked(StatementBlockReason.BALANCE_MISMATCH, newer.pageNumber, newer.rowNumber)
+        val directions = listOf(true, false).filter { if (it) nonIncreasing else nonDecreasing }
+        fun reconciles(descending: Boolean): Boolean {
+            for (i in 0 until legs.size - 1) {
+                val newer = if (descending) legs[i] else legs[i + 1]
+                val older = if (descending) legs[i + 1] else legs[i]
+                val expected = runCatching {
+                    Math.addExact(older.runningBalanceMinor, newer.movementMinor)
+                }.getOrNull()
+                if (expected != newer.runningBalanceMinor) return false
+            }
+            if (openingBalanceMinor != null) {
+                val oldest = if (descending) legs.last() else legs.first()
+                val expected = runCatching {
+                    Math.addExact(openingBalanceMinor, oldest.movementMinor)
+                }.getOrNull()
+                if (expected != oldest.runningBalanceMinor) return false
+            }
+            return true
         }
-        val oldest = if (descending) legs.last() else legs.first()
-        if (openingBalanceMinor != null) {
-            val expected = runCatching { Math.addExact(openingBalanceMinor, oldest.movementMinor) }.getOrNull()
-            if (oldest.runningBalanceMinor != expected)
-                return blocked(StatementBlockReason.BALANCE_MISMATCH, oldest.pageNumber, oldest.rowNumber)
-        }
+        val validDirections = directions.filter(::reconciles)
+        if (validDirections.isEmpty()) return blocked(StatementBlockReason.BALANCE_MISMATCH)
+        if (validDirections.size > 1 && legs.size > 1)
+            return blocked(StatementBlockReason.INSUFFICIENT_BALANCE_PROOF)
         return StatementTableResult.Accepted(legs, openingBalanceMinor == null, count)
     }
 }
