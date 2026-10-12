@@ -16,7 +16,7 @@ Date: 12 October 2026. User supplied three **screenshots**, not an original PDF.
 
 ## Current limits and remaining work
 - Screenshot indicates 26 pages, which is below the reader's 160-page cap; file size and extracted character count are **not known** from screenshots.
-- Textual row-order parser remains dependent on native Android PdfRenderer extracted text. If a PDF yields column-major or differently segmented fragments, this adapter intentionally refuses import. **Next step for true cross-layout support** is on-device coordinate-aware extraction from PdfPageTextContent bounds with synthetic geometry tests. The screenshots alone cannot prove text order or bounding-box behavior.
+- Android API35+ now applies **conservative bounding-box reflow** for geometry-covered single-line text fragments, attempting to reconstruct reading order from Y/X positions. Overlapping, unbounded, multiline or partial geometry falls back to the original native text ordering. A bounded wrapped-description normalizer also supports continuation in the Details column. The screenshots still do not prove what Android extracts from the user's PDF; unsupported/ambiguous layouts fail closed.
 - Actual end-to-end acceptance on a device needs a personal copy of the PDF. Do not request or upload an unredacted financial statement by default; favor voluntary limited metadata and redacted/test samples.
 - Never silently reclassify credits as withdrawals, skip unknown rows, or treat balances as separate income/expenses.
 
