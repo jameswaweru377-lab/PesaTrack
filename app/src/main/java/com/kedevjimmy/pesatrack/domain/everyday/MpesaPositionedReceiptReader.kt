@@ -120,7 +120,11 @@ object MpesaPositionedReceiptReader {
                     val amounts=match.groupValues[5].trim().split(Regex("\\s+"))
                     if(detail.isBlank() || detail.length>200 ||
                         completed.containsMatchIn(detail) ||
-                        amounts.size !in 2..3 || amounts.any {!moneyCell.matches(it)})
+                        // A whole-row native rectangle carries no distinct
+                        // x coordinate per monetary cell. The two-cell signed
+                        // shape is proven; three numbers could mean a genuine
+                        // empty column or an orphan amount. Abstain.
+                        amounts.size!=2 || amounts.any {!moneyCell.matches(it)})
                         return unsupported(pageNo,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY)
                     pageRows.add(
                         "${match.groupValues[1].uppercase(Locale.ROOT)} ${match.groupValues[2]} " +
