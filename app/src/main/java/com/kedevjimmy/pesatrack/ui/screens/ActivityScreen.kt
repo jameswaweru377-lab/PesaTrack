@@ -246,8 +246,13 @@ fun ActivityScreen(
         monthStart(System.currentTimeMillis())
     }
     val warmData =
-        remember(stateCache) {
-            stateCache?.data
+        remember(stateCache, ledgerUpdateState.revision) {
+            // Only a snapshot from the current ledger revision can skip a
+            // new read. After imports or account changes, never present an
+            // outdated Activity cache as if it were up to date.
+            stateCache?.takeIf {
+                it.revision == ledgerUpdateState.revision
+            }?.data
         }
     val warmMonth =
         remember(stateCache) {
