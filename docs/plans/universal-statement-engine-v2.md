@@ -27,6 +27,12 @@ Synthetic tests must prove:
 
 A second isolated branch introduces `UniversalStatementGeometry`, converting **validated table-region bounding boxes** into an in-memory row/column grid. It retains every supplied table fragment and refuses overlaps, out-of-band fragments, missing date anchors or invalid coordinates. Synthetic coordinate tests exercise wrapped descriptions, unknown monetary columns and overlapping headings. This stage does **not** automatically detect table regions from an arbitrary PDF, alter the Android isolated service/IPC, connect to the import button, or prove user's original PDF. Those remain gated below.
 
+## Optional native coordinate transport (third stacked PR)
+
+The existing native Android API35+ isolated PDF service and reader now have an optional `includePositions` argument (default **false**). Normal payslip and M-Pesa imports still receive exactly the pre-existing text preview and do not activate this transport. When explicitly requested by a future read-only V2 workflow, bounded single-line text boxes are copied over in ordered, page-scoped IPC chunks (100 blocks, 200 characters each, 32k total); all pages must report exact counts and flags. Missing or unbounded text geometry marks a page incomplete, and V2 must reject that page rather than invent missing data. Original PDF text, passwords and personal identifiers stay local and are not logged/uploaded. JVM negative tests cover missing pages, counts, rectangles, multiline fragments and oversized chunks.
+
+**Important:** The optional native service path has no real-device execution evidence while instrumentation remains paused. It must not be wired to financial posting or declared functional for arbitrary PDFs on the basis of compilation alone.
+
 ## Next independently gated slices (not implemented by the read-only foundation PRs)
 
 1. Preserve all PDF text fragments and coordinates in the existing isolated Android extraction service and reconstruct real table rows using header x-ranges and receipt y-anchors, including page headers/footers and multi-line details. Compare old M-Pesa parser and V2 outputs read-only first. Do not remove old parser.
