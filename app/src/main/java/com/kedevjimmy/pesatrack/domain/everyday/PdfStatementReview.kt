@@ -101,12 +101,12 @@ object PdfStatementReview {
                     // Keep the whole "from - identifier" phrase in Details,
                     // regardless of whether native PDF text puts it before or
                     // after Completed and the monetary columns.
-                    tokens.add("$"+"{lead} - $"+"{digits}")
+                    tokens.add("$lead - $digits")
                     tokenIndex+=3
                 }
                 referenceLead.matches(lead) && following!=null &&
                     dashedReferenceDigits.matches(following) -> {
-                    tokens.add("$"+"{lead} $"+"{following}")
+                    tokens.add("$lead $following")
                     tokenIndex+=2
                 }
                 else -> {
