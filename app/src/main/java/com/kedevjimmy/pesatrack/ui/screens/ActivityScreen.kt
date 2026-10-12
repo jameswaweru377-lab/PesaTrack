@@ -652,7 +652,7 @@ fun ActivityScreen(
         if (
             loadedMonthEpochMs == selectedMonthEpochMs &&
             stateCache?.revision == ledgerUpdateState.revision &&
-            stateCache.selectedMonthEpochMs == selectedMonthEpochMs
+            stateCache?.selectedMonthEpochMs == selectedMonthEpochMs
         ) return@LaunchedEffect
         reloadActivityData(selectedMonthEpochMs)
     }
