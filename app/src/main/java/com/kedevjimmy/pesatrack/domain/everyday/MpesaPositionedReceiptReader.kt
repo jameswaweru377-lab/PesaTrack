@@ -33,7 +33,6 @@ object MpesaPositionedReceiptReader {
     private val rightSide=Regex("^COMPLETED\\s+(.+)$",RegexOption.IGNORE_CASE)
     private val moneyCell=Regex("(?:-|(?:-?[0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?))")
     private val footer=Regex("(?i)^(?:DISCLAIMER\\b|STATEMENT VERIFICATION CODE\\b|FOR SELF[- ]HELP\\b)")
-    private val header=Regex("(?i)^(?:RECEIPT NO\\.?|COMPLETION TIME\\b|TRANSACTION STATUS\\b|PAID IN\\b|WITHDRAWN\\b|BALANCE\\b)")
     private fun clean(s:String)=s.replace(Regex("\\s+")," ").trim()
     private fun valid(f:PdfTextFragment)=
         f.left.isFinite() && f.right.isFinite() && f.top.isFinite() &&
@@ -93,7 +92,6 @@ object MpesaPositionedReceiptReader {
                 val within=fragments.filter {f->
                     f.top>=origin.top-2f && f.top<stop-1f &&
                         f.bottom<=stop+2f &&
-                        !header.containsMatchIn(clean(f.text)) &&
                         !footer.containsMatchIn(clean(f.text))
                 }
                 if(origin !in within || status !in within)
