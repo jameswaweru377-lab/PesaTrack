@@ -80,7 +80,9 @@ object PdfStatementReview {
                 if(wordsAfterAmount)return null
                 money.add(token)
             } else {
-                if(token.any(Char::isDigit) || !token.any(Char::isLetter))return null
+                // Merchant/reference words can contain digits; standalone numeric
+                // tokens are never silently inserted into a wrapped description.
+                if(!token.any(Char::isLetter))return null
                 if(money.isNotEmpty())wordsAfterAmount=true
                 wrapped.add(token)
             }
