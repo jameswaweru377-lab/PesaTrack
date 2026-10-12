@@ -54,7 +54,7 @@ object StatementReceiptBalanceAudit {
         // legs; this guards broken row assembly and prevents unbounded DP work.
         require(groups.all {it.size in 1..12}) { "An event has too many statement lines to verify." }
         val movements=groups.map {g->g.fold(0L) { acc, leg->Math.addExact(acc,leg.signedMinor) } }
-        // Select one consistent balance observation per receipt group, maximizing
+        // Each group's observed balance is its balance *after that group's*\n        // movement. Thus newer.balance = older.balance + newer.movement.\n        // Select one consistent balance observation per receipt group, maximizing
         // exact adjacent event arithmetic over the entire statement (not per row).
         var scores=IntArray(groups[0].size)
         val parents=mutableListOf<IntArray>()
@@ -64,7 +64,7 @@ object StatementReceiptBalanceAudit {
             val next=IntArray(older.size) { Int.MIN_VALUE }
             val parent=IntArray(older.size) {-1}
             for(j in older.indices) for(k in newer.indices) {
-                val expected=runCatching {Math.addExact(older[j].balanceMinor,movements[i])}.getOrNull()
+                val expected=runCatching {Math.addExact(older[j].balanceMinor,movements[i+1])}.getOrNull()
                 val proof=if(expected!=null && newer[k].balanceMinor==expected) 1 else 0
                 val score=scores[k]+proof
                 if(score>next[j]) {
@@ -88,7 +88,7 @@ object StatementReceiptBalanceAudit {
         for(i in 0 until groups.lastIndex) {
             val newer=groups[i][positions[i]]
             val older=groups[i+1][positions[i+1]]
-            val expected=runCatching {Math.addExact(older.balanceMinor,movements[i])}.getOrNull()
+            val expected=runCatching {Math.addExact(older.balanceMinor,movements[i+1])}.getOrNull()
             if(expected!=null && expected==newer.balanceMinor) verified++
             else {
                 unresolved.add(newer.reference)
