@@ -81,6 +81,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.max
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -160,7 +161,7 @@ fun PlanScreen(
         mutableStateOf(false)
     }
 
-    var loading by remember { mutableStateOf(true) }
+    var loading by remember { mutableStateOf(initialData == null) }
     var hasLoaded by remember { mutableStateOf(initialData != null) }
     var loadError by remember { mutableStateOf<String?>(null) }
 
@@ -168,18 +169,31 @@ fun PlanScreen(
         ledgerUpdateState.revision,
         localRefresh
     ) {
+        // Reopening Plan on the same financial revision needs no SQL work.
+        // An explicit action or new revision still forces a fresh snapshot.
+        if (hasLoaded && !ScreenRefreshPolicy.needsRead(
+                stateCache?.revision, ledgerUpdateState.revision, localRefresh
+            )) {
+            loading = false
+            return@LaunchedEffect
+        }
+        if (hasLoaded) delay(180) // batch closely spaced import notifications
         loading = true
         loadError = null
+        val refreshStarted = android.os.SystemClock.elapsedRealtime()
         try {
         val loaded =
             withContext(Dispatchers.IO) {
                 // Pay cycles are rebuilt when ledger data changes. Reading Plan
                 // should not rebuild the whole cycle graph every time the tab opens.
-                val cycle = store.snapshot()
-                val recurring =
+                val cycle = traceFinancialRead("plan.payCycle") { store.snapshot() }
+                val recurring = traceFinancialRead("plan.recurringPatterns") {
                     recurringStore.suggestions(limit = 3)
-                val budgets = budgetStore.list()
-                val spent = budgetReads.spendingByCategory()
+                }
+                val budgets = traceFinancialRead("plan.budgetList") { budgetStore.list() }
+                val spent = traceFinancialRead("plan.categorySpending") {
+                    budgetReads.spendingByCategory()
+                }
                 val goals =
                     ruleStore.listRules(enabledOnly = true)
                         .filter {
@@ -192,7 +206,9 @@ fun PlanScreen(
                     budgets = budgets,
                     spentByCategory = spent,
                     goals = goals,
-                    bills = billSchedules.upcomingThisMonth()
+                    bills = traceFinancialRead("plan.upcomingBills") {
+                        billSchedules.upcomingThisMonth()
+                    }
                 )
             }
         snapshot = loaded.snapshot
@@ -204,6 +220,8 @@ fun PlanScreen(
         hasLoaded = true
         stateCache?.data = loaded
         stateCache?.revision = ledgerUpdateState.revision
+        val elapsed = android.os.SystemClock.elapsedRealtime() - refreshStarted
+        if (elapsed > 400L) android.util.Log.i("PesaTrackPerf", "Plan refresh took ${elapsed}ms")
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
@@ -233,10 +251,10 @@ fun PlanScreen(
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        if (loading || loadError != null) item {
+        if (loadError != null) item {
             Column {
-                Text(if (loading) "Refreshing your plan…" else "Showing your last loaded plan. ${loadError.orEmpty()}")
-                if (!loading) TextButton(onClick = { localRefresh += 1 }) { Text("Retry") }
+                Text("Showing your last loaded plan. ${loadError.orEmpty()}")
+                TextButton(onClick = { localRefresh += 1 }) { Text("Retry") }
             }
         }
         item {

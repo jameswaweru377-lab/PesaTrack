@@ -71,7 +71,12 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 
 internal data class AccountComponentPresentation(
     val label: String,
@@ -95,6 +100,14 @@ class AccountsScreenCache {
     internal var revision: Long = -1L
 }
 
+/** Last completed liabilities snapshot, retained across navigation; never a ledger source. */
+class DebtsScreenCache {
+    internal var active: List<DebtAccountSnapshot> = emptyList()
+    internal var settled: List<DebtAccountSnapshot> = emptyList()
+    internal var revision: Long = -1L
+    internal val receivables = PersonalReceivablesScreenCache()
+}
+
 @Composable
 fun AccountsScreen(
     scaffoldPadding: PaddingValues,
@@ -102,13 +115,14 @@ fun AccountsScreen(
     onDebtsClick: (() -> Unit)? = null,
     onAccountClick: ((String) -> Unit)? = null,
     onManageInstitutions: (() -> Unit)? = null,
-    stateCache: AccountsScreenCache? = null
+    stateCache: AccountsScreenCache? = null,
+    debtStateCache: DebtsScreenCache? = null
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     if (selectedTab == 3) {
         DebtsScreen(scaffoldPadding, onBack = { selectedTab = 0 },
             header = { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) },
-            onReviewRelationships = onManageInstitutions)
+            onReviewRelationships = onManageInstitutions, stateCache = debtStateCache)
         return
     }
     val context = LocalContext.current
@@ -147,23 +161,33 @@ fun AccountsScreen(
             mutableStateOf(initialCache?.debts ?: emptyList())
         }
 
-    var accountsLoading by remember { mutableStateOf(true) }
+    var accountsLoading by remember { mutableStateOf(initialCache == null) }
     var accountsLoaded by remember { mutableStateOf(initialCache != null) }
     var accountsError by remember { mutableStateOf(false) }
     var accountsRetry by remember { mutableStateOf(0) }
     LaunchedEffect(revision, accountsRetry) {
+        // Re-entering Accounts with an unchanged, complete snapshot must be instant.
+        // Do not rescan accounts/balances merely because the NavHost recreated
+        // this destination. The revision gate still refreshes actual ledger edits.
+        if (accountsLoaded && !ScreenRefreshPolicy.needsRead(
+                stateCache?.revision, revision, accountsRetry
+            )) {
+            accountsLoading = false
+            return@LaunchedEffect
+        }
+        if (accountsLoaded) delay(180) // coalesce rapid import updates
         accountsLoading = true
         accountsError = false
+        val refreshStarted = android.os.SystemClock.elapsedRealtime()
         try {
         val loadedPresentations =
             withContext(Dispatchers.IO) {
-                val accounts =
-                    accountStore.listAccounts(
-                        enabledOnly = true
-                    )
-                val confirmedAccountIds =
-                    understandingStore
-                        .confirmedAccountIds()
+                val accounts = traceFinancialRead("accounts.accountList") {
+                    accountStore.listAccounts(enabledOnly = true)
+                }
+                val confirmedAccountIds = traceFinancialRead("accounts.ownership") {
+                    understandingStore.confirmedAccountIds()
+                }
                 val groups =
                     AccountDisplayPolicy.groups(
                         accounts, includeCash = true
@@ -179,19 +203,12 @@ fun AccountsScreen(
                     }
                 val referenceEpochMs =
                     System.currentTimeMillis()
-                val allSnapshots =
-                    balanceStore
-                        .currentAccountSnapshots(
-                            accounts =
-                                groups.flatMap {
-                                    it.accounts
-                                },
-                            nowEpochMs =
-                                referenceEpochMs
-                        )
-                        .associateBy {
-                            it.accountId
-                        }
+                val allSnapshots = traceFinancialRead("accounts.balanceReconstruction") {
+                    balanceStore.currentAccountSnapshots(
+                        accounts = groups.flatMap { it.accounts },
+                        nowEpochMs = referenceEpochMs
+                    ).associateBy { it.accountId }
+                }
                 groups.map { group ->
                     accountBalancePresentation(
                         group = group,
@@ -208,8 +225,9 @@ fun AccountsScreen(
             }
         val loadedDebts =
             withContext(Dispatchers.IO) {
-                debtStore.accounts()
-                    .filter {
+                traceFinancialRead("accounts.activeDebts") {
+                    debtStore.accounts()
+                    }.filter {
                         it.isActive
                     }
                     .sortedByDescending {
@@ -222,6 +240,8 @@ fun AccountsScreen(
         stateCache?.presentations = loadedPresentations
         stateCache?.debts = loadedDebts
         stateCache?.revision = revision
+        val elapsed = android.os.SystemClock.elapsedRealtime() - refreshStarted
+        if (elapsed > 400L) android.util.Log.i("PesaTrackPerf", "Accounts refresh took ${elapsed}ms")
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (failure: Exception) {
             android.util.Log.e("PesaTrackAccounts", "Accounts could not load", failure)
@@ -258,8 +278,10 @@ fun AccountsScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) }
-        if (accountsLoading || accountsError) item {
-            FinancialReadBanner("Accounts", accountsLoading, accountsError) { accountsRetry++ }
+        // An already-visible balance list must not jump down for an
+        // intermittent loading banner on every background refresh.
+        if (accountsError) item {
+            FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
         }
         item {
             PesaCard {
@@ -339,11 +361,17 @@ fun DebtsScreen(
     scaffoldPadding: PaddingValues,
     onBack: () -> Unit,
     header: (@Composable () -> Unit)? = null,
-    onReviewRelationships: (() -> Unit)? = null
+    onReviewRelationships: (() -> Unit)? = null,
+    stateCache: DebtsScreenCache? = null
 ) {
     var showOwedToMe by rememberSaveable { mutableStateOf(false) }
     if (showOwedToMe) {
-        PersonalReceivablesScreen(scaffoldPadding, onLiabilities = { showOwedToMe = false }, header = header)
+        PersonalReceivablesScreen(
+            scaffoldPadding,
+            onLiabilities = { showOwedToMe = false },
+            header = header,
+            stateCache = stateCache?.receivables
+        )
         return
     }
     val context = LocalContext.current
@@ -356,51 +384,56 @@ fun DebtsScreen(
     val revision =
         ledgerUpdateState.revision
 
-    var settledDebts by remember { mutableStateOf<List<DebtAccountSnapshot>>(emptyList()) }
+    val cached = remember(stateCache) {
+        stateCache?.takeIf { it.revision >= 0L }
+    }
+    var settledDebts by remember { mutableStateOf(cached?.settled ?: emptyList()) }
     var showSettled by remember { mutableStateOf(false) }
-    var activeDebts:
-        List<DebtAccountSnapshot> by
-        remember {
-            mutableStateOf(emptyList())
-        }
-
-    var debtsLoading by remember { mutableStateOf(true) }
-    var debtsLoaded by remember { mutableStateOf(false) }
+    var activeDebts by remember { mutableStateOf(cached?.active ?: emptyList()) }
+    var loadedRevision by remember { mutableStateOf(cached?.revision ?: -1L) }
+    var debtsLoaded by remember { mutableStateOf(cached != null) }
+    var debtsLoading by remember { mutableStateOf(cached == null) }
     var debtsError by remember { mutableStateOf(false) }
     var debtsRetry by remember { mutableStateOf(0) }
+
     LaunchedEffect(revision, debtsRetry) {
+        // The same canonical ledger revision cannot change liability balances.
+        // Navigating between Accounts and Debts therefore reuses last verified
+        // records without another expensive debt scan.
+        if (debtsLoaded && loadedRevision == revision && debtsRetry == 0) {
+            debtsLoading = false
+            return@LaunchedEffect
+        }
         debtsLoading = true
         debtsError = false
         try {
-        val loaded =
-            withContext(Dispatchers.IO) {
-                debtStore.accounts()
+            val loaded = withContext(Dispatchers.IO) {
+                traceFinancialRead("debts.accounts") { debtStore.accounts() }
             }
-        val nextActive = loaded
-                    .filter {
-                        it.isActive
-                    }
-                    .sortedWith(
-                        compareByDescending<
-                            DebtAccountSnapshot
-                        > {
-                            it.outstandingMinor
-                        }.thenBy {
-                            it.name.lowercase()
-                        }
-                    )
-        settledDebts = loaded.filter { it.isSettled }
-        activeDebts = nextActive
-        debtsLoaded = true
-        } catch (cancelled: CancellationException) { throw cancelled
+            val nextActive = loaded.filter { it.isActive }.sortedWith(
+                compareByDescending<DebtAccountSnapshot> { it.outstandingMinor }
+                    .thenBy { it.name.lowercase() }
+            )
+            val nextSettled = loaded.filter { it.isSettled }
+            // Publish the pair together. An empty successful read is also a
+            // complete snapshot and must be cached, not treated as loading.
+            settledDebts = nextSettled
+            activeDebts = nextActive
+            loadedRevision = revision
+            debtsLoaded = true
+            stateCache?.apply {
+                active = nextActive
+                settled = nextSettled
+                this.revision = revision
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (failure: Exception) {
             android.util.Log.e("PesaTrackDebts", "Debt could not load", failure)
             debtsError = true
-        } finally { debtsLoading = false }
-    }
-    if (!debtsLoaded) {
-        FinancialReadStatus(scaffoldPadding, "Debt", debtsLoading, debtsError) { debtsRetry++ }
-        return
+        } finally {
+            debtsLoading = false
+        }
     }
 
     val unknownBalanceCount =
@@ -432,11 +465,9 @@ fun DebtsScreen(
         verticalArrangement =
             Arrangement.spacedBy(14.dp)
     ) {
-        if (debtsLoading || debtsError) item { FinancialReadBanner("Debt", debtsLoading, debtsError) { debtsRetry++ } }
         item {
             if (header != null) header() else DetailPageHeader(
                 title = "Debts", subtitle = "Borrowing supports payments; it is not income.", onBack = onBack)
-
         }
 
         item {
@@ -447,6 +478,36 @@ fun DebtsScreen(
                 }
             }
         }
+        // Only a genuine first load needs a progress indicator. Once cards
+        // exist, refreshes stay silent and never shift the top navigation.
+        if (!debtsLoaded && debtsLoading) item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(12.dp))
+                Text("Preparing your debt information", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (debtsError) item {
+            PesaCard {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        if (debtsLoaded) "Could not refresh your debts."
+                        else "Debt could not load",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        if (debtsLoaded) "Showing last verified information."
+                        else "Your saved records are unchanged.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(onClick = { debtsRetry += 1 }) { Text("Try again") }
+                }
+            }
+        }
         if (activeDebts.isNotEmpty()) item {
             PesaCard {
                 Column(
@@ -454,7 +515,9 @@ fun DebtsScreen(
                         Modifier.padding(16.dp)
                 ) {
                     Text(
-                        if (totalDebtMinor == null) {
+                        if (loadedRevision != revision) {
+                            "Last verified outstanding"
+                        } else if (totalDebtMinor == null) {
                             "Balance unavailable"
                         } else {
                             "Known outstanding"
@@ -529,7 +592,7 @@ fun DebtsScreen(
             }
         }
 
-        if (activeDebts.isEmpty()) {
+        if (debtsLoaded && activeDebts.isEmpty()) {
             item {
                 PesaCard {
                     Column(
@@ -537,7 +600,8 @@ fun DebtsScreen(
                             Modifier.padding(18.dp)
                     ) {
                         Text(
-                            "No outstanding debt is currently recorded.",
+                            if (loadedRevision != revision) "No outstanding debts were recorded at the last successful refresh."
+                            else "No outstanding debt is currently recorded.",
                             style =
                                 MaterialTheme.typography
                                     .titleMedium

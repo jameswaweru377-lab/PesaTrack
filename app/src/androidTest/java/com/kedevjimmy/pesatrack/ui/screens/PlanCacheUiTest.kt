@@ -22,10 +22,23 @@ class PlanCacheUiTest {
         PesaTrackDatabase.get(context).writableDatabase.execSQL("DROP TABLE transactions")
         val started = android.os.SystemClock.elapsedRealtime()
         compose.setContent { PesaTrackTheme { PlanScreen(PaddingValues(), stateCache = cache) } }
+        // A real ledger revision, rather than simple tab navigation, must
+        // re-read data. The previously visible plan stays on screen on error.
+        compose.runOnIdle { LedgerUpdateBus.notifyChanged() }
         waitFor("Showing your last loaded plan. Could not load your plan. Try again.")
         compose.onNodeWithText("Plan your month").assertIsDisplayed()
         android.util.Log.i("PesaTrackMeasurement", "{\"scenario\":\"cached_plan_failed_refresh\",\"content_and_error_ms\":${android.os.SystemClock.elapsedRealtime() - started}}")
         compose.onNodeWithText("Retry").assertIsDisplayed()
+    }
+
+    @Test fun unchangedCachedPlanOpensWithoutRepeatingSlowDatabaseReads() {
+        val cache = cachedPlan(LedgerUpdateBus.state.value.revision)
+        PesaTrackDatabase.get(context).writableDatabase.execSQL("DROP TABLE transactions")
+        compose.setContent { PesaTrackTheme { PlanScreen(PaddingValues(), stateCache = cache) } }
+        compose.waitForIdle()
+        compose.onNodeWithText("Plan your month").assertIsDisplayed()
+        compose.onNodeWithText("Refreshing your plan…").assertDoesNotExist()
+        compose.onNodeWithText("Retry").assertDoesNotExist()
     }
 
     @Test fun changedRevisionCannotDisplayOldCachedPlanAfterReadFailure() {

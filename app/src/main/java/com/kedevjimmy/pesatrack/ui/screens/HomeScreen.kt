@@ -152,6 +152,7 @@ data class HomeLoadedState(
 
 class HomeScreenCache {
     var data: HomeLoadedState? = null
+    var revision: Long = -1L
 }
 
 private fun emptyPayCycleSnapshot() =
@@ -369,32 +370,32 @@ fun HomeScreen(
     ): HomeCoreState =
         withContext(Dispatchers.IO) {
             if (rebuildCycles) {
-                cycleStore.rebuild()
+                traceFinancialRead("home.rebuildPayCycles") { cycleStore.rebuild() }
             }
             val referenceEpochMs =
                 System.currentTimeMillis()
-            val accounts =
-                accountStore.listAccounts(
-                    enabledOnly = true
+            val accounts = traceFinancialRead("home.accountList") {
+                accountStore.listAccounts(enabledOnly = true)
+            }
+            val balanceSnapshots = traceFinancialRead("home.accountBalances") {
+                PaydaySnapshotStore.get(context).currentAccountSnapshots(
+                    accounts = accounts, nowEpochMs = referenceEpochMs
                 )
-            val balanceSnapshots =
-                PaydaySnapshotStore
-                    .get(context)
-                    .currentAccountSnapshots(
-                        accounts = accounts,
-                        nowEpochMs =
-                            referenceEpochMs
-                    )
+            }
 
-            val activityAndShares = synchronized(CanonicalStoreLock.monitor) {
-                val activity = transactionStore.activitySnapshot(nowEpochMs = referenceEpochMs)
-                activity to PersonalReceivableStore(context).linkedShares()
+            val activityAndShares = traceFinancialRead("home.activityAndReceivables") {
+                synchronized(CanonicalStoreLock.monitor) {
+                    val activity = transactionStore.activitySnapshot(nowEpochMs = referenceEpochMs)
+                    activity to PersonalReceivableStore(context).linkedShares()
+                }
             }
             HomeCoreState(
-                cycleSnapshot =
-                    cycleStore.snapshot(),
-                ledgerSnapshot =
-                    transactionStore.snapshot(),
+                cycleSnapshot = traceFinancialRead("home.payCycleSnapshot") {
+                    cycleStore.snapshot()
+                },
+                ledgerSnapshot = traceFinancialRead("home.ledgerSummary") {
+                    transactionStore.snapshot()
+                },
                 activitySnapshot = activityAndShares.first,
                 receivableShares = activityAndShares.second,
                 debtAccounts =
@@ -502,7 +503,8 @@ fun HomeScreen(
 
     fun cacheHomeState(
         core: HomeCoreState,
-        supplemental: HomeSupplementalState
+        supplemental: HomeSupplementalState,
+        loadedRevision: Long
     ) {
         stateCache?.data =
             HomeLoadedState(
@@ -534,6 +536,7 @@ fun HomeScreen(
                     supplemental
                         .moneyPictureHealth
             )
+        stateCache?.revision = loadedRevision
     }
 
     fun refresh(
@@ -550,6 +553,8 @@ fun HomeScreen(
                     refreshPending = false
                     val shouldRebuild = rebuildPending
                     rebuildPending = false
+                    val loadedRevision = LedgerUpdateBus.state.value.revision
+                    val refreshStarted = android.os.SystemClock.elapsedRealtime()
                     val core =
                         loadHomeCoreState(
                             rebuildCycles =
@@ -600,9 +605,11 @@ fun HomeScreen(
                     )
                     cacheHomeState(
                         core = core,
-                        supplemental =
-                            supplemental
+                        supplemental = supplemental,
+                        loadedRevision = loadedRevision
                     )
+                    val elapsed = android.os.SystemClock.elapsedRealtime() - refreshStarted
+                    if (elapsed > 400L) android.util.Log.i("PesaTrackPerf", "Home refresh took ${elapsed}ms")
                 } while (refreshPending)
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -615,18 +622,11 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        refresh()
-    }
-
-    LaunchedEffect(
-        ledgerUpdateState.revision,
-        homeLoaded
-    ) {
-        if (
-            homeLoaded &&
-            ledgerUpdateState.revision > 0L
-        ) {
+    // A single revision-driven effect replaces two independent launch
+    // effects, which previously loaded Home twice after onboarding or entry.
+    // Navigate back to an unchanged snapshot without hitting the database.
+    LaunchedEffect(ledgerUpdateState.revision) {
+        if (!homeLoaded || stateCache?.revision != ledgerUpdateState.revision) {
             refresh()
         }
     }

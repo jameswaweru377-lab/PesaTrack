@@ -178,6 +178,7 @@ data class ActivityScreenData(
 class ActivityScreenCache {
     var selectedMonthEpochMs: Long? = null
     var data: ActivityScreenData? = null
+    var revision: Long = -1L
 }
 
 private fun emptyActivityLedgerSnapshot(): ActivityLedgerSnapshot =
@@ -245,8 +246,13 @@ fun ActivityScreen(
         monthStart(System.currentTimeMillis())
     }
     val warmData =
-        remember(stateCache) {
-            stateCache?.data
+        remember(stateCache, ledgerUpdateState.revision) {
+            // Only a snapshot from the current ledger revision can skip a
+            // new read. After imports or account changes, never present an
+            // outdated Activity cache as if it were up to date.
+            stateCache?.takeIf {
+                it.revision == ledgerUpdateState.revision
+            }?.data
         }
     val warmMonth =
         remember(stateCache) {
@@ -510,6 +516,7 @@ fun ActivityScreen(
         stateCache?.let {
             it.selectedMonthEpochMs =
                 monthEpochMs
+            it.revision = ledgerUpdateState.revision
             it.data =
                 ActivityScreenData(
                     ownershipEvidence = supplemental.ownershipEvidence,
@@ -547,6 +554,7 @@ fun ActivityScreen(
     ) {
         activityLoading = true
         activityError = false
+        val started = android.os.SystemClock.elapsedRealtime()
         try {
         val core =
             loadActivityCoreData(
@@ -564,6 +572,10 @@ fun ActivityScreen(
         // holding the transaction list behind slower secondary stores.
         applyActivityCoreData(core)
         loadedMonthEpochMs = requestedMonth
+        // Activity becomes usable as soon as the selected month's cash ledger
+        // is loaded. Slow diagnostics continue without a blocking spinner.
+        activityLoading = false
+        val coreMs = android.os.SystemClock.elapsedRealtime() - started
 
         val supplemental =
             loadActivitySupplementalData()
@@ -583,6 +595,11 @@ fun ActivityScreen(
             core = core,
             supplemental =
                 supplemental
+        )
+        val totalMs = android.os.SystemClock.elapsedRealtime() - started
+        if (totalMs > 400L) android.util.Log.i(
+            "PesaTrackPerf",
+            "Activity refresh ${totalMs}ms (core ${coreMs}ms)"
         )
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -637,9 +654,12 @@ fun ActivityScreen(
         ledgerUpdateState.revision,
         selectedMonthEpochMs
     ) {
-        reloadActivityData(
-            selectedMonthEpochMs
-        )
+        if (
+            loadedMonthEpochMs == selectedMonthEpochMs &&
+            stateCache?.revision == ledgerUpdateState.revision &&
+            stateCache?.selectedMonthEpochMs == selectedMonthEpochMs
+        ) return@LaunchedEffect
+        reloadActivityData(selectedMonthEpochMs)
     }
 
     if (loadedMonthEpochMs != selectedMonthEpochMs) {
@@ -849,13 +869,10 @@ fun ActivityScreen(
                 )
             }
 
-            if (activityError || activityLoading) item {
-                if (activityError) {
-                    Text("Activity could not load")
-                    Text("Showing your last successfully loaded activity.")
-                    TextButton(onClick = { refresh() }) { Text("Try again") }
-                }
-                if (activityLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (activityError) item {
+                Text("Activity could not load")
+                Text("Showing your last successfully loaded activity.")
+                TextButton(onClick = { refresh() }) { Text("Try again") }
             }
             item { SpendingPeriodSelector(false, {}, { payCycleMode = true }) }
 
