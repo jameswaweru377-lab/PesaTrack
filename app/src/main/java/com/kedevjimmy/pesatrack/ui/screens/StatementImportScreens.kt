@@ -104,11 +104,24 @@ private fun readStatement(c:Context,uri:Uri):String {
     pdfCandidates=null
    } else {
     pdfPayslip=false
-    pdfCandidates=PdfStatementReview.read(pdf.pages,TimeZone.getTimeZone(zoneId))
+    val geometry=MpesaPositionedReceiptReader.reconstruct(
+     pdf.pages,pdf.positionedPages,pdf.positionedComplete
+    )
+    pdfCandidates=when(geometry) {
+     is MpesaPositionedRows.Ready ->
+      PdfStatementReview.read(geometry.pages,TimeZone.getTimeZone(zoneId))
+     is MpesaPositionedRows.Unsupported ->
+      PdfStatementReview.read(pdf.pages,TimeZone.getTimeZone(zoneId))
+    }
     pdfBalanceReviewRefs=pdfCandidates?.balanceReviewReferences.orEmpty()
-    pdfStatus=if(pdfCandidates?.rows?.isNotEmpty()==true) "Statement read locally. Transactions are ready for your review." else "The PDF opened, but no transactions are ready to import."
+    pdfStatus=if(pdfCandidates?.rows?.isNotEmpty()==true)
+     "Statement read locally. Transactions are ready for your review."
+    else if(geometry is MpesaPositionedRows.Unsupported)
+     "The PDF opened, but its table couldn't be reconstructed safely on page ${geometry.page} (${geometry.reason.name.lowercase().replace('_',' ')}). The fallback text parser also could not verify the transactions."
+    else "The PDF opened, but no transactions are ready to import."
    }
-  }
+  },
+  includePositions=true
  )
  StatementImportWorkspace(busy,onDismiss) {
   item {
