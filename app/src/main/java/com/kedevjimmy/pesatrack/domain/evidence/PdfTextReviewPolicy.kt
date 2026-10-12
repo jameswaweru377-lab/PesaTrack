@@ -67,6 +67,12 @@ class PdfPositionChunkAssembler {
     }
     private val pages = mutableListOf<MutableList<PdfTextFragment>>()
     private var total = 0
+    fun startPage(page: Int) {
+        require(page == pages.size && page < PdfTextReviewPolicy.MAX_PAGES) {
+            "PDF geometry pages must arrive consecutively."
+        }
+        pages.add(mutableListOf())
+    }
     fun add(
         page: Int, texts: List<String>,
         left: FloatArray, top: FloatArray, right: FloatArray, bottom: FloatArray
@@ -74,10 +80,7 @@ class PdfPositionChunkAssembler {
         require(texts.size in 1..MAX_CHUNK && left.size == texts.size &&
             top.size == texts.size && right.size == texts.size &&
             bottom.size == texts.size) { "Invalid PDF geometry IPC chunk." }
-        require(page >= 0 && page < PdfTextReviewPolicy.MAX_PAGES &&
-            (page == pages.size || page == pages.size - 1)) {
-            "PDF geometry pages arrived out of order."
-        }
+        require(page == pages.size - 1) { "PDF geometry pages arrived out of order." }
         require(total + texts.size <= MAX_TOTAL_FRAGMENTS) { "Too many positioned PDF text blocks." }
         val verified = texts.indices.map { i ->
             val text = texts[i]
@@ -88,7 +91,6 @@ class PdfPositionChunkAssembler {
                 l < r && t < b) { "Invalid PDF geometry fragment." }
             PdfTextFragment(text, l, t, r, b)
         }
-        if(page == pages.size) pages.add(mutableListOf())
         pages[page].addAll(verified)
         total += verified.size
     }
@@ -96,6 +98,7 @@ class PdfPositionChunkAssembler {
     fun finish(expectedPages: Int, expectedCounts: IntArray, complete: BooleanArray):
         Pair<List<List<PdfTextFragment>>, List<Boolean>> {
         require(expectedPages > 0 && expectedPages <= PdfTextReviewPolicy.MAX_PAGES &&
+            pages.size == expectedPages &&
             expectedCounts.size == expectedPages && complete.size == expectedPages &&
             expectedCounts.all { it >= 0 } &&
             expectedCounts.sumOf { it.toLong() } == total) { "PDF geometry transfer incomplete." }
