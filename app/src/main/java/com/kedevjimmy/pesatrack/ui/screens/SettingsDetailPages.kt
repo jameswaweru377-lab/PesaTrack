@@ -32,6 +32,7 @@ import com.kedevjimmy.pesatrack.data.local.EntityEnrichmentPreferences
 import com.kedevjimmy.pesatrack.ingestion.NotificationSourceTrustStore
 import com.kedevjimmy.pesatrack.planning.BillSchedules
 import com.kedevjimmy.pesatrack.planning.PlanningReminders
+import com.kedevjimmy.pesatrack.planning.ReviewAttentionReminders
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 import com.kedevjimmy.pesatrack.R
 
@@ -142,6 +143,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit) {
     var billOn by remember { mutableStateOf(bills.remindersEnabled()) }
     var budgetOn by remember { mutableStateOf(PlanningReminders.enabled(context, "budgets")) }
     var goalOn by remember { mutableStateOf(PlanningReminders.enabled(context, "goals")) }
+    var activityReviewOn by remember { mutableStateOf(ReviewAttentionReminders.enabled(context)) }
     var allowed by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
     val settings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { allowed = NotificationManagerCompat.from(context).areNotificationsEnabled() }
@@ -154,6 +156,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { listOf(1,3,7).forEach { days -> FilterChip(selected = lead == days, enabled = billOn, onClick = { lead = days; bills.setGlobalReminderLeadDays(days, billOn) }, label = { Text(pluralStringResource(R.plurals.bill_reminder_days, days, days)) }) } } }
         item { ChoiceSwitch("Budget warnings", "Tell me when a monthly category budget reaches 95% or goes over", budgetOn) { budgetOn = it; PlanningReminders.setEnabled(context, "budgets", it); if(it) ask() } }
         item { ChoiceSwitch("Savings reminders", "Remind me when a monthly goal has no contribution for a month", goalOn) { goalOn = it; PlanningReminders.setEnabled(context, "goals", it); if(it) ask() } }
+        item { ChoiceSwitch("Activity review tips", "A quiet phone notification when several uncategorized transactions still need review. At most once a day, with longer pauses for the same items.", activityReviewOn) { activityReviewOn = it; ReviewAttentionReminders.setEnabled(context, it); if(it) ask() } }
         item { Text("Amounts are hidden on the lock screen. You can turn each reminder off here or in Android settings.", style = MaterialTheme.typography.bodyMedium) }
     }
 }

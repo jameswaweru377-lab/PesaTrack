@@ -12,6 +12,7 @@ import android.view.WindowManager
 import com.kedevjimmy.pesatrack.salary.SalaryReminders
 import com.kedevjimmy.pesatrack.security.AppLockManager
 import com.kedevjimmy.pesatrack.planning.BillSchedules
+import com.kedevjimmy.pesatrack.planning.ReviewAttentionReminders
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -35,6 +36,7 @@ class MainActivity : ComponentActivity() {
     private var salaryOpenRequest by mutableStateOf(0)
     private var billsOpenRequest by mutableStateOf(0)
     private var planningOpenRequest by mutableStateOf(0)
+    private var reviewOpenRequest by mutableStateOf(0)
     private var planningRoute by mutableStateOf("budgets")
     private lateinit var appLockManager:
         AppLockManager
@@ -44,6 +46,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
         if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
+        if (intent.getBooleanExtra(ReviewAttentionReminders.OPEN_ACTIVITY_REVIEW, false)) reviewOpenRequest++
         intent.getStringExtra(com.kedevjimmy.pesatrack.planning.PlanningReminders.OPEN_PLAN)?.takeIf { it in setOf("budgets","saving-goals") }?.let { planningRoute=it; planningOpenRequest++ }
     }
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,10 +78,12 @@ class MainActivity : ComponentActivity() {
         updateSecureWindowState()
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
         if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
+        if (intent.getBooleanExtra(ReviewAttentionReminders.OPEN_ACTIVITY_REVIEW, false)) reviewOpenRequest++
         intent.getStringExtra(com.kedevjimmy.pesatrack.planning.PlanningReminders.OPEN_PLAN)?.takeIf { it in setOf("budgets","saving-goals") }?.let { planningRoute=it; planningOpenRequest++ }
         SalaryReminders.schedule(this)
         BillSchedules.schedule(this)
         com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this)
+        ReviewAttentionReminders.schedule(this)
         enableEdgeToEdge()
         AutomaticHistoryRepair.scheduleIfAllowed(this)
         setContent {
@@ -162,6 +167,7 @@ class MainActivity : ComponentActivity() {
                     PesaTrackApp(
                     salaryOpenRequest = salaryOpenRequest,
                     billsOpenRequest = billsOpenRequest,
+                    reviewOpenRequest = reviewOpenRequest,
                             planningOpenRequest = planningOpenRequest, planningRoute = planningRoute,
                     themeMode = themeMode,
                     onThemeModeChange = { newMode ->
@@ -181,6 +187,7 @@ class MainActivity : ComponentActivity() {
                         SalaryReminders.schedule(this)
         BillSchedules.schedule(this)
         com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this)
+        ReviewAttentionReminders.schedule(this)
                         AutomaticHistoryRepair.scheduleIfAllowed(this)
                     }
                 )

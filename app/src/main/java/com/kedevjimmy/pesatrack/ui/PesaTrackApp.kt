@@ -51,6 +51,7 @@ fun PesaTrackApp(
     onSetupComplete: () -> Unit,
     salaryOpenRequest: Int = 0,
     billsOpenRequest: Int = 0,
+    reviewOpenRequest: Int = 0,
     planningOpenRequest: Int = 0, planningRoute: String = "budgets"
 ) {
     val navController = rememberNavController()
@@ -75,6 +76,11 @@ fun PesaTrackApp(
 
     LaunchedEffect(planningOpenRequest, setupComplete) {
         if(planningOpenRequest > 0 && setupComplete && planningRoute in setOf("budgets", "saving-goals")) navController.navigate(planningRoute) { launchSingleTop = true }
+    }
+
+    LaunchedEffect(reviewOpenRequest, setupComplete) {
+        if (reviewOpenRequest > 0 && setupComplete)
+            navController.navigate("activity-attention") { launchSingleTop = true }
     }
 
     fun navigateToTab(tab: MainTab) {
