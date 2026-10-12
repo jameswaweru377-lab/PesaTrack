@@ -153,7 +153,23 @@ private fun readStatement(c:Context,uri:Uri):String {
     }
    }
   }
-  item {ToolError(error ?: dateError);done?.let {Text(it)};if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())}
+  if(error!=null || dateError!=null || done!=null || busy) item {
+   PesaCard {
+    Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+     ToolError(error ?: dateError)
+     done?.let {
+      Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+       Icon(Icons.Rounded.CheckCircle,null,tint=MaterialTheme.colorScheme.primary)
+       Text(it,style=MaterialTheme.typography.bodyMedium)
+      }
+     }
+     if(busy) {
+      LinearProgressIndicator(Modifier.fillMaxWidth())
+      Text("Checking your document and transactions…",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     }
+    }
+   }
+  }
   if(previewSource==selection)dateResult?.let {dates ->item {
    Text("${dates.rows.size} of ${rows.size} entries in selected dates · ${dates.excludedCount} outside",style=MaterialTheme.typography.titleSmall)
    Text("Entries in this file: ${dates.availableFromDay} to ${dates.availableToDay}.",style=MaterialTheme.typography.bodySmall)
@@ -162,25 +178,34 @@ private fun readStatement(c:Context,uri:Uri):String {
     Text("Some selected dates fall outside the dates of entries in this file. Only available entries can be imported.",style=MaterialTheme.typography.bodySmall)}
   }}
   if(pdfStatus!=null || pdfCandidates!=null) item {
-   pdfStatus?.let {Text(it,style=MaterialTheme.typography.bodyMedium)}
-   if(pdfPayslip) Button(onClick={onDismiss();onPaycheckClick()},enabled=!busy,
-     modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {Text("Open Paycheck Analysis")}
-   pdfCandidates?.let { candidates ->
-    candidates.problems.forEach {Text(it,color=MaterialTheme.colorScheme.error)}
-    if(candidates.rows.isNotEmpty()) {
-     Text("Identified ${candidates.rows.size} transaction candidates. Review and correct them before saving.")
-     OutlinedButton(enabled=!busy&&accountId.isNotEmpty(),
-       onClick={invalidatePreview();rows=candidates.rows;pdfRows=true;pdfCandidates=null}) {
-       Text("Review ${candidates.rows.size} extracted transactions")
+   PesaCard {
+    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+      Icon(Icons.Rounded.FactCheck,null,tint=MaterialTheme.colorScheme.primary)
+      Text("Document check",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      }
-    } else Text("No supported transaction rows were imported. Use a supported CSV or another statement PDF.")
+     pdfStatus?.let {Text(it,style=MaterialTheme.typography.bodyMedium)}
+     if(pdfPayslip) Button(onClick={onDismiss();onPaycheckClick()},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
+      Text("Open Paycheck Analysis")
+     }
+     pdfCandidates?.let { candidates ->
+      candidates.problems.forEach {Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
+      if(candidates.rows.isNotEmpty()) {
+       Text("${candidates.rows.size} candidate transactions found. Check account, dates, signed amounts and receipt codes before importing.",style=MaterialTheme.typography.bodySmall)
+       OutlinedButton(enabled=!busy&&accountId.isNotEmpty(),onClick={invalidatePreview();rows=candidates.rows;pdfRows=true;pdfCandidates=null},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
+        Text("Review ${candidates.rows.size} transactions")
+       }
+       if(accountId.isEmpty()) Text("Choose a source account above to continue.",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
+      } else Text("Nothing was added. Try a supported CSV or a different statement PDF.",style=MaterialTheme.typography.bodySmall)
+     }
+     TextButton(onClick={pdfStatus=null;pdfPayslip=false;pdfCandidates=null},enabled=!busy) {Text("Clear result")}
+    }
    }
-   TextButton(onClick={pdfStatus=null;pdfPayslip=false;pdfCandidates=null},enabled=!busy) {Text("Clear PDF result")}
   }
 
   if(previewSource==selection && preview.isNotEmpty()){
    if(pdfRows)item {Row(verticalAlignment=Alignment.CenterVertically){Checkbox(checked=pdfConfirmed,onCheckedChange={pdfConfirmed=it},enabled=!busy);Text("I checked the selected wallet, dates, signed amounts and receipt references against this M-Pesa statement.",Modifier.weight(1f))};if(accounts.firstOrNull{it.id==accountId}?.type!=AccountType.MOBILE_WALLET)Text("Choose the mobile-wallet account this M-Pesa statement belongs to.",color=MaterialTheme.colorScheme.error)}
-   item {Text("${preview.count{!it.duplicate&&!it.possibleMatch}} new · ${preview.count{!it.duplicate&&it.possibleMatch}} possible matches · ${preview.count{it.duplicate}} already recorded",style=MaterialTheme.typography.titleSmall)}
+   item {PesaCard {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {Text("04 · Review transactions",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold);Text("${preview.count{!it.duplicate&&!it.possibleMatch}} new · ${preview.count{!it.duplicate&&it.possibleMatch}} possible matches · ${preview.count{it.duplicate}} already recorded",style=MaterialTheme.typography.bodyMedium);Text("Only selected, validated transactions will be added.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
    item {Button(onClick={
     val source=selection;val reviewed=previewSource
     val requiredType=if(pdfRows)AccountType.MOBILE_WALLET else null
