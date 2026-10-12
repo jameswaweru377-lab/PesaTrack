@@ -169,13 +169,12 @@ fun AccountsScreen(
         try {
         val loadedPresentations =
             withContext(Dispatchers.IO) {
-                val accounts =
-                    accountStore.listAccounts(
-                        enabledOnly = true
-                    )
-                val confirmedAccountIds =
-                    understandingStore
-                        .confirmedAccountIds()
+                val accounts = traceFinancialRead("accounts.accountList") {
+                    accountStore.listAccounts(enabledOnly = true)
+                }
+                val confirmedAccountIds = traceFinancialRead("accounts.ownership") {
+                    understandingStore.confirmedAccountIds()
+                }
                 val groups =
                     AccountDisplayPolicy.groups(
                         accounts, includeCash = true
@@ -191,19 +190,12 @@ fun AccountsScreen(
                     }
                 val referenceEpochMs =
                     System.currentTimeMillis()
-                val allSnapshots =
-                    balanceStore
-                        .currentAccountSnapshots(
-                            accounts =
-                                groups.flatMap {
-                                    it.accounts
-                                },
-                            nowEpochMs =
-                                referenceEpochMs
-                        )
-                        .associateBy {
-                            it.accountId
-                        }
+                val allSnapshots = traceFinancialRead("accounts.balanceReconstruction") {
+                    balanceStore.currentAccountSnapshots(
+                        accounts = groups.flatMap { it.accounts },
+                        nowEpochMs = referenceEpochMs
+                    ).associateBy { it.accountId }
+                }
                 groups.map { group ->
                     accountBalancePresentation(
                         group = group,
@@ -220,8 +212,9 @@ fun AccountsScreen(
             }
         val loadedDebts =
             withContext(Dispatchers.IO) {
-                debtStore.accounts()
-                    .filter {
+                traceFinancialRead("accounts.activeDebts") {
+                    debtStore.accounts()
+                    }.filter {
                         it.isActive
                     }
                     .sortedByDescending {
