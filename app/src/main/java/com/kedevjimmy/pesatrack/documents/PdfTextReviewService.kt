@@ -35,10 +35,11 @@ class PdfTextReviewService : Service() {
                 if (Build.VERSION.SDK_INT >= 35) {
                     val password=message.data.getString("password")
                     message.data.remove("password")
-                    val pages=extract(descriptor,password)
+                    val positions=message.data.getBoolean("includePositions",false)
+                    val pages=extract(descriptor,password,positions)
                     val recipient=message.replyTo ?: throw PdfReadException(PdfFailure.SERVICE)
                     pages.forEachIndexed { index, page ->
-                        val chunks=if(page.isEmpty()) listOf("") else page.chunked(PdfTextChunkAssembler.CHUNK_CHARACTERS)
+                        val chunks=if(page.text.isEmpty()) listOf("") else page.text.chunked(PdfTextChunkAssembler.CHUNK_CHARACTERS)
                         chunks.forEach { chunk ->
                             recipient.send(Message.obtain().apply {
                                 data=Bundle().apply {
@@ -47,9 +48,35 @@ class PdfTextReviewService : Service() {
                                 }
                             })
                         }
+                        if(positions) {
+                            recipient.send(Message.obtain().apply {
+                                data=Bundle().apply {
+                                    putInt("pageIndex",index)
+                                    putBoolean("geometryStart",true)
+                                }
+                            })
+                            page.positioned.chunked(
+                                com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler.MAX_CHUNK
+                            ).forEach { batch ->
+                                recipient.send(Message.obtain().apply {
+                                    data=Bundle().apply {
+                                        putInt("pageIndex",index)
+                                        putStringArrayList("geometryTexts",ArrayList(batch.map {it.text}))
+                                        putFloatArray("geometryLeft",batch.map {it.left}.toFloatArray())
+                                        putFloatArray("geometryTop",batch.map {it.top}.toFloatArray())
+                                        putFloatArray("geometryRight",batch.map {it.right}.toFloatArray())
+                                        putFloatArray("geometryBottom",batch.map {it.bottom}.toFloatArray())
+                                    }
+                                })
+                            }
+                        }
                     }
                     response.putBoolean("done",true)
                     response.putInt("pageCount",pages.size)
+                    if(positions) {
+                        response.putIntArray("geometryCounts",pages.map {it.positioned.size}.toIntArray())
+                        response.putBooleanArray("geometryComplete",pages.map {it.complete}.toBooleanArray())
+                    }
                 } else throw PdfReadException(PdfFailure.VERSION)
             } catch (e: PdfReadException) {
                 response.putString("failure",e.failure.name)
@@ -66,16 +93,24 @@ class PdfTextReviewService : Service() {
         })
     }
 
+    private data class ExtractedPage(
+        val text: String,
+        val positioned: List<PdfTextFragment>,
+        val complete: Boolean
+    )
     @RequiresApi(35)
-    private fun extract(descriptor: ParcelFileDescriptor,password: String?): List<String> {
+    private fun extract(descriptor: ParcelFileDescriptor,password: String?,withPositions:Boolean): List<ExtractedPage> {
         PdfTextReviewPolicy.requireBytes(descriptor.statSize)
         return PdfRenderer(descriptor,LoadParams.Builder().setPassword(password).build()).use { renderer ->
         if(renderer.pageCount>PdfTextReviewPolicy.MAX_PAGES) throw PdfReadException(PdfFailure.TOO_MANY_PAGES)
         var characters = 0L
+        var positionedTotal = 0
         val pages = (0 until renderer.pageCount).map { index ->
             renderer.openPage(index).use { page ->
                 val text = StringBuilder()
                 val fragments=mutableListOf<PdfTextFragment>()
+                val positioned=mutableListOf<PdfTextFragment>()
+                var complete = true
                 for (content in page.textContents) {
                     characters += content.text.length + if (text.isNotEmpty()) 1L else 0L
                     if(characters>PdfTextReviewPolicy.MAX_CHARACTERS) throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
@@ -85,16 +120,31 @@ class PdfTextReviewService : Service() {
                     val bounds=content.bounds
                     if(bounds.size==1 && !content.text.contains('\n') && !content.text.contains('\r')) {
                         val box=bounds[0]
-                        fragments.add(PdfTextFragment(content.text,box.left,box.top,box.right,box.bottom))
-                    }
+                        val fragment=PdfTextFragment(content.text,box.left,box.top,box.right,box.bottom)
+                        fragments.add(fragment)
+                        if(withPositions) {
+                            val valid=fragment.text.length <=
+                                com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler.MAX_FRAGMENT_TEXT &&
+                                fragment.left.isFinite() && fragment.top.isFinite() &&
+                                fragment.right.isFinite() && fragment.bottom.isFinite() &&
+                                fragment.left < fragment.right && fragment.top < fragment.bottom &&
+                                positionedTotal < com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler.MAX_TOTAL_FRAGMENTS
+                            if(valid) {
+                                positioned.add(fragment)
+                                positionedTotal++
+                            } else complete=false
+                        }
+                    } else if(withPositions) complete=false
                 }
                 val original=text.toString()
                 val isStatement=original.contains("M-PESA STATEMENT",true) ||
                     original.contains("RECEIPT NO",true) && original.contains("COMPLETION TIME",true)
-                if(isStatement) PdfTextPositionReflow.reflow(fragments,original) else original
+                val normalized=if(isStatement) PdfTextPositionReflow.reflow(fragments,original) else original
+                ExtractedPage(normalized,if(withPositions)positioned else emptyList(),withPositions && complete)
             }
         }
-        PdfTextReviewPolicy.preview(pages).pages
+        PdfTextReviewPolicy.preview(pages.map {it.text})
+        pages
         }
     }
 
