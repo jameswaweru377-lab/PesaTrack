@@ -190,6 +190,10 @@ private fun readStatement(c:Context,uri:Uri):String {
      pdfCandidates?.let { candidates ->
       candidates.problems.forEach {Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
       candidates.currencyReview?.let {Text(it,color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.bodySmall)}
+      if(candidates.informationalRows>0) {
+       Text("${candidates.informationalRows} verified zero-value informational receipt(s) were excluded from cash transactions after running-balance checks. They did not create income or expenses.",
+        color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)
+      }
       if(candidates.rows.isNotEmpty()) {
        Text("${candidates.rows.size} candidate transactions found. Check account, dates, signed amounts and receipt codes before importing.",style=MaterialTheme.typography.bodySmall)
        OutlinedButton(enabled=!busy&&accountId.isNotEmpty(),onClick={invalidatePreview();rows=candidates.rows;pdfRows=true;pdfCandidates=null},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
