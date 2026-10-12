@@ -42,7 +42,8 @@ object PdfTextPositionReflow {
                 y=rows.last().map{(it.top+it.bottom)/2f}.average().toFloat()
             }
         }
-        val output=rows.joinToString("\n"){line->
+        val outputLines=mutableListOf<String>()
+        for(line in rows) {
             val sorted=line.sortedBy{it.left}
             // Overlapping non-identical text boxes can indicate duplicate render
             // layers / multi-column extraction. Fall back without deleting data.
@@ -51,8 +52,9 @@ object PdfTextPositionReflow {
                 if(sorted[i].left < previous.right-1f && sorted[i].text!=previous.text)
                     return original
             }
-            sorted.joinToString(" "){it.text.trim()}
+            outputLines.add(sorted.joinToString(" "){it.text.trim()})
         }
+        val output=outputLines.joinToString("\n")
         return if(output.length > MAX_TEXT || output.isBlank())original else output
     }
 }
