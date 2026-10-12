@@ -186,11 +186,14 @@ fun PlanScreen(
             withContext(Dispatchers.IO) {
                 // Pay cycles are rebuilt when ledger data changes. Reading Plan
                 // should not rebuild the whole cycle graph every time the tab opens.
-                val cycle = store.snapshot()
-                val recurring =
+                val cycle = traceFinancialRead("plan.payCycle") { store.snapshot() }
+                val recurring = traceFinancialRead("plan.recurringPatterns") {
                     recurringStore.suggestions(limit = 3)
-                val budgets = budgetStore.list()
-                val spent = budgetReads.spendingByCategory()
+                }
+                val budgets = traceFinancialRead("plan.budgetList") { budgetStore.list() }
+                val spent = traceFinancialRead("plan.categorySpending") {
+                    budgetReads.spendingByCategory()
+                }
                 val goals =
                     ruleStore.listRules(enabledOnly = true)
                         .filter {
@@ -203,7 +206,9 @@ fun PlanScreen(
                     budgets = budgets,
                     spentByCategory = spent,
                     goals = goals,
-                    bills = billSchedules.upcomingThisMonth()
+                    bills = traceFinancialRead("plan.upcomingBills") {
+                        billSchedules.upcomingThisMonth()
+                    }
                 )
             }
         snapshot = loaded.snapshot
