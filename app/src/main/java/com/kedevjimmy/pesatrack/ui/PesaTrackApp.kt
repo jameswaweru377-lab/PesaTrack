@@ -57,6 +57,7 @@ fun PesaTrackApp(
     val navController = rememberNavController()
     val planScreenCache = remember { com.kedevjimmy.pesatrack.ui.screens.PlanScreenCache() }
     val accountsScreenCache = remember { com.kedevjimmy.pesatrack.ui.screens.AccountsScreenCache() }
+    val debtsScreenCache = remember { com.kedevjimmy.pesatrack.ui.screens.DebtsScreenCache() }
     val homeScreenCache =
         remember {
             HomeScreenCache()
@@ -225,6 +226,7 @@ fun PesaTrackApp(
             ) { padding ->
                 AccountsScreen(
                     stateCache = accountsScreenCache,
+                    debtStateCache = debtsScreenCache,
                     scaffoldPadding = padding,
                     onDebtsClick = {
                         navController.navigate(
@@ -266,6 +268,7 @@ fun PesaTrackApp(
             ) { padding ->
                 DebtsScreen(
                     scaffoldPadding = padding,
+                    stateCache = debtsScreenCache,
                     onBack = {
                         navController.popBackStack()
                     }
