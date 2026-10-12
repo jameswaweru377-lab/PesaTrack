@@ -38,7 +38,7 @@ object PdfStatementReview {
         // Only currency evidence in statement metadata is authoritative: NEVER derive
         // KES from a merchant description, selected wallet, filename, or phone locale.
         val declared=lines.mapIndexedNotNull {i,line->
-            Regex("^(?:(?:STATEMENT|TRANSACTION|ACCOUNT)\\s+)?CURRENCY(?:\\s+CODE)?(?:\\s*[:=]\\s*|\\s+)(.*)$")
+            Regex("^(?:(?:STATEMENT|TRANSACTION|ACCOUNT)\\s+)?CURRENCY(?:\\s+CODE)?(?:\\s*[:=]\\s*|\\s+|$)(.*)$")
                 .matchEntire(line)?.groupValues?.get(1)?.ifBlank {lines.getOrNull(i+1) ?: ""}
         }
         val normalized=metadata.replace(Regex("\\s+")," ").uppercase(Locale.ROOT)
