@@ -497,13 +497,6 @@ fun DebtsScreen(
                 }
             }
         }
-        if (debtsLoaded && loadedRevision != revision && !debtsError) item {
-            Text(
-                "Showing last verified debt information while changes are checked.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
         if (activeDebts.isNotEmpty()) item {
             PesaCard {
                 Column(
@@ -511,7 +504,9 @@ fun DebtsScreen(
                         Modifier.padding(16.dp)
                 ) {
                     Text(
-                        if (totalDebtMinor == null) {
+                        if (loadedRevision != revision) {
+                            "Last verified outstanding"
+                        } else if (totalDebtMinor == null) {
                             "Balance unavailable"
                         } else {
                             "Known outstanding"
