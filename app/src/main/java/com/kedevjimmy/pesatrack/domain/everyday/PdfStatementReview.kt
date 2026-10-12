@@ -10,7 +10,9 @@ data class PdfStatementCandidates(
     val rows: List<StatementRow>,
     val problems: List<String>,
     /** Statement layout identifies the Kenya currency, but authenticity is not verified. */
-    val currencyReview: String? = null
+    val currencyReview: String? = null,
+    /** Zero-value informational receipts are verified, but never posted as cash. */
+    val informationalRows: Int = 0
 )
 
 /** Bounded M-Pesa text-layout adapter. Unsupported/partial evidence offers no import candidates. */
@@ -35,6 +37,7 @@ object PdfStatementReview {
     private val time=Regex("[0-9]{2}:[0-9]{2}:[0-9]{2}")
     private val transaction=Regex("^([A-Z0-9]{10})\\s+([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}/[0-9]{2}/[0-9]{4})\\s+([0-9]{2}:[0-9]{2}:[0-9]{2})\\s+(.+?)\\s+COMPLETED\\s+(.+)$",RegexOption.IGNORE_CASE)
     private val moneyCell=Regex("(?:-|(?:-?[0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?))")
+    private val explicitZero=Regex("0+(?:\\.0{1,2})?")
     private val footer=Regex("(?im)^[ \\t]*(?:DISCLAIMER\\b|STATEMENT VERIFICATION CODE\\b|FOR SELF[- ]HELP\\b)")
     private val officialLayout=Regex("\\bM[ -]?PESA STATEMENT\\b")
     private val explicitForeign=Regex("\\b(?:USD|EUR|GBP|TZS|UGX|ZAR|NGN)\\b")
@@ -130,6 +133,10 @@ object PdfStatementReview {
                 val cells=result.groupValues[5].split(Regex("\\s+"))
                 if(cells.size !in 2..3 || cells.any {!moneyCell.matches(it)})
                     return unsupported("Paid In, Withdrawn and Balance values could not be aligned. No transactions were imported.")
+                // A two-cell row containing only a blank ('-') amount is not proof
+                // of zero movement: the missing cell may contain an unread debit.
+                if(cells.size==2 && cells[0]=="-")
+                    return unsupported("A receipt has no readable amount. Nothing was imported.")
                 fun value(cell:String):Long? =
                     if(cell=="-")0L else EverydayMoneyPolicy.money(cell)
                 val balance=value(cells.last())
@@ -147,14 +154,20 @@ object PdfStatementReview {
                 } else {
                     val paid=if(paidFirst)first else second
                     val debit=if(paidFirst)second else first
-                    if(paid<0 || debit==Long.MIN_VALUE || (paid>0)==(debit!=0L))
+                    if(paid<0 || debit==Long.MIN_VALUE || (paid>0 && debit!=0L))
                         return unsupported("A transaction has ambiguous paid-in and withdrawn amounts. No transactions were selected.")
                     runCatching {
                         if(debit<0) Math.addExact(paid,debit) else Math.subtractExact(paid,debit)
                     }.getOrNull() ?: return unsupported("An amount is outside the supported range. Nothing was imported.")
                 }
-                if(signed==0L || signed==Long.MIN_VALUE)
-                    return unsupported("A transaction has no single nonzero wallet movement; review the original statement.")
+                if(signed==Long.MIN_VALUE)
+                    return unsupported("A transaction amount is outside the supported range. Nothing was imported.")
+                // Some M-Pesa statements contain completed zero-value informational
+                // receipts. Keep them as balance anchors; never import them as money.
+                // Blank cells alone are not enough evidence of a zero-value entry.
+                if(signed==0L && !(if(compact) explicitZero.matches(cells[0])
+                    else explicitZero.matches(cells[0]) && explicitZero.matches(cells[1])))
+                    return unsupported("A zero-value row has missing or ambiguous money cells. Nothing was imported.")
                 val description=result.groupValues[4].trim()
                 if(description.length !in 1..200)
                     return unsupported("A transaction description is longer than supported. No partial import was prepared.")
@@ -167,13 +180,19 @@ object PdfStatementReview {
                 return unsupported("A page has transaction timestamps without readable receipt rows. No partial import was prepared.")
         }
         if(decoded.isEmpty())return unsupported("No supported M-Pesa transaction rows were found. No partial import was prepared.")
-        val rows=decoded.map {it.row}
-        if(rows.map {it.reference}.distinct().size!=rows.size)
+        val informational=decoded.count {it.row.signedMinor==0L}
+        // Check *all* statement receipts, including any zero-value records that
+        // will be excluded from the import review, for duplicate references.
+        if(decoded.map {it.row.reference}.distinct().size!=decoded.size)
             return unsupported("Repeated receipt references need review. No transactions were selected.")
-        // Compact rows omit a blank Paid In/Withdrawn cell. Require at least one
-        // signed debit and a complete sequential balance proof for every row.
-        if(decoded.any {it.compact}) {
-            if(!structuredKenyanStatement || !paidFirst || decoded.none {it.signedDebit} || decoded.size<2)
+        // The omitted money column in a compact row requires corroborating
+        // evidence of direction. A zero receipt additionally requires an intact
+        // running balance across adjacent rows before it can be left out.
+        if(decoded.any {it.compact} || informational>0) {
+            if(decoded.size<2)
+                return unsupported("An informational receipt has no adjacent balance evidence. Nothing was imported.")
+            if(decoded.any {it.compact} &&
+                (!structuredKenyanStatement || !paidFirst || decoded.none {it.signedDebit}))
                 return unsupported("The PDF omits empty money columns and their direction could not be proved. No transactions were selected.")
             val descending=decoded.first().row.date>=decoded.last().row.date
             for(i in 0 until decoded.size-1) {
@@ -185,10 +204,14 @@ object PdfStatementReview {
                     return unsupported("The PDF's Paid In/Withdrawn columns could not be reconciled with successive balances. No transactions were selected.")
             }
         }
+        val rows=decoded.map {it.row}.filter {it.signedMinor!=0L}
+        if(rows.isEmpty())return unsupported(
+            "This statement has only verified zero-value informational receipts; there are no monetary transactions to import."
+        )
         val validation=runCatching {StatementCsv.validateRows(rows,now)}
         if(validation.isFailure)return unsupported(
             "A statement amount, date or description failed validation. Nothing was imported."
         )
-        return PdfStatementCandidates(rows,emptyList(),currencyReview)
+        return PdfStatementCandidates(rows,emptyList(),currencyReview,informational)
     }
 }
