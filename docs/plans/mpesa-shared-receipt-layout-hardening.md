@@ -20,6 +20,14 @@ The real document demonstrates:
 5. Display disputed receipt groups in the normal statement review, initially **unselected**. User must inspect the signed amount and original source before choosing them. There is no automatic or silent repair of those discrepancies.
 6. Preserve M-Pesa-only account confirmation, existing currency requirements, document size limits, atomic import/rollback, and local-first privacy. No new data schema, permissions, telemetry or external PDF processor.
 
+## Physical table reconstruction
+
+- Statement imports now request the already-available optional **local PDF coordinates**. Payslips and other readers retain the text-only default.
+- The native isolated PDF service preserves bounded multiline Details blocks in the same ordered IPC stream instead of dropping every block containing a newline. Strict geometry length, rectangle and total-fragment limits still apply.
+- For a positively recognized receipt/status block family, the new conservative adapter combines text from the **physical Details region** separately from the Completed / Paid In / Withdrawn / Balance region. Numeric account references and masked identifiers in Details cannot become extra monetary cells after flattened reading-order conversion.
+- The adapter proves exact counts of receipt anchors and completed statuses and refuses missing fragments, cross-column boxes, unknown extra money tokens, invalid document boundaries and incomplete positional data. Only then does it pass reconstructed rows through the existing currency/receipt/group audit.
+- If Android cannot provide trustworthy complete geometry, the old text parser remains as a strict fallback. No partial financial import or invented cell value is permitted. This fallback may still reject unsupported PDF structures; Android-device acceptance remains pending.
+
 ## Acceptance / limits
 
 - Synthetic JVM cases cover masked descriptions, prohibited extra amounts, distinct/malformed shared receipt legs, deterministic fingerprint independence, group-level balance proof, date disorder and clearly inconsistent statements.
