@@ -71,6 +71,7 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import androidx.compose.material3.LinearProgressIndicator
 
 internal data class AccountComponentPresentation(
@@ -147,13 +148,24 @@ fun AccountsScreen(
             mutableStateOf(initialCache?.debts ?: emptyList())
         }
 
-    var accountsLoading by remember { mutableStateOf(true) }
+    var accountsLoading by remember { mutableStateOf(initialCache == null) }
     var accountsLoaded by remember { mutableStateOf(initialCache != null) }
     var accountsError by remember { mutableStateOf(false) }
     var accountsRetry by remember { mutableStateOf(0) }
     LaunchedEffect(revision, accountsRetry) {
+        // Re-entering Accounts with an unchanged, complete snapshot must be instant.
+        // Do not rescan accounts/balances merely because the NavHost recreated
+        // this destination. The revision gate still refreshes actual ledger edits.
+        if (accountsLoaded && !ScreenRefreshPolicy.needsRead(
+                stateCache?.revision, revision, accountsRetry
+            )) {
+            accountsLoading = false
+            return@LaunchedEffect
+        }
+        if (accountsLoaded) delay(180) // coalesce rapid import updates
         accountsLoading = true
         accountsError = false
+        val refreshStarted = android.os.SystemClock.elapsedRealtime()
         try {
         val loadedPresentations =
             withContext(Dispatchers.IO) {
@@ -222,6 +234,8 @@ fun AccountsScreen(
         stateCache?.presentations = loadedPresentations
         stateCache?.debts = loadedDebts
         stateCache?.revision = revision
+        val elapsed = android.os.SystemClock.elapsedRealtime() - refreshStarted
+        if (elapsed > 400L) android.util.Log.i("PesaTrackPerf", "Accounts refresh took ${elapsed}ms")
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (failure: Exception) {
             android.util.Log.e("PesaTrackAccounts", "Accounts could not load", failure)
@@ -258,8 +272,10 @@ fun AccountsScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) }
-        if (accountsLoading || accountsError) item {
-            FinancialReadBanner("Accounts", accountsLoading, accountsError) { accountsRetry++ }
+        // An already-visible balance list must not jump down for an
+        // intermittent loading banner on every background refresh.
+        if (accountsError) item {
+            FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
         }
         item {
             PesaCard {
