@@ -75,10 +75,13 @@ class EverydayMoneyStore(context:Context) {
   val existing=transactions.transactionsBetween(rows.minOfOrNull {it.date} ?: 0, (rows.maxOfOrNull {it.date} ?: 0)+2*86400000L)
   val seen=hashSetOf<String>()
   rows.map {r->
-   val codeMatch=r.reference?.let {transactions.getByTransactionCode(it)}!=null
+   // Shared event references can contain separate payment, fee or
+   // financing legs. A code-only match cannot prove a duplicate cash leg.
+   val linked=r.reference?.let {transactions.getByTransactionCode(it)}
+   val codeMatch=linked!=null && exactReferenceLeg(linked,accountId,r)
    val match=existing.any {e->e.accountId==accountId && e.amountMinor==kotlin.math.abs(r.signedMinor) && ((r.signedMinor>0 && e.direction==MoneyDirection.INCOME.name)||(r.signedMinor<0 && e.direction in setOf(MoneyDirection.EXPENSE.name,MoneyDirection.TRANSFER.name))) && sameDay(e.occurredAtEpochMs,r.date)}
    val key=importKey(accountId,r);val prior=database.readableDatabase.rawQuery("SELECT 1 FROM statement_import_entries WHERE import_key = ?",arrayOf(key)).use {it.moveToFirst()}
-   Preview(r,prior||codeMatch||!seen.add(key),match)
+   Preview(r,prior||codeMatch||!seen.add(key),match && !codeMatch)
   }
  }
  /** Entire selected import either commits or rolls back; recheck duplicates inside the lock. */
@@ -97,7 +100,11 @@ class EverydayMoneyStore(context:Context) {
       FinancialEvidenceSource.STATEMENT,if(r.signedMinor>0)FinancialEvidenceClaim.CASH_RECEIVED else FinancialEvidenceClaim.CASH_SENT,
       interpreted=true,userConfirmed=true,ownAccountResolved=true
      ))
-     val p=ParsedMpesaTransaction(r.reference,MpesaTransactionType.OTHER,kotlin.math.abs(r.signedMinor),r.description,feeMinor=0,balanceMinor=null,occurredAtText=null,rawMessage="statement-entry|$key",reversalOfCode=null)
+     // A canonical SMS transaction uses a code-only fingerprint. Multiple
+     // real statement legs may share that code, so statement candidates use
+     // their account/date/amount/description hash instead. The original
+     // reference is retained separately in the immutable evidence journal.
+     val p=ParsedMpesaTransaction(null,MpesaTransactionType.OTHER,kotlin.math.abs(r.signedMinor),r.description,feeMinor=0,balanceMinor=null,occurredAtText=null,rawMessage="statement-entry|$key",reversalOfCode=null)
      val fingerprint=TransactionFingerprint.of(p,r.date)
      val added=transactions.insertIfNew(p,null,"statement_import",System.currentTimeMillis(),r.date,rebuildPayCycles=false,runRelationshipReconciliation=false,runMirrorCorrelation=false,accountIdOverride=accountId,allowLegacyAccountFallback=false,directionOverride=if(r.signedMinor>0)MoneyDirection.INCOME else MoneyDirection.EXPENSE,categoryOverride=TransactionCategory.UNCATEGORIZED,reviewStateOverride=ReviewState.NEEDS_REVIEW)
      if(added) {
@@ -107,7 +114,8 @@ class EverydayMoneyStore(context:Context) {
       linkReason="CREATED"
      }
     }
-    if(target==null) target=r.reference?.let {transactions.getByTransactionCode(it)?.id}
+    if(target==null) target=r.reference?.let {transactions.getByTransactionCode(it)}
+      ?.takeIf {existing -> exactReferenceLeg(existing,accountId,r)}?.id
     EvidenceJournalStore.observe(db,"STATEMENT",accountId,key,accountId,r.signedMinor,r.date,r.reference,target,linkReason)
    };db.setTransactionSuccessful()
   }finally{db.endTransaction()};LedgerUpdateBus.notifyChanged();count
@@ -121,6 +129,14 @@ class EverydayMoneyStore(context:Context) {
   database.writableDatabase.insertOrThrow("account_balance_observations",null,ContentValues().apply {put("observation_key","user-check:"+UUID.randomUUID());put("entity_key",entity);put("account_id",accountId);put("balance_minor",balance);put("confidence","HIGH");put("observed_at_epoch_ms",now);put("source_kind","user_balance_check");put("created_at_epoch_ms",now)})
   LedgerUpdateBus.notifyChanged()
  }
+ /** A receipt reference is only duplicate evidence when the observed
+  * account, direction, minor-unit amount and date also agree. */
+ private fun exactReferenceLeg(existing:StoredTransaction,accountId:String,row:StatementRow):Boolean =
+  existing.accountId==accountId &&
+  existing.amountMinor==kotlin.math.abs(row.signedMinor) &&
+  ((row.signedMinor>0 && existing.direction==MoneyDirection.INCOME.name) ||
+   (row.signedMinor<0 && existing.direction in setOf(MoneyDirection.EXPENSE.name,MoneyDirection.TRANSFER.name))) &&
+  sameDay(existing.occurredAtEpochMs,row.date)
  private fun sameDay(a:Long,b:Long):Boolean {val x=Calendar.getInstance().apply {timeInMillis=a};val y=Calendar.getInstance().apply {timeInMillis=b};return x.get(Calendar.YEAR)==y.get(Calendar.YEAR)&&x.get(Calendar.DAY_OF_YEAR)==y.get(Calendar.DAY_OF_YEAR)}
  private fun importKey(account:String,r:StatementRow)=MessageDigest.getInstance("SHA-256").digest("$account|${r.date}|${r.signedMinor}|${r.description}|${r.reference.orEmpty()}".toByteArray()).joinToString(""){"%02x".format(it)}
 }
