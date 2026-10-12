@@ -101,7 +101,7 @@ class PdfPositionChunkAssembler {
             pages.size == expectedPages &&
             expectedCounts.size == expectedPages && complete.size == expectedPages &&
             expectedCounts.all { it >= 0 } &&
-            expectedCounts.sumOf { it.toLong() } == total) { "PDF geometry transfer incomplete." }
+            expectedCounts.sumOf { it.toLong() } == total.toLong()) { "PDF geometry transfer incomplete." }
         val data = List(expectedPages) { index -> pages.getOrNull(index)?.toList().orEmpty() }
         require(data.indices.all { data[it].size == expectedCounts[it] }) {
             "Missing or out-of-order PDF geometry fragments."
