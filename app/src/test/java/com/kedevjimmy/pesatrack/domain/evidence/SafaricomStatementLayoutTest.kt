@@ -74,4 +74,32 @@ class SafaricomStatementLayoutTest {
         val result=PdfStatementReview.read(listOf(text),zone)
         assertEquals(result.problems.joinToString(),3,result.rows.size)
     }
+
+    @Test fun wrappedDetailsBelowMoneyCellsAreAttachedToCorrectReceipt() {
+        val text=official+
+            "QAB1234569 2026-10-10 10:30:00 Payment Completed -20.00 490.00\n"+
+            "to a synthetic merchant\n"+
+            "QAB1234568 2026-10-09 10:30:00 Funds received Completed 100.00 510.00\n"+
+            "QAB1234567 2026-10-08 10:30:00 Payment Completed -50.00 410.00"
+        val result=PdfStatementReview.read(listOf(text),zone)
+        assertEquals(result.problems.joinToString(),3,result.rows.size)
+        assertTrue(result.rows.first().description.contains("synthetic merchant"))
+    }
+    @Test fun ambiguousPostRowMoneyAndStatusAreNeverAppendedAsDescription() {
+        val text=official+
+            "QAB1234569 2026-10-10 10:30:00 Payment Completed -20.00 490.00\n"+
+            "100.00\n"+
+            "QAB1234568 2026-10-09 10:30:00 Funds received Completed 100.00 510.00\n"+
+            "QAB1234567 2026-10-08 10:30:00 Payment Completed -50.00 410.00"
+        val result=PdfStatementReview.read(listOf(text),zone)
+        assertTrue(result.rows.isEmpty())
+    }
+    @Test fun printedCurrencyUnitsInTableCanAuthorizeExistingLayout() {
+        val text="M-PESA STATEMENT (KES)\n"+
+            "Receipt No. Completion Time Details Transaction Status Paid In (KES) Withdrawn (KES) Balance (KES)\n"+
+            "QAB1234567 2026-10-08 10:30:00 Taxi Completed - -50.00 410.00"
+        val result=PdfStatementReview.read(listOf(text),zone)
+        assertEquals(result.problems.joinToString(),1,result.rows.size)
+        assertNull(result.currencyReview)
+    }
 }
