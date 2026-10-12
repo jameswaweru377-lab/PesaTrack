@@ -152,6 +152,7 @@ data class HomeLoadedState(
 
 class HomeScreenCache {
     var data: HomeLoadedState? = null
+    var revision: Long = -1L
 }
 
 private fun emptyPayCycleSnapshot() =
@@ -502,7 +503,8 @@ fun HomeScreen(
 
     fun cacheHomeState(
         core: HomeCoreState,
-        supplemental: HomeSupplementalState
+        supplemental: HomeSupplementalState,
+        loadedRevision: Long
     ) {
         stateCache?.data =
             HomeLoadedState(
@@ -534,6 +536,7 @@ fun HomeScreen(
                     supplemental
                         .moneyPictureHealth
             )
+        stateCache?.revision = loadedRevision
     }
 
     fun refresh(
@@ -550,6 +553,8 @@ fun HomeScreen(
                     refreshPending = false
                     val shouldRebuild = rebuildPending
                     rebuildPending = false
+                    val loadedRevision = LedgerUpdateBus.state.value.revision
+                    val refreshStarted = android.os.SystemClock.elapsedRealtime()
                     val core =
                         loadHomeCoreState(
                             rebuildCycles =
@@ -600,9 +605,11 @@ fun HomeScreen(
                     )
                     cacheHomeState(
                         core = core,
-                        supplemental =
-                            supplemental
+                        supplemental = supplemental,
+                        loadedRevision = loadedRevision
                     )
+                    val elapsed = android.os.SystemClock.elapsedRealtime() - refreshStarted
+                    if (elapsed > 400L) android.util.Log.i("PesaTrackPerf", "Home refresh took ${elapsed}ms")
                 } while (refreshPending)
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -615,18 +622,11 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        refresh()
-    }
-
-    LaunchedEffect(
-        ledgerUpdateState.revision,
-        homeLoaded
-    ) {
-        if (
-            homeLoaded &&
-            ledgerUpdateState.revision > 0L
-        ) {
+    // A single revision-driven effect replaces two independent launch
+    // effects, which previously loaded Home twice after onboarding or entry.
+    // Navigate back to an unchanged snapshot without hitting the database.
+    LaunchedEffect(ledgerUpdateState.revision) {
+        if (!homeLoaded || stateCache?.revision != ledgerUpdateState.revision) {
             refresh()
         }
     }
