@@ -891,6 +891,7 @@ fun BillsRemindersScreen(
     var bills by remember {
         mutableStateOf<List<ScheduledBill>>(emptyList())
     }
+    var incompleteBills by remember { mutableStateOf<List<SmartRule>>(emptyList()) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var retryLoad by remember { mutableIntStateOf(0) }
     var billEditor by remember { mutableStateOf(false) }
@@ -903,11 +904,12 @@ fun BillsRemindersScreen(
     LaunchedEffect(revision.revision, monthOffset, retryLoad) {
         loadError = null
         try {
-            bills = withContext(Dispatchers.IO) {
-                schedules.list(
-                    billMonth(monthOffset).timeInMillis
-                )
+            val result = withContext(Dispatchers.IO) {
+                schedules.list(billMonth(monthOffset).timeInMillis) to
+                    schedules.unconfiguredRecurringRules()
             }
+            bills = result.first
+            incompleteBills = result.second
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
@@ -970,6 +972,32 @@ fun BillsRemindersScreen(
         item { ConceptLoadError(loadError) { retryLoad++ } }
         item { BillsPageHeader(onBack) }
         item { SuggestedBillsPanel() }
+        if (incompleteBills.isNotEmpty()) item {
+            PesaCard {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Finish setting up a bill", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "A recurring payment was saved before its due date was confirmed. Choose the schedule so it appears on your calendar.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    incompleteBills.forEach { rule ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(rule.displayLabel ?: rule.name, modifier = Modifier.weight(1f))
+                            TextButton(onClick = {
+                                editingBill = rule
+                                billEditor = true
+                            }) { Text("Set due date") }
+                        }
+                    }
+                }
+            }
+        }
+
         item {
             BillsHero(
                 bills = bills,

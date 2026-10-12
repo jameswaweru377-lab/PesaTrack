@@ -48,7 +48,8 @@ import java.nio.charset.CodingErrorAction
  }}
  chosen?.let {candidate->SuggestedBillSheet(candidate,onDismiss={chosen=null})}
 }
-@Composable private fun SuggestedBillSheet(candidate:RecurringPatternCandidate,onDismiss:()->Unit) {
+/** Shared confirmation sheet used by both Plan and Bills suggestions. */
+@Composable internal fun SuggestedBillSheet(candidate:RecurringPatternCandidate,onDismiss:()->Unit) {
  val c=LocalContext.current;val scope=rememberCoroutineScope();var amount by rememberSaveable(candidate.patternKey){mutableStateOf(amountText(candidate.typicalAmountMinor))};var cadence by rememberSaveable(candidate.patternKey){mutableStateOf(if(candidate.medianIntervalDays in 5..9)"WEEKLY"else"MONTHLY")};val expected=Calendar.getInstance().apply{timeInMillis=candidate.nextExpectedAtEpochMs};var day by rememberSaveable(candidate.patternKey){mutableStateOf(expected.get(Calendar.DAY_OF_MONTH).toString())};var weekday by rememberSaveable(candidate.patternKey){mutableStateOf(expected.get(Calendar.DAY_OF_WEEK).toString())};var reminders by rememberSaveable{mutableStateOf(true)};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
  MoneyToolSheet("Set up bill","Check the amount and due date. This creates a bill reminder from the repeated payments you confirmed. It does not add another payment or charge your account.",busy,onDismiss){
   item{Text(candidate.label,style=MaterialTheme.typography.titleLarge)}

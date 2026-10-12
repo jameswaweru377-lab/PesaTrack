@@ -161,6 +161,19 @@ class BillSchedules(private val context: Context) {
             )
     }
 
+    /**
+     * Rules accepted using older Plan versions might lack an explicit due
+     * schedule. Don't silently call them bills or create a guessed due date:
+     * offer a one-time completion flow instead.
+     */
+    fun unconfiguredRecurringRules(): List<SmartRule> =
+        RuleStore.get(context).listRules(true).filter {
+            it.direction == MoneyDirection.EXPENSE &&
+                it.preset == RulePreset.OTHER_RECURRING &&
+                (it.plannedAmountMinor ?: 0L) > 0L &&
+                !isExplicitBill(it.id)
+        }
+
     /** Bills that are scheduled in the current month and still have money due. */
     fun upcomingThisMonth(
         now: Long = System.currentTimeMillis()

@@ -139,6 +139,11 @@ fun PlanScreen(
     var localRefresh by remember {
         mutableStateOf(0)
     }
+    // Plan and Bills must use the same confirmed schedule creation flow.
+    // Accepting only a recurring Smart Rule does not put a bill on the calendar.
+    var billSetupCandidate by remember {
+        mutableStateOf<RecurringPatternCandidate?>(null)
+    }
     var monthlyBudgets by remember {
         mutableStateOf<List<MonthlyBudget>>(initialData?.budgets ?: emptyList())
     }
@@ -744,17 +749,9 @@ fun PlanScreen(
                     candidate =
                         candidate,
                     onAdd = {
-                        planScope.launch {
-                            withContext(
-                                Dispatchers.IO
-                            ) {
-                                recurringStore
-                                    .accept(
-                                        candidate
-                                    )
-                            }
-                            localRefresh += 1
-                        }
+                        // Defer all writes until the user confirms the amount,
+                        // cadence and due date in the existing bill setup sheet.
+                        billSetupCandidate = candidate
                     },
                     onDismiss = {
                         planScope.launch {
@@ -966,6 +963,15 @@ fun PlanScreen(
                 }
             }
         }
+    }
+
+    billSetupCandidate?.let { candidate ->
+        SuggestedBillSheet(candidate, onDismiss = {
+            billSetupCandidate = null
+            // Re-read the explicit bill schedule, even when save updates only
+            // local prefs. Closing an unmodified sheet is harmless.
+            localRefresh += 1
+        })
     }
 }
 
@@ -1250,7 +1256,7 @@ private fun RecurringSuggestionCard(
                 Button(
                     onClick = onAdd
                 ) {
-                    Text("Add to plan")
+                    Text("Set up bill")
                 }
             }
         }
