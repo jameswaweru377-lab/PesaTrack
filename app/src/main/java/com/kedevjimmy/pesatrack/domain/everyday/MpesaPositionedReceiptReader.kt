@@ -109,6 +109,14 @@ object MpesaPositionedReceiptReader {
                 val details=found.groupValues[4].trim()
                 if(details.isBlank() || details.length>200 || completed.containsMatchIn(details))
                     return unsupported(pageNo,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT)
+                // When the native status block already contains both the
+                // movement and running balance, a further monetary fragment
+                // is not an optional third column: it is uncertain evidence.
+                val existingStatusMoney=rightSide.matchEntire(clean(status.text))
+                    ?.groupValues?.get(1)?.split(Regex("\\s+")).orEmpty()
+                if(right.size>1 && existingStatusMoney.size>=2 &&
+                    existingStatusMoney.all {moneyCell.matches(it)})
+                    return unsupported(pageNo,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY)
                 val monetary=clean(right.joinToString(" ") {it.text})
                 val money=rightSide.matchEntire(monetary)?.groupValues?.get(1)
                     ?.split(Regex("\\s+")) ?: return unsupported(
