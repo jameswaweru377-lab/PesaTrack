@@ -35,16 +35,29 @@ object PdfStatementReview {
         if(pages.any {it.isBlank()})return unsupported("Some pages have no text. A complete transaction review is unavailable; use CSV or manual entry.")
         val metadata=pages.joinToString("\n") {page->page.substring(0,start.find(page)?.range?.first ?: page.length)}
         val lines=metadata.lines().map {it.trim().uppercase(Locale.ROOT)}.filter {it.isNotEmpty()}
+        // Only currency evidence in statement metadata is authoritative: NEVER derive
+        // KES from a merchant description, selected wallet, filename, or phone locale.
         val declared=lines.mapIndexedNotNull {i,line->
-            Regex("^CURRENCY(?: CODE)?(?:\\s*[:=]\\s*|\\s+)(.+)$").matchEntire(line)?.groupValues?.get(1)
-                ?: if(Regex("CURRENCY(?: CODE)?\\s*[:=]?").matches(line))lines.getOrNull(i+1) ?: "" else null
+            Regex("^(?:(?:STATEMENT|TRANSACTION|ACCOUNT)\\s+)?CURRENCY(?:\\s+CODE)?(?:\\s*[:=]\\s*|\\s+)(.*)$")
+                .matchEntire(line)?.groupValues?.get(1)?.ifBlank {lines.getOrNull(i+1) ?: ""}
         }
-        if(declared.isEmpty() || declared.any {!Regex("KES|KSH|KSHS").matches(it)})
-            return unsupported("KES currency could not be established from the statement metadata, or a conflicting currency was found. No transaction candidates were prepared.")
         val normalized=metadata.replace(Regex("\\s+")," ").uppercase(Locale.ROOT)
-        if(!normalized.contains("M-PESA") || !Regex("\\b(?:KES|KSH|KSHS)\\b").containsMatchIn(normalized))
+        // Supported statements also declare units in their table headings or title,
+        // instead of a separate 'Currency: KES' field.
+        val columnUnits=Regex("\\b(?:PAID IN|WITHDRAWN|BALANCE)\\s*\\(\\s*([A-Z]{3,8})\\s*\\)")
+            .findAll(normalized).map {it.groupValues[1]}.toList()
+        val titleUnits=Regex("\\bM-PESA\\s+STATEMENT\\s*\\(\\s*([A-Z]{3,8})\\s*\\)")
+            .findAll(normalized).map {it.groupValues[1]}.toList()
+        val currencies=declared+columnUnits+titleUnits
+        if(currencies.isEmpty() || currencies.any {it !in setOf("KES","KSH","KSHS")})
+            return unsupported("KES currency could not be established from the statement metadata, or a conflicting currency was found. No transaction candidates were prepared.")
+        if(!normalized.contains("M-PESA"))
             return unsupported("This PDF layout or currency is not supported for transaction import. Use supported CSV or manual entry.")
-        val headers=Regex("(?:PAID IN WITHDRAWN|WITHDRAWN PAID IN) BALANCE").findAll(normalized).map {it.value}.toSet()
+        // Normalize only validated currency units attached to column names. Other
+        // monetary text and every transaction row remain unchanged.
+        val normalizedHeader=normalized.replace(Regex("\\s*\\(\\s*(?:KES|KSH|KSHS)\\s*\\)"),"")
+        val headers=Regex("(?:PAID IN WITHDRAWN|WITHDRAWN PAID IN) BALANCE")
+            .findAll(normalizedHeader).map {it.value}.toSet()
         if(headers.size!=1)return unsupported("The paid-in and withdrawn columns could not be identified consistently. No transactions were selected.")
         val paidFirst=headers.single().startsWith("PAID IN")
         val rows=mutableListOf<StatementRow>()
