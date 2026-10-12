@@ -101,25 +101,57 @@ private fun readStatement(c:Context,uri:Uri):String {
    } else {
     pdfPayslip=false
     pdfCandidates=PdfStatementReview.read(pdf.pages,TimeZone.getTimeZone(zoneId))
-    pdfStatus="PDF read locally. Only supported M-Pesa transaction rows can be reviewed. The full document text is not shown."
+    pdfStatus=if(pdfCandidates?.rows?.isNotEmpty()==true) "Statement read locally. Transactions are ready for your review." else "The PDF opened, but no transactions are ready to import."
    }
   }
  )
  PdfPasswordDialog(pdfImport)
- MoneyToolSheet("Import statement","Import entries from UTF-8 CSV, up to 2 MB and 5,000 entries, kept on this phone. Use date, description, amount and optional reference. Negative amounts are payments; positive amounts are money received. You can use debit and credit columns instead. Dates: yyyy-MM-dd or dd/MM/yyyy. PDF text preview is available on Android 15 or newer, up to 8 MB and 160 pages. PDFs are unlocked locally when a password is supplied. A supported M-Pesa text layout can produce editable transaction candidates; other layouts are not imported. Scanned/image PDFs need OCR, which is unavailable. Payslips belong in Paycheck Analysis. This importer does not display raw document text. Exact duplicates are skipped. Possible matches start unchecked; select one only if it is a different payment. Imported entries need your review before reports use them.",busy,onDismiss) {
-  item {ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy){if(accountId!=it){invalidatePreview();accountId=it}}}
+ StatementImportWorkspace(busy,onDismiss) {
   item {
-   ChoiceField("Import dates",if(customDates)"Custom date range"else"All statement dates",listOf("all" to "All statement dates","custom" to "Custom date range"),!busy){val next=it=="custom";if(customDates!=next){invalidatePreview();customDates=next}}
-   Text("Custom dates include both chosen days. Only entries within those dates are offered for import; existing history is unchanged.",style=MaterialTheme.typography.bodySmall)
+   PesaCard {
+    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+      Icon(Icons.Rounded.AccountBalanceWallet,null,tint=MaterialTheme.colorScheme.primary)
+      Text("01 · Source account",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
+     }
+     Text("Choose where these transactions belong. PesaTrack won't create an account automatically.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy){if(accountId!=it){invalidatePreview();accountId=it}}
+     if(accountId.isEmpty()) Text("Choose a confirmed account before reviewing transactions.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+   }
   }
-  if(customDates) {
-   item {StatementImportDateButton("From date",fromDay,!busy){if(fromDay!=it){invalidatePreview();fromDay=it}}}
-   item {StatementImportDateButton("To date",toDay,!busy){if(toDay!=it){invalidatePreview();toDay=it}}}
-  }
-  item {OutlinedButton(onClick={picker.launch(arrayOf("text/csv","text/comma-separated-values","application/csv","text/plain","application/octet-stream"))},enabled=!busy&&accountId.isNotEmpty(),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.UploadFile,null);Spacer(Modifier.width(8.dp));Text("Choose CSV")}}
   item {
-   PdfImportButton("Import statement PDF",!busy,pdfImport)
-   Text(if(Build.VERSION.SDK_INT>=35)"Extract and review locally. Supported M-Pesa rows can be edited, date-filtered and checked for duplicates before import. Use Paycheck Analysis for payslips." else "PDF text preview needs Android 15 or newer. Use CSV or manual entry on this phone.",style=MaterialTheme.typography.bodySmall)
+   PesaCard {
+    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+      Icon(Icons.Rounded.CalendarMonth,null,tint=MaterialTheme.colorScheme.primary)
+      Text("02 · Dates to include",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
+     }
+     ChoiceField("Import dates",if(customDates)"Custom date range"else"All statement dates",listOf("all" to "All statement dates","custom" to "Custom date range"),!busy){val next=it=="custom";if(customDates!=next){invalidatePreview();customDates=next}}
+     if(customDates) {
+      StatementImportDateButton("From date",fromDay,!busy){if(fromDay!=it){invalidatePreview();fromDay=it}}
+      StatementImportDateButton("To date",toDay,!busy){if(toDay!=it){invalidatePreview();toDay=it}}
+     }
+     Text("Both chosen days are included. Your recorded transactions stay unchanged.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+   }
+  }
+  item {
+   PesaCard {
+    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+      Icon(Icons.Rounded.UploadFile,null,tint=MaterialTheme.colorScheme.primary)
+      Text("03 · Choose a document",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
+     }
+     Text("Choose a supported CSV or M-Pesa statement PDF. Your file stays on this phone.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     OutlinedButton(onClick={picker.launch(arrayOf("text/csv","text/comma-separated-values","application/csv","text/plain","application/octet-stream"))},enabled=!busy&&accountId.isNotEmpty(),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.TableChart,null);Spacer(Modifier.width(8.dp));Text("Select CSV file")}
+     PdfImportButton("Select M-Pesa PDF",!busy,pdfImport)
+     Text(
+      if(Build.VERSION.SDK_INT>=35) "PDF: supported selectable-text M-Pesa layouts only, up to 8 MB and 160 pages. Other bank and scanned PDFs aren't supported yet." else "PDF extraction needs Android 15 or newer. You can still import CSV.",
+      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant
+     )
+    }
+   }
   }
   item {ToolError(error ?: dateError);done?.let {Text(it)};if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())}
   if(previewSource==selection)dateResult?.let {dates ->item {
