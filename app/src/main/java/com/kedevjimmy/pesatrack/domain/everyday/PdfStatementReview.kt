@@ -31,9 +31,9 @@ object PdfStatementReview {
         return StatementRow(epoch,description.trim(),money,canonicalReference).also {StatementCsv.validateRows(listOf(it),now)}
     }
     private val start=Regex("(?m)^[ \\t]*(\\S+)\\s+(?=[0-9]{4}[-/]|[0-9]{2}[/.-])")
-    private val status=Regex("\\b(?:COMPLETED|FAILED|REVERSED|PENDING)\\b")
+    private val status=Regex("\\b(?:COMPLETED|FAILED|REVERSED|PENDING)\\b",RegexOption.IGNORE_CASE)
     private val time=Regex("[0-9]{2}:[0-9]{2}:[0-9]{2}")
-    private val transaction=Regex("^([A-Z0-9]{10})\\s+([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}/[0-9]{2}/[0-9]{4})\\s+([0-9]{2}:[0-9]{2}:[0-9]{2})\\s+(.+?)\\s+COMPLETED\\s+(.+)$")
+    private val transaction=Regex("^([A-Z0-9]{10})\\s+([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}/[0-9]{2}/[0-9]{4})\\s+([0-9]{2}:[0-9]{2}:[0-9]{2})\\s+(.+?)\\s+COMPLETED\\s+(.+)$",RegexOption.IGNORE_CASE)
     private val moneyCell=Regex("(?:-|(?:-?[0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?))")
     private val footer=Regex("(?im)^[ \\t]*(?:DISCLAIMER\\b|STATEMENT VERIFICATION CODE\\b|FOR SELF[- ]HELP\\b)")
     private val officialLayout=Regex("\\bM[ -]?PESA STATEMENT\\b")
@@ -86,7 +86,7 @@ object PdfStatementReview {
             for((index,match) in matches.withIndex()) {
                 val until=matches.getOrNull(index+1)?.range?.first ?: transactionText.length
                 val text=transactionText.substring(match.range.first,until).trim()
-                    .replace(Regex("\\s+")," ").uppercase(Locale.ROOT)
+                    .replace(Regex("\\s+")," ")
                 if(status.findAll(text).count()!=1 || time.findAll(text).count()!=1)
                     return unsupported("A row has ambiguous transaction boundaries. No partial import was prepared.")
                 val result=transaction.matchEntire(text) ?: return unsupported(
