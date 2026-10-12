@@ -104,7 +104,7 @@ class EverydayMoneyStore(context:Context) {
      // real statement legs may share that code, so statement candidates use
      // their account/date/amount/description hash instead. The original
      // reference is retained separately in the immutable evidence journal.
-     val p=ParsedMpesaTransaction(null,MpesaTransactionType.OTHER,kotlin.math.abs(r.signedMinor),r.description,feeMinor=0,balanceMinor=null,occurredAtText=null,rawMessage="statement-entry|$key",reversalOfCode=null)
+     val p=StatementLegDraft.create(r,key)
      val fingerprint=TransactionFingerprint.of(p,r.date)
      val added=transactions.insertIfNew(p,null,"statement_import",System.currentTimeMillis(),r.date,rebuildPayCycles=false,runRelationshipReconciliation=false,runMirrorCorrelation=false,accountIdOverride=accountId,allowLegacyAccountFallback=false,directionOverride=if(r.signedMinor>0)MoneyDirection.INCOME else MoneyDirection.EXPENSE,categoryOverride=TransactionCategory.UNCATEGORIZED,reviewStateOverride=ReviewState.NEEDS_REVIEW)
      if(added) {
