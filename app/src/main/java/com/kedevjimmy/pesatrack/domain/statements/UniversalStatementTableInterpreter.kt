@@ -134,6 +134,15 @@ object UniversalStatementTableInterpreter {
             .replace(Regex("[^A-Z0-9]+"), " ").replace(whitespace, " ").trim()
             .replace(Regex("(?:^| )(?:KES|KSH|KSHS)$"), "").trim()
 
+    /** Safe header recognition reusable by independent geometry/CSV adapters. */
+    fun fieldForHeader(header: String, profile: StatementFormatProfile = StatementFormatProfile()): StatementField {
+        val key = normalizedHeader(header)
+        val canonical = currencyAlias[key]
+        if (canonical != null) return canonical
+        return profile.aliases.entries.firstOrNull { normalizedHeader(it.key) == key }?.value
+            ?: StatementField.UNKNOWN
+    }
+
     private fun parseDate(input: String, zone: TimeZone, now: Long): Long? {
         val text = input.trim()
         for (pattern in formats) {
