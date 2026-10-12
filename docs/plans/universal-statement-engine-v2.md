@@ -23,7 +23,11 @@ Synthetic tests must prove:
 - refusals on unknown numeric columns, nonzero unallocated fees, malformed dates, invalid/missing money, date disorder, unverified zero records, unknown statuses, bad balances and duplicate complete rows;
 - repeated receipt references may represent separate statement legs and are not blindly discarded.
 
-## Next independently gated slices (not implemented by this PR)
+## Additional stacked read-only geometry slice (separate PR)
+
+A second isolated branch introduces `UniversalStatementGeometry`, converting **validated table-region bounding boxes** into an in-memory row/column grid. It retains every supplied table fragment and refuses overlaps, out-of-band fragments, missing date anchors or invalid coordinates. Synthetic coordinate tests exercise wrapped descriptions, unknown monetary columns and overlapping headings. This stage does **not** automatically detect table regions from an arbitrary PDF, alter the Android isolated service/IPC, connect to the import button, or prove user's original PDF. Those remain gated below.
+
+## Next independently gated slices (not implemented by the read-only foundation PRs)
 
 1. Preserve all PDF text fragments and coordinates in the existing isolated Android extraction service and reconstruct real table rows using header x-ranges and receipt y-anchors, including page headers/footers and multi-line details. Compare old M-Pesa parser and V2 outputs read-only first. Do not remove old parser.
 2. Add conservative mapping and diagnostics in Data Health, plus user-only local field confirmation, validated layout signatures and strict no-partial-import checks; continue to reject unproven formats.
