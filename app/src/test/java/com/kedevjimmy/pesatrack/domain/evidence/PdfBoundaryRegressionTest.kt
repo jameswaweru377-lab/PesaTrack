@@ -43,4 +43,29 @@ class PdfBoundaryRegressionTest {
         assertThrows(IllegalArgumentException::class.java){PdfStatementReview.requireUniqueReferences(listOf(first,second.copy(reference="QAB1234567")))}
         assertThrows(IllegalArgumentException::class.java){PdfStatementReview.requireUniqueReferences(listOf(first,second.copy(reference="qab1234567")))}
     }
+    @Test fun recognizedKesColumnUnitsCanEstablishStatementCurrency() {
+        val columnHeader="M-PESA Statement\nReceipt No. Completion Time Details Transaction Status Paid In (KES) Withdrawn (KES) Balance (KES)\n"
+        val result=PdfStatementReview.read(listOf(columnHeader+valid),zone)
+        assertEquals(result.problems.toString(),1,result.rows.size)
+        assertEquals(10000L,result.rows.single().signedMinor)
+    }
+    @Test fun labeledStatementCurrencyAndTitleUnitsAreSupported() {
+        val labeled=header.replace("Currency: KES","Statement Currency: KES")
+        val title=header.replace("M-PESA Statement\nCurrency: KES","M-PESA Statement (KES)")
+        for(text in listOf(labeled,title)) {
+            val result=PdfStatementReview.read(listOf(text+valid),zone)
+            assertEquals(text,1,result.rows.size)
+        }
+    }
+    @Test fun absentOrForeignOrConflictingHeaderCurrenciesStillFailClosed() {
+        val noEvidence="M-PESA Statement\nReceipt No. Completion Time Details Transaction Status Paid In Withdrawn Balance\n"
+        val conflicting="M-PESA Statement\nCurrency: USD\nReceipt No. Completion Time Details Transaction Status Paid In (KES) Withdrawn (KES) Balance (KES)\n"
+        val foreign="M-PESA Statement (USD)\nReceipt No. Completion Time Details Transaction Status Paid In Withdrawn Balance\n"
+        for(text in listOf(noEvidence,conflicting,foreign)) {
+            val result=PdfStatementReview.read(listOf(text+valid.replace("Payment","Payment KES")),zone)
+            assertTrue(text,result.rows.isEmpty())
+            assertTrue(text,result.problems.isNotEmpty())
+        }
+    }
+
 }
