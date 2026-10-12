@@ -40,37 +40,76 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
+/** Last complete overview, kept in memory only and invalidated by ledger revision. */
+class PersonalReceivablesScreenCache {
+    internal var people: List<ReceivablePerson> = emptyList()
+    internal var revision: Long = -1L
+}
+
 /** Local-only personal receivables. The existing institutional debt cards remain independent. */
 @Composable
 fun PersonalReceivablesScreen(
     scaffoldPadding: PaddingValues,
     onLiabilities: () -> Unit,
-    header: (@Composable () -> Unit)? = null
+    header: (@Composable () -> Unit)? = null,
+    stateCache: PersonalReceivablesScreenCache? = null
 ) {
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0]
     val store = remember { PersonalReceivableStore(context) }
     val revision by LedgerUpdateBus.state.collectAsState()
-    var people by remember { mutableStateOf<List<ReceivablePerson>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
+    val cached = remember(stateCache) {
+        stateCache?.takeIf { it.revision >= 0L }
+    }
+    var people by remember { mutableStateOf(cached?.people ?: emptyList()) }
+    var peopleRevision by remember { mutableStateOf(cached?.revision ?: -1L) }
+    var peopleLoaded by remember { mutableStateOf(cached != null) }
+    var loading by remember { mutableStateOf(cached == null) }
     var error by remember { mutableStateOf<String?>(null) }
     var selectedPersonId by rememberSaveable { mutableStateOf<String?>(null) }
+    var loadedPersonId by remember { mutableStateOf<String?>(null) }
     var createKind by remember { mutableStateOf<String?>(null) }
     var deleteEvent by remember { mutableStateOf<ReceivableEvent?>(null) }
     var history by remember { mutableStateOf<List<ReceivableEvent>>(emptyList()) }
     var historyLinks by remember { mutableStateOf<Map<Long,ReceivableActivityLink>>(emptyMap()) }
     var retry by remember { mutableIntStateOf(0) }
     var reviewHistory by remember { mutableStateOf(false) }
+
     LaunchedEffect(revision.revision, selectedPersonId, retry) {
+        val revisionToLoad = revision.revision
+        // Re-entering the overview at the same revision needs no database work.
+        if (peopleLoaded && peopleRevision == revisionToLoad &&
+            selectedPersonId == null && retry == 0
+        ) {
+            loading = false
+            return@LaunchedEffect
+        }
         loading = true
         error = null
         try {
             val data = withContext(Dispatchers.IO) {
-                Triple(store.people(),selectedPersonId?.let(store::events).orEmpty(),loadReceivableActivityLinks(context))
+                val currentPeople = if (
+                    peopleLoaded && peopleRevision == revisionToLoad && retry == 0
+                ) people else traceFinancialRead("receivables.people") { store.people() }
+                val currentHistory = selectedPersonId?.let { id ->
+                    traceFinancialRead("receivables.history") { store.events(id) }
+                }.orEmpty()
+                val links = if (selectedPersonId == null) emptyMap()
+                else traceFinancialRead("receivables.activityLinks") {
+                    loadReceivableActivityLinks(context)
+                }
+                Triple(currentPeople, currentHistory, links)
             }
             people = data.first
             history = data.second
             historyLinks = data.third
+            loadedPersonId = selectedPersonId
+            peopleRevision = revisionToLoad
+            peopleLoaded = true
+            stateCache?.apply {
+                this.people = data.first
+                this.revision = revisionToLoad
+            }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
@@ -107,7 +146,32 @@ fun PersonalReceivablesScreen(
                 }
             }
         }
-        if (loading) item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
+        // A localized first-load indicator only. No screen-wide progress bar
+        // or clearing people cards for an ordinary background refresh.
+        if (loading && !peopleLoaded) item {
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 14.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(12.dp))
+                Text("Preparing your personal debts", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        if (loading && peopleLoaded && selectedPersonId != null &&
+            loadedPersonId != selectedPersonId
+        ) item {
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 14.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(12.dp))
+                Text("Opening this person's history", style = MaterialTheme.typography.bodySmall)
+            }
+        }
         if (error != null) item {
             PesaCard {
                 Column(Modifier.padding(16.dp)) {
@@ -117,14 +181,18 @@ fun PersonalReceivablesScreen(
             }
         }
         if (selected == null) {
-            if (!loading && error == null) {
+            if (peopleLoaded) {
                 val active = people.filter { (it.outstandingMinor ?: 0L) > 0L }
                 val total = if (people.any { it.outstandingMinor == null }) null
                     else runCatching { active.fold(0L) { s, p -> Math.addExact(s, p.outstandingMinor!!) } }.getOrNull()
                 item {
                     PesaCard {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text("Total owed to you", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                if (peopleRevision != revision.revision) "Last verified total owed to you"
+                                else "Total owed to you",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             Text(total?.let(::receivableMoney) ?: "Balance unavailable",
                                 style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                             Text(active.size.toString() + " people with outstanding balances",
@@ -148,7 +216,9 @@ fun PersonalReceivablesScreen(
                 }
                 if (people.isEmpty()) item {
                     PesaCard {
-                        Text("No personal loans recorded yet. Record a loan or open a payment in Activity to link it.",
+                        Text(
+                             if (peopleRevision != revision.revision) "No personal loans were recorded at the last successful refresh."
+                             else "No personal loans recorded yet. Record a loan or open a payment in Activity to link it.",
                             modifier = Modifier.padding(18.dp))
                     }
                 }
@@ -170,7 +240,7 @@ fun PersonalReceivablesScreen(
                     }
                 }
             }
-        } else if (!loading && error == null) {
+        } else if (peopleLoaded && loadedPersonId == selectedPersonId) {
             item {
                 PesaCard {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
