@@ -144,6 +144,17 @@ class SafaricomStatementLayoutTest {
         assertTrue(review.rows.first().description.contains("synthetic merchant"))
     }
 
+    @Test fun alphanumericMerchantWordsCanWrapWithoutBecomingMoneyCells() {
+        val page=official+
+            "QAB1234569 2026-10-10 10:30:00 Payment\n"+
+            "Completed\n-20.00\n490.00\n"+
+            "to ShopB42 merchant\n"+
+            middle+"\n"+older
+        val review=PdfStatementReview.read(listOf(page),zone)
+        assertEquals(review.problems.joinToString(),3,review.rows.size)
+        assertTrue(review.rows.first().description.contains("ShopB42"))
+    }
+
     @Test fun ambiguouslyInterleavedMoneyAndTextStillRejectsWholeStatement() {
         val page=official+
             "QAB1234569 2026-10-10 10:30:00 Payment\n"+
