@@ -67,7 +67,7 @@ object ReviewAttentionReminders {
         // mirrored/duplicate, reversal, allocation, loan and transfer evidence.
         val snapshot = TransactionStore.get(c).activitySnapshotBetween(
             startEpochMs = now - 30L * ReviewReminderPolicy.DAY_MS,
-            endEpochMs = now + 1L,
+            endEpochMsExclusive = now + 1L,
             nowEpochMs = now,
             performMaintenance = false
         )
