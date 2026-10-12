@@ -38,6 +38,12 @@ object PdfStatementReview {
     private val transaction=Regex("^([A-Z0-9]{10})\\s+([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}/[0-9]{2}/[0-9]{4})\\s+([0-9]{2}:[0-9]{2}:[0-9]{2})\\s+(.+?)\\s+COMPLETED\\s+(.+)$",RegexOption.IGNORE_CASE)
     private val moneyCell=Regex("(?:-|(?:-?[0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?))")
     private val explicitZero=Regex("0+(?:\\.0{1,2})?")
+    // A wrapped narrative can carry an identifier preceded by a dash. This is
+    // not an empty Paid In / Withdrawn cell. Only a bounded, labelled,
+    // whole-number reference can be recovered without PDF column coordinates.
+    private val referenceLead=Regex("(?:from|to|ref|reference|account)",RegexOption.IGNORE_CASE)
+    private val referenceDigits=Regex("[0-9]{9,15}")
+    private val dashedReferenceDigits=Regex("-[0-9]{9,15}")
     private val footer=Regex("(?im)^[ \\t]*(?:DISCLAIMER\\b|STATEMENT VERIFICATION CODE\\b|FOR SELF[- ]HELP\\b)")
     private val officialLayout=Regex("\\bM[ -]?PESA STATEMENT\\b")
     private val explicitForeign=Regex("\\b(?:USD|EUR|GBP|TZS|UGX|ZAR|NGN)\\b")
@@ -82,7 +88,33 @@ object PdfStatementReview {
         val money=mutableListOf<String>()
         val wrapped=mutableListOf<String>()
         var wordsAfterAmount=false
-        val tokens=suffix.split(Regex("\\s+"))
+        val rawTokens=suffix.split(Regex("\\s+"))
+        val tokens=mutableListOf<String>()
+        var tokenIndex=0
+        while(tokenIndex<rawTokens.size) {
+            val lead=rawTokens[tokenIndex]
+            val following=rawTokens.getOrNull(tokenIndex+1)
+            val digits=rawTokens.getOrNull(tokenIndex+2)
+            when {
+                referenceLead.matches(lead) && following=="-" &&
+                    digits!=null && referenceDigits.matches(digits) -> {
+                    // Keep the whole "from - identifier" phrase in Details,
+                    // regardless of whether native PDF text puts it before or
+                    // after Completed and the monetary columns.
+                    tokens.add("$"+"{lead} - $"+"{digits}")
+                    tokenIndex+=3
+                }
+                referenceLead.matches(lead) && following!=null &&
+                    dashedReferenceDigits.matches(following) -> {
+                    tokens.add("$"+"{lead} $"+"{following}")
+                    tokenIndex+=2
+                }
+                else -> {
+                    tokens.add(lead)
+                    tokenIndex++
+                }
+            }
+        }
         for(token in tokens) {
             if(moneyCell.matches(token)) {
                 // A numeric amount after wrapped description is not reliably
