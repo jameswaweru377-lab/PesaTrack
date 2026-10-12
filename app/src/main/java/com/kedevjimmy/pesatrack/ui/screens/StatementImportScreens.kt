@@ -135,6 +135,7 @@ private fun readStatement(c:Context,uri:Uri):String {
      modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {Text("Open Paycheck Analysis")}
    pdfCandidates?.let { candidates ->
     candidates.problems.forEach {Text(it,color=MaterialTheme.colorScheme.error)}
+    candidates.currencyReview?.let {Text(it,color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.bodySmall)}
     if(candidates.rows.isNotEmpty()) {
      Text("Identified ${candidates.rows.size} transaction candidates. Review and correct them before saving.")
      OutlinedButton(enabled=!busy&&accountId.isNotEmpty(),
@@ -147,7 +148,7 @@ private fun readStatement(c:Context,uri:Uri):String {
   }
 
   if(previewSource==selection && preview.isNotEmpty()){
-   if(pdfRows)item {Row(verticalAlignment=Alignment.CenterVertically){Checkbox(checked=pdfConfirmed,onCheckedChange={pdfConfirmed=it},enabled=!busy);Text("I checked the selected wallet, dates, signed amounts and receipt references against this M-Pesa statement.",Modifier.weight(1f))};if(accounts.firstOrNull{it.id==accountId}?.type!=AccountType.MOBILE_WALLET)Text("Choose the mobile-wallet account this M-Pesa statement belongs to.",color=MaterialTheme.colorScheme.error)}
+   if(pdfRows)item {Row(verticalAlignment=Alignment.CenterVertically){Checkbox(checked=pdfConfirmed,onCheckedChange={pdfConfirmed=it},enabled=!busy);Text("I checked the wallet, KES currency, dates, signed amounts, balance consistency and receipt references against this M-Pesa statement.",Modifier.weight(1f))};if(accounts.firstOrNull{it.id==accountId}?.type!=AccountType.MOBILE_WALLET)Text("Choose the mobile-wallet account this M-Pesa statement belongs to.",color=MaterialTheme.colorScheme.error)}
    item {Text("${preview.count{!it.duplicate&&!it.possibleMatch}} new · ${preview.count{!it.duplicate&&it.possibleMatch}} possible matches · ${preview.count{it.duplicate}} already recorded",style=MaterialTheme.typography.titleSmall)}
    item {Button(onClick={
     val source=selection;val reviewed=previewSource
