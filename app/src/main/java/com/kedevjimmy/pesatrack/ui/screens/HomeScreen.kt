@@ -370,32 +370,32 @@ fun HomeScreen(
     ): HomeCoreState =
         withContext(Dispatchers.IO) {
             if (rebuildCycles) {
-                cycleStore.rebuild()
+                traceFinancialRead("home.rebuildPayCycles") { cycleStore.rebuild() }
             }
             val referenceEpochMs =
                 System.currentTimeMillis()
-            val accounts =
-                accountStore.listAccounts(
-                    enabledOnly = true
+            val accounts = traceFinancialRead("home.accountList") {
+                accountStore.listAccounts(enabledOnly = true)
+            }
+            val balanceSnapshots = traceFinancialRead("home.accountBalances") {
+                PaydaySnapshotStore.get(context).currentAccountSnapshots(
+                    accounts = accounts, nowEpochMs = referenceEpochMs
                 )
-            val balanceSnapshots =
-                PaydaySnapshotStore
-                    .get(context)
-                    .currentAccountSnapshots(
-                        accounts = accounts,
-                        nowEpochMs =
-                            referenceEpochMs
-                    )
+            }
 
-            val activityAndShares = synchronized(CanonicalStoreLock.monitor) {
-                val activity = transactionStore.activitySnapshot(nowEpochMs = referenceEpochMs)
-                activity to PersonalReceivableStore(context).linkedShares()
+            val activityAndShares = traceFinancialRead("home.activityAndReceivables") {
+                synchronized(CanonicalStoreLock.monitor) {
+                    val activity = transactionStore.activitySnapshot(nowEpochMs = referenceEpochMs)
+                    activity to PersonalReceivableStore(context).linkedShares()
+                }
             }
             HomeCoreState(
-                cycleSnapshot =
-                    cycleStore.snapshot(),
-                ledgerSnapshot =
-                    transactionStore.snapshot(),
+                cycleSnapshot = traceFinancialRead("home.payCycleSnapshot") {
+                    cycleStore.snapshot()
+                },
+                ledgerSnapshot = traceFinancialRead("home.ledgerSummary") {
+                    transactionStore.snapshot()
+                },
                 activitySnapshot = activityAndShares.first,
                 receivableShares = activityAndShares.second,
                 debtAccounts =
