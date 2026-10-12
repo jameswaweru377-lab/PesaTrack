@@ -111,19 +111,18 @@ private fun PaycheckMetric(
     title: String, amount: String, caption: String, icon: ImageVector,
     accent: Color, modifier: Modifier = Modifier, compact: Boolean = false
 ) {
-    PaycheckPanel(modifier = modifier.heightIn(min = if (compact) 102.dp else 112.dp), tint = accent) {
-        Row(horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp),
+    PaycheckPanel(modifier = modifier.heightIn(min = if (compact) 122.dp else 132.dp), tint = accent) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            IconDisc(icon, accent, diameter = if (compact) 34.dp else 42.dp)
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium, maxLines = 2)
-                Text(amount, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold,
-                    fontSize = if (compact) 15.sp else 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(caption, color = accent, style = MaterialTheme.typography.labelSmall,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
+            IconDisc(icon, accent, diameter = if (compact) 31.dp else 36.dp)
+            Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier=Modifier.weight(1f), style = MaterialTheme.typography.labelMedium,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
+        Text(amount, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold,
+            fontSize = if (compact) 16.sp else 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(caption, color = accent, style = MaterialTheme.typography.labelSmall,
+            maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
