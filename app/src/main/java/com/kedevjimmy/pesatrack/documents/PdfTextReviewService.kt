@@ -10,6 +10,8 @@ import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
 import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextChunkAssembler
+import com.kedevjimmy.pesatrack.domain.evidence.PdfTextFragment
+import com.kedevjimmy.pesatrack.domain.evidence.PdfTextPositionReflow
 
 /** Private isolated process: receives only a read-only descriptor, never ledger access. */
 class PdfTextReviewService : Service() {
@@ -73,13 +75,23 @@ class PdfTextReviewService : Service() {
         val pages = (0 until renderer.pageCount).map { index ->
             renderer.openPage(index).use { page ->
                 val text = StringBuilder()
+                val fragments=mutableListOf<PdfTextFragment>()
                 for (content in page.textContents) {
                     characters += content.text.length + if (text.isNotEmpty()) 1L else 0L
                     if(characters>PdfTextReviewPolicy.MAX_CHARACTERS) throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
                     if (text.isNotEmpty()) text.append('\n')
                     text.append(content.text)
+                    // Only single-line bounded fragments are safe to reposition.
+                    val bounds=content.bounds
+                    if(bounds.size==1 && !content.text.contains('\n') && !content.text.contains('\r')) {
+                        val box=bounds[0]
+                        fragments.add(PdfTextFragment(content.text,box.left,box.top,box.right,box.bottom))
+                    }
                 }
-                text.toString()
+                val original=text.toString()
+                val isStatement=original.contains("M-PESA STATEMENT",true) ||
+                    original.contains("RECEIPT NO",true) && original.contains("COMPLETION TIME",true)
+                if(isStatement) PdfTextPositionReflow.reflow(fragments,original) else original
             }
         }
         PdfTextReviewPolicy.preview(pages).pages
