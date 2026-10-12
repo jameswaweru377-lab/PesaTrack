@@ -165,7 +165,7 @@ private fun PaycheckMetricGrid(record: PayrollRecord?, summary: PayrollSummary?)
 
 @Composable
 private fun PaycheckMonthlyTrend(history: List<PayrollRecord>) {
-    PaycheckPanel(Modifier.fillMaxWidth()) {
+    PaycheckPanel(Modifier.fillMaxWidth().testTag("paycheck-monthly-trend")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.BarChart, contentDescription = null, tint = DashPurple)
             Spacer(Modifier.width(8.dp))
@@ -287,7 +287,7 @@ private fun DeductionLegend(slices: List<DeductionSlice>, total:Long, modifier:M
 private fun PaycheckDeductions(record: PayrollRecord, summary: PayrollSummary) {
     val slices = remember(record.id,record.revision) { breakdown(summary) }
     var showLines by rememberSaveable(record.id) {mutableStateOf(false)}
-    PaycheckPanel(Modifier.fillMaxWidth()) {
+    PaycheckPanel(Modifier.fillMaxWidth().testTag("paycheck-deductions")) {
         Row(verticalAlignment=Alignment.CenterVertically) {
             Icon(Icons.Rounded.DonutLarge,null,tint=DashPurple)
             Spacer(Modifier.width(8.dp))
@@ -333,7 +333,7 @@ private fun PaycheckDeductions(record: PayrollRecord, summary: PayrollSummary) {
 private fun PaycheckInsights(record:PayrollRecord, summary:PayrollSummary) {
     val biggest = summary.employeeByType.maxByOrNull { it.value }
     val ratio = paycheckPct(record.draft.netMinor,record.draft.grossMinor)
-    PaycheckPanel(Modifier.fillMaxWidth()) {
+    PaycheckPanel(Modifier.fillMaxWidth().testTag("paycheck-key-insights")) {
         Row(verticalAlignment=Alignment.CenterVertically) {
             Icon(Icons.Rounded.Lightbulb,null,tint=DashGold)
             Spacer(Modifier.width(8.dp))
@@ -524,10 +524,6 @@ internal fun PaycheckDashboard(
                             }
                         }
                     }
-                }
-                TextButton(onClick=onBack) {
-                    Icon(Icons.Rounded.ArrowBack,null,Modifier.size(16.dp))
-                    Text("Back to Activity")
                 }
                 if(busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if(error!=null) Text(error,color=MaterialTheme.colorScheme.error)
