@@ -1,6 +1,13 @@
 package com.kedevjimmy.pesatrack.domain.evidence
 
-data class PdfTextPreview(val pages: List<String>, val emptyPageNumbers: List<Int>)
+data class PdfTextPreview(
+    val pages: List<String>,
+    val emptyPageNumbers: List<Int>,
+    /** Optional in-memory API35+ geometry; empty for existing production callers. */
+    val positionedPages: List<List<PdfTextFragment>> = emptyList(),
+    /** False if any native text block lacks trustworthy single-line bounds. */
+    val positionedComplete: List<Boolean> = emptyList()
+)
 
 /** Text availability is not a claim that a statement table or payroll was understood. */
 object PdfTextReviewPolicy {
@@ -44,5 +51,58 @@ class PdfTextChunkAssembler {
     fun finish(expectedPages: Int): PdfTextPreview {
         require(pages.size == expectedPages) { "PDF text transfer was incomplete." }
         return PdfTextReviewPolicy.preview(pages.map { it.toString() })
+    }
+}
+
+/**
+ * Bound, ordered text-box IPC assembler. Completeness is claimed only after
+ * the service reports exact per-page fragment counts and coverage flags.
+ * No text, coordinates or identifiers are logged or persisted.
+ */
+class PdfPositionChunkAssembler {
+    companion object {
+        const val MAX_CHUNK = 100
+        const val MAX_FRAGMENT_TEXT = 200
+        const val MAX_TOTAL_FRAGMENTS = 32_000
+    }
+    private val pages = mutableListOf<MutableList<PdfTextFragment>>()
+    private var total = 0
+    fun add(
+        page: Int, texts: List<String>,
+        left: FloatArray, top: FloatArray, right: FloatArray, bottom: FloatArray
+    ) {
+        require(texts.size in 1..MAX_CHUNK && left.size == texts.size &&
+            top.size == texts.size && right.size == texts.size &&
+            bottom.size == texts.size) { "Invalid PDF geometry IPC chunk." }
+        require(page >= 0 && page < PdfTextReviewPolicy.MAX_PAGES &&
+            (page == pages.size || page == pages.size - 1)) {
+            "PDF geometry pages arrived out of order."
+        }
+        require(total + texts.size <= MAX_TOTAL_FRAGMENTS) { "Too many positioned PDF text blocks." }
+        val verified = texts.indices.map { i ->
+            val text = texts[i]
+            val l = left[i]; val t = top[i]; val r = right[i]; val b = bottom[i]
+            require(text.isNotBlank() && text.length <= MAX_FRAGMENT_TEXT &&
+                !text.contains('\\n') && !text.contains('\\r') &&
+                l.isFinite() && t.isFinite() && r.isFinite() && b.isFinite() &&
+                l < r && t < b) { "Invalid PDF geometry fragment." }
+            PdfTextFragment(text, l, t, r, b)
+        }
+        if(page == pages.size) pages.add(mutableListOf())
+        pages[page].addAll(verified)
+        total += verified.size
+    }
+
+    fun finish(expectedPages: Int, expectedCounts: IntArray, complete: BooleanArray):
+        Pair<List<List<PdfTextFragment>>, List<Boolean>> {
+        require(expectedPages > 0 && expectedPages <= PdfTextReviewPolicy.MAX_PAGES &&
+            expectedCounts.size == expectedPages && complete.size == expectedPages &&
+            expectedCounts.all { it >= 0 } &&
+            expectedCounts.sumOf { it.toLong() } == total) { "PDF geometry transfer incomplete." }
+        val data = List(expectedPages) { index -> pages.getOrNull(index)?.toList().orEmpty() }
+        require(data.indices.all { data[it].size == expectedCounts[it] }) {
+            "Missing or out-of-order PDF geometry fragments."
+        }
+        return data to complete.toList()
     }
 }
