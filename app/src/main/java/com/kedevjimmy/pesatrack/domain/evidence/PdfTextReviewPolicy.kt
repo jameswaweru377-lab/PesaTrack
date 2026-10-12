@@ -83,7 +83,7 @@ class PdfPositionChunkAssembler {
             val text = texts[i]
             val l = left[i]; val t = top[i]; val r = right[i]; val b = bottom[i]
             require(text.isNotBlank() && text.length <= MAX_FRAGMENT_TEXT &&
-                !text.contains('\\n') && !text.contains('\\r') &&
+                !text.contains('\n') && !text.contains('\r') &&
                 l.isFinite() && t.isFinite() && r.isFinite() && b.isFinite() &&
                 l < r && t < b) { "Invalid PDF geometry fragment." }
             PdfTextFragment(text, l, t, r, b)
