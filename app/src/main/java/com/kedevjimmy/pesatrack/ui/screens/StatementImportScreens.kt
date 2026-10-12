@@ -217,7 +217,7 @@ private fun readStatement(c:Context,uri:Uri):String {
     importing=true;error=null
     scope.launch{try{
      val count=withContext(Dispatchers.IO){
-      if(requiredType!=null)PdfStatementReview.requireUniqueReferences(source.rows)
+      if(requiredType!=null)PdfStatementReview.requireDistinctStatementLegs(source.rows)
       store.importRows(source.accountId,StatementImportDates.requireReviewed(source,reviewed,chosen),requiredType)
      }
      onChanged();done="Added $count entries. Confirm them in Activity.";rows=emptyList();previewSource=null;dateResult=null;preview=emptyList();selected.clear()
@@ -231,7 +231,7 @@ private fun readStatement(c:Context,uri:Uri):String {
   val index=rows.indexOf(original)
   if(index>=0){
    val corrected=rows.toMutableList().apply {set(index,updated)}
-   PdfStatementReview.requireUniqueReferences(corrected)
+   PdfStatementReview.requireDistinctStatementLegs(corrected)
    invalidatePreview();rows=corrected
   }
   editingPdf=null
