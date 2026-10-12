@@ -39,6 +39,27 @@ object PdfStatementReview {
     private val officialLayout=Regex("\\bM[ -]?PESA STATEMENT\\b")
     private val explicitForeign=Regex("\\b(?:USD|EUR|GBP|TZS|UGX|ZAR|NGN)\\b")
     private data class DecodedRow(val row:StatementRow,val balance:Long,val compact:Boolean,val signedDebit:Boolean)
+    private fun normalizeReceiptBlock(block:String):String? {
+        val lines=block.lines().map {it.trim()}.filter {it.isNotEmpty()}
+        if(lines.isEmpty())return null
+        val statusLine=lines.indexOfFirst {Regex("\\bCOMPLETED\\b",RegexOption.IGNORE_CASE).containsMatchIn(it)}
+        if(statusLine<0)return null
+        if(lines.drop(statusLine+1).any {next->
+                next.length>160 || status.containsMatchIn(next) || time.containsMatchIn(next) ||
+                start.containsMatchIn(next) || moneyCell.matches(next) ||
+                next.startsWith("RECEIPT NO",true) || next.startsWith("PAGE ",true)
+            })return null
+        val prefix=lines.take(statusLine+1).joinToString(" ").replace(Regex("\\s+")," ")
+        val completed=Regex("\\bCOMPLETED\\b",RegexOption.IGNORE_CASE).find(prefix)?:return null
+        val trailing=lines.drop(statusLine+1).joinToString(" ")
+        if(trailing.isEmpty())return prefix
+        // Wrapped detail-column continuation appears visually below the row,
+        // after the money cells in line-order extraction. Reinsert it before status.
+        return prefix.substring(0,completed.range.first).trimEnd() +
+            " " + trailing + " COMPLETED " +
+            prefix.substring(completed.range.last+1).trimStart()
+    }
+
     fun read(pages: List<String>,zone: TimeZone,now: Long=System.currentTimeMillis()): PdfStatementCandidates {
         fun unsupported(reason: String)=PdfStatementCandidates(emptyList(),listOf(reason))
         PdfTextReviewPolicy.preview(pages)
@@ -94,8 +115,8 @@ object PdfStatementReview {
                 return unsupported("Transaction-like text outside a receipt row needs review. No partial import was prepared.")
             for((index,match) in matches.withIndex()) {
                 val until=matches.getOrNull(index+1)?.range?.first ?: transactionText.length
-                val text=transactionText.substring(match.range.first,until).trim()
-                    .replace(Regex("\\s+")," ")
+                val text=normalizeReceiptBlock(transactionText.substring(match.range.first,until))
+                    ?: return unsupported("A receipt row or wrapped description could not be positioned safely. No transactions were imported.")
                 if(status.findAll(text).count()!=1 || time.findAll(text).count()!=1)
                     return unsupported("A row has ambiguous transaction boundaries. No partial import was prepared.")
                 val result=transaction.matchEntire(text) ?: return unsupported(
@@ -128,7 +149,9 @@ object PdfStatementReview {
                     val debit=if(paidFirst)second else first
                     if(paid<0 || debit==Long.MIN_VALUE || (paid>0)==(debit!=0L))
                         return unsupported("A transaction has ambiguous paid-in and withdrawn amounts. No transactions were selected.")
-                    if(debit<0) Math.addExact(paid,debit) else Math.subtractExact(paid,debit)
+                    runCatching {
+                        if(debit<0) Math.addExact(paid,debit) else Math.subtractExact(paid,debit)
+                    }.getOrNull() ?: return unsupported("An amount is outside the supported range. Nothing was imported.")
                 }
                 if(signed==0L || signed==Long.MIN_VALUE)
                     return unsupported("A transaction has no single nonzero wallet movement; review the original statement.")
@@ -162,7 +185,10 @@ object PdfStatementReview {
                     return unsupported("The PDF's Paid In/Withdrawn columns could not be reconciled with successive balances. No transactions were selected.")
             }
         }
-        StatementCsv.validateRows(rows,now)
+        val validation=runCatching {StatementCsv.validateRows(rows,now)}
+        if(validation.isFailure)return unsupported(
+            "A statement amount, date or description failed validation. Nothing was imported."
+        )
         return PdfStatementCandidates(rows,emptyList(),currencyReview)
     }
 }
