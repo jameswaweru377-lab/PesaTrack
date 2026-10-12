@@ -195,6 +195,11 @@ object PdfStatementReview {
                 (!structuredKenyanStatement || !paidFirst || decoded.none {it.signedDebit}))
                 return unsupported("The PDF omits empty money columns and their direction could not be proved. No transactions were selected.")
             val descending=decoded.first().row.date>=decoded.last().row.date
+            // A compact oldest zero record has no preceding balance to prove
+            // its zero movement. Refuse to drop a potentially missing debit.
+            val oldest=if(descending) decoded.last() else decoded.first()
+            if(oldest.compact && oldest.row.signedMinor==0L)
+                return unsupported("The oldest zero-value receipt has no earlier balance to verify its amount. Nothing was imported.")
             for(i in 0 until decoded.size-1) {
                 val newer=if(descending)decoded[i] else decoded[i+1]
                 val older=if(descending)decoded[i+1] else decoded[i]
