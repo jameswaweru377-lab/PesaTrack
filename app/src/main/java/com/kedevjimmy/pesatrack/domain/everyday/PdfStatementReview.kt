@@ -76,9 +76,18 @@ object PdfStatementReview {
         // could be stray text or an additional table column. Without PDF
         // column coordinates, never reinterpret it as a valid receipt.
         val inlineMoney=after.split(Regex("\\s+")).count {moneyCell.matches(it)}
-        if(inlineMoney>=2 && continuation.any {line ->
+        if(inlineMoney>=2 && continuation.withIndex().any { (i,line) ->
                 val cells=line.trim().split(Regex("\\s+"))
-                cells.isNotEmpty() && cells.all {moneyCell.matches(it)}
+                val preceding=continuation.getOrNull(i-1)
+                    ?.trim()?.split(Regex("\\s+")).orEmpty()
+                // A standalone long identifier split after "from -" is not
+                // another amount column; every other numeric-only continuation
+                // remains ambiguous and must reject the entire statement.
+                val labelledReference=referenceDigits.matches(line.trim()) &&
+                    preceding.size>=2 && preceding.last()=="-" &&
+                    referenceLead.matches(preceding[preceding.size-2])
+                cells.isNotEmpty() && cells.all {moneyCell.matches(it)} &&
+                    !labelledReference
             }) return null
         val suffix=(listOf(after)+continuation).filter {it.isNotBlank()}
             .joinToString(" ")
