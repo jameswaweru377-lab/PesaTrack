@@ -7,10 +7,14 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PesaTrackDatabase
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
+import com.kedevjimmy.pesatrack.ui.screens.DebtsScreenCache
+import com.kedevjimmy.pesatrack.ui.screens.PersonalReceivablesScreen
+import com.kedevjimmy.pesatrack.ui.screens.PersonalReceivablesScreenCache
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import org.junit.*
 import org.junit.Assert.assertThrows
@@ -64,6 +68,45 @@ class FinancialReadFailureUiTest {
         compose.onNodeWithText("Try again").performClick()
         waitFor("No outstanding debt is currently recorded.")
         compose.onNodeWithText("Debt could not load").assertDoesNotExist()
+    }
+
+    @Test fun returningToCachedDebtsDoesNotReloadOrShowABar() {
+        val cache = DebtsScreenCache().apply {
+            revision = LedgerUpdateBus.state.value.revision
+        }
+        val recreate = removeTable("debt_accounts")
+        compose.setContent {
+            PesaTrackTheme {
+                DebtsScreen(PaddingValues(), onBack = {}, stateCache = cache)
+            }
+        }
+        compose.onNodeWithText("No outstanding debt is currently recorded.").assertExists()
+        compose.onNodeWithText("Preparing your debt information").assertDoesNotExist()
+        // An actual ledger change must invalidate the cache, but retain
+        // the last verified cards while the new read is being attempted.
+        compose.runOnIdle { LedgerUpdateBus.notifyChanged() }
+        waitFor("Could not refresh your debts.")
+        compose.onNodeWithText(
+            "No outstanding debts were recorded at the last successful refresh."
+        ).assertExists()
+        PesaTrackDatabase.get(context).writableDatabase.execSQL(recreate)
+        compose.onNodeWithText("Try again").performClick()
+        waitFor("No outstanding debt is currently recorded.")
+        compose.onNodeWithText("Could not refresh your debts.").assertDoesNotExist()
+    }
+
+    @Test fun returningToCachedReceivablesNeverStartsFullWidthLoader() {
+        val cache = PersonalReceivablesScreenCache().apply {
+            revision = LedgerUpdateBus.state.value.revision
+        }
+        compose.setContent {
+            PesaTrackTheme {
+                PersonalReceivablesScreen(PaddingValues(), onLiabilities = {}, stateCache = cache)
+            }
+        }
+        compose.onNodeWithText("No personal loans recorded yet. Record a loan or open a payment in Activity to link it.")
+            .assertExists()
+        compose.onNodeWithText("Preparing your personal debts").assertDoesNotExist()
     }
 
     private fun removeTable(table: String): String {
