@@ -21,3 +21,8 @@ Tests exercise two pages with a verified zero-value record between deposit/debit
 
 ## Limitations
 Build and synthetic tests do not establish actual Safaricom PDF layout behavior on this user's phone. The user should try the rebuilt APK with the selected M-Pesa wallet and compare receipt counts, signed amounts and balances against the source before confirming import. For unsupported native PDF text order, remain fail-closed rather than guessing.
+
+## Follow-up: split PDF text-cell errors (12 October)
+The latest reported phone error is `A receipt row or wrapped description could not be positioned safely`. The prior line normalizer rejected standalone money-cell lines appearing after the Completed status, a normal possibility when Android exposes a PDF table as text fragments. It now reconstructs exactly two or three terminal money/placeholder cells from multiline rows, allows alphabetic wrapped descriptions after those cells, and safely ignores an exact repeated table header. It does **not** accept numeric fragments embedded in wrapped descriptions, interleaved money/words/money, unknown transaction status, extra money columns or incomplete receipt rows. The UI error now states page number and receipt row ordinal only, never private receipts, phone numbers or amounts. Synthetic regression cases reproduce the split-line layouts and ambiguous cases without a source statement.
+
+**Device verification is still required**: neither a green CI build nor these synthetic fixtures proves the exact text geometry in the user's Safaricom PDF. The parser should refuse unsupported row shapes rather than fabricate credits, expenses or partial cash records.
