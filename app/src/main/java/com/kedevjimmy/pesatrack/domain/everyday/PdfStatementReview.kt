@@ -42,25 +42,52 @@ object PdfStatementReview {
     private val officialLayout=Regex("\\bM[ -]?PESA STATEMENT\\b")
     private val explicitForeign=Regex("\\b(?:USD|EUR|GBP|TZS|UGX|ZAR|NGN)\\b")
     private data class DecodedRow(val row:StatementRow,val balance:Long,val compact:Boolean,val signedDebit:Boolean)
+    /**
+     * Android PDF text extraction can emit money cells on separate lines after
+     * the Completed status. Recover only when exactly two or three unambiguous
+     * money tokens remain. Description fragments may wrap below the money cells,
+     * but unknown numeric/receipt/status fragments are never silently ignored.
+     */
     private fun normalizeReceiptBlock(block:String):String? {
-        val lines=block.lines().map {it.trim()}.filter {it.isNotEmpty()}
-        if(lines.isEmpty())return null
-        val statusLine=lines.indexOfFirst {Regex("\\bCOMPLETED\\b",RegexOption.IGNORE_CASE).containsMatchIn(it)}
-        if(statusLine<0)return null
-        if(lines.drop(statusLine+1).any {next->
-                next.length>160 || status.containsMatchIn(next) || time.containsMatchIn(next) ||
-                start.containsMatchIn(next) || moneyCell.matches(next) ||
-                next.startsWith("RECEIPT NO",true) || next.startsWith("PAGE ",true)
-            })return null
-        val prefix=lines.take(statusLine+1).joinToString(" ").replace(Regex("\\s+")," ")
-        val completed=Regex("\\bCOMPLETED\\b",RegexOption.IGNORE_CASE).find(prefix)?:return null
-        val trailing=lines.drop(statusLine+1).joinToString(" ")
-        if(trailing.isEmpty())return prefix
-        // Wrapped detail-column continuation appears visually below the row,
-        // after the money cells in line-order extraction. Reinsert it before status.
-        return prefix.substring(0,completed.range.first).trimEnd() +
-            " " + trailing + " COMPLETED " +
-            prefix.substring(completed.range.last+1).trimStart()
+        val raw=block.lines().map {it.trim()}.filter {it.isNotEmpty()}
+        if(raw.isEmpty())return null
+        val lines=raw.filterNot {line->
+            val header=line.uppercase(Locale.ROOT).replace(Regex("\\s+")," ")
+            // Safaricom can repeat the column header after the final row.
+            Regex("^RECEIPT NO\\.? COMPLETION TIME DETAILS TRANSACTION STATUS PAID IN(?: \\(KES\\))? WITHDRAWN(?: \\(KES\\))? BALANCE(?: \\(KES\\))?$")
+                .matches(header)
+        }
+        val completion=Regex("\\bCOMPLETED\\b",RegexOption.IGNORE_CASE)
+        val statusLine=lines.indexOfFirst {completion.containsMatchIn(it)}
+        if(statusLine<0 || lines.count {completion.containsMatchIn(it)}!=1)return null
+        val prior=lines.take(statusLine+1).joinToString(" ").replace(Regex("\\s+")," ")
+        val completed=completion.find(prior)?:return null
+        val before=prior.substring(0,completed.range.first).trim()
+        val after=prior.substring(completed.range.last+1).trim()
+        val suffix=(listOf(after)+lines.drop(statusLine+1)).filter {it.isNotBlank()}
+            .joinToString(" ")
+        if(before.isBlank() || suffix.isBlank())return null
+        if(status.containsMatchIn(suffix) || time.containsMatchIn(suffix) ||
+            start.containsMatchIn(suffix) || suffix.length>280)return null
+        val money=mutableListOf<String>()
+        val wrapped=mutableListOf<String>()
+        var wordsAfterAmount=false
+        val tokens=suffix.split(Regex("\\s+"))
+        for(token in tokens) {
+            if(moneyCell.matches(token)) {
+                // A numeric amount after wrapped description is not reliably
+                // aligned with either the Paid In or Withdrawn PDF column.
+                if(wordsAfterAmount)return null
+                money.add(token)
+            } else {
+                if(token.any(Char::isDigit) || !token.any(Char::isLetter))return null
+                if(money.isNotEmpty())wordsAfterAmount=true
+                wrapped.add(token)
+            }
+        }
+        if(money.size !in 2..3)return null
+        val description=if(wrapped.isEmpty())before else before+" "+wrapped.joinToString(" ")
+        return "$description COMPLETED "+money.joinToString(" ")
     }
 
     fun read(pages: List<String>,zone: TimeZone,now: Long=System.currentTimeMillis()): PdfStatementCandidates {
@@ -107,7 +134,7 @@ object PdfStatementReview {
         if(headers.size!=1)return unsupported("The paid-in and withdrawn columns could not be identified consistently. No transactions were selected.")
         val paidFirst=headers.single().startsWith("PAID IN")
         val decoded=mutableListOf<DecodedRow>()
-        for(page in pages) {
+        for((pageIndex,page) in pages.withIndex()) {
             // The original statement prints a repeated verification/disclaimer footer.
             // It must not be interpreted as continuation of the final receipt row.
             val cutoff=footer.find(page)?.range?.first ?: page.length
@@ -119,7 +146,7 @@ object PdfStatementReview {
             for((index,match) in matches.withIndex()) {
                 val until=matches.getOrNull(index+1)?.range?.first ?: transactionText.length
                 val text=normalizeReceiptBlock(transactionText.substring(match.range.first,until))
-                    ?: return unsupported("A receipt row or wrapped description could not be positioned safely. No transactions were imported.")
+                    ?: return unsupported("Page ${pageIndex+1}, receipt row ${index+1}: description or amount columns could not be reconstructed safely. Nothing was imported.")
                 if(status.findAll(text).count()!=1 || time.findAll(text).count()!=1)
                     return unsupported("A row has ambiguous transaction boundaries. No partial import was prepared.")
                 val result=transaction.matchEntire(text) ?: return unsupported(
