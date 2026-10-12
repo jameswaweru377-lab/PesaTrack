@@ -105,6 +105,7 @@ class DebtsScreenCache {
     internal var active: List<DebtAccountSnapshot> = emptyList()
     internal var settled: List<DebtAccountSnapshot> = emptyList()
     internal var revision: Long = -1L
+    internal val receivables = PersonalReceivablesScreenCache()
 }
 
 @Composable
@@ -365,7 +366,12 @@ fun DebtsScreen(
 ) {
     var showOwedToMe by rememberSaveable { mutableStateOf(false) }
     if (showOwedToMe) {
-        PersonalReceivablesScreen(scaffoldPadding, onLiabilities = { showOwedToMe = false }, header = header)
+        PersonalReceivablesScreen(
+            scaffoldPadding,
+            onLiabilities = { showOwedToMe = false },
+            header = header,
+            stateCache = stateCache?.receivables
+        )
         return
     }
     val context = LocalContext.current
