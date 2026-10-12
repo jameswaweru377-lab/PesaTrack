@@ -64,7 +64,17 @@ object PdfStatementReview {
         val completed=completion.find(prior)?:return null
         val before=prior.substring(0,completed.range.first).trim()
         val after=prior.substring(completed.range.last+1).trim()
-        val suffix=(listOf(after)+lines.drop(statusLine+1)).filter {it.isNotBlank()}
+        val continuation=lines.drop(statusLine+1)
+        // Two or more money cells already attached to the Completed line
+        // followed by a separate numeric-only line are ambiguous: the latter
+        // could be stray text or an additional table column. Without PDF
+        // column coordinates, never reinterpret it as a valid receipt.
+        val inlineMoney=after.split(Regex("\\s+")).count {moneyCell.matches(it)}
+        if(inlineMoney>=2 && continuation.any {line ->
+                val cells=line.trim().split(Regex("\\s+"))
+                cells.isNotEmpty() && cells.all {moneyCell.matches(it)}
+            }) return null
+        val suffix=(listOf(after)+continuation).filter {it.isNotBlank()}
             .joinToString(" ")
         if(before.isBlank() || suffix.isBlank())return null
         if(status.containsMatchIn(suffix) || time.containsMatchIn(suffix) ||
