@@ -10,7 +10,9 @@ data class PdfStatementCandidates(
     val rows: List<StatementRow>,
     val problems: List<String>,
     /** Statement layout identifies the Kenya currency, but authenticity is not verified. */
-    val currencyReview: String? = null
+    val currencyReview: String? = null,
+    /** Zero-value informational receipts are verified, but never posted as cash. */
+    val informationalRows: Int = 0
 )
 
 /** Bounded M-Pesa text-layout adapter. Unsupported/partial evidence offers no import candidates. */
@@ -35,29 +37,110 @@ object PdfStatementReview {
     private val time=Regex("[0-9]{2}:[0-9]{2}:[0-9]{2}")
     private val transaction=Regex("^([A-Z0-9]{10})\\s+([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{2}/[0-9]{2}/[0-9]{4})\\s+([0-9]{2}:[0-9]{2}:[0-9]{2})\\s+(.+?)\\s+COMPLETED\\s+(.+)$",RegexOption.IGNORE_CASE)
     private val moneyCell=Regex("(?:-|(?:-?[0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?))")
+    private val explicitZero=Regex("0+(?:\\.0{1,2})?")
+    // A wrapped narrative can carry an identifier preceded by a dash. This is
+    // not an empty Paid In / Withdrawn cell. Only a bounded, labelled,
+    // whole-number reference can be recovered without PDF column coordinates.
+    private val referenceLead=Regex("(?:from|to|ref|reference|account)",RegexOption.IGNORE_CASE)
+    private val referenceDigits=Regex("[0-9]{9,15}")
+    private val dashedReferenceDigits=Regex("-[0-9]{9,15}")
     private val footer=Regex("(?im)^[ \\t]*(?:DISCLAIMER\\b|STATEMENT VERIFICATION CODE\\b|FOR SELF[- ]HELP\\b)")
     private val officialLayout=Regex("\\bM[ -]?PESA STATEMENT\\b")
     private val explicitForeign=Regex("\\b(?:USD|EUR|GBP|TZS|UGX|ZAR|NGN)\\b")
     private data class DecodedRow(val row:StatementRow,val balance:Long,val compact:Boolean,val signedDebit:Boolean)
+    /**
+     * Android PDF text extraction can emit money cells on separate lines after
+     * the Completed status. Recover only when exactly two or three unambiguous
+     * money tokens remain. Description fragments may wrap below the money cells,
+     * but unknown numeric/receipt/status fragments are never silently ignored.
+     */
     private fun normalizeReceiptBlock(block:String):String? {
-        val lines=block.lines().map {it.trim()}.filter {it.isNotEmpty()}
-        if(lines.isEmpty())return null
-        val statusLine=lines.indexOfFirst {Regex("\\bCOMPLETED\\b",RegexOption.IGNORE_CASE).containsMatchIn(it)}
-        if(statusLine<0)return null
-        if(lines.drop(statusLine+1).any {next->
-                next.length>160 || status.containsMatchIn(next) || time.containsMatchIn(next) ||
-                start.containsMatchIn(next) || moneyCell.matches(next) ||
-                next.startsWith("RECEIPT NO",true) || next.startsWith("PAGE ",true)
-            })return null
-        val prefix=lines.take(statusLine+1).joinToString(" ").replace(Regex("\\s+")," ")
-        val completed=Regex("\\bCOMPLETED\\b",RegexOption.IGNORE_CASE).find(prefix)?:return null
-        val trailing=lines.drop(statusLine+1).joinToString(" ")
-        if(trailing.isEmpty())return prefix
-        // Wrapped detail-column continuation appears visually below the row,
-        // after the money cells in line-order extraction. Reinsert it before status.
-        return prefix.substring(0,completed.range.first).trimEnd() +
-            " " + trailing + " COMPLETED " +
-            prefix.substring(completed.range.last+1).trimStart()
+        val raw=block.lines().map {it.trim()}.filter {it.isNotEmpty()}
+        if(raw.isEmpty())return null
+        val lines=raw.filterNot {line->
+            val header=line.uppercase(Locale.ROOT).replace(Regex("\\s+")," ")
+            // Safaricom can repeat the column header after the final row.
+            Regex("^RECEIPT NO\\.? COMPLETION TIME DETAILS TRANSACTION STATUS PAID IN(?: \\(KES\\))? WITHDRAWN(?: \\(KES\\))? BALANCE(?: \\(KES\\))?$")
+                .matches(header)
+        }
+        val completion=Regex("\\bCOMPLETED\\b",RegexOption.IGNORE_CASE)
+        val statusLine=lines.indexOfFirst {completion.containsMatchIn(it)}
+        if(statusLine<0 || lines.count {completion.containsMatchIn(it)}!=1)return null
+        val prior=lines.take(statusLine+1).joinToString(" ").replace(Regex("\\s+")," ")
+        val completed=completion.find(prior)?:return null
+        val before=prior.substring(0,completed.range.first).trim()
+        val after=prior.substring(completed.range.last+1).trim()
+        val continuation=lines.drop(statusLine+1)
+        // Two or more money cells already attached to the Completed line
+        // followed by a separate numeric-only line are ambiguous: the latter
+        // could be stray text or an additional table column. Without PDF
+        // column coordinates, never reinterpret it as a valid receipt.
+        val inlineMoney=after.split(Regex("\\s+")).count {moneyCell.matches(it)}
+        if(inlineMoney>=2 && continuation.withIndex().any { (i,line) ->
+                val cells=line.trim().split(Regex("\\s+"))
+                val preceding=continuation.getOrNull(i-1)
+                    ?.trim()?.split(Regex("\\s+")).orEmpty()
+                // A standalone long identifier split after "from -" is not
+                // another amount column; every other numeric-only continuation
+                // remains ambiguous and must reject the entire statement.
+                val labelledReference=referenceDigits.matches(line.trim()) &&
+                    preceding.size>=2 && preceding.last()=="-" &&
+                    referenceLead.matches(preceding[preceding.size-2])
+                cells.isNotEmpty() && cells.all {moneyCell.matches(it)} &&
+                    !labelledReference
+            }) return null
+        val suffix=(listOf(after)+continuation).filter {it.isNotBlank()}
+            .joinToString(" ")
+        if(before.isBlank() || suffix.isBlank())return null
+        if(status.containsMatchIn(suffix) || time.containsMatchIn(suffix) ||
+            start.containsMatchIn(suffix) || suffix.length>280)return null
+        val money=mutableListOf<String>()
+        val wrapped=mutableListOf<String>()
+        var wordsAfterAmount=false
+        val rawTokens=suffix.split(Regex("\\s+"))
+        val tokens=mutableListOf<String>()
+        var tokenIndex=0
+        while(tokenIndex<rawTokens.size) {
+            val lead=rawTokens[tokenIndex]
+            val following=rawTokens.getOrNull(tokenIndex+1)
+            val digits=rawTokens.getOrNull(tokenIndex+2)
+            when {
+                referenceLead.matches(lead) && following=="-" &&
+                    digits!=null && referenceDigits.matches(digits) -> {
+                    // Keep the whole "from - identifier" phrase in Details,
+                    // regardless of whether native PDF text puts it before or
+                    // after Completed and the monetary columns.
+                    tokens.add("$lead - $digits")
+                    tokenIndex+=3
+                }
+                referenceLead.matches(lead) && following!=null &&
+                    dashedReferenceDigits.matches(following) -> {
+                    tokens.add("$lead $following")
+                    tokenIndex+=2
+                }
+                else -> {
+                    tokens.add(lead)
+                    tokenIndex++
+                }
+            }
+        }
+        for(token in tokens) {
+            if(moneyCell.matches(token)) {
+                // A numeric amount after wrapped description is not reliably
+                // aligned with either the Paid In or Withdrawn PDF column.
+                if(wordsAfterAmount)return null
+                money.add(token)
+            } else {
+                // Merchant/reference words can contain digits; standalone numeric
+                // tokens are never silently inserted into a wrapped description.
+                if(!token.any(Char::isLetter))return null
+                if(money.isNotEmpty())wordsAfterAmount=true
+                wrapped.add(token)
+            }
+        }
+        if(money.size !in 2..3)return null
+        val description=if(wrapped.isEmpty())before else before+" "+wrapped.joinToString(" ")
+        return "$description COMPLETED "+money.joinToString(" ")
     }
 
     fun read(pages: List<String>,zone: TimeZone,now: Long=System.currentTimeMillis()): PdfStatementCandidates {
@@ -104,7 +187,7 @@ object PdfStatementReview {
         if(headers.size!=1)return unsupported("The paid-in and withdrawn columns could not be identified consistently. No transactions were selected.")
         val paidFirst=headers.single().startsWith("PAID IN")
         val decoded=mutableListOf<DecodedRow>()
-        for(page in pages) {
+        for((pageIndex,page) in pages.withIndex()) {
             // The original statement prints a repeated verification/disclaimer footer.
             // It must not be interpreted as continuation of the final receipt row.
             val cutoff=footer.find(page)?.range?.first ?: page.length
@@ -116,7 +199,7 @@ object PdfStatementReview {
             for((index,match) in matches.withIndex()) {
                 val until=matches.getOrNull(index+1)?.range?.first ?: transactionText.length
                 val text=normalizeReceiptBlock(transactionText.substring(match.range.first,until))
-                    ?: return unsupported("A receipt row or wrapped description could not be positioned safely. No transactions were imported.")
+                    ?: return unsupported("Page ${pageIndex+1}, receipt row ${index+1}: description or amount columns could not be reconstructed safely. Nothing was imported.")
                 if(status.findAll(text).count()!=1 || time.findAll(text).count()!=1)
                     return unsupported("A row has ambiguous transaction boundaries. No partial import was prepared.")
                 val result=transaction.matchEntire(text) ?: return unsupported(
@@ -130,6 +213,10 @@ object PdfStatementReview {
                 val cells=result.groupValues[5].split(Regex("\\s+"))
                 if(cells.size !in 2..3 || cells.any {!moneyCell.matches(it)})
                     return unsupported("Paid In, Withdrawn and Balance values could not be aligned. No transactions were imported.")
+                // A two-cell row containing only a blank ('-') amount is not proof
+                // of zero movement: the missing cell may contain an unread debit.
+                if(cells.size==2 && cells[0]=="-")
+                    return unsupported("A receipt has no readable amount. Nothing was imported.")
                 fun value(cell:String):Long? =
                     if(cell=="-")0L else EverydayMoneyPolicy.money(cell)
                 val balance=value(cells.last())
@@ -147,14 +234,20 @@ object PdfStatementReview {
                 } else {
                     val paid=if(paidFirst)first else second
                     val debit=if(paidFirst)second else first
-                    if(paid<0 || debit==Long.MIN_VALUE || (paid>0)==(debit!=0L))
+                    if(paid<0 || debit==Long.MIN_VALUE || (paid>0 && debit!=0L))
                         return unsupported("A transaction has ambiguous paid-in and withdrawn amounts. No transactions were selected.")
                     runCatching {
                         if(debit<0) Math.addExact(paid,debit) else Math.subtractExact(paid,debit)
                     }.getOrNull() ?: return unsupported("An amount is outside the supported range. Nothing was imported.")
                 }
-                if(signed==0L || signed==Long.MIN_VALUE)
-                    return unsupported("A transaction has no single nonzero wallet movement; review the original statement.")
+                if(signed==Long.MIN_VALUE)
+                    return unsupported("A transaction amount is outside the supported range. Nothing was imported.")
+                // Some M-Pesa statements contain completed zero-value informational
+                // receipts. Keep them as balance anchors; never import them as money.
+                // Blank cells alone are not enough evidence of a zero-value entry.
+                if(signed==0L && !(if(compact) explicitZero.matches(cells[0])
+                    else explicitZero.matches(cells[0]) && explicitZero.matches(cells[1])))
+                    return unsupported("A zero-value row has missing or ambiguous money cells. Nothing was imported.")
                 val description=result.groupValues[4].trim()
                 if(description.length !in 1..200)
                     return unsupported("A transaction description is longer than supported. No partial import was prepared.")
@@ -167,15 +260,26 @@ object PdfStatementReview {
                 return unsupported("A page has transaction timestamps without readable receipt rows. No partial import was prepared.")
         }
         if(decoded.isEmpty())return unsupported("No supported M-Pesa transaction rows were found. No partial import was prepared.")
-        val rows=decoded.map {it.row}
-        if(rows.map {it.reference}.distinct().size!=rows.size)
+        val informational=decoded.count {it.row.signedMinor==0L}
+        // Check *all* statement receipts, including any zero-value records that
+        // will be excluded from the import review, for duplicate references.
+        if(decoded.map {it.row.reference}.distinct().size!=decoded.size)
             return unsupported("Repeated receipt references need review. No transactions were selected.")
-        // Compact rows omit a blank Paid In/Withdrawn cell. Require at least one
-        // signed debit and a complete sequential balance proof for every row.
-        if(decoded.any {it.compact}) {
-            if(!structuredKenyanStatement || !paidFirst || decoded.none {it.signedDebit} || decoded.size<2)
+        // The omitted money column in a compact row requires corroborating
+        // evidence of direction. A zero receipt additionally requires an intact
+        // running balance across adjacent rows before it can be left out.
+        if(decoded.any {it.compact} || informational>0) {
+            if(decoded.size<2)
+                return unsupported("An informational receipt has no adjacent balance evidence. Nothing was imported.")
+            if(decoded.any {it.compact} &&
+                (!structuredKenyanStatement || !paidFirst || decoded.none {it.signedDebit}))
                 return unsupported("The PDF omits empty money columns and their direction could not be proved. No transactions were selected.")
             val descending=decoded.first().row.date>=decoded.last().row.date
+            // A compact oldest zero record has no preceding balance to prove
+            // its zero movement. Refuse to drop a potentially missing debit.
+            val oldest=if(descending) decoded.last() else decoded.first()
+            if(oldest.compact && oldest.row.signedMinor==0L)
+                return unsupported("The oldest zero-value receipt has no earlier balance to verify its amount. Nothing was imported.")
             for(i in 0 until decoded.size-1) {
                 val newer=if(descending)decoded[i] else decoded[i+1]
                 val older=if(descending)decoded[i+1] else decoded[i]
@@ -185,10 +289,14 @@ object PdfStatementReview {
                     return unsupported("The PDF's Paid In/Withdrawn columns could not be reconciled with successive balances. No transactions were selected.")
             }
         }
+        val rows=decoded.map {it.row}.filter {it.signedMinor!=0L}
+        if(rows.isEmpty())return unsupported(
+            "This statement has only verified zero-value informational receipts; there are no monetary transactions to import."
+        )
         val validation=runCatching {StatementCsv.validateRows(rows,now)}
         if(validation.isFailure)return unsupported(
             "A statement amount, date or description failed validation. Nothing was imported."
         )
-        return PdfStatementCandidates(rows,emptyList(),currencyReview)
+        return PdfStatementCandidates(rows,emptyList(),currencyReview,informational)
     }
 }

@@ -102,4 +102,73 @@ class SafaricomStatementLayoutTest {
         assertEquals(result.problems.joinToString(),1,result.rows.size)
         assertNull(result.currencyReview)
     }
+
+    @Test fun completedStatusAndMoneyCellsOnSeparatePdfLinesRemainReviewable() {
+        val page = official+
+            "QAB1234569 2026-10-10 10:30:00 Payment at shop\n"+
+            "Completed\n-20.00\n490.00\n"+
+            "QAB1234568 2026-10-09 10:30:00 Funds received\n"+
+            "Completed\n100.00\n510.00\n"+
+            "QAB1234567 2026-10-08 10:30:00 Payment of fare\n"+
+            "Completed\n-50.00\n410.00"
+        val review=PdfStatementReview.read(listOf(page),zone)
+        assertEquals(review.problems.joinToString(),3,review.rows.size)
+        assertEquals(listOf(-2000L,10000L,-5000L),review.rows.map{it.signedMinor})
+    }
+
+    @Test fun threeColumnAmountsFollowingStatusAreKeptInTheirOriginalOrder() {
+        val page="M-PESA STATEMENT\nCurrency: KES\n"+
+            "Receipt No. Completion Time Details Transaction Status Paid In Withdrawn Balance\n"+
+            "QAB1234567 2026-10-08 10:30:00 Fare payment\n"+
+            "Completed\n-\n-50.00\n410.00"
+        val review=PdfStatementReview.read(listOf(page),zone)
+        assertEquals(review.problems.joinToString(),listOf(-5000L),review.rows.map{it.signedMinor})
+    }
+
+    @Test fun repeatedColumnHeaderAfterLastReceiptIsNotItsDescription() {
+        val page=official+newer+"\n"+middle+"\n"+older+"\n"+
+            "Receipt No. Completion Time Details Transaction Status Paid In Withdrawn Balance"
+        val review=PdfStatementReview.read(listOf(page),zone)
+        assertEquals(review.problems.joinToString(),3,review.rows.size)
+        assertFalse(review.rows.last().description.contains("Receipt No"))
+    }
+
+    @Test fun wrappedMemoAfterSplitMoneyColumnsCanBeReattached() {
+        val page=official+
+            "QAB1234569 2026-10-10 10:30:00 Payment\n"+
+            "Completed\n-20.00\n490.00\n"+
+            "at synthetic merchant\n"+
+            middle+"\n"+older
+        val review=PdfStatementReview.read(listOf(page),zone)
+        assertEquals(review.problems.joinToString(),3,review.rows.size)
+        assertTrue(review.rows.first().description.contains("synthetic merchant"))
+    }
+
+    @Test fun alphanumericMerchantWordsCanWrapWithoutBecomingMoneyCells() {
+        val page=official+
+            "QAB1234569 2026-10-10 10:30:00 Payment\n"+
+            "Completed\n-20.00\n490.00\n"+
+            "to ShopB42 merchant\n"+
+            middle+"\n"+older
+        val review=PdfStatementReview.read(listOf(page),zone)
+        assertEquals(review.problems.joinToString(),3,review.rows.size)
+        assertTrue(review.rows.first().description.contains("ShopB42"))
+    }
+
+    @Test fun ambiguouslyInterleavedMoneyAndTextStillRejectsWholeStatement() {
+        val page=official+
+            "QAB1234569 2026-10-10 10:30:00 Payment\n"+
+            "Completed\n-20.00\ncontinued memo\n490.00\n"+
+            middle+"\n"+older
+        val review=PdfStatementReview.read(listOf(page),zone)
+        assertTrue(review.rows.isEmpty())
+        assertTrue(review.problems.any{it.contains("Page 1, receipt row 1")})
+    }
+
+    @Test fun looseNumericContinuationIsNotMistakenForAnotherMoneyCell() {
+        val page=official+newer+"\n100.00\n"+middle+"\n"+older
+        val review=PdfStatementReview.read(listOf(page),zone)
+        assertTrue(review.rows.isEmpty())
+        assertTrue(review.problems.any{it.contains("Page 1, receipt row 1")})
+    }
 }
