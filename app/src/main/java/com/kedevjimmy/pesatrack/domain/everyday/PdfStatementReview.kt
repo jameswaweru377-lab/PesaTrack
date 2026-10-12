@@ -17,10 +17,24 @@ data class PdfStatementCandidates(
 
 /** Bounded M-Pesa text-layout adapter. Unsupported/partial evidence offers no import candidates. */
 object PdfStatementReview {
-    fun requireUniqueReferences(rows: List<StatementRow>) {
+    /**
+     * Safaricom can print separate financial legs under one receipt, e.g.
+     * payment + fee + Fuliza settlement. A receipt code identifies an event,
+     * not a unique ledger leg. Refuse only *identical* leg evidence, which
+     * cannot be safely assigned a distinct import identity.
+     */
+    fun requireDistinctStatementLegs(rows: List<StatementRow>) {
         val references=rows.map {it.reference.orEmpty().trim().uppercase(Locale.ROOT)}
-        require(references.all {Regex("[A-Z0-9]{10}").matches(it)}) {"Each entry needs the 10-letter/digit M-Pesa receipt reference from the statement."}
-        require(references.distinct().size==references.size) {"Two entries use the same receipt reference. Correct the reference or cancel this edit."}
+        require(references.all {Regex("[A-Z0-9]{10}").matches(it)}) {
+            "Each entry needs a 10-character M-Pesa receipt reference."
+        }
+        val legs=rows.mapIndexed {index,row ->
+            "${references[index]}|${row.date}|${row.signedMinor}|" +
+                row.description.trim().replace(Regex("\\s+")," ").uppercase(Locale.ROOT)
+        }
+        require(legs.size==legs.distinct().size) {
+            "Identical receipt legs need review. No transactions were imported."
+        }
     }
     fun correct(date: String,description: String,amount: String,reference: String,zone: TimeZone,now: Long=System.currentTimeMillis()): StatementRow {
         require(Regex("[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}").matches(date)){"Use yyyy-MM-dd HH:mm:ss for the date and time."}
@@ -44,6 +58,11 @@ object PdfStatementReview {
     private val referenceLead=Regex("(?:from|to|ref|reference|account)",RegexOption.IGNORE_CASE)
     private val referenceDigits=Regex("[0-9]{9,15}")
     private val dashedReferenceDigits=Regex("-[0-9]{9,15}")
+    /** Asterisks mask identity digits, never a money column. */
+    private val maskedReference=Regex("(?:\\+?[0-9*]{8,18})")
+    private fun isMaskedReference(token:String):Boolean =
+        token.contains('*') && token.count {it.isDigit()}>=2 &&
+            maskedReference.matches(token)
     private val footer=Regex("(?im)^[ \\t]*(?:DISCLAIMER\\b|STATEMENT VERIFICATION CODE\\b|FOR SELF[- ]HELP\\b)")
     private val officialLayout=Regex("\\bM[ -]?PESA STATEMENT\\b")
     private val explicitForeign=Regex("\\b(?:USD|EUR|GBP|TZS|UGX|ZAR|NGN)\\b")
@@ -106,7 +125,7 @@ object PdfStatementReview {
             val digits=rawTokens.getOrNull(tokenIndex+2)
             when {
                 referenceLead.matches(lead) && following=="-" &&
-                    digits!=null && referenceDigits.matches(digits) -> {
+                    digits!=null && (referenceDigits.matches(digits) || isMaskedReference(digits)) -> {
                     // Keep the whole "from - identifier" phrase in Details,
                     // regardless of whether native PDF text puts it before or
                     // after Completed and the monetary columns.
@@ -114,9 +133,18 @@ object PdfStatementReview {
                     tokenIndex+=3
                 }
                 referenceLead.matches(lead) && following!=null &&
-                    dashedReferenceDigits.matches(following) -> {
+                    (dashedReferenceDigits.matches(following) ||
+                        (following.startsWith("-") && isMaskedReference(following.drop(1)))) -> {
                     tokens.add("$lead $following")
                     tokenIndex+=2
+                }
+                // A masked account/phone is part of Details even when the
+                // immediately preceding phrase is unfamiliar. The dash is
+                // punctuation here, not the empty Paid In/Withdrawn cell.
+                following=="-" && digits!=null && isMaskedReference(digits) &&
+                    lead.any(Char::isLetter) -> {
+                    tokens.add("$lead - $digits")
+                    tokenIndex+=3
                 }
                 else -> {
                     tokens.add(lead)
@@ -133,7 +161,7 @@ object PdfStatementReview {
             } else {
                 // Merchant/reference words can contain digits; standalone numeric
                 // tokens are never silently inserted into a wrapped description.
-                if(!token.any(Char::isLetter))return null
+                if(!token.any(Char::isLetter) && !isMaskedReference(token))return null
                 if(money.isNotEmpty())wordsAfterAmount=true
                 wrapped.add(token)
             }
@@ -263,8 +291,8 @@ object PdfStatementReview {
         val informational=decoded.count {it.row.signedMinor==0L}
         // Check *all* statement receipts, including any zero-value records that
         // will be excluded from the import review, for duplicate references.
-        if(decoded.map {it.row.reference}.distinct().size!=decoded.size)
-            return unsupported("Repeated receipt references need review. No transactions were selected.")
+        if(runCatching {requireDistinctStatementLegs(decoded.map {it.row})}.isFailure)
+            return unsupported("Identical receipt legs need review. No transactions were selected.")
         // The omitted money column in a compact row requires corroborating
         // evidence of direction. A zero receipt additionally requires an intact
         // running balance across adjacent rows before it can be left out.
