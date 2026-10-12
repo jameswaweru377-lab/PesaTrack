@@ -116,25 +116,38 @@ class PdfTextReviewService : Service() {
                     if(characters>PdfTextReviewPolicy.MAX_CHARACTERS) throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
                     if (text.isNotEmpty()) text.append('\n')
                     text.append(content.text)
-                    // Only single-line bounded fragments are safe to reposition.
                     val bounds=content.bounds
+                    // Preserve the old reading-order reflow only for the
+                    // originally supported single-line native fragments.
                     if(bounds.size==1 && !content.text.contains('\n') && !content.text.contains('\r')) {
                         val box=bounds[0]
-                        val fragment=PdfTextFragment(content.text,box.left,box.top,box.right,box.bottom)
-                        fragments.add(fragment)
-                        if(withPositions) {
-                            val valid=fragment.text.length <=
-                                com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler.MAX_FRAGMENT_TEXT &&
-                                fragment.left.isFinite() && fragment.top.isFinite() &&
-                                fragment.right.isFinite() && fragment.bottom.isFinite() &&
-                                fragment.left < fragment.right && fragment.top < fragment.bottom &&
-                                positionedTotal < com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler.MAX_TOTAL_FRAGMENTS
-                            if(valid) {
-                                positioned.add(fragment)
-                                positionedTotal++
-                            } else complete=false
-                        }
-                    } else if(withPositions) complete=false
+                        fragments.add(PdfTextFragment(content.text,box.left,box.top,box.right,box.bottom))
+                    }
+                    if(withPositions) {
+                        // Wrapped Details may be one native text item containing
+                        // several visual lines. Retain its complete bounded box
+                        // for explicit column/receipt reconstruction instead of
+                        // dropping it and making the amount parser guess.
+                        val limit=com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler.MAX_FRAGMENT_TEXT
+                        val countLimit=com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler.MAX_TOTAL_FRAGMENTS
+                        val valid=bounds.isNotEmpty() && bounds.size<=24 &&
+                            content.text.isNotBlank() && content.text.length<=limit &&
+                            content.text.none {it.isISOControl() && it !in setOf('\n','\r','\t')} &&
+                            bounds.all {box ->
+                                box.left.isFinite() && box.right.isFinite() &&
+                                box.top.isFinite() && box.bottom.isFinite() &&
+                                box.left < box.right && box.top < box.bottom
+                            } && positionedTotal<countLimit
+                        if(valid) {
+                            val fragment=PdfTextFragment(
+                                content.text,
+                                bounds.minOf {it.left},bounds.minOf {it.top},
+                                bounds.maxOf {it.right},bounds.maxOf {it.bottom}
+                            )
+                            positioned.add(fragment)
+                            positionedTotal++
+                        } else complete=false
+                    }
                 }
                 val original=text.toString()
                 val isStatement=original.contains("M-PESA STATEMENT",true) ||
