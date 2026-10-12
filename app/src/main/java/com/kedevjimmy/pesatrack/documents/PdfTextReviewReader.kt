@@ -7,6 +7,7 @@ import androidx.annotation.RequiresApi
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextPreview
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextChunkAssembler
+import com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.DocumentCopySession
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
 import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
@@ -26,7 +27,7 @@ object PdfTextReviewReader {
     fun clearAbandonedFiles(context: Context) {
         context.cacheDir.listFiles()?.filter { it.name.startsWith("pdf-review-") && it.name.endsWith(".pdf") }?.forEach { it.delete() }
     }
-    suspend fun read(context: Context, uri: Uri, password: String? = null): PdfTextPreview {
+    suspend fun read(context: Context, uri: Uri, password: String? = null, includePositions: Boolean = false): PdfTextPreview {
         if(Build.VERSION.SDK_INT<35)throw PdfReadException(PdfFailure.VERSION)
         val app = context.applicationContext
         val file = File.createTempFile("pdf-review-", ".pdf", app.cacheDir)
@@ -34,7 +35,7 @@ object PdfTextReviewReader {
             return withTimeout(PdfTextReviewPolicy.TIMEOUT_MS) {
                 copySource(app, uri, file)
                 withContext(Dispatchers.Main) {
-                    if (Build.VERSION.SDK_INT >= 35) request(app, file, password)
+                    if (Build.VERSION.SDK_INT >= 35) request(app, file, password, includePositions)
                     else throw PdfReadException(PdfFailure.VERSION)
                 }
             }
@@ -78,7 +79,7 @@ object PdfTextReviewReader {
     }
 
     @RequiresApi(35)
-    private suspend fun request(app: Context, file: File, password: String?): PdfTextPreview {
+    private suspend fun request(app: Context, file: File, password: String?, includePositions: Boolean): PdfTextPreview {
         var bound = false
         lateinit var connection: ServiceConnection
         try {
@@ -87,6 +88,7 @@ object PdfTextReviewReader {
                     if (continuation.isActive) continuation.resumeWithException(PdfReadException(failure))
                 }
                 val assembly=PdfTextChunkAssembler()
+                val positioned=PdfPositionChunkAssembler()
                 val reply = Messenger(Handler(Looper.getMainLooper()) { message ->
                     if (continuation.isActive) {
                         val failure = message.data.getString("failure")
@@ -95,8 +97,29 @@ object PdfTextReviewReader {
                             val data=message.data
                             if(data.containsKey("chunk")) {
                                 assembly.add(data.getInt("pageIndex",-1),data.getString("chunk") ?: "")
+                            } else if(includePositions && data.getBoolean("geometryStart",false)) {
+                                positioned.startPage(data.getInt("pageIndex",-1))
+                            } else if(includePositions && data.containsKey("geometryTexts")) {
+                                positioned.add(
+                                    data.getInt("pageIndex",-1),
+                                    data.getStringArrayList("geometryTexts")?.toList() ?: error("Missing geometry."),
+                                    data.getFloatArray("geometryLeft") ?: error("Missing geometry."),
+                                    data.getFloatArray("geometryTop") ?: error("Missing geometry."),
+                                    data.getFloatArray("geometryRight") ?: error("Missing geometry."),
+                                    data.getFloatArray("geometryBottom") ?: error("Missing geometry.")
+                                )
                             } else if(data.getBoolean("done",false)) {
-                                continuation.resume(assembly.finish(data.getInt("pageCount",-1)))
+                                val n=data.getInt("pageCount",-1)
+                                val base=assembly.finish(n)
+                                val enriched=if(includePositions) {
+                                    val (geometry,complete)=positioned.finish(
+                                        n,
+                                        data.getIntArray("geometryCounts") ?: error("Missing geometry counts."),
+                                        data.getBooleanArray("geometryComplete") ?: error("Missing geometry flags.")
+                                    )
+                                    base.copy(positionedPages=geometry,positionedComplete=complete)
+                                } else base
+                                continuation.resume(enriched)
                             } else fail(PdfFailure.SERVICE)
                         } catch (e: Exception) {
                             fail((e as? PdfReadException)?.failure ?: PdfFailure.PARSE)
@@ -111,7 +134,11 @@ object PdfTextReviewReader {
                             ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
                                 Messenger(binder).send(Message.obtain().apply {
                                     replyTo = reply
-                                    data = Bundle().apply { putParcelable("file", descriptor);putString("password",password) }
+                                    data = Bundle().apply {
+                                        putParcelable("file", descriptor)
+                                        putString("password",password)
+                                        putBoolean("includePositions",includePositions)
+                                    }
                                 })
                                 // The isolated process now owns a duplicated descriptor; retain no named document.
                                 file.delete()
