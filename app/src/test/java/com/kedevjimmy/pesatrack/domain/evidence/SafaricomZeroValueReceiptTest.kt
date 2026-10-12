@@ -86,6 +86,15 @@ class SafaricomZeroValueReceiptTest {
         assertTrue(review.problems.isNotEmpty())
     }
 
+    @Test fun compactOldestZeroCannotBeDroppedWithoutEarlierBalance() {
+        val page=header+newDebit+"\n"+
+            "QAB1234569 2026-10-09 10:30:00 Deposit Completed 100.00 510.00\n"+
+            "QAB1234568 2026-10-08 10:30:00 Account note Completed 0.00 410.00"
+        val review=PdfStatementReview.read(listOf(page),zone)
+        assertTrue(review.rows.isEmpty())
+        assertTrue(review.problems.any { it.contains("oldest zero-value receipt") })
+    }
+
     @Test fun singleZeroWithoutAdjacentBalanceProofFailsClosed() {
         val review=PdfStatementReview.read(listOf(header+zero),zone)
         assertTrue(review.rows.isEmpty())
