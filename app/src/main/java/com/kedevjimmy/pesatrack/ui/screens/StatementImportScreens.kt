@@ -105,7 +105,6 @@ private fun readStatement(c:Context,uri:Uri):String {
    }
   }
  )
- PdfPasswordDialog(pdfImport)
  StatementImportWorkspace(busy,onDismiss) {
   item {
    PesaCard {
@@ -222,6 +221,7 @@ private fun readStatement(c:Context,uri:Uri):String {
    items(preview.size,key={it}){i->val p=preview[i];PesaCard{Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=selected[i]==true,onCheckedChange={selected[i]=it},enabled=!busy&&!p.duplicate);Column(Modifier.weight(1f)){Text(p.row.description,style=MaterialTheme.typography.titleSmall);Text(StatementImportDates.day(p.row.date,zoneId)+(if(p.duplicate)" · Already recorded"else if(p.possibleMatch)" · Possible match"else""),style=MaterialTheme.typography.bodySmall);if(pdfRows)TextButton(enabled=!busy,onClick={editingPdf=p.row}){Text("Edit extracted entry")}};Text(toolMoney(p.row.signedMinor),style=MaterialTheme.typography.bodySmall)}}}
   }
  }
+ PdfPasswordDialog(pdfImport)
  editingPdf?.let {original->PdfStatementRowDialog(original,zoneId,onDismiss={editingPdf=null},onSave={updated->
   val index=rows.indexOf(original)
   if(index>=0){
