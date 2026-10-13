@@ -204,6 +204,7 @@ fun ActivityScreen(
     onSalaryClick: () -> Unit = {},
     onPaycheckClick: () -> Unit = {},
     openNeedsAttention: Boolean = false,
+    initialAccountReviewKey: String? = null,
     stateCache: ActivityScreenCache? = null
 ) {
     var payCycleMode by rememberSaveable { mutableStateOf(false) }
@@ -627,6 +628,16 @@ fun ActivityScreen(
                     )
                 }
         }
+
+    var notificationAccountOpened by remember(initialAccountReviewKey) { mutableStateOf(false) }
+    LaunchedEffect(initialAccountReviewKey, reviewableFinancialEntities) {
+        if (!notificationAccountOpened && initialAccountReviewKey != null) {
+            reviewableFinancialEntities.firstOrNull { it.entityKey == initialAccountReviewKey }?.let {
+                accountReviewEntity = it
+                notificationAccountOpened = true
+            }
+        }
+    }
 
     fun selectMonth(epochMs: Long) {
         val normalizedMonth =

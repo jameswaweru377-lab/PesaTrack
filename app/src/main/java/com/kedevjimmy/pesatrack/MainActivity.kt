@@ -37,13 +37,27 @@ class MainActivity : ComponentActivity() {
     private var billsOpenRequest by mutableStateOf(0)
     private var planningOpenRequest by mutableStateOf(0)
     private var reviewOpenRequest by mutableStateOf(0)
+    private var smartOpenRequest by mutableStateOf(0)
+    private var smartKey by mutableStateOf("")
+    private var smartAction by mutableStateOf("review")
     private var planningRoute by mutableStateOf("budgets")
     private lateinit var appLockManager:
         AppLockManager
     private var appLocked by mutableStateOf(false)
+    private fun readSmartIntent(intent: Intent) {
+        intent.getStringExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_KEY)?.let {
+            smartKey = it
+            smartAction = intent.getStringExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_ACTION)
+                ?.takeIf { action -> action in setOf("review","entry","gift","other") } ?: "review"
+            smartOpenRequest++
+            intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_KEY)
+            intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_ACTION)
+        }
+    }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        readSmartIntent(intent)
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
         if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
         if (intent.getBooleanExtra(ReviewAttentionReminders.OPEN_ACTIVITY_REVIEW, false)) reviewOpenRequest++
@@ -76,6 +90,7 @@ class MainActivity : ComponentActivity() {
         appLocked =
             appLockManager.isEnabled()
         updateSecureWindowState()
+        readSmartIntent(intent)
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
         if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
         if (intent.getBooleanExtra(ReviewAttentionReminders.OPEN_ACTIVITY_REVIEW, false)) reviewOpenRequest++
@@ -168,6 +183,7 @@ class MainActivity : ComponentActivity() {
                     salaryOpenRequest = salaryOpenRequest,
                     billsOpenRequest = billsOpenRequest,
                     reviewOpenRequest = reviewOpenRequest,
+                    smartOpenRequest = smartOpenRequest, smartKey = smartKey, smartAction = smartAction,
                             planningOpenRequest = planningOpenRequest, planningRoute = planningRoute,
                     themeMode = themeMode,
                     onThemeModeChange = { newMode ->

@@ -1,0 +1,117 @@
+package com.kedevjimmy.pesatrack.ui.screens
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.data.local.*
+import com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind
+import com.kedevjimmy.pesatrack.planning.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+
+/** Taps read current local evidence. Financial writes remain in the existing confirmation dialog. */
+@Composable
+fun SmartNoticeReviewScreen(padding: PaddingValues, key: String, action: String,
+    onBack: () -> Unit, onTransaction: (Long) -> Unit) {
+    val context = LocalContext.current
+    val revision by LedgerUpdateBus.state.collectAsState()
+    var notice by remember(key) { mutableStateOf<SmartNotice?>(null) }
+    var row by remember(key) { mutableStateOf<StoredTransaction?>(null) }
+    var people by remember(key) { mutableStateOf<List<ReceivablePerson>>(emptyList()) }
+    var loading by remember(key) { mutableStateOf(true) }
+    var failed by remember(key) { mutableStateOf(false) }
+    var entry by remember(key,action) { mutableStateOf(false) }
+    var handled by remember(key) { mutableStateOf(false) }
+    var decided by remember(key) { mutableStateOf(false) }
+    var undoAvailable by remember(key) { mutableStateOf(false) }
+    LaunchedEffect(key,revision) {
+        loading = true; failed = false
+        try {
+            val result = withContext(Dispatchers.IO) {
+                synchronized(CanonicalStoreLock.monitor) {
+                    val current = SmartNoticeCoordinator.resolve(context,key)
+                    Triple(current,current?.transactionId?.let { TransactionStore.get(context).getById(it) },
+                        if (current?.candidate?.kind == SmartNoticeKind.PAYMENT) PersonalReceivableStore(context).people() else emptyList())
+                }
+            }
+            notice = result.first; row = result.second; people = result.third
+            if (!handled && action == "entry" && notice?.candidate?.kind == SmartNoticeKind.PAYMENT) {
+                entry = !notice!!.incoming || notice!!.repaymentAllowed; handled = true
+            }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { failed = true; notice = null; row = null }
+        finally { loading = false }
+    }
+    val current = notice
+    if (loading) { Column(Modifier.padding(padding).padding(20.dp)) { LinearProgressIndicator() }; return }
+    if (current == null || decided) {
+        Column(Modifier.padding(padding).padding(20.dp),verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(if (failed) "This review could not be loaded. Try opening it again."
+                else if (decided) "Suggestion dismissed. Your money records have not changed."
+                else "This item no longer needs this review.",Modifier.testTag("smart-notice-resolved"))
+            if (undoAvailable) TextButton(onClick = {
+                SmartNoticePreferences(context).undoDismissal(key); decided = false; undoAvailable = false
+            }) { Text("Undo choice") }
+            TextButton(onClick = onBack) { Text("Back") }
+        }
+        return
+    }
+    when (current.candidate.kind) {
+        SmartNoticeKind.ACCOUNT -> ActivityScreen(padding,onTransactionClick = onTransaction,
+            openNeedsAttention = true,initialAccountReviewKey = current.entityKey)
+        SmartNoticeKind.ACTIVITY -> ActivityScreen(padding,onTransactionClick = onTransaction,openNeedsAttention = true)
+        SmartNoticeKind.DISCOVERY -> PersonalReceivablesScreen(padding,onLiabilities = onBack)
+        SmartNoticeKind.PAYMENT -> {
+            val payment = row ?: return
+            val person = people.firstOrNull { it.id == current.personId } ?: return
+            Column(Modifier.padding(padding).padding(20.dp),verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Review They Owe Me payment",style = MaterialTheme.typography.titleLarge)
+                Text(person.name)
+                Text((if (current.incoming) "Received: " else "Sent: ") + receivableMoney(payment.amountMinor))
+                Text("Matching phone number and recorded They Owe Me history. Confirm the purpose; a match does not prove a loan or repayment.")
+                TextButton(onClick = { onTransaction(payment.id) }) { Text("View original payment") }
+                if (!current.incoming || current.repaymentAllowed) Button(onClick = { entry = true }) {
+                    Text(if (current.incoming) "Review repayment" else "Add as loan")
+                }
+                if (current.incoming && !current.repaymentAllowed) Text("No repayment is preselected. Review the person's outstanding balance and the original payment.")
+                fun dismiss() {
+                    SmartNoticePreferences(context).dismissed(key,current.candidate.revision)
+                    SmartNoticeCoordinator.cancel(context); decided = true; undoAvailable = true
+                }
+                OutlinedButton(onClick = { dismiss() }) { Text(if (action == "gift") "Confirm gift / unrelated to debt" else "Gift") }
+                OutlinedButton(onClick = { dismiss() }) { Text(if (current.incoming) "Other / Not repayment" else "Not a loan") }
+                TextButton(onClick = onBack) { Text("Leave undecided") }
+            }
+            if (entry) ReceivableEntryDialog(people,person.id,
+                if (current.incoming) PersonalReceivableStore.REPAID else PersonalReceivableStore.LENT,payment,
+                onDismiss = { entry = false },onSaved = {
+                    entry = false; decided = true; undoAvailable = false
+                    SmartNoticeCoordinator.cancel(context)
+                })
+        }
+    }
+}
+
+@Composable
+internal fun SmartDiscoveryCard(onOpen: () -> Unit) {
+    val context = LocalContext.current
+    var visible by remember { mutableStateOf(SmartNoticePreferences(context).discoveryPending()) }
+    if (!visible) return
+    LaunchedEffect(Unit) {
+        SmartNoticePreferences(context).completeDiscovery()
+        withContext(Dispatchers.IO) { SmartNoticeCoordinator.check(context,allowPost = false) }
+    }
+    Card(Modifier.fillMaxWidth().testTag("they-owe-me-discovery")) {
+        Column(Modifier.padding(16.dp),verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Track money owed to you",style = MaterialTheme.typography.titleMedium)
+            Text("Lent money to someone? They Owe Me helps you review payments and record loans, including when you start fresh.")
+            TextButton(onClick = onOpen) { Text("Explore They Owe Me") }
+            TextButton(onClick = { visible = false }) { Text("Don't show again") }
+        }
+    }
+}

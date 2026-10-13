@@ -55,6 +55,12 @@ fun PersonalReceivablesScreen(
     stateCache: PersonalReceivablesScreenCache? = null
 ) {
     val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        com.kedevjimmy.pesatrack.planning.SmartNoticePreferences(context).completeDiscovery()
+        withContext(Dispatchers.IO) {
+            com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.check(context,allowPost = false)
+        }
+    }
     val locale = LocalConfiguration.current.locales[0]
     val store = remember { PersonalReceivableStore(context) }
     val revision by LedgerUpdateBus.state.collectAsState()

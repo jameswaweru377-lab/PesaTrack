@@ -144,6 +144,12 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit) {
     var budgetOn by remember { mutableStateOf(PlanningReminders.enabled(context, "budgets")) }
     var goalOn by remember { mutableStateOf(PlanningReminders.enabled(context, "goals")) }
     var activityReviewOn by remember { mutableStateOf(ReviewAttentionReminders.enabled(context)) }
+    val smart = remember { com.kedevjimmy.pesatrack.planning.SmartNoticePreferences(context) }
+    var accountReviewOn by remember { mutableStateOf(smart.enabled(com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.ACCOUNT)) }
+    var paymentOn by remember { mutableStateOf(smart.enabled(com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.PAYMENT)) }
+    var discoveryOn by remember { mutableStateOf(smart.enabled(com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.DISCOVERY)) }
+    var smartMode by remember { mutableStateOf(smart.mode()) }
+    var snoozed by remember { mutableStateOf(smart.snoozeUntil() > System.currentTimeMillis()) }
     var allowed by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
     val settings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { allowed = NotificationManagerCompat.from(context).areNotificationsEnabled() }
@@ -157,6 +163,34 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit) {
         item { ChoiceSwitch("Budget warnings", "Tell me when a monthly category budget reaches 95% or goes over", budgetOn) { budgetOn = it; PlanningReminders.setEnabled(context, "budgets", it); if(it) ask() } }
         item { ChoiceSwitch("Savings reminders", "Remind me when a monthly goal has no contribution for a month", goalOn) { goalOn = it; PlanningReminders.setEnabled(context, "goals", it); if(it) ask() } }
         item { ChoiceSwitch("Activity review tips", "A quiet phone notification when several uncategorized transactions still need review. At most once a day, with longer pauses for the same items.", activityReviewOn) { activityReviewOn = it; ReviewAttentionReminders.setEnabled(context, it); if(it) ask() } }
+        item { ChoiceSwitch("Account review alerts", "Review unresolved ownership or account type when trusted evidence could affect attribution.",accountReviewOn) {
+            accountReviewOn = it; com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(context,com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.ACCOUNT,it); if (it) ask()
+        } }
+        item { ChoiceSwitch("They Owe Me payment alerts", "Optional review of new payments with a unique matching phone and recorded lending history. No automatic loans or repayments.",paymentOn) {
+            paymentOn = it; com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(context,com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.PAYMENT,it); if (it) ask()
+        } }
+        item { ChoiceSwitch("Feature tips on your phone", "One occasional discovery tip. A discreet in-app tip is available without notification permission.",discoveryOn) {
+            discoveryOn = it; com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(context,com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.DISCOVERY,it)
+        } }
+        item {
+            Text("Smart notification delivery",style = MaterialTheme.typography.titleMedium)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("banner" to "Banner if allowed","quiet" to "Quiet summary","off" to "Off").forEach { (value,label) ->
+                    FilterChip(selected = smartMode == value,onClick = {
+                        smartMode = value; smart.setMode(value)
+                        com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.cancel(context)
+                        ReviewAttentionReminders.schedule(context)
+                    },label = { Text(label) })
+                }
+            }
+            Text("Account, Activity, payment and discovery alerts share one daily limit, with quiet hours from 8 pm to 9 am. Your phone controls banner display.")
+            TextButton(onClick = {
+                snoozed = !snoozed
+                smart.snooze(if (snoozed) System.currentTimeMillis() + com.kedevjimmy.pesatrack.domain.rules.ReviewReminderPolicy.DAY_MS else 0)
+                com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.cancel(context)
+            }) { Text(if (snoozed) "Resume smart alerts" else "Snooze smart alerts for a day") }
+            TextButton(onClick = { smart.resetDiscovery() }) { Text("Show the They Owe Me tip again") }
+        }
         item { Text("Amounts are hidden on the lock screen. You can turn each reminder off here or in Android settings.", style = MaterialTheme.typography.bodyMedium) }
     }
 }

@@ -52,6 +52,7 @@ fun PesaTrackApp(
     salaryOpenRequest: Int = 0,
     billsOpenRequest: Int = 0,
     reviewOpenRequest: Int = 0,
+    smartOpenRequest: Int = 0, smartKey: String = "", smartAction: String = "review",
     planningOpenRequest: Int = 0, planningRoute: String = "budgets"
 ) {
     val navController = rememberNavController()
@@ -82,6 +83,11 @@ fun PesaTrackApp(
     LaunchedEffect(reviewOpenRequest, setupComplete) {
         if (reviewOpenRequest > 0 && setupComplete)
             navController.navigate("activity-attention") { launchSingleTop = true }
+    }
+
+    LaunchedEffect(smartOpenRequest, setupComplete) {
+        if (smartOpenRequest > 0 && setupComplete && smartKey.isNotBlank())
+            navController.navigate("smart-review/${android.net.Uri.encode(smartKey)}?action=$smartAction") { launchSingleTop = true }
     }
 
     fun navigateToTab(tab: MainTab) {
@@ -130,6 +136,18 @@ fun PesaTrackApp(
         navController = navController,
         startDestination = startDestination
     ) {
+        composable("smart-review/{key}?action={action}", arguments = listOf(
+            navArgument("key") { type = NavType.StringType },
+            navArgument("action") { type = NavType.StringType; defaultValue = "review" }
+        )) { entry ->
+            AppScaffold(currentTab = MainTab.ACCOUNTS, onTabSelected = ::navigateToTab) { padding ->
+                com.kedevjimmy.pesatrack.ui.screens.SmartNoticeReviewScreen(
+                    padding, entry.arguments?.getString("key").orEmpty(),
+                    entry.arguments?.getString("action") ?: "review",
+                    onBack = { navController.popBackStack() },
+                    onTransaction = { navController.navigate("transaction-detail/$it") })
+            }
+        }
         composable("onboarding") {
             OnboardingScreen(
                 onContinue = {
@@ -227,6 +245,7 @@ fun PesaTrackApp(
                 AccountsScreen(
                     stateCache = accountsScreenCache,
                     debtStateCache = debtsScreenCache,
+                    onDiscoverReceivables = { navController.navigate("smart-review/discovery") { launchSingleTop = true } },
                     scaffoldPadding = padding,
                     onDebtsClick = {
                         navController.navigate(
