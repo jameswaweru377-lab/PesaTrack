@@ -36,11 +36,16 @@ class PdfBoundaryRegressionTest {
         for(reference in listOf("BAD","QAB 1234567","QAB1234567\nQAB1234568"))
             assertThrows(IllegalArgumentException::class.java){PdfStatementReview.correct("2025-02-01 10:20:30","Payment","100",reference,zone)}
     }
-    @Test fun editedReferencesCannotCollideAcrossDifferentRows() {
+    @Test fun sharedReceiptCanContainDifferentFinancialLegsButNotIdenticalLegEvidence() {
         val first=PdfStatementReview.correct("2025-02-01 10:20:30","Payment","100","QAB1234567",zone)
-        val second=first.copy(date=first.date+86400000,description="Other payment",signedMinor=-5000,reference="QAB1234568")
-        PdfStatementReview.requireUniqueReferences(listOf(first,second))
-        assertThrows(IllegalArgumentException::class.java){PdfStatementReview.requireUniqueReferences(listOf(first,second.copy(reference="QAB1234567")))}
-        assertThrows(IllegalArgumentException::class.java){PdfStatementReview.requireUniqueReferences(listOf(first,second.copy(reference="qab1234567")))}
+        val second=first.copy(description="Synthetic service fee",signedMinor=-500)
+        PdfStatementReview.requireDistinctStatementLegs(listOf(first,second))
+        val malformed=second.copy(description="  Payment ",signedMinor=first.signedMinor)
+        assertThrows(IllegalArgumentException::class.java) {
+            PdfStatementReview.requireDistinctStatementLegs(listOf(first,malformed))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            PdfStatementReview.requireDistinctStatementLegs(listOf(first,malformed.copy(reference="qab1234567")))
+        }
     }
 }

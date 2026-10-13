@@ -5,7 +5,7 @@ data class PdfTextPreview(
     val emptyPageNumbers: List<Int>,
     /** Optional in-memory API35+ geometry; empty for existing production callers. */
     val positionedPages: List<List<PdfTextFragment>> = emptyList(),
-    /** False if any native text block lacks trustworthy single-line bounds. */
+    /** False if any native text block lacks bounded, fully transferred geometry. */
     val positionedComplete: List<Boolean> = emptyList()
 )
 
@@ -61,8 +61,8 @@ class PdfTextChunkAssembler {
  */
 class PdfPositionChunkAssembler {
     companion object {
-        const val MAX_CHUNK = 100
-        const val MAX_FRAGMENT_TEXT = 200
+        const val MAX_CHUNK = 32
+        const val MAX_FRAGMENT_TEXT = 1_200
         const val MAX_TOTAL_FRAGMENTS = 32_000
     }
     private val pages = mutableListOf<MutableList<PdfTextFragment>>()
@@ -85,8 +85,10 @@ class PdfPositionChunkAssembler {
         val verified = texts.indices.map { i ->
             val text = texts[i]
             val l = left[i]; val t = top[i]; val r = right[i]; val b = bottom[i]
+            // A complete Details block can have wrapped text. Keep its
+            // original bounding rectangle, not a flattened money-cell guess.
             require(text.isNotBlank() && text.length <= MAX_FRAGMENT_TEXT &&
-                !text.contains('\n') && !text.contains('\r') &&
+                text.none {it.isISOControl() && it !in setOf('\n','\r','\t')} &&
                 l.isFinite() && t.isFinite() && r.isFinite() && b.isFinite() &&
                 l < r && t < b) { "Invalid PDF geometry fragment." }
             PdfTextFragment(text, l, t, r, b)

@@ -66,10 +66,12 @@ class PdfPositionChunkAssemblerTest {
         assertThrows(IllegalArgumentException::class.java) { add(assembler,0) }
     }
 
-    @Test fun invalidNativeCoordinatesAndMultilineBoxesReject() {
+    @Test fun multilineDetailsStayBoundedButInvalidCoordinatesAreRejected() {
         val assembler=PdfPositionChunkAssembler()
         assembler.startPage(0)
-        assertThrows(IllegalArgumentException::class.java) { add(assembler,0,"A\nB") }
+        add(assembler,0,"Synthetic detail\nwrapped account 07***123")
+        assertEquals("Synthetic detail\nwrapped account 07***123",
+            assembler.finish(1,intArrayOf(1),booleanArrayOf(true)).first[0][0].text)
         assertThrows(IllegalArgumentException::class.java) { add(assembler,0,"Amount",Float.NaN) }
         assertThrows(IllegalArgumentException::class.java) {
             assembler.add(0,listOf("Amount"),floatArrayOf(10f),

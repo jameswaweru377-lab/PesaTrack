@@ -32,7 +32,7 @@ internal class PdfImportState {
     fun cancel() {pending=null;password="";retry=false;error=null;job?.cancel()}
 }
 
-@Composable internal fun rememberPdfImport(onSelected: ()->Unit,onBusy: (Boolean)->Unit,onResult: (PdfTextPreview)->Unit): PdfImportState {
+@Composable internal fun rememberPdfImport(onSelected: ()->Unit,onBusy: (Boolean)->Unit,onResult: (PdfTextPreview)->Unit,includePositions: Boolean = false): PdfImportState {
     val context=LocalContext.current;val scope=rememberCoroutineScope();val state=remember {PdfImportState()}
     val selected by rememberUpdatedState(onSelected);val busy by rememberUpdatedState(onBusy);val result by rememberUpdatedState(onResult)
     // Android's document picker can stop the host Activity temporarily.
@@ -43,7 +43,7 @@ internal class PdfImportState {
         if(!state.reading) {
             state.reading=true;busy(true);state.error=null;state.pending=null;state.password=""
             state.job=scope.launch {
-                try {val pdf=PdfTextReviewReader.read(context,uri,secret);state.retry=false;result(pdf)}
+                try {val pdf=PdfTextReviewReader.read(context,uri,secret,includePositions=includePositions);state.retry=false;result(pdf)}
                 catch(e: CancellationException){throw e}
                 catch(e: PdfReadException) {
                     state.error=e.failure.explanation
