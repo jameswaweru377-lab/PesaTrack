@@ -18,4 +18,9 @@ enum class PdfFailure(val explanation: String) {
     TIMEOUT("PDF reading took too long. Choose a smaller document and try again."),
     VERSION("PDF extraction needs Android 15 or newer. CSV and manual entry remain available.")
 }
-class PdfReadException(val failure: PdfFailure) : IllegalArgumentException(failure.explanation)
+class PdfReadException(val failure: PdfFailure, val statementPage: Int? = null) :
+    IllegalArgumentException(failure.explanation) {
+    /** Only a bounded page number can supplement a fixed authored message. */
+    val safeExplanation: String get() = failure.explanation +
+        (statementPage?.takeIf {it in 1..160}?.let {" Affected page: $it."} ?: "")
+}

@@ -97,15 +97,16 @@ object PdfTextReviewReader {
         lateinit var connection: ServiceConnection
         try {
             return suspendCancellableCoroutine { continuation ->
-                fun fail(failure: PdfFailure) {
-                    if (continuation.isActive) continuation.resumeWithException(PdfReadException(failure))
+                fun fail(failure: PdfFailure, page:Int? = null) {
+                    if (continuation.isActive) continuation.resumeWithException(PdfReadException(failure,page))
                 }
                 val assembly=PdfTextChunkAssembler()
                 val positioned=PdfPositionChunkAssembler()
                 val reply = Messenger(Handler(Looper.getMainLooper()) { message ->
                     if (continuation.isActive) {
                         val failure = message.data.getString("failure")
-                        if (failure != null) fail(PdfFailure.entries.firstOrNull {it.name==failure} ?: PdfFailure.PARSE)
+                        if (failure != null) fail(PdfFailure.entries.firstOrNull {it.name==failure} ?: PdfFailure.PARSE,
+                            message.data.getInt("failurePage",0).takeIf {it in 1..PdfTextReviewPolicy.MAX_PAGES})
                         else try {
                             val data=message.data
                             if(data.containsKey("chunk")) {

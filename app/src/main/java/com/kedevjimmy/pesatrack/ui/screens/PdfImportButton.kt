@@ -55,7 +55,7 @@ internal class PdfImportState {
                 );state.retry=false;state.verification=pdf.pdfBoxVerification?.safeSummary();result(pdf)}
                 catch(e: CancellationException){throw e}
                 catch(e: PdfReadException) {
-                    state.error=e.failure.explanation
+                    state.error=e.safeExplanation
                     if(e.failure==PdfFailure.PASSWORD){state.pending=uri;state.retry=secret!=null}
                 }
                 catch(_: Exception){state.error=PdfFailure.PARSE.explanation}

@@ -70,7 +70,8 @@ internal object PdfBoxStatementExtractor {
                         // not derived from the private statement's text.
                         throw PdfReadException(if(output is MpesaPositionedRows.Unsupported &&
                             output.reason==MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE)
-                            PdfFailure.FINANCIAL_EVIDENCE else PdfFailure.TABLE_EVIDENCE)
+                            PdfFailure.FINANCIAL_EVIDENCE else PdfFailure.TABLE_EVIDENCE,
+                            (output as? MpesaPositionedRows.Unsupported)?.page)
                     PdfTextReviewPolicy.preview(output.pages)
                     val proof=output.pdfBoxProof ?: throw PdfReadException(PdfFailure.FINANCIAL_EVIDENCE)
                     return ReviewedDocument(output.pages,PdfBoxVerificationReport(

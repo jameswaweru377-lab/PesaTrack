@@ -123,6 +123,9 @@ class PdfTextReviewService : Service() {
                 } else throw PdfReadException(PdfFailure.VERSION)
             } catch (e: PdfReadException) {
                 response.putString("failure",e.failure.name)
+                e.statementPage?.takeIf {it in 1..PdfTextReviewPolicy.MAX_PAGES}?.let {
+                    response.putInt("failurePage",it)
+                }
             } catch (_: SecurityException) {
                 response.putString("failure",PdfFailure.PASSWORD.name)
             } catch (_: Exception) {

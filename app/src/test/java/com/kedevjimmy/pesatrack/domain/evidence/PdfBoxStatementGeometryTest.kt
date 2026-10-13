@@ -213,6 +213,22 @@ class PdfBoxStatementGeometryTest {
         ) is MpesaPositionedRows.Unsupported)
     }
 
+    @Test fun declaredTotalsAfterFooterCannotBeDroppedFromFinancialAudit() {
+        val original=heading+first+"\n"+second+"\n"+oldest+
+            "\nDISCLAIMER\nTotal Paid In: 101.00\nTotal Withdrawn: 70.00"
+        val result=PdfBoxStatementGeometry.reconstruct(listOf(original),
+            listOf(geometry()+word("DISCLAIMER",30f,700f)),listOf(true))
+        assertTrue(result is MpesaPositionedRows.Unsupported)
+    }
+
+    @Test fun ordinaryLeftAlignedDisclaimerIsNotAnotherReceipt() {
+        val original=heading+first+"\n"+second+"\n"+oldest+"\nDISCLAIMER"
+        val result=PdfBoxStatementGeometry.reconstruct(listOf(original),
+            listOf(geometry()+word("DISCLAIMER",20f,700f)),listOf(true))
+        assertTrue(result.toString(),result is MpesaPositionedRows.Ready)
+        assertEquals(3,(result as MpesaPositionedRows.Ready).pdfBoxProof!!.receipts.size)
+    }
+
     @Test fun verifiedTotalsAndBalancesKeepTheirProofAndOriginalMoneyRectangles() {
         val summary="Total Paid In: 100.00\nTotal Withdrawn: 70.00\n"+
             "Opening Balance: 460.00\nClosing Balance: 490.00\n"

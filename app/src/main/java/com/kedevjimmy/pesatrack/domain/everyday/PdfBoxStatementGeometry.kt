@@ -124,6 +124,9 @@ object PdfBoxStatementGeometry {
         for(i in pages.indices) {
             val page=i+1
             val source=pages[i]
+            // Summary/boundary declarations can appear after the table or a
+            // disclaimer. Audit the whole source, not just the display prefix.
+            metadata.add(source)
             globalWords+=positioned[i].size
             if(!complete[i] || globalWords>32_000 || source.isBlank())
                 return reject(page,MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
@@ -154,7 +157,7 @@ object PdfBoxStatementGeometry {
             val anchors=lines.indices.filter {index ->
                 val layout=layoutAt(index)
                 layout!=null && lines[index].words.any {
-                    receiptToken.matches(it.text) &&
+                    receiptToken.matches(it.text) && !footer.containsMatchIn(it.text) &&
                         layout.owner(it)==StatementField.REFERENCE
                 }
             }
