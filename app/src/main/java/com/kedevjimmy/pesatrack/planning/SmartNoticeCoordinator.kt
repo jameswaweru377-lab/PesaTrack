@@ -33,6 +33,13 @@ object SmartNoticeCoordinator {
     private const val ID = 12730
     @Volatile var foreground = false
 
+    internal fun openIntent(c: Context, candidate: SmartNoticeCandidate, action: String): PendingIntent =
+        PendingIntent.getActivity(c,action.hashCode(),
+            Intent(c,MainActivity::class.java).setAction(SmartNotificationPolicy.intentAction(candidate.key,candidate.revision,action))
+                .putExtra(OPEN_KEY,candidate.key).putExtra(OPEN_ACTION,action).putExtra(OPEN_REVISION,candidate.revision)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
     fun setEnabled(c: Context, kind: SmartNoticeKind, value: Boolean) {
         synchronized(CanonicalStoreLock.monitor) {
             SmartNoticePreferences(c).setEnabled(kind,value)
@@ -108,12 +115,7 @@ object SmartNoticeCoordinator {
             SmartNoticeKind.PAYMENT -> "Review this payment before deciding whether it relates to a loan."
             SmartNoticeKind.DISCOVERY -> "Lent money to someone? Explore They Owe Me to track what's still owed."
         }
-        fun open(action: String) = PendingIntent.getActivity(c,action.hashCode(),
-            Intent(c,MainActivity::class.java).setAction("smart:$action:${selected.key}")
-                .putExtra(OPEN_KEY,selected.key).putExtra(OPEN_ACTION,action)
-                .putExtra(OPEN_REVISION,selected.revision)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        fun open(action: String) = openIntent(c,selected,action)
         val deleted = PendingIntent.getBroadcast(c,ID,
             Intent(c,SmartNoticeDismissReceiver::class.java).setAction("dismiss:${selected.key}:${selected.revision}")
                 .putExtra("key",selected.key).putExtra("revision",selected.revision),
@@ -133,6 +135,7 @@ object SmartNoticeCoordinator {
             builder.addAction(0,"Gift",open("gift")).addAction(0,
                 if (notice.incoming) "Not repayment" else "Not a loan",open("other"))
         } else builder.addAction(0,if (selected.kind == SmartNoticeKind.ACCOUNT) "Review account" else "Open",open("review"))
+        if (foreground || LedgerUpdateBus.state.value.isProcessing || !prefs.importReady()) return@synchronized
         try { manager.notify(ID,builder.build()) } catch (_: SecurityException) { return@synchronized }
         prefs.shown(selected,now)
         notice.personId?.let { prefs.personShown(it,now) }
@@ -145,7 +148,7 @@ object SmartNoticeCoordinator {
             SmartNoticeCandidate(key,"1",SmartNoticeKind.DISCOVERY,prefs.settledAt()))
         SmartNoticeCandidates.read(c,System.currentTimeMillis()).firstOrNull {
             it.candidate.key == key && (revision.isEmpty() || it.candidate.revision == revision) &&
-                !prefs.state(key).dismissed
+                !SmartNotificationPolicy.dismissalApplies(it.candidate,prefs.state(key))
         }
     }
 }
@@ -156,6 +159,7 @@ class SmartNoticeDismissReceiver : BroadcastReceiver() {
             val prefs = SmartNoticePreferences(context)
             val key = intent.getStringExtra("key") ?: return
             val revision = intent.getStringExtra("revision") ?: return
+            if (!SmartNotificationPolicy.acceptDismissal(prefs.state(key),revision)) return
             prefs.dismissed(key,revision)
             if (key == "discovery") prefs.completeDiscovery()
             if (prefs.postedKey() == key && prefs.postedRevision() == revision) prefs.clearPosted()

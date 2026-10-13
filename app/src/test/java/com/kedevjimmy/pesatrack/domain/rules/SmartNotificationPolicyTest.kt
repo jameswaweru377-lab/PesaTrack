@@ -64,4 +64,19 @@ class SmartNotificationPolicyTest {
         assertNull(choose(listOf(payment)))
         assertNotNull(choose(listOf(payment.copy(nextEligibleAt = now))))
     }
+    @Test fun intentIdentityIncludesEvidenceRevisionAndAction() {
+        assertNotEquals(SmartNotificationPolicy.intentAction("activity","r1","review"),
+            SmartNotificationPolicy.intentAction("activity","r2","review"))
+        assertNotEquals(SmartNotificationPolicy.intentAction("payment","r1","entry"),
+            SmartNotificationPolicy.intentAction("payment","r1","gift"))
+    }
+    @Test fun oldDismissalCannotInvalidateNewReviewButSamePaymentDecisionPersists() {
+        val old = SmartNoticeState("r1",now - ReviewReminderPolicy.DAY_MS,true)
+        val review = candidate().copy(revision = "r2")
+        assertFalse(SmartNotificationPolicy.dismissalApplies(review,old))
+        assertTrue(SmartNotificationPolicy.dismissalApplies(review.copy(revision = "r1"),old))
+        assertTrue(SmartNotificationPolicy.dismissalApplies(review.copy(kind = SmartNoticeKind.PAYMENT),old))
+        assertFalse(SmartNotificationPolicy.acceptDismissal(old,"r2"))
+        assertTrue(SmartNotificationPolicy.acceptDismissal(old,"r1"))
+    }
 }

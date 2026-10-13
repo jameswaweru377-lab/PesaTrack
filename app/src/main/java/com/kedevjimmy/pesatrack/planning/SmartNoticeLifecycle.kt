@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.collect
 object SmartNoticeLifecycle {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     fun start(app: Application) {
+        SmartNoticePreferences(app).recoverInterruptedImport()
         var started = 0
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityStarted(activity: Activity) {

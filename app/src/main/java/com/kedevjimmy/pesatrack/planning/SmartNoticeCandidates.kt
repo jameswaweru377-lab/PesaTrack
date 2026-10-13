@@ -69,7 +69,7 @@ object SmartNoticeCandidates {
                 repaymentAllowed = ReceivableNotificationPolicy.canRepay(person,row.amountMinor))
         }
         // Existing usage completes discovery, even when notifications have never been enabled.
-        if (people.isNotEmpty()) prefs.completeDiscovery()
+        if (people.isNotEmpty() && !prefs.discoveryRequestedAgain()) prefs.completeDiscovery()
         val discovery = if (!prefs.discoveryPending()) emptyList() else listOf(SmartNotice(
             SmartNoticeCandidate("discovery","1",SmartNoticeKind.DISCOVERY,settled,prefs.enabled(SmartNoticeKind.DISCOVERY))))
         val grouped = SmartNotificationPolicy.routineReview(accounts.map { it.candidate },reviews.firstOrNull()?.candidate)

@@ -109,7 +109,7 @@ internal fun SmartDiscoveryCard(onOpen: () -> Unit) {
         if (prefs.discoveryPending()) {
             try {
                 val used = withContext(Dispatchers.IO) { PersonalReceivableStore(context).people().isNotEmpty() }
-                visible = !used
+                visible = !used || prefs.discoveryRequestedAgain()
                 prefs.completeDiscovery()
                 withContext(Dispatchers.IO) { runCatching { SmartNoticeCoordinator.check(context,allowPost = false) } }
             } catch (cancelled: CancellationException) { throw cancelled }

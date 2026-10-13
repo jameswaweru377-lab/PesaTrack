@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.data.local
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.domain.interpretation.*
@@ -133,7 +134,39 @@ class SmartNoticeIntegrationTest {
         SmartNoticeCoordinator.check(context,allowPost = false)
         assertNull(metadata.postedKey())
         assertFalse(SmartNoticePreferences(context).importReady())
+        metadata.importStarted()
         metadata.importFinished(true)
         assertTrue(SmartNoticePreferences(context).importReady())
+    }
+    @Test fun overlappingImportsKeepPersistentGateClosedAndRestartDetectsInterruption() {
+        val metadata = SmartNoticePreferences(context)
+        metadata.importStarted(); SmartNoticePreferences(context).importStarted()
+        metadata.importFinished(true)
+        assertFalse(SmartNoticePreferences(context).importReady())
+        SmartNoticePreferences(context).recoverInterruptedImport()
+        assertFalse(metadata.importReady())
+        metadata.importStarted(); metadata.importFinished(true)
+        assertTrue(metadata.importReady())
+        metadata.importStarted(); metadata.importStarted()
+        metadata.importFinished(false); metadata.importFinished(true)
+        assertFalse(SmartNoticePreferences(context).importReady())
+    }
+    @Test fun AndroidPendingIntentRevisionIdentityPreventsUpdatingAnOlderAction() {
+        val first = SmartNoticeCandidate("activity","r1",SmartNoticeKind.ACCOUNT,now)
+        val second = first.copy(revision = "r2")
+        val firstAction = SmartNoticeCoordinator.openIntent(context,first,"review")
+        val secondAction = SmartNoticeCoordinator.openIntent(context,second,"review")
+        assertNotEquals(firstAction,secondAction)
+        assertEquals(firstAction,SmartNoticeCoordinator.openIntent(context,first,"review"))
+        firstAction.cancel(); secondAction.cancel()
+    }
+    @Test fun delayedOlderDismissalDoesNotSuppressNewPostedEvidence() {
+        val metadata = SmartNoticePreferences(context)
+        val second = SmartNoticeCandidate("activity","r2",SmartNoticeKind.ACCOUNT,now)
+        metadata.shown(second,now)
+        SmartNoticeDismissReceiver().onReceive(context,Intent().putExtra("key","activity").putExtra("revision","r1"))
+        assertEquals("r2",metadata.state("activity").revision)
+        assertFalse(metadata.state("activity").dismissed)
+        assertEquals("activity",metadata.postedKey())
     }
 }
