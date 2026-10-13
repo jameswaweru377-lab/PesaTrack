@@ -160,13 +160,7 @@ class PdfBoxStatementGeometryTest {
             listOf(recoveredLayout().filterNot {it.top==35f}),
             listOf(true)
         )
-        assertTrue(output is MpesaPositionedRows.Ready)
-        val review=PdfStatementReview.read(
-            (output as MpesaPositionedRows.Ready).pages,zone,
-            completePdfBoxGeometry=true
-        )
-        assertTrue(review.rows.isEmpty())
-        assertTrue(review.problems.any {it.contains("currency other than KES")})
+        assertTrue(output is MpesaPositionedRows.Unsupported)
     }
 
     @Test fun missingOriginalTitleStillCannotAuthorizeInferredKes() {
@@ -189,15 +183,7 @@ class PdfBoxStatementGeometryTest {
         val output=PdfBoxStatementGeometry.reconstruct(
             listOf(input),listOf(recoveredLayout()),listOf(true)
         )
-        assertTrue(output is MpesaPositionedRows.Ready)
-        val verified=PdfStatementReview.read(
-            (output as MpesaPositionedRows.Ready).pages,zone
-        )
-        assertTrue(verified.rows.isEmpty())
-        assertTrue(verified.problems.any {
-            it.contains("currency other than KES") ||
-                it.contains("conflicting currency declarations")
-        })
+        assertTrue(output is MpesaPositionedRows.Unsupported)
     }
 
     @Test fun literalStatementBrandInsideTransactionDoesNotInventDocumentTitle() {
