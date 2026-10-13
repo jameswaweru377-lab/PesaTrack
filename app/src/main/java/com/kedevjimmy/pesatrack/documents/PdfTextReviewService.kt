@@ -14,6 +14,10 @@ import com.kedevjimmy.pesatrack.domain.evidence.PdfTextFragment
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextPositionReflow
 import com.kedevjimmy.pesatrack.domain.evidence.PdfGeometryEvidencePolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfGeometryDisposition
+import com.kedevjimmy.pesatrack.domain.evidence.PdfNativeSearchGeometry
+import com.kedevjimmy.pesatrack.domain.evidence.PdfSearchBox
+import com.kedevjimmy.pesatrack.domain.evidence.PdfSearchOutcome
+import com.kedevjimmy.pesatrack.domain.evidence.PdfSearchResult
 
 /** Private isolated process: receives only a read-only descriptor, never ledger access. */
 class PdfTextReviewService : Service() {
@@ -117,6 +121,7 @@ class PdfTextReviewService : Service() {
                 val fragments=mutableListOf<PdfTextFragment>()
                 val positioned=mutableListOf<PdfTextFragment>()
                 var complete = true
+                var nativeSearchAttempts = 0
                 val reasonCounts = IntArray(PdfGeometryDisposition.entries.size)
                 for (content in page.textContents) {
                     characters += content.text.length + if (text.isNotEmpty()) 1L else 0L
@@ -140,14 +145,52 @@ class PdfTextReviewService : Service() {
                             box.top.isFinite() && box.bottom.isFinite() &&
                             box.left < box.right && box.top < box.bottom
                         }
-                        val decision=PdfGeometryEvidencePolicy.classify(
+                        val baseDecision=PdfGeometryEvidencePolicy.classify(
                             content.text,bounds.size,validBounds,
                             positionedTotal>=PdfGeometryEvidencePolicy.MAX_TOTAL
                         )
+                        // Android sometimes exposes selectable text without
+                        // any coordinate rectangles. Try the platform's own
+                        // exact text-search bounds *on the isolated worker*
+                        // before declaring financial evidence incomplete.
+                        // Never choose between multiple matches or synthesize
+                        // coordinates. Both PDF data and the search stay local.
+                        var recovery: PdfSearchResult? = null
+                        if(baseDecision==PdfGeometryDisposition.MISSING_BOUNDS &&
+                            nativeSearchAttempts<PdfNativeSearchGeometry.MAX_QUERIES_PER_PAGE &&
+                            PdfNativeSearchGeometry.maySearch(content.text)
+                        ) {
+                            nativeSearchAttempts++
+                            recovery=try {
+                                val found=page.searchText(content.text)
+                                PdfNativeSearchGeometry.validate(content.text,found.map { hit ->
+                                    hit.bounds.map {
+                                        PdfSearchBox(it.left,it.top,it.right,it.bottom)
+                                    }
+                                })
+                            } catch (_: Exception) {
+                                reasonCounts[PdfGeometryDisposition.NATIVE_SEARCH_ERROR.ordinal]++
+                                null
+                            }
+                            when(recovery?.outcome) {
+                                PdfSearchOutcome.RECOVERED ->
+                                    reasonCounts[PdfGeometryDisposition.RECOVERED_BY_NATIVE_SEARCH.ordinal]++
+                                PdfSearchOutcome.NO_MATCH ->
+                                    reasonCounts[PdfGeometryDisposition.NATIVE_SEARCH_NO_MATCH.ordinal]++
+                                PdfSearchOutcome.MULTIPLE_MATCHES ->
+                                    reasonCounts[PdfGeometryDisposition.NATIVE_SEARCH_AMBIGUOUS.ordinal]++
+                                PdfSearchOutcome.INVALID_GEOMETRY ->
+                                    reasonCounts[PdfGeometryDisposition.NATIVE_SEARCH_INVALID_GEOMETRY.ordinal]++
+                                null -> Unit
+                            }
+                        }
+                        val recoveredFragment=recovery?.fragment
+                        val decision=if(recoveredFragment!=null)
+                            PdfGeometryDisposition.POSITIONED else baseDecision
                         reasonCounts[decision.ordinal]++
                         when(decision) {
                             PdfGeometryDisposition.POSITIONED -> {
-                                positioned.add(PdfTextFragment(
+                                positioned.add(recoveredFragment ?: PdfTextFragment(
                                     content.text,
                                     bounds.minOf {it.left},bounds.minOf {it.top},
                                     bounds.maxOf {it.right},bounds.maxOf {it.bottom}
