@@ -42,8 +42,15 @@ patched version. A maintenance plan remains required before default enablement.
 - Input size does not bound decompressed PDF objects. Malformed PDFs may still
   exhaust the isolated worker's memory; the UI must treat worker death as a
   failed read, never accept partial output.
-- App code has no raw document logging. Audit of all upstream Logcat paths and
-  malformed encrypted-document behavior is still required before default use.
+- App code has no raw document logging. A targeted source review at upstream
+  tag `v2.0.27.0` (`45da92629dad5b3c9887eceefecc89a1423f5457`) found object
+  logging in `PDFObjectStreamParser` guarded by `PDFBoxConfig.isDebugEnabled()`;
+  that flag defaults to false. However, `BaseParser` warnings for malformed
+  input concatenate unexpected source tokens, and `TextPosition` has a
+  Unicode/diacritic log path. The port has no global all-level logging-disable
+  setting. Do not collect/export upstream Logcat for private statements.
+  A sanitized maintained library build or verified bytecode logging suppression
+  and malformed encrypted-document review are required before default use.
 
 ## Size and device measurements
 

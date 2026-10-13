@@ -51,6 +51,16 @@ class PdfBoxStatementProofTest {
             listOf("Currency\nUSD")))
     }
 
+    @Test fun splitCurrencyLabelsAcceptOnlyRecognizedKesValues() {
+        val rows=listOf(
+            leg("QAB1234569","10","Payment",0,2000,49000),
+            leg("QAB1234568","09","Credit",10000,0,51000)
+        )
+        assertNotNull(PdfBoxStatementFinancialAudit.verify(rows,listOf("Currency:\nKES")))
+        assertNotNull(PdfBoxStatementFinancialAudit.verify(rows,listOf("Currency Code =\nKES")))
+        assertNull(PdfBoxStatementFinancialAudit.verify(rows,listOf("Currency:\nUSD")))
+    }
+
     @Test fun oneEventNeedsOpeningProofAndCheckedMoneyArithmetic() {
         val row=leg("QAB1234569","10","Credit",10000,0,51000)
         assertNull(PdfBoxStatementFinancialAudit.verify(listOf(row),emptyList()))

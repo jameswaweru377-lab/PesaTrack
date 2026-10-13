@@ -63,9 +63,9 @@ object PdfBoxStatementFinancialAudit {
         val declared = mutableMapOf<String, Long>()
         val summaryText=metadata.joinToString("\n")
         val metadataLines=summaryText.lines().map {it.trim().uppercase(Locale.ROOT)}.filter {it.isNotEmpty()}
-        val currency=Regex("^CURRENCY(?: CODE)?(?:\\s*[:=]\\s*|\\s+)(.*)$")
+        val currency=Regex("^CURRENCY(?: CODE)?(?:\\s*[:=]\\s*|\\s+)(.+)$")
         for((index,line) in metadataLines.withIndex()) {
-            val declaration=currency.matchEntire(line)?.groupValues?.get(1)
+            val declaration=currency.matchEntire(line)?.groupValues?.get(1)?.trim()?.takeIf {it.isNotEmpty()}
                 ?: if(Regex("CURRENCY(?: CODE)?\\s*[:=]?").matches(line))
                     metadataLines.getOrNull(index+1).orEmpty() else null
             if(declaration!=null && declaration !in setOf("KES","KSH","KSHS"))return null
