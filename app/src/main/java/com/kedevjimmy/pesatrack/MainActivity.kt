@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
     private var smartOpenRequest by mutableStateOf(0)
     private var smartKey by mutableStateOf("")
     private var smartAction by mutableStateOf("review")
+    private var smartRevision by mutableStateOf("")
     private var planningRoute by mutableStateOf("budgets")
     private lateinit var appLockManager:
         AppLockManager
@@ -50,9 +51,15 @@ class MainActivity : ComponentActivity() {
             smartAction = intent.getStringExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_ACTION)
                 ?.takeIf { action -> action in setOf("review","entry","gift","other") } ?: "review"
             smartOpenRequest++
-            intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_KEY)
-            intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_ACTION)
+            smartRevision = intent.getStringExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_REVISION).orEmpty()
         }
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt("smart_request",smartOpenRequest)
+        outState.putString("smart_key",smartKey)
+        outState.putString("smart_action",smartAction)
+        outState.putString("smart_revision",smartRevision)
+        super.onSaveInstanceState(outState)
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -65,6 +72,12 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        savedInstanceState?.let {
+            smartOpenRequest = it.getInt("smart_request",0)
+            smartKey = it.getString("smart_key").orEmpty()
+            smartAction = it.getString("smart_action") ?: "review"
+            smartRevision = it.getString("smart_revision").orEmpty()
+        }
         com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.retry(this)
         if (com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failure != null) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
@@ -183,7 +196,13 @@ class MainActivity : ComponentActivity() {
                     salaryOpenRequest = salaryOpenRequest,
                     billsOpenRequest = billsOpenRequest,
                     reviewOpenRequest = reviewOpenRequest,
-                    smartOpenRequest = smartOpenRequest, smartKey = smartKey, smartAction = smartAction,
+                    smartOpenRequest = smartOpenRequest, smartKey = smartKey, smartAction = smartAction, smartRevision = smartRevision,
+                    onSmartRequestHandled = {
+                        smartOpenRequest = 0
+                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_KEY)
+                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_ACTION)
+                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_REVISION)
+                    },
                             planningOpenRequest = planningOpenRequest, planningRoute = planningRoute,
                     themeMode = themeMode,
                     onThemeModeChange = { newMode ->

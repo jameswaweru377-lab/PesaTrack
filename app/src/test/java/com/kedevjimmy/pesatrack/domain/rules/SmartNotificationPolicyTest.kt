@@ -47,4 +47,21 @@ class SmartNotificationPolicyTest {
         assertEquals("activity", choose(listOf(candidate().copy(enabled = false),
             candidate(SmartNoticeKind.ACTIVITY,"activity")))?.key)
     }
+    @Test fun routineAccountsAndActivityAreOneDigestWithStableOrdering() {
+        val activity = candidate(SmartNoticeKind.ACTIVITY,"activity")
+        val one = candidate(key = "account:1")
+        val two = candidate(key = "account:2")
+        val grouped = SmartNotificationPolicy.routineReview(listOf(one,two),activity)!!
+        assertEquals("activity",grouped.key)
+        assertEquals(SmartNoticeKind.ACCOUNT,grouped.kind)
+        assertEquals(grouped,SmartNotificationPolicy.routineReview(listOf(two,one),activity))
+        assertEquals(activity,SmartNotificationPolicy.routineReview(listOf(one.copy(enabled = false)),activity))
+        assertNull(SmartNotificationPolicy.routineReview(emptyList(),activity.copy(enabled = false)))
+    }
+    @Test fun deliveryCooldownPreservesActionableEvidenceWithoutAnotherBanner() {
+        val payment = candidate(SmartNoticeKind.PAYMENT,"payment").copy(nextEligibleAt = now + 1)
+        assertTrue(payment.enabled)
+        assertNull(choose(listOf(payment)))
+        assertNotNull(choose(listOf(payment.copy(nextEligibleAt = now))))
+    }
 }

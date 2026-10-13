@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit
 object SmartNoticeCoordinator {
     const val OPEN_KEY = "open_smart_key"
     const val OPEN_ACTION = "open_smart_action"
+    const val OPEN_REVISION = "open_smart_revision"
     private const val WORK = "review-attention-daily"
     private const val CHANGE_WORK = "review-attention-settled"
     private const val CHANNEL = "review-attention"
@@ -67,6 +68,7 @@ object SmartNoticeCoordinator {
         if (BackupRecoveryStatus.failure != null || LedgerUpdateBus.state.value.isProcessing) {
             cancel(c); return@synchronized
         }
+        if (!prefs.anyEnabled()) { cancel(c); return@synchronized }
         val now = System.currentTimeMillis()
         val ready = c.getSharedPreferences("pesatrack_preferences",Context.MODE_PRIVATE).getBoolean("setup_complete",false)
         if (!ready || prefs.mode() == "off" || prefs.snoozeUntil() > now) { cancel(c); return@synchronized }
@@ -81,7 +83,7 @@ object SmartNoticeCoordinator {
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(NotificationChannel(channel,
                 if (quiet) "Quiet review summaries" else "Smart review alerts",
-                if (quiet) NotificationManager.IMPORTANCE_DEFAULT else NotificationManager.IMPORTANCE_HIGH).apply {
+                if (quiet) NotificationManager.IMPORTANCE_LOW else NotificationManager.IMPORTANCE_HIGH).apply {
                     description = "Optional account, Activity and They Owe Me review prompts"
                     lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
                 })
@@ -109,19 +111,22 @@ object SmartNoticeCoordinator {
         fun open(action: String) = PendingIntent.getActivity(c,action.hashCode(),
             Intent(c,MainActivity::class.java).setAction("smart:$action:${selected.key}")
                 .putExtra(OPEN_KEY,selected.key).putExtra(OPEN_ACTION,action)
+                .putExtra(OPEN_REVISION,selected.revision)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val deleted = PendingIntent.getBroadcast(c,ID,
-            Intent(c,SmartNoticeDismissReceiver::class.java).putExtra("key",selected.key).putExtra("revision",selected.revision),
+            Intent(c,SmartNoticeDismissReceiver::class.java).setAction("dismiss:${selected.key}:${selected.revision}")
+                .putExtra("key",selected.key).putExtra("revision",selected.revision),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val public = NotificationCompat.Builder(c,channel).setSmallIcon(R.drawable.ic_pesatrack_logo)
             .setContentTitle("PesaTrack").setContentText("Open PesaTrack when convenient.").build()
         val builder = NotificationCompat.Builder(c,channel).setSmallIcon(R.drawable.ic_pesatrack_logo)
             .setContentTitle(title).setContentText(text).setContentIntent(open("review"))
             .setDeleteIntent(deleted).setAutoCancel(true).setOnlyAlertOnce(true)
-            .setPriority(if (quiet) NotificationCompat.PRIORITY_DEFAULT else NotificationCompat.PRIORITY_HIGH)
+            .setPriority(if (quiet) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(public)
+        if (Build.VERSION.SDK_INT < 26 && !quiet) builder.setDefaults(NotificationCompat.DEFAULT_SOUND)
         if (selected.kind == SmartNoticeKind.PAYMENT) {
             if (!notice.incoming || notice.repaymentAllowed) builder.addAction(0,
                 if (notice.incoming) "Review repayment" else "Add as loan",open("entry"))
@@ -133,12 +138,15 @@ object SmartNoticeCoordinator {
         notice.personId?.let { prefs.personShown(it,now) }
     }
     /** Current evidence remains readable after delivery caps have been consumed. */
-    fun resolve(c: Context, key: String): SmartNotice? = synchronized(CanonicalStoreLock.monitor) {
+    fun resolve(c: Context, key: String, revision: String = ""): SmartNotice? = synchronized(CanonicalStoreLock.monitor) {
         if (BackupRecoveryStatus.failure != null || LedgerUpdateBus.state.value.isProcessing) return@synchronized null
         val prefs = SmartNoticePreferences(c)
         if (key == "discovery") return@synchronized SmartNotice(
             SmartNoticeCandidate(key,"1",SmartNoticeKind.DISCOVERY,prefs.settledAt()))
-        SmartNoticeCandidates.read(c,System.currentTimeMillis()).firstOrNull { it.candidate.key == key }
+        SmartNoticeCandidates.read(c,System.currentTimeMillis()).firstOrNull {
+            it.candidate.key == key && (revision.isEmpty() || it.candidate.revision == revision) &&
+                !prefs.state(key).dismissed
+        }
     }
 }
 

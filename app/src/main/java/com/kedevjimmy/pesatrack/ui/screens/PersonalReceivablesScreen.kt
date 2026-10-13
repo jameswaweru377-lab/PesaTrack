@@ -58,7 +58,7 @@ fun PersonalReceivablesScreen(
     LaunchedEffect(Unit) {
         com.kedevjimmy.pesatrack.planning.SmartNoticePreferences(context).completeDiscovery()
         withContext(Dispatchers.IO) {
-            com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.check(context,allowPost = false)
+            runCatching { com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.check(context,allowPost = false) }
         }
     }
     val locale = LocalConfiguration.current.locales[0]

@@ -52,7 +52,8 @@ fun PesaTrackApp(
     salaryOpenRequest: Int = 0,
     billsOpenRequest: Int = 0,
     reviewOpenRequest: Int = 0,
-    smartOpenRequest: Int = 0, smartKey: String = "", smartAction: String = "review",
+    smartOpenRequest: Int = 0, smartKey: String = "", smartAction: String = "review", smartRevision: String = "",
+    onSmartRequestHandled: () -> Unit = {},
     planningOpenRequest: Int = 0, planningRoute: String = "budgets"
 ) {
     val navController = rememberNavController()
@@ -86,8 +87,10 @@ fun PesaTrackApp(
     }
 
     LaunchedEffect(smartOpenRequest, setupComplete) {
-        if (smartOpenRequest > 0 && setupComplete && smartKey.isNotBlank())
-            navController.navigate("smart-review/${android.net.Uri.encode(smartKey)}?action=$smartAction") { launchSingleTop = true }
+        if (smartOpenRequest > 0 && setupComplete && smartKey.isNotBlank()) {
+            navController.navigate("smart-review/${android.net.Uri.encode(smartKey)}?action=$smartAction&revision=${android.net.Uri.encode(smartRevision)}") { launchSingleTop = true }
+            onSmartRequestHandled()
+        }
     }
 
     fun navigateToTab(tab: MainTab) {
@@ -136,16 +139,18 @@ fun PesaTrackApp(
         navController = navController,
         startDestination = startDestination
     ) {
-        composable("smart-review/{key}?action={action}", arguments = listOf(
+        composable("smart-review/{key}?action={action}&revision={revision}", arguments = listOf(
             navArgument("key") { type = NavType.StringType },
-            navArgument("action") { type = NavType.StringType; defaultValue = "review" }
+            navArgument("action") { type = NavType.StringType; defaultValue = "review" },
+            navArgument("revision") { type = NavType.StringType; defaultValue = "" }
         )) { entry ->
             AppScaffold(currentTab = MainTab.ACCOUNTS, onTabSelected = ::navigateToTab) { padding ->
                 com.kedevjimmy.pesatrack.ui.screens.SmartNoticeReviewScreen(
                     padding, entry.arguments?.getString("key").orEmpty(),
                     entry.arguments?.getString("action") ?: "review",
                     onBack = { navController.popBackStack() },
-                    onTransaction = { navController.navigate("transaction-detail/$it") })
+                    onTransaction = { navController.navigate("transaction-detail/$it") },
+                    expectedRevision = entry.arguments?.getString("revision").orEmpty())
             }
         }
         composable("onboarding") {

@@ -59,7 +59,7 @@ object SmartNoticeCandidates {
             SmartNotice(SmartNoticeCandidate("payment:" + SmartNoticePreferences.hash(row.fingerprint),
                 SmartNoticePreferences.hash("${row.id}:${row.direction}:${row.amountMinor}:${person.id}"),
                 SmartNoticeKind.PAYMENT,maxOf(settled,row.receivedAtEpochMs),
-                prefs.enabled(SmartNoticeKind.PAYMENT) && (last == 0L || now - last >= ReviewReminderPolicy.DAY_MS)),
+                prefs.enabled(SmartNoticeKind.PAYMENT),if (last == 0L) 0 else last + ReviewReminderPolicy.DAY_MS),
                 transactionId = row.id,personId = person.id,incoming = row.direction == "INCOME",
                 repaymentAllowed = ReceivableNotificationPolicy.canRepay(person,row.amountMinor))
         }
@@ -67,6 +67,11 @@ object SmartNoticeCandidates {
         if (people.isNotEmpty()) prefs.completeDiscovery()
         val discovery = if (!prefs.discoveryPending()) emptyList() else listOf(SmartNotice(
             SmartNoticeCandidate("discovery","1",SmartNoticeKind.DISCOVERY,settled,prefs.enabled(SmartNoticeKind.DISCOVERY))))
-        return accounts + reviews + payments + discovery
+        val grouped = SmartNotificationPolicy.routineReview(accounts.map { it.candidate },reviews.firstOrNull()?.candidate)
+        val routine = if (grouped == null) emptyList() else listOf(
+            if (grouped.kind == SmartNoticeKind.ACCOUNT) accounts.filter { it.candidate.enabled }
+                .minBy { it.candidate.key }.copy(candidate = grouped.copy(revision = SmartNoticePreferences.hash(grouped.revision)))
+            else reviews.single())
+        return routine + payments + discovery
     }
 }

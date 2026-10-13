@@ -29,8 +29,13 @@ class SmartNoticePreferences(context: Context) {
         return prefs.getLong("smart_settled_at",0)
     }
     fun changed() { prefs.edit().putLong("smart_settled_at",System.currentTimeMillis()).apply() }
-    fun state(key: String) = SmartNoticeState(prefs.getString("rev:$key","") ?: "",
-        prefs.getLong("shown:$key",0),prefs.getBoolean("dismissed:$key",false))
+    fun state(key: String): SmartNoticeState {
+        // Preserve #360's seven-day same-set pause when upgrading an existing installation.
+        val legacy = key == "activity" && !prefs.contains("shown:$key")
+        return SmartNoticeState(if (legacy) hash(prefs.getString("last_fingerprint","") ?: "")
+            else prefs.getString("rev:$key","") ?: "",
+            prefs.getLong(if (legacy) "last_shown" else "shown:$key",0),prefs.getBoolean("dismissed:$key",false))
+    }
     fun shown(candidate: SmartNoticeCandidate, now: Long) {
         prefs.edit().putString("rev:${candidate.key}",candidate.revision)
             .putLong("shown:${candidate.key}",now).putBoolean("dismissed:${candidate.key}",false)

@@ -17,7 +17,7 @@ import kotlinx.coroutines.CancellationException
 /** Taps read current local evidence. Financial writes remain in the existing confirmation dialog. */
 @Composable
 fun SmartNoticeReviewScreen(padding: PaddingValues, key: String, action: String,
-    onBack: () -> Unit, onTransaction: (Long) -> Unit) {
+    onBack: () -> Unit, onTransaction: (Long) -> Unit, expectedRevision: String = "") {
     val context = LocalContext.current
     val revision by LedgerUpdateBus.state.collectAsState()
     var notice by remember(key) { mutableStateOf<SmartNotice?>(null) }
@@ -29,12 +29,13 @@ fun SmartNoticeReviewScreen(padding: PaddingValues, key: String, action: String,
     var handled by remember(key) { mutableStateOf(false) }
     var decided by remember(key) { mutableStateOf(false) }
     var undoAvailable by remember(key) { mutableStateOf(false) }
+    var financialSaved by remember(key) { mutableStateOf(false) }
     LaunchedEffect(key,revision) {
         loading = true; failed = false
         try {
             val result = withContext(Dispatchers.IO) {
                 synchronized(CanonicalStoreLock.monitor) {
-                    val current = SmartNoticeCoordinator.resolve(context,key)
+                    val current = SmartNoticeCoordinator.resolve(context,key,expectedRevision)
                     Triple(current,current?.transactionId?.let { TransactionStore.get(context).getById(it) },
                         if (current?.candidate?.kind == SmartNoticeKind.PAYMENT) PersonalReceivableStore(context).people() else emptyList())
                 }
@@ -52,6 +53,7 @@ fun SmartNoticeReviewScreen(padding: PaddingValues, key: String, action: String,
     if (current == null || decided) {
         Column(Modifier.padding(padding).padding(20.dp),verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(if (failed) "This review could not be loaded. Try opening it again."
+                else if (financialSaved) "Saved. This payment no longer needs this suggestion."
                 else if (decided) "Suggestion dismissed. Your money records have not changed."
                 else "This item no longer needs this review.",Modifier.testTag("smart-notice-resolved"))
             if (undoAvailable) TextButton(onClick = {
@@ -91,6 +93,7 @@ fun SmartNoticeReviewScreen(padding: PaddingValues, key: String, action: String,
                 if (current.incoming) PersonalReceivableStore.REPAID else PersonalReceivableStore.LENT,payment,
                 onDismiss = { entry = false },onSaved = {
                     entry = false; decided = true; undoAvailable = false
+                    financialSaved = true
                     SmartNoticeCoordinator.cancel(context)
                 })
         }
@@ -100,12 +103,20 @@ fun SmartNoticeReviewScreen(padding: PaddingValues, key: String, action: String,
 @Composable
 internal fun SmartDiscoveryCard(onOpen: () -> Unit) {
     val context = LocalContext.current
-    var visible by remember { mutableStateOf(SmartNoticePreferences(context).discoveryPending()) }
-    if (!visible) return
+    var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        SmartNoticePreferences(context).completeDiscovery()
-        withContext(Dispatchers.IO) { SmartNoticeCoordinator.check(context,allowPost = false) }
+        val prefs = SmartNoticePreferences(context)
+        if (prefs.discoveryPending()) {
+            try {
+                val used = withContext(Dispatchers.IO) { PersonalReceivableStore(context).people().isNotEmpty() }
+                visible = !used
+                prefs.completeDiscovery()
+                withContext(Dispatchers.IO) { runCatching { SmartNoticeCoordinator.check(context,allowPost = false) } }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { visible = false }
+        }
     }
+    if (!visible) return
     Card(Modifier.fillMaxWidth().testTag("they-owe-me-discovery")) {
         Column(Modifier.padding(16.dp),verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Track money owed to you",style = MaterialTheme.typography.titleMedium)
