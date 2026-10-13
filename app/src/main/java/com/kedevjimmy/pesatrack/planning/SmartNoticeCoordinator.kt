@@ -65,7 +65,7 @@ object SmartNoticeCoordinator {
     /** Revalidation runs even with permission off, in quiet hours and while foreground. */
     fun check(c: Context, allowPost: Boolean = true) = synchronized(CanonicalStoreLock.monitor) {
         val prefs = SmartNoticePreferences(c)
-        if (BackupRecoveryStatus.failure != null || LedgerUpdateBus.state.value.isProcessing) {
+        if (BackupRecoveryStatus.failure != null || LedgerUpdateBus.state.value.isProcessing || !prefs.importReady()) {
             cancel(c); return@synchronized
         }
         if (!prefs.anyEnabled()) { cancel(c); return@synchronized }
@@ -139,8 +139,8 @@ object SmartNoticeCoordinator {
     }
     /** Current evidence remains readable after delivery caps have been consumed. */
     fun resolve(c: Context, key: String, revision: String = ""): SmartNotice? = synchronized(CanonicalStoreLock.monitor) {
-        if (BackupRecoveryStatus.failure != null || LedgerUpdateBus.state.value.isProcessing) return@synchronized null
         val prefs = SmartNoticePreferences(c)
+        if (BackupRecoveryStatus.failure != null || LedgerUpdateBus.state.value.isProcessing || !prefs.importReady()) return@synchronized null
         if (key == "discovery") return@synchronized SmartNotice(
             SmartNoticeCandidate(key,"1",SmartNoticeKind.DISCOVERY,prefs.settledAt()))
         SmartNoticeCandidates.read(c,System.currentTimeMillis()).firstOrNull {

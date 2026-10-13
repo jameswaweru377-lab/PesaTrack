@@ -48,6 +48,8 @@ class SmartNoticeIntegrationTest {
         val journal = PersonalReceivableStore(context)
         journal.record(null,"Sample Borrower","0712000000","LENT",200_000,now - 2 * ReviewReminderPolicy.DAY_MS)
         prefs.edit().putBoolean("payment_enabled",true).putLong("payment_enabled_at",now - ReviewReminderPolicy.DAY_MS).commit()
+        // History existed before the new synthetic payment was observed.
+        db.update("personal_receivable_events",ContentValues().apply { put("created_at_epoch_ms",now - 2 * ReviewReminderPolicy.DAY_MS) },null,null)
         return journal.people().single()
     }
     @Test fun legacyActivityPauseSurvivesUpgradeAndPreferencesRestart() {
@@ -120,5 +122,18 @@ class SmartNoticeIntegrationTest {
         assertFalse(SmartNoticePreferences(context).discoveryPending())
         metadata.resetDiscovery()
         assertTrue(SmartNoticePreferences(context).discoveryPending())
+    }
+    @Test fun failedCancelledAndInterruptedImportSuppressPostedAlertsUntilSuccessfulImport() {
+        val metadata = SmartNoticePreferences(context)
+        metadata.setEnabled(SmartNoticeKind.DISCOVERY,true)
+        metadata.importStarted()
+        assertFalse(SmartNoticePreferences(context).importReady())
+        metadata.importFinished(false)
+        metadata.shown(SmartNoticeCandidate("discovery","1",SmartNoticeKind.DISCOVERY,now),now)
+        SmartNoticeCoordinator.check(context,allowPost = false)
+        assertNull(metadata.postedKey())
+        assertFalse(SmartNoticePreferences(context).importReady())
+        metadata.importFinished(true)
+        assertTrue(SmartNoticePreferences(context).importReady())
     }
 }

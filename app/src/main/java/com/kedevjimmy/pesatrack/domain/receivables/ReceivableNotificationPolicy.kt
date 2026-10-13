@@ -1,6 +1,6 @@
 package com.kedevjimmy.pesatrack.domain.receivables
 
-data class NoticePerson(val id: String, val phone: String?, val hasHistory: Boolean, val outstanding: Long?)
+data class NoticePerson(val id: String, val phone: String?, val hasHistory: Boolean, val outstanding: Long?, val knownAt: Long = 0)
 object ReceivableNotificationPolicy {
     fun match(people: List<NoticePerson>, phone: String?, direction: String, amount: Long,
         occurred: Long, received: Long, source: String, enabledAt: Long, now: Long,
@@ -15,7 +15,7 @@ object ReceivableNotificationPolicy {
         // Count all phone collisions, including people with invalid/empty history.
         val person = people.filter { ReceivableHistoryPolicy.normalizedPhone(it.phone) == normalized }.singleOrNull()
             ?: return null
-        return person.takeIf { it.hasHistory && it.outstanding != null && it.outstanding >= 0 }
+        return person.takeIf { it.hasHistory && it.outstanding != null && it.outstanding >= 0 && it.knownAt <= occurred }
     }
     fun canRepay(person: NoticePerson, amount: Long): Boolean =
         person.hasHistory && amount > 0 && person.outstanding?.let { amount <= it && it > 0 } == true

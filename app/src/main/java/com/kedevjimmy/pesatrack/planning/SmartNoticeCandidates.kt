@@ -40,9 +40,13 @@ object SmartNoticeCandidates {
                 ReviewReminderPolicy.fingerprint(activity.map { it.id }.toSet())),SmartNoticeKind.ACTIVITY,
                 maxOf(settled,activity.maxOf { it.receivedAtEpochMs }),prefs.enabled(SmartNoticeKind.ACTIVITY))))
         val journal = PersonalReceivableStore(c)
+        val historyKnownAt = PesaTrackDatabase.get(c).readableDatabase.rawQuery(
+            "SELECT person_id, MIN(created_at_epoch_ms) FROM personal_receivable_events GROUP BY person_id",null
+        ).use { cursor -> buildMap { while (cursor.moveToNext()) put(cursor.getString(0),cursor.getLong(1)) } }
         val people = journal.people().map { person ->
             val history = journal.events(person.id)
-            NoticePerson(person.id,person.phone,history.isNotEmpty() && history.all { it.active },person.outstandingMinor)
+            NoticePerson(person.id,person.phone,history.isNotEmpty() && history.all { it.active },person.outstandingMinor,
+                historyKnownAt[person.id] ?: Long.MAX_VALUE)
         }
         val historyRepository = ReceivableHistoryRepository(c)
         val excluded = people.associate { it.id to historyRepository.exclusions(it.id) }
@@ -52,6 +56,7 @@ object SmartNoticeCandidates {
                 row.amountMinor,row.occurredAtEpochMs,row.receivedAtEpochMs,row.sourceKind,
                 prefs.paymentEnabledAt(),now,
                 row.type in setOf("SENT_MONEY","RECEIVED") && row.category !in setOf("FEES","DEBT_LOAN","TRANSFER","SAVINGS","INVESTMENT") &&
+                row.reviewState != "USER_CLASSIFIED" &&
                 row.cycleCandidateReason == null && row.linkedAccountId == null &&
                     journal.linkProblem(row.id,kind,row.amountMinor) == null,row.id in ambiguous) ?: return@mapNotNull null
             if (row.id in excluded.getValue(person.id)) return@mapNotNull null

@@ -14,9 +14,17 @@ Revalidate under the canonical store lock before dispatch and on tap. Ledger rev
 
 ## Coordinated implementation stages
 
-- [ ] Policy and synthetic JVM regressions: shared budget, priorities, dismissal, clocks, completion, unique phone/live-event gating.
-- [ ] Canonical candidate reader, persisted preferences and existing worker integration; lifecycle/revision cancellation and private actions.
-- [ ] Safe exact review destinations, existing financial confirmation UI, in-app discovery and coordinated settings.
+- [x] Policy and synthetic JVM regressions: shared budget, priorities, dismissal, clocks, completion, unique phone/live-event gating.
+- [x] Canonical candidate reader, persisted preferences and existing worker integration; lifecycle/revision cancellation and private actions.
+- [x] Safe exact review destinations, existing financial confirmation UI, in-app discovery and coordinated settings.
 - [ ] Unit/lint/APK/Android-test compilation through unchanged Android CI; fresh integration review; verify latest main overlap before final report. No merge/release. Instrumentation and physical-device acceptance remain paused unless explicitly requested.
 
 Local baseline test attempt could not start: no Java or Android SDK. Use isolated pure Kotlin/JUnit runtime where available, and CI for full Android verification. No workflow, parser, schema, signing or statement changes.
+
+## Review and scope decisions
+
+Independent review of 54baf19..7f84457 identified payment-cooldown cancellation, legacy seven-day pause migration and lost pending routes during recreation. Addressed in 2f7c09f; additional JVM and Android regression coverage includes grouped digest ordering, delivery-versus-actionability, preference restart/migration, stale evidence, explicit repayment completion, clean-slate discovery and recreation while locked. Android tests are compiled, not executed while the instrumentation pause remains.
+
+Historical SMS import now has a small notification-only wrapper: processing suppresses dispatch and a persisted unsuccessful/interrupted outcome remains fail-closed until a subsequent successful consented import. Parsing, checkpointing and financial writes are unchanged. New-event alerts intentionally use live approved financial notifications; historical SMS, catch-up history and statement imports never become retroactive debt suggestions. Lending history must have been recorded before the new event. Unknown-account observations without existing material ownership-review evidence stay silent. Over-balance receipts offer original-payment review rather than preselecting repayment; the existing dialog remains available for a explicitly chosen partial amount.
+
+The first full Android CI passed at 7f84457 (run 38426737670): unit tests, lint, APK assembly and Android-test compilation. Final-head verification and artifact inspection must still complete after subsequent fixes. No merge or publication from this branch.

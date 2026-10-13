@@ -37,4 +37,8 @@ class ReceivableNotificationPolicyTest {
         assertNull(match(people = people.map { it.copy(hasHistory = false) }))
         assertNull(match(people = people.map { it.copy(outstanding = null) }))
     }
+    @Test fun historyAddedAfterThePaymentDoesNotRetroactivelyPrompt() {
+        assertNull(match(people = people.map { it.copy(knownAt = now) }))
+        assertNotNull(match(people = people.map { it.copy(knownAt = now - 2000) }))
+    }
 }

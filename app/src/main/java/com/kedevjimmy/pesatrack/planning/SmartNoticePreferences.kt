@@ -29,6 +29,12 @@ class SmartNoticePreferences(context: Context) {
         return prefs.getLong("smart_settled_at",0)
     }
     fun changed() { prefs.edit().putLong("smart_settled_at",System.currentTimeMillis()).apply() }
+    fun importReady() = prefs.getString("smart_import_state","success") == "success"
+    fun importStarted() { prefs.edit().putString("smart_import_state","running").apply() }
+    fun importFinished(success: Boolean) {
+        prefs.edit().putString("smart_import_state",if (success) "success" else "failed")
+            .putLong("smart_settled_at",System.currentTimeMillis()).apply()
+    }
     fun state(key: String): SmartNoticeState {
         // Preserve #360's seven-day same-set pause when upgrading an existing installation.
         val legacy = key == "activity" && !prefs.contains("shown:$key")

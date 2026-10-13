@@ -56,6 +56,33 @@ class HistoricalSmsImporter(
         isCancelled: () -> Boolean = { false },
         resumeKey: String? = null
     ): HistoricalImportResult {
+        // Only completed consented imports may arm smart alerts. This wrapper does
+        // not change parsing, checkpoints, financial writes or replay identity.
+        SmsAccessConsentStore.requireRead(context)
+        val notificationState = com.kedevjimmy.pesatrack.planning.SmartNoticePreferences(context)
+        notificationState.importStarted()
+        com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus.processingStarted()
+        var success = false
+        var changed = false
+        try {
+            val result = performImport(sinceEpochMs,rebuildPayCycles,mode,onProgress,isCancelled,resumeKey)
+            success = !result.cancelled
+            changed = success && (result.inserted > 0 || result.stateRefreshed > 0 || result.pendingReview > 0)
+            return result
+        } finally {
+            try { notificationState.importFinished(success) }
+            finally { com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus.processingFinished(changed) }
+        }
+    }
+
+    private fun performImport(
+        sinceEpochMs: Long,
+        rebuildPayCycles: Boolean,
+        mode: HistoricalImportMode,
+        onProgress: ((HistoricalImportProgress) -> Unit)?,
+        isCancelled: () -> Boolean,
+        resumeKey: String?
+    ): HistoricalImportResult {
         SmsAccessConsentStore.requireRead(context)
         val rules = RuleStore.get(context).listRules(enabledOnly = true)
         val accounts = AccountStore.get(context).listAccounts()
