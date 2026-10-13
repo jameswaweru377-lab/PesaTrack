@@ -39,6 +39,14 @@ object PdfStatementReview {
         require(legs.size==legs.distinct().size) {
             "Identical receipt legs need review. No transactions were imported."
         }
+        // Separate legs of one receipt must describe the same event instant.
+        // A receipt reused on another date cannot safely be collapsed into
+        // one balance group or treated as a single source identity.
+        require(rows.indices.groupBy { references[it] }.values.all { indexes ->
+            indexes.map { rows[it].date }.distinct().size == 1
+        }) {
+            "Repeated receipt references with different timestamps need review. No transactions were imported."
+        }
     }
     fun correct(date: String,description: String,amount: String,reference: String,zone: TimeZone,now: Long=System.currentTimeMillis()): StatementRow {
         require(Regex("[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}").matches(date)){"Use yyyy-MM-dd HH:mm:ss for the date and time."}
