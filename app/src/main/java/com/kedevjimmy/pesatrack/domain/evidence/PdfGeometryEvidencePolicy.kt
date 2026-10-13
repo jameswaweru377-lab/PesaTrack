@@ -16,7 +16,12 @@ enum class PdfGeometryDisposition {
     TOO_MANY_LINE_BOUNDS,
     OVERSIZED_CONTENT,
     UNSAFE_TEXT,
-    TOTAL_FRAGMENT_LIMIT
+    TOTAL_FRAGMENT_LIMIT,
+    RECOVERED_BY_NATIVE_SEARCH,
+    NATIVE_SEARCH_NO_MATCH,
+    NATIVE_SEARCH_AMBIGUOUS,
+    NATIVE_SEARCH_INVALID_GEOMETRY,
+    NATIVE_SEARCH_ERROR
 }
 
 /**
@@ -39,7 +44,11 @@ data class PdfGeometryDiagnostics(val counts: List<Int>) {
             PdfGeometryDisposition.TOO_MANY_LINE_BOUNDS to "text block(s) with too many line rectangles",
             PdfGeometryDisposition.OVERSIZED_CONTENT to "oversized text block(s)",
             PdfGeometryDisposition.UNSAFE_TEXT to "unsupported text block(s)",
-            PdfGeometryDisposition.TOTAL_FRAGMENT_LIMIT to "text block(s) beyond the geometry limit"
+            PdfGeometryDisposition.TOTAL_FRAGMENT_LIMIT to "text block(s) beyond the geometry limit",
+            PdfGeometryDisposition.NATIVE_SEARCH_NO_MATCH to "text search(es) unable to recover missing bounds",
+            PdfGeometryDisposition.NATIVE_SEARCH_AMBIGUOUS to "text search(es) with multiple matches",
+            PdfGeometryDisposition.NATIVE_SEARCH_INVALID_GEOMETRY to "text search(es) with invalid rectangles",
+            PdfGeometryDisposition.NATIVE_SEARCH_ERROR to "text search(es) unavailable on this device"
         )
         return reasons.mapNotNull { (reason,label) ->
             count(reason).takeIf { it > 0 }?.let { "$it $label" }
