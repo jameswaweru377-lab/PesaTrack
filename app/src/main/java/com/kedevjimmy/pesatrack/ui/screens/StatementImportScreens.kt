@@ -141,7 +141,10 @@ private fun readStatement(c:Context,uri:Uri):String {
   onResult={pdf ->
    pdfPayslip=false
    pdfCandidates=if(pdf.pdfBoxStatementReady)
-    PdfStatementReview.read(pdf.pages,TimeZone.getTimeZone(zoneId))
+    PdfStatementReview.read(
+     pdf.pages,TimeZone.getTimeZone(zoneId),
+     completePdfBoxGeometry=true
+    )
    else PdfStatementCandidates(emptyList(),listOf(
     "PDFBox did not provide complete positioned table evidence. No transactions were added."
    ))
