@@ -102,9 +102,14 @@ class PdfBoxStatementGeometryTest {
 
     @Test fun repeatedReceiptMayContainTwoDistinctStatementMovements() {
         val fee="QAB1234569 2026-10-10 10:30:00 Service fee Completed -5.00 495.00"
-        val page=heading+first+"\n"+fee+"\n"+second+"\n"+oldest
-        val boxes=geometry()+textRow(
-            "QAB1234569","2026-10-10","10:30:00","Service fee","-5.00","495.00",118f)
+        val payment="QAB1234569 2026-10-10 10:30:00 Shop purchase Completed -20.00 485.00"
+        val page=heading+payment+"\n"+fee+"\n"+second+"\n"+oldest
+        val paymentBoxes=geometry().map {
+            if(it.text=="490.00" && it.top==100f)word("485.00",522f,100f)
+            else it
+        }
+        val boxes=paymentBoxes+textRow(
+            "QAB1234569","2026-10-10","10:30:00","Service fee","-5.00","490.00",118f)
         val reconstructed=PdfBoxStatementGeometry.reconstruct(
             listOf(page),listOf(boxes),listOf(true)
         )
