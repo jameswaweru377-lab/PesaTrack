@@ -10,6 +10,7 @@ import com.kedevjimmy.pesatrack.domain.evidence.PdfTextChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.PdfGeometryEvidencePolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxProbeWire
+import com.kedevjimmy.pesatrack.domain.evidence.PdfGridProbeWire
 import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxVerificationReport
 import com.kedevjimmy.pesatrack.domain.evidence.DocumentCopySession
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
@@ -33,7 +34,7 @@ object PdfTextReviewReader {
     suspend fun read(
         context: Context, uri: Uri, password: String? = null,
         includePositions: Boolean = false, pdfBoxProbe: Boolean = false,
-        pdfBoxStatement: Boolean = false
+        pdfBoxStatement: Boolean = false, pdfBoxGridProbe: Boolean = false
     ): PdfTextPreview {
         if(Build.VERSION.SDK_INT<35)throw PdfReadException(PdfFailure.VERSION)
         val app = context.applicationContext
@@ -43,7 +44,7 @@ object PdfTextReviewReader {
                 copySource(app, uri, file)
                 withContext(Dispatchers.Main) {
                     if (Build.VERSION.SDK_INT >= 35)
-                        request(app, file, password, includePositions, pdfBoxProbe, pdfBoxStatement)
+                        request(app, file, password, includePositions, pdfBoxProbe, pdfBoxStatement, pdfBoxGridProbe)
                     else throw PdfReadException(PdfFailure.VERSION)
                 }
             }
@@ -89,10 +90,13 @@ object PdfTextReviewReader {
     @RequiresApi(35)
     private suspend fun request(
         app: Context, file: File, password: String?,
-        includePositions: Boolean, pdfBoxProbe: Boolean, pdfBoxStatement: Boolean
+        includePositions: Boolean, pdfBoxProbe: Boolean, pdfBoxStatement: Boolean,
+        pdfBoxGridProbe: Boolean
     ): PdfTextPreview {
-        require(!(pdfBoxProbe && pdfBoxStatement) &&
-            !(includePositions && pdfBoxStatement)) { "Incompatible PDF extraction modes." }
+        require(listOf(pdfBoxProbe,pdfBoxStatement,pdfBoxGridProbe).count {it}>1 == false &&
+            !(includePositions && (pdfBoxStatement || pdfBoxProbe || pdfBoxGridProbe))) {
+            "Incompatible PDF extraction modes."
+        }
         var bound = false
         lateinit var connection: ServiceConnection
         try {
@@ -136,6 +140,12 @@ object PdfTextReviewReader {
                                 // Diagnostic-only. This cannot satisfy the
                                 // verified-candidate import pathway.
                                 continuation.resume(PdfTextPreview(emptyList(),emptyList(),pdfBoxProbe=report))
+                            } else if(pdfBoxGridProbe && data.getBoolean("pdfBoxGridProbeDone",false)) {
+                                val report=PdfGridProbeWire.decode(
+                                    data.getInt("pdfBoxGridPageCount",-1),
+                                    data.getIntArray("pdfBoxGridCountEvidence")
+                                        ?: error("Missing vector-grid proof counts."))
+                                continuation.resume(PdfTextPreview(emptyList(),emptyList(),pdfBoxGridProbe=report))
                             } else if(data.getBoolean("done",false)) {
                                 val n=data.getInt("pageCount",-1)
                                 val base=assembly.finish(n)
@@ -189,6 +199,7 @@ object PdfTextReviewReader {
                                         putBoolean("includePositions",includePositions)
                                         putBoolean("pdfBoxProbe",pdfBoxProbe)
                                         putBoolean("pdfBoxStatement",pdfBoxStatement)
+                                        putBoolean("pdfBoxGridProbe",pdfBoxGridProbe)
                                     }
                                 })
                                 // The isolated process now owns a duplicated descriptor; retain no named document.
