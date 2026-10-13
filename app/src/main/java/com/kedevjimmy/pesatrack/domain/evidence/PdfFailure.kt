@@ -1,5 +1,46 @@
 package com.kedevjimmy.pesatrack.domain.evidence
 
+import com.kedevjimmy.pesatrack.domain.statements.StatementField
+
+/** Authored check labels only. Never put private cell text in a failure. */
+enum class PdfStatementCheck(val explanation:String) {
+    INCOMPLETE_GEOMETRY("Some text has incomplete physical coordinates."),
+    HEADER_DISCOVERY("The required table headings could not be located."),
+    RECEIPT_COVERAGE("Source receipts, completed labels and positioned receipt anchors do not agree."),
+    ROW_BOUNDARY("Transaction evidence appears outside a supported row boundary."),
+    ROW_SIZE("The row is empty or contains more than the supported number of text parts."),
+    COLUMN_OWNERSHIP("A text rectangle cannot be assigned wholly to one column."),
+    REFERENCE_CELL("The reference cell does not match the source receipt."),
+    SOURCE_TIMESTAMP_COUNT("The source receipt block does not contain exactly one completion time."),
+    TIMESTAMP_CELL("The date/time cell does not match the dated source receipt."),
+    STATUS_CELL("The status cell is not one complete Completed label."),
+    DESCRIPTION_LENGTH("The description is empty or exceeds the supported 200 characters."),
+    DESCRIPTION_STATUS("A completed-status label appears inside the description column."),
+    CREDIT_PARTS("Paid In contains multiple positioned text parts; one amount has not been proved."),
+    CREDIT_AMOUNT("Paid In does not contain a supported non-negative amount."),
+    DEBIT_PARTS("Withdrawn contains multiple positioned text parts; one amount has not been proved."),
+    DEBIT_AMOUNT("Withdrawn does not contain a supported amount."),
+    BALANCE_PARTS("Balance contains multiple positioned text parts; one amount has not been proved."),
+    BALANCE_AMOUNT("Balance is missing or does not contain a supported non-negative amount."),
+    MOVEMENT_DIRECTION("Paid In and Withdrawn are both non-zero in the same row."),
+    ZERO_EVIDENCE("Empty money cells do not independently prove a zero-value record."),
+    SUMMARY_EVIDENCE("The observed summary table could not be verified."),
+    FINANCIAL_RECONCILIATION("Receipt groups, dates, balances or summary declarations did not reconcile.");
+
+    companion object {
+        private val roles=listOf(StatementField.REFERENCE,StatementField.DATE,StatementField.DESCRIPTION,
+            StatementField.STATUS,StatementField.CREDIT,StatementField.DEBIT,StatementField.BALANCE)
+        private val labels=listOf("Receipt", "Date/time", "Description", "Status", "Paid In", "Withdrawn", "Balance")
+        fun decode(name:String?):PdfStatementCheck?=entries.firstOrNull {it.name==name}
+        fun encodeColumns(columns:Set<StatementField>):Int=roles.indices.fold(0) {mask,i->
+            if(roles[i] in columns)mask or (1 shl i) else mask}
+        fun decodeColumns(mask:Int):Set<StatementField> =
+            if(mask !in 0..127)emptySet() else roles.indices.filter {mask and (1 shl it)!=0}.map {roles[it]}.toSet()
+        fun columnLabels(columns:Set<StatementField>):String=roles.indices.filter {roles[it] in columns}
+            .joinToString(" / "){labels[it]}
+    }
+}
+
 /** Fixed, non-sensitive failures only. Never display native exceptions or document contents. */
 enum class PdfFailure(val explanation: String) {
     EMPTY("The selected file is empty. Download the PDF again."),
@@ -19,10 +60,15 @@ enum class PdfFailure(val explanation: String) {
     TIMEOUT("PDF reading took too long. Choose a smaller document and try again."),
     VERSION("PDF extraction needs Android 15 or newer. CSV and manual entry remain available.")
 }
-class PdfReadException(val failure: PdfFailure, val statementPage: Int? = null,val statementRow:Int?=null) :
+class PdfReadException(val failure: PdfFailure, val statementPage: Int? = null,val statementRow:Int?=null,
+    val statementCheck:PdfStatementCheck?=null,val statementColumns:Set<StatementField> = emptySet()) :
     IllegalArgumentException(failure.explanation) {
-    /** Only a bounded page number can supplement a fixed authored message. */
+    /** Bounded location and whitelisted authored labels, never private text. */
     val safeExplanation: String get() = failure.explanation +
         (statementPage?.takeIf {it in 1..160}?.let {page->" Affected page: $page"+
-            (statementRow?.takeIf {it in 1..5000}?.let {", receipt row: $it"} ?: "")+"."} ?: "")
+            (statementRow?.takeIf {it in 1..5000}?.let {", receipt row: $it"} ?: "")+"."} ?: "") +
+        (statementCheck?.let {" Check: ${it.explanation}"} ?: "") +
+        (if(statementCheck==PdfStatementCheck.COLUMN_OWNERSHIP)
+            PdfStatementCheck.columnLabels(statementColumns).takeIf {it.isNotEmpty()}?.let {" Columns: $it."}.orEmpty()
+            else "")
 }

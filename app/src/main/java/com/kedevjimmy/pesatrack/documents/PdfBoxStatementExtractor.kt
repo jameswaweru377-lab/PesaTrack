@@ -75,8 +75,12 @@ internal object PdfBoxStatementExtractor {
                         throw PdfReadException(if(output is MpesaPositionedRows.Unsupported &&
                             output.reason==MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE)
                             PdfFailure.FINANCIAL_EVIDENCE else PdfFailure.TABLE_EVIDENCE,
-                            (output as? MpesaPositionedRows.Unsupported)?.page,
-                            (output as? MpesaPositionedRows.Unsupported)?.row)
+                            (output as? MpesaPositionedRows.Unsupported)?.takeIf {
+                                it.check!=com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck.FINANCIAL_RECONCILIATION
+                            }?.page,
+                            (output as? MpesaPositionedRows.Unsupported)?.row,
+                            (output as? MpesaPositionedRows.Unsupported)?.check,
+                            (output as? MpesaPositionedRows.Unsupported)?.columns.orEmpty())
                     PdfTextReviewPolicy.preview(output.pages)
                     val proof=output.pdfBoxProof ?: throw PdfReadException(PdfFailure.FINANCIAL_EVIDENCE)
                     val metadataReview=PdfStatementReview.reviewMetadata(output.pages,true)

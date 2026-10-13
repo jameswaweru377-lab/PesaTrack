@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.domain.everyday
 
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextFragment
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
+import com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck
 import kotlin.math.abs
 import java.util.Locale
 import java.math.BigDecimal
@@ -81,8 +82,16 @@ object PdfBoxStatementGeometry {
         /** Compatibility output for legacy tests/callers, never production review. */
         emitCompatibilityText:Boolean=true
     ):MpesaPositionedRows {
-        fun reject(p:Int,reason:MpesaPositionedRows.Reason,row:Int?=null)=
-            MpesaPositionedRows.Unsupported(p,reason,row)
+        fun reject(p:Int,reason:MpesaPositionedRows.Reason,row:Int?=null,
+            check:PdfStatementCheck?=null,columns:Set<StatementField> = emptySet())=
+            MpesaPositionedRows.Unsupported(p,reason,row,check ?: when(reason) {
+                MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY -> PdfStatementCheck.INCOMPLETE_GEOMETRY
+                MpesaPositionedRows.Reason.UNRECOGNIZED_TABLE -> PdfStatementCheck.HEADER_DISCOVERY
+                MpesaPositionedRows.Reason.UNVERIFIED_ROW_COUNT -> PdfStatementCheck.RECEIPT_COVERAGE
+                MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT -> PdfStatementCheck.ROW_BOUNDARY
+                MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE -> PdfStatementCheck.FINANCIAL_RECONCILIATION
+                else -> null
+            },columns)
         if(pages.isEmpty() || pages.size>PdfTextReviewPolicy.MAX_PAGES ||
             positioned.size!=pages.size || complete.size!=pages.size)
             return reject(1,MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
@@ -104,7 +113,8 @@ object PdfBoxStatementGeometry {
             val lines=StatementPdfLines.group(positioned[i])
                 ?:return reject(page,MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
             val totals=summaryTotals(lines)
-                ?:return reject(page,MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE)
+                ?:return reject(page,MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE,
+                    check=PdfStatementCheck.SUMMARY_EVIDENCE)
             metadata.addAll(totals)
             val sourceRows=sourceReceipt.findAll(source).toList()
             val expected=sourceRows.size
@@ -134,7 +144,8 @@ object PdfBoxStatementGeometry {
             }
             if(anchors.size!=expected || anchors.zipWithNext().any {(a,b)->
                 b<=a || lines[b].y-lines[a].y<5f})
-                return reject(page,MpesaPositionedRows.Reason.UNVERIFIED_ROW_COUNT)
+                return reject(page,MpesaPositionedRows.Reason.UNVERIFIED_ROW_COUNT,
+                    check=if(bands.isEmpty())PdfStatementCheck.HEADER_DISCOVERY else PdfStatementCheck.RECEIPT_COVERAGE)
             if(lines.indexOfFirst {footer.containsMatchIn(it.text)}.let {
                     it>=0 && it<anchors.last()
                 }) return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT)
@@ -173,11 +184,14 @@ object PdfBoxStatementGeometry {
                 val block=lines.subList(rowStarts[position],stop).takeWhile {!footer.containsMatchIn(it.text)}
                 val words=block.flatMap {it.words}.filterNot {it in headerWords}
                 if(words.isEmpty() || words.size>260)
-                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1)
+                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.ROW_SIZE)
                 val cells=mutableMapOf<StatementField,MutableList<PdfTextFragment>>()
                 for(word in words) {
                     val field=layout.owner(word)
-                        ?:return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT,position+1)
+                        ?:return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT,position+1,
+                            PdfStatementCheck.COLUMN_OWNERSHIP,layout.columns.filter {
+                                word.left<it.right && word.right>it.left
+                            }.map {it.field}.toSet())
                     cells.getOrPut(field) {mutableListOf()}.add(word)
                 }
                 fun text(field:StatementField)=clean(cells[field].orEmpty()
@@ -189,14 +203,19 @@ object PdfBoxStatementGeometry {
                 val sourceBlock=source.substring(original.range.first,
                     sourceRows.getOrNull(position+1)?.range?.first ?: source.length)
                 val times=clock.findAll(sourceBlock).map {it.value}.toList()
-                if(reference!=original.groupValues[1].uppercase(Locale.ROOT) ||
-                    times.size!=1 || date!="${original.groupValues[2]} ${times.single()}")
-                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1)
+                if(reference!=original.groupValues[1].uppercase(Locale.ROOT))
+                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.REFERENCE_CELL)
+                if(times.size!=1)
+                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.SOURCE_TIMESTAMP_COUNT)
+                if(date!="${original.groupValues[2]} ${times.single()}")
+                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.TIMESTAMP_CELL)
                 if(text(StatementField.STATUS).uppercase(Locale.ROOT)!="COMPLETED")
-                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1)
+                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1,PdfStatementCheck.STATUS_CELL)
                 val detail=text(StatementField.DESCRIPTION)
-                if(detail.length !in 1..200 || completed.containsMatchIn(detail))
-                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1)
+                if(detail.length !in 1..200)
+                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.DESCRIPTION_LENGTH)
+                if(completed.containsMatchIn(detail))
+                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.DESCRIPTION_STATUS)
                 fun amount(field:StatementField,blankAllowed:Boolean):Long? {
                     val parts=cells[field].orEmpty()
                     if(parts.size>1)return null
@@ -209,16 +228,21 @@ object PdfBoxStatementGeometry {
                 val paid=amount(StatementField.CREDIT,true)
                 val debit=amount(StatementField.DEBIT,true)
                 val balance=amount(StatementField.BALANCE,false)
-                if(paid==null || paid<0 || debit==null || debit==Long.MIN_VALUE ||
-                    balance==null || balance<0 || paid>0 && debit!=0L)
-                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1)
+                if(paid==null || paid<0)return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1,
+                    if(cells[StatementField.CREDIT].orEmpty().size>1)PdfStatementCheck.CREDIT_PARTS else PdfStatementCheck.CREDIT_AMOUNT)
+                if(debit==null || debit==Long.MIN_VALUE)return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1,
+                    if(cells[StatementField.DEBIT].orEmpty().size>1)PdfStatementCheck.DEBIT_PARTS else PdfStatementCheck.DEBIT_AMOUNT)
+                if(balance==null || balance<0)return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1,
+                    if(cells[StatementField.BALANCE].orEmpty().size>1)PdfStatementCheck.BALANCE_PARTS else PdfStatementCheck.BALANCE_AMOUNT)
+                if(paid>0 && debit!=0L)return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1,
+                    PdfStatementCheck.MOVEMENT_DIRECTION)
                 val withdrawn=abs(debit)
                 if(paid==0L && withdrawn==0L &&
                     listOf(StatementField.CREDIT,StatementField.DEBIT).none {field ->
                         cells[field]?.singleOrNull()?.text?.let {
                             it!="-" && EverydayMoneyPolicy.money(it)==0L
                         }==true
-                    }) return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1)
+                    }) return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1,PdfStatementCheck.ZERO_EVIDENCE)
                 evidence.add(PdfBoxReceiptEvidence(page,position+1,reference,date,detail,
                     cells.mapValues {it.value.toList()},paid,withdrawn,balance))
                 // Keep physical column order and cell rectangles in the shared

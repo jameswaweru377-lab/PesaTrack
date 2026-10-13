@@ -97,8 +97,10 @@ object PdfTextReviewReader {
         lateinit var connection: ServiceConnection
         try {
             return suspendCancellableCoroutine { continuation ->
-                fun fail(failure: PdfFailure, page:Int? = null,row:Int? = null) {
-                    if (continuation.isActive) continuation.resumeWithException(PdfReadException(failure,page,row))
+                fun fail(failure: PdfFailure, page:Int? = null,row:Int? = null,
+                    check:com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck?=null,
+                    columns:Set<com.kedevjimmy.pesatrack.domain.statements.StatementField> = emptySet()) {
+                    if (continuation.isActive) continuation.resumeWithException(PdfReadException(failure,page,row,check,columns))
                 }
                 val assembly=PdfTextChunkAssembler()
                 val positioned=PdfPositionChunkAssembler()
@@ -107,7 +109,9 @@ object PdfTextReviewReader {
                         val failure = message.data.getString("failure")
                         if (failure != null) fail(PdfFailure.entries.firstOrNull {it.name==failure} ?: PdfFailure.PARSE,
                             message.data.getInt("failurePage",0).takeIf {it in 1..PdfTextReviewPolicy.MAX_PAGES},
-                            message.data.getInt("failureRow",0).takeIf {it in 1..5000})
+                            message.data.getInt("failureRow",0).takeIf {it in 1..5000},
+                            com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck.decode(message.data.getString("failureCheck")),
+                            com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck.decodeColumns(message.data.getInt("failureColumns",0)))
                         else try {
                             val data=message.data
                             if(data.containsKey("chunk")) {

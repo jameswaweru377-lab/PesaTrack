@@ -12,6 +12,16 @@ The current product includes the canonical ledger, provider-neutral financial in
 
 ## Data and accounting
 
+- Redmi acceptance remains blocked at page 1, receipt row 1 (safe screenshot
+  evidence after #381). The production failure path now preserves whitelisted
+  check labels and column roles from geometry through the isolated service to
+  the import screen. This distinguishes reference/time, status, description,
+  split/invalid amount and column-ownership refusals without exposing cell
+  contents. Document-wide reconciliation failures do not fabricate an affected
+  page. Acceptance rules and ledger writes are unchanged. The actual failing
+  check still requires a new private-device attempt; no extraction fix is
+  claimed from the screenshot alone.
+
 - The table-first PDFBox bridge now uses the shared V2 ordered table model,
   retaining transient cell rectangles and physical column order. Shared
   semantic header discovery replaces its private header search; generic V2

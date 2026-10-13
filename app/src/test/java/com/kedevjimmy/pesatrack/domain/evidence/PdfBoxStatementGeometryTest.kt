@@ -65,6 +65,39 @@ class PdfBoxStatementGeometryTest {
         visualStatementHeadings().filter {withTitle || it.top!=8f} +
             geometry().drop(headerGeometry.size)
 
+    private fun refused(words:List<PdfTextFragment>,source:String=heading+first+"\n"+second+"\n"+oldest)=
+        PdfBoxStatementGeometry.reconstruct(listOf(source),listOf(words),listOf(true)) as MpesaPositionedRows.Unsupported
+
+    @Test fun rowRefusalsIdentifyTheFailingCheckWithoutValues() {
+        assertEquals(PdfStatementCheck.TIMESTAMP_CELL,refused(geometry().map {
+            if(it.top==100f && it.text=="2026-10-10")it.copy(text="2026-10-11") else it}).check)
+        assertEquals(PdfStatementCheck.SOURCE_TIMESTAMP_COUNT,refused(geometry(),
+            heading+first.replace("Shop purchase","Shop purchase at 09:15:00")+"\n"+second+"\n"+oldest).check)
+        assertEquals(PdfStatementCheck.STATUS_CELL,refused(geometry().map {
+            if(it.top==100f && it.text=="Completed")it.copy(text="Pending") else it}).check)
+        assertEquals(PdfStatementCheck.DESCRIPTION_LENGTH,refused(geometry().map {
+            if(it.top==100f && it.text=="Shop purchase")it.copy(text="x".repeat(201)) else it}).check)
+        assertEquals(PdfStatementCheck.CREDIT_PARTS,refused(geometry()+
+            word("0.00",406f,112f)+word("0.00",406f,124f)).check)
+        assertEquals(PdfStatementCheck.DEBIT_PARTS,refused(geometry()+word("-1.00",465f,112f)).check)
+        assertEquals(PdfStatementCheck.BALANCE_AMOUNT,refused(geometry().map {
+            if(it.top==100f && it.text=="490.00")it.copy(text="??") else it}).check)
+        assertEquals(PdfStatementCheck.MOVEMENT_DIRECTION,refused(geometry()+word("10.00",406f,100f)).check)
+    }
+
+    @Test fun crossingColumnsReportOnlySemanticRolesAndSourceLocation() {
+        val output=refused(geometry().map {if(it.text=="Shop purchase")it.copy(right=340f) else it})
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,output.check)
+        assertEquals(setOf(com.kedevjimmy.pesatrack.domain.statements.StatementField.DESCRIPTION,
+            com.kedevjimmy.pesatrack.domain.statements.StatementField.STATUS),output.columns)
+        assertEquals(1,output.page)
+        assertEquals(1,output.row)
+        val message=PdfReadException(PdfFailure.TABLE_EVIDENCE,output.page,output.row,output.check,output.columns).safeExplanation
+        assertTrue(message.contains("Description / Status"))
+        for(privateText in listOf("Shop purchase","QAB1234569","-20.00","490.00","2026-10-10"))
+            assertFalse(message.contains(privateText))
+    }
+
     @Test fun structuredProductionReviewConsumesCellsWithoutLegacyTextRoundTrip() {
         val output=PdfBoxStatementGeometry.reconstruct(listOf(heading+first+"\n"+second+"\n"+oldest),
             listOf(geometry()),listOf(true)) as MpesaPositionedRows.Ready
