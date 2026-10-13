@@ -81,8 +81,8 @@ class PdfBoxStatementGeometryTest {
     }
 
     @Test fun completePdfBoxGeometryCanReplaceOnlyMissingDecorativeDetailedHeading() {
-        val noSection=heading.replace("DETAILED STATEMENT\\n","")
-        val input=noSection+first+"\\n"+second+"\\n"+oldest
+        val noSection=heading.replace("DETAILED STATEMENT\n","")
+        val input=noSection+first+"\n"+second+"\n"+oldest
         val positioned=recoveredLayout().filterNot {it.top==35f}
         val output=PdfBoxStatementGeometry.reconstruct(
             listOf(input),listOf(positioned),listOf(true)
@@ -104,10 +104,10 @@ class PdfBoxStatementGeometryTest {
     }
 
     @Test fun completePdfBoxProofDoesNotReplaceStatementTitle() {
-        val noSection="MOBILE MONEY REPORT\\n" +
-            heading.replace("M-PESA STATEMENT\\n","")
-                .replace("DETAILED STATEMENT\\n","") +
-            first+"\\n"+second+"\\n"+oldest
+        val noSection="MOBILE MONEY REPORT\n" +
+            heading.replace("M-PESA STATEMENT\n","")
+                .replace("DETAILED STATEMENT\n","") +
+            first+"\n"+second+"\n"+oldest
         val positioned=recoveredLayout(withTitle=false).filterNot {it.top==35f}
         val output=PdfBoxStatementGeometry.reconstruct(
             listOf(noSection),listOf(positioned),listOf(true)
@@ -122,9 +122,9 @@ class PdfBoxStatementGeometryTest {
     }
 
     @Test fun completePdfBoxProofCannotReplaceStatementPeriodOrMoneyHeaders() {
-        val withoutPeriod=heading.replace("Statement Period: 01 Oct 2026 - 11 Oct 2026\\n","")
-            .replace("DETAILED STATEMENT\\n","") +
-            first+"\\n"+second+"\\n"+oldest
+        val withoutPeriod=heading.replace("Statement Period: 01 Oct 2026 - 11 Oct 2026\n","")
+            .replace("DETAILED STATEMENT\n","") +
+            first+"\n"+second+"\n"+oldest
         val positioned=recoveredLayout().filterNot {
             it.top==20f || it.top==35f
         }
@@ -140,9 +140,9 @@ class PdfBoxStatementGeometryTest {
         assertTrue(review.problems.any {it.contains("statement period")})
 
         val withoutMoneyHeaders=heading
-            .replace("DETAILED STATEMENT\\n","")
-            .replace("Receipt No. Completion Time Details Transaction Status Paid In Withdrawn Balance\\n","")+
-            first+"\\n"+second+"\\n"+oldest
+            .replace("DETAILED STATEMENT\n","")
+            .replace("Receipt No. Completion Time Details Transaction Status Paid In Withdrawn Balance\n","")+
+            first+"\n"+second+"\n"+oldest
         val noHeaders=recoveredLayout().filterNot {it.top==35f || it.top==60f}
         val normalized=PdfBoxStatementGeometry.reconstruct(
             listOf(withoutMoneyHeaders),listOf(noHeaders),listOf(true)
@@ -157,8 +157,8 @@ class PdfBoxStatementGeometryTest {
     }
 
     @Test fun foreignCurrencyCannotBeAcceptedByCompletePdfBoxGeometryException() {
-        val input="Currency: USD\\n" + heading.replace("DETAILED STATEMENT\\n","")+
-            first+"\\n"+second+"\\n"+oldest
+        val input="Currency: USD\n" + heading.replace("DETAILED STATEMENT\n","")+
+            first+"\n"+second+"\n"+oldest
         val output=PdfBoxStatementGeometry.reconstruct(
             listOf(input),
             listOf(recoveredLayout().filterNot {it.top==35f}),
