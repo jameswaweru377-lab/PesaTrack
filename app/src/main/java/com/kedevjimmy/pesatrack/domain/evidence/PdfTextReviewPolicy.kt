@@ -8,7 +8,9 @@ data class PdfTextPreview(
     /** False only when text that may affect a receipt lacks trustworthy geometry. */
     val positionedComplete: List<Boolean> = emptyList(),
     /** Fixed count-based reasons; no document text or financial values included. */
-    val geometryDiagnostics: List<PdfGeometryDiagnostics> = emptyList()
+    val geometryDiagnostics: List<PdfGeometryDiagnostics> = emptyList(),
+    /** Opt-in, count-only independent extraction comparison. Never financial evidence. */
+    val pdfBoxProbe: PdfBoxProbeReport? = null
 )
 
 /** Text availability is not a claim that a statement table or payroll was understood. */
