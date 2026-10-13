@@ -18,6 +18,7 @@ import com.kedevjimmy.pesatrack.domain.evidence.PdfNativeSearchGeometry
 import com.kedevjimmy.pesatrack.domain.evidence.PdfSearchBox
 import com.kedevjimmy.pesatrack.domain.evidence.PdfSearchOutcome
 import com.kedevjimmy.pesatrack.domain.evidence.PdfSearchResult
+import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxProbeWire
 
 /** Private isolated process: receives only a read-only descriptor, never ledger access. */
 class PdfTextReviewService : Service() {
@@ -41,6 +42,15 @@ class PdfTextReviewService : Service() {
                 if (Build.VERSION.SDK_INT >= 35) {
                     val password=message.data.getString("password")
                     message.data.remove("password")
+                    val probePdfBox=message.data.getBoolean("pdfBoxProbe",false)
+                    if(probePdfBox) {
+                        // Diagnostic-only path: independent PDFBox evidence
+                        // never flows into candidates, balances or ledger.
+                        val report=PdfBoxEvidenceProbe.inspect(this,descriptor,password)
+                        response.putBoolean("pdfBoxProbeDone",true)
+                        response.putInt("pdfBoxPageCount",report.pages.size)
+                        response.putIntArray("pdfBoxCountEvidence",PdfBoxProbeWire.encode(report))
+                    } else {
                     val positions=message.data.getBoolean("includePositions",false)
                     val pages=extract(descriptor,password,positions)
                     val recipient=message.replyTo ?: throw PdfReadException(PdfFailure.SERVICE)
@@ -86,6 +96,7 @@ class PdfTextReviewService : Service() {
                             pages.map {it.reasonCounts}
                         ))
                     }
+                    } // end native Android extraction
                 } else throw PdfReadException(PdfFailure.VERSION)
             } catch (e: PdfReadException) {
                 response.putString("failure",e.failure.name)
