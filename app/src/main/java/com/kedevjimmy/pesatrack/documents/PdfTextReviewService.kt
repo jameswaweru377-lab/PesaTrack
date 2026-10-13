@@ -44,9 +44,17 @@ class PdfTextReviewService : Service() {
                     message.data.remove("password")
                     val probePdfBox=message.data.getBoolean("pdfBoxProbe",false)
                     val reviewPdfBox=message.data.getBoolean("pdfBoxStatement",false)
-                    if(probePdfBox && reviewPdfBox)
+                    val gridPdfBox=message.data.getBoolean("pdfBoxGridProbe",false)
+                    if(listOf(probePdfBox,reviewPdfBox,gridPdfBox).count {it}>1)
                         throw PdfReadException(PdfFailure.PARSE)
-                    if(probePdfBox) {
+                    if(gridPdfBox) {
+                        // Structural evidence only; never yields transaction candidates.
+                        val result=PdfBoxGridProbe.inspect(this,descriptor,password)
+                        response.putBoolean("pdfBoxGridProbeDone",true)
+                        response.putInt("pdfBoxGridPageCount",result.pages.size)
+                        response.putIntArray("pdfBoxGridCountEvidence",
+                            com.kedevjimmy.pesatrack.domain.evidence.PdfGridProbeWire.encode(result))
+                    } else if(probePdfBox) {
                         // Diagnostic-only mode; no financial candidates.
                         val report=PdfBoxEvidenceProbe.inspect(this,descriptor,password)
                         response.putBoolean("pdfBoxProbeDone",true)
