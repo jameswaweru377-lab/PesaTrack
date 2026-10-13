@@ -131,6 +131,27 @@ private fun readStatement(c:Context,uri:Uri):String {
   },
   includePositions=true
  )
+ val pdfBoxStatementImport=rememberPdfImport(
+  onSelected={
+   invalidatePreview();pdfStatus=null;pdfPayslip=false;pdfCandidates=null
+   pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList()
+   pdfBoxStatus=null
+  },
+  onBusy={reading=it},
+  onResult={pdf ->
+   pdfPayslip=false
+   pdfCandidates=if(pdf.pdfBoxStatementReady)
+    PdfStatementReview.read(pdf.pages,TimeZone.getTimeZone(zoneId))
+   else PdfStatementCandidates(emptyList(),listOf(
+    "PDFBox did not provide complete positioned table evidence. No transactions were added."
+   ))
+   pdfBalanceReviewRefs=pdfCandidates?.balanceReviewReferences.orEmpty()
+   pdfStatus=if(pdfCandidates?.rows?.isNotEmpty()==true)
+    "PDFBox reconstructed the statement on this phone. Every transaction still needs the normal amount, balance and duplicate review before any import."
+   else "PDFBox opened the document, but the statement did not pass the full financial verification. No transactions were added."
+  },
+  pdfBoxStatement=true
+ )
  val pdfBoxInspect=rememberPdfImport(
   onSelected={
    // Starting a new probe must not leave a previous document's unreviewed
@@ -186,6 +207,9 @@ private fun readStatement(c:Context,uri:Uri):String {
      Text("Choose a supported CSV or M-Pesa statement PDF. Your file stays on this phone.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      OutlinedButton(onClick={picker.launch(arrayOf("text/csv","text/comma-separated-values","application/csv","text/plain","application/octet-stream"))},enabled=!busy&&accountId.isNotEmpty(),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.TableChart,null);Spacer(Modifier.width(8.dp));Text("Select CSV file")}
      PdfImportButton("Select M-Pesa PDF",!busy,pdfImport)
+     PdfImportButton("Select M-Pesa PDF using PDFBox (review first)",!busy,pdfBoxStatementImport)
+     Text("PDFBox review is experimental. It only offers candidates if the full PDF and money columns pass verification. Nothing is added before you confirm.",
+      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      PdfImportButton("Test PDFBox extraction (read-only)",!busy,pdfBoxInspect)
      Text("Experimental offline diagnostic: reports text and coordinate counts, never imports money. You can choose a password-protected PDF on this phone.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -300,6 +324,7 @@ private fun readStatement(c:Context,uri:Uri):String {
   }
  }
  PdfPasswordDialog(pdfImport)
+ PdfPasswordDialog(pdfBoxStatementImport)
  PdfPasswordDialog(pdfBoxInspect)
  editingPdf?.let {original->PdfStatementRowDialog(original,zoneId,onDismiss={editingPdf=null},onSave={updated->
   val index=rows.indexOf(original)
