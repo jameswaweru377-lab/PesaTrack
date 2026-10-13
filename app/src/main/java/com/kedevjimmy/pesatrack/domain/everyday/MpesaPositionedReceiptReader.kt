@@ -39,6 +39,16 @@ object MpesaPositionedReceiptReader {
     private val rightSide=Regex("^COMPLETED\\s+(.+)$",RegexOption.IGNORE_CASE)
     private val moneyCell=Regex("(?:-|(?:-?[0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?))")
     private val footer=Regex("(?i)^(?:DISCLAIMER\\b|STATEMENT VERIFICATION CODE\\b|FOR SELF[- ]HELP\\b)")
+    private fun moneyShapeValid(tokens:List<String>):Boolean {
+        if(tokens.size !in 2..3 || tokens.any {!moneyCell.matches(it)} ||
+            tokens.last()=="-" || (tokens.size==2 && tokens[0]=="-"))return false
+        if(tokens.size==3) {
+            val first=if(tokens[0]=="-")0L else EverydayMoneyPolicy.money(tokens[0]) ?: return false
+            val second=if(tokens[1]=="-")0L else EverydayMoneyPolicy.money(tokens[1]) ?: return false
+            if(first!=0L && second!=0L)return false
+        }
+        return true
+    }
     private fun clean(s:String)=s.replace(Regex("\\s+")," ").trim()
     private fun valid(f:PdfTextFragment)=
         f.left.isFinite() && f.right.isFinite() && f.top.isFinite() &&
@@ -164,7 +174,7 @@ object MpesaPositionedReceiptReader {
                     val money=rightSide.matchEntire(monetary)?.groupValues?.get(1)
                         ?.split(Regex("\\s+")) ?: return unsupported(
                             pageNo,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY)
-                    if(money.size !in 2..3 || money.any {!moneyCell.matches(it)})
+                    if(!moneyShapeValid(money))
                         return unsupported(pageNo,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY)
                     pageRows.add(
                         "${found.groupValues[1].uppercase(Locale.ROOT)} ${found.groupValues[2]} " +
