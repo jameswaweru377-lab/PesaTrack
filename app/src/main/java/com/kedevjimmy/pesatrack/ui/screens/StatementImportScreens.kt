@@ -52,6 +52,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  var rows by remember {mutableStateOf<List<StatementRow>>(emptyList())};var preview by remember {mutableStateOf<List<EverydayMoneyStore.Preview>>(emptyList())}
  var pdfStatus by remember {mutableStateOf<String?>(null)}
  var pdfBoxStatus by remember {mutableStateOf<String?>(null)}
+ var pdfGridStatus by remember {mutableStateOf<String?>(null)}
  var pdfProofStatus by remember {mutableStateOf<String?>(null)}
  var pdfPayslip by remember {mutableStateOf(false)}
  var pdfCandidates by remember {mutableStateOf<PdfStatementCandidates?>(null)}
@@ -174,6 +175,21 @@ private fun readStatement(c:Context,uri:Uri):String {
   },
   pdfBoxProbe=true
  )
+ val gridInspect=rememberPdfImport(
+  onSelected={
+   // This grid check must discard any previous preview or import candidates.
+   invalidatePreview();rows=emptyList();pdfRows=false
+   pdfConfirmed=false;pdfStatus=null;pdfCandidates=null
+   pdfBalanceReviewRefs=emptySet();pdfBoxStatus=null;pdfGridStatus=null
+   pdfProofStatus=null
+  },
+  onBusy={reading=it},
+  onResult={result->
+   pdfGridStatus=result.pdfBoxGridProbe?.safeSummary()
+    ?: "No complete read-only vector-line diagnostic was produced."
+  },
+  pdfBoxGridProbe=true
+ )
  StatementImportWorkspace(busy,onDismiss) {
   item {
    PesaCard {
@@ -218,12 +234,24 @@ private fun readStatement(c:Context,uri:Uri):String {
      Text("PDFBox review is experimental. It only offers candidates if the full PDF and money columns pass verification. Nothing is added before you confirm.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      PdfImportButton("Test PDFBox extraction (read-only)",!busy,pdfBoxInspect)
+     PdfImportButton("Test PDF vector table lines (read-only)",!busy,gridInspect)
      Text("Experimental offline diagnostic: reports text and coordinate counts, never imports money. You can choose a password-protected PDF on this phone.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      Text(
       if(Build.VERSION.SDK_INT>=35) "PDF: supported selectable-text M-Pesa layouts only, up to 8 MB and 160 pages. Other bank and scanned PDFs aren't supported yet." else "PDF extraction needs Android 15 or newer. You can still import CSV.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant
      )
+    }
+   }
+  }
+  if(pdfGridStatus!=null) item {
+   PesaCard {
+    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+     Text("PDF vector-line check",style=MaterialTheme.typography.titleMedium)
+     Text(pdfGridStatus.orEmpty(),style=MaterialTheme.typography.bodyMedium)
+     Text("Geometric hints only; no financial transactions were imported.",
+      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     TextButton(enabled=!busy,onClick={pdfGridStatus=null}){Text("Clear diagnostic")}
     }
    }
   }
@@ -334,6 +362,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  PdfPasswordDialog(pdfImport)
  PdfPasswordDialog(pdfBoxStatementImport)
  PdfPasswordDialog(pdfBoxInspect)
+ PdfPasswordDialog(gridInspect)
  editingPdf?.let {original->PdfStatementRowDialog(original,zoneId,onDismiss={editingPdf=null},onSave={updated->
   val index=rows.indexOf(original)
   if(index>=0){
