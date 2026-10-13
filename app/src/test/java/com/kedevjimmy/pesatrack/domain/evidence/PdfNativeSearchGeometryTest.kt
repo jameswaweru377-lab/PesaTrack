@@ -16,8 +16,8 @@ class PdfNativeSearchGeometryTest {
         assertEquals(PdfSearchOutcome.RECOVERED,result.outcome)
         assertNotNull(result.fragment)
         assertEquals(text,result.fragment!!.text)
-        assertEquals(40f,result.fragment!!.left)
-        assertEquals(65f,result.fragment!!.bottom)
+        assertEquals(40f,result.fragment!!.left,0f)
+        assertEquals(65f,result.fragment!!.bottom,0f)
     }
 
     @Test fun splitLineNativeMatchKeepsFullTextWithoutDroppingCoordinates() {
@@ -26,8 +26,8 @@ class PdfNativeSearchGeometryTest {
             listOf(listOf(box(35f,120f,300f,128f),box(35f,132f,210f,142f)))
         )
         assertEquals(PdfSearchOutcome.RECOVERED,result.outcome)
-        assertEquals(120f,result.fragment!!.top)
-        assertEquals(142f,result.fragment!!.bottom)
+        assertEquals(120f,result.fragment!!.top,0f)
+        assertEquals(142f,result.fragment!!.bottom,0f)
     }
 
     @Test fun noMatchNeverTurnsDocumentNarrativeIntoFinancialEvidence() {
