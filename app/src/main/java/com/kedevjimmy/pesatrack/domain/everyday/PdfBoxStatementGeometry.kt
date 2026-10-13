@@ -89,7 +89,18 @@ object PdfBoxStatementGeometry {
                 return reject(page,MpesaPositionedRows.Reason.UNVERIFIED_ROW_COUNT)
             val prefixStart=sourceReceipt.find(source)?.range?.first
                 ?:return reject(page,MpesaPositionedRows.Reason.UNVERIFIED_ROW_COUNT)
-            val prefix=source.substring(0,prefixStart)
+            val extractedPrefix=source.substring(0,prefixStart)
+            // PDFBox's text-stream ordering and physical reading order can
+            // differ. The row geometry is trustworthy only if all source
+            // receipts/statuses reconcile; retain the *actual* text visible
+            // above the first receipt as independent header evidence as well.
+            //
+            // Never construct "Currency: KES" or invent official statement
+            // labels: only observed, positioned page words may authorize the
+            // Kenya-currency fallback in PdfStatementReview.
+            val visualPrefix=lines.subList(0,anchors.first()).joinToString("\n") { it.text }
+            val prefix=listOf(visualPrefix,extractedPrefix).filter {it.isNotBlank()}
+                .joinToString("\n")
             if(completed.containsMatchIn(prefix))
                 return reject(page,MpesaPositionedRows.Reason.UNVERIFIED_ROW_COUNT)
             val rows=mutableListOf<String>()
