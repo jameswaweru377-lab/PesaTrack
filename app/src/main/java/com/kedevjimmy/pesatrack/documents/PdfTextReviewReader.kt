@@ -9,6 +9,7 @@ import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.PdfGeometryEvidencePolicy
+import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxProbeWire
 import com.kedevjimmy.pesatrack.domain.evidence.DocumentCopySession
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
 import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
@@ -28,7 +29,10 @@ object PdfTextReviewReader {
     fun clearAbandonedFiles(context: Context) {
         context.cacheDir.listFiles()?.filter { it.name.startsWith("pdf-review-") && it.name.endsWith(".pdf") }?.forEach { it.delete() }
     }
-    suspend fun read(context: Context, uri: Uri, password: String? = null, includePositions: Boolean = false): PdfTextPreview {
+    suspend fun read(
+        context: Context, uri: Uri, password: String? = null,
+        includePositions: Boolean = false, pdfBoxProbe: Boolean = false
+    ): PdfTextPreview {
         if(Build.VERSION.SDK_INT<35)throw PdfReadException(PdfFailure.VERSION)
         val app = context.applicationContext
         val file = File.createTempFile("pdf-review-", ".pdf", app.cacheDir)
@@ -36,7 +40,7 @@ object PdfTextReviewReader {
             return withTimeout(PdfTextReviewPolicy.TIMEOUT_MS) {
                 copySource(app, uri, file)
                 withContext(Dispatchers.Main) {
-                    if (Build.VERSION.SDK_INT >= 35) request(app, file, password, includePositions)
+                    if (Build.VERSION.SDK_INT >= 35) request(app, file, password, includePositions, pdfBoxProbe)
                     else throw PdfReadException(PdfFailure.VERSION)
                 }
             }
@@ -80,7 +84,10 @@ object PdfTextReviewReader {
     }
 
     @RequiresApi(35)
-    private suspend fun request(app: Context, file: File, password: String?, includePositions: Boolean): PdfTextPreview {
+    private suspend fun request(
+        app: Context, file: File, password: String?,
+        includePositions: Boolean, pdfBoxProbe: Boolean
+    ): PdfTextPreview {
         var bound = false
         lateinit var connection: ServiceConnection
         try {
@@ -109,6 +116,15 @@ object PdfTextReviewReader {
                                     data.getFloatArray("geometryRight") ?: error("Missing geometry."),
                                     data.getFloatArray("geometryBottom") ?: error("Missing geometry.")
                                 )
+                            } else if(pdfBoxProbe && data.getBoolean("pdfBoxProbeDone",false)) {
+                                val report=PdfBoxProbeWire.decode(
+                                    data.getInt("pdfBoxPageCount",-1),
+                                    data.getIntArray("pdfBoxCountEvidence") ?:
+                                        error("Missing PDFBox proof counts.")
+                                )
+                                // Diagnostic-only. This cannot satisfy the
+                                // verified-candidate import pathway.
+                                continuation.resume(PdfTextPreview(emptyList(),emptyList(),pdfBoxProbe=report))
                             } else if(data.getBoolean("done",false)) {
                                 val n=data.getInt("pageCount",-1)
                                 val base=assembly.finish(n)
@@ -147,6 +163,7 @@ object PdfTextReviewReader {
                                         putParcelable("file", descriptor)
                                         putString("password",password)
                                         putBoolean("includePositions",includePositions)
+                                        putBoolean("pdfBoxProbe",pdfBoxProbe)
                                     }
                                 })
                                 // The isolated process now owns a duplicated descriptor; retain no named document.
