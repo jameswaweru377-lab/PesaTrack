@@ -33,3 +33,17 @@ This PR:
 - Do not merge into main or claim restored imports until exact CI and device checks are completed.
 
 The original statement and password are not in the repository or CI fixtures.
+
+## 13 October — second Redmi diagnostic and recovery branch
+
+The new build produced an exact diagnostic: **one nonblank native text block with no bounding rectangles on page 1**, after harmless blank and static header blocks were already excluded. The text itself is unknown; nothing in the screenshot establishes that it is a receipt versus metadata. The old fallback still rejects page 3 receipt row 8.
+
+Android's `PdfRenderer.Page.searchText(query)` (API35+) independently returns the PDF coordinates of matched text. The next conservative recovery slice tries native on-device search at most **8 times per page**, on bounded single-line text whose original content lacks coordinates. It reconstructs a fragment only when:
+- the original exact text is searched on the same page, privately in the already isolated Android worker;
+- there is exactly one returned match with 1–24 finite, positive rectangles;
+- text length is between 6 and 180 characters and contains no control characters;
+- existing global fragment/text/time/page limits still hold.
+
+Multiple, absent, oversized or malformed search matches retain the **incomplete geometry** failure; no arbitrary location or financial amount is fabricated. The diagnostic reports only fixed failure counters (native search no matches/multiple matches/invalid rectangles/API error), not the text used in the search. Wrapped multi-line unbounded items deliberately remain outside recovery scope until real-device evidence permits a safe design.
+
+This patch does not introduce remote PDF parsing, raw document logging, provider-specific financial classification or backend ledger changes. Success requires exact-head CI **and** re-testing the original document on the Redmi. If Android search cannot position the one unbounded block, report the safe reason and consider a second local extraction engine rather than an expanding list of guessed provider regex rules.
