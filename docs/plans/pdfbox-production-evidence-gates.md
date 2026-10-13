@@ -33,13 +33,13 @@ remains a separate review concern; this branch does not alter ledger semantics.
 
 ## Implementation and verification
 
-- [ ] Add synthetic failing tests for wrong-column amounts, reordered headings,
+- [x] Add synthetic failing tests for wrong-column amounts, reordered headings,
   wrapped/masked details, repeated headings and missing/overlapping columns.
-- [ ] Implement shared heading geometry and retain local per-cell evidence in
+- [x] Implement shared heading geometry and retain local per-cell evidence in
   the PDFBox bridge; update existing invented fixtures to use real headings.
-- [ ] Add strict document financial proof with negative balance/summary tests,
+- [x] Add strict document financial proof with negative balance/summary tests,
   zero records, repeated financial legs and a synthetic 26-page/881-row case.
-- [ ] Connect the proof to the existing isolated production extractor and add
+- [x] Connect the proof to the existing isolated production extractor and add
   compile-only encrypted PDF regression coverage. No emulator execution.
 - [ ] Run local pure JVM regressions, Python financial checks and exact-head
   automatic Android CI (JVM, lint, APK, Android-test compilation, financial
@@ -48,6 +48,14 @@ remains a separate review concern; this branch does not alter ledger semantics.
   concurrent main changes; verify automatic main APK publication.
 
 ## Acceptance limits
+
+The completed decorative-heading exception from #379 is integrated on this
+branch without modifying its source branch. Its tests are retained, with
+missing physical money headings now rejected earlier by geometry. Combined
+head CI is required; #379's own successful CI does not establish this branch.
+Code review identified footer-anchor and post-footer declaration gaps; both
+have synthetic regressions. Production disclosure belongs to the active
+document and clears when selecting another source or completing import.
 
 No real statement, password, account, receipt or transaction data may leave the
 phone. Matching 881 markers does not establish 881 correct financial rows.

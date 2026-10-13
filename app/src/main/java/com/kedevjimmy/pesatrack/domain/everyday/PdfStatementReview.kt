@@ -192,7 +192,12 @@ object PdfStatementReview {
         return "$description COMPLETED "+money.joinToString(" ")
     }
 
-    fun read(pages: List<String>,zone: TimeZone,now: Long=System.currentTimeMillis()): PdfStatementCandidates {
+    fun read(
+        pages: List<String>, zone: TimeZone, now: Long=System.currentTimeMillis(),
+        /** Only from a completed, full-document, on-device PDFBox geometry pass.
+         * A header label's absence is not permission to omit any financial cell. */
+        completePdfBoxGeometry: Boolean = false
+    ): PdfStatementCandidates {
         fun unsupported(reason: String)=PdfStatementCandidates(emptyList(),listOf(reason))
         PdfTextReviewPolicy.preview(pages)
         if(pages.any {it.isBlank()})return unsupported("Some pages have no text. A complete transaction review is unavailable; use CSV or manual entry.")
@@ -215,12 +220,20 @@ object PdfStatementReview {
         )
         // Safaricom's official M-Pesa statement layout may not print 'Currency: KES'.
         // Require the full document/table structure, not a transaction description or logo alone.
-        val structuredKenyanStatement=officialLayout.containsMatchIn(normalized) &&
-            normalized.contains("STATEMENT PERIOD") && normalized.contains("DETAILED STATEMENT") &&
+        // Some genuine selectable-text PDFs fail to surface the *decorative*
+        // "Detailed Statement" section label even while PDFBox has proved
+        // every printed receipt/status and separated all physical amount cells.
+        // Preserve the complete provider/title/period/table-column contract.
+        // The ordinary Android and CSV paths must still require that label.
+        val detailedSectionVisible=normalized.contains("DETAILED STATEMENT")
+        val fullKenyanTableStructure=officialLayout.containsMatchIn(normalized) &&
+            normalized.contains("STATEMENT PERIOD") &&
             normalized.contains("RECEIPT NO") && normalized.contains("COMPLETION TIME") &&
             normalized.contains("TRANSACTION STATUS") && normalized.contains("PAID IN") &&
             normalized.contains("WITHDRAWN") && normalized.contains("BALANCE") &&
             !explicitForeign.containsMatchIn(normalized)
+        val structuredKenyanStatement=fullKenyanTableStructure &&
+            (detailedSectionVisible || completePdfBoxGeometry)
         if(!declaredKes && !structuredKenyanStatement) {
             // The original PDF source may have complete financial rows while
             // a text extractor reorders or drops the document's headings.
@@ -247,8 +260,13 @@ object PdfStatementReview {
         if(!officialLayout.containsMatchIn(normalized)) return unsupported(
             "This PDF does not show the required M-Pesa statement header."
         )
-        val currencyReview=if(declaredKes) null else
-            "KES is inferred from the M-Pesa Kenya statement structure, not an explicit currency declaration. Confirm the original statement uses KES before importing."
+        val currencyReview=when {
+            declaredKes -> null
+            completePdfBoxGeometry && !detailedSectionVisible ->
+                "PDFBox verified the complete receipt and money-column geometry, but the decorative detailed-section heading and an explicit KES declaration were not available. This does NOT establish currency or document authenticity. Confirm the original M-Pesa statement uses KES before importing."
+            else ->
+                "KES is inferred from the M-Pesa Kenya statement structure, not an explicit currency declaration. Confirm the original statement uses KES before importing."
+        }
         val normalizedHeader=normalized.replace(
             Regex("\\s*\\(\\s*(?:KES|KSH|KSHS)\\s*\\)"),"")
         val headers=Regex("(?:PAID IN WITHDRAWN|WITHDRAWN PAID IN) BALANCE")
