@@ -51,6 +51,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable {mutableStateOf("")}
  var rows by remember {mutableStateOf<List<StatementRow>>(emptyList())};var preview by remember {mutableStateOf<List<EverydayMoneyStore.Preview>>(emptyList())}
  var pdfStatus by remember {mutableStateOf<String?>(null)}
+ var pdfBoxStatus by remember {mutableStateOf<String?>(null)}
  var pdfPayslip by remember {mutableStateOf(false)}
  var pdfCandidates by remember {mutableStateOf<PdfStatementCandidates?>(null)}
  var pdfRows by remember {mutableStateOf(false)}
@@ -130,6 +131,21 @@ private fun readStatement(c:Context,uri:Uri):String {
   },
   includePositions=true
  )
+ val pdfBoxInspect=rememberPdfImport(
+  onSelected={
+   // Starting a new probe must not leave a previous document's unreviewed
+   // financial candidates available for accidental import.
+   invalidatePreview();rows=emptyList();pdfRows=false
+   pdfConfirmed=false;pdfStatus=null;pdfCandidates=null
+   pdfBalanceReviewRefs=emptySet();pdfBoxStatus=null
+  },
+  onBusy={reading=it},
+  onResult={probe->
+   pdfBoxStatus=probe.pdfBoxProbe?.safeSummary()
+    ?: "PDFBox could not return a complete read-only diagnostic."
+  },
+  pdfBoxProbe=true
+ )
  StatementImportWorkspace(busy,onDismiss) {
   item {
    PesaCard {
@@ -170,10 +186,24 @@ private fun readStatement(c:Context,uri:Uri):String {
      Text("Choose a supported CSV or M-Pesa statement PDF. Your file stays on this phone.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      OutlinedButton(onClick={picker.launch(arrayOf("text/csv","text/comma-separated-values","application/csv","text/plain","application/octet-stream"))},enabled=!busy&&accountId.isNotEmpty(),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.TableChart,null);Spacer(Modifier.width(8.dp));Text("Select CSV file")}
      PdfImportButton("Select M-Pesa PDF",!busy,pdfImport)
+     PdfImportButton("Test PDFBox extraction (read-only)",!busy,pdfBoxInspect)
+     Text("Experimental offline diagnostic: reports text and coordinate counts, never imports money. You can choose a password-protected PDF on this phone.",
+      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      Text(
       if(Build.VERSION.SDK_INT>=35) "PDF: supported selectable-text M-Pesa layouts only, up to 8 MB and 160 pages. Other bank and scanned PDFs aren't supported yet." else "PDF extraction needs Android 15 or newer. You can still import CSV.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant
      )
+    }
+   }
+  }
+  if(pdfBoxStatus!=null) item {
+   PesaCard {
+    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+     Text("PDFBox extraction check",style=MaterialTheme.typography.titleMedium)
+     Text(pdfBoxStatus.orEmpty(),style=MaterialTheme.typography.bodyMedium)
+     Text("Extraction counts are not verified transactions. Nothing was added to your ledger.",
+      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     TextButton(enabled=!busy,onClick={pdfBoxStatus=null}){Text("Clear diagnostic")}
     }
    }
   }
@@ -270,6 +300,7 @@ private fun readStatement(c:Context,uri:Uri):String {
   }
  }
  PdfPasswordDialog(pdfImport)
+ PdfPasswordDialog(pdfBoxInspect)
  editingPdf?.let {original->PdfStatementRowDialog(original,zoneId,onDismiss={editingPdf=null},onSave={updated->
   val index=rows.indexOf(original)
   if(index>=0){
