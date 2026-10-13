@@ -56,7 +56,9 @@ class PdfTextReviewService : Service() {
                         // All pages and geometry have been checked before any
                         // candidate page text is delivered to the app process.
                         val document=PdfBoxStatementExtractor.extractForReview(this,descriptor,password)
-                        val pages=document.pages
+                        // Bounded structured cells, not reserialized transaction
+                        // prose. Source metadata and coordinates stay isolated.
+                        val pages=listOf(com.kedevjimmy.pesatrack.domain.statements.StatementTableWire.encode(document.tables))
                         val recipient=message.replyTo ?: throw PdfReadException(PdfFailure.SERVICE)
                         pages.forEachIndexed {index,page ->
                             page.chunked(PdfTextChunkAssembler.CHUNK_CHARACTERS)
@@ -72,6 +74,8 @@ class PdfTextReviewService : Service() {
                         response.putInt("pageCount",pages.size)
                         response.putBoolean("pdfBoxStatementReady",true)
                         response.putIntArray("pdfBoxVerification",document.verification.encode())
+                        response.putString("pdfBoxCurrencyReview",document.currencyReview)
+                        response.putLongArray("pdfBoxDeclarations",document.declarations.encode())
                         response.putBoolean("done",true)
                     } else {
                     val positions=message.data.getBoolean("includePositions",false)
@@ -126,6 +130,7 @@ class PdfTextReviewService : Service() {
                 e.statementPage?.takeIf {it in 1..PdfTextReviewPolicy.MAX_PAGES}?.let {
                     response.putInt("failurePage",it)
                 }
+                e.statementRow?.takeIf {it in 1..5000}?.let {response.putInt("failureRow",it)}
             } catch (_: SecurityException) {
                 response.putString("failure",PdfFailure.PASSWORD.name)
             } catch (_: Exception) {

@@ -9,10 +9,14 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementField
 import com.kedevjimmy.pesatrack.domain.statements.StatementPdfColumns
 import com.kedevjimmy.pesatrack.domain.statements.StatementPdfColumnDetector
 import com.kedevjimmy.pesatrack.domain.statements.StatementFormatProfile
+import com.kedevjimmy.pesatrack.domain.statements.StatementTablePage
+import com.kedevjimmy.pesatrack.domain.statements.StatementTableDiscovery
+import com.kedevjimmy.pesatrack.domain.statements.StatementPdfLines
+import com.kedevjimmy.pesatrack.domain.statements.StatementPhysicalLine
 
 /**
- * Read-only coordinate bridge. No row becomes an import candidate until the
- * existing full-document M-Pesa parser validates all rows and balances.
+ * Coordinate-to-table adapter. No row becomes an import candidate until the
+ * full-document receipt, financial and metadata gates have passed.
  * Numbers in Details are never converted to wallet movement cells.
  */
 object PdfBoxStatementGeometry {
@@ -29,25 +33,16 @@ object PdfBoxStatementGeometry {
     )
     private val money=Regex("-|(?:-?[0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?)")
     private fun clean(s:String)=s.replace(Regex("\\s+")," ").trim()
-    private data class VisualLine(val y:Float,val words:List<PdfTextFragment>,val text:String)
     private val fields=setOf(StatementField.REFERENCE,StatementField.DATE,
         StatementField.DESCRIPTION,StatementField.STATUS,StatementField.CREDIT,
         StatementField.DEBIT,StatementField.BALANCE)
     private data class HeaderBand(val start:Int,val end:Int,val layout:StatementPdfColumns)
 
-    private fun headers(lines:List<VisualLine>):List<HeaderBand> = lines.indices.flatMap {start ->
-        (start until minOf(lines.size,start+3)).mapNotNull {end ->
-            if(lines[end].y-lines[start].y>24f)null else {
-                val layout=StatementPdfColumnDetector.detect(
-                    lines.subList(start,end+1).flatMap {it.words},fields
-                )
-                layout?.let {HeaderBand(start,end,it)}
-            }
-        }
-    }
+    private fun headers(lines:List<StatementPhysicalLine>):List<HeaderBand> =
+        StatementTableDiscovery.headers(lines,fields).map {HeaderBand(it.start,it.end,it.columns)}
 
     /** Recognized cover summary table, using the same column evidence rules. */
-    private fun summaryTotals(lines:List<VisualLine>):List<String>? {
+    private fun summaryTotals(lines:List<StatementPhysicalLine>):List<String>? {
         val section=lines.indexOfFirst {it.text.equals("SUMMARY",true)}
         if(section<0)return emptyList()
         val total=lines.indices.filter {it>section &&
@@ -81,43 +76,19 @@ object PdfBoxStatementGeometry {
         return listOf("Total Paid In: $paid","Total Withdrawn: $debit")
     }
 
-    private fun physicalLines(fragments:List<PdfTextFragment>):List<VisualLine>? {
-        if(fragments.isEmpty() || fragments.size>32_000 || fragments.any {
-            it.text.isBlank() || it.text.length>1200 || it.text.any(Char::isISOControl) ||
-                !it.left.isFinite() || !it.right.isFinite() ||
-                !it.top.isFinite() || !it.bottom.isFinite() ||
-                it.left>=it.right || it.top>=it.bottom
-        }) return null
-        val groups=mutableListOf<MutableList<PdfTextFragment>>()
-        for(word in fragments.sortedWith(compareBy<PdfTextFragment> {(it.top+it.bottom)/2f}.thenBy {it.left})) {
-            val prev=groups.lastOrNull()
-            val center=(word.top+word.bottom)/2f
-            val old=prev?.map {(it.top+it.bottom)/2f}?.average()?.toFloat()
-            val tolerance=maxOf(1.5f,minOf(3.4f,(word.bottom-word.top)*0.38f))
-            if(prev==null || old==null || abs(center-old)>tolerance)
-                groups.add(mutableListOf(word))
-            else prev.add(word)
-            if(groups.size>20_000)return null
-        }
-        return groups.map {g ->
-            val sorted=g.sortedBy {it.left}
-            VisualLine(
-                g.map {(it.top+it.bottom)/2f}.average().toFloat(),
-                sorted,clean(sorted.joinToString(" ") {it.text})
-            )
-        }
-    }
-
     fun reconstruct(
-        pages:List<String>, positioned:List<List<PdfTextFragment>>, complete:List<Boolean>
+        pages:List<String>, positioned:List<List<PdfTextFragment>>, complete:List<Boolean>,
+        /** Compatibility output for legacy tests/callers, never production review. */
+        emitCompatibilityText:Boolean=true
     ):MpesaPositionedRows {
-        fun reject(p:Int,reason:MpesaPositionedRows.Reason)=
-            MpesaPositionedRows.Unsupported(p,reason)
+        fun reject(p:Int,reason:MpesaPositionedRows.Reason,row:Int?=null)=
+            MpesaPositionedRows.Unsupported(p,reason,row)
         if(pages.isEmpty() || pages.size>PdfTextReviewPolicy.MAX_PAGES ||
             positioned.size!=pages.size || complete.size!=pages.size)
             return reject(1,MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
         val output=mutableListOf<String>()
         val evidence=mutableListOf<PdfBoxReceiptEvidence>()
+        val tables=mutableListOf<StatementTablePage>()
         val metadata=mutableListOf<String>()
         var globalRows=0
         var globalWords=0
@@ -130,7 +101,7 @@ object PdfBoxStatementGeometry {
             globalWords+=positioned[i].size
             if(!complete[i] || globalWords>32_000 || source.isBlank())
                 return reject(page,MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
-            val lines=physicalLines(positioned[i])
+            val lines=StatementPdfLines.group(positioned[i])
                 ?:return reject(page,MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
             val totals=summaryTotals(lines)
                 ?:return reject(page,MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE)
@@ -197,16 +168,16 @@ object PdfBoxStatementGeometry {
             val rows=mutableListOf<String>()
             for((position,index) in anchors.withIndex()) {
                 val layout=layoutAt(index)
-                    ?:return reject(page,MpesaPositionedRows.Reason.UNRECOGNIZED_TABLE)
+                    ?:return reject(page,MpesaPositionedRows.Reason.UNRECOGNIZED_TABLE,position+1)
                 val stop=rowStarts.getOrNull(position+1) ?: lines.size
                 val block=lines.subList(rowStarts[position],stop).takeWhile {!footer.containsMatchIn(it.text)}
                 val words=block.flatMap {it.words}.filterNot {it in headerWords}
                 if(words.isEmpty() || words.size>260)
-                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT)
+                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1)
                 val cells=mutableMapOf<StatementField,MutableList<PdfTextFragment>>()
                 for(word in words) {
                     val field=layout.owner(word)
-                        ?:return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT)
+                        ?:return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT,position+1)
                     cells.getOrPut(field) {mutableListOf()}.add(word)
                 }
                 fun text(field:StatementField)=clean(cells[field].orEmpty()
@@ -220,12 +191,12 @@ object PdfBoxStatementGeometry {
                 val times=clock.findAll(sourceBlock).map {it.value}.toList()
                 if(reference!=original.groupValues[1].uppercase(Locale.ROOT) ||
                     times.size!=1 || date!="${original.groupValues[2]} ${times.single()}")
-                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT)
+                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1)
                 if(text(StatementField.STATUS).uppercase(Locale.ROOT)!="COMPLETED")
-                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY)
+                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1)
                 val detail=text(StatementField.DESCRIPTION)
                 if(detail.length !in 1..200 || completed.containsMatchIn(detail))
-                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT)
+                    return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1)
                 fun amount(field:StatementField,blankAllowed:Boolean):Long? {
                     val parts=cells[field].orEmpty()
                     if(parts.size>1)return null
@@ -240,16 +211,28 @@ object PdfBoxStatementGeometry {
                 val balance=amount(StatementField.BALANCE,false)
                 if(paid==null || paid<0 || debit==null || debit==Long.MIN_VALUE ||
                     balance==null || balance<0 || paid>0 && debit!=0L)
-                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY)
+                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1)
                 val withdrawn=abs(debit)
                 if(paid==0L && withdrawn==0L &&
                     listOf(StatementField.CREDIT,StatementField.DEBIT).none {field ->
                         cells[field]?.singleOrNull()?.text?.let {
                             it!="-" && EverydayMoneyPolicy.money(it)==0L
                         }==true
-                    }) return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY)
+                    }) return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1)
                 evidence.add(PdfBoxReceiptEvidence(page,position+1,reference,date,detail,
                     cells.mapValues {it.value.toList()},paid,withdrawn,balance))
+                // Keep physical column order and cell rectangles in the shared
+                // V2 model. No summaries or customer metadata become rows.
+                val headings=layout.columns.map {column->column.heading.sortedWith(
+                    compareBy<PdfTextFragment> {it.top}.thenBy {it.left}).joinToString(" "){it.text}}
+                val row=layout.columns.map {text(it.field)}
+                val provenance=layout.columns.map {cells[it.field].orEmpty().toList()}
+                val previous=tables.lastOrNull()
+                if(previous?.pageNumber==page && previous.headers==headings) {
+                    tables[tables.lastIndex]=previous.copy(rows=previous.rows+listOf(row),
+                        cellEvidence=previous.cellEvidence+listOf(provenance))
+                } else tables.add(StatementTablePage(page,headings,listOf(row),listOf(provenance),
+                    if(previous?.pageNumber==page)previous.tableNumber+1 else 1))
                 // Normalize proved column cells for the existing review parser.
                 // For zero records, explicit zero plus complete empty geometry
                 // proves no cash; two empty cells alone never prove zero.
@@ -257,12 +240,12 @@ object PdfBoxStatementGeometry {
                     cells[StatementField.CREDIT]?.singleOrNull()?.text ?: "-"
                 val debitText=if(paid==0L && withdrawn==0L)"0.00" else
                     if(withdrawn>0L)BigDecimal.valueOf(withdrawn,2).negate().toPlainString() else "-"
-                rows.add(
+                if(emitCompatibilityText)rows.add(
                     "$reference $date $detail COMPLETED $creditText $debitText " +
                         cells.getValue(StatementField.BALANCE).single().text
                 )
             }
-            globalRows+=rows.size
+            globalRows+=anchors.size
             if(globalRows>5_000)return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT)
             // Include merged *observed* heading words, including stacked labels.
             val headings=bands.firstOrNull()?.layout?.originalHeadings.orEmpty()
@@ -277,6 +260,6 @@ object PdfBoxStatementGeometry {
         if(globalRows==0)return reject(1,MpesaPositionedRows.Reason.UNVERIFIED_ROW_COUNT)
         val proof=PdfBoxStatementFinancialAudit.verify(evidence,metadata)
             ?:return reject(1,MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE)
-        return MpesaPositionedRows.Ready(output,proof)
+        return MpesaPositionedRows.Ready(output,proof,tables)
     }
 }

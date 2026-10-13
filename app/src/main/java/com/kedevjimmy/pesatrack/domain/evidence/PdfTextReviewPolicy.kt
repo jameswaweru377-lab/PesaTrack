@@ -14,7 +14,11 @@ data class PdfTextPreview(
     /** Geometry-reconstructed by local PDFBox. NOT a verified money import. */
     val pdfBoxStatementReady: Boolean = false,
     /** Count-only financial proof; missing boundary/summary proof stays explicit. */
-    val pdfBoxVerification: PdfBoxVerificationReport? = null
+    val pdfBoxVerification: PdfBoxVerificationReport? = null,
+    val statementTables: List<com.kedevjimmy.pesatrack.domain.statements.StatementTablePage> = emptyList(),
+    /** Fixed validation notice; never customer metadata or financial values. */
+    val statementCurrencyReview: String? = null,
+    val statementDeclarations:com.kedevjimmy.pesatrack.domain.everyday.PdfBoxStatementDeclarations?=null
 )
 
 /** Text availability is not a claim that a statement table or payroll was understood. */

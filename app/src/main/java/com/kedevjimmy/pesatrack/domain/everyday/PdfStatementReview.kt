@@ -19,6 +19,11 @@ data class PdfStatementCandidates(
     val totalReceiptTransitions: Int = 0
 )
 
+data class PdfStatementMetadata(
+    val problems:List<String>,val currencyReview:String?=null,
+    val structuredKenyanStatement:Boolean=false
+)
+
 /** Bounded M-Pesa text-layout adapter. Unsupported/partial evidence offers no import candidates. */
 object PdfStatementReview {
     /**
@@ -192,15 +197,9 @@ object PdfStatementReview {
         return "$description COMPLETED "+money.joinToString(" ")
     }
 
-    fun read(
-        pages: List<String>, zone: TimeZone, now: Long=System.currentTimeMillis(),
-        /** Only from a completed, full-document, on-device PDFBox geometry pass.
-         * A header label's absence is not permission to omit any financial cell. */
-        completePdfBoxGeometry: Boolean = false
-    ): PdfStatementCandidates {
-        fun unsupported(reason: String)=PdfStatementCandidates(emptyList(),listOf(reason))
-        PdfTextReviewPolicy.preview(pages)
-        if(pages.any {it.isBlank()})return unsupported("Some pages have no text. A complete transaction review is unavailable; use CSV or manual entry.")
+    /** Metadata validation is separate from row reconstruction. No customer metadata is retained. */
+    fun reviewMetadata(pages:List<String>, completePdfBoxGeometry:Boolean=false):PdfStatementMetadata {
+        fun unsupported(reason:String)=PdfStatementMetadata(listOf(reason))
         val metadata=pages.joinToString("\n") {page->page.substring(0,start.find(page)?.range?.first ?: page.length)}
         val lines=metadata.lines().map {it.trim().uppercase(Locale.ROOT)}.filter {it.isNotEmpty()}
         val declared=lines.mapIndexedNotNull {i,line->
@@ -267,6 +266,24 @@ object PdfStatementReview {
             else ->
                 "KES is inferred from the M-Pesa Kenya statement structure, not an explicit currency declaration. Confirm the original statement uses KES before importing."
         }
+        return PdfStatementMetadata(emptyList(),currencyReview,structuredKenyanStatement)
+    }
+
+    fun read(
+        pages: List<String>, zone: TimeZone, now: Long=System.currentTimeMillis(),
+        /** Only from a completed, full-document, on-device PDFBox geometry pass.
+         * A header label's absence is not permission to omit any financial cell. */
+        completePdfBoxGeometry: Boolean = false
+    ): PdfStatementCandidates {
+        fun unsupported(reason: String)=PdfStatementCandidates(emptyList(),listOf(reason))
+        PdfTextReviewPolicy.preview(pages)
+        if(pages.any {it.isBlank()})return unsupported("Some pages have no text. A complete transaction review is unavailable; use CSV or manual entry.")
+        val metadataReview=reviewMetadata(pages,completePdfBoxGeometry)
+        if(metadataReview.problems.isNotEmpty())return PdfStatementCandidates(emptyList(),metadataReview.problems)
+        val currencyReview=metadataReview.currencyReview
+        val structuredKenyanStatement=metadataReview.structuredKenyanStatement
+        val metadata=pages.joinToString("\n") {page->page.substring(0,start.find(page)?.range?.first ?: page.length)}
+        val normalized=metadata.replace(Regex("\\s+")," ").uppercase(Locale.ROOT)
         val normalizedHeader=normalized.replace(
             Regex("\\s*\\(\\s*(?:KES|KSH|KSHS)\\s*\\)"),"")
         val headers=Regex("(?:PAID IN WITHDRAWN|WITHDRAWN PAID IN) BALANCE")

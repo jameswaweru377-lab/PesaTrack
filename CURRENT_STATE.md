@@ -12,6 +12,21 @@ The current product includes the canonical ledger, provider-neutral financial in
 
 ## Data and accounting
 
+- The table-first PDFBox bridge now uses the shared V2 ordered table model,
+  retaining transient cell rectangles and physical column order. Shared
+  semantic header discovery replaces its private header search; generic V2
+  region discovery supports bounded borderless/date-anchored synthetic tables,
+  repeated headers and wrapped descriptions. Production PDFBox sends versioned
+  structured cells rather than formatted transaction prose through the isolated
+  service. Review rechecks receipt groups, exact money, counts and observed
+  summary/opening/closing declarations after transfer. Customer metadata stays
+  isolated. Native/production CSV/payslip/SMS and atomic ledger persistence are
+  preserved. Generic bank discovery and the existing V2 CSV model are read-only;
+  neither establishes ownership or asset/liability interpretation. Actual
+  statement-period date-range validation, arbitrary footer/continuation layouts,
+  provider acceptance and real-device financial validation remain release gates.
+  See docs/plans/table-first-statement-import.md.
+
 - PDFBox-Android is an independent, opt-in on-device statement review path in
   the existing isolated PDF service (#375–#377), with further production
   evidence hardening in #380. The bridge now requires physical semantic money

@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.ParcelFileDescriptor
 import com.kedevjimmy.pesatrack.domain.everyday.MpesaPositionedRows
 import com.kedevjimmy.pesatrack.domain.everyday.PdfBoxStatementGeometry
+import com.kedevjimmy.pesatrack.domain.everyday.PdfStatementReview
+import com.kedevjimmy.pesatrack.domain.statements.StatementTablePage
 import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxWordBounds
 import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
@@ -18,18 +20,20 @@ import com.tom_roush.pdfbox.text.TextPosition
 import java.io.IOException
 
 /**
- * User-opt-in PDFBox -> geometric table -> existing financial review bridge.
+ * User-opt-in PDFBox -> shared evidence tables -> financial review.
  *
  * Must be called only inside the existing isolated PDF service. The complete
  * document is checked before any text is returned; there is no ledger access,
  * remote processing, OCR, diagnostic logging or persistent PDF storage.
  */
 internal object PdfBoxStatementExtractor {
-    data class ReviewedDocument(val pages:List<String>,val verification:PdfBoxVerificationReport)
+    data class ReviewedDocument(val pages:List<String>,val verification:PdfBoxVerificationReport,
+        val tables:List<StatementTablePage>,val currencyReview:String?,
+        val declarations:com.kedevjimmy.pesatrack.domain.everyday.PdfBoxStatementDeclarations)
     fun extract(context:Context,fd:ParcelFileDescriptor,password:String?):List<String> =
-        extractForReview(context,fd,password).pages
+        extractForReview(context,fd,password,legacyText=true).pages
 
-    fun extractForReview(context:Context,fd:ParcelFileDescriptor,password:String?):ReviewedDocument {
+    fun extractForReview(context:Context,fd:ParcelFileDescriptor,password:String?,legacyText:Boolean=false):ReviewedDocument {
         PdfTextReviewPolicy.requireBytes(fd.statSize)
         PDFBoxResourceLoader.init(context.applicationContext)
         try {
@@ -64,21 +68,24 @@ internal object PdfBoxStatementExtractor {
                         complete.add(stripper.complete)
                     }
                     PdfTextReviewPolicy.preview(pages)
-                    val output=PdfBoxStatementGeometry.reconstruct(pages,boxes,complete)
+                    val output=PdfBoxStatementGeometry.reconstruct(pages,boxes,complete,emitCompatibilityText=legacyText)
                     if(output !is MpesaPositionedRows.Ready)
                         // The detail of the rejection is deliberately fixed,
                         // not derived from the private statement's text.
                         throw PdfReadException(if(output is MpesaPositionedRows.Unsupported &&
                             output.reason==MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE)
                             PdfFailure.FINANCIAL_EVIDENCE else PdfFailure.TABLE_EVIDENCE,
-                            (output as? MpesaPositionedRows.Unsupported)?.page)
+                            (output as? MpesaPositionedRows.Unsupported)?.page,
+                            (output as? MpesaPositionedRows.Unsupported)?.row)
                     PdfTextReviewPolicy.preview(output.pages)
                     val proof=output.pdfBoxProof ?: throw PdfReadException(PdfFailure.FINANCIAL_EVIDENCE)
+                    val metadataReview=PdfStatementReview.reviewMetadata(output.pages,true)
+                    if(metadataReview.problems.isNotEmpty())throw PdfReadException(PdfFailure.METADATA_EVIDENCE)
                     return ReviewedDocument(output.pages,PdfBoxVerificationReport(
                         proof.receipts.size,proof.receipts.count {it.movementMinor!=0L},
                         proof.verifiedTransitions,proof.totalsVerified,
                         proof.openingVerified,proof.closingVerified
-                    ))
+                    ),output.tables,metadataReview.currencyReview,proof.declarations)
                 }
             }
         } catch (_:InvalidPasswordException) {

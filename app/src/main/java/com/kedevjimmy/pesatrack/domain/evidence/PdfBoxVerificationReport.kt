@@ -21,6 +21,7 @@ data class PdfBoxVerificationReport(
             "Opening balance: ${if(openingVerified) "verified" else "not independently verified"}. " +
             "Closing balance: ${if(closingVerified) "verified" else "not independently verified"}.\n" +
             "Confirm any unverified statement totals and boundary balances against the original PDF. " +
+            "Dates have not been independently checked against the printed statement period. " +
             "Cash direction does not establish income, spending, transfers or loan meaning. " +
             "Nothing has been imported."
 

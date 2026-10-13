@@ -27,8 +27,25 @@ data class PdfBoxStatementProof(
     val verifiedTransitions: Int,
     val totalsVerified: Boolean,
     val openingVerified: Boolean,
-    val closingVerified: Boolean
+    val closingVerified: Boolean,
+    val declarations:PdfBoxStatementDeclarations=PdfBoxStatementDeclarations()
 )
+
+/** Only financial validation declarations; no customer or account identity. */
+data class PdfBoxStatementDeclarations(
+    val openingMinor:Long?=null,val closingMinor:Long?=null,
+    val paidInMinor:Long?=null,val withdrawnMinor:Long?=null
+) {
+    init {require(listOfNotNull(openingMinor,closingMinor,paidInMinor,withdrawnMinor).all {it>=0})}
+    fun encode():LongArray=longArrayOf(openingMinor ?: -1,closingMinor ?: -1,paidInMinor ?: -1,withdrawnMinor ?: -1)
+    companion object {
+        fun decode(values:LongArray):PdfBoxStatementDeclarations {
+            require(values.size==4 && values.all {it>= -1})
+            return PdfBoxStatementDeclarations(values[0].takeIf {it>=0},values[1].takeIf {it>=0},
+                values[2].takeIf {it>=0},values[3].takeIf {it>=0})
+        }
+    }
+}
 
 /** Additional full-document gate for PDFBox only; legacy/CSV behavior is unchanged. */
 object PdfBoxStatementFinancialAudit {
@@ -37,7 +54,9 @@ object PdfBoxStatementFinancialAudit {
             "(?:\\s*\\((?:KES|KSH|KSHS)\\))?\\s*[:=]?\\s+(-?[0-9][0-9,]*(?:\\.[0-9]{1,2})?)\\s*$"
     )
 
-    fun verify(receipts: List<PdfBoxReceiptEvidence>, metadata: List<String>): PdfBoxStatementProof? {
+    fun verify(receipts: List<PdfBoxReceiptEvidence>, metadata: List<String>,
+        declarations:PdfBoxStatementDeclarations=PdfBoxStatementDeclarations()
+    ): PdfBoxStatementProof? {
         if (receipts.size !in 1..StatementCsv.MAX_ROWS) return null
         val zone = TimeZone.getTimeZone("Africa/Nairobi")
         val legs = receipts.map { evidence ->
@@ -61,6 +80,10 @@ object PdfBoxStatementFinancialAudit {
         val grouped = legs.groupBy { it.reference }
         if (grouped.values.any { group -> group.map { it.occurredAt }.distinct().size != 1 }) return null
         val declared = mutableMapOf<String, Long>()
+        declarations.openingMinor?.let {declared["OPENING BALANCE"]=it}
+        declarations.closingMinor?.let {declared["CLOSING BALANCE"]=it}
+        declarations.paidInMinor?.let {declared["TOTAL PAID IN"]=it}
+        declarations.withdrawnMinor?.let {declared["TOTAL WITHDRAWN"]=it}
         val summaryText=metadata.joinToString("\n")
         val metadataLines=summaryText.lines().map {it.trim().uppercase(Locale.ROOT)}.filter {it.isNotEmpty()}
         val currency=Regex("^CURRENCY(?: CODE)?(?:\\s*[:=]\\s*|\\s+)(.+)$")
@@ -112,6 +135,7 @@ object PdfBoxStatementFinancialAudit {
         }
         return PdfBoxStatementProof(receipts.toList(), transitions,
             declared.containsKey("TOTAL PAID IN") && declared.containsKey("TOTAL WITHDRAWN"),
-            opening != null, closing != null)
+            opening != null, closing != null,PdfBoxStatementDeclarations(opening,closing,
+                declared["TOTAL PAID IN"],declared["TOTAL WITHDRAWN"]))
     }
 }

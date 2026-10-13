@@ -18,6 +18,13 @@ class PdfTextReviewPolicyTest {
     @Test fun everyEmptyPageCannotClaimReadableDocument() {
         assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.preview(listOf("", " ")) }
     }
+    @Test fun safeFailuresExposeOnlyBoundedPageAndReceiptRow() {
+        val safe=PdfReadException(PdfFailure.TABLE_EVIDENCE,3,8).safeExplanation
+        assertTrue(safe.contains("Affected page: 3, receipt row: 8."))
+        assertFalse(PdfReadException(PdfFailure.TABLE_EVIDENCE,161,8).safeExplanation.contains("Affected"))
+        assertFalse(PdfReadException(PdfFailure.TABLE_EVIDENCE,3,5001).safeExplanation.contains("receipt row:"))
+        assertTrue(PdfReadException(PdfFailure.METADATA_EVIDENCE).safeExplanation.contains("currency evidence"))
+    }
     @Test fun limitsFailInsteadOfTruncatingEvidence() {
         assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.requireBytes(8 * 1024 * 1024 + 1L) }
         assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.preview(List(161) { "x" }) }
