@@ -221,9 +221,29 @@ object PdfStatementReview {
             normalized.contains("TRANSACTION STATUS") && normalized.contains("PAID IN") &&
             normalized.contains("WITHDRAWN") && normalized.contains("BALANCE") &&
             !explicitForeign.containsMatchIn(normalized)
-        if(!declaredKes && !structuredKenyanStatement) return unsupported(
-            "KES could not be verified from a currency declaration or the full M-Pesa Kenya statement structure. No transactions were selected."
-        )
+        if(!declaredKes && !structuredKenyanStatement) {
+            // The original PDF source may have complete financial rows while
+            // a text extractor reorders or drops the document's headings.
+            // Report *only* fixed missing heading categories. Never display
+            // raw metadata, account identities or transaction values.
+            val missing=linkedMapOf(
+                "M-Pesa statement title" to officialLayout.containsMatchIn(normalized),
+                "statement period" to normalized.contains("STATEMENT PERIOD"),
+                "detailed statement section" to normalized.contains("DETAILED STATEMENT"),
+                "receipt header" to normalized.contains("RECEIPT NO"),
+                "completion time header" to normalized.contains("COMPLETION TIME"),
+                "transaction status header" to normalized.contains("TRANSACTION STATUS"),
+                "paid-in header" to normalized.contains("PAID IN"),
+                "withdrawn header" to normalized.contains("WITHDRAWN"),
+                "balance header" to normalized.contains("BALANCE")
+            ).filterValues { !it }.keys
+            val hint=if(missing.isEmpty()) "A supported Kenya statement structure was not established."
+                else "Missing statement headings: ${missing.joinToString(", ")}."
+            return unsupported(
+                "KES could not be verified from a currency declaration or the full M-Pesa Kenya statement structure. " +
+                    hint + " No transactions were selected."
+            )
+        }
         if(!officialLayout.containsMatchIn(normalized)) return unsupported(
             "This PDF does not show the required M-Pesa statement header."
         )
