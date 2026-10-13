@@ -5,8 +5,10 @@ data class PdfTextPreview(
     val emptyPageNumbers: List<Int>,
     /** Optional in-memory API35+ geometry; empty for existing production callers. */
     val positionedPages: List<List<PdfTextFragment>> = emptyList(),
-    /** False if any native text block lacks bounded, fully transferred geometry. */
-    val positionedComplete: List<Boolean> = emptyList()
+    /** False only when text that may affect a receipt lacks trustworthy geometry. */
+    val positionedComplete: List<Boolean> = emptyList(),
+    /** Fixed count-based reasons; no document text or financial values included. */
+    val geometryDiagnostics: List<PdfGeometryDiagnostics> = emptyList()
 )
 
 /** Text availability is not a claim that a statement table or payroll was understood. */

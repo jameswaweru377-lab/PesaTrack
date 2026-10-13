@@ -12,6 +12,8 @@ import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextFragment
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextPositionReflow
+import com.kedevjimmy.pesatrack.domain.evidence.PdfGeometryEvidencePolicy
+import com.kedevjimmy.pesatrack.domain.evidence.PdfGeometryDisposition
 
 /** Private isolated process: receives only a read-only descriptor, never ledger access. */
 class PdfTextReviewService : Service() {
@@ -76,6 +78,9 @@ class PdfTextReviewService : Service() {
                     if(positions) {
                         response.putIntArray("geometryCounts",pages.map {it.positioned.size}.toIntArray())
                         response.putBooleanArray("geometryComplete",pages.map {it.complete}.toBooleanArray())
+                        response.putIntArray("geometryReasons",PdfGeometryEvidencePolicy.pack(
+                            pages.map {it.reasonCounts}
+                        ))
                     }
                 } else throw PdfReadException(PdfFailure.VERSION)
             } catch (e: PdfReadException) {
@@ -96,7 +101,8 @@ class PdfTextReviewService : Service() {
     private data class ExtractedPage(
         val text: String,
         val positioned: List<PdfTextFragment>,
-        val complete: Boolean
+        val complete: Boolean,
+        val reasonCounts: IntArray
     )
     @RequiresApi(35)
     private fun extract(descriptor: ParcelFileDescriptor,password: String?,withPositions:Boolean): List<ExtractedPage> {
@@ -111,6 +117,7 @@ class PdfTextReviewService : Service() {
                 val fragments=mutableListOf<PdfTextFragment>()
                 val positioned=mutableListOf<PdfTextFragment>()
                 var complete = true
+                val reasonCounts = IntArray(PdfGeometryDisposition.entries.size)
                 for (content in page.textContents) {
                     characters += content.text.length + if (text.isNotEmpty()) 1L else 0L
                     if(characters>PdfTextReviewPolicy.MAX_CHARACTERS) throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
@@ -128,32 +135,39 @@ class PdfTextReviewService : Service() {
                         // several visual lines. Retain its complete bounded box
                         // for explicit column/receipt reconstruction instead of
                         // dropping it and making the amount parser guess.
-                        val limit=com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler.MAX_FRAGMENT_TEXT
-                        val countLimit=com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler.MAX_TOTAL_FRAGMENTS
-                        val valid=bounds.isNotEmpty() && bounds.size<=24 &&
-                            content.text.isNotBlank() && content.text.length<=limit &&
-                            content.text.none {it.isISOControl() && it !in setOf('\n','\r','\t')} &&
-                            bounds.all {box ->
-                                box.left.isFinite() && box.right.isFinite() &&
-                                box.top.isFinite() && box.bottom.isFinite() &&
-                                box.left < box.right && box.top < box.bottom
-                            } && positionedTotal<countLimit
-                        if(valid) {
-                            val fragment=PdfTextFragment(
-                                content.text,
-                                bounds.minOf {it.left},bounds.minOf {it.top},
-                                bounds.maxOf {it.right},bounds.maxOf {it.bottom}
-                            )
-                            positioned.add(fragment)
-                            positionedTotal++
-                        } else complete=false
+                        val validBounds=bounds.all {box ->
+                            box.left.isFinite() && box.right.isFinite() &&
+                            box.top.isFinite() && box.bottom.isFinite() &&
+                            box.left < box.right && box.top < box.bottom
+                        }
+                        val decision=PdfGeometryEvidencePolicy.classify(
+                            content.text,bounds.size,validBounds,
+                            positionedTotal>=PdfGeometryEvidencePolicy.MAX_TOTAL
+                        )
+                        reasonCounts[decision.ordinal]++
+                        when(decision) {
+                            PdfGeometryDisposition.POSITIONED -> {
+                                positioned.add(PdfTextFragment(
+                                    content.text,
+                                    bounds.minOf {it.left},bounds.minOf {it.top},
+                                    bounds.maxOf {it.right},bounds.maxOf {it.bottom}
+                                ))
+                                positionedTotal++
+                            }
+                            PdfGeometryDisposition.SKIPPED_BLANK,
+                            PdfGeometryDisposition.SKIPPED_STATIC_HEADING -> Unit
+                            else -> complete=false
+                        }
                     }
                 }
                 val original=text.toString()
                 val isStatement=original.contains("M-PESA STATEMENT",true) ||
                     original.contains("RECEIPT NO",true) && original.contains("COMPLETION TIME",true)
                 val normalized=if(isStatement) PdfTextPositionReflow.reflow(fragments,original) else original
-                ExtractedPage(normalized,if(withPositions)positioned else emptyList(),withPositions && complete)
+                ExtractedPage(
+                    normalized,if(withPositions)positioned else emptyList(),
+                    withPositions && complete,reasonCounts
+                )
             }
         }
         PdfTextReviewPolicy.preview(pages.map {it.text})

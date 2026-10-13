@@ -8,6 +8,7 @@ import com.kedevjimmy.pesatrack.domain.evidence.PdfTextPreview
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler
+import com.kedevjimmy.pesatrack.domain.evidence.PdfGeometryEvidencePolicy
 import com.kedevjimmy.pesatrack.domain.evidence.DocumentCopySession
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
 import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
@@ -117,7 +118,15 @@ object PdfTextReviewReader {
                                         data.getIntArray("geometryCounts") ?: error("Missing geometry counts."),
                                         data.getBooleanArray("geometryComplete") ?: error("Missing geometry flags.")
                                     )
-                                    base.copy(positionedPages=geometry,positionedComplete=complete)
+                                    val diagnostic=PdfGeometryEvidencePolicy.unpack(
+                                        n,
+                                        data.getIntArray("geometryReasons") ?: error("Missing geometry reasons.")
+                                    )
+                                    base.copy(
+                                        positionedPages=geometry,
+                                        positionedComplete=complete,
+                                        geometryDiagnostics=diagnostic
+                                    )
                                 } else base
                                 continuation.resume(enriched)
                             } else fail(PdfFailure.SERVICE)

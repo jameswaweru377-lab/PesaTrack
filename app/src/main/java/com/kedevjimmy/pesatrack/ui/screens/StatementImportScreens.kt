@@ -114,10 +114,17 @@ private fun readStatement(c:Context,uri:Uri):String {
       PdfStatementReview.read(pdf.pages,TimeZone.getTimeZone(zoneId))
     }
     pdfBalanceReviewRefs=pdfCandidates?.balanceReviewReferences.orEmpty()
+    val safeGeometryReason=if(geometry is MpesaPositionedRows.Unsupported &&
+     geometry.reason==MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
+     pdf.geometryDiagnostics.getOrNull(geometry.page-1)?.safeSummary()
+    else null
     pdfStatus=if(pdfCandidates?.rows?.isNotEmpty()==true)
      "Statement read locally. Transactions are ready for your review."
     else if(geometry is MpesaPositionedRows.Unsupported)
-     "The PDF opened, but its table couldn't be reconstructed safely on page ${geometry.page} (${geometry.reason.name.lowercase().replace('_',' ')}). The fallback text parser also could not verify the transactions."
+     "The PDF opened, but its table couldn't be reconstructed safely on page ${geometry.page} " +
+      "(${geometry.reason.name.lowercase().replace('_',' ')}). " +
+      (if(safeGeometryReason!=null) "Android geometry details: $safeGeometryReason. " else "") +
+      "The fallback text parser also could not verify the transactions."
     else "The PDF opened, but no transactions are ready to import."
    }
   },
