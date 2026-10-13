@@ -31,7 +31,8 @@ object PdfTextReviewReader {
     }
     suspend fun read(
         context: Context, uri: Uri, password: String? = null,
-        includePositions: Boolean = false, pdfBoxProbe: Boolean = false
+        includePositions: Boolean = false, pdfBoxProbe: Boolean = false,
+        pdfBoxStatement: Boolean = false
     ): PdfTextPreview {
         if(Build.VERSION.SDK_INT<35)throw PdfReadException(PdfFailure.VERSION)
         val app = context.applicationContext
@@ -40,7 +41,8 @@ object PdfTextReviewReader {
             return withTimeout(PdfTextReviewPolicy.TIMEOUT_MS) {
                 copySource(app, uri, file)
                 withContext(Dispatchers.Main) {
-                    if (Build.VERSION.SDK_INT >= 35) request(app, file, password, includePositions, pdfBoxProbe)
+                    if (Build.VERSION.SDK_INT >= 35)
+                        request(app, file, password, includePositions, pdfBoxProbe, pdfBoxStatement)
                     else throw PdfReadException(PdfFailure.VERSION)
                 }
             }
@@ -86,8 +88,10 @@ object PdfTextReviewReader {
     @RequiresApi(35)
     private suspend fun request(
         app: Context, file: File, password: String?,
-        includePositions: Boolean, pdfBoxProbe: Boolean
+        includePositions: Boolean, pdfBoxProbe: Boolean, pdfBoxStatement: Boolean
     ): PdfTextPreview {
+        require(!(pdfBoxProbe && pdfBoxStatement) &&
+            !(includePositions && pdfBoxStatement)) { "Incompatible PDF extraction modes." }
         var bound = false
         lateinit var connection: ServiceConnection
         try {
@@ -144,7 +148,12 @@ object PdfTextReviewReader {
                                         geometryDiagnostics=diagnostic
                                     )
                                 } else base
-                                continuation.resume(enriched)
+                                if(pdfBoxStatement && !data.getBoolean("pdfBoxStatementReady",false))
+                                    throw PdfReadException(PdfFailure.PARSE)
+                                continuation.resume(
+                                    if(pdfBoxStatement)enriched.copy(pdfBoxStatementReady=true)
+                                    else enriched
+                                )
                             } else fail(PdfFailure.SERVICE)
                         } catch (e: Exception) {
                             fail((e as? PdfReadException)?.failure ?: PdfFailure.PARSE)
@@ -164,6 +173,7 @@ object PdfTextReviewReader {
                                         putString("password",password)
                                         putBoolean("includePositions",includePositions)
                                         putBoolean("pdfBoxProbe",pdfBoxProbe)
+                                        putBoolean("pdfBoxStatement",pdfBoxStatement)
                                     }
                                 })
                                 // The isolated process now owns a duplicated descriptor; retain no named document.
