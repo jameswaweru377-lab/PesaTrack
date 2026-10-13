@@ -64,7 +64,7 @@ object StatementReceiptBalanceAudit {
             val next=IntArray(older.size) { Int.MIN_VALUE }
             val parent=IntArray(older.size) {-1}
             for(j in older.indices) for(k in newer.indices) {
-                val expected=runCatching {Math.addExact(older[j].balanceMinor,movements[i+1])}.getOrNull()
+                val expected=runCatching {Math.addExact(older[j].balanceMinor,movements[i])}.getOrNull()
                 val proof=if(expected!=null && newer[k].balanceMinor==expected) 1 else 0
                 val score=scores[k]+proof
                 if(score>next[j]) {
@@ -88,7 +88,7 @@ object StatementReceiptBalanceAudit {
         for(i in 0 until groups.lastIndex) {
             val newer=groups[i][positions[i]]
             val older=groups[i+1][positions[i+1]]
-            val expected=runCatching {Math.addExact(older.balanceMinor,movements[i+1])}.getOrNull()
+            val expected=runCatching {Math.addExact(older.balanceMinor,movements[i])}.getOrNull()
             if(expected!=null && expected==newer.balanceMinor) verified++
             else {
                 unresolved.add(newer.reference)
