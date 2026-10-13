@@ -24,3 +24,16 @@ Owner-approved connection of the previously validated independent **on-device PD
 ## Verification and rollout
 
 Exact-head PR CI must pass Android JVM tests, lint, debug APK, Android test-source compilation and Kotlin/Python financial evaluations. Instrumentation stays skipped absent new explicit owner authorization. Once passing, merge only if the owner authorizes; then verify rolling main APK publication. Ask for a screenshot of the **new PDFBox review result**, not another raw statement or password. Do not import if totals/balances are unverified.
+
+
+## Follow-up: PDFBox currency/structure handoff (13 October 2026)
+
+The real Redmi review-first path opens the PDF using PDFBox and reaches financial verification, but then stops with **"KES could not be verified from a currency declaration or the full M-Pesa Kenya statement structure."** No transactions were added.
+
+The count-only PDFBox probe previously reported 26 pages, 881 possible receipt rows, 881 Completed labels and no word-position issues. These are structural observations, not proof of the financial columns or of currency.
+
+**Code finding:** The geometry bridge reconstructs transaction rows from physical word positions, but previously copied only the *linear PDFBox text prefix* before the first detected receipt. PDFBox's text-stream ordering can be different from physically displayed header ordering. Thus a structurally recognizable PDF can lose its visible M-Pesa title or required table headings before the strict currency check, even when those headings exist in the extracted positioned words.
+
+**Targeted repair:** Preserve both pieces of **original source evidence** before receipt rows: the PDFBox text prefix and the bounded physical word-lines above the first receipt. This is not a synthesized `Currency: KES` declaration. The unchanged financial validator still requires either an explicit recognized KES declaration or all official Kenyan statement headings, and still refuses foreign or conflicting currency declarations. New all-synthetic tests require recovery of genuinely positioned document headings, rejection when the original M-Pesa title is absent, rejection of explicit USD, and refusal to use a transaction description as document-authenticity evidence. The error now reports missing heading **names only**, never private text.
+
+**Outstanding evidence:** Android CI must pass on the exact branch head; an actual Redmi test must show whether this fixes the 26-page source. Even if currency checks succeed, all receipts, individual paid-in/withdrawn cells, multi-leg balance groups and duplicate checks must still pass before any candidate can be approved. Do not relax checks or import partially. This repair does not activate PDFBox automatically for other banks or sources.
