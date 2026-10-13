@@ -11,5 +11,6 @@ class PesaTrackApplication : Application() {
         com.kedevjimmy.pesatrack.documents.PdfTextReviewReader.clearAbandonedFiles(this)
         // Restore must reconcile before activities or workers read restored settings.
         BackupRecoveryStatus.retry(this)
+        com.kedevjimmy.pesatrack.planning.SmartNoticeLifecycle.start(this)
     }
 }

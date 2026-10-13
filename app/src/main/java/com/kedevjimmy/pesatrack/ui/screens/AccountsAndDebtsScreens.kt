@@ -116,7 +116,8 @@ fun AccountsScreen(
     onAccountClick: ((String) -> Unit)? = null,
     onManageInstitutions: (() -> Unit)? = null,
     stateCache: AccountsScreenCache? = null,
-    debtStateCache: DebtsScreenCache? = null
+    debtStateCache: DebtsScreenCache? = null,
+    onDiscoverReceivables: (() -> Unit)? = null
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     if (selectedTab == 3) {
@@ -278,6 +279,7 @@ fun AccountsScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) }
+        if (onDiscoverReceivables != null) item { SmartDiscoveryCard(onDiscoverReceivables) }
         // An already-visible balance list must not jump down for an
         // intermittent loading banner on every background refresh.
         if (accountsError) item {

@@ -48,6 +48,7 @@
         </service>
 
         <receiver android:name=".salary.SalaryReminderReceiver" android:exported="false" />
+        <receiver android:name=".planning.SmartNoticeDismissReceiver" android:exported="false" />
 
         <activity
             android:name=".MainActivity"

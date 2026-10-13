@@ -125,6 +125,12 @@ Do not start another broad feature or visual redesign phase before hardening/dec
 
 ## Owed to me history review
 
+### Coordinated smart notifications (PR #378)
+
+The existing opt-in Activity reminder from #360 now shares one worker, posted notification and daily budget with material account review, new They Owe Me payment review and occasional discovery. All phone categories are opt-in; existing Activity preferences and its seven-day unchanged-evidence pause are preserved. Quiet hours, quiet summaries, snooze, persisted dismissal, foreground/import suppression, current-evidence deep links and ledger-driven cancellation prevent routine nagging. Discovery defaults to an in-app Accounts card and stops after discovery/use/dismissal.
+
+Payment prompts require a unique locally recorded phone, lending history predating a new live notification, and the existing journal's valid-source checks. Historical SMS/catch-up and statements never produce retrospective debt prompts. Loan/repayment actions open the existing explicit confirmation dialog; Gift/Other dismiss the suggestion without changing money records. Failed/interrupted SMS imports remain suppressed until a successful consented import. No new financial schema, parser, workflow, permission, telemetry, signing or statement changes. Exact CI and APK evidence are tracked in [PR #378](https://github.com/jameswaweru377-lab/PesaTrack/pull/378); instrumentation and physical-device banner/navigation acceptance remain paused and unverified.
+
 Personal receivables use a separate local journal. Find in transactions searches imported M-Pesa and bank history by name or phone. Loans and possible repayments require explicit user confirmation; gifts/not-loan decisions are remembered per person. Bulk selection includes only eligible displayed outgoing rows and all selected records are previewed before an atomic save. Shared bills preserve the user's remaining expense category and fees; original cash movements are never duplicated. Activity exposes Owed to me/Repayments filters and debt labels. Schema 37 adds personal_receivable_review_exclusions; encrypted backups from schema 34–36 are bridged with missing tables empty.
 
 Implementation verification is tracked in the history-review PR. Android instrumentation and device acceptance remain unrun unless explicitly requested. Build/lint/unit evidence does not prove physical-device migration or user journeys.

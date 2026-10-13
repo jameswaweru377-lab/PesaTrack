@@ -55,6 +55,12 @@ fun PersonalReceivablesScreen(
     stateCache: PersonalReceivablesScreenCache? = null
 ) {
     val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        com.kedevjimmy.pesatrack.planning.SmartNoticePreferences(context).completeDiscovery()
+        withContext(Dispatchers.IO) {
+            runCatching { com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.check(context,allowPost = false) }
+        }
+    }
     val locale = LocalConfiguration.current.locales[0]
     val store = remember { PersonalReceivableStore(context) }
     val revision by LedgerUpdateBus.state.collectAsState()
@@ -387,6 +393,7 @@ internal fun PersonalReceivableTransactionAction(row: StoredTransaction, onChang
     } else if (actionError) {
         Text("Could not read the debt link. Close and reopen this payment to try again.",color = MaterialTheme.colorScheme.error)
     } else if (current == null) {
+        SmartPaymentReviewHint(row)
         if (hasCategorySplit) {
             Text("This payment has a saved category split. Remove it using Edit saved category split before recording a loan or shared bill.",
                 style = MaterialTheme.typography.bodySmall)
