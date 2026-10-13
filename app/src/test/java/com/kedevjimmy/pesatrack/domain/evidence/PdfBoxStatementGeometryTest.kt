@@ -91,6 +91,8 @@ class PdfBoxStatementGeometryTest {
         )
         assertTrue(verified.rows.isEmpty())
         assertTrue(verified.problems.any {it.contains("KES could not be verified")})
+        assertTrue(verified.problems.any {it.contains("Missing statement headings: M-Pesa statement title")})
+        assertFalse(verified.problems.joinToString().contains("QAB1234569"))
     }
 
     @Test fun explicitForeignCurrencyCannotBeHiddenByRecoveredKenyanHeaders() {
