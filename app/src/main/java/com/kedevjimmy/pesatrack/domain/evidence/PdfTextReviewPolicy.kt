@@ -11,6 +11,8 @@ data class PdfTextPreview(
     val geometryDiagnostics: List<PdfGeometryDiagnostics> = emptyList(),
     /** Opt-in, count-only independent extraction comparison. Never financial evidence. */
     val pdfBoxProbe: PdfBoxProbeReport? = null,
+    /** Read-only structural probe: no document text or financial authority. */
+    val pdfBoxGridProbe: PdfGridProbeReport? = null,
     /** Geometry-reconstructed by local PDFBox. NOT a verified money import. */
     val pdfBoxStatementReady: Boolean = false,
     /** Count-only financial proof; missing boundary/summary proof stays explicit. */
