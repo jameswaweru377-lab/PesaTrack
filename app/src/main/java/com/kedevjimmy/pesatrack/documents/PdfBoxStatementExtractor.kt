@@ -1,0 +1,149 @@
+package com.kedevjimmy.pesatrack.documents
+
+import android.content.Context
+import android.os.ParcelFileDescriptor
+import com.kedevjimmy.pesatrack.domain.everyday.MpesaPositionedRows
+import com.kedevjimmy.pesatrack.domain.everyday.PdfBoxStatementGeometry
+import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxWordBounds
+import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
+import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
+import com.kedevjimmy.pesatrack.domain.evidence.PdfTextFragment
+import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
+import com.tom_roush.pdfbox.text.PDFTextStripper
+import com.tom_roush.pdfbox.text.TextPosition
+import java.io.IOException
+
+/**
+ * User-opt-in PDFBox -> geometric table -> existing financial review bridge.
+ *
+ * Must be called only inside the existing isolated PDF service. The complete
+ * document is checked before any text is returned; there is no ledger access,
+ * remote processing, OCR, diagnostic logging or persistent PDF storage.
+ */
+internal object PdfBoxStatementExtractor {
+    fun extract(context:Context,fd:ParcelFileDescriptor,password:String?):List<String> {
+        PdfTextReviewPolicy.requireBytes(fd.statSize)
+        PDFBoxResourceLoader.init(context.applicationContext)
+        try {
+            ParcelFileDescriptor.AutoCloseInputStream(fd).use {input ->
+                PDDocument.load(input,password.orEmpty()).use {document ->
+                    val count=document.numberOfPages
+                    if(count !in 1..PdfTextReviewPolicy.MAX_PAGES)
+                        throw PdfReadException(PdfFailure.TOO_MANY_PAGES)
+                    val pages=mutableListOf<String>()
+                    val boxes=mutableListOf<List<PdfTextFragment>>()
+                    val complete=mutableListOf<Boolean>()
+                    var characters=0L
+                    var totalWords=0
+                    for(i in 0 until count) {
+                        val page=document.getPage(i)
+                        val crop=page.cropBox
+                        val rotated=(page.rotation % 180 + 180) % 180 == 90
+                        val width=if(rotated)crop.height else crop.width
+                        val height=if(rotated)crop.width else crop.height
+                        val stripper=PositionedWords(width,height)
+                        stripper.setStartPage(i+1)
+                        stripper.setEndPage(i+1)
+                        stripper.setSortByPosition(true)
+                        val text=stripper.getText(document)
+                        characters+=text.length
+                        totalWords+=stripper.words.size
+                        if(characters>PdfTextReviewPolicy.MAX_CHARACTERS ||
+                            totalWords>32_000)
+                            throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
+                        pages.add(text)
+                        boxes.add(stripper.words.toList())
+                        complete.add(stripper.complete)
+                    }
+                    PdfTextReviewPolicy.preview(pages)
+                    val output=PdfBoxStatementGeometry.reconstruct(pages,boxes,complete)
+                    if(output !is MpesaPositionedRows.Ready)
+                        // The detail of the rejection is deliberately fixed,
+                        // not derived from the private statement's text.
+                        throw PdfReadException(PdfFailure.PARSE)
+                    PdfTextReviewPolicy.preview(output.pages)
+                    return output.pages
+                }
+            }
+        } catch (_:InvalidPasswordException) {
+            throw PdfReadException(PdfFailure.PASSWORD)
+        } catch (e:PdfReadException) {
+            throw e
+        } catch (_:IOException) {
+            throw PdfReadException(PdfFailure.PARSE)
+        }
+    }
+
+    private class PositionedWords(
+        private val pageWidth:Float,private val pageHeight:Float
+    ):PDFTextStripper() {
+        val words=mutableListOf<PdfTextFragment>()
+        var complete=true
+            private set
+
+        override fun writeString(text:String,textPositions:MutableList<TextPosition>) {
+            if(text.isNotBlank()) {
+                if(textPositions.isEmpty())complete=false
+                val tokens=mutableListOf<MutableList<TextPosition>>()
+                var run=mutableListOf<TextPosition>()
+                var previous:TextPosition?=null
+                fun flush() {
+                    if(run.isNotEmpty()) {
+                        tokens.add(run)
+                        run=mutableListOf()
+                    }
+                }
+                for(glyph in textPositions) {
+                    val value=glyph.unicode
+                    if(value.isBlank()) {
+                        flush()
+                        previous=null
+                        continue
+                    }
+                    // A glyph holding both words and whitespace cannot be
+                    // placed precisely in a single money-cell column.
+                    if(value.any(Char::isWhitespace) || value.any(Char::isISOControl)) {
+                        complete=false
+                        flush()
+                        previous=null
+                        continue
+                    }
+                    val old=previous
+                    if(old!=null) {
+                        val gap=glyph.xDirAdj-(old.xDirAdj+old.widthDirAdj)
+                        if(gap>maxOf(3f,old.widthDirAdj*1.5f))flush()
+                    }
+                    run.add(glyph)
+                    previous=glyph
+                }
+                flush()
+                for(group in tokens) {
+                    val value=group.joinToString("") {it.unicode}
+                    if(value.length>1200 || value.any(Char::isISOControl)) {
+                        complete=false
+                        continue
+                    }
+                    val glyphBounds=group.map {glyph ->
+                        val x=glyph.xDirAdj
+                        val y=glyph.yDirAdj
+                        PdfBoxWordBounds.Rect(
+                            x,y,x+glyph.widthDirAdj,y+glyph.heightDir
+                        )
+                    }
+                    val bounded=PdfBoxWordBounds.fromCharacters(
+                        glyphBounds,pageHeight,pageWidth
+                    )
+                    if(bounded==null)complete=false
+                    else words.add(PdfTextFragment(
+                        value,bounded.left,bounded.top,bounded.right,bounded.bottom
+                    ))
+                    if(words.size>32_000)throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
+                }
+            }
+            super.writeString(text,textPositions)
+        }
+    }
+}
