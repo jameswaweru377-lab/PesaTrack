@@ -43,13 +43,34 @@ class PdfTextReviewService : Service() {
                     val password=message.data.getString("password")
                     message.data.remove("password")
                     val probePdfBox=message.data.getBoolean("pdfBoxProbe",false)
+                    val reviewPdfBox=message.data.getBoolean("pdfBoxStatement",false)
+                    if(probePdfBox && reviewPdfBox)
+                        throw PdfReadException(PdfFailure.PARSE)
                     if(probePdfBox) {
-                        // Diagnostic-only path: independent PDFBox evidence
-                        // never flows into candidates, balances or ledger.
+                        // Diagnostic-only mode; no financial candidates.
                         val report=PdfBoxEvidenceProbe.inspect(this,descriptor,password)
                         response.putBoolean("pdfBoxProbeDone",true)
                         response.putInt("pdfBoxPageCount",report.pages.size)
                         response.putIntArray("pdfBoxCountEvidence",PdfBoxProbeWire.encode(report))
+                    } else if(reviewPdfBox) {
+                        // All pages and geometry have been checked before any
+                        // candidate page text is delivered to the app process.
+                        val pages=PdfBoxStatementExtractor.extract(this,descriptor,password)
+                        val recipient=message.replyTo ?: throw PdfReadException(PdfFailure.SERVICE)
+                        pages.forEachIndexed {index,page ->
+                            page.chunked(PdfTextChunkAssembler.CHUNK_CHARACTERS)
+                                .ifEmpty {listOf("")}.forEach {chunk ->
+                                    recipient.send(Message.obtain().apply {
+                                        data=Bundle().apply {
+                                            putInt("pageIndex",index)
+                                            putString("chunk",chunk)
+                                        }
+                                    })
+                                }
+                        }
+                        response.putInt("pageCount",pages.size)
+                        response.putBoolean("pdfBoxStatementReady",true)
+                        response.putBoolean("done",true)
                     } else {
                     val positions=message.data.getBoolean("includePositions",false)
                     val pages=extract(descriptor,password,positions)

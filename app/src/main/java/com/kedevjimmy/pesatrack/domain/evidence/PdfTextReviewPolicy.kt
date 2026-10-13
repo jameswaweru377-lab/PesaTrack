@@ -10,7 +10,9 @@ data class PdfTextPreview(
     /** Fixed count-based reasons; no document text or financial values included. */
     val geometryDiagnostics: List<PdfGeometryDiagnostics> = emptyList(),
     /** Opt-in, count-only independent extraction comparison. Never financial evidence. */
-    val pdfBoxProbe: PdfBoxProbeReport? = null
+    val pdfBoxProbe: PdfBoxProbeReport? = null,
+    /** Geometry-reconstructed by local PDFBox. NOT a verified money import. */
+    val pdfBoxStatementReady: Boolean = false
 )
 
 /** Text availability is not a claim that a statement table or payroll was understood. */
