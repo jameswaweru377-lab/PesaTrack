@@ -38,6 +38,92 @@ class PdfBoxStatementGeometryTest {
         listOf(word("from",221f,152f),word("-",241f,152f),word("071***123456",255f,152f))+
         textRow("QAB1234567","2026-10-08","10:30:00","Transport","-50.00","410.00",190f)
 
+    /**
+     * PDFBox can reconstruct top-of-page display headings from positioned
+     * words even when its text-stream prefix omits those headings. Header
+     * evidence must come from original PDF glyphs, never a guessed KES string.
+     */
+    private fun visualStatementHeadings():List<PdfTextFragment> = listOf(
+        word("M-PESA",30f,8f),word("STATEMENT",72f,8f),
+        word("Statement",30f,20f),word("Period:",89f,20f),
+        word("01",135f,20f),word("Oct",149f,20f),word("2026",168f,20f),
+        word("-",199f,20f),word("11",213f,20f),word("Oct",227f,20f),
+        word("2026",250f,20f),
+        word("DETAILED",30f,35f),word("STATEMENT",87f,35f),
+        word("Receipt",30f,60f),word("No.",72f,60f),
+        word("Completion",97f,60f),word("Time",168f,60f),
+        word("Details",201f,60f),word("Transaction",254f,60f),
+        word("Status",335f,60f),word("Paid",387f,60f),
+        word("In",416f,60f),word("Withdrawn",444f,60f),
+        word("Balance",516f,60f)
+    )
+
+    private fun recoveredLayout(withTitle:Boolean = true):List<PdfTextFragment> =
+        visualStatementHeadings().filter {withTitle || it.top!=8f} +
+            geometry().drop(headerGeometry.size)
+
+    @Test fun physicallyPresentHeadersVerifyCurrencyEvenIfPdfBoxTextStreamPrefixIsIncomplete() {
+        // The original source prefix is intentionally missing several
+        // headings. The PDFBox glyph geometry contains all of them.
+        val incompletePrefix="MOBILE MONEY REPORT\n"
+        val input=incompletePrefix+first+"\n"+second+"\n"+
+            "from - 071***123456\n"+oldest
+        val output=PdfBoxStatementGeometry.reconstruct(
+            listOf(input),listOf(recoveredLayout()),listOf(true)
+        )
+        assertTrue(output.toString(),output is MpesaPositionedRows.Ready)
+        val verified=PdfStatementReview.read(
+            (output as MpesaPositionedRows.Ready).pages,zone
+        )
+        assertEquals(verified.problems.joinToString(),3,verified.rows.size)
+        assertNotNull(verified.currencyReview)
+        assertEquals(2,verified.verifiedReceiptTransitions)
+    }
+
+    @Test fun missingOriginalTitleStillCannotAuthorizeInferredKes() {
+        val input="MOBILE MONEY REPORT\n"+first+"\n"+second+"\n"+oldest
+        val output=PdfBoxStatementGeometry.reconstruct(
+            listOf(input),listOf(recoveredLayout(withTitle=false)),listOf(true)
+        )
+        assertTrue(output is MpesaPositionedRows.Ready)
+        val verified=PdfStatementReview.read(
+            (output as MpesaPositionedRows.Ready).pages,zone
+        )
+        assertTrue(verified.rows.isEmpty())
+        assertTrue(verified.problems.any {it.contains("KES could not be verified")})
+    }
+
+    @Test fun explicitForeignCurrencyCannotBeHiddenByRecoveredKenyanHeaders() {
+        val input="Currency: USD\n"+first+"\n"+second+"\n"+oldest
+        val output=PdfBoxStatementGeometry.reconstruct(
+            listOf(input),listOf(recoveredLayout()),listOf(true)
+        )
+        assertTrue(output is MpesaPositionedRows.Ready)
+        val verified=PdfStatementReview.read(
+            (output as MpesaPositionedRows.Ready).pages,zone
+        )
+        assertTrue(verified.rows.isEmpty())
+        assertTrue(verified.problems.any {
+            it.contains("currency other than KES") ||
+                it.contains("conflicting currency declarations")
+        })
+    }
+
+    @Test fun literalStatementBrandInsideTransactionDoesNotInventDocumentTitle() {
+        val input="MOBILE MONEY REPORT\n"+
+            first.replace("Shop purchase","M-PESA STATEMENT")+"\n"+second+"\n"+oldest
+        val output=PdfBoxStatementGeometry.reconstruct(
+            listOf(input),listOf(recoveredLayout(withTitle=false).map {
+                if(it.text=="Shop purchase") it.copy(text="M-PESA STATEMENT") else it
+            }),listOf(true)
+        )
+        assertTrue(output is MpesaPositionedRows.Ready)
+        val verified=PdfStatementReview.read(
+            (output as MpesaPositionedRows.Ready).pages,zone
+        )
+        assertTrue(verified.rows.isEmpty())
+    }
+
     @Test fun wrappedMaskedAccountInDetailsCannotBecomeAPaidInColumn() {
         val original=heading+first+"\n"+second+"\nfrom - 071***123456\n"+oldest
         val normalized=PdfBoxStatementGeometry.reconstruct(
