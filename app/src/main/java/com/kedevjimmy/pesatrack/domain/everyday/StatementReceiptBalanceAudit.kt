@@ -46,7 +46,12 @@ object StatementReceiptBalanceAudit {
                     "Non-contiguous repeated receipt references require review."
                 }
                 printed.add(mutableListOf(leg))
-            } else current.add(leg)
+            } else {
+                require(current.first().occurredAt==leg.occurredAt) {
+                    "Financial legs sharing a receipt must have the same timestamp."
+                }
+                current.add(leg)
+            }
         }
         if(printed.size < 2) return StatementReceiptBalanceAssessment(0,0,printed.flatten().map {it.reference}.toSet())
         // Traverse source groups from oldest to newest. The newer event's
