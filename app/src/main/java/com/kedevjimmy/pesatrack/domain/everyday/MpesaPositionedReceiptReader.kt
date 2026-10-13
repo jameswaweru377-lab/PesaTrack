@@ -13,9 +13,10 @@ sealed class MpesaPositionedRows {
     data class Ready(
         val pages: List<String>,
         /** Populated only by the PDFBox adapter; never persisted or logged. */
-        val pdfBoxProof: PdfBoxStatementProof? = null
+        val pdfBoxProof: PdfBoxStatementProof? = null,
+        val tables: List<com.kedevjimmy.pesatrack.domain.statements.StatementTablePage> = emptyList()
     ) : MpesaPositionedRows()
-    data class Unsupported(val page: Int, val reason: Reason) : MpesaPositionedRows()
+    data class Unsupported(val page: Int, val reason: Reason,val row:Int?=null) : MpesaPositionedRows()
     enum class Reason {
         INCOMPLETE_GEOMETRY, UNRECOGNIZED_TABLE, AMBIGUOUS_RECEIPT,
         MISSING_STATUS_OR_MONEY, OUT_OF_ROW_FRAGMENT, UNVERIFIED_ROW_COUNT,

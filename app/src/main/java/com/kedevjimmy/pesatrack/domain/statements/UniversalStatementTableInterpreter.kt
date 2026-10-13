@@ -5,6 +5,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 import com.kedevjimmy.pesatrack.domain.everyday.EverydayMoneyPolicy
+import com.kedevjimmy.pesatrack.domain.evidence.PdfTextFragment
 
 /** A semantic role, never a physical column index or a provider-specific word. */
 enum class StatementField {
@@ -24,7 +25,11 @@ data class StatementFormatProfile(
 data class StatementTablePage(
     val pageNumber: Int,
     val headers: List<String>,
-    val rows: List<List<String>>
+    val rows: List<List<String>>,
+    /** Optional physical provenance, in the same row/column order as cells. */
+    val cellEvidence: List<List<List<PdfTextFragment>>> = emptyList(),
+    /** Distinguishes consecutive regions/repeated headers on one PDF page. */
+    val tableNumber:Int = 1
 )
 
 /** Account-leg observation, NOT a final income/expense/transfer/debt label. */
@@ -186,8 +191,10 @@ object UniversalStatementTableInterpreter {
                     (currencyAlias[key] != null && currencyAlias[key] != role)
             }) return blocked(StatementBlockReason.AMBIGUOUS_HEADER)
         val aliases = currencyAlias + additionalAliases
-        if (pages.size > 160 || pages.map { it.pageNumber }.distinct().size != pages.size ||
-            pages.any { it.pageNumber <= 0 } || pages.zipWithNext().any { (a,b) -> b.pageNumber <= a.pageNumber })
+        if (pages.size > MAX_ROWS || pages.map { it.pageNumber to it.tableNumber }.distinct().size != pages.size ||
+            pages.any { it.pageNumber !in 1..160 || it.tableNumber !in 1..MAX_ROWS } ||
+            pages.zipWithNext().any { (a,b) -> b.pageNumber < a.pageNumber ||
+                b.pageNumber==a.pageNumber && b.tableNumber<=a.tableNumber })
             return blocked(StatementBlockReason.INVALID_STRUCTURE)
         val legs = mutableListOf<StatementLegEvidence>()
         val exactRows = hashSetOf<String>()
@@ -196,6 +203,15 @@ object UniversalStatementTableInterpreter {
             if (page.headers.isEmpty() || page.headers.size > MAX_COLUMNS ||
                 page.headers.any { it.isBlank() } || page.rows.isEmpty())
                 return blocked(StatementBlockReason.INVALID_STRUCTURE, page.pageNumber)
+            if(page.cellEvidence.isNotEmpty() && (page.cellEvidence.size!=page.rows.size ||
+                page.cellEvidence.indices.any {r->page.cellEvidence[r].size!=page.headers.size ||
+                    page.rows[r].size!=page.headers.size || page.cellEvidence[r].indices.any {c->
+                        val boxes=page.cellEvidence[r][c]
+                        boxes.any {!it.left.isFinite() || !it.top.isFinite() || !it.right.isFinite() ||
+                            !it.bottom.isFinite() || it.right<=it.left || it.bottom<=it.top} ||
+                            boxes.joinToString(" "){it.text.trim()}.replace(whitespace," ").trim()!=
+                                page.rows[r][c].replace(whitespace," ").trim()
+                    }}))return blocked(StatementBlockReason.INVALID_STRUCTURE,page.pageNumber)
             val fields = page.headers.map { aliases[normalizedHeader(it)] ?: StatementField.UNKNOWN }
             val index = fields.indices.associateBy { fields[it] }
             if (fields.filter { it !in setOf(StatementField.UNKNOWN, StatementField.INFORMATION) }

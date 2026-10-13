@@ -13,14 +13,16 @@ enum class PdfFailure(val explanation: String) {
     NO_TEXT("No selectable text was found. This PDF may contain images or unsupported text encoding. OCR is not available; enter the details manually."),
     PARSE("The PDF reader could not decode this document. Its format may be damaged or unsupported. Try downloading the original again."),
     TABLE_EVIDENCE("The PDF opened, but its complete receipt rows and physical money columns could not be verified. Nothing was imported."),
+    METADATA_EVIDENCE("The table was read, but the required statement title, period headings or currency evidence could not be verified. Nothing was imported."),
     FINANCIAL_EVIDENCE("The PDF table was reconstructed, but its receipt groups, running balances or declared summary totals did not reconcile completely. Nothing was imported."),
     SERVICE("The local PDF reader could not start or stopped unexpectedly. Reopen import and try again."),
     TIMEOUT("PDF reading took too long. Choose a smaller document and try again."),
     VERSION("PDF extraction needs Android 15 or newer. CSV and manual entry remain available.")
 }
-class PdfReadException(val failure: PdfFailure, val statementPage: Int? = null) :
+class PdfReadException(val failure: PdfFailure, val statementPage: Int? = null,val statementRow:Int?=null) :
     IllegalArgumentException(failure.explanation) {
     /** Only a bounded page number can supplement a fixed authored message. */
     val safeExplanation: String get() = failure.explanation +
-        (statementPage?.takeIf {it in 1..160}?.let {" Affected page: $it."} ?: "")
+        (statementPage?.takeIf {it in 1..160}?.let {page->" Affected page: $page"+
+            (statementRow?.takeIf {it in 1..5000}?.let {", receipt row: $it"} ?: "")+"."} ?: "")
 }

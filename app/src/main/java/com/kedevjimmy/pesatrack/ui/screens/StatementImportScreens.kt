@@ -143,10 +143,10 @@ private fun readStatement(c:Context,uri:Uri):String {
   onResult={pdf ->
    pdfPayslip=false
    pdfProofStatus=pdf.pdfBoxVerification?.safeSummary()
-   pdfCandidates=if(pdf.pdfBoxStatementReady && pdf.pdfBoxVerification!=null)
-    PdfStatementReview.read(
-     pdf.pages,TimeZone.getTimeZone(zoneId),
-     completePdfBoxGeometry=true
+   pdfCandidates=if(pdf.pdfBoxStatementReady && pdf.pdfBoxVerification!=null && pdf.statementDeclarations!=null)
+    com.kedevjimmy.pesatrack.domain.everyday.PdfBoxTableReview.read(
+     pdf.statementTables,pdf.pdfBoxVerification,pdf.statementCurrencyReview,
+     TimeZone.getTimeZone(zoneId),declarations=pdf.statementDeclarations
     )
    else PdfStatementCandidates(emptyList(),listOf(
     "PDFBox did not provide complete positioned table evidence. No transactions were added."

@@ -127,6 +127,8 @@ object UniversalStatementGeometry {
         }
         if (rows.size != anchors.size || rows.any { it[dateIndex].isBlank() })
             return unsupported(StatementGeometryProblem.INVALID_ROWS)
-        return StatementGeometryResult.Reconstructed(StatementTablePage(page.pageNumber, headers, rows))
+        val provenance=rowCells.map {columns->columns.map {boxes->boxes.sortedWith(
+            compareBy<PdfTextFragment> {it.top}.thenBy {it.left})}}
+        return StatementGeometryResult.Reconstructed(StatementTablePage(page.pageNumber, headers, rows,provenance))
     }
 }

@@ -31,7 +31,8 @@ object StatementPdfColumnDetector {
     fun detect(
         words: List<PdfTextFragment>,
         required: Set<StatementField>,
-        profile: StatementFormatProfile = StatementFormatProfile()
+        profile: StatementFormatProfile = StatementFormatProfile(),
+        optional: Set<StatementField> = emptySet()
     ): StatementPdfColumns? {
         if (words.size !in 3..80 || words.any {
             !it.left.isFinite() || !it.right.isFinite() || !it.top.isFinite() ||
@@ -54,12 +55,14 @@ object StatementPdfColumnDetector {
                 val value = group.sortedWith(compareBy<PdfTextFragment> { it.top }.thenBy { it.left })
                     .joinToString(" ") { it.text }
                 val field = UniversalStatementTableInterpreter.fieldForHeader(value, profile)
-                if (field in required) field to group.toList() else null
+                if (field in required || field in optional) field to group.toList() else null
             } ?: return null
             headings.add(candidate)
             index += candidate.second.size
         }
-        if (headings.map { it.first }.toSet() != required || headings.size != required.size)
+        val observed = headings.map { it.first }
+        if (!observed.containsAll(required) || observed.toSet().size != observed.size ||
+            observed.any { it !in required && it !in optional })
             return null
         val bounds = headings.map { (_, boxes) -> boxes.minOf { it.left } to boxes.maxOf { it.right } }
         if (bounds.zipWithNext().any { (a, b) -> a.second >= b.first }) return null

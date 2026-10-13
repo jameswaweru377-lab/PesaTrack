@@ -97,8 +97,8 @@ object PdfTextReviewReader {
         lateinit var connection: ServiceConnection
         try {
             return suspendCancellableCoroutine { continuation ->
-                fun fail(failure: PdfFailure, page:Int? = null) {
-                    if (continuation.isActive) continuation.resumeWithException(PdfReadException(failure,page))
+                fun fail(failure: PdfFailure, page:Int? = null,row:Int? = null) {
+                    if (continuation.isActive) continuation.resumeWithException(PdfReadException(failure,page,row))
                 }
                 val assembly=PdfTextChunkAssembler()
                 val positioned=PdfPositionChunkAssembler()
@@ -106,7 +106,8 @@ object PdfTextReviewReader {
                     if (continuation.isActive) {
                         val failure = message.data.getString("failure")
                         if (failure != null) fail(PdfFailure.entries.firstOrNull {it.name==failure} ?: PdfFailure.PARSE,
-                            message.data.getInt("failurePage",0).takeIf {it in 1..PdfTextReviewPolicy.MAX_PAGES})
+                            message.data.getInt("failurePage",0).takeIf {it in 1..PdfTextReviewPolicy.MAX_PAGES},
+                            message.data.getInt("failureRow",0).takeIf {it in 1..5000})
                         else try {
                             val data=message.data
                             if(data.containsKey("chunk")) {
@@ -153,7 +154,13 @@ object PdfTextReviewReader {
                                 if(pdfBoxStatement && !data.getBoolean("pdfBoxStatementReady",false))
                                     throw PdfReadException(PdfFailure.PARSE)
                                 continuation.resume(
-                                    if(pdfBoxStatement)enriched.copy(pdfBoxStatementReady=true,
+                                    if(pdfBoxStatement)enriched.copy(pages=emptyList(),emptyPageNumbers=emptyList(),
+                                        pdfBoxStatementReady=true,
+                                        statementTables=com.kedevjimmy.pesatrack.domain.statements.StatementTableWire.decode(
+                                            enriched.pages.single()),
+                                        statementCurrencyReview=data.getString("pdfBoxCurrencyReview"),
+                                        statementDeclarations=com.kedevjimmy.pesatrack.domain.everyday.PdfBoxStatementDeclarations.decode(
+                                            data.getLongArray("pdfBoxDeclarations") ?: error("Missing statement declarations.")),
                                         pdfBoxVerification=PdfBoxVerificationReport.decode(
                                             data.getIntArray("pdfBoxVerification") ?: error("Missing statement proof.")))
                                     else enriched

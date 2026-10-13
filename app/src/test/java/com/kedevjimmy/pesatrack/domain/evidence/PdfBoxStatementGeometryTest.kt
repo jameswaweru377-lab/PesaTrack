@@ -3,6 +3,9 @@ package com.kedevjimmy.pesatrack.domain.evidence
 import com.kedevjimmy.pesatrack.domain.everyday.MpesaPositionedRows
 import com.kedevjimmy.pesatrack.domain.everyday.PdfBoxStatementGeometry
 import com.kedevjimmy.pesatrack.domain.everyday.PdfStatementReview
+import com.kedevjimmy.pesatrack.domain.everyday.PdfBoxTableReview
+import com.kedevjimmy.pesatrack.domain.everyday.PdfBoxStatementDeclarations
+import com.kedevjimmy.pesatrack.domain.statements.StatementTableWire
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.TimeZone
@@ -61,6 +64,87 @@ class PdfBoxStatementGeometryTest {
     private fun recoveredLayout(withTitle:Boolean = true):List<PdfTextFragment> =
         visualStatementHeadings().filter {withTitle || it.top!=8f} +
             geometry().drop(headerGeometry.size)
+
+    @Test fun structuredProductionReviewConsumesCellsWithoutLegacyTextRoundTrip() {
+        val output=PdfBoxStatementGeometry.reconstruct(listOf(heading+first+"\n"+second+"\n"+oldest),
+            listOf(geometry()),listOf(true)) as MpesaPositionedRows.Ready
+        val proof=output.pdfBoxProof!!
+        val report=PdfBoxVerificationReport(proof.receipts.size,3,proof.verifiedTransitions,
+            proof.totalsVerified,proof.openingVerified,proof.closingVerified)
+        val tables=StatementTableWire.decode(StatementTableWire.encode(output.tables))
+        val review=PdfBoxTableReview.read(tables,report,
+            PdfStatementReview.reviewMetadata(output.pages,true).currencyReview,zone)
+        assertEquals(review.problems.joinToString(),3,review.rows.size)
+        assertEquals(-2000L,review.rows.first().signedMinor)
+        assertTrue(review.rows[1].description.contains("071***123456"))
+        assertEquals(output.pdfBoxProof!!.receipts.first().cells.values.flatten().toSet(),
+            output.tables.first().cellEvidence.first().flatten().toSet())
+        val truncated=PdfBoxTableReview.read(tables.map {it.copy(rows=it.rows.dropLast(1))},report,null,zone)
+        assertTrue(truncated.rows.isEmpty())
+        assertTrue(truncated.problems.isNotEmpty())
+    }
+
+    @Test fun changedMoneyCellOrProofCountBlocksWholeStructuredReview() {
+        val output=PdfBoxStatementGeometry.reconstruct(listOf(heading+first+"\n"+second+"\n"+oldest),
+            listOf(geometry()),listOf(true)) as MpesaPositionedRows.Ready
+        val table=output.tables.single()
+        val debit=table.headers.indexOf("Withdrawn")
+        val changed=table.rows.first().toMutableList().also {it[debit]="-21.00"}
+        val report=PdfBoxVerificationReport(3,3,2,false,false,false)
+        assertTrue(PdfBoxTableReview.read(listOf(table.copy(rows=listOf(changed)+table.rows.drop(1))),
+            report,null,zone).rows.isEmpty())
+        assertTrue(PdfBoxTableReview.read(output.tables,report.copy(cashRows=2),null,zone).rows.isEmpty())
+    }
+
+    @Test fun singleEventRetainsObservedOpeningProofAfterTransfer() {
+        val output=PdfBoxStatementGeometry.reconstruct(listOf(heading+first+"\n"+second+"\n"+oldest),
+            listOf(geometry()),listOf(true)) as MpesaPositionedRows.Ready
+        val table=output.tables.single().copy(rows=listOf(output.tables.single().rows.first()),cellEvidence=emptyList())
+        val report=PdfBoxVerificationReport(1,1,0,true,true,true)
+        val declarations=PdfBoxStatementDeclarations(51000,49000,0,2000)
+        val review=PdfBoxTableReview.read(listOf(table),report,null,zone,declarations=declarations)
+        assertEquals(review.problems.joinToString(),1,review.rows.size)
+        assertTrue(PdfBoxTableReview.read(listOf(table),report,null,zone).rows.isEmpty())
+    }
+
+    @Test fun oldestAmountAndBalanceShiftCannotEvadeSummaryAndBoundaryProof() {
+        val output=PdfBoxStatementGeometry.reconstruct(listOf(heading+first+"\n"+second+"\n"+oldest),
+            listOf(geometry()),listOf(true)) as MpesaPositionedRows.Ready
+        val table=output.tables.single()
+        val report=PdfBoxVerificationReport(3,3,2,true,true,true)
+        val declarations=PdfBoxStatementDeclarations(46000,49000,10000,7000)
+        assertEquals(3,PdfBoxTableReview.read(listOf(table),report,null,zone,declarations=declarations).rows.size)
+        val debit=table.headers.indexOf("Withdrawn")
+        val changed=table.rows.last().toMutableList().also {it[debit]="-500.00"}
+        assertTrue(PdfBoxTableReview.read(listOf(table.copy(rows=table.rows.dropLast(1)+listOf(changed))),
+            report,null,zone,declarations=declarations).rows.isEmpty())
+        val balance=table.headers.indexOf("Balance")
+        val shifted=table.rows.mapIndexed {i,row->row.toMutableList().also {
+            it[balance]=listOf("590.00","610.00","510.00")[i]}}
+        assertTrue(PdfBoxTableReview.read(listOf(table.copy(rows=shifted)),report,null,zone,
+            declarations=declarations).rows.isEmpty())
+        assertTrue(PdfBoxTableReview.read(listOf(table),report.copy(totalsVerified=false),null,zone,
+            declarations=declarations).rows.isEmpty())
+    }
+
+    @Test fun declarationTransportIsBoundedAndLossless() {
+        val declarations=PdfBoxStatementDeclarations(46000,49000,10000,null)
+        assertEquals(declarations,PdfBoxStatementDeclarations.decode(declarations.encode()))
+        for(values in listOf(longArrayOf(1,2),longArrayOf(-2,0,0,0))) {
+            assertTrue(runCatching {PdfBoxStatementDeclarations.decode(values)}.isFailure)
+        }
+    }
+
+    @Test fun productionTablesDoNotNeedCompatibilityTransactionProse() {
+        val output=PdfBoxStatementGeometry.reconstruct(listOf(heading+first+"\n"+second+"\n"+oldest),
+            listOf(geometry()),listOf(true),emitCompatibilityText=false) as MpesaPositionedRows.Ready
+        assertFalse(output.pages.joinToString().contains("QAB1234569"))
+        assertTrue(PdfStatementReview.reviewMetadata(output.pages,true).problems.isEmpty())
+        val proof=output.pdfBoxProof!!
+        val review=PdfBoxTableReview.read(output.tables,PdfBoxVerificationReport(3,3,2,false,false,false),
+            null,zone,declarations=proof.declarations)
+        assertEquals(3,review.rows.size)
+    }
 
     @Test fun physicallyPresentHeadersVerifyCurrencyEvenIfPdfBoxTextStreamPrefixIsIncomplete() {
         // The original source prefix is intentionally missing several
