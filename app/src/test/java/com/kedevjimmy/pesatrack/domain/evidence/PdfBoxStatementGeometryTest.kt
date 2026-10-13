@@ -80,6 +80,99 @@ class PdfBoxStatementGeometryTest {
         assertEquals(2,verified.verifiedReceiptTransitions)
     }
 
+    @Test fun completePdfBoxGeometryCanReplaceOnlyMissingDecorativeDetailedHeading() {
+        val noSection=heading.replace("DETAILED STATEMENT\\n","")
+        val input=noSection+first+"\\n"+second+"\\n"+oldest
+        val positioned=recoveredLayout().filterNot {it.top==35f}
+        val output=PdfBoxStatementGeometry.reconstruct(
+            listOf(input),listOf(positioned),listOf(true)
+        )
+        assertTrue(output.toString(),output is MpesaPositionedRows.Ready)
+        val recovered=(output as MpesaPositionedRows.Ready).pages
+        val legacy=PdfStatementReview.read(recovered,zone)
+        assertTrue(legacy.rows.isEmpty())
+        assertTrue(legacy.problems.any {it.contains("detailed statement section")})
+        // Only the proven PDFBox path may offer candidates without the
+        // decorative heading; the user still confirms source/KES and balances.
+        val review=PdfStatementReview.read(
+            recovered,zone,completePdfBoxGeometry=true
+        )
+        assertEquals(review.problems.joinToString(),3,review.rows.size)
+        assertNotNull(review.currencyReview)
+        assertTrue(review.currencyReview!!.contains("does NOT establish currency"))
+        assertEquals(2,review.verifiedReceiptTransitions)
+    }
+
+    @Test fun completePdfBoxProofDoesNotReplaceStatementTitle() {
+        val noSection="MOBILE MONEY REPORT\\n" +
+            heading.replace("M-PESA STATEMENT\\n","")
+                .replace("DETAILED STATEMENT\\n","") +
+            first+"\\n"+second+"\\n"+oldest
+        val positioned=recoveredLayout(withTitle=false).filterNot {it.top==35f}
+        val output=PdfBoxStatementGeometry.reconstruct(
+            listOf(noSection),listOf(positioned),listOf(true)
+        )
+        assertTrue(output is MpesaPositionedRows.Ready)
+        val review=PdfStatementReview.read(
+            (output as MpesaPositionedRows.Ready).pages,zone,
+            completePdfBoxGeometry=true
+        )
+        assertTrue(review.rows.isEmpty())
+        assertTrue(review.problems.any {it.contains("M-Pesa statement title")})
+    }
+
+    @Test fun completePdfBoxProofCannotReplaceStatementPeriodOrMoneyHeaders() {
+        val withoutPeriod=heading.replace("Statement Period: 01 Oct 2026 - 11 Oct 2026\\n","")
+            .replace("DETAILED STATEMENT\\n","") +
+            first+"\\n"+second+"\\n"+oldest
+        val positioned=recoveredLayout().filterNot {
+            it.top==20f || it.top==35f
+        }
+        val output=PdfBoxStatementGeometry.reconstruct(
+            listOf(withoutPeriod),listOf(positioned),listOf(true)
+        )
+        assertTrue(output is MpesaPositionedRows.Ready)
+        val review=PdfStatementReview.read(
+            (output as MpesaPositionedRows.Ready).pages,zone,
+            completePdfBoxGeometry=true
+        )
+        assertTrue(review.rows.isEmpty())
+        assertTrue(review.problems.any {it.contains("statement period")})
+
+        val withoutMoneyHeaders=heading
+            .replace("DETAILED STATEMENT\\n","")
+            .replace("Receipt No. Completion Time Details Transaction Status Paid In Withdrawn Balance\\n","")+
+            first+"\\n"+second+"\\n"+oldest
+        val noHeaders=recoveredLayout().filterNot {it.top==35f || it.top==60f}
+        val normalized=PdfBoxStatementGeometry.reconstruct(
+            listOf(withoutMoneyHeaders),listOf(noHeaders),listOf(true)
+        )
+        assertTrue(normalized is MpesaPositionedRows.Ready)
+        val missing=PdfStatementReview.read(
+            (normalized as MpesaPositionedRows.Ready).pages,zone,
+            completePdfBoxGeometry=true
+        )
+        assertTrue(missing.rows.isEmpty())
+        assertTrue(missing.problems.any {it.contains("paid-in header")})
+    }
+
+    @Test fun foreignCurrencyCannotBeAcceptedByCompletePdfBoxGeometryException() {
+        val input="Currency: USD\\n" + heading.replace("DETAILED STATEMENT\\n","")+
+            first+"\\n"+second+"\\n"+oldest
+        val output=PdfBoxStatementGeometry.reconstruct(
+            listOf(input),
+            listOf(recoveredLayout().filterNot {it.top==35f}),
+            listOf(true)
+        )
+        assertTrue(output is MpesaPositionedRows.Ready)
+        val review=PdfStatementReview.read(
+            (output as MpesaPositionedRows.Ready).pages,zone,
+            completePdfBoxGeometry=true
+        )
+        assertTrue(review.rows.isEmpty())
+        assertTrue(review.problems.any {it.contains("currency other than KES")})
+    }
+
     @Test fun missingOriginalTitleStillCannotAuthorizeInferredKes() {
         val input="MOBILE MONEY REPORT\n"+first+"\n"+second+"\n"+oldest
         val output=PdfBoxStatementGeometry.reconstruct(
