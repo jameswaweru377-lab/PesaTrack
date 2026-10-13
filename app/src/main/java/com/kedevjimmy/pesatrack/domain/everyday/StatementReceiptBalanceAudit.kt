@@ -49,50 +49,58 @@ object StatementReceiptBalanceAudit {
             } else current.add(leg)
         }
         if(printed.size < 2) return StatementReceiptBalanceAssessment(0,0,printed.flatten().map {it.reference}.toSet())
-        val groups = if(descending) printed else printed.asReversed()
-        // A group must have no more than a bounded number of distinct statement
-        // legs; this guards broken row assembly and prevents unbounded DP work.
+        // Traverse source groups from oldest to newest. The newer event's
+        // total movement produces its closing balance from the preceding
+        // event's closing balance, *not* the reverse.
+        val groups = if(descending) printed.asReversed() else printed
         require(groups.all {it.size in 1..12}) { "An event has too many statement lines to verify." }
-        val movements=groups.map {g->g.fold(0L) { acc, leg->Math.addExact(acc,leg.signedMinor) } }
-        // Each group's observed balance is its balance *after that group's*\n        // movement. Thus newer.balance = older.balance + newer.movement.\n        // Select one consistent balance observation per receipt group, maximizing
-        // exact adjacent event arithmetic over the entire statement (not per row).
-        var scores=IntArray(groups[0].size)
-        val parents=mutableListOf<IntArray>()
-        for(i in 0 until groups.lastIndex) {
+        val movements=groups.map { group ->
+            group.fold(0L) { sum,leg->Math.addExact(sum,leg.signedMinor) }
+        }
+        // One event may expose several intermediate balance readings.
+        // Choose a consistent representative by maximizing exact transitions,
+        // then mark all transitions not proved by the chosen path.
+        var scores=IntArray(groups.first().size)
+        val parentIndexes=mutableListOf<IntArray>()
+        for(i in 1 until groups.size) {
+            val older=groups[i-1]
             val newer=groups[i]
-            val older=groups[i+1]
-            val next=IntArray(older.size) { Int.MIN_VALUE }
-            val parent=IntArray(older.size) {-1}
-            for(j in older.indices) for(k in newer.indices) {
-                val expected=runCatching {Math.addExact(older[j].balanceMinor,movements[i])}.getOrNull()
-                val proof=if(expected!=null && newer[k].balanceMinor==expected) 1 else 0
-                val score=scores[k]+proof
-                if(score>next[j]) {
-                    next[j]=score
-                    parent[j]=k
+            val nextScores=IntArray(newer.size) {Int.MIN_VALUE}
+            val parent=IntArray(newer.size) {-1}
+            for(k in newer.indices) for(j in older.indices) {
+                val expected=runCatching {
+                    Math.addExact(older[j].balanceMinor,movements[i])
+                }.getOrNull()
+                val proof=if(expected==newer[k].balanceMinor) 1 else 0
+                val score=scores[j]+proof
+                if(score>nextScores[k]) {
+                    nextScores[k]=score
+                    parent[k]=j
                 }
             }
-            parents.add(parent)
-            scores=next
+            parentIndexes.add(parent)
+            scores=nextScores
         }
-        var selected=scores.indices.maxByOrNull {scores[it]} ?: error("No statement balance evidence.")
-        val positions=IntArray(groups.size)
-        positions[groups.lastIndex]=selected
-        for(i in parents.lastIndex downTo 0) {
-            selected=parents[i][selected]
-            require(selected>=0) { "Statement balance proof has no valid path." }
-            positions[i]=selected
+        var selected=scores.indices.maxByOrNull {scores[it]} ?: error("No balance evidence.")
+        val selectedIndexes=IntArray(groups.size)
+        selectedIndexes[groups.lastIndex]=selected
+        for(i in parentIndexes.indices.reversed()) {
+            selected=parentIndexes[i][selected]
+            require(selected>=0) { "Unverifiable account balance path." }
+            selectedIndexes[i]=selected
         }
-        val unresolved=linkedSetOf<String>()
         var verified=0
-        for(i in 0 until groups.lastIndex) {
-            val newer=groups[i][positions[i]]
-            val older=groups[i+1][positions[i+1]]
-            val expected=runCatching {Math.addExact(older.balanceMinor,movements[i])}.getOrNull()
-            if(expected!=null && expected==newer.balanceMinor) verified++
+        val unresolved=linkedSetOf<String>()
+        for(i in 1 until groups.size) {
+            val older=groups[i-1][selectedIndexes[i-1]]
+            val newer=groups[i][selectedIndexes[i]]
+            val expected=runCatching {
+                Math.addExact(older.balanceMinor,movements[i])
+            }.getOrNull()
+            if(expected==newer.balanceMinor) verified++
             else {
-                unresolved.add(newer.reference)
                 unresolved.add(older.reference)
+                unresolved.add(newer.reference)
             }
         }
         return StatementReceiptBalanceAssessment(verified,groups.size-1,unresolved)
