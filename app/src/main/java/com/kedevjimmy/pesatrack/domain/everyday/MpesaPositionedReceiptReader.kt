@@ -10,11 +10,16 @@ import kotlin.math.abs
  * Original values remain in memory and are not logged or exported.
  */
 sealed class MpesaPositionedRows {
-    data class Ready(val pages: List<String>) : MpesaPositionedRows()
+    data class Ready(
+        val pages: List<String>,
+        /** Populated only by the PDFBox adapter; never persisted or logged. */
+        val pdfBoxProof: PdfBoxStatementProof? = null
+    ) : MpesaPositionedRows()
     data class Unsupported(val page: Int, val reason: Reason) : MpesaPositionedRows()
     enum class Reason {
         INCOMPLETE_GEOMETRY, UNRECOGNIZED_TABLE, AMBIGUOUS_RECEIPT,
-        MISSING_STATUS_OR_MONEY, OUT_OF_ROW_FRAGMENT, UNVERIFIED_ROW_COUNT
+        MISSING_STATUS_OR_MONEY, OUT_OF_ROW_FRAGMENT, UNVERIFIED_ROW_COUNT,
+        UNVERIFIED_FINANCIAL_EVIDENCE
     }
 }
 

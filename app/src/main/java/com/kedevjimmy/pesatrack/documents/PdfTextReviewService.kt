@@ -55,7 +55,8 @@ class PdfTextReviewService : Service() {
                     } else if(reviewPdfBox) {
                         // All pages and geometry have been checked before any
                         // candidate page text is delivered to the app process.
-                        val pages=PdfBoxStatementExtractor.extract(this,descriptor,password)
+                        val document=PdfBoxStatementExtractor.extractForReview(this,descriptor,password)
+                        val pages=document.pages
                         val recipient=message.replyTo ?: throw PdfReadException(PdfFailure.SERVICE)
                         pages.forEachIndexed {index,page ->
                             page.chunked(PdfTextChunkAssembler.CHUNK_CHARACTERS)
@@ -70,6 +71,7 @@ class PdfTextReviewService : Service() {
                         }
                         response.putInt("pageCount",pages.size)
                         response.putBoolean("pdfBoxStatementReady",true)
+                        response.putIntArray("pdfBoxVerification",document.verification.encode())
                         response.putBoolean("done",true)
                     } else {
                     val positions=message.data.getBoolean("includePositions",false)
@@ -121,6 +123,9 @@ class PdfTextReviewService : Service() {
                 } else throw PdfReadException(PdfFailure.VERSION)
             } catch (e: PdfReadException) {
                 response.putString("failure",e.failure.name)
+                e.statementPage?.takeIf {it in 1..PdfTextReviewPolicy.MAX_PAGES}?.let {
+                    response.putInt("failurePage",it)
+                }
             } catch (_: SecurityException) {
                 response.putString("failure",PdfFailure.PASSWORD.name)
             } catch (_: Exception) {

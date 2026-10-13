@@ -1,6 +1,6 @@
 # PesaTrack Current State
 
-_Last refreshed: 11 October 2026_
+_Last refreshed: 13 October 2026_
 
 This file is the short engineering source of truth. Historical audits, design explorations and `PROJECT_CONTEXT.md` are useful background, but they must not override current code or this snapshot when they conflict.
 
@@ -11,6 +11,26 @@ PesaTrack is feature-complete enough for private/internal beta use, but it is st
 The current product includes the canonical ledger, provider-neutral financial interpretation, transfers/refunds/debts, salary cycles, budgets, saving goals, bills, reports, app lock, encrypted backup/restore, historical SMS import, notification capture, Data Health and Message Lab.
 
 ## Data and accounting
+
+- PDFBox-Android is an independent, opt-in on-device statement review path in
+  the existing isolated PDF service (#375–#377), with further production
+  evidence hardening in #380. The bridge now requires physical semantic money
+  headings, complete receipt/timestamp ownership, checked credit/debit cells,
+  and every receipt-group balance transition. Recognized summary tables and
+  labelled totals/opening/closing balances are audited across the entire
+  document, including footer declarations. Original money rectangles remain
+  transient local evidence; six proof-count integers disclose which boundary
+  and summary checks remain unverified. The decorative detailed-section label
+  may be absent only on the fully proved PDFBox route; title, period and money
+  headings remain required. Existing native/CSV/payslip/SMS behavior and atomic
+  import persistence remain. Import still uses the existing NEEDS_REVIEW
+  classification flow; automatic transfer, fee, reversal and loan semantics
+  are not completed by PDF extraction. Synthetic 26-page/881-row reconstruction
+  is regression evidence, not confirmation of the private Redmi statement.
+  PDFBox stays opt-in; arbitrary bank/OCR support, dependency maintenance and
+  actual device memory/latency and financial acceptance remain outstanding.
+  See docs/plans/pdfbox-production-evidence-gates.md and
+  docs/plans/pdfbox-dependency-review.md.
 
 - A1 authority gating now protects manual entries, received salary and selected CSV statement adapters; existing canonical duplicate/replay checks still decide insertion. Expected salary and payslip information do not authorize cash.
 - Manual salary requires a current enabled receiving account. Disabling an account does not remove existing salary history.

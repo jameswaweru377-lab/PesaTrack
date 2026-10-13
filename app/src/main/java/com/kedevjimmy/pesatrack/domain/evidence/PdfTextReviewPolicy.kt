@@ -12,7 +12,9 @@ data class PdfTextPreview(
     /** Opt-in, count-only independent extraction comparison. Never financial evidence. */
     val pdfBoxProbe: PdfBoxProbeReport? = null,
     /** Geometry-reconstructed by local PDFBox. NOT a verified money import. */
-    val pdfBoxStatementReady: Boolean = false
+    val pdfBoxStatementReady: Boolean = false,
+    /** Count-only financial proof; missing boundary/summary proof stays explicit. */
+    val pdfBoxVerification: PdfBoxVerificationReport? = null
 )
 
 /** Text availability is not a claim that a statement table or payroll was understood. */

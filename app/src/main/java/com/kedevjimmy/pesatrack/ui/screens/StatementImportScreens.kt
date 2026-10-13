@@ -52,6 +52,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  var rows by remember {mutableStateOf<List<StatementRow>>(emptyList())};var preview by remember {mutableStateOf<List<EverydayMoneyStore.Preview>>(emptyList())}
  var pdfStatus by remember {mutableStateOf<String?>(null)}
  var pdfBoxStatus by remember {mutableStateOf<String?>(null)}
+ var pdfProofStatus by remember {mutableStateOf<String?>(null)}
  var pdfPayslip by remember {mutableStateOf(false)}
  var pdfCandidates by remember {mutableStateOf<PdfStatementCandidates?>(null)}
  var pdfRows by remember {mutableStateOf(false)}
@@ -94,9 +95,9 @@ private fun readStatement(c:Context,uri:Uri):String {
   }catch(e:CancellationException){throw e}catch(e:Exception){dateError=e.message ?: "Could not check entries."}
   finally {if(preparing==source)preparing=null}
  }
- val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null&&!reading&&!importing&&preparing==null){reading=true;invalidatePreview();pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList();scope.launch{try{rows=withContext(Dispatchers.IO){StatementCsv.parse(readStatement(c,uri),TimeZone.getTimeZone(zoneId))}}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not read this CSV. Check its format."}finally{reading=false}}}}
+ val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null&&!reading&&!importing&&preparing==null){reading=true;invalidatePreview();pdfProofStatus=null;pdfBoxStatus=null;pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList();scope.launch{try{rows=withContext(Dispatchers.IO){StatementCsv.parse(readStatement(c,uri),TimeZone.getTimeZone(zoneId))}}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not read this CSV. Check its format."}finally{reading=false}}}}
  val pdfImport=rememberPdfImport(
-  onSelected={invalidatePreview();pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList()},
+  onSelected={invalidatePreview();pdfProofStatus=null;pdfBoxStatus=null;pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList()},
   onBusy={reading=it},
   onResult={pdf->
    if(FinancialPdfDocumentClassifier.classify(pdf.pages)==FinancialPdfDocumentKind.PAYSLIP) {
@@ -136,12 +137,17 @@ private fun readStatement(c:Context,uri:Uri):String {
    invalidatePreview();pdfStatus=null;pdfPayslip=false;pdfCandidates=null
    pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList()
    pdfBoxStatus=null
+   pdfProofStatus=null
   },
   onBusy={reading=it},
   onResult={pdf ->
    pdfPayslip=false
-   pdfCandidates=if(pdf.pdfBoxStatementReady)
-    PdfStatementReview.read(pdf.pages,TimeZone.getTimeZone(zoneId))
+   pdfProofStatus=pdf.pdfBoxVerification?.safeSummary()
+   pdfCandidates=if(pdf.pdfBoxStatementReady && pdf.pdfBoxVerification!=null)
+    PdfStatementReview.read(
+     pdf.pages,TimeZone.getTimeZone(zoneId),
+     completePdfBoxGeometry=true
+    )
    else PdfStatementCandidates(emptyList(),listOf(
     "PDFBox did not provide complete positioned table evidence. No transactions were added."
    ))
@@ -159,6 +165,7 @@ private fun readStatement(c:Context,uri:Uri):String {
    invalidatePreview();rows=emptyList();pdfRows=false
    pdfConfirmed=false;pdfStatus=null;pdfCandidates=null
    pdfBalanceReviewRefs=emptySet();pdfBoxStatus=null
+   pdfProofStatus=null
   },
   onBusy={reading=it},
   onResult={probe->
@@ -263,6 +270,7 @@ private fun readStatement(c:Context,uri:Uri):String {
       Text("Document check",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      }
      pdfStatus?.let {Text(it,style=MaterialTheme.typography.bodyMedium)}
+     pdfProofStatus?.let {Text(it,style=MaterialTheme.typography.bodySmall)}
      if(pdfPayslip) Button(onClick={onDismiss();onPaycheckClick()},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
       Text("Open Paycheck Analysis")
      }
@@ -286,7 +294,7 @@ private fun readStatement(c:Context,uri:Uri):String {
        if(accountId.isEmpty()) Text("Choose a source account above to continue.",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
       } else Text("Nothing was added. Try a supported CSV or a different statement PDF.",style=MaterialTheme.typography.bodySmall)
      }
-     TextButton(onClick={pdfStatus=null;pdfPayslip=false;pdfCandidates=null},enabled=!busy) {Text("Clear result")}
+     TextButton(onClick={pdfStatus=null;pdfProofStatus=null;pdfPayslip=false;pdfCandidates=null},enabled=!busy) {Text("Clear result")}
     }
    }
   }
@@ -313,7 +321,7 @@ private fun readStatement(c:Context,uri:Uri):String {
       if(requiredType!=null)PdfStatementReview.requireDistinctStatementLegs(source.rows)
       store.importRows(source.accountId,StatementImportDates.requireReviewed(source,reviewed,chosen),requiredType)
      }
-     onChanged();done="Added $count entries. Confirm them in Activity.";rows=emptyList();previewSource=null;dateResult=null;preview=emptyList();selected.clear()
+     onChanged();done="Added $count entries. Confirm them in Activity.";pdfProofStatus=null;pdfBoxStatus=null;rows=emptyList();previewSource=null;dateResult=null;preview=emptyList();selected.clear()
     }catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not finish import. Check Activity before retrying."}finally{importing=false}}
    },enabled=!busy&&dateError==null&&previewSource==selection&&selected.values.any{it}&&(!pdfRows||(pdfConfirmed&&accounts.firstOrNull{it.id==accountId}?.type==AccountType.MOBILE_WALLET)),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Import ${selected.values.count{it}} entries")}}
    items(preview.size,key={it}){i->val p=preview[i];PesaCard{Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=selected[i]==true,onCheckedChange={selected[i]=it},enabled=!busy&&!p.duplicate);Column(Modifier.weight(1f)){Text(p.row.description,style=MaterialTheme.typography.titleSmall);Text(StatementImportDates.day(p.row.date,zoneId)+(if(p.duplicate)" · Already recorded"else if(p.possibleMatch)" · Possible match"else""),style=MaterialTheme.typography.bodySmall);if(pdfRows){

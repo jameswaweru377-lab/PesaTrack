@@ -71,12 +71,15 @@ class PdfBoxStatementExtractorDeviceTest {
                         val y=678f-index*38f
                         write(receipt.first,25f,y)
                         write(date,97f,y)
-                        write("10:30:00",168f,y)
+                        write("10:30:00",97f,y-10f)
                         write(if(row==1)"Reversal via API" else if(row==0)"Shop" else "Transport",228f,y)
                         write("Completed",339f,y)
-                        write(receipt.second,424f,y)
+                        write(receipt.second,if(receipt.second.startsWith("-"))480f else 424f,y)
                         write(receipt.third,546f,y)
-                        if(row==1)write("from - 071***123456",228f,y-12f)
+                        if(row==1) {
+                            write("from -",228f,y-12f)
+                            write("071***123456",228f,y-22f)
+                        }
                     }
                     write("DISCLAIMER",25f,50f)
                 }
