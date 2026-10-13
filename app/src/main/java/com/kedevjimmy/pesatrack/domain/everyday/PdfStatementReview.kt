@@ -32,6 +32,15 @@ object PdfStatementReview {
         require(references.all {Regex("[A-Z0-9]{10}").matches(it)}) {
             "Each entry needs a 10-character M-Pesa receipt reference."
         }
+        // Distinct cash legs in one event share the receipt *and timestamp*.
+        // Reusing the receipt on a different day/time is not reliable event
+        // identity, so do not silently combine them.
+        val datedReferences=rows.withIndex().groupBy {references[it.index]}
+        require(datedReferences.values.all { group ->
+            group.map {it.value.date}.distinct().size==1
+        }) {
+            "Repeated receipt references at different times require review. No transactions were imported."
+        }
         val legs=rows.mapIndexed {index,row ->
             "${references[index]}|${row.date}|${row.signedMinor}|" +
                 row.description.trim().replace(Regex("\\s+")," ").uppercase(Locale.ROOT)
@@ -303,8 +312,11 @@ object PdfStatementReview {
         val informational=decoded.count {it.row.signedMinor==0L}
         // Check *all* statement receipts, including any zero-value records that
         // will be excluded from the import review, for duplicate references.
-        if(runCatching {requireDistinctStatementLegs(decoded.map {it.row})}.isFailure)
-            return unsupported("Identical receipt legs need review. No transactions were selected.")
+        runCatching {requireDistinctStatementLegs(decoded.map {it.row})}
+            .exceptionOrNull()?.let {
+                // The validation throws only bounded, authored safe messages.
+                return unsupported(it.message ?: "Receipt-leg identity needs review. Nothing was imported.")
+            }
         var balanceReviewReferences: Set<String> = emptySet()
         var verifiedReceiptTransitions=0
         var totalReceiptTransitions=0
