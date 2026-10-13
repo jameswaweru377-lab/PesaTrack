@@ -9,6 +9,7 @@ import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextFragment
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
+import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxVerificationReport
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
@@ -24,7 +25,11 @@ import java.io.IOException
  * remote processing, OCR, diagnostic logging or persistent PDF storage.
  */
 internal object PdfBoxStatementExtractor {
-    fun extract(context:Context,fd:ParcelFileDescriptor,password:String?):List<String> {
+    data class ReviewedDocument(val pages:List<String>,val verification:PdfBoxVerificationReport)
+    fun extract(context:Context,fd:ParcelFileDescriptor,password:String?):List<String> =
+        extractForReview(context,fd,password).pages
+
+    fun extractForReview(context:Context,fd:ParcelFileDescriptor,password:String?):ReviewedDocument {
         PdfTextReviewPolicy.requireBytes(fd.statSize)
         PDFBoxResourceLoader.init(context.applicationContext)
         try {
@@ -63,9 +68,16 @@ internal object PdfBoxStatementExtractor {
                     if(output !is MpesaPositionedRows.Ready)
                         // The detail of the rejection is deliberately fixed,
                         // not derived from the private statement's text.
-                        throw PdfReadException(PdfFailure.PARSE)
+                        throw PdfReadException(if(output is MpesaPositionedRows.Unsupported &&
+                            output.reason==MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE)
+                            PdfFailure.FINANCIAL_EVIDENCE else PdfFailure.TABLE_EVIDENCE)
                     PdfTextReviewPolicy.preview(output.pages)
-                    return output.pages
+                    val proof=output.pdfBoxProof ?: throw PdfReadException(PdfFailure.FINANCIAL_EVIDENCE)
+                    return ReviewedDocument(output.pages,PdfBoxVerificationReport(
+                        proof.receipts.size,proof.receipts.count {it.movementMinor!=0L},
+                        proof.verifiedTransitions,proof.totalsVerified,
+                        proof.openingVerified,proof.closingVerified
+                    ))
                 }
             }
         } catch (_:InvalidPasswordException) {

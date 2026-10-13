@@ -28,7 +28,11 @@ data class StatementReceiptBalanceAssessment(
 }
 
 object StatementReceiptBalanceAudit {
-    fun verify(legs: List<StatementBalanceLeg>): StatementReceiptBalanceAssessment {
+    fun verify(
+        legs: List<StatementBalanceLeg>,
+        openingBalanceMinor: Long? = null,
+        closingBalanceMinor: Long? = null
+    ): StatementReceiptBalanceAssessment {
         require(legs.size in 2..5_000) { "At least two bounded statement entries are required." }
         require(legs.all { it.reference.isNotBlank() && it.occurredAt > 0L && it.balanceMinor >= 0L }) {
             "Invalid statement balance evidence."
@@ -65,7 +69,11 @@ object StatementReceiptBalanceAudit {
         // One event may expose several intermediate balance readings.
         // Choose a consistent representative by maximizing exact transitions,
         // then mark all transitions not proved by the chosen path.
-        var scores=IntArray(groups.first().size)
+        val firstClosing=openingBalanceMinor?.let {Math.addExact(it,movements.first())}
+        val unreachable=-10_000
+        var scores=IntArray(groups.first().size) {index ->
+            if(firstClosing==null || groups.first()[index].balanceMinor==firstClosing)0 else unreachable
+        }
         val parentIndexes=mutableListOf<IntArray>()
         for(i in 1 until groups.size) {
             val older=groups[i-1]
@@ -73,6 +81,7 @@ object StatementReceiptBalanceAudit {
             val nextScores=IntArray(newer.size) {Int.MIN_VALUE}
             val parent=IntArray(newer.size) {-1}
             for(k in newer.indices) for(j in older.indices) {
+                if(scores[j]<0)continue
                 val expected=runCatching {
                     Math.addExact(older[j].balanceMinor,movements[i])
                 }.getOrNull()
@@ -86,7 +95,10 @@ object StatementReceiptBalanceAudit {
             parentIndexes.add(parent)
             scores=nextScores
         }
-        var selected=scores.indices.maxByOrNull {scores[it]} ?: error("No balance evidence.")
+        var selected=scores.indices.filter {
+            scores[it]>=0 &&
+                (closingBalanceMinor==null || groups.last()[it].balanceMinor==closingBalanceMinor)
+        }.maxByOrNull {scores[it]} ?: error("No consistent statement balance evidence.")
         val selectedIndexes=IntArray(groups.size)
         selectedIndexes[groups.lastIndex]=selected
         for(i in parentIndexes.indices.reversed()) {

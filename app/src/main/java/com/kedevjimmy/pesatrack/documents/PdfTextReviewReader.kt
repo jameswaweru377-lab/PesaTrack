@@ -10,6 +10,7 @@ import com.kedevjimmy.pesatrack.domain.evidence.PdfTextChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.PdfGeometryEvidencePolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxProbeWire
+import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxVerificationReport
 import com.kedevjimmy.pesatrack.domain.evidence.DocumentCopySession
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
 import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
@@ -151,7 +152,9 @@ object PdfTextReviewReader {
                                 if(pdfBoxStatement && !data.getBoolean("pdfBoxStatementReady",false))
                                     throw PdfReadException(PdfFailure.PARSE)
                                 continuation.resume(
-                                    if(pdfBoxStatement)enriched.copy(pdfBoxStatementReady=true)
+                                    if(pdfBoxStatement)enriched.copy(pdfBoxStatementReady=true,
+                                        pdfBoxVerification=PdfBoxVerificationReport.decode(
+                                            data.getIntArray("pdfBoxVerification") ?: error("Missing statement proof.")))
                                     else enriched
                                 )
                             } else fail(PdfFailure.SERVICE)

@@ -25,6 +25,7 @@ internal class PdfImportState {
     var password by mutableStateOf("")
     var reading by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
+    var verification by mutableStateOf<String?>(null)
     var retry by mutableStateOf(false)
     var job: Job?=null
     var choose: ()->Unit={}
@@ -45,13 +46,13 @@ internal class PdfImportState {
     DisposableEffect(state) { onDispose { state.cancel() } }
     state.read={uri,secret->
         if(!state.reading) {
-            state.reading=true;busy(true);state.error=null;state.pending=null;state.password=""
+            state.reading=true;busy(true);state.error=null;state.verification=null;state.pending=null;state.password=""
             state.job=scope.launch {
                 try {val pdf=PdfTextReviewReader.read(
                     context,uri,secret,
                     includePositions=includePositions,
                     pdfBoxProbe=pdfBoxProbe,pdfBoxStatement=pdfBoxStatement
-                );state.retry=false;result(pdf)}
+                );state.retry=false;state.verification=pdf.pdfBoxVerification?.safeSummary();result(pdf)}
                 catch(e: CancellationException){throw e}
                 catch(e: PdfReadException) {
                     state.error=e.failure.explanation
@@ -65,7 +66,7 @@ internal class PdfImportState {
     val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {uri->
         if(uri!=null&&!state.reading){selected();state.retry=false;state.read(uri,null)}
     }
-    state.choose={state.error=null;picker.launch(arrayOf("application/pdf"))}
+    state.choose={state.error=null;state.verification=null;picker.launch(arrayOf("application/pdf"))}
     return state
 }
 
@@ -73,6 +74,7 @@ internal class PdfImportState {
     OutlinedButton(enabled=enabled&&!state.reading&&state.pending==null&&Build.VERSION.SDK_INT>=35,
         onClick=state.choose,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {Text(label)}
     state.error?.let {Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
+    state.verification?.let {Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)}
 }
 
 /** Masked password dialog also lives outside the LazyColumn. */

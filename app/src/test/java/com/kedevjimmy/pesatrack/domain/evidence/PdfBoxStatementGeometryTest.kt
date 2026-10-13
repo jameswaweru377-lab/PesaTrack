@@ -29,13 +29,13 @@ class PdfBoxStatementGeometryTest {
                         movement:String,balance:String,y:Float):List<PdfTextFragment> = listOf(
         word(code,35f,y),word(day,99f,y),word(time,166f,y),
         word(description,221f,y),word("Completed",330f,y),
-        word(movement,406f,y),word(balance,522f,y)
+        word(movement,if(movement.startsWith("-"))465f else 406f,y),word(balance,522f,y)
     )
-    private val headerGeometry=listOf(word("M-PESA",30f,9f),word("STATEMENT",72f,9f))
+    private val headerGeometry=visualStatementHeadings()
     private fun geometry():List<PdfTextFragment> = headerGeometry+
         textRow("QAB1234569","2026-10-10","10:30:00","Shop purchase","-20.00","490.00",100f)+
         textRow("QAB1234568","2026-10-09","10:30:00","Reversal via API","100.00","510.00",140f)+
-        listOf(word("from",221f,152f),word("-",241f,152f),word("071***123456",255f,152f))+
+        listOf(word("from",221f,152f),word("-",241f,152f),word("071***123456",248f,152f))+
         textRow("QAB1234567","2026-10-08","10:30:00","Transport","-50.00","410.00",190f)
 
     /**
@@ -52,8 +52,8 @@ class PdfBoxStatementGeometryTest {
         word("DETAILED",30f,35f),word("STATEMENT",87f,35f),
         word("Receipt",30f,60f),word("No.",72f,60f),
         word("Completion",97f,60f),word("Time",168f,60f),
-        word("Details",201f,60f),word("Transaction",254f,60f),
-        word("Status",335f,60f),word("Paid",387f,60f),
+        word("Details",221f,60f),word("Transaction",330f,48f),
+        word("Status",330f,60f),word("Paid",400f,60f),
         word("In",416f,60f),word("Withdrawn",444f,60f),
         word("Balance",516f,60f)
     )
@@ -77,7 +77,7 @@ class PdfBoxStatementGeometryTest {
         )
         assertEquals(verified.problems.joinToString(),3,verified.rows.size)
         assertNotNull(verified.currencyReview)
-        assertEquals(2,verified.verifiedReceiptTransitions)
+        assertEquals(2,output.pdfBoxProof!!.verifiedTransitions)
     }
 
     @Test fun missingOriginalTitleStillCannotAuthorizeInferredKes() {
@@ -139,7 +139,7 @@ class PdfBoxStatementGeometryTest {
         assertEquals(3,candidates.rows.size)
         assertEquals(listOf(-2000L,10000L,-5000L),candidates.rows.map {it.signedMinor})
         assertTrue(candidates.rows[1].description.contains("071***123456"))
-        assertEquals(2,candidates.verifiedReceiptTransitions)
+        assertEquals(2,normalized.pdfBoxProof!!.verifiedTransitions)
     }
 
     @Test fun unknownMoneyToTheRightOfCompletedRejectsEntireDocument() {
@@ -149,6 +149,178 @@ class PdfBoxStatementGeometryTest {
             PdfBoxStatementGeometry.reconstruct(listOf(original),listOf(moved),listOf(true))
                 is MpesaPositionedRows.Unsupported
         )
+    }
+
+    @Test fun negativeAmountInPaidInCannotBeReinterpretedAsWithdrawal() {
+        val original=heading+first+"\n"+second+"\n"+oldest
+        val wrong=geometry().map {
+            if(it.text=="-20.00" && it.top==100f)word(it.text,406f,it.top) else it
+        }
+        assertTrue("Sign cannot override physical Paid In ownership",
+            PdfBoxStatementGeometry.reconstruct(listOf(original),listOf(wrong),listOf(true))
+                is MpesaPositionedRows.Unsupported)
+    }
+
+    @Test fun missingPositionedMoneyHeadingCannotAuthorizeColumnOwnership() {
+        val original=heading+first+"\n"+second+"\n"+oldest
+        val wrong=geometry().filterNot {it.text=="Withdrawn"}
+        assertTrue(PdfBoxStatementGeometry.reconstruct(
+            listOf(original),listOf(wrong),listOf(true)
+        ) is MpesaPositionedRows.Unsupported)
+    }
+
+    @Test fun positiveWithdrawalIsDebitBecauseOfItsColumn() {
+        val original=heading+first+"\n"+second+"\n"+oldest
+        val positive=geometry().map {
+            if(it.text=="-20.00")it.copy(text="20.00") else it
+        }
+        val result=PdfBoxStatementGeometry.reconstruct(listOf(original),listOf(positive),listOf(true))
+        assertTrue(result.toString(),result is MpesaPositionedRows.Ready)
+        val review=PdfStatementReview.read((result as MpesaPositionedRows.Ready).pages,zone)
+        assertEquals(review.problems.joinToString(),-2000L,review.rows.first().signedMinor)
+    }
+
+    @Test fun fullyPopulatedMoneyCellsStillRequireRunningBalanceProof() {
+        val original=heading+first+"\n"+second+"\n"+oldest
+        val broken=geometry().map {
+            if(it.text=="490.00")it.copy(text="491.00") else it
+        }
+        assertTrue("Every row shape needs balance verification",
+            PdfBoxStatementGeometry.reconstruct(listOf(original),listOf(broken),listOf(true))
+                is MpesaPositionedRows.Unsupported)
+    }
+
+    @Test fun explicitSummaryTotalsCannotBeIgnored() {
+        val original="Total Paid In: 999.00\nTotal Withdrawn: 70.00\n"+
+            heading+first+"\n"+second+"\n"+oldest
+        assertTrue(PdfBoxStatementGeometry.reconstruct(
+            listOf(original),listOf(geometry()),listOf(true)
+        ) is MpesaPositionedRows.Unsupported)
+    }
+
+    @Test fun sourceReceiptIdentityMustAgreeWithPhysicalReceipt() {
+        val original=heading+first.replace("QAB1234569","QAB9999999")+"\n"+second+"\n"+oldest
+        assertTrue(PdfBoxStatementGeometry.reconstruct(
+            listOf(original),listOf(geometry()),listOf(true)
+        ) is MpesaPositionedRows.Unsupported)
+    }
+
+    @Test fun pageFootersCannotHideAnotherReceipt() {
+        val original=heading+first+"\n"+second+"\n"+oldest
+        val boxes=geometry()+word("DISCLAIMER",20f,155f)
+        assertTrue(PdfBoxStatementGeometry.reconstruct(
+            listOf(original),listOf(boxes),listOf(true)
+        ) is MpesaPositionedRows.Unsupported)
+    }
+
+    @Test fun verifiedTotalsAndBalancesKeepTheirProofAndOriginalMoneyRectangles() {
+        val summary="Total Paid In: 100.00\nTotal Withdrawn: 70.00\n"+
+            "Opening Balance: 460.00\nClosing Balance: 490.00\n"
+        val result=PdfBoxStatementGeometry.reconstruct(
+            listOf(summary+heading+first+"\n"+second+"\n"+oldest),listOf(geometry()),listOf(true)
+        )
+        assertTrue(result.toString(),result is MpesaPositionedRows.Ready)
+        val proof=(result as MpesaPositionedRows.Ready).pdfBoxProof!!
+        assertTrue(proof.totalsVerified && proof.openingVerified && proof.closingVerified)
+        assertEquals(3,proof.receipts.size)
+        assertEquals(465f,proof.receipts.first().cells.getValue(
+            com.kedevjimmy.pesatrack.domain.statements.StatementField.DEBIT).single().left)
+    }
+
+    @Test fun physicalSummaryTableTotalsAreComparedWithAllReceiptLegs() {
+        val cover="SUMMARY\nTransaction Type Paid In Withdrawn\nTOTAL 100.00 70.00\n"
+        fun coverBoxes(total:String)=listOf(word("SUMMARY",35f,20f),
+            word("Transaction Type",35f,45f),word("Paid In",400f,45f),
+            word("Withdrawn",459f,45f),word("TOTAL",35f,70f),
+            word(total,406f,70f),word("70.00",465f,70f))
+        val page=heading+first+"\n"+second+"\n"+oldest
+        val valid=PdfBoxStatementGeometry.reconstruct(listOf(cover,page),
+            listOf(coverBoxes("100.00"),geometry()),listOf(true,true))
+        assertTrue(valid.toString(),valid is MpesaPositionedRows.Ready)
+        assertTrue((valid as MpesaPositionedRows.Ready).pdfBoxProof!!.totalsVerified)
+        val invalid=PdfBoxStatementGeometry.reconstruct(listOf(cover.replace("100.00","101.00"),page),
+            listOf(coverBoxes("101.00"),geometry()),listOf(true,true))
+        assertTrue(invalid is MpesaPositionedRows.Unsupported)
+    }
+
+    @Test fun repeatedPageHeaderDoesNotBecomeWrappedDescriptionOrMoney() {
+        val original=heading+first+"\n"+heading+second+"\n"+oldest
+        val repeated=geometry()+visualStatementHeadings().filter {it.top>=48f}
+            .map {it.copy(top=it.top+65f,bottom=it.bottom+65f)}
+        val result=PdfBoxStatementGeometry.reconstruct(listOf(original),listOf(repeated),listOf(true))
+        assertTrue(result.toString(),result is MpesaPositionedRows.Ready)
+        assertEquals(3,(result as MpesaPositionedRows.Ready).pdfBoxProof!!.receipts.size)
+    }
+
+    @Test fun swappedPaidInWithdrawnColumnsAreNormalizedFromEvidenceOnThatPage() {
+        val original=heading.replace("Paid In Withdrawn","Withdrawn Paid In")+
+            first+"\n"+second+"\n"+oldest
+        val shifted=geometry().map {
+            when(it.text) {
+                "Paid"->word("Paid",459f,it.top)
+                "In"->word("In",475f,it.top)
+                "Withdrawn"->word("Withdrawn",400f,it.top)
+                "-20.00","-50.00"->word(it.text,406f,it.top)
+                "100.00"->word(it.text,465f,it.top)
+                else->it
+            }
+        }
+        val result=PdfBoxStatementGeometry.reconstruct(listOf(original),listOf(shifted),listOf(true))
+        assertTrue(result.toString(),result is MpesaPositionedRows.Ready)
+        val review=PdfStatementReview.read((result as MpesaPositionedRows.Ready).pages,zone)
+        assertEquals(review.problems.joinToString(),listOf(-2000L,10000L,-5000L),
+            review.rows.map {it.signedMinor})
+    }
+
+    @Test fun oneReceiptWithoutOpeningBalanceCannotOfferFinancialProof() {
+        val result=PdfBoxStatementGeometry.reconstruct(listOf(heading+first),
+            listOf(headerGeometry+textRow("QAB1234569","2026-10-10","10:30:00",
+                "Shop purchase","-20.00","490.00",100f)),listOf(true))
+        assertTrue(result is MpesaPositionedRows.Unsupported)
+    }
+
+    @Test fun completionDateAndTimeCanWrapInsideTheirPhysicalColumn() {
+        val original=heading+listOf(first,second,oldest).joinToString("\n") {
+            it.replace(" 10:30:00","")+"\n10:30:00"
+        }
+        val wrapped=geometry().map {
+            if(it.text=="10:30:00")it.copy(left=99f,right=123f,top=it.top+9f,bottom=it.bottom+9f) else it
+        }
+        val result=PdfBoxStatementGeometry.reconstruct(listOf(original),listOf(wrapped),listOf(true))
+        assertTrue(result.toString(),result is MpesaPositionedRows.Ready)
+        assertEquals(3,(result as MpesaPositionedRows.Ready).pdfBoxProof!!.receipts.size)
+    }
+
+    @Test fun syntheticTwentySixPagesAccountForAll881RowsAndExactTotals() {
+        val pages=mutableListOf<String>()
+        val coordinates=mutableListOf<List<PdfTextFragment>>()
+        var index=0
+        repeat(26) {page ->
+            val text=mutableListOf<String>()
+            val boxes=headerGeometry.toMutableList()
+            repeat(if(page==25)31 else 34) {row ->
+                val code=String.format(java.util.Locale.ROOT,"T%09d",index)
+                val seconds=36000+880-index
+                val time=String.format(java.util.Locale.ROOT,"%02d:%02d:%02d",
+                    seconds/3600,seconds/60%60,seconds%60)
+                val balance="${120+index}.00"
+                text.add("$code 2026-10-10 $time Synthetic withdrawal Completed -1.00 $balance")
+                boxes.addAll(textRow(code,"2026-10-10",time,"Synthetic withdrawal",
+                    "-1.00",balance,100f+row*16f))
+                index++
+            }
+            val summary=if(page==0)"Total Paid In: 0.00\nTotal Withdrawn: 881.00\n"+
+                "Opening Balance: 1001.00\nClosing Balance: 120.00\n" else ""
+            pages.add(summary+heading+text.joinToString("\n"));coordinates.add(boxes)
+        }
+        val result=PdfBoxStatementGeometry.reconstruct(pages,coordinates,List(26){true})
+        assertTrue(result.toString(),result is MpesaPositionedRows.Ready)
+        val proof=(result as MpesaPositionedRows.Ready).pdfBoxProof!!
+        assertEquals(881,proof.receipts.size)
+        assertEquals(880,proof.verifiedTransitions)
+        assertTrue(proof.totalsVerified && proof.openingVerified && proof.closingVerified)
+        val review=PdfStatementReview.read(result.pages,zone)
+        assertEquals(review.problems.joinToString(),881,review.rows.size)
     }
 
     @Test fun missingStatusOrUnknownNumericFinancialFragmentCannotCreateCash() {

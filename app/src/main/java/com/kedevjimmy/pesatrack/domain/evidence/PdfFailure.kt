@@ -12,6 +12,8 @@ enum class PdfFailure(val explanation: String) {
     TOO_MUCH_TEXT("This PDF exceeds 500,000 extracted text characters. Choose a shorter date range."),
     NO_TEXT("No selectable text was found. This PDF may contain images or unsupported text encoding. OCR is not available; enter the details manually."),
     PARSE("The PDF reader could not decode this document. Its format may be damaged or unsupported. Try downloading the original again."),
+    TABLE_EVIDENCE("The PDF opened, but its complete receipt rows and physical money columns could not be verified. Nothing was imported."),
+    FINANCIAL_EVIDENCE("The PDF table was reconstructed, but its receipt groups, running balances or declared summary totals did not reconcile completely. Nothing was imported."),
     SERVICE("The local PDF reader could not start or stopped unexpectedly. Reopen import and try again."),
     TIMEOUT("PDF reading took too long. Choose a smaller document and try again."),
     VERSION("PDF extraction needs Android 15 or newer. CSV and manual entry remain available.")
