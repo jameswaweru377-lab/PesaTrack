@@ -93,7 +93,7 @@ object PdfTextReviewReader {
         includePositions: Boolean, pdfBoxProbe: Boolean, pdfBoxStatement: Boolean,
         pdfBoxGridProbe: Boolean
     ): PdfTextPreview {
-        require(listOf(pdfBoxProbe,pdfBoxStatement,pdfBoxGridProbe).count {it}>1 == false &&
+        require(listOf(pdfBoxProbe,pdfBoxStatement,pdfBoxGridProbe).count {it} <= 1 &&
             !(includePositions && (pdfBoxStatement || pdfBoxProbe || pdfBoxGridProbe))) {
             "Incompatible PDF extraction modes."
         }
