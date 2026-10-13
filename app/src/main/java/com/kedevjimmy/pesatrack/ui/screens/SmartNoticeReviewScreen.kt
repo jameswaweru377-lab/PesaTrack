@@ -7,6 +7,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind
 import com.kedevjimmy.pesatrack.planning.*
@@ -83,7 +85,7 @@ fun SmartNoticeReviewScreen(padding: PaddingValues, key: String, action: String,
                 if (current.incoming && !current.repaymentAllowed) Text("No repayment is preselected. Review the person's outstanding balance and the original payment.")
                 fun dismiss() {
                     SmartNoticePreferences(context).dismissed(key,current.candidate.revision)
-                    SmartNoticeCoordinator.cancel(context); decided = true; undoAvailable = true
+                    SmartNoticeCoordinator.cancelIfPosted(context,key); decided = true; undoAvailable = true
                 }
                 OutlinedButton(onClick = { dismiss() }) { Text(if (action == "gift") "Confirm gift / unrelated to debt" else "Gift") }
                 OutlinedButton(onClick = { dismiss() }) { Text(if (current.incoming) "Other / Not repayment" else "Not a loan") }
@@ -94,7 +96,7 @@ fun SmartNoticeReviewScreen(padding: PaddingValues, key: String, action: String,
                 onDismiss = { entry = false },onSaved = {
                     entry = false; decided = true; undoAvailable = false
                     financialSaved = true
-                    SmartNoticeCoordinator.cancel(context)
+                    SmartNoticeCoordinator.cancelIfPosted(context,key)
                 })
         }
     }
@@ -123,6 +125,53 @@ internal fun SmartDiscoveryCard(onOpen: () -> Unit) {
             Text("Lent money to someone? They Owe Me helps you review payments and record loans, including when you start fresh.")
             TextButton(onClick = onOpen) { Text("Explore They Owe Me") }
             TextButton(onClick = { visible = false }) { Text("Don't show again") }
+        }
+    }
+}
+
+/** A once-per-evidence inline fallback on the original payment, including permission denial. */
+@Composable
+internal fun SmartPaymentReviewHint(row: StoredTransaction) {
+    val context = LocalContext.current
+    val revision by LedgerUpdateBus.state.collectAsState()
+    var notice by remember(row.id) { mutableStateOf<SmartNotice?>(null) }
+    var open by remember(row.id) { mutableStateOf(false) }
+    LaunchedEffect(row.id,revision) {
+        try {
+            val priorRevision = notice?.candidate?.revision
+            val current = withContext(Dispatchers.IO) {
+                synchronized(CanonicalStoreLock.monitor) {
+                    val prefs = SmartNoticePreferences(context)
+                    val key = "payment:" + SmartNoticePreferences.hash(row.fingerprint)
+                    SmartNoticeCoordinator.resolve(context,key)?.takeIf {
+                        it.transactionId == row.id && it.candidate.enabled &&
+                            (priorRevision == it.candidate.revision || prefs.lastHintRevision(key) != it.candidate.revision)
+                    }
+                }
+            }
+            notice = current
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { notice = null }
+    }
+    val current = notice ?: return
+    LaunchedEffect(current.candidate.revision) {
+        SmartNoticePreferences(context).hintSeen(current.candidate.key,current.candidate.revision)
+    }
+    Card(Modifier.fillMaxWidth().testTag("they-owe-me-payment-hint")) {
+        Column(Modifier.padding(14.dp),verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Review this They Owe Me payment",style = MaterialTheme.typography.titleMedium)
+            Text("Matching phone number and recorded lending history. A match does not prove a loan or repayment.")
+            TextButton(onClick = { open = true }) { Text("Review options") }
+            TextButton(onClick = {
+                SmartNoticePreferences(context).dismissed(current.candidate.key,current.candidate.revision)
+                SmartNoticeCoordinator.cancelIfPosted(context,current.candidate.key); notice = null
+            }) { Text("Don't ask about this payment again") }
+        }
+    }
+    if (open) Dialog(onDismissRequest = { open = false },properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.fillMaxSize()) {
+            SmartNoticeReviewScreen(PaddingValues(),current.candidate.key,"review",onBack = { open = false; notice = null },
+                onTransaction = { open = false; notice = null },expectedRevision = current.candidate.revision)
         }
     }
 }

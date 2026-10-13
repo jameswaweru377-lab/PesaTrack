@@ -50,6 +50,9 @@ object SmartNoticeCoordinator {
         c.getSystemService(NotificationManager::class.java).cancel(ID)
         SmartNoticePreferences(c).clearPosted()
     }
+    fun cancelIfPosted(c: Context, key: String) = synchronized(CanonicalStoreLock.monitor) {
+        if (SmartNoticePreferences(c).postedKey() == key) cancel(c)
+    }
     fun schedule(c: Context) {
         val prefs = SmartNoticePreferences(c)
         val work = WorkManager.getInstance(c)

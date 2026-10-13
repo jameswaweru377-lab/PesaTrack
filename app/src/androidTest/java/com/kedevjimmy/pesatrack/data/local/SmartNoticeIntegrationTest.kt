@@ -169,4 +169,12 @@ class SmartNoticeIntegrationTest {
         assertFalse(metadata.state("activity").dismissed)
         assertEquals("activity",metadata.postedKey())
     }
+    @Test fun dismissingAnInAppPaymentHintDoesNotCancelAnUnrelatedAccountDigest() {
+        val metadata = SmartNoticePreferences(context)
+        metadata.shown(SmartNoticeCandidate("activity","accounts",SmartNoticeKind.ACCOUNT,now),now)
+        SmartNoticeCoordinator.cancelIfPosted(context,"payment:other")
+        assertEquals("activity",metadata.postedKey())
+        SmartNoticeCoordinator.cancelIfPosted(context,"activity")
+        assertNull(metadata.postedKey())
+    }
 }

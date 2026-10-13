@@ -65,6 +65,8 @@ class SmartNoticePreferences(context: Context) {
         prefs.edit().putString("rev:$key",revision).putBoolean("dismissed:$key",true).apply()
     }
     fun undoDismissal(key: String) { prefs.edit().putBoolean("dismissed:$key",false).apply() }
+    fun lastHintRevision(key: String) = prefs.getString("hint:$key","") ?: ""
+    fun hintSeen(key: String, revision: String) { prefs.edit().putString("hint:$key",revision).apply() }
     fun postedKey() = prefs.getString("smart_posted_key",null)
     fun postedRevision() = prefs.getString("smart_posted_revision",null)
     fun clearPosted() { prefs.edit().remove("smart_posted_key").remove("smart_posted_revision").apply() }
