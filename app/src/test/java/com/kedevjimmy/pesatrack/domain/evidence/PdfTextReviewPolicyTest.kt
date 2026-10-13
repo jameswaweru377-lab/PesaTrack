@@ -25,6 +25,17 @@ class PdfTextReviewPolicyTest {
         assertFalse(PdfReadException(PdfFailure.TABLE_EVIDENCE,3,5001).safeExplanation.contains("receipt row:"))
         assertTrue(PdfReadException(PdfFailure.METADATA_EVIDENCE).safeExplanation.contains("currency evidence"))
     }
+    @Test fun failureWireAcceptsOnlyKnownChecksAndColumns() {
+        for(check in PdfStatementCheck.entries)assertEquals(check,PdfStatementCheck.decode(check.name))
+        assertNull(PdfStatementCheck.decode("untrusted private text"))
+        val fields=setOf(com.kedevjimmy.pesatrack.domain.statements.StatementField.DEBIT,
+            com.kedevjimmy.pesatrack.domain.statements.StatementField.BALANCE)
+        assertEquals(fields,PdfStatementCheck.decodeColumns(PdfStatementCheck.encodeColumns(fields)))
+        assertTrue(PdfStatementCheck.decodeColumns(-1).isEmpty())
+        assertTrue(PdfStatementCheck.decodeColumns(128).isEmpty())
+        assertFalse(PdfReadException(PdfFailure.TABLE_EVIDENCE,1,1,PdfStatementCheck.DEBIT_PARTS,
+            setOf(com.kedevjimmy.pesatrack.domain.statements.StatementField.UNKNOWN)).safeExplanation.contains("UNKNOWN"))
+    }
     @Test fun limitsFailInsteadOfTruncatingEvidence() {
         assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.requireBytes(8 * 1024 * 1024 + 1L) }
         assertThrows(IllegalArgumentException::class.java) { PdfTextReviewPolicy.preview(List(161) { "x" }) }

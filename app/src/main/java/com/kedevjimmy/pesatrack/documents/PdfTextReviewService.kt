@@ -131,6 +131,8 @@ class PdfTextReviewService : Service() {
                     response.putInt("failurePage",it)
                 }
                 e.statementRow?.takeIf {it in 1..5000}?.let {response.putInt("failureRow",it)}
+                e.statementCheck?.let {response.putString("failureCheck",it.name)}
+                response.putInt("failureColumns",com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck.encodeColumns(e.statementColumns))
             } catch (_: SecurityException) {
                 response.putString("failure",PdfFailure.PASSWORD.name)
             } catch (_: Exception) {
