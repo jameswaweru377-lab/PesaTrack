@@ -123,6 +123,56 @@ object PdfBoxStatementGeometry {
     }
 
     /**
+     * Very narrow, source-backed exception for Details text extending LEFT of
+     * a heading-midpoint boundary into Date/time. Never reassign an arbitrary
+     * rectangle by its midpoint. This is not applied to money or status cells.
+     *
+     * The description fragment must appear exactly once in the original
+     * receipt AFTER its unique completion time and BEFORE Completed, must
+     * overlap only the two neighboring physical column ranges, and must not
+     * physically intersect any other word on the same visual line.
+     * The full existing receipt and financial proof is always required later.
+     */
+    private fun verifiedDescriptionBoundaryWord(
+        word:PdfTextFragment,
+        rowWords:List<PdfTextFragment>,
+        layout:StatementPdfColumns,
+        sourceBlock:String,
+        receiptDate:String,
+        uniqueReceiptTime:String?
+    ):Boolean {
+        val time=uniqueReceiptTime ?:return false
+        val date=layout.columns.singleOrNull {it.field==StatementField.DATE} ?:return false
+        val detail=layout.columns.singleOrNull {it.field==StatementField.DESCRIPTION} ?:return false
+        val boundary=detail.left
+        if(date.right!=boundary || word.left<date.left ||
+            word.left>=boundary || word.right<=boundary ||
+            word.right>detail.right || boundary-word.left>24f)return false
+        if(word.text.length !in 3..200 || word.text!=word.text.trim() ||
+            word.text.any(Char::isISOControl) ||
+            word.text==receiptDate || word.text==time ||
+            word.text.equals("Completed",true) ||
+            money.matches(word.text))return false
+        if(layout.columns.filter {word.left<it.right && word.right>it.left}
+                .map {it.field}.toSet()!=setOf(StatementField.DATE,StatementField.DESCRIPTION))
+            return false
+        val sourceTime=sourceBlock.indexOf(time)
+        val sourceStatus=sourceBlock.indexOf("Completed",ignoreCase=true)
+        val index=sourceBlock.indexOf(word.text)
+        if(sourceTime<0 || sourceStatus<0 || index<sourceTime+time.length ||
+            index>=sourceStatus || sourceBlock.indexOf(word.text,index+1)>=0)return false
+        // Prevent a shifted rectangle from stealing text that occupies the
+        // Date/time physical space on the same row, even if source text agrees.
+        val centre=(word.top+word.bottom)/2f
+        if(rowWords.any {other ->
+                other !== word &&
+                    abs((other.top+other.bottom)/2f-centre)<=3.4f &&
+                    other.left<word.right+1f && other.right>word.left-1f
+            })return false
+        return true
+    }
+
+    /**
      * The output is one of a small fixed vocabulary of authored messages.
      * No PDF text, bounds, source values, or nearby financial details escape.
      */
@@ -280,6 +330,10 @@ object PdfBoxStatementGeometry {
                         StatementField.DATE.takeIf {
                             verifiedDateBoundaryWord(
                                 word,words,layout,original.groupValues[2],verifiedClock
+                            )
+                        } ?: StatementField.DESCRIPTION.takeIf {
+                            verifiedDescriptionBoundaryWord(
+                                word,words,layout,sourceBlock,original.groupValues[2],verifiedClock
                             )
                         } ?:return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT,position+1,
                             PdfStatementCheck.COLUMN_OWNERSHIP,layout.columns.filter {
