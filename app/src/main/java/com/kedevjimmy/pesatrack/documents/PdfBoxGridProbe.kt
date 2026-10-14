@@ -43,6 +43,12 @@ internal object PdfBoxGridProbe {
         }
     }
 
+    /** Raw PDF drawing coordinates remain inside the isolated document worker. */
+    internal data class CapturedPaths(
+        val stroked: List<PdfGridSegment>, val filledRules: List<PdfGridSegment>
+    )
+    internal fun capture(page: PDPage): CapturedPaths = VectorScanner(page).capture()
+
     private class VectorScanner(private val target: PDPage) : PDFGraphicsStreamEngine(target) {
         private val segments = mutableListOf<PdfGridSegment>()
         private val filledRules = mutableListOf<PdfGridSegment>()
@@ -56,10 +62,17 @@ internal object PdfBoxGridProbe {
             if (operations > 60000 || pending.size > 10000 || segments.size > 10000)
                 throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
         }
-        fun scan(number: Int): PdfGridPageEvidence {
+        fun capture(): CapturedPaths {
             processPage(target)
+            if(segments.size + filledRules.size>10000)
+                throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
+            return CapturedPaths(segments.toList(),filledRules.toList())
+        }
+        fun scan(number: Int): PdfGridPageEvidence {
+            val vectors=capture()
             val crop = target.cropBox
-            return PdfGridVectorEvidence.analyze(number,crop.width,crop.height,segments,filledRules)
+            return PdfGridVectorEvidence.analyze(number,crop.width,crop.height,
+                vectors.stroked,vectors.filledRules)
         }
         override fun moveTo(x: Float,y: Float) {
             guard()
