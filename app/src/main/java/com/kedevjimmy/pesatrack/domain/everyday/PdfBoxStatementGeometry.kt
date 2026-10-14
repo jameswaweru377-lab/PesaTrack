@@ -4,6 +4,7 @@ import com.kedevjimmy.pesatrack.domain.evidence.PdfTextFragment
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck
 import com.kedevjimmy.pesatrack.domain.evidence.PdfColumnDiagnostic
+import com.kedevjimmy.pesatrack.domain.evidence.PdfStatusDiagnostic
 import kotlin.math.abs
 import java.util.Locale
 import java.math.BigDecimal
@@ -217,7 +218,8 @@ object PdfBoxStatementGeometry {
     ):MpesaPositionedRows {
         fun reject(p:Int,reason:MpesaPositionedRows.Reason,row:Int?=null,
             check:PdfStatementCheck?=null,columns:Set<StatementField> = emptySet(),
-            diagnostic:PdfColumnDiagnostic?=null)=
+            diagnostic:PdfColumnDiagnostic?=null,
+            statusDiagnostic:PdfStatusDiagnostic?=null)=
             MpesaPositionedRows.Unsupported(p,reason,row,check ?: when(reason) {
                 MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY -> PdfStatementCheck.INCOMPLETE_GEOMETRY
                 MpesaPositionedRows.Reason.UNRECOGNIZED_TABLE -> PdfStatementCheck.HEADER_DISCOVERY
@@ -225,7 +227,7 @@ object PdfBoxStatementGeometry {
                 MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT -> PdfStatementCheck.ROW_BOUNDARY
                 MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE -> PdfStatementCheck.FINANCIAL_RECONCILIATION
                 else -> null
-            },columns,diagnostic)
+            },columns,diagnostic,statusDiagnostic)
         if(pages.isEmpty() || pages.size>PdfTextReviewPolicy.MAX_PAGES ||
             positioned.size!=pages.size || complete.size!=pages.size)
             return reject(1,MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
@@ -354,8 +356,23 @@ object PdfBoxStatementGeometry {
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.SOURCE_TIMESTAMP_COUNT)
                 if(date!="${original.groupValues[2]} ${times.single()}")
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.TIMESTAMP_CELL)
-                if(text(StatementField.STATUS).uppercase(Locale.ROOT)!="COMPLETED")
-                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1,PdfStatementCheck.STATUS_CELL)
+                if(text(StatementField.STATUS).uppercase(Locale.ROOT)!="COMPLETED") {
+                    // Source text may contain Completed even when the positioned
+                    // Status cell is missing, split, or contaminated by a
+                    // Description fragment. Classify only; NEVER auto-accept.
+                    val parts=cells[StatementField.STATUS].orEmpty()
+                    val category=when {
+                        parts.isEmpty() -> PdfStatusDiagnostic.MISSING
+                        parts.size==1 -> PdfStatusDiagnostic.SINGLE_UNVERIFIED
+                        parts.joinToString("") { it.text }.equals("Completed",true) ->
+                            PdfStatusDiagnostic.SPLIT_COMPLETED
+                        parts.any { it.text.equals("Completed",true) } ->
+                            PdfStatusDiagnostic.COMPLETED_WITH_EXTRA
+                        else -> PdfStatusDiagnostic.MULTIPLE_UNVERIFIED
+                    }
+                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,
+                        position+1,PdfStatementCheck.STATUS_CELL,statusDiagnostic=category)
+                }
                 val detail=text(StatementField.DESCRIPTION)
                 if(detail.length !in 1..200)
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.DESCRIPTION_LENGTH)
