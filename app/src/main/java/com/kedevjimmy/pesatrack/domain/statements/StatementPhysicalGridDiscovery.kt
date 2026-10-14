@@ -104,23 +104,27 @@ object StatementPhysicalGridDiscovery {
             }) return emptyList()
         val hs=rules(vectorLines,false)
         val vs=rules(vectorLines,true)
-        val xs=unique(vs.filter {it.to-it.from>=height*.08f}.map{it.axis})
-        if(xs.size !in 8..80 || hs.size>5000 || vs.size>5000)return emptyList()
+        if(hs.size>5000 || vs.size>5000)return emptyList()
         val found=mutableListOf<StatementPhysicalGridTable>()
-        // Eight observed vertical boundaries = seven physical money/metadata
-        // columns. Other bank schemas can be added separately with tests.
-        for(first in 0..xs.size-8) {
-            val edges=xs.subList(first,first+8)
-            if(edges.zipWithNext().any {(a,b)->b-a<4f})continue
-            // Keep only horizontal rules that genuinely span the candidate.
-            // Separate segments are first joined conservatively by rules().
-            val ys=unique(hs.filter {
-                it.from<=edges.first()+2f && it.to>=edges.last()-2f
+        // A statement may contain a cover summary with vertical borders that
+        // interleave the detailed grid's X coordinates. Select candidates by
+        // *local vertical coverage at each observed top border*, never by
+        // global X position alone. All boundaries still must be drawn.
+        for(top in unique(hs.map {it.axis})) {
+            val xs=unique(vs.filter {
+                it.to-it.from>=height*.08f &&
+                    it.from<=top+2f && it.to>=top+12f
             }.map{it.axis})
-            if(ys.size !in 3..5002)continue
-            for(header in 0 until ys.size-2) {
-                val top=ys[header]
-                val next=ys[header+1]
+            if(xs.size !in 8..80)continue
+            for(first in 0..xs.size-8) {
+                val edges=xs.subList(first,first+8)
+                if(edges.zipWithNext().any {(a,b)->b-a<4f})continue
+                val ys=unique(hs.filter {
+                    it.axis>=top-1f &&
+                        it.from<=edges.first()+2f && it.to>=edges.last()-2f
+                }.map{it.axis})
+                if(ys.size !in 3..5002 || abs(ys.first()-top)>1.5f)continue
+                val next=ys[1]
                 if(next-top !in 6f..70f)continue
                 val headerWords=words.filter {
                     val cx=(it.left+it.right)/2f
@@ -148,7 +152,7 @@ object StatementPhysicalGridDiscovery {
 
                 // Every real border must span the detected transaction region.
                 // Pick the longest connected continuation of complete rows.
-                var end=header+2
+                var end=2
                 while(end<ys.size && edges.all {x->
                     vs.any {abs(it.axis-x)<=1.5f &&
                         it.from<=top+3f && it.to>=ys[end]-3f}
@@ -159,7 +163,7 @@ object StatementPhysicalGridDiscovery {
                     StatementPdfColumn(observed[i],cell,edges[i],edges[i+1])
                 })
                 val table=StatementPhysicalGridTable(page,physical,
-                    edges.toList(),ys.subList(header,end))
+                    edges.toList(),ys.subList(0,end))
                 // Never accept two competing grids covering the same cells.
                 if(found.any {abs(it.yEdges.first()-table.yEdges.first())<2f &&
                     abs(it.xEdges.first()-table.xEdges.first())<2f})continue
