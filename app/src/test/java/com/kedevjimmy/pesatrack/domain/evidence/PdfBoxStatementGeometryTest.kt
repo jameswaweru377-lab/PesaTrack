@@ -85,6 +85,57 @@ class PdfBoxStatementGeometryTest {
         assertEquals(PdfStatementCheck.MOVEMENT_DIRECTION,refused(geometry()+word("10.00",406f,100f)).check)
     }
 
+    @Test fun sourceVerifiedTimeMayOverrunHeaderMidpointWithoutMovingMoneyOrDetails() {
+        // Heading-midpoint between Completion Time and Details is ~200.5.
+        // The timestamp is a separate PDFBox word, does not touch Details,
+        // and exactly matches the unique time in the original receipt text.
+        val widerTime=geometry().map {
+            if(it.text=="10:30:00" && it.top==100f)it.copy(right=208f) else it
+        }
+        val result=PdfBoxStatementGeometry.reconstruct(
+            listOf(heading+first+"\n"+second+"\n"+oldest),
+            listOf(widerTime),listOf(true)
+        )
+        assertTrue(result.toString(),result is MpesaPositionedRows.Ready)
+        val ready=result as MpesaPositionedRows.Ready
+        assertEquals(3,ready.pdfBoxProof!!.receipts.size)
+        val table=ready.tables.single()
+        assertEquals("2026-10-10 10:30:00",table.rows.first()[1])
+        assertEquals("Shop purchase",table.rows.first()[2])
+        assertEquals("-20.00",table.rows.first()[5])
+    }
+
+    @Test fun dateDescriptionBoundaryStillRejectsTrueOverlapAndUnverifiedFragments() {
+        val source=heading+first+"\n"+second+"\n"+oldest
+        fun fail(words:List<PdfTextFragment>):MpesaPositionedRows.Unsupported =
+            PdfBoxStatementGeometry.reconstruct(listOf(source),listOf(words),listOf(true))
+                as MpesaPositionedRows.Unsupported
+        // It is never safe to assign this token from only its centre: the
+        // glyph box now physically overlaps the Details cell on the same Y.
+        val intersectsDetails=geometry().map {
+            if(it.text=="10:30:00" && it.top==100f)it.copy(right=223f) else it
+        }
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,fail(intersectsDetails).check)
+        // The original source cannot prove this concatenated or edited word.
+        val merged=geometry().map {
+            if(it.text=="10:30:00" && it.top==100f)
+                it.copy(text="10:30:00Shop",right=208f)
+            else it
+        }
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,fail(merged).check)
+        // A header-midpoint mismatch is allowed only within a small bound,
+        // not permission to extend timestamp text across the entire Details.
+        val excessive=geometry().map {
+            if(it.text=="10:30:00" && it.top==100f)it.copy(right=237f) else it
+        }
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,fail(excessive).check)
+        // Arbitrary Details text crossing its left boundary still fails.
+        val detailCross=geometry().map {
+            if(it.text=="Shop purchase" && it.top==100f)it.copy(left=198f) else it
+        }
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,fail(detailCross).check)
+    }
+
     @Test fun crossingColumnsReportOnlySemanticRolesAndSourceLocation() {
         val output=refused(geometry().map {if(it.text=="Shop purchase")it.copy(right=340f) else it})
         assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,output.check)
