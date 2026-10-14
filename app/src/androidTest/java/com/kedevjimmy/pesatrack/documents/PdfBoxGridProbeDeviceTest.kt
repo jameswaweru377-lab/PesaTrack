@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class PdfBoxGridProbeDeviceTest {
     private val context get()=ApplicationProvider.getApplicationContext<Context>()
-    private fun source(ruled:Boolean):File {
+    private fun source(ruled:Boolean,filled:Boolean=false):File {
         PDFBoxResourceLoader.init(context)
         val f=File.createTempFile("invented-grid-", ".pdf", context.cacheDir)
         PDDocument().use { doc ->
@@ -35,6 +35,16 @@ class PdfBoxGridProbeDeviceTest {
                     }
                     for(x in listOf(35f,250f,540f)) {
                         draw.moveTo(x,90f);draw.lineTo(x,450f);draw.stroke()
+                    }
+                }
+                if(filled) {
+                    // Some PDF exporters draw grid rules as narrow filled
+                    // rectangles instead of stroking a line.
+                    for(y in listOf(100f,200f,300f)) {
+                        draw.addRect(30f,y,520f,1f);draw.fill()
+                    }
+                    for(x in listOf(35f,250f,540f)) {
+                        draw.addRect(x,90f,1f,360f);draw.fill()
                     }
                 }
             }
@@ -56,6 +66,15 @@ class PdfBoxGridProbeDeviceTest {
             assertEquals(1,result.pages.size)
             assertTrue(result.pages.first().possibleVectorGrid)
             assertTrue(result.safeSummary().contains("no transactions were imported"))
+        } finally {f.delete()}
+    }
+    @Test fun syntheticFilledRuleDocumentReportsAThinFillGrid() {
+        val f=source(ruled=false,filled=true)
+        try {
+            val evidence=probe(f,"invented-password").pages.single()
+            assertTrue(evidence.possibleVectorGrid)
+            assertTrue(evidence.thinFilledHorizontalRules >= 3)
+            assertTrue(evidence.thinFilledVerticalRules >= 3)
         } finally {f.delete()}
     }
     @Test fun blankBorderlessDocumentNeverClaimsVectorGrid() {
