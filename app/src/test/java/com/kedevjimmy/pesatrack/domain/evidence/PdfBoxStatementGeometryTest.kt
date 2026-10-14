@@ -98,6 +98,21 @@ class PdfBoxStatementGeometryTest {
             assertFalse(message.contains(privateText))
     }
 
+    @Test fun productionPdfBoxCannotFallbackWhenPhysicalGridIsMissing() {
+        // The isolated Android reader always supplies a grid result for each
+        // page. An empty result is not permission to guess columns by a header
+        // midpoint. Legacy synthetic callers that omit gridTables still have
+        // their independent, existing compatibility tests.
+        val source=heading+first+"\n"+second+"\n"+oldest
+        val result=PdfBoxStatementGeometry.reconstruct(
+            listOf(source),listOf(geometry()),listOf(true),
+            gridTables=listOf(emptyList())
+        )
+        assertTrue(result is MpesaPositionedRows.Unsupported)
+        assertEquals(PdfStatementCheck.HEADER_DISCOVERY,
+            (result as MpesaPositionedRows.Unsupported).check)
+    }
+
     @Test fun structuredProductionReviewConsumesCellsWithoutLegacyTextRoundTrip() {
         val output=PdfBoxStatementGeometry.reconstruct(listOf(heading+first+"\n"+second+"\n"+oldest),
             listOf(geometry()),listOf(true)) as MpesaPositionedRows.Ready
