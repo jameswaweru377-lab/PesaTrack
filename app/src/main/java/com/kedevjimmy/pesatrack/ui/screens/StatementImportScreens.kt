@@ -78,7 +78,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  var reading by remember {mutableStateOf(false)};var importing by remember {mutableStateOf(false)}
  val busy=reading||importing||preparing!=null
  val selected=remember {mutableStateMapOf<Int,Boolean>()};var error by remember {mutableStateOf<String?>(null)};var dateError by remember {mutableStateOf<String?>(null)};var done by remember {mutableStateOf<String?>(null)}
- fun invalidatePreview() {pdfConfirmed=false;previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
+ fun invalidatePreview() {pdfConfirmed=false;statementAccepted=false;previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
  LaunchedEffect(Unit){try{accounts=withContext(Dispatchers.IO){store.ownedAccounts()}.filter {it.type==AccountType.BANK||it.type==AccountType.MOBILE_WALLET}}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load accounts."}}
  LaunchedEffect(selection){
   val source=selection
@@ -223,6 +223,8 @@ private fun readStatement(c:Context,uri:Uri):String {
       StatementImportDateButton("To date",toDay,!busy){if(toDay!=it){invalidatePreview();toDay=it}}
      }
      Text("Both chosen days are included. Your recorded transactions stay unchanged.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     if(pdfBoxSource) Text("Statement Activity saves the complete verified PDF, including all statement dates and informational rows. Date filters apply to CSV imports only.",
+      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
    }
   }
@@ -330,6 +332,8 @@ private fun readStatement(c:Context,uri:Uri):String {
         style=MaterialTheme.typography.bodySmall)
        Text("Save the full statement to separate Statement Activity. SMS Activity, budgets and wallet balances remain unchanged.",
         style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.tertiary)
+       Text("Opening/closing balances and any external receipt count are not independently declared in some M-Pesa PDFs. Fuliza funding pairs may require a separately checked balance sequence.",
+        style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
        Row(verticalAlignment=Alignment.CenterVertically) {
         Checkbox(checked=statementAccepted,onCheckedChange={statementAccepted=it},enabled=!busy)
         Text("I reviewed the wallet, source rows and statement totals. Save every original row in Statement Activity only.",
