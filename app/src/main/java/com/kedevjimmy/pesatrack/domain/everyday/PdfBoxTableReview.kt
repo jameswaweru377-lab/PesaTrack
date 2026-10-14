@@ -25,6 +25,7 @@ object PdfBoxTableReview {
         if(tables.isEmpty() || tables.sumOf {it.rows.size}!=report.receiptRows)return blocked()
         val evidence=mutableListOf<PdfBoxReceiptEvidence>()
         val rows=mutableListOf<StatementRow>()
+        val statementActivityLines=mutableListOf<StatementActivityLine>()
         for(table in tables) {
             val fields=table.headers.map {UniversalStatementTableInterpreter.fieldForHeader(it)}
             if(table.pageNumber !in 1..160 || fields.size!=required.size || fields.toSet()!=required)
@@ -57,6 +58,8 @@ object PdfBoxTableReview {
                 })return blocked(table.pageNumber,index+1)
                 val e=PdfBoxReceiptEvidence(table.pageNumber,index+1,reference,date,description,emptyMap(),paid,abs(debit),balance)
                 evidence.add(e)
+                statementActivityLines.add(StatementActivityLine(table.pageNumber,index+1,reference,
+                    epoch,description,paid,abs(debit),balance))
                 if(e.movementMinor!=0L)rows.add(StatementRow(epoch,description,e.movementMinor,reference))
             }
         }
@@ -71,6 +74,7 @@ object PdfBoxTableReview {
             return blocked()
         return PdfStatementCandidates(rows,emptyList(),currencyReview,
             informationalRows=evidence.size-rows.size,verifiedReceiptTransitions=proof.verifiedTransitions,
-            totalReceiptTransitions=proof.verifiedTransitions)
+            totalReceiptTransitions=proof.verifiedTransitions,
+            statementActivityLines=statementActivityLines.toList())
     }
 }
