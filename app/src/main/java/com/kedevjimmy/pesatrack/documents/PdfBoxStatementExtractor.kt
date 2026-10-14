@@ -6,6 +6,9 @@ import com.kedevjimmy.pesatrack.domain.everyday.MpesaPositionedRows
 import com.kedevjimmy.pesatrack.domain.everyday.PdfBoxStatementGeometry
 import com.kedevjimmy.pesatrack.domain.everyday.PdfStatementReview
 import com.kedevjimmy.pesatrack.domain.statements.StatementTablePage
+import com.kedevjimmy.pesatrack.domain.statements.StatementPhysicalGridDiscovery
+import com.kedevjimmy.pesatrack.domain.statements.StatementPhysicalGridTable
+import com.kedevjimmy.pesatrack.domain.evidence.PdfGridSegment
 import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxWordBounds
 import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
@@ -45,6 +48,7 @@ internal object PdfBoxStatementExtractor {
                     val pages=mutableListOf<String>()
                     val boxes=mutableListOf<List<PdfTextFragment>>()
                     val complete=mutableListOf<Boolean>()
+                    val physicalGrids=mutableListOf<List<StatementPhysicalGridTable>>()
                     var characters=0L
                     var totalWords=0
                     for(i in 0 until count) {
@@ -66,9 +70,26 @@ internal object PdfBoxStatementExtractor {
                         pages.add(text)
                         boxes.add(stripper.words.toList())
                         complete.add(stripper.complete)
+                        // PDF graphics use a bottom-left origin; PDFTextStripper's
+                        // word bounds use top-left coordinates. Normalize inside
+                        // the isolated process before touching grid discovery.
+                        // Rotated layouts must not silently use wrong cells.
+                        val layout=if((page.rotation%360+360)%360==0) {
+                            val paths=PdfBoxGridProbe.capture(page)
+                            val lines=(paths.stroked+paths.filledRules).map {segment->
+                                PdfGridSegment(
+                                    segment.x1-crop.lowerLeftX,crop.upperRightY-segment.y1,
+                                    segment.x2-crop.lowerLeftX,crop.upperRightY-segment.y2
+                                )
+                            }
+                            StatementPhysicalGridDiscovery.discover(
+                                i+1,width,height,stripper.words,lines)
+                        } else emptyList()
+                        physicalGrids.add(layout)
                     }
                     PdfTextReviewPolicy.preview(pages)
-                    val output=PdfBoxStatementGeometry.reconstruct(pages,boxes,complete,emitCompatibilityText=legacyText)
+                    val output=PdfBoxStatementGeometry.reconstruct(pages,boxes,complete,
+                        emitCompatibilityText=legacyText,gridTables=physicalGrids)
                     if(output !is MpesaPositionedRows.Ready)
                         // The detail of the rejection is deliberately fixed,
                         // not derived from the private statement's text.
