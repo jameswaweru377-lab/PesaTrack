@@ -45,7 +45,9 @@ internal object PdfBoxGridProbe {
 
     private class VectorScanner(private val target: PDPage) : PDFGraphicsStreamEngine(target) {
         private val segments = mutableListOf<PdfGridSegment>()
+        private val filledRules = mutableListOf<PdfGridSegment>()
         private val pending = mutableListOf<PdfGridSegment>()
+        private val pendingThinRectangles = mutableListOf<PdfGridSegment>()
         private var current: PointF? = null
         private var initial: PointF? = null
         private var operations = 0
@@ -57,7 +59,7 @@ internal object PdfBoxGridProbe {
         fun scan(number: Int): PdfGridPageEvidence {
             processPage(target)
             val crop = target.cropBox
-            return PdfGridVectorEvidence.analyze(number,crop.width,crop.height,segments)
+            return PdfGridVectorEvidence.analyze(number,crop.width,crop.height,segments,filledRules)
         }
         override fun moveTo(x: Float,y: Float) {
             guard()
@@ -74,6 +76,23 @@ internal object PdfBoxGridProbe {
             guard()
             val p=listOf(p0,p1,p2,p3,p0)
             for(i in 0..3) pending.add(PdfGridSegment(p[i].x,p[i].y,p[i+1].x,p[i+1].y))
+            // A PDF can paint table borders as thin FILLED rectangles instead
+            // of stroke commands. Count only thin orthogonal filled bars.
+            val xs=listOf(p0.x,p1.x,p2.x,p3.x)
+            val ys=listOf(p0.y,p1.y,p2.y,p3.y)
+            val left=xs.minOrNull() ?: 0f
+            val right=xs.maxOrNull() ?: 0f
+            val bottom=ys.minOrNull() ?: 0f
+            val top=ys.maxOrNull() ?: 0f
+            val w=right-left
+            val h=top-bottom
+            val orthogonal=p.zipWithNext().all { (a,b) ->
+                kotlin.math.abs(a.x-b.x)<=1.25f || kotlin.math.abs(a.y-b.y)<=1.25f
+            }
+            if(orthogonal && h in 0.01f..3f && w>h*6f)
+                pendingThinRectangles.add(PdfGridSegment(left,(top+bottom)/2f,right,(top+bottom)/2f))
+            else if(orthogonal && w in 0.01f..3f && h>w*6f)
+                pendingThinRectangles.add(PdfGridSegment((left+right)/2f,bottom,(left+right)/2f,top))
             current=p0
             initial=p0
         }
@@ -93,18 +112,36 @@ internal object PdfBoxGridProbe {
         }
         private fun reset() {
             pending.clear()
+            pendingThinRectangles.clear()
             current=null
             initial=null
         }
         private fun commit() {
             guard()
-            if(segments.size + pending.size > 10000) throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
+            if(segments.size + filledRules.size + pending.size > 10000)
+                throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
             segments.addAll(pending)
             reset()
         }
+        private fun commitFill() {
+            guard()
+            if(segments.size + filledRules.size + pendingThinRectangles.size > 10000)
+                throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
+            filledRules.addAll(pendingThinRectangles)
+            reset()
+        }
         override fun strokePath()=commit()
-        override fun fillAndStrokePath(windingRule:Path.FillType)=commit()
-        override fun fillPath(windingRule:Path.FillType)=reset()
+        override fun fillAndStrokePath(windingRule:Path.FillType) {
+            // Fill + stroke: the stroked rectangle already records its edges.
+            // Retain thin filled-bar classification independently as evidence.
+            guard()
+            if(segments.size + filledRules.size + pending.size + pendingThinRectangles.size > 10000)
+                throw PdfReadException(PdfFailure.TOO_MUCH_TEXT)
+            segments.addAll(pending)
+            filledRules.addAll(pendingThinRectangles)
+            reset()
+        }
+        override fun fillPath(windingRule:Path.FillType)=commitFill()
         override fun endPath()=reset()
         override fun clip(windingRule:Path.FillType) { /* no drawing: preserve current path until endPath */ }
         override fun drawImage(pdImage:PDImage) { /* deliberately do not decode images/OCR */ }
