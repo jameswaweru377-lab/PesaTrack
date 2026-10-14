@@ -137,7 +137,7 @@ class PdfBoxStatementGeometryTest {
     }
 
     @Test fun failedDateBoundaryReportsOnlyAuthoredNonSensitiveReason() {
-        val source=heading+first+"\\n"+second+"\\n"+oldest
+        val source=heading+first+"\n"+second+"\n"+oldest
         fun rejected(words:List<PdfTextFragment>):MpesaPositionedRows.Unsupported =
             PdfBoxStatementGeometry.reconstruct(listOf(source),listOf(words),listOf(true))
                 as MpesaPositionedRows.Unsupported
