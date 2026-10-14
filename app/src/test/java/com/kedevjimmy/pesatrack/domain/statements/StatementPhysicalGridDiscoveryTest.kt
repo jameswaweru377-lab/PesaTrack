@@ -142,6 +142,28 @@ class StatementPhysicalGridDiscoveryTest {
         assertEquals(count-1,ready.pdfBoxProof!!.verifiedTransitions)
     }
 
+    @Test fun coverSummaryInterleavedVerticalLinesCannotCorruptDetailedGrid() {
+        val top=170f
+        val words=header(top)+row("QAB1234569","2026-10-10 10:30:00",
+            "Shop purchase","","-20.00","490.00",top+43f)
+        // The cover summary contains two unrelated vertical strokes whose X
+        // positions sit between the detailed table's actual eight borders.
+        val summary=listOf(
+            PdfGridSegment(155f,10f,155f,110f),
+            PdfGridSegment(300f,10f,300f,110f),
+            PdfGridSegment(35f,10f,35f,110f),
+            PdfGridSegment(35f,10f,320f,10f),
+            PdfGridSegment(35f,70f,320f,70f),
+            PdfGridSegment(35f,110f,320f,110f)
+        )
+        val physical=StatementPhysicalGridDiscovery.discover(1,620f,800f,
+            words,summary+frame(top,1))
+        assertEquals("Cover summary lines cannot alter detailed cell ownership",1,physical.size)
+        assertEquals(xs,physical.single().xEdges)
+        assertEquals(StatementField.STATUS,
+            physical.single().owner(words.first{it.text=="Completed"}))
+    }
+
     @Test fun missingPhysicalBoundaryAndAmbiguousCellAlwaysRefuse() {
         val top=45f
         val words=header(top)+row("QAB1234569","2026-10-10 10:30:00",
