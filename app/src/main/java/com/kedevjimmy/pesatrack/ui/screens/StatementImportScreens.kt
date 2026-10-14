@@ -59,6 +59,10 @@ private fun readStatement(c:Context,uri:Uri):String {
  var pdfRows by remember {mutableStateOf(false)}
  var pdfBalanceReviewRefs by remember {mutableStateOf<Set<String>>(emptySet())}
  var pdfConfirmed by remember {mutableStateOf(false)}
+ var pdfBoxSource by remember {mutableStateOf(false)}
+ var pdfBoxEvidence by remember {mutableStateOf<com.kedevjimmy.pesatrack.domain.evidence.PdfBoxVerificationReport?>(null)}
+ var statementAccepted by remember {mutableStateOf(false)}
+ var showStatementActivity by remember {mutableStateOf(false)}
  var editingPdf by remember {mutableStateOf<StatementRow?>(null)}
  val zoneId=rememberSaveable {TimeZone.getDefault().id}
  val today=remember {StatementImportDates.day(System.currentTimeMillis(),zoneId)}
@@ -96,9 +100,9 @@ private fun readStatement(c:Context,uri:Uri):String {
   }catch(e:CancellationException){throw e}catch(e:Exception){dateError=e.message ?: "Could not check entries."}
   finally {if(preparing==source)preparing=null}
  }
- val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null&&!reading&&!importing&&preparing==null){reading=true;invalidatePreview();pdfProofStatus=null;pdfBoxStatus=null;pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList();scope.launch{try{rows=withContext(Dispatchers.IO){StatementCsv.parse(readStatement(c,uri),TimeZone.getTimeZone(zoneId))}}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not read this CSV. Check its format."}finally{reading=false}}}}
+ val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null&&!reading&&!importing&&preparing==null){pdfBoxSource=false;pdfBoxEvidence=null;statementAccepted=false;reading=true;invalidatePreview();pdfProofStatus=null;pdfBoxStatus=null;pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList();scope.launch{try{rows=withContext(Dispatchers.IO){StatementCsv.parse(readStatement(c,uri),TimeZone.getTimeZone(zoneId))}}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not read this CSV. Check its format."}finally{reading=false}}}}
  val pdfImport=rememberPdfImport(
-  onSelected={invalidatePreview();pdfProofStatus=null;pdfBoxStatus=null;pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList()},
+  onSelected={pdfBoxSource=false;pdfBoxEvidence=null;statementAccepted=false;invalidatePreview();pdfProofStatus=null;pdfBoxStatus=null;pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList()},
   onBusy={reading=it},
   onResult={pdf->
    if(FinancialPdfDocumentClassifier.classify(pdf.pages)==FinancialPdfDocumentKind.PAYSLIP) {
@@ -135,6 +139,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  )
  val pdfBoxStatementImport=rememberPdfImport(
   onSelected={
+   pdfBoxSource=true;pdfBoxEvidence=null;statementAccepted=false
    invalidatePreview();pdfStatus=null;pdfPayslip=false;pdfCandidates=null
    pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList()
    pdfBoxStatus=null
@@ -143,6 +148,7 @@ private fun readStatement(c:Context,uri:Uri):String {
   onBusy={reading=it},
   onResult={pdf ->
    pdfPayslip=false
+   pdfBoxEvidence=pdf.pdfBoxVerification?.takeIf {pdf.pdfBoxStatementReady}
    pdfProofStatus=pdf.pdfBoxVerification?.safeSummary()
    pdfCandidates=if(pdf.pdfBoxStatementReady && pdf.pdfBoxVerification!=null && pdf.statementDeclarations!=null)
     com.kedevjimmy.pesatrack.domain.everyday.PdfBoxTableReview.read(
@@ -229,8 +235,11 @@ private fun readStatement(c:Context,uri:Uri):String {
      }
      Text("Choose a supported CSV or M-Pesa statement PDF. Your file stays on this phone.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      OutlinedButton(onClick={picker.launch(arrayOf("text/csv","text/comma-separated-values","application/csv","text/plain","application/octet-stream"))},enabled=!busy&&accountId.isNotEmpty(),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.TableChart,null);Spacer(Modifier.width(8.dp));Text("Select CSV file")}
-     PdfImportButton("Select M-Pesa PDF",!busy,pdfImport)
-     PdfImportButton("Select M-Pesa PDF using PDFBox (review first)",!busy,pdfBoxStatementImport)
+     // M-Pesa PDF rows must not pass through the legacy ordinary-ledger flow.
+     PdfImportButton("Select M-Pesa PDF (Statement Activity)",!busy,pdfBoxStatementImport)
+     OutlinedButton(onClick={showStatementActivity=true},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(48.dp)) {
+      Text("Open Statement Activity")
+     }
      Text("PDFBox review is experimental. It only offers candidates if the full PDF and money columns pass verification. Nothing is added before you confirm.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      PdfImportButton("Test PDFBox extraction (read-only)",!busy,pdfBoxInspect)
@@ -314,9 +323,48 @@ private fun readStatement(c:Context,uri:Uri):String {
         "${candidates.balanceReviewReferences.size} receipt groups require manual review. Those entries start unselected.",
         color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.bodySmall)
       }
-      if(candidates.rows.isNotEmpty()) {
+      if(candidates.rows.isNotEmpty() && pdfBoxSource) {
+       val activity=candidates.statementActivityLines
+       val proof=pdfBoxEvidence
+       Text("${activity.size} verified source rows · ${candidates.rows.size} money movements · ${candidates.informationalRows} informational events.",
+        style=MaterialTheme.typography.bodySmall)
+       Text("Save the full statement to separate Statement Activity. SMS Activity, budgets and wallet balances remain unchanged.",
+        style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.tertiary)
+       Row(verticalAlignment=Alignment.CenterVertically) {
+        Checkbox(checked=statementAccepted,onCheckedChange={statementAccepted=it},enabled=!busy)
+        Text("I reviewed the wallet, source rows and statement totals. Save every original row in Statement Activity only.",
+         Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
+       }
+       Button(enabled=!busy&&accountId.isNotEmpty()&&statementAccepted&&
+        accounts.firstOrNull{it.id==accountId}?.type==AccountType.MOBILE_WALLET&&
+        proof!=null&&proof.receiptRows==activity.size&&
+        activity.count{!it.informational}==proof.cashRows,
+        onClick={
+         val selectedAccount=accountId
+         val verifiedProof=proof
+         if(verifiedProof!=null) {
+          importing=true;error=null
+          scope.launch {
+           try {
+            val saved=withContext(Dispatchers.IO) {
+             com.kedevjimmy.pesatrack.data.local.StatementActivityStore(c)
+              .save(selectedAccount,activity,verifiedProof)
+            }
+            done=if(saved.added)"Saved all ${activity.size} rows to Statement Activity. SMS Activity is unchanged."
+             else "Statement already saved in Statement Activity. No duplicate was created."
+            pdfCandidates=null;pdfStatus=null;pdfProofStatus=null;pdfBoxEvidence=null;statementAccepted=false
+           } catch(e:CancellationException) {throw e}
+           catch(e:Exception) {error=e.message ?: "Could not save statement. No SMS transactions were changed."}
+           finally {importing=false}
+          }
+         }
+        },modifier=Modifier.fillMaxWidth().heightIn(48.dp)) {
+         Text("Save complete statement to Statement Activity")
+        }
+       if(accountId.isEmpty()) Text("Choose the correct mobile-wallet account above.",color=MaterialTheme.colorScheme.error)
+      } else if(candidates.rows.isNotEmpty()) {
        Text("${candidates.rows.size} candidate transactions found. Check account, dates, signed amounts and receipt codes before importing.",style=MaterialTheme.typography.bodySmall)
-       OutlinedButton(enabled=!busy&&accountId.isNotEmpty(),onClick={invalidatePreview();rows=candidates.rows;pdfRows=true;pdfCandidates=null},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
+       OutlinedButton(enabled=!busy&&accountId.isNotEmpty(),onClick={invalidatePreview();rows=candidates.rows;pdfRows=true;pdfCandidates=null},modifier=Modifier.fillMaxWidth().heightIn(48.dp)) {
         Text("Review ${candidates.rows.size} transactions")
        }
        if(accountId.isEmpty()) Text("Choose a source account above to continue.",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
@@ -359,6 +407,7 @@ private fun readStatement(c:Context,uri:Uri):String {
    }};Text(toolMoney(p.row.signedMinor),style=MaterialTheme.typography.bodySmall)}}}
   }
  }
+ if(showStatementActivity) StatementActivityDialog(onDismiss={showStatementActivity=false})
  PdfPasswordDialog(pdfImport)
  PdfPasswordDialog(pdfBoxStatementImport)
  PdfPasswordDialog(pdfBoxInspect)
