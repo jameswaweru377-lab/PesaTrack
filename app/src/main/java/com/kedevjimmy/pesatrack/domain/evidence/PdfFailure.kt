@@ -55,6 +55,20 @@ enum class PdfColumnDiagnostic(val explanation:String) {
     }
 }
 
+/** One fixed category describing why the positioned Status cell was refused.
+ * Never emit its actual PDF text, receipt, or value.
+ */
+enum class PdfStatusDiagnostic(val explanation:String) {
+    MISSING("No positioned word was assigned to the Status column."),
+    SPLIT_COMPLETED("The Completed label appears split into separate positioned words."),
+    COMPLETED_WITH_EXTRA("The Status column contains Completed plus unexpected additional words."),
+    MULTIPLE_UNVERIFIED("Multiple unverified words appear in the Status column."),
+    SINGLE_UNVERIFIED("One positioned Status word does not independently match Completed.");
+    companion object {
+        fun decode(name:String?):PdfStatusDiagnostic?=entries.firstOrNull {it.name==name}
+    }
+}
+
 /** Fixed, non-sensitive failures only. Never display native exceptions or document contents. */
 enum class PdfFailure(val explanation: String) {
     EMPTY("The selected file is empty. Download the PDF again."),
@@ -76,7 +90,8 @@ enum class PdfFailure(val explanation: String) {
 }
 class PdfReadException(val failure: PdfFailure, val statementPage: Int? = null,val statementRow:Int?=null,
     val statementCheck:PdfStatementCheck?=null,val statementColumns:Set<StatementField> = emptySet(),
-    val columnDiagnostic:PdfColumnDiagnostic? = null) :
+    val columnDiagnostic:PdfColumnDiagnostic? = null,
+    val statusDiagnostic:PdfStatusDiagnostic? = null) :
     IllegalArgumentException(failure.explanation) {
     /** Bounded location and whitelisted authored labels, never private text. */
     val safeExplanation: String get() = failure.explanation +
@@ -86,5 +101,8 @@ class PdfReadException(val failure: PdfFailure, val statementPage: Int? = null,v
         (if(statementCheck==PdfStatementCheck.COLUMN_OWNERSHIP)
             PdfStatementCheck.columnLabels(statementColumns).takeIf {it.isNotEmpty()}?.let {" Columns: $it."}.orEmpty() +
             (columnDiagnostic?.let { " Detail: ${it.explanation}" } ?: "")
+            else "") +
+        (if(statementCheck==PdfStatementCheck.STATUS_CELL)
+            statusDiagnostic?.let { " Detail: ${it.explanation}" }.orEmpty()
             else "")
 }
