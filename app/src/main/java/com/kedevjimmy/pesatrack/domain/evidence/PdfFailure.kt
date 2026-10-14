@@ -41,6 +41,20 @@ enum class PdfStatementCheck(val explanation:String) {
     }
 }
 
+/** Fixed, content-free classification of an unowned positioned text box. */
+enum class PdfColumnDiagnostic(val explanation:String) {
+    VERIFIED_TIMESTAMP_TOO_WIDE("The source-verified Date/time rectangle extends too far into another column."),
+    VERIFIED_TIMESTAMP_TOUCHES_NEIGHBOR("The source-verified Date/time rectangle overlaps adjacent text."),
+    VERIFIED_TIMESTAMP_LAYOUT_MISMATCH("The verified Date/time rectangle does not fit the recognized neighboring columns."),
+    COMBINED_OR_UNVERIFIED_TEXT("The crossing text is not a separately source-verified date or time token."),
+    DESCRIPTION_CROSSES_BOUNDARY("A Description text rectangle crosses into the Date/time region."),
+    OTHER_RECTANGLE("Another text rectangle cannot be assigned to an observed column.");
+
+    companion object {
+        fun decode(name:String?):PdfColumnDiagnostic?=entries.firstOrNull {it.name==name}
+    }
+}
+
 /** Fixed, non-sensitive failures only. Never display native exceptions or document contents. */
 enum class PdfFailure(val explanation: String) {
     EMPTY("The selected file is empty. Download the PDF again."),
@@ -61,7 +75,8 @@ enum class PdfFailure(val explanation: String) {
     VERSION("PDF extraction needs Android 15 or newer. CSV and manual entry remain available.")
 }
 class PdfReadException(val failure: PdfFailure, val statementPage: Int? = null,val statementRow:Int?=null,
-    val statementCheck:PdfStatementCheck?=null,val statementColumns:Set<StatementField> = emptySet()) :
+    val statementCheck:PdfStatementCheck?=null,val statementColumns:Set<StatementField> = emptySet(),
+    val columnDiagnostic:PdfColumnDiagnostic? = null) :
     IllegalArgumentException(failure.explanation) {
     /** Bounded location and whitelisted authored labels, never private text. */
     val safeExplanation: String get() = failure.explanation +
@@ -69,6 +84,7 @@ class PdfReadException(val failure: PdfFailure, val statementPage: Int? = null,v
             (statementRow?.takeIf {it in 1..5000}?.let {", receipt row: $it"} ?: "")+"."} ?: "") +
         (statementCheck?.let {" Check: ${it.explanation}"} ?: "") +
         (if(statementCheck==PdfStatementCheck.COLUMN_OWNERSHIP)
-            PdfStatementCheck.columnLabels(statementColumns).takeIf {it.isNotEmpty()}?.let {" Columns: $it."}.orEmpty()
+            PdfStatementCheck.columnLabels(statementColumns).takeIf {it.isNotEmpty()}?.let {" Columns: $it."}.orEmpty() +
+            (columnDiagnostic?.let { " Detail: ${it.explanation}" } ?: "")
             else "")
 }
