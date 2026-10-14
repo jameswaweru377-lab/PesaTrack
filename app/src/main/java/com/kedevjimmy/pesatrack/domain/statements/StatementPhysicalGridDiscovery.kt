@@ -129,16 +129,22 @@ object StatementPhysicalGridDiscovery {
                         cy>top+.4f && cy<next-.4f
                 }
                 if(headerWords.size !in 7..40)continue
-                val recognized=StatementPdfColumnDetector.detect(headerWords,needed)
-                    ?:continue
-                if(recognized.columns.size!=7)continue
-                val aligned=recognized.columns.indices.all {i->
-                    recognized.columns[i].heading.all {word->
-                        val cx=(word.left+word.right)/2f
-                        cx>=edges[i] && cx<edges[i+1]
-                    }
+                // Unlike the legacy header-midpoint detector, the observed
+                // physical cell boundaries themselves partition header text.
+                // Every cell must independently have a known semantic label.
+                val headings=(0 until 7).map {column->
+                    headerWords.filter {word->
+                        val x=(word.left+word.right)/2f
+                        x>=edges[column] && x<edges[column+1]
+                    }.sortedWith(compareBy<PdfTextFragment>{it.top}.thenBy{it.left})
                 }
-                if(!aligned)continue
+                if(headings.any {it.isEmpty()})continue
+                val observed=headings.map {cell->
+                    UniversalStatementTableInterpreter.fieldForHeader(
+                        cell.joinToString(" ") {it.text}
+                    )
+                }
+                if(observed.toSet()!=needed || observed.distinct().size!=7)continue
 
                 // Every real border must span the detected transaction region.
                 // Pick the longest connected continuation of complete rows.
@@ -149,8 +155,8 @@ object StatementPhysicalGridDiscovery {
                 })end++
                 val bottom=ys[end-1]
                 if(bottom-next < 4f)continue
-                val physical=StatementPdfColumns(recognized.columns.mapIndexed{i,c->
-                    StatementPdfColumn(c.field,c.heading,edges[i],edges[i+1])
+                val physical=StatementPdfColumns(headings.mapIndexed{i,cell->
+                    StatementPdfColumn(observed[i],cell,edges[i],edges[i+1])
                 })
                 val table=StatementPhysicalGridTable(page,physical,
                     edges.toList(),ys.subList(header,end))
