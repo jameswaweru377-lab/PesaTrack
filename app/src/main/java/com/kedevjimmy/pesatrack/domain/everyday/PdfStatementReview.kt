@@ -16,7 +16,9 @@ data class PdfStatementCandidates(
     /** A partially reconciled receipt group requires explicit user review. */
     val balanceReviewReferences: Set<String> = emptySet(),
     val verifiedReceiptTransitions: Int = 0,
-    val totalReceiptTransitions: Int = 0
+    val totalReceiptTransitions: Int = 0,
+    /** Complete physical rows for isolated Statement Activity review; never SMS ledger drafts. */
+    val statementActivityLines: List<StatementActivityLine> = emptyList()
 )
 
 data class PdfStatementMetadata(
