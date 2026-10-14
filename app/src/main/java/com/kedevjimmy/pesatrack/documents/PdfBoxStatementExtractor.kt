@@ -81,7 +81,8 @@ internal object PdfBoxStatementExtractor {
                             (output as? MpesaPositionedRows.Unsupported)?.row,
                             (output as? MpesaPositionedRows.Unsupported)?.check,
                             (output as? MpesaPositionedRows.Unsupported)?.columns.orEmpty(),
-                            (output as? MpesaPositionedRows.Unsupported)?.columnDiagnostic)
+                            (output as? MpesaPositionedRows.Unsupported)?.columnDiagnostic,
+                            (output as? MpesaPositionedRows.Unsupported)?.statusDiagnostic)
                     PdfTextReviewPolicy.preview(output.pages)
                     val proof=output.pdfBoxProof ?: throw PdfReadException(PdfFailure.FINANCIAL_EVIDENCE)
                     val metadataReview=PdfStatementReview.reviewMetadata(output.pages,true)
