@@ -77,6 +77,50 @@ object PdfBoxStatementGeometry {
         return listOf("Total Paid In: $paid","Total Withdrawn: $debit")
     }
 
+    /**
+     * Header midpoints are not guarantees of body-cell widths. Some PDFBox
+     * text rectangles for a genuine *source-verified* date or time can spill
+     * slightly over the inferred Date/time–Description boundary. Only that
+     * exact isolated source token may be retained in Date/time; never assign
+     * an arbitrary straddling fragment by its centre or by a majority area.
+     *
+     * The DATE cell is still checked verbatim against the source receipt and
+     * its unique completion time after reconstruction. Any competing glyph
+     * rectangle or large overrun fails closed.
+     */
+    private fun verifiedDateBoundaryWord(
+        word:PdfTextFragment,
+        rowWords:List<PdfTextFragment>,
+        layout:StatementPdfColumns,
+        receiptDate:String,
+        uniqueReceiptTime:String?
+    ):Boolean {
+        if(word.text != receiptDate && (uniqueReceiptTime == null ||
+                word.text != uniqueReceiptTime))return false
+        val date=layout.columns.singleOrNull {it.field==StatementField.DATE} ?:return false
+        val detail=layout.columns.singleOrNull {it.field==StatementField.DESCRIPTION} ?:return false
+        val boundary=date.right
+        // Only neighboring Date/time and Description, in that physical order.
+        if(boundary != detail.left || word.left<date.left ||
+            word.left>=boundary || word.right<=boundary ||
+            word.right>detail.right || word.right-boundary>24f)return false
+        val intersecting=layout.columns.filter {
+            word.left<it.right && word.right>it.left
+        }.map {it.field}.toSet()
+        if(intersecting!=setOf(StatementField.DATE,StatementField.DESCRIPTION))
+            return false
+        // A broad rectangle is not proof that adjacent text was absorbed.
+        // Never accept if its original glyph bounds physically touch another
+        // text rectangle on the same line.
+        val centre=(word.top+word.bottom)/2f
+        if(rowWords.any {other ->
+                other !== word &&
+                    abs((other.top+other.bottom)/2f-centre)<=3.4f &&
+                    other.left<word.right+1f && other.right>word.left-1f
+            })return false
+        return true
+    }
+
     fun reconstruct(
         pages:List<String>, positioned:List<List<PdfTextFragment>>, complete:List<Boolean>,
         /** Compatibility output for legacy tests/callers, never production review. */
@@ -185,10 +229,19 @@ object PdfBoxStatementGeometry {
                 val words=block.flatMap {it.words}.filterNot {it in headerWords}
                 if(words.isEmpty() || words.size>260)
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.ROW_SIZE)
+                val original=sourceRows[position]
+                val sourceBlock=source.substring(original.range.first,
+                    sourceRows.getOrNull(position+1)?.range?.first ?: source.length)
+                val times=clock.findAll(sourceBlock).map {it.value}.toList()
+                val verifiedClock=times.singleOrNull()
                 val cells=mutableMapOf<StatementField,MutableList<PdfTextFragment>>()
                 for(word in words) {
-                    val field=layout.owner(word)
-                        ?:return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT,position+1,
+                    val field=layout.owner(word) ?:
+                        StatementField.DATE.takeIf {
+                            verifiedDateBoundaryWord(
+                                word,words,layout,original.groupValues[2],verifiedClock
+                            )
+                        } ?:return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT,position+1,
                             PdfStatementCheck.COLUMN_OWNERSHIP,layout.columns.filter {
                                 word.left<it.right && word.right>it.left
                             }.map {it.field}.toSet())
@@ -199,10 +252,6 @@ object PdfBoxStatementGeometry {
                     .joinToString(" ") {it.text})
                 val reference=text(StatementField.REFERENCE).uppercase(Locale.ROOT)
                 val date=text(StatementField.DATE)
-                val original=sourceRows[position]
-                val sourceBlock=source.substring(original.range.first,
-                    sourceRows.getOrNull(position+1)?.range?.first ?: source.length)
-                val times=clock.findAll(sourceBlock).map {it.value}.toList()
                 if(reference!=original.groupValues[1].uppercase(Locale.ROOT))
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.REFERENCE_CELL)
                 if(times.size!=1)
