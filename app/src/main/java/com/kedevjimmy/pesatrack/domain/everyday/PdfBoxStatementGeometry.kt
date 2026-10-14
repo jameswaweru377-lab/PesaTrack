@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.domain.everyday
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextFragment
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck
+import com.kedevjimmy.pesatrack.domain.evidence.PdfColumnDiagnostic
 import kotlin.math.abs
 import java.util.Locale
 import java.math.BigDecimal
@@ -121,13 +122,52 @@ object PdfBoxStatementGeometry {
         return true
     }
 
+    /**
+     * The output is one of a small fixed vocabulary of authored messages.
+     * No PDF text, bounds, source values, or nearby financial details escape.
+     */
+    private fun classifyUnownedFragment(
+        word:PdfTextFragment,
+        rowWords:List<PdfTextFragment>,
+        layout:StatementPdfColumns,
+        receiptDate:String,
+        sourceTime:String?
+    ):PdfColumnDiagnostic {
+        val date=layout.columns.singleOrNull {it.field==StatementField.DATE}
+            ?:return PdfColumnDiagnostic.OTHER_RECTANGLE
+        val description=layout.columns.singleOrNull {it.field==StatementField.DESCRIPTION}
+            ?:return PdfColumnDiagnostic.OTHER_RECTANGLE
+        val verified=word.text==receiptDate || (sourceTime!=null && word.text==sourceTime)
+        if(verified) {
+            if(word.left>=date.left && word.left<date.right &&
+                word.right-date.right>24f)
+                return PdfColumnDiagnostic.VERIFIED_TIMESTAMP_TOO_WIDE
+            val mid=(word.top+word.bottom)/2f
+            if(rowWords.any { other ->
+                    other !== word &&
+                        abs((other.top+other.bottom)/2f-mid)<=3.4f &&
+                        other.left<word.right+1f && other.right>word.left-1f
+                })return PdfColumnDiagnostic.VERIFIED_TIMESTAMP_TOUCHES_NEIGHBOR
+            return PdfColumnDiagnostic.VERIFIED_TIMESTAMP_LAYOUT_MISMATCH
+        }
+        val crosses=(word.left<description.left && word.right>description.left)
+        return if(crosses && word.left>=date.left && word.right<=description.right) {
+            // Classification by source confirmation, not by publishing text.
+            val looksJoined=word.text.startsWith(receiptDate) ||
+                (sourceTime!=null && word.text.startsWith(sourceTime))
+            if(looksJoined)PdfColumnDiagnostic.COMBINED_OR_UNVERIFIED_TEXT
+            else PdfColumnDiagnostic.DESCRIPTION_CROSSES_BOUNDARY
+        } else PdfColumnDiagnostic.OTHER_RECTANGLE
+    }
+
     fun reconstruct(
         pages:List<String>, positioned:List<List<PdfTextFragment>>, complete:List<Boolean>,
         /** Compatibility output for legacy tests/callers, never production review. */
         emitCompatibilityText:Boolean=true
     ):MpesaPositionedRows {
         fun reject(p:Int,reason:MpesaPositionedRows.Reason,row:Int?=null,
-            check:PdfStatementCheck?=null,columns:Set<StatementField> = emptySet())=
+            check:PdfStatementCheck?=null,columns:Set<StatementField> = emptySet(),
+            diagnostic:PdfColumnDiagnostic?=null)=
             MpesaPositionedRows.Unsupported(p,reason,row,check ?: when(reason) {
                 MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY -> PdfStatementCheck.INCOMPLETE_GEOMETRY
                 MpesaPositionedRows.Reason.UNRECOGNIZED_TABLE -> PdfStatementCheck.HEADER_DISCOVERY
@@ -135,7 +175,7 @@ object PdfBoxStatementGeometry {
                 MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT -> PdfStatementCheck.ROW_BOUNDARY
                 MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE -> PdfStatementCheck.FINANCIAL_RECONCILIATION
                 else -> null
-            },columns)
+            },columns,diagnostic)
         if(pages.isEmpty() || pages.size>PdfTextReviewPolicy.MAX_PAGES ||
             positioned.size!=pages.size || complete.size!=pages.size)
             return reject(1,MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
@@ -244,7 +284,9 @@ object PdfBoxStatementGeometry {
                         } ?:return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT,position+1,
                             PdfStatementCheck.COLUMN_OWNERSHIP,layout.columns.filter {
                                 word.left<it.right && word.right>it.left
-                            }.map {it.field}.toSet())
+                            }.map {it.field}.toSet(), classifyUnownedFragment(
+                                word,words,layout,original.groupValues[2],verifiedClock
+                            ))
                     cells.getOrPut(field) {mutableListOf()}.add(word)
                 }
                 fun text(field:StatementField)=clean(cells[field].orEmpty()
