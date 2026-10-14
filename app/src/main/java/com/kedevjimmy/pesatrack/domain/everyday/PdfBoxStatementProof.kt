@@ -114,15 +114,17 @@ object PdfBoxStatementFinancialAudit {
         val newest = if (descending) legs.first().reference else legs.last().reference
         val opening = declared["OPENING BALANCE"]
         val closing = declared["CLOSING BALANCE"]
-        var transitions = 0
-        if (grouped.size > 1) {
-            val audit = runCatching {
-                StatementReceiptBalanceAudit.verify(legs, opening, closing)
-            }.getOrNull() ?: return null
-            // A 95% credible layout is insufficient for production PDFBox proof.
-            if (!audit.allVerified || audit.unverifiedReferences.isNotEmpty()) return null
-            transitions = audit.verifiedTransitions
-        } else if (opening == null) return null
+        // PDFBox production proof uses the exact timestamp-wide financial
+        // chain; the legacy best-effort receipt scorer is intentionally kept
+        // unchanged for non-PDFBox statement and SMS paths.
+        //
+        // A missing official opening/closing declaration is not fabricated:
+        // endpoints are derived from the complete proven financial sequence.
+        // The separate proof flags remain false unless a printed source
+        // declaration independently confirmed them.
+        val walletProof = VerifiedMpesaWalletLedger.verify(receipts, legs, opening, closing)
+            ?: return null
+        val transitions = walletProof.transitions
         if (opening != null) {
             val movement = sum(grouped.getValue(oldest).map { it.signedMinor }) ?: return null
             val expected = runCatching { Math.addExact(opening, movement) }.getOrNull() ?: return null
