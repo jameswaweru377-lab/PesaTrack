@@ -94,6 +94,54 @@ class StatementPhysicalGridDiscoveryTest {
         assertEquals(-2000L,ready.pdfBoxProof!!.receipts.first().movementMinor)
     }
 
+    @Test fun syntheticTwentySixPageStatementReconstructsEveryReceipt() {
+        val count=881
+        val sourcePages=mutableListOf<String>()
+        val wordPages=mutableListOf<List<PdfTextFragment>>()
+        val detected=mutableListOf<List<StatementPhysicalGridTable>>()
+        val formatter=java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss",java.util.Locale.ROOT)
+        formatter.timeZone=java.util.TimeZone.getTimeZone("Africa/Nairobi")
+        val base=formatter.parse("2026-10-13 12:00:00")!!.time
+        var index=0
+        for(page in 1..26) {
+            val perPage=minOf(34,count-index)
+            val top=45f
+            val words=header(top).toMutableList()
+            val lines=mutableListOf<String>()
+            repeat(perPage){offset->
+                val number=index+offset
+                val receipt="Q"+number.toString().padStart(9,'0')
+                val date=formatter.format(java.util.Date(base-number*60_000L))
+                val balance=(10_000-(count-number-1)).toString()+".00"
+                words.addAll(row(receipt,date,"Shop purchase",
+                    "","-1.00",balance,top+34f+offset*21f+5f))
+                lines.add("$receipt $date Shop purchase Completed -1.00 $balance")
+            }
+            val headerText="M-PESA STATEMENT\n" +
+                "Statement Period: 01 Oct 2026 - 13 Oct 2026\n" +
+                "DETAILED STATEMENT\n" +
+                "Receipt No. Completion Time Details Transaction Status Paid In Withdrawn Balance\n"
+            sourcePages.add(headerText+lines.joinToString("\n"))
+            wordPages.add(words)
+            val ys=listOf(top,top+34f)+(1..perPage).map {top+34f+it*21f}
+            val segments=ys.map {y->PdfGridSegment(xs.first(),y,xs.last(),y)}+
+                xs.map{x->PdfGridSegment(x,top,x,ys.last())}
+            val grid=StatementPhysicalGridDiscovery.discover(page,620f,840f,words,segments)
+            assertEquals("Physical grid missing on synthetic page $page",1,grid.size)
+            detected.add(grid)
+            index+=perPage
+        }
+        assertEquals(count,index)
+        val output=PdfBoxStatementGeometry.reconstruct(sourcePages,wordPages,
+            List(26){true},emitCompatibilityText=false,gridTables=detected)
+        assertTrue("No private PDF is used by this regression; output: ${output::class.java.simpleName}",
+            output is MpesaPositionedRows.Ready)
+        val ready=output as MpesaPositionedRows.Ready
+        assertEquals(count,ready.pdfBoxProof!!.receipts.size)
+        assertEquals(count,ready.tables.sumOf {it.rows.size})
+        assertEquals(count-1,ready.pdfBoxProof!!.verifiedTransitions)
+    }
+
     @Test fun missingPhysicalBoundaryAndAmbiguousCellAlwaysRefuse() {
         val top=45f
         val words=header(top)+row("QAB1234569","2026-10-10 10:30:00",
