@@ -68,6 +68,42 @@ class PdfBoxStatementGeometryTest {
     private fun refused(words:List<PdfTextFragment>,source:String=heading+first+"\n"+second+"\n"+oldest)=
         PdfBoxStatementGeometry.reconstruct(listOf(source),listOf(words),listOf(true)) as MpesaPositionedRows.Unsupported
 
+    @Test fun statusRefusalIdentifiesProblemWithoutPublishingStatementWords() {
+        val missing=refused(geometry().filterNot {
+            it.text=="Completed" && it.top==100f
+        })
+        assertEquals(PdfStatementCheck.STATUS_CELL,missing.check)
+        assertEquals(PdfStatusDiagnostic.MISSING,missing.statusDiagnostic)
+
+        val separated=geometry().flatMap {
+            if(it.text=="Completed" && it.top==100f)listOf(
+                word("Com",330f,100f),word("pleted",343f,100f))
+            else listOf(it)
+        }
+        val split=refused(separated)
+        assertEquals(PdfStatementCheck.STATUS_CELL,split.check)
+        assertEquals(PdfStatusDiagnostic.SPLIT_COMPLETED,split.statusDiagnostic)
+
+        val extra=refused(geometry()+word("Note",362f,100f))
+        assertEquals(PdfStatementCheck.STATUS_CELL,extra.check)
+        assertEquals(PdfStatusDiagnostic.COMPLETED_WITH_EXTRA,extra.statusDiagnostic)
+
+        val changed=refused(geometry().map {
+            if(it.text=="Completed" && it.top==100f)it.copy(text="Pending") else it
+        })
+        assertEquals(PdfStatementCheck.STATUS_CELL,changed.check)
+        assertEquals(PdfStatusDiagnostic.SINGLE_UNVERIFIED,changed.statusDiagnostic)
+
+        val rendered=PdfReadException(PdfFailure.TABLE_EVIDENCE,split.page,
+            split.row,split.check,split.columns,split.columnDiagnostic,split.statusDiagnostic).safeExplanation
+        assertTrue(rendered.contains("split into separate positioned words"))
+        for(privateValue in listOf("QAB1234569","Shop purchase","-20.00","490.00","2026-10-10"))
+            assertFalse(rendered.contains(privateValue))
+        assertNull(PdfStatusDiagnostic.decode("Private bank label"))
+        assertEquals(PdfStatusDiagnostic.SPLIT_COMPLETED,
+            PdfStatusDiagnostic.decode("SPLIT_COMPLETED"))
+    }
+
     @Test fun rowRefusalsIdentifyTheFailingCheckWithoutValues() {
         assertEquals(PdfStatementCheck.TIMESTAMP_CELL,refused(geometry().map {
             if(it.top==100f && it.text=="2026-10-10")it.copy(text="2026-10-11") else it}).check)
