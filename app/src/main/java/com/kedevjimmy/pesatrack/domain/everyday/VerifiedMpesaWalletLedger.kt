@@ -144,7 +144,8 @@ internal object VerifiedMpesaWalletLedger {
         balanceLegs: List<StatementBalanceLeg>,
         declaredOpeningMinor: Long? = null,
         declaredClosingMinor: Long? = null
-    ): Result? = runCatching {
+    ): Result? {
+        return runCatching {
         if (evidence.size !in 1..5_000 || evidence.size != balanceLegs.size) return null
         val source = evidence.zip(balanceLegs) { row, leg ->
             if (row.reference != leg.reference || row.balanceMinor != leg.balanceMinor ||
@@ -252,5 +253,6 @@ internal object VerifiedMpesaWalletLedger {
         }
 
         Result(activeBlocks.size - 1, sharedGroups, exceptions.size, opening, closing)
-    }.getOrNull()
+        }.getOrNull()
+    }
 }
