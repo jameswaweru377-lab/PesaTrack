@@ -14,6 +14,7 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementTablePage
 import com.kedevjimmy.pesatrack.domain.statements.StatementTableDiscovery
 import com.kedevjimmy.pesatrack.domain.statements.StatementPdfLines
 import com.kedevjimmy.pesatrack.domain.statements.StatementPhysicalLine
+import com.kedevjimmy.pesatrack.domain.statements.StatementPhysicalGridTable
 
 /**
  * Coordinate-to-table adapter. No row becomes an import candidate until the
@@ -80,7 +81,9 @@ object PdfBoxStatementGeometry {
     fun reconstruct(
         pages:List<String>, positioned:List<List<PdfTextFragment>>, complete:List<Boolean>,
         /** Compatibility output for legacy tests/callers, never production review. */
-        emitCompatibilityText:Boolean=true
+        emitCompatibilityText:Boolean=true,
+        /** Physically proven table cells. No coordinates cross service IPC. */
+        gridTables:List<List<StatementPhysicalGridTable>> = emptyList()
     ):MpesaPositionedRows {
         fun reject(p:Int,reason:MpesaPositionedRows.Reason,row:Int?=null,
             check:PdfStatementCheck?=null,columns:Set<StatementField> = emptySet())=
@@ -93,7 +96,8 @@ object PdfBoxStatementGeometry {
                 else -> null
             },columns)
         if(pages.isEmpty() || pages.size>PdfTextReviewPolicy.MAX_PAGES ||
-            positioned.size!=pages.size || complete.size!=pages.size)
+            positioned.size!=pages.size || complete.size!=pages.size ||
+            (gridTables.isNotEmpty() && gridTables.size!=pages.size))
             return reject(1,MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
         val output=mutableListOf<String>()
         val evidence=mutableListOf<PdfBoxReceiptEvidence>()
@@ -128,27 +132,48 @@ object PdfBoxStatementGeometry {
                 continue
             }
             val bands=headers(lines)
-            fun layoutAt(index:Int)=bands.filter {it.end<index}.maxWithOrNull(
-                compareBy<HeaderBand> {it.end}.thenBy {band ->
-                    band.layout.columns.sumOf {it.heading.size}
+            val physical=gridTables.getOrNull(i).orEmpty()
+            fun gridAt(index:Int):StatementPhysicalGridTable? =
+                physical.singleOrNull {grid ->
+                    val row=grid.rowOf(lines[index].y)
+                    row!=null && row>0
                 }
-            )?.layout
+            fun layoutAt(index:Int):StatementPdfColumns? {
+                if(physical.isNotEmpty())return gridAt(index)?.columns
+                return bands.filter {it.end<index}.maxWithOrNull(
+                    compareBy<HeaderBand> {it.end}.thenBy {band ->
+                        band.layout.columns.sumOf {it.heading.size}
+                    }
+                )?.layout
+            }
             // Receipt references, not flattened date/time lines, anchor rows.
             // Completion timestamps may wrap within their own date column.
             val anchors=lines.indices.filter {index ->
                 val layout=layoutAt(index)
                 layout!=null && lines[index].words.any {
                     receiptToken.matches(it.text) && !footer.containsMatchIn(it.text) &&
-                        layout.owner(it)==StatementField.REFERENCE
+                        (if(physical.isNotEmpty())gridAt(index)?.owner(it) else layout.owner(it))==
+                            StatementField.REFERENCE
                 }
             }
             if(anchors.size!=expected || anchors.zipWithNext().any {(a,b)->
                 b<=a || lines[b].y-lines[a].y<5f})
                 return reject(page,MpesaPositionedRows.Reason.UNVERIFIED_ROW_COUNT,
-                    check=if(bands.isEmpty())PdfStatementCheck.HEADER_DISCOVERY else PdfStatementCheck.RECEIPT_COVERAGE)
+                    check=if(bands.isEmpty() && physical.isEmpty())
+                        PdfStatementCheck.HEADER_DISCOVERY else PdfStatementCheck.RECEIPT_COVERAGE)
             if(lines.indexOfFirst {footer.containsMatchIn(it.text)}.let {
                     it>=0 && it<anchors.last()
                 }) return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT)
+            if(physical.isNotEmpty()) {
+                // Each observed receipt must have its own physical table row.
+                val physicalRows=anchors.mapNotNull {index ->
+                    gridAt(index)?.let {grid -> grid to grid.rowOf(lines[index].y) }
+                }
+                if(physicalRows.size!=anchors.size ||
+                    physicalRows.toSet().size!=physicalRows.size)
+                    return reject(page,MpesaPositionedRows.Reason.UNVERIFIED_ROW_COUNT,
+                        check=PdfStatementCheck.RECEIPT_COVERAGE)
+            }
             val headerWords=bands.flatMap {band ->
                 lines.subList(band.start,band.end+1).flatMap {it.words}
             }.toSet()
@@ -156,7 +181,10 @@ object PdfBoxStatementGeometry {
                 val layout=layoutAt(index)!!
                 var start=index
                 while(start>0 && lines[index].y-lines[start-1].y<=16f &&
-                    lines[start-1].words.all {layout.owner(it)==StatementField.DATE})start--
+                    lines[start-1].words.all {
+                        (if(physical.isNotEmpty())gridAt(start-1)?.owner(it) else layout.owner(it))==
+                            StatementField.DATE
+                    })start--
                 start
             }
             val prefixStart=sourceReceipt.find(source)?.range?.first
@@ -180,6 +208,8 @@ object PdfBoxStatementGeometry {
             for((position,index) in anchors.withIndex()) {
                 val layout=layoutAt(index)
                     ?:return reject(page,MpesaPositionedRows.Reason.UNRECOGNIZED_TABLE,position+1)
+                val rowGrid=gridAt(index)
+                val actualRow=rowGrid?.rowOf(lines[index].y)
                 val stop=rowStarts.getOrNull(position+1) ?: lines.size
                 val block=lines.subList(rowStarts[position],stop).takeWhile {!footer.containsMatchIn(it.text)}
                 val words=block.flatMap {it.words}.filterNot {it in headerWords}
@@ -187,7 +217,8 @@ object PdfBoxStatementGeometry {
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.ROW_SIZE)
                 val cells=mutableMapOf<StatementField,MutableList<PdfTextFragment>>()
                 for(word in words) {
-                    val field=layout.owner(word)
+                    val field=(if(rowGrid!=null && actualRow!=null)
+                        rowGrid.owner(word,actualRow) else layout.owner(word))
                         ?:return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT,position+1,
                             PdfStatementCheck.COLUMN_OWNERSHIP,layout.columns.filter {
                                 word.left<it.right && word.right>it.left
@@ -209,8 +240,17 @@ object PdfBoxStatementGeometry {
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.SOURCE_TIMESTAMP_COUNT)
                 if(date!="${original.groupValues[2]} ${times.single()}")
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.TIMESTAMP_CELL)
-                if(text(StatementField.STATUS).uppercase(Locale.ROOT)!="COMPLETED")
-                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1,PdfStatementCheck.STATUS_CELL)
+                val statusParts=cells[StatementField.STATUS].orEmpty()
+                    .sortedWith(compareBy<PdfTextFragment>{it.top}.thenBy{it.left})
+                val status=if(rowGrid!=null && statusParts.size in 2..4 &&
+                    statusParts.joinToString("") {it.text}.equals("Completed",true) &&
+                    statusParts.zipWithNext().all {(a,b)->
+                        abs((a.top+a.bottom)/2f-(b.top+b.bottom)/2f)<=3.4f &&
+                            b.left>=a.right-1f && b.left-a.right<=2f
+                    })"Completed" else text(StatementField.STATUS)
+                if(!status.equals("Completed",true))
+                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,
+                        position+1,PdfStatementCheck.STATUS_CELL)
                 val detail=text(StatementField.DESCRIPTION)
                 if(detail.length !in 1..200)
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.DESCRIPTION_LENGTH)
@@ -249,7 +289,7 @@ object PdfBoxStatementGeometry {
                 // V2 model. No summaries or customer metadata become rows.
                 val headings=layout.columns.map {column->column.heading.sortedWith(
                     compareBy<PdfTextFragment> {it.top}.thenBy {it.left}).joinToString(" "){it.text}}
-                val row=layout.columns.map {text(it.field)}
+                val row=layout.columns.map {if(it.field==StatementField.STATUS)status else text(it.field)}
                 val provenance=layout.columns.map {cells[it.field].orEmpty().toList()}
                 val previous=tables.lastOrNull()
                 if(previous?.pageNumber==page && previous.headers==headings) {
