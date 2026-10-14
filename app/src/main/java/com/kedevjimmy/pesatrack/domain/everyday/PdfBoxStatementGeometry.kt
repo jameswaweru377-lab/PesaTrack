@@ -3,6 +3,8 @@ package com.kedevjimmy.pesatrack.domain.everyday
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextFragment
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck
+import com.kedevjimmy.pesatrack.domain.evidence.PdfColumnDiagnostic
+import com.kedevjimmy.pesatrack.domain.evidence.PdfStatusDiagnostic
 import kotlin.math.abs
 import java.util.Locale
 import java.math.BigDecimal
@@ -77,13 +79,147 @@ object PdfBoxStatementGeometry {
         return listOf("Total Paid In: $paid","Total Withdrawn: $debit")
     }
 
+    /**
+     * Header midpoints are not guarantees of body-cell widths. Some PDFBox
+     * text rectangles for a genuine *source-verified* date or time can spill
+     * slightly over the inferred Date/time–Description boundary. Only that
+     * exact isolated source token may be retained in Date/time; never assign
+     * an arbitrary straddling fragment by its centre or by a majority area.
+     *
+     * The DATE cell is still checked verbatim against the source receipt and
+     * its unique completion time after reconstruction. Any competing glyph
+     * rectangle or large overrun fails closed.
+     */
+    private fun verifiedDateBoundaryWord(
+        word:PdfTextFragment,
+        rowWords:List<PdfTextFragment>,
+        layout:StatementPdfColumns,
+        receiptDate:String,
+        uniqueReceiptTime:String?
+    ):Boolean {
+        if(word.text != receiptDate && (uniqueReceiptTime == null ||
+                word.text != uniqueReceiptTime))return false
+        val date=layout.columns.singleOrNull {it.field==StatementField.DATE} ?:return false
+        val detail=layout.columns.singleOrNull {it.field==StatementField.DESCRIPTION} ?:return false
+        val boundary=date.right
+        // Only neighboring Date/time and Description, in that physical order.
+        if(boundary != detail.left || word.left<date.left ||
+            word.left>=boundary || word.right<=boundary ||
+            word.right>detail.right || word.right-boundary>24f)return false
+        val intersecting=layout.columns.filter {
+            word.left<it.right && word.right>it.left
+        }.map {it.field}.toSet()
+        if(intersecting!=setOf(StatementField.DATE,StatementField.DESCRIPTION))
+            return false
+        // A broad rectangle is not proof that adjacent text was absorbed.
+        // Never accept if its original glyph bounds physically touch another
+        // text rectangle on the same line.
+        val centre=(word.top+word.bottom)/2f
+        if(rowWords.any {other ->
+                other !== word &&
+                    abs((other.top+other.bottom)/2f-centre)<=3.4f &&
+                    other.left<word.right+1f && other.right>word.left-1f
+            })return false
+        return true
+    }
+
+    /**
+     * Very narrow, source-backed exception for Details text extending LEFT of
+     * a heading-midpoint boundary into Date/time. Never reassign an arbitrary
+     * rectangle by its midpoint. This is not applied to money or status cells.
+     *
+     * The description fragment must appear exactly once in the original
+     * receipt AFTER its unique completion time and BEFORE Completed, must
+     * overlap only the two neighboring physical column ranges, and must not
+     * physically intersect any other word on the same visual line.
+     * The full existing receipt and financial proof is always required later.
+     */
+    private fun verifiedDescriptionBoundaryWord(
+        word:PdfTextFragment,
+        rowWords:List<PdfTextFragment>,
+        layout:StatementPdfColumns,
+        sourceBlock:String,
+        receiptDate:String,
+        uniqueReceiptTime:String?
+    ):Boolean {
+        val time=uniqueReceiptTime ?:return false
+        val date=layout.columns.singleOrNull {it.field==StatementField.DATE} ?:return false
+        val detail=layout.columns.singleOrNull {it.field==StatementField.DESCRIPTION} ?:return false
+        val boundary=detail.left
+        if(date.right!=boundary || word.left<date.left ||
+            word.left>=boundary || word.right<=boundary ||
+            word.right>detail.right || boundary-word.left>24f)return false
+        if(word.text.length !in 3..200 || word.text!=word.text.trim() ||
+            word.text.any(Char::isISOControl) ||
+            word.text==receiptDate || word.text==time ||
+            word.text.equals("Completed",true) ||
+            money.matches(word.text))return false
+        if(layout.columns.filter {word.left<it.right && word.right>it.left}
+                .map {it.field}.toSet()!=setOf(StatementField.DATE,StatementField.DESCRIPTION))
+            return false
+        val sourceTime=sourceBlock.indexOf(time)
+        val sourceStatus=sourceBlock.indexOf("Completed",ignoreCase=true)
+        val index=sourceBlock.indexOf(word.text)
+        if(sourceTime<0 || sourceStatus<0 || index<sourceTime+time.length ||
+            index>=sourceStatus || sourceBlock.indexOf(word.text,index+1)>=0)return false
+        // Prevent a shifted rectangle from stealing text that occupies the
+        // Date/time physical space on the same row, even if source text agrees.
+        val centre=(word.top+word.bottom)/2f
+        if(rowWords.any {other ->
+                other !== word &&
+                    abs((other.top+other.bottom)/2f-centre)<=3.4f &&
+                    other.left<word.right+1f && other.right>word.left-1f
+            })return false
+        return true
+    }
+
+    /**
+     * The output is one of a small fixed vocabulary of authored messages.
+     * No PDF text, bounds, source values, or nearby financial details escape.
+     */
+    private fun classifyUnownedFragment(
+        word:PdfTextFragment,
+        rowWords:List<PdfTextFragment>,
+        layout:StatementPdfColumns,
+        receiptDate:String,
+        sourceTime:String?
+    ):PdfColumnDiagnostic {
+        val date=layout.columns.singleOrNull {it.field==StatementField.DATE}
+            ?:return PdfColumnDiagnostic.OTHER_RECTANGLE
+        val description=layout.columns.singleOrNull {it.field==StatementField.DESCRIPTION}
+            ?:return PdfColumnDiagnostic.OTHER_RECTANGLE
+        val verified=word.text==receiptDate || (sourceTime!=null && word.text==sourceTime)
+        if(verified) {
+            if(word.left>=date.left && word.left<date.right &&
+                word.right-date.right>24f)
+                return PdfColumnDiagnostic.VERIFIED_TIMESTAMP_TOO_WIDE
+            val mid=(word.top+word.bottom)/2f
+            if(rowWords.any { other ->
+                    other !== word &&
+                        abs((other.top+other.bottom)/2f-mid)<=3.4f &&
+                        other.left<word.right+1f && other.right>word.left-1f
+                })return PdfColumnDiagnostic.VERIFIED_TIMESTAMP_TOUCHES_NEIGHBOR
+            return PdfColumnDiagnostic.VERIFIED_TIMESTAMP_LAYOUT_MISMATCH
+        }
+        val crosses=(word.left<description.left && word.right>description.left)
+        return if(crosses && word.left>=date.left && word.right<=description.right) {
+            // Classification by source confirmation, not by publishing text.
+            val looksJoined=word.text.startsWith(receiptDate) ||
+                (sourceTime!=null && word.text.startsWith(sourceTime))
+            if(looksJoined)PdfColumnDiagnostic.COMBINED_OR_UNVERIFIED_TEXT
+            else PdfColumnDiagnostic.DESCRIPTION_CROSSES_BOUNDARY
+        } else PdfColumnDiagnostic.OTHER_RECTANGLE
+    }
+
     fun reconstruct(
         pages:List<String>, positioned:List<List<PdfTextFragment>>, complete:List<Boolean>,
         /** Compatibility output for legacy tests/callers, never production review. */
         emitCompatibilityText:Boolean=true
     ):MpesaPositionedRows {
         fun reject(p:Int,reason:MpesaPositionedRows.Reason,row:Int?=null,
-            check:PdfStatementCheck?=null,columns:Set<StatementField> = emptySet())=
+            check:PdfStatementCheck?=null,columns:Set<StatementField> = emptySet(),
+            diagnostic:PdfColumnDiagnostic?=null,
+            statusDiagnostic:PdfStatusDiagnostic?=null)=
             MpesaPositionedRows.Unsupported(p,reason,row,check ?: when(reason) {
                 MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY -> PdfStatementCheck.INCOMPLETE_GEOMETRY
                 MpesaPositionedRows.Reason.UNRECOGNIZED_TABLE -> PdfStatementCheck.HEADER_DISCOVERY
@@ -91,7 +227,7 @@ object PdfBoxStatementGeometry {
                 MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT -> PdfStatementCheck.ROW_BOUNDARY
                 MpesaPositionedRows.Reason.UNVERIFIED_FINANCIAL_EVIDENCE -> PdfStatementCheck.FINANCIAL_RECONCILIATION
                 else -> null
-            },columns)
+            },columns,diagnostic,statusDiagnostic)
         if(pages.isEmpty() || pages.size>PdfTextReviewPolicy.MAX_PAGES ||
             positioned.size!=pages.size || complete.size!=pages.size)
             return reject(1,MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
@@ -185,13 +321,28 @@ object PdfBoxStatementGeometry {
                 val words=block.flatMap {it.words}.filterNot {it in headerWords}
                 if(words.isEmpty() || words.size>260)
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.ROW_SIZE)
+                val original=sourceRows[position]
+                val sourceBlock=source.substring(original.range.first,
+                    sourceRows.getOrNull(position+1)?.range?.first ?: source.length)
+                val times=clock.findAll(sourceBlock).map {it.value}.toList()
+                val verifiedClock=times.singleOrNull()
                 val cells=mutableMapOf<StatementField,MutableList<PdfTextFragment>>()
                 for(word in words) {
-                    val field=layout.owner(word)
-                        ?:return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT,position+1,
+                    val field=layout.owner(word) ?:
+                        StatementField.DATE.takeIf {
+                            verifiedDateBoundaryWord(
+                                word,words,layout,original.groupValues[2],verifiedClock
+                            )
+                        } ?: StatementField.DESCRIPTION.takeIf {
+                            verifiedDescriptionBoundaryWord(
+                                word,words,layout,sourceBlock,original.groupValues[2],verifiedClock
+                            )
+                        } ?:return reject(page,MpesaPositionedRows.Reason.OUT_OF_ROW_FRAGMENT,position+1,
                             PdfStatementCheck.COLUMN_OWNERSHIP,layout.columns.filter {
                                 word.left<it.right && word.right>it.left
-                            }.map {it.field}.toSet())
+                            }.map {it.field}.toSet(), classifyUnownedFragment(
+                                word,words,layout,original.groupValues[2],verifiedClock
+                            ))
                     cells.getOrPut(field) {mutableListOf()}.add(word)
                 }
                 fun text(field:StatementField)=clean(cells[field].orEmpty()
@@ -199,18 +350,29 @@ object PdfBoxStatementGeometry {
                     .joinToString(" ") {it.text})
                 val reference=text(StatementField.REFERENCE).uppercase(Locale.ROOT)
                 val date=text(StatementField.DATE)
-                val original=sourceRows[position]
-                val sourceBlock=source.substring(original.range.first,
-                    sourceRows.getOrNull(position+1)?.range?.first ?: source.length)
-                val times=clock.findAll(sourceBlock).map {it.value}.toList()
                 if(reference!=original.groupValues[1].uppercase(Locale.ROOT))
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.REFERENCE_CELL)
                 if(times.size!=1)
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.SOURCE_TIMESTAMP_COUNT)
                 if(date!="${original.groupValues[2]} ${times.single()}")
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.TIMESTAMP_CELL)
-                if(text(StatementField.STATUS).uppercase(Locale.ROOT)!="COMPLETED")
-                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,position+1,PdfStatementCheck.STATUS_CELL)
+                if(text(StatementField.STATUS).uppercase(Locale.ROOT)!="COMPLETED") {
+                    // Source text may contain Completed even when the positioned
+                    // Status cell is missing, split, or contaminated by a
+                    // Description fragment. Classify only; NEVER auto-accept.
+                    val parts=cells[StatementField.STATUS].orEmpty()
+                    val category=when {
+                        parts.isEmpty() -> PdfStatusDiagnostic.MISSING
+                        parts.size==1 -> PdfStatusDiagnostic.SINGLE_UNVERIFIED
+                        parts.joinToString("") { it.text }.equals("Completed",true) ->
+                            PdfStatusDiagnostic.SPLIT_COMPLETED
+                        parts.any { it.text.equals("Completed",true) } ->
+                            PdfStatusDiagnostic.COMPLETED_WITH_EXTRA
+                        else -> PdfStatusDiagnostic.MULTIPLE_UNVERIFIED
+                    }
+                    return reject(page,MpesaPositionedRows.Reason.MISSING_STATUS_OR_MONEY,
+                        position+1,PdfStatementCheck.STATUS_CELL,statusDiagnostic=category)
+                }
                 val detail=text(StatementField.DESCRIPTION)
                 if(detail.length !in 1..200)
                     return reject(page,MpesaPositionedRows.Reason.AMBIGUOUS_RECEIPT,position+1,PdfStatementCheck.DESCRIPTION_LENGTH)

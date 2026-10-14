@@ -18,7 +18,10 @@ sealed class MpesaPositionedRows {
     ) : MpesaPositionedRows()
     data class Unsupported(val page: Int, val reason: Reason,val row:Int?=null,
         val check:com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck?=null,
-        val columns:Set<com.kedevjimmy.pesatrack.domain.statements.StatementField> = emptySet()) : MpesaPositionedRows()
+        val columns:Set<com.kedevjimmy.pesatrack.domain.statements.StatementField> = emptySet(),
+        val columnDiagnostic:com.kedevjimmy.pesatrack.domain.evidence.PdfColumnDiagnostic? = null,
+        val statusDiagnostic:com.kedevjimmy.pesatrack.domain.evidence.PdfStatusDiagnostic? = null
+    ) : MpesaPositionedRows()
     enum class Reason {
         INCOMPLETE_GEOMETRY, UNRECOGNIZED_TABLE, AMBIGUOUS_RECEIPT,
         MISSING_STATUS_OR_MONEY, OUT_OF_ROW_FRAGMENT, UNVERIFIED_ROW_COUNT,

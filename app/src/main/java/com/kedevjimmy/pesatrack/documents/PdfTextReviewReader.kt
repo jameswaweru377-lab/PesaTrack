@@ -99,8 +99,12 @@ object PdfTextReviewReader {
             return suspendCancellableCoroutine { continuation ->
                 fun fail(failure: PdfFailure, page:Int? = null,row:Int? = null,
                     check:com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck?=null,
-                    columns:Set<com.kedevjimmy.pesatrack.domain.statements.StatementField> = emptySet()) {
-                    if (continuation.isActive) continuation.resumeWithException(PdfReadException(failure,page,row,check,columns))
+                    columns:Set<com.kedevjimmy.pesatrack.domain.statements.StatementField> = emptySet(),
+                    diagnostic:com.kedevjimmy.pesatrack.domain.evidence.PdfColumnDiagnostic?=null,
+                    statusDiagnostic:com.kedevjimmy.pesatrack.domain.evidence.PdfStatusDiagnostic?=null) {
+                    if (continuation.isActive)
+                        continuation.resumeWithException(
+                            PdfReadException(failure,page,row,check,columns,diagnostic,statusDiagnostic))
                 }
                 val assembly=PdfTextChunkAssembler()
                 val positioned=PdfPositionChunkAssembler()
@@ -111,7 +115,11 @@ object PdfTextReviewReader {
                             message.data.getInt("failurePage",0).takeIf {it in 1..PdfTextReviewPolicy.MAX_PAGES},
                             message.data.getInt("failureRow",0).takeIf {it in 1..5000},
                             com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck.decode(message.data.getString("failureCheck")),
-                            com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck.decodeColumns(message.data.getInt("failureColumns",0)))
+                            com.kedevjimmy.pesatrack.domain.evidence.PdfStatementCheck.decodeColumns(message.data.getInt("failureColumns",0)),
+                            com.kedevjimmy.pesatrack.domain.evidence.PdfColumnDiagnostic.decode(
+                                message.data.getString("failureColumnDiagnostic")),
+                            com.kedevjimmy.pesatrack.domain.evidence.PdfStatusDiagnostic.decode(
+                                message.data.getString("failureStatusDiagnostic")))
                         else try {
                             val data=message.data
                             if(data.containsKey("chunk")) {

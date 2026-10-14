@@ -68,6 +68,42 @@ class PdfBoxStatementGeometryTest {
     private fun refused(words:List<PdfTextFragment>,source:String=heading+first+"\n"+second+"\n"+oldest)=
         PdfBoxStatementGeometry.reconstruct(listOf(source),listOf(words),listOf(true)) as MpesaPositionedRows.Unsupported
 
+    @Test fun statusRefusalIdentifiesProblemWithoutPublishingStatementWords() {
+        val missing=refused(geometry().filterNot {
+            it.text=="Completed" && it.top==100f
+        })
+        assertEquals(PdfStatementCheck.STATUS_CELL,missing.check)
+        assertEquals(PdfStatusDiagnostic.MISSING,missing.statusDiagnostic)
+
+        val separated=geometry().flatMap {
+            if(it.text=="Completed" && it.top==100f)listOf(
+                word("Com",330f,100f),word("pleted",343f,100f))
+            else listOf(it)
+        }
+        val split=refused(separated)
+        assertEquals(PdfStatementCheck.STATUS_CELL,split.check)
+        assertEquals(PdfStatusDiagnostic.SPLIT_COMPLETED,split.statusDiagnostic)
+
+        val extra=refused(geometry()+word("Note",362f,100f))
+        assertEquals(PdfStatementCheck.STATUS_CELL,extra.check)
+        assertEquals(PdfStatusDiagnostic.COMPLETED_WITH_EXTRA,extra.statusDiagnostic)
+
+        val changed=refused(geometry().map {
+            if(it.text=="Completed" && it.top==100f)it.copy(text="Pending") else it
+        })
+        assertEquals(PdfStatementCheck.STATUS_CELL,changed.check)
+        assertEquals(PdfStatusDiagnostic.SINGLE_UNVERIFIED,changed.statusDiagnostic)
+
+        val rendered=PdfReadException(PdfFailure.TABLE_EVIDENCE,split.page,
+            split.row,split.check,split.columns,split.columnDiagnostic,split.statusDiagnostic).safeExplanation
+        assertTrue(rendered.contains("split into separate positioned words"))
+        for(privateValue in listOf("QAB1234569","Shop purchase","-20.00","490.00","2026-10-10"))
+            assertFalse(rendered.contains(privateValue))
+        assertNull(PdfStatusDiagnostic.decode("Private bank label"))
+        assertEquals(PdfStatusDiagnostic.SPLIT_COMPLETED,
+            PdfStatusDiagnostic.decode("SPLIT_COMPLETED"))
+    }
+
     @Test fun rowRefusalsIdentifyTheFailingCheckWithoutValues() {
         assertEquals(PdfStatementCheck.TIMESTAMP_CELL,refused(geometry().map {
             if(it.top==100f && it.text=="2026-10-10")it.copy(text="2026-10-11") else it}).check)
@@ -83,6 +119,128 @@ class PdfBoxStatementGeometryTest {
         assertEquals(PdfStatementCheck.BALANCE_AMOUNT,refused(geometry().map {
             if(it.top==100f && it.text=="490.00")it.copy(text="??") else it}).check)
         assertEquals(PdfStatementCheck.MOVEMENT_DIRECTION,refused(geometry()+word("10.00",406f,100f)).check)
+    }
+
+    @Test fun sourceVerifiedTimeMayOverrunHeaderMidpointWithoutMovingMoneyOrDetails() {
+        // Heading-midpoint between Completion Time and Details is ~200.5.
+        // The timestamp is a separate PDFBox word, does not touch Details,
+        // and exactly matches the unique time in the original receipt text.
+        val widerTime=geometry().map {
+            if(it.text=="10:30:00" && it.top==100f)it.copy(right=208f) else it
+        }
+        val result=PdfBoxStatementGeometry.reconstruct(
+            listOf(heading+first+"\n"+second+"\n"+oldest),
+            listOf(widerTime),listOf(true)
+        )
+        assertTrue(result.toString(),result is MpesaPositionedRows.Ready)
+        val ready=result as MpesaPositionedRows.Ready
+        assertEquals(3,ready.pdfBoxProof!!.receipts.size)
+        val table=ready.tables.single()
+        assertEquals("2026-10-10 10:30:00",table.rows.first()[1])
+        assertEquals("Shop purchase",table.rows.first()[2])
+        assertEquals("-20.00",table.rows.first()[5])
+    }
+
+    @Test fun independentlyProvenDetailMaySlightlyCrossInferredDateBoundary() {
+        val geometryWithNarrowDetail=geometry().map {
+            if(it.text=="Shop purchase" && it.top==100f)it.copy(left=198f) else it
+        }
+        val output=PdfBoxStatementGeometry.reconstruct(
+            listOf(heading+first+"\n"+second+"\n"+oldest),
+            listOf(geometryWithNarrowDetail),listOf(true))
+        assertTrue(output.toString(),output is MpesaPositionedRows.Ready)
+        val ready=output as MpesaPositionedRows.Ready
+        val table=ready.tables.single()
+        assertEquals("2026-10-10 10:30:00",table.rows.first()[1])
+        assertEquals("Shop purchase",table.rows.first()[2])
+        assertEquals("-20.00",table.rows.first()[5])
+        assertEquals("490.00",table.rows.first()[6])
+        assertEquals(3,ready.pdfBoxProof!!.receipts.size)
+    }
+
+    @Test fun dateDescriptionBoundaryStillRejectsTrueOverlapAndUnverifiedFragments() {
+        val source=heading+first+"\n"+second+"\n"+oldest
+        fun fail(words:List<PdfTextFragment>):MpesaPositionedRows.Unsupported =
+            PdfBoxStatementGeometry.reconstruct(listOf(source),listOf(words),listOf(true))
+                as MpesaPositionedRows.Unsupported
+        // It is never safe to assign this token from only its centre: the
+        // glyph box now physically overlaps the Details cell on the same Y.
+        val intersectsDetails=geometry().map {
+            if(it.text=="10:30:00" && it.top==100f)it.copy(right=223f) else it
+        }
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,fail(intersectsDetails).check)
+        // The original source cannot prove this concatenated or edited word.
+        val merged=geometry().map {
+            if(it.text=="10:30:00" && it.top==100f)
+                it.copy(text="10:30:00Shop",right=208f)
+            else it
+        }
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,fail(merged).check)
+        // A header-midpoint mismatch is allowed only within a small bound,
+        // not permission to extend timestamp text across the entire Details.
+        val excessive=geometry().map {
+            if(it.text=="10:30:00" && it.top==100f)it.copy(right=237f) else it
+        }
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,fail(excessive).check)
+        // Details actually overlapping the independent Date/time glyphs fails.
+        val detailCross=geometry().map {
+            if(it.text=="Shop purchase" && it.top==100f)it.copy(left=175f) else it
+        }
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,fail(detailCross).check)
+        // A wider but noncolliding fragment still exceeds the bounded margin.
+        val farLeft=geometry().map {
+            if(it.text=="Shop purchase" && it.top==100f)it.copy(left=172f) else it
+        }
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,fail(farLeft).check)
+        // Non-source text cannot earn column ownership by appearance alone.
+        val changedDescription=geometry().map {
+            if(it.text=="Shop purchase" && it.top==100f)
+                it.copy(text="Not in original",left=198f)
+            else it
+        }
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,fail(changedDescription).check)
+        // A continuation with no source-confirmed placement before Completed
+        // is not permitted to bypass geometric column checks.
+        val sourceWithoutDescription=source.replace("Shop purchase","Other purchase")
+        val bad=PdfBoxStatementGeometry.reconstruct(listOf(sourceWithoutDescription),
+            listOf(geometry().map {
+                if(it.text=="Shop purchase" && it.top==100f)it.copy(left=198f) else it
+            }),listOf(true)) as MpesaPositionedRows.Unsupported
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,bad.check)
+    }
+
+    @Test fun failedDateBoundaryReportsOnlyAuthoredNonSensitiveReason() {
+        val source=heading+first+"\n"+second+"\n"+oldest
+        fun rejected(words:List<PdfTextFragment>):MpesaPositionedRows.Unsupported =
+            PdfBoxStatementGeometry.reconstruct(listOf(source),listOf(words),listOf(true))
+                as MpesaPositionedRows.Unsupported
+        fun withChangedTime(value:String,right:Float)=geometry().map {
+            if(it.text=="10:30:00" && it.top==100f)
+                it.copy(text=value,right=right)
+            else it
+        }
+        val tooWide=rejected(withChangedTime("10:30:00",237f))
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,tooWide.check)
+        assertEquals(PdfColumnDiagnostic.VERIFIED_TIMESTAMP_TOO_WIDE,tooWide.columnDiagnostic)
+
+        val colliding=rejected(withChangedTime("10:30:00",223f))
+        assertEquals(PdfColumnDiagnostic.VERIFIED_TIMESTAMP_TOUCHES_NEIGHBOR,colliding.columnDiagnostic)
+
+        val joined=rejected(withChangedTime("10:30:00Shop",208f))
+        assertEquals(PdfColumnDiagnostic.COMBINED_OR_UNVERIFIED_TEXT,joined.columnDiagnostic)
+
+        val crossedDetail=rejected(geometry().map {
+            if(it.text=="Shop purchase" && it.top==100f)it.copy(left=175f) else it
+        })
+        assertEquals(PdfColumnDiagnostic.DESCRIPTION_CROSSES_BOUNDARY,crossedDetail.columnDiagnostic)
+        val issue=PdfReadException(PdfFailure.TABLE_EVIDENCE,1,1,
+            crossedDetail.check,crossedDetail.columns,crossedDetail.columnDiagnostic)
+        assertTrue(issue.safeExplanation.contains("Description text rectangle crosses"))
+        assertFalse(issue.safeExplanation.contains("Shop purchase"))
+        assertFalse(issue.safeExplanation.contains("QAB1234569"))
+        assertNull(PdfColumnDiagnostic.decode("Private transaction reference"))
+        assertEquals(PdfColumnDiagnostic.DESCRIPTION_CROSSES_BOUNDARY,
+            PdfColumnDiagnostic.decode("DESCRIPTION_CROSSES_BOUNDARY"))
     }
 
     @Test fun crossingColumnsReportOnlySemanticRolesAndSourceLocation() {
