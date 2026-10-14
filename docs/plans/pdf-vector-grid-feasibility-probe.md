@@ -12,9 +12,10 @@ accuracy, currency, receipt completeness, or percentage reliability.
 ## Existing vs proposed
 - Existing PDFBox read-only probe counts positioned words and possible receipt markers.
 - This isolated mode traverses path commands using the existing Android PDFBox
-  dependency and counts long horizontal/vertical strokes and their intersections.
-- The report contains at most five integers per page: page ordinal, distinct
-  horizontal count, distinct vertical count, intersections, and possible-grid bit.
+  dependency and counts long horizontal/vertical strokes, joins short collinear fragments, also recognizes narrow filled rectangles, and measures their intersections.
+- The report contains seven bounded integers per page: page ordinal, distinct
+  horizontal count, distinct vertical count, intersections, possible-grid bit,
+  thin filled horizontal-rule count, and thin filled vertical-rule count.
 - Only fixed safe summary text leaves the isolated service; no text, coordinates,
   balances, identifiers, drawing colors, screenshots, or passwords are logged,
   exported, or transported.
@@ -28,7 +29,8 @@ accuracy, currency, receipt completeness, or percentage reliability.
 2. Choose **Test PDF vector table lines (read-only)**.
 3. Choose the original PDF only on the device; supply the password locally if asked.
 4. Read the page-count summary and report **only** the number of pages with possible
-   vector grids and the number without long orthogonal lines. Share no document
+   vector grids and the count breakdown for insufficient intersections, one-direction-only lines,
+   no long lines and thin filled rules. Share no document
    contents, passwords, raw logcat, real account data, or receipts.
 5. Compare a synthetic ruled file (should indicate grid) and a synthetic
    borderless file (should not). Test incorrectly encrypted input and cancellation.
@@ -39,8 +41,9 @@ accuracy, currency, receipt completeness, or percentage reliability.
   It does **not** prove text belongs to cells, every row is present, or the grid
   describes a financial statement.
 - Zero grid pages does not mean the PDF has no visible lines: rasterized grids,
-  filled rectangles, unusually short strokes, curved/rotated paths and other
-  drawing techniques may be missed. PDF form/rotation handling must be verified.
+  nonrectangular filled shapes, unusually short strokes, curved/rotated paths
+  and other drawing techniques may be missed. The new segment joining and
+  thin-rectangle detection narrow this uncertainty but do not eliminate it. PDF form/rotation handling must be verified.
 - A ruled synthetic grid is not the owner's original 26-page PDF. No private
   statement has been uploaded or tested.
 - This intentionally does not change PesaTrack's existing statement geometry
@@ -49,7 +52,8 @@ accuracy, currency, receipt completeness, or percentage reliability.
   Do not collect raw upstream PDFBox Logcat.
 
 ## Acceptance gates
-- JVM positive/negative geometry model and malformed IPC tests pass.
+- JVM positive/negative geometry model, fragmented-line joining, thin filled
+  rules and malformed IPC tests pass.
 - Android source, synthetic androidTest *compilation*, lint, APK and financial
   regression checks pass against the exact draft PR head.
 - Physical device test confirms 26-page completion and safe category-only
