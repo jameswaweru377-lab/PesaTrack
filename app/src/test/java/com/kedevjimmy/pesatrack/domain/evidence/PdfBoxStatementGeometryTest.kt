@@ -136,6 +136,40 @@ class PdfBoxStatementGeometryTest {
         assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,fail(detailCross).check)
     }
 
+    @Test fun failedDateBoundaryReportsOnlyAuthoredNonSensitiveReason() {
+        val source=heading+first+"\\n"+second+"\\n"+oldest
+        fun rejected(words:List<PdfTextFragment>):MpesaPositionedRows.Unsupported =
+            PdfBoxStatementGeometry.reconstruct(listOf(source),listOf(words),listOf(true))
+                as MpesaPositionedRows.Unsupported
+        fun withChangedTime(value:String,right:Float)=geometry().map {
+            if(it.text=="10:30:00" && it.top==100f)
+                it.copy(text=value,right=right)
+            else it
+        }
+        val tooWide=rejected(withChangedTime("10:30:00",237f))
+        assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,tooWide.check)
+        assertEquals(PdfColumnDiagnostic.VERIFIED_TIMESTAMP_TOO_WIDE,tooWide.columnDiagnostic)
+
+        val colliding=rejected(withChangedTime("10:30:00",223f))
+        assertEquals(PdfColumnDiagnostic.VERIFIED_TIMESTAMP_TOUCHES_NEIGHBOR,colliding.columnDiagnostic)
+
+        val joined=rejected(withChangedTime("10:30:00Shop",208f))
+        assertEquals(PdfColumnDiagnostic.COMBINED_OR_UNVERIFIED_TEXT,joined.columnDiagnostic)
+
+        val crossedDetail=rejected(geometry().map {
+            if(it.text=="Shop purchase" && it.top==100f)it.copy(left=198f) else it
+        })
+        assertEquals(PdfColumnDiagnostic.DESCRIPTION_CROSSES_BOUNDARY,crossedDetail.columnDiagnostic)
+        val issue=PdfReadException(PdfFailure.TABLE_EVIDENCE,1,1,
+            crossedDetail.check,crossedDetail.columns,crossedDetail.columnDiagnostic)
+        assertTrue(issue.safeExplanation.contains("Description text rectangle crosses"))
+        assertFalse(issue.safeExplanation.contains("Shop purchase"))
+        assertFalse(issue.safeExplanation.contains("QAB1234569"))
+        assertNull(PdfColumnDiagnostic.decode("Private transaction reference"))
+        assertEquals(PdfColumnDiagnostic.DESCRIPTION_CROSSES_BOUNDARY,
+            PdfColumnDiagnostic.decode("DESCRIPTION_CROSSES_BOUNDARY"))
+    }
+
     @Test fun crossingColumnsReportOnlySemanticRolesAndSourceLocation() {
         val output=refused(geometry().map {if(it.text=="Shop purchase")it.copy(right=340f) else it})
         assertEquals(PdfStatementCheck.COLUMN_OWNERSHIP,output.check)
