@@ -26,3 +26,15 @@ data class StatementActivityLine(
     val movementMinor: Long get() = Math.subtractExact(paidInMinor, withdrawnMinor)
     val informational: Boolean get() = movementMinor == 0L
 }
+
+/** Count-only admission contract for the separate statement archive.
+ * A future offline Python extractor must supply these only after whole-file proof;
+ * this type does not infer source authenticity or create canonical transactions.
+ */
+data class StatementActivityProof(
+    val receiptRows: Int,
+    val cashRows: Int,
+    val totalsVerified: Boolean
+) {
+    init { require(receiptRows in 1..5000 && cashRows in 0..receiptRows) }
+}
