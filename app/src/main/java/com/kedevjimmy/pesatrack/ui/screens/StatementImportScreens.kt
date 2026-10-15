@@ -38,9 +38,6 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import android.os.Build
-import com.kedevjimmy.pesatrack.documents.PdfTextReviewReader
-import com.kedevjimmy.pesatrack.domain.evidence.FinancialPdfDocumentClassifier
-import com.kedevjimmy.pesatrack.domain.evidence.FinancialPdfDocumentKind
 
 private fun readStatement(c:Context,uri:Uri):String {
  val bytes=c.contentResolver.openInputStream(uri)?.use {input->val out=ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val n=input.read(buffer);if(n<0)break;require(out.size()+n<=StatementCsv.MAX_BYTES){"Choose a CSV smaller than 2 MB."};out.write(buffer,0,n)};out.toByteArray()} ?: error("Could not open the file.")
@@ -50,20 +47,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  val c=LocalContext.current;val store=remember {EverydayMoneyStore(c)};val scope=rememberCoroutineScope()
  var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable {mutableStateOf("")}
  var rows by remember {mutableStateOf<List<StatementRow>>(emptyList())};var preview by remember {mutableStateOf<List<EverydayMoneyStore.Preview>>(emptyList())}
- var pdfStatus by remember {mutableStateOf<String?>(null)}
- var pdfBoxStatus by remember {mutableStateOf<String?>(null)}
- var pdfGridStatus by remember {mutableStateOf<String?>(null)}
- var pdfProofStatus by remember {mutableStateOf<String?>(null)}
- var pdfPayslip by remember {mutableStateOf(false)}
- var pdfCandidates by remember {mutableStateOf<PdfStatementCandidates?>(null)}
- var pdfRows by remember {mutableStateOf(false)}
- var pdfBalanceReviewRefs by remember {mutableStateOf<Set<String>>(emptySet())}
- var pdfConfirmed by remember {mutableStateOf(false)}
- var pdfBoxSource by remember {mutableStateOf(false)}
- var pdfBoxEvidence by remember {mutableStateOf<com.kedevjimmy.pesatrack.domain.evidence.PdfBoxVerificationReport?>(null)}
- var statementAccepted by remember {mutableStateOf(false)}
  var showStatementActivity by remember {mutableStateOf(false)}
- var editingPdf by remember {mutableStateOf<StatementRow?>(null)}
  val zoneId=rememberSaveable {TimeZone.getDefault().id}
  val today=remember {StatementImportDates.day(System.currentTimeMillis(),zoneId)}
  var customDates by rememberSaveable {mutableStateOf(false)}
@@ -78,7 +62,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  var reading by remember {mutableStateOf(false)};var importing by remember {mutableStateOf(false)}
  val busy=reading||importing||preparing!=null
  val selected=remember {mutableStateMapOf<Int,Boolean>()};var error by remember {mutableStateOf<String?>(null)};var dateError by remember {mutableStateOf<String?>(null)};var done by remember {mutableStateOf<String?>(null)}
- fun invalidatePreview() {pdfConfirmed=false;statementAccepted=false;previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
+ fun invalidatePreview() {previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
  LaunchedEffect(Unit){try{accounts=withContext(Dispatchers.IO){store.ownedAccounts()}.filter {it.type==AccountType.BANK||it.type==AccountType.MOBILE_WALLET}}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load accounts."}}
  LaunchedEffect(selection){
   val source=selection
@@ -93,109 +77,23 @@ private fun readStatement(c:Context,uri:Uri):String {
     }
     dateResult=dates;preview=checked;previewSource=source
     checked.forEachIndexed {i,p->
-     selected[i]=!p.duplicate&&!p.possibleMatch &&
-      !(pdfRows && p.row.reference in pdfBalanceReviewRefs)
+     selected[i]=!p.duplicate&&!p.possibleMatch
     }
    }
   }catch(e:CancellationException){throw e}catch(e:Exception){dateError=e.message ?: "Could not check entries."}
   finally {if(preparing==source)preparing=null}
  }
- val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null&&!reading&&!importing&&preparing==null){pdfBoxSource=false;pdfBoxEvidence=null;statementAccepted=false;reading=true;invalidatePreview();pdfProofStatus=null;pdfBoxStatus=null;pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList();scope.launch{try{rows=withContext(Dispatchers.IO){StatementCsv.parse(readStatement(c,uri),TimeZone.getTimeZone(zoneId))}}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not read this CSV. Check its format."}finally{reading=false}}}}
- val pdfImport=rememberPdfImport(
-  onSelected={pdfBoxSource=false;pdfBoxEvidence=null;statementAccepted=false;invalidatePreview();pdfProofStatus=null;pdfBoxStatus=null;pdfStatus=null;pdfPayslip=false;pdfCandidates=null;pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList()},
-  onBusy={reading=it},
-  onResult={pdf->
-   if(FinancialPdfDocumentClassifier.classify(pdf.pages)==FinancialPdfDocumentKind.PAYSLIP) {
-    pdfPayslip=true
-    pdfStatus="This PDF is a payslip, not an M-Pesa statement. Open Paycheck Analysis to review it privately."
-    pdfCandidates=null
-   } else {
-    pdfPayslip=false
-    val geometry=MpesaPositionedReceiptReader.reconstruct(
-     pdf.pages,pdf.positionedPages,pdf.positionedComplete
-    )
-    pdfCandidates=when(geometry) {
-     is MpesaPositionedRows.Ready ->
-      PdfStatementReview.read(geometry.pages,TimeZone.getTimeZone(zoneId))
-     is MpesaPositionedRows.Unsupported ->
-      PdfStatementReview.read(pdf.pages,TimeZone.getTimeZone(zoneId))
-    }
-    pdfBalanceReviewRefs=pdfCandidates?.balanceReviewReferences.orEmpty()
-    val safeGeometryReason=if(geometry is MpesaPositionedRows.Unsupported &&
-     geometry.reason==MpesaPositionedRows.Reason.INCOMPLETE_GEOMETRY)
-     pdf.geometryDiagnostics.getOrNull(geometry.page-1)?.safeSummary()
-    else null
-    pdfStatus=if(pdfCandidates?.rows?.isNotEmpty()==true)
-     "Statement read locally. Transactions are ready for your review."
-    else if(geometry is MpesaPositionedRows.Unsupported)
-     "The PDF opened, but its table couldn't be reconstructed safely on page ${geometry.page} " +
-      "(${geometry.reason.name.lowercase().replace('_',' ')}). " +
-      (if(safeGeometryReason!=null) "Android geometry details: $safeGeometryReason. " else "") +
-      "The fallback text parser also could not verify the transactions."
-    else "The PDF opened, but no transactions are ready to import."
+ val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
+  if(uri!=null&&!reading&&!importing&&preparing==null){
+   reading=true;invalidatePreview();rows=emptyList()
+   scope.launch {
+    try{rows=withContext(Dispatchers.IO){StatementCsv.parse(readStatement(c,uri),TimeZone.getTimeZone(zoneId))}}
+    catch(e:CancellationException){throw e}
+    catch(e:Exception){error=e.message ?: "Could not read this CSV. Check its format."}
+    finally{reading=false}
    }
-  },
-  includePositions=true
- )
- val pdfBoxStatementImport=rememberPdfImport(
-  onSelected={
-   pdfBoxSource=true;pdfBoxEvidence=null;statementAccepted=false
-   invalidatePreview();pdfStatus=null;pdfPayslip=false;pdfCandidates=null
-   pdfRows=false;pdfBalanceReviewRefs=emptySet();rows=emptyList()
-   pdfBoxStatus=null
-   pdfProofStatus=null
-  },
-  onBusy={reading=it},
-  onResult={pdf ->
-   pdfPayslip=false
-   pdfBoxEvidence=pdf.pdfBoxVerification?.takeIf {pdf.pdfBoxStatementReady}
-   pdfProofStatus=pdf.pdfBoxVerification?.safeSummary()
-   pdfCandidates=if(pdf.pdfBoxStatementReady && pdf.pdfBoxVerification!=null && pdf.statementDeclarations!=null)
-    com.kedevjimmy.pesatrack.domain.everyday.PdfBoxTableReview.read(
-     pdf.statementTables,pdf.pdfBoxVerification,pdf.statementCurrencyReview,
-     TimeZone.getTimeZone(zoneId),declarations=pdf.statementDeclarations
-    )
-   else PdfStatementCandidates(emptyList(),listOf(
-    "PDFBox did not provide complete positioned table evidence. No transactions were added."
-   ))
-   pdfBalanceReviewRefs=pdfCandidates?.balanceReviewReferences.orEmpty()
-   pdfStatus=if(pdfCandidates?.rows?.isNotEmpty()==true)
-    "PDFBox reconstructed the statement on this phone. Every transaction still needs the normal amount, balance and duplicate review before any import."
-   else "PDFBox opened the document, but the statement did not pass the full financial verification. No transactions were added."
-  },
-  pdfBoxStatement=true
- )
- val pdfBoxInspect=rememberPdfImport(
-  onSelected={
-   // Starting a new probe must not leave a previous document's unreviewed
-   // financial candidates available for accidental import.
-   invalidatePreview();rows=emptyList();pdfRows=false
-   pdfConfirmed=false;pdfStatus=null;pdfCandidates=null
-   pdfBalanceReviewRefs=emptySet();pdfBoxStatus=null
-   pdfProofStatus=null
-  },
-  onBusy={reading=it},
-  onResult={probe->
-   pdfBoxStatus=probe.pdfBoxProbe?.safeSummary()
-    ?: "PDFBox could not return a complete read-only diagnostic."
-  },
-  pdfBoxProbe=true
- )
- val gridInspect=rememberPdfImport(
-  onSelected={
-   // This grid check must discard any previous preview or import candidates.
-   invalidatePreview();rows=emptyList();pdfRows=false
-   pdfConfirmed=false;pdfStatus=null;pdfCandidates=null
-   pdfBalanceReviewRefs=emptySet();pdfBoxStatus=null;pdfGridStatus=null
-   pdfProofStatus=null
-  },
-  onBusy={reading=it},
-  onResult={result->
-   pdfGridStatus=result.pdfBoxGridProbe?.safeSummary()
-    ?: "No complete read-only vector-line diagnostic was produced."
-  },
-  pdfBoxGridProbe=true
- )
+  }
+ }
  StatementImportWorkspace(busy,onDismiss) {
   item {
    PesaCard {
@@ -223,8 +121,6 @@ private fun readStatement(c:Context,uri:Uri):String {
       StatementImportDateButton("To date",toDay,!busy){if(toDay!=it){invalidatePreview();toDay=it}}
      }
      Text("Both chosen days are included. Your recorded transactions stay unchanged.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     if(pdfBoxSource) Text("Statement Activity saves the complete verified PDF, including all statement dates and informational rows. Date filters apply to CSV imports only.",
-      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
    }
   }
@@ -235,45 +131,11 @@ private fun readStatement(c:Context,uri:Uri):String {
       Icon(Icons.Rounded.UploadFile,null,tint=MaterialTheme.colorScheme.primary)
       Text("03 · Choose a document",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      }
-     Text("Choose a supported CSV or M-Pesa statement PDF. Your file stays on this phone.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     Text("Choose a supported CSV. Statement PDF extraction is being replaced.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      OutlinedButton(onClick={picker.launch(arrayOf("text/csv","text/comma-separated-values","application/csv","text/plain","application/octet-stream"))},enabled=!busy&&accountId.isNotEmpty(),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.TableChart,null);Spacer(Modifier.width(8.dp));Text("Select CSV file")}
-     // M-Pesa PDF rows must not pass through the legacy ordinary-ledger flow.
-     PdfImportButton("Select M-Pesa PDF (Statement Activity)",!busy,pdfBoxStatementImport)
-     OutlinedButton(onClick={showStatementActivity=true},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(48.dp)) {
-      Text("Open Statement Activity")
-     }
-     Text("PDFBox review is experimental. It only offers candidates if the full PDF and money columns pass verification. Nothing is added before you confirm.",
+     OutlinedButton(onClick={showStatementActivity=true},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(48.dp)){Text("Open Statement Activity")}
+     Text("M-Pesa PDF import is temporarily disabled during the offline Python migration. No PDF can write financial transactions in this build.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     PdfImportButton("Test PDFBox extraction (read-only)",!busy,pdfBoxInspect)
-     PdfImportButton("Test PDF vector table lines (read-only)",!busy,gridInspect)
-     Text("Experimental offline diagnostic: reports text and coordinate counts, never imports money. You can choose a password-protected PDF on this phone.",
-      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     Text(
-      if(Build.VERSION.SDK_INT>=35) "PDF: supported selectable-text M-Pesa layouts only, up to 8 MB and 160 pages. Other bank and scanned PDFs aren't supported yet." else "PDF extraction needs Android 15 or newer. You can still import CSV.",
-      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant
-     )
-    }
-   }
-  }
-  if(pdfGridStatus!=null) item {
-   PesaCard {
-    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-     Text("PDF vector-line check",style=MaterialTheme.typography.titleMedium)
-     Text(pdfGridStatus.orEmpty(),style=MaterialTheme.typography.bodyMedium)
-     Text("Geometric hints only; no financial transactions were imported.",
-      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     TextButton(enabled=!busy,onClick={pdfGridStatus=null}){Text("Clear diagnostic")}
-    }
-   }
-  }
-  if(pdfBoxStatus!=null) item {
-   PesaCard {
-    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-     Text("PDFBox extraction check",style=MaterialTheme.typography.titleMedium)
-     Text(pdfBoxStatus.orEmpty(),style=MaterialTheme.typography.bodyMedium)
-     Text("Extraction counts are not verified transactions. Nothing was added to your ledger.",
-      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     TextButton(enabled=!busy,onClick={pdfBoxStatus=null}){Text("Clear diagnostic")}
     }
    }
   }
@@ -301,130 +163,35 @@ private fun readStatement(c:Context,uri:Uri):String {
    selection.range?.let {range->if(dates.availableFromDay!=null && dates.availableToDay!=null && (range.fromDay<dates.availableFromDay || range.toDay>dates.availableToDay))
     Text("Some selected dates fall outside the dates of entries in this file. Only available entries can be imported.",style=MaterialTheme.typography.bodySmall)}
   }}
-  if(pdfStatus!=null || pdfCandidates!=null) item {
-   PesaCard {
-    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-      Icon(Icons.Rounded.FactCheck,null,tint=MaterialTheme.colorScheme.primary)
-      Text("Document check",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
-     }
-     pdfStatus?.let {Text(it,style=MaterialTheme.typography.bodyMedium)}
-     pdfProofStatus?.let {Text(it,style=MaterialTheme.typography.bodySmall)}
-     if(pdfPayslip) Button(onClick={onDismiss();onPaycheckClick()},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
-      Text("Open Paycheck Analysis")
-     }
-     pdfCandidates?.let { candidates ->
-      candidates.problems.forEach {Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
-      candidates.currencyReview?.let {Text(it,color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.bodySmall)}
-      if(candidates.informationalRows>0) {
-       Text("${candidates.informationalRows} zero-value informational receipt(s) were excluded from cash postings.",
-        color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)
-      }
-      if(candidates.balanceReviewReferences.isNotEmpty()) {
-       Text("${candidates.verifiedReceiptTransitions} of ${candidates.totalReceiptTransitions} receipt-group balances reconcile. " +
-        "${candidates.balanceReviewReferences.size} receipt groups require manual review. Those entries start unselected.",
-        color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.bodySmall)
-      }
-      if(candidates.rows.isNotEmpty() && pdfBoxSource) {
-       val activity=candidates.statementActivityLines
-       val proof=pdfBoxEvidence
-       Text("${activity.size} verified source rows · ${candidates.rows.size} money movements · ${candidates.informationalRows} informational events.",
-        style=MaterialTheme.typography.bodySmall)
-       Text("Save the full statement to separate Statement Activity. SMS Activity, budgets and wallet balances remain unchanged.",
-        style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.tertiary)
-       Text("Opening/closing balances and any external receipt count are not independently declared in some M-Pesa PDFs. Fuliza funding pairs may require a separately checked balance sequence.",
-        style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-       Row(verticalAlignment=Alignment.CenterVertically) {
-        Checkbox(checked=statementAccepted,onCheckedChange={statementAccepted=it},enabled=!busy)
-        Text("I reviewed the wallet, source rows and statement totals. Save every original row in Statement Activity only.",
-         Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
-       }
-       Button(enabled=!busy&&accountId.isNotEmpty()&&statementAccepted&&
-        accounts.firstOrNull{it.id==accountId}?.type==AccountType.MOBILE_WALLET&&
-        proof!=null&&proof.receiptRows==activity.size&&
-        activity.count{!it.informational}==proof.cashRows,
-        onClick={
-         val selectedAccount=accountId
-         val verifiedProof=proof
-         if(verifiedProof!=null) {
-          importing=true;error=null
-          scope.launch {
-           try {
-            val saved=withContext(Dispatchers.IO) {
-             com.kedevjimmy.pesatrack.data.local.StatementActivityStore(c)
-              .save(selectedAccount,activity,verifiedProof)
-            }
-            done=if(saved.added)"Saved all ${activity.size} rows to Statement Activity. SMS Activity is unchanged."
-             else "Statement already saved in Statement Activity. No duplicate was created."
-            pdfCandidates=null;pdfStatus=null;pdfProofStatus=null;pdfBoxEvidence=null;statementAccepted=false
-           } catch(e:CancellationException) {throw e}
-           catch(e:Exception) {error=e.message ?: "Could not save statement. No SMS transactions were changed."}
-           finally {importing=false}
-          }
-         }
-        },modifier=Modifier.fillMaxWidth().heightIn(48.dp)) {
-         Text("Save complete statement to Statement Activity")
-        }
-       if(accountId.isEmpty()) Text("Choose the correct mobile-wallet account above.",color=MaterialTheme.colorScheme.error)
-      } else if(candidates.rows.isNotEmpty()) {
-       Text("${candidates.rows.size} candidate transactions found. Check account, dates, signed amounts and receipt codes before importing.",style=MaterialTheme.typography.bodySmall)
-       OutlinedButton(enabled=!busy&&accountId.isNotEmpty(),onClick={invalidatePreview();rows=candidates.rows;pdfRows=true;pdfCandidates=null},modifier=Modifier.fillMaxWidth().heightIn(48.dp)) {
-        Text("Review ${candidates.rows.size} transactions")
-       }
-       if(accountId.isEmpty()) Text("Choose a source account above to continue.",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
-      } else Text("Nothing was added. Try a supported CSV or a different statement PDF.",style=MaterialTheme.typography.bodySmall)
-     }
-     TextButton(onClick={pdfStatus=null;pdfProofStatus=null;pdfPayslip=false;pdfCandidates=null},enabled=!busy) {Text("Clear result")}
-    }
-   }
-  }
-
   if(previewSource==selection && preview.isNotEmpty()){
-   if(pdfRows)item {
-    Row(verticalAlignment=Alignment.CenterVertically){
-     Checkbox(checked=pdfConfirmed,onCheckedChange={pdfConfirmed=it},enabled=!busy)
-     Text("I checked the selected wallet, KES currency, dates, signed amounts, running balances and receipt references against this M-Pesa statement.",Modifier.weight(1f))
-    }
-    if(pdfBalanceReviewRefs.isNotEmpty())
-     Text("${pdfBalanceReviewRefs.size} receipt groups have unresolved balance transitions. Their entries start unselected; check each amount and reference against the original PDF before choosing it.",color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.bodySmall)
-    if(accounts.firstOrNull{it.id==accountId}?.type!=AccountType.MOBILE_WALLET)
-     Text("Choose the mobile-wallet account this M-Pesa statement belongs to.",color=MaterialTheme.colorScheme.error)
-   }
    item {PesaCard {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {Text("04 · Review transactions",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold);Text("${preview.count{!it.duplicate&&!it.possibleMatch}} new · ${preview.count{!it.duplicate&&it.possibleMatch}} possible matches · ${preview.count{it.duplicate}} already recorded",style=MaterialTheme.typography.bodyMedium);Text("Only selected, validated transactions will be added.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
    item {Button(onClick={
     val source=selection;val reviewed=previewSource
-    val requiredType=if(pdfRows)AccountType.MOBILE_WALLET else null
     val chosen=preview.mapIndexedNotNull {i,p->if(selected[i]==true&&!p.duplicate)p.row else null}
     importing=true;error=null
     scope.launch{try{
      val count=withContext(Dispatchers.IO){
-      if(requiredType!=null)PdfStatementReview.requireDistinctStatementLegs(source.rows)
-      store.importRows(source.accountId,StatementImportDates.requireReviewed(source,reviewed,chosen),requiredType)
+      store.importRows(source.accountId,StatementImportDates.requireReviewed(source,reviewed,chosen))
      }
-     onChanged();done="Added $count entries. Confirm them in Activity.";pdfProofStatus=null;pdfBoxStatus=null;rows=emptyList();previewSource=null;dateResult=null;preview=emptyList();selected.clear()
+     onChanged();done="Added $count entries. Confirm them in Activity.";rows=emptyList();previewSource=null;dateResult=null;preview=emptyList();selected.clear()
     }catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not finish import. Check Activity before retrying."}finally{importing=false}}
-   },enabled=!busy&&dateError==null&&previewSource==selection&&selected.values.any{it}&&(!pdfRows||(pdfConfirmed&&accounts.firstOrNull{it.id==accountId}?.type==AccountType.MOBILE_WALLET)),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Import ${selected.values.count{it}} entries")}}
-   items(preview.size,key={it}){i->val p=preview[i];PesaCard{Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=selected[i]==true,onCheckedChange={selected[i]=it},enabled=!busy&&!p.duplicate);Column(Modifier.weight(1f)){Text(p.row.description,style=MaterialTheme.typography.titleSmall);Text(StatementImportDates.day(p.row.date,zoneId)+(if(p.duplicate)" · Already recorded"else if(p.possibleMatch)" · Possible match"else""),style=MaterialTheme.typography.bodySmall);if(pdfRows){
-    if(p.row.reference in pdfBalanceReviewRefs)
-     Text("Balance verification needed · Check statement before selecting",color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.bodySmall)
-    TextButton(enabled=!busy,onClick={editingPdf=p.row}){Text("Edit extracted entry")}
-   }};Text(toolMoney(p.row.signedMinor),style=MaterialTheme.typography.bodySmall)}}}
+   },enabled=!busy&&dateError==null&&previewSource==selection&&selected.values.any{it},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Import ${selected.values.count{it}} entries")}}
+   items(preview.size,key={it}){i->
+    val p=preview[i]
+    PesaCard {
+     Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){
+      Checkbox(checked=selected[i]==true,onCheckedChange={selected[i]=it},enabled=!busy&&!p.duplicate)
+      Column(Modifier.weight(1f)){
+       Text(p.row.description,style=MaterialTheme.typography.titleSmall)
+       Text(StatementImportDates.day(p.row.date,zoneId)+(if(p.duplicate)" · Already recorded"else if(p.possibleMatch)" · Possible match"else""),style=MaterialTheme.typography.bodySmall)
+      }
+      Text(toolMoney(p.row.signedMinor),style=MaterialTheme.typography.bodySmall)
+     }
+    }
+   }
   }
  }
  if(showStatementActivity) StatementActivityDialog(onDismiss={showStatementActivity=false})
- PdfPasswordDialog(pdfImport)
- PdfPasswordDialog(pdfBoxStatementImport)
- PdfPasswordDialog(pdfBoxInspect)
- PdfPasswordDialog(gridInspect)
- editingPdf?.let {original->PdfStatementRowDialog(original,zoneId,onDismiss={editingPdf=null},onSave={updated->
-  val index=rows.indexOf(original)
-  if(index>=0){
-   val corrected=rows.toMutableList().apply {set(index,updated)}
-   PdfStatementReview.requireDistinctStatementLegs(corrected)
-   invalidatePreview();rows=corrected
-  }
-  editingPdf=null
- })}
 }
 
 @Composable private fun StatementImportDateButton(label:String,day:String,enabled:Boolean,onChanged:(String)->Unit) {
