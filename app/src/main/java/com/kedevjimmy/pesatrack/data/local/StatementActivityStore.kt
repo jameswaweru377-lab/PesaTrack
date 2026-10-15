@@ -5,7 +5,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.kedevjimmy.pesatrack.domain.everyday.StatementActivityLine
-import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxVerificationReport
+import com.kedevjimmy.pesatrack.domain.everyday.StatementActivityProof
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import java.nio.ByteBuffer
 import java.security.MessageDigest
@@ -112,7 +112,7 @@ class StatementActivityStore(context: Context) {
     fun save(
         accountId: String,
         lines: List<StatementActivityLine>,
-        proof: PdfBoxVerificationReport
+        proof: StatementActivityProof
     ): SaveResult {
         requireOwnedWallet(accountId)
         require(lines.size in 1..5_000 && lines.size == proof.receiptRows)
