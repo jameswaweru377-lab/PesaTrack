@@ -177,3 +177,38 @@ internal fun StatementMonthlyChart(
         }
     }
 }
+
+
+@Composable
+internal fun StatementTrendBars(
+    buckets: List<com.kedevjimmy.pesatrack.domain.everyday.StatementTrendBuckets.Bucket>,
+    onBar: (Int) -> Unit
+) {
+    val maximum = maxOf(1L, buckets.maxOfOrNull { it.amountMinor } ?: 0L)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth().height(185.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            buckets.forEach { b ->
+                Column(Modifier.weight(1f).fillMaxHeight()
+                    .then(if (b.observed) Modifier.clickable { onBar(b.index) } else Modifier),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.weight(1f))
+                    val height = if (!b.observed) 8.dp
+                        else (12 + 132 * (b.amountMinor.toDouble() / maximum)).dp
+                    Box(Modifier.fillMaxWidth().height(height).background(
+                        if (b.observed) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp)
+                    ))
+                    Spacer(Modifier.height(9.dp))
+                    Text(b.label, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+        Text("Grey means no statement evidence, not zero spending.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
