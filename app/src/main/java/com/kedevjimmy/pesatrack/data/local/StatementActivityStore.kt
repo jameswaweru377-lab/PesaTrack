@@ -220,4 +220,59 @@ class StatementActivityStore(context: Context) {
             }
         } finally { helper.close() }
     }
+
+    /**
+     * Small read-only monthly summaries across all saved PDFs, calculated in
+     * SQLite so a 112-page document does not have to be loaded for each chart.
+     * Nairobi has UTC+03:00 for modern M-Pesa statement periods.
+     * Individual source batches remain separate for overlap-safe selection.
+     */
+    fun sourceMonths(): List<com.kedevjimmy.pesatrack.domain.everyday.StatementHistoryReport.SourceMonth> {
+        val helper = Db(app)
+        try {
+            val sql = """
+                SELECT b.id, b.account_id, b.recorded_at, b.totals_verified,
+                    s.month_key, COUNT(*),
+                    SUM(CASE WHEN s.paid_in_minor = 0 AND s.withdrawn_minor = 0 THEN 1 ELSE 0 END),
+                    SUM(s.paid_in_minor), SUM(s.withdrawn_minor),
+                    MIN(s.occurred_at), MAX(s.occurred_at)
+                FROM statement_batches b
+                JOIN (
+                    SELECT batch_id, occurred_at, paid_in_minor, withdrawn_minor,
+                        strftime('%Y-%m', occurred_at / 1000, 'unixepoch', '+3 hours') AS month_key
+                    FROM statement_activity_lines
+                ) s ON s.batch_id = b.id
+                GROUP BY b.id, s.month_key
+                ORDER BY s.month_key DESC, b.recorded_at DESC
+            """.trimIndent()
+            return helper.readableDatabase.rawQuery(sql, null).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        val key = cursor.getString(4)
+                        val count = cursor.getInt(5)
+                        val informational = cursor.getInt(6)
+                        val usage = com.kedevjimmy.pesatrack.domain.everyday.StatementMonthlyUsage.Month(
+                            year = key.substring(0, 4).toInt(),
+                            month = key.substring(5, 7).toInt(),
+                            sourceRows = count,
+                            financialMovements = count - informational,
+                            informationalRows = informational,
+                            paidInMinor = cursor.getLong(7),
+                            paidOutMinor = cursor.getLong(8)
+                        )
+                        add(com.kedevjimmy.pesatrack.domain.everyday.StatementHistoryReport.SourceMonth(
+                            accountId = cursor.getString(1),
+                            batchId = cursor.getString(0),
+                            recordedAt = cursor.getLong(2),
+                            independentlyVerified = cursor.getInt(3) == 1,
+                            usage = usage,
+                            firstTransactionAt = cursor.getLong(9),
+                            lastTransactionAt = cursor.getLong(10)
+                        ))
+                    }
+                }
+            }
+        } finally { helper.close() }
+    }
+
 }
