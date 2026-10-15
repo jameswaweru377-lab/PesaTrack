@@ -31,7 +31,7 @@ object StatementFinancialPolicy {
     private val nairobi = TimeZone.getTimeZone("Africa/Nairobi")
     private val whitespace = Regex("\\s+")
     private val personPrefix = Regex(
-        "(?i)^(?:customer\\s+transfer\\s+to|send\\s+money\\s+to|transfer\\s+to|payment\\s+to|paid\\s+to)\\s+"
+        "(?i)^(?:customer\\s+transfer\\s+(?:of\\s+funds\\s+)?to|send\\s+money\\s+to|funds\\s+transfer\\s+to|transfer\\s+to|payment\\s+to|paid\\s+to)\\s+"
     )
     private val optionalPhone = Regex(
         "^(?:\\+?254[17][0-9*]{8}|0[17][0-9*]{8}|[17][0-9*]{8})(?=\\s|\\s*-|[A-Za-z]|$)"

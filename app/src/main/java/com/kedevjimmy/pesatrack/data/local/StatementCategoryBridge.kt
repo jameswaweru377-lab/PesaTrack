@@ -44,41 +44,48 @@ class StatementCategoryBridge(context: Context) {
     ): String? = StatementCategoryMemoryPolicy.learnedFor(description, memories)
 
     /**
-     * Preview only the statement rows that appear in the account-specific
-     * reports: alternative overlapping PDFs are intentionally not counted.
-     * This is a read-only scan done on Dispatchers.IO from the existing UI.
+     * Scans EVERY saved PDF, not merely a single chosen source per month.
+     * Reports remain deduplicated by their existing account/month policy,
+     * so counts are disclosed separately for all PDFs and report-visible PDFs.
      */
-    fun matchingStatementCount(source: StoredTransaction, newCategory: String): Int {
-        val policy = StatementCategoryMemoryPolicy
-        if (source.counterparty.isNullOrBlank()) return 0
+    fun matchingStatementPreview(
+        source: StoredTransaction, newCategory: String
+    ): com.kedevjimmy.pesatrack.domain.everyday.StatementMatchScanPolicy.Result {
         val store = StatementActivityStore(app)
-        val memories = activityMemories()
+        val batches = store.batches()
         val kinds = categoryKinds()
-        if (kinds[newCategory] != "EXPENSE") return 0
-        val localRules = store.categoryRules()
-        val selected = store.sourceMonths().groupBy { it.accountId }.values.flatMap { sources ->
-            StatementHistoryReport.selectForAccount(sources, sources.first().accountId)
-        }
-        var count = 0
-        selected.groupBy { it.source.batchId }.forEach { (batchId, months) ->
-            val keys = months.map { it.key }.toSet()
-            val overrides = store.categoriesFor(batchId)
-            store.lines(batchId).forEach { row ->
-                if (row.withdrawnMinor == 0L ||
-                    StatementMonthlyUsage.monthKey(row.occurredAt) !in keys ||
-                    !policy.proposedSourceMatches(
-                        source.counterparty, source.counterpartyPhone, row.description, memories
-                    )) return@forEach
-                val key = StatementFinancialPolicy.merchantKey(row.description)
-                val currentCategory = learnedFor(row.description, memories)
-                    ?: key?.let(localRules::get)
-                if (policy.wouldChange(
-                    batchId, row, newCategory, currentCategory,
-                    row.page to row.row in overrides, kinds
-                )) count++
+        val memories = activityMemories()
+        val sourceMonths = store.sourceMonths()
+        val visibleMonths = sourceMonths.groupBy { it.accountId }.values
+            .flatMap { monthSources ->
+                StatementHistoryReport.selectForAccount(
+                    monthSources, monthSources.first().accountId
+                )
+            }.groupBy { it.source.batchId }
+            .mapValues { (_, entries) -> entries.map { it.key }.toSet() }
+        val allRows = buildList {
+            for (batch in batches) {
+                val corrections = store.categoriesFor(batch.id)
+                val visibleKeys = visibleMonths[batch.id].orEmpty()
+                for (row in store.lines(batch.id)) {
+                    add(com.kedevjimmy.pesatrack.domain.everyday.StatementMatchScanPolicy.Row(
+                        batchId = batch.id,
+                        entry = row,
+                        visibleInReport = StatementMonthlyUsage.monthKey(row.occurredAt) in visibleKeys,
+                        manuallyCorrected = (row.page to row.row) in corrections
+                    ))
+                }
             }
         }
-        return count
+        if (source.counterparty.isNullOrBlank() || kinds[newCategory] != "EXPENSE") {
+            return com.kedevjimmy.pesatrack.domain.everyday.StatementMatchScanPolicy.Result(
+                allRows.size, batches.size, 0, 0, 0, 0
+            )
+        }
+        return com.kedevjimmy.pesatrack.domain.everyday.StatementMatchScanPolicy.scan(
+            allRows, source.counterparty, source.counterpartyPhone,
+            newCategory, memories, kinds, store.categoryRules()
+        )
     }
 
     fun categoryKinds(): Map<String, String> =

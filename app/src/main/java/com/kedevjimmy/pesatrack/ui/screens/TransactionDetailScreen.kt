@@ -209,6 +209,10 @@ fun TransactionDetailScreen(
     var pendingStatementMatchCount by remember(transactionId) {
         mutableStateOf(0)
     }
+    var pendingScannedStatementRows by remember(transactionId) { mutableStateOf(0) }
+    var pendingScannedStatementPdfs by remember(transactionId) { mutableStateOf(0) }
+    var pendingNamedStatementMatches by remember(transactionId) { mutableStateOf(0) }
+    var pendingReportStatementMatches by remember(transactionId) { mutableStateOf(0) }
     var learnedMessage by remember(transactionId) {
         mutableStateOf<String?>(null)
     }
@@ -361,6 +365,10 @@ fun TransactionDetailScreen(
                     // it teaches future PDFs rather than silently changing one row.
                     pendingMatchCount = count.activity
                     pendingStatementMatchCount = count.statements
+                    pendingScannedStatementRows = count.scannedStatementRows
+                    pendingScannedStatementPdfs = count.scannedStatementPdfs
+                    pendingNamedStatementMatches = count.statementIdentityMatches
+                    pendingReportStatementMatches = count.reportStatementMatches
                     pendingCategoryId = canonicalId
                 } else {
                     withContext(Dispatchers.IO) { classifyOnly(current, canonicalId) }
@@ -534,8 +542,20 @@ fun TransactionDetailScreen(
                 Text("Remember “${current.counterparty ?: current.counterpartyPhone}” " +
                     "as ${categoryStore.labelFor(categoryId)}?")
                 Text("Activity: $pendingMatchCount other eligible transactions.")
-                Text("Statements: $pendingStatementMatchCount eligible transactions " +
-                    "in saved reports.")
+                Text("Statements: $pendingStatementMatchCount eligible source records " +
+                    "across all saved PDFs.")
+                Text("Scanned $pendingScannedStatementRows saved rows in " +
+                    "$pendingScannedStatementPdfs PDFs; " +
+                    "$pendingNamedStatementMatches matching recipient names.")
+                Text("$pendingReportStatementMatches eligible records are included in " +
+                    "current monthly reports. Other PDFs may overlap and are " +
+                    "excluded from totals to prevent double counting.")
+                if (pendingScannedStatementRows > 0 &&
+                    pendingStatementMatchCount == 0) {
+                    Text("No safe Statement category changes found. This may mean " +
+                        "the PDF uses a different recipient format, an identity " +
+                        "conflicts, or the rows were already categorized.")
+                }
                 Text("Choosing Remember saves one category preference across Activity " +
                     "and Statements. Historical and newly imported PDFs use it " +
                     "automatically when the identity matches safely. " +
@@ -563,8 +583,9 @@ fun TransactionDetailScreen(
                         val changed = withContext(Dispatchers.IO) { learningRepository.remember(current.id, categoryId) }
                         learnedMessage = "Remembered in Activity and Statements • " +
                             "$changed other Activity entries updated. " +
-                            "Up to $pendingStatementMatchCount eligible Statement entries will " +
-                            "show this category. Original PDF transactions stay independent."
+                            "$pendingReportStatementMatches eligible report-visible " +
+                            "Statement entries will use this category. Other saved PDF " +
+                            "records remain independent and are never duplicated in totals."
                         pendingCategoryId = null
                         refresh()
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -785,6 +806,10 @@ fun TransactionDetailScreen(
                                     }
                                     pendingMatchCount = preview.activity
                                     pendingStatementMatchCount = preview.statements
+                                    pendingScannedStatementRows = preview.scannedStatementRows
+                                    pendingScannedStatementPdfs = preview.scannedStatementPdfs
+                                    pendingNamedStatementMatches = preview.statementIdentityMatches
+                                    pendingReportStatementMatches = preview.reportStatementMatches
                                     pendingCategoryId = categoryStore.canonicalId(original.category)
                                 } catch (cancelled: kotlinx.coroutines.CancellationException) {
                                     throw cancelled
@@ -962,6 +987,10 @@ fun TransactionDetailScreen(
                                 }
                                 pendingMatchCount = preview.activity
                                 pendingStatementMatchCount = preview.statements
+                                pendingScannedStatementRows = preview.scannedStatementRows
+                                pendingScannedStatementPdfs = preview.scannedStatementPdfs
+                                pendingNamedStatementMatches = preview.statementIdentityMatches
+                                pendingReportStatementMatches = preview.reportStatementMatches
                                 pendingCategoryId = canonicalCategory
                             } else {
                                 withContext(Dispatchers.IO) {
