@@ -98,6 +98,21 @@ class PdfBoxStatementGeometryTest {
             assertFalse(message.contains(privateText))
     }
 
+    @Test fun productionPdfBoxCannotFallbackWhenPhysicalGridIsMissing() {
+        // The isolated Android reader always supplies a grid result for each
+        // page. An empty result is not permission to guess columns by a header
+        // midpoint. Legacy synthetic callers that omit gridTables still have
+        // their independent, existing compatibility tests.
+        val source=heading+first+"\n"+second+"\n"+oldest
+        val result=PdfBoxStatementGeometry.reconstruct(
+            listOf(source),listOf(geometry()),listOf(true),
+            gridTables=listOf(emptyList())
+        )
+        assertTrue(result is MpesaPositionedRows.Unsupported)
+        assertEquals(PdfStatementCheck.HEADER_DISCOVERY,
+            (result as MpesaPositionedRows.Unsupported).check)
+    }
+
     @Test fun structuredProductionReviewConsumesCellsWithoutLegacyTextRoundTrip() {
         val output=PdfBoxStatementGeometry.reconstruct(listOf(heading+first+"\n"+second+"\n"+oldest),
             listOf(geometry()),listOf(true)) as MpesaPositionedRows.Ready
@@ -569,7 +584,8 @@ class PdfBoxStatementGeometryTest {
     }
 
     @Test fun repeatedReceiptMayContainTwoDistinctStatementMovements() {
-        val fee="QAB1234569 2026-10-10 10:30:00 Service fee Completed -5.00 495.00"
+        // 510.00 -> 505.00 (fee -5) -> 485.00 (payment -20): all legs must reconcile.
+        val fee="QAB1234569 2026-10-10 10:30:00 Service fee Completed -5.00 505.00"
         val payment="QAB1234569 2026-10-10 10:30:00 Shop purchase Completed -20.00 485.00"
         val page=heading+payment+"\n"+fee+"\n"+second+"\n"+oldest
         val paymentBoxes=geometry().map {
@@ -577,7 +593,7 @@ class PdfBoxStatementGeometryTest {
             else it
         }
         val boxes=paymentBoxes+textRow(
-            "QAB1234569","2026-10-10","10:30:00","Service fee","-5.00","490.00",118f)
+            "QAB1234569","2026-10-10","10:30:00","Service fee","-5.00","505.00",118f)
         val reconstructed=PdfBoxStatementGeometry.reconstruct(
             listOf(page),listOf(boxes),listOf(true)
         )

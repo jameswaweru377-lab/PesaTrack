@@ -133,6 +133,14 @@ object PdfBoxStatementGeometry {
             }
             val bands=headers(lines)
             val physical=gridTables.getOrNull(i).orEmpty()
+            // The isolated PDFBox worker passes one physical-grid result per
+            // page. If it could not prove a detailed table on a page with
+            // receipt rows, never silently downgrade to heading-midpoint
+            // ownership. Legacy synthetic callers that do not supply grid
+            // evidence retain their existing separate compatibility path.
+            if (gridTables.isNotEmpty() && physical.isEmpty())
+                return reject(page,MpesaPositionedRows.Reason.UNRECOGNIZED_TABLE,
+                    check=PdfStatementCheck.HEADER_DISCOVERY)
             fun gridAt(index:Int):StatementPhysicalGridTable? =
                 physical.singleOrNull {grid ->
                     val row=grid.rowOf(lines[index].y)
