@@ -218,6 +218,7 @@ def extract_bytes(raw: bytes, password: str | None = None):
                 parsed.append({
                     "receipt": reference, "when": when, "description": detail,
                     "delta": delta, "balance": balance,
+                    "source_cells": list(cells),
                     "page": page_no, "row": row_num
                 })
     if not parsed:
@@ -234,7 +235,8 @@ def extract_bytes(raw: bytes, password: str | None = None):
         "description": r["description"],
         "paidInMinor": _minor(r["delta"]) if r["delta"] > 0 else 0,
         "withdrawnMinor": -_minor(r["delta"]) if r["delta"] < 0 else 0,
-        "balanceMinor": _minor(r["balance"])
+        "balanceMinor": _minor(r["balance"]),
+        "sourceCells": r["source_cells"]
     } for r in parsed]
     category_in = sum((r[1] for r in categories), Decimal(0))
     category_out = sum((r[2] for r in categories), Decimal(0))
