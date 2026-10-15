@@ -174,6 +174,65 @@ private fun readStatement(c:Context,uri:Uri):String {
     }
    }
   }
+  stagedPdf?.let{ready->item{
+   PesaCard {
+    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+     Text("Local PDF verification",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
+     Text("${ready.pages} pages · ${ready.lines.size} source rows · ${ready.proof.cashRows} cash movements · ${ready.informationalRows} M-Shwari informational events.")
+     Text("Official Paid In: ${toolMoney(ready.paidInMinor)} · Paid Out: ${toolMoney(ready.paidOutMinor)}.")
+     Text("${ready.sourceCharacters} source characters checked for ownership by physical cells.",style=MaterialTheme.typography.bodySmall)
+     if(ready.categoryPaidInGapMinor!=0L||ready.categoryPaidOutGapMinor!=0L)
+      Text("Source PDF category subtotals disagree with the printed total: Paid In difference ${toolMoney(ready.categoryPaidInGapMinor)}; Paid Out difference ${toolMoney(ready.categoryPaidOutGapMinor)}. Detailed rows match the official TOTAL.",
+       color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.bodySmall)
+     Text("Exact balance sequence under ${ready.fulizaCycles} provisional Fuliza exception(s), ${ready.sharedBalanceGroups} shared ending-balance groups. No independent opening/closing balance or external receipt count.",
+      style=MaterialTheme.typography.bodySmall)
+     Text("Every original source row appears below, including zero-value events. These are not SMS Activity postings.",
+      style=MaterialTheme.typography.bodySmall)
+     Row(verticalAlignment=Alignment.CenterVertically) {
+      Checkbox(checked=statementPdfApproved,onCheckedChange={statementPdfApproved=it},enabled=!busy)
+      Text("I reviewed the PDF and amounts. Save only in Statement Activity and leave my SMS ledger unchanged.",
+       Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
+     }
+     Button(enabled=!busy&&statementPdfApproved&&accounts.any{it.id==accountId&&it.type==AccountType.MOBILE_WALLET},
+      onClick={
+       val data=ready
+       val target=accountId
+       importing=true;error=null
+       scope.launch {
+        try {
+         val saved=withContext(Dispatchers.IO){
+          StatementActivityStore(c).save(target,data.lines,data.proof)
+         }
+         done=if(saved.added)"Saved ${data.lines.size} original rows in Statement Activity. SMS Activity remains unchanged."
+          else "This statement is already saved. No duplicate was created."
+         stagedPdf=null;statementPdfApproved=false
+        }catch(e:CancellationException){throw e}
+        catch(e:Exception){error=e.message ?: "Statement Activity save failed. No ledger entries changed."}
+        finally{importing=false}
+       }
+      },modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
+      Text("Save complete PDF to Statement Activity")
+     }
+    }
+   }
+  }}
+  stagedPdf?.let { ready ->
+   items(ready.lines.size,key={it}){i->
+    val record=ready.lines[i]
+    PesaCard {
+     Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(3.dp)){
+      Text(record.description,style=MaterialTheme.typography.bodyMedium)
+      Text("Page ${record.page}, row ${record.row} · ${record.reference}",
+       style=MaterialTheme.typography.bodySmall)
+      Text(if(record.informational)"Informational only — no M-Pesa movement"
+       else if(record.movementMinor>0)"Paid In ${toolMoney(record.movementMinor)}"
+       else "Withdrawn ${toolMoney(-record.movementMinor)}",
+       style=MaterialTheme.typography.bodySmall)
+      Text("Printed balance ${toolMoney(record.balanceMinor)}",style=MaterialTheme.typography.bodySmall)
+     }
+    }
+   }
+  }
   if(previewSource==selection)dateResult?.let {dates ->item {
    Text("${dates.rows.size} of ${rows.size} entries in selected dates · ${dates.excludedCount} outside",style=MaterialTheme.typography.titleSmall)
    Text("Entries in this file: ${dates.availableFromDay} to ${dates.availableToDay}.",style=MaterialTheme.typography.bodySmall)
