@@ -329,6 +329,29 @@ class StatementActivityStore(context: Context) {
         } finally { helper.close() }
     }
 
+    /** Follow the shared Activity preference without pinning a stale one-row correction. */
+    fun followSharedCategory(batchId: String, page: Int, row: Int) {
+        require(batchId.matches(Regex("[a-f0-9]{64}")))
+        require(page > 0 && row > 0)
+        val helper = Db(app)
+        try {
+            val db = helper.writableDatabase
+            db.beginTransaction()
+            try {
+                val valid = db.rawQuery(
+                    "SELECT 1 FROM statement_activity_lines WHERE batch_id=? " +
+                        "AND page_number=? AND row_number=? LIMIT 1",
+                    arrayOf(batchId, page.toString(), row.toString())
+                ).use { it.moveToFirst() }
+                require(valid) { "Statement row no longer exists." }
+                db.delete("statement_category_labels",
+                    "batch_id=? AND page_number=? AND row_number=?",
+                    arrayOf(batchId, page.toString(), row.toString()))
+                db.setTransactionSuccessful()
+            } finally { db.endTransaction() }
+        } finally { helper.close() }
+    }
+
     /**
      * Verify the exact source row exists before saving its correction. Remember
      * across statements is opt-in and never mutates canonical SMS transactions.

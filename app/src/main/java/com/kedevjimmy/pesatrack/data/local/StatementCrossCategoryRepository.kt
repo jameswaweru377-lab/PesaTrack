@@ -86,8 +86,8 @@ class StatementCrossCategoryRepository(context: Context) {
         }
         // Save the approved Activity preference. The independent Statement reader
         // then resolves the same category through exact name/receipt evidence.
-        // The local manual correction protects this statement row if a later
-        // Activity classification rule changes or the preference is forgotten.
+        // Removing the selected row's prior local exception lets future
+        // confirmed learning changes flow to the same Statement receipt.
         if (current.reviewState == "USER_CLASSIFIED" &&
             current.category != categoryId) {
             // The user explicitly requested this correction in Statements and
@@ -97,8 +97,9 @@ class StatementCrossCategoryRepository(context: Context) {
             )
         }
         val updated = learning.remember(current.id, categoryId)
-        history.categorize(row.batchId, row.line.page, row.line.row,
-            categoryId, rememberMerchant = false)
+        // "Remember in both" is shared learning, not an immutable one-off
+        // statement category. The row must follow later approved changes.
+        history.followSharedCategory(row.batchId, row.line.page, row.line.row)
         return updated
     }
 }
