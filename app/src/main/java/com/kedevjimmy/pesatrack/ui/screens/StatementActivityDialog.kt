@@ -1,25 +1,33 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.kedevjimmy.pesatrack.data.local.EverydayMoneyStore
 import com.kedevjimmy.pesatrack.data.local.StatementActivityStore
 import com.kedevjimmy.pesatrack.domain.everyday.StatementActivityLine
+import com.kedevjimmy.pesatrack.domain.everyday.StatementHistoryReport
 import com.kedevjimmy.pesatrack.domain.everyday.StatementMonthlyUsage
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import java.math.BigDecimal
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -28,316 +36,495 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private enum class StatementView { MONTHS, TRANSACTIONS }
+private enum class StatementTab { MONTHLY, YEARLY, BROWSE }
 
-/**
- * One-PDF-at-a-time, read-only statement history. Monthly Money Out is
- * withdrawn wallet movement, NOT necessarily purchase spending. We do not
- * combine overlapping PDFs or feed calculations into SMS Activity or budgets.
- */
+private fun reportMoney(minor: Long): String =
+    "KSh " + NumberFormat.getNumberInstance(Locale.US).apply {
+        minimumFractionDigits = 2
+        maximumFractionDigits = 2
+    }.format(BigDecimal.valueOf(minor, 2))
+
+private fun reportDate(millis: Long): String =
+    SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).apply {
+        timeZone = TimeZone.getTimeZone("Africa/Nairobi")
+    }.format(Date(millis))
+
+/** Independent, read-only local statement reporting. Never writes to SMS Activity. */
 @Composable
 internal fun StatementActivityDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val store = remember(context) { StatementActivityStore(context) }
-    var batches by remember { mutableStateOf<List<StatementActivityStore.Batch>>(emptyList()) }
-    var selectedId by remember { mutableStateOf<String?>(null) }
-    var lines by remember { mutableStateOf<List<StatementActivityLine>>(emptyList()) }
+    var sources by remember { mutableStateOf<List<StatementHistoryReport.SourceMonth>>(emptyList()) }
+    var labels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
-    var failed by remember { mutableStateOf(false) }
-    var view by remember { mutableStateOf(StatementView.MONTHS) }
-    var selectedMonth by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf(false) }
+    var refresh by remember { mutableIntStateOf(0) }
+    var accountChoice by remember { mutableStateOf<String?>(null) }
+    var monthChoice by remember { mutableStateOf<String?>(null) }
+    var yearChoice by remember { mutableStateOf<Int?>(null) }
+    var accountMenu by remember { mutableStateOf(false) }
+    var tab by remember { mutableStateOf(StatementTab.MONTHLY) }
+    var browseQuery by remember { mutableStateOf("") }
+    var importing by remember { mutableStateOf(false) }
 
-    LaunchedEffect(selectedId) {
+    var detail by remember { mutableStateOf<StatementHistoryReport.SelectedMonth?>(null) }
+    var fullSource by remember { mutableStateOf(false) }
+    var detailQuery by remember { mutableStateOf("") }
+    var detailRows by remember { mutableStateOf<List<StatementActivityLine>>(emptyList()) }
+    var detailLoading by remember { mutableStateOf(false) }
+    var detailError by remember { mutableStateOf(false) }
+
+    LaunchedEffect(refresh) {
         loading = true
-        failed = false
+        error = false
         try {
-            if (selectedId == null) {
-                batches = withContext(Dispatchers.IO) { store.batches() }
-                lines = emptyList()
-            } else {
-                val id = requireNotNull(selectedId)
-                lines = withContext(Dispatchers.IO) { store.lines(id) }
+            val result = withContext(Dispatchers.IO) {
+                store.sourceMonths() to EverydayMoneyStore(context).ownedAccounts()
+                    .associate { it.id to it.name }
             }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            failed = true
-        } finally {
-            loading = false
-        }
+            sources = result.first
+            labels = result.second
+        } catch (e: CancellationException) { throw e }
+          catch (_: Exception) { error = true }
+        finally { loading = false }
     }
 
-    val chosen = batches.firstOrNull { it.id == selectedId }
-    val months = remember(selectedId, lines) { StatementMonthlyUsage.summarize(lines) }
-    val displayed = remember(selectedId, lines, selectedMonth) {
-        if (selectedMonth == null) lines
-        else lines.filter { StatementMonthlyUsage.monthKey(it.occurredAt) == selectedMonth }
+    val ids = remember(sources) { sources.map { it.accountId }.distinct() }
+    val accountId = accountChoice?.takeIf { it in ids } ?: ids.firstOrNull()
+    val months = remember(sources, accountId) {
+        StatementHistoryReport.selectForAccount(sources, accountId.orEmpty())
     }
-    val timeFormatter = remember {
-        SimpleDateFormat("dd MMM yyyy HH:mm", Locale.ENGLISH).apply {
-            timeZone = TimeZone.getTimeZone("Africa/Nairobi")
+    val years = remember(months) { StatementHistoryReport.years(months) }
+    val year = yearChoice?.takeIf { it in years } ?: years.firstOrNull()
+    val selected = months.firstOrNull { it.key == monthChoice } ?: months.firstOrNull()
+    val annual = year?.let { StatementHistoryReport.year(months, it) }
+
+    LaunchedEffect(detail?.source?.batchId) {
+        val batchId = detail?.source?.batchId
+        detailRows = emptyList()
+        detailError = false
+        if (batchId != null) {
+            detailLoading = true
+            try {
+                detailRows = withContext(Dispatchers.IO) { store.lines(batchId) }
+            } catch (e: CancellationException) { throw e }
+              catch (_: Exception) { detailError = true }
+            finally { detailLoading = false }
         }
     }
-    fun money(minor: Long): String =
-        "KES " + BigDecimal.valueOf(minor, 2).toPlainString()
 
     fun back() {
-        if (selectedId == null) onDismiss()
-        else if (view == StatementView.TRANSACTIONS) {
-            view = StatementView.MONTHS
-            selectedMonth = null
-        } else {
-            selectedId = null
-            view = StatementView.MONTHS
-            selectedMonth = null
+        when {
+            importing -> importing = false
+            detail != null -> { detail = null; fullSource = false; detailQuery = "" }
+            else -> onDismiss()
         }
     }
+    BackHandler { back() }
 
     Dialog(
-        onDismissRequest = { if (!loading) back() },
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
+        onDismissRequest = { back() },
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().systemBarsPadding()) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp),
+                    Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp, top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = { back() }) {
                         Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
                     }
-                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                        Text(
-                            if (chosen == null) "Statement Activity"
-                            else if (view == StatementView.MONTHS) "Monthly overview"
-                            else "Statement transactions",
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Text(
-                            "Saved PDF records · Separate from SMS Activity",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Column(Modifier.weight(1f)) {
+                        Text(if (detail == null) "Statements" else "Statement transactions",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold)
+                        Text("Saved PDFs · separate from SMS Activity",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (detail == null) IconButton(onClick = { importing = true }) {
+                        Icon(Icons.Rounded.Add, contentDescription = "Import another statement",
+                            tint = MaterialTheme.colorScheme.primary)
                     }
                 }
-                HorizontalDivider()
 
-                if (loading) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Text("Opening local statement records…", Modifier.padding(16.dp))
-                } else if (failed) {
-                    Text(
-                        "Could not open the saved statement. Your ordinary transactions are unchanged.",
-                        Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                } else if (chosen == null) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        if (batches.isEmpty()) item {
-                            Text("No statement PDFs have been saved yet.")
-                        }
-                        items(batches, key = { it.id }) { batch ->
-                            PesaCard {
-                                Column(
-                                    Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(9.dp)
-                                ) {
-                                    Text("M-Pesa statement", style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        "${batch.rows} source rows · ${batch.movements} money movements · " +
-                                            "${batch.informational} informational events",
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                    Text(
-                                        "Money In ${money(batch.paidInMinor)} · Money Out ${money(batch.paidOutMinor)}",
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                    Text(
-                                        if (batch.totalsIndependentlyVerified)
-                                            "Detailed amounts match the printed statement totals"
-                                        else "Official totals not independently verified",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Button(onClick = {
-                                        selectedMonth = null
-                                        view = StatementView.MONTHS
-                                        selectedId = batch.id
-                                    }) {
-                                        Text("View monthly usage")
-                                    }
-                                }
-                            }
-                        }
+                when {
+                    loading -> {
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                        Text("Reading saved statement months…", Modifier.padding(16.dp))
                     }
-                } else if (view == StatementView.MONTHS) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        item {
-                            PesaCard {
-                                Column(
-                                    Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(9.dp)
-                                ) {
-                                    Text(
-                                        "This statement",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        "${months.size} month(s) · ${chosen.rows} original rows",
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                    Text("Total Money In: ${money(chosen.paidInMinor)}")
-                                    Text("Total Money Out: ${money(chosen.paidOutMinor)}")
-                                    Text(
-                                        "Net Movement: ${money(Math.subtractExact(chosen.paidInMinor, chosen.paidOutMinor))}",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    OutlinedButton(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        onClick = { selectedMonth = null; view = StatementView.TRANSACTIONS }
-                                    ) {
-                                        Text("View all ${chosen.rows} statement rows")
-                                    }
-                                }
-                            }
-                        }
-                        item {
-                            Text(
-                                "Monthly money movement",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                "Money Out includes transfers, savings movements, fees and loan payments—not just purchases. " +
-                                    "Partial statement months may not show a full month's activity.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (months.isEmpty()) item {
-                            Text("This saved statement has no readable transaction dates.")
-                        }
-                        items(months, key = { it.key }) { month ->
-                            PesaCard {
-                                Column(
-                                    Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(9.dp)
-                                ) {
-                                    Text(
-                                        month.label,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        Column(Modifier.weight(1f)) {
-                                            Text("Money In", style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Text(money(month.paidInMinor), style = MaterialTheme.typography.titleSmall)
-                                        }
-                                        Column(Modifier.weight(1f)) {
-                                            Text("Money Out", style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Text(money(month.paidOutMinor), style = MaterialTheme.typography.titleSmall)
-                                        }
-                                    }
-                                    Text(
-                                        "Net movement: ${money(month.netMinor)}",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Text(
-                                        "${month.financialMovements} money movements · " +
-                                            "${month.informationalRows} informational · ${month.sourceRows} rows",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    OutlinedButton(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        onClick = {
-                                            selectedMonth = month.key
-                                            view = StatementView.TRANSACTIONS
-                                        }
-                                    ) {
-                                        Text("View ${month.label} transactions")
-                                    }
-                                }
-                            }
-                        }
+                    error -> Column(Modifier.padding(20.dp)) {
+                        Text("Could not open reports. Your saved records are unchanged.",
+                            color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = { refresh++ }) { Text("Retry") }
                     }
-                } else {
-                    Column(Modifier.fillMaxSize()) {
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            item {
-                                FilterChip(
-                                    selected = selectedMonth == null,
-                                    onClick = { selectedMonth = null },
-                                    label = { Text("All") }
-                                )
-                            }
-                            items(months, key = { it.key }) { month ->
-                                FilterChip(
-                                    selected = selectedMonth == month.key,
-                                    onClick = { selectedMonth = month.key },
-                                    label = { Text(month.label) }
-                                )
+                    detail != null -> {
+                        val picked = requireNotNull(detail)
+                        val rows = remember(detailRows, picked.key, fullSource, detailQuery) {
+                            detailRows.filter { line ->
+                                (fullSource || StatementMonthlyUsage.monthKey(line.occurredAt) == picked.key) &&
+                                    (detailQuery.isBlank() ||
+                                        line.description.contains(detailQuery, ignoreCase = true) ||
+                                        line.reference.contains(detailQuery, ignoreCase = true))
                             }
                         }
-                        LazyColumn(
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(if (fullSource) "Full saved PDF" else picked.usage.label,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold)
+                                Text(rows.size.toString() + " original source rows",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                            TextButton(onClick = { fullSource = !fullSource }) {
+                                Text(if (fullSource) "This month" else "Full PDF")
+                            }
+                        }
+                        OutlinedTextField(value = detailQuery, onValueChange = { detailQuery = it },
+                            label = { Text("Find description or receipt") }, singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                        if (detailLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                        else if (detailError) Text("Could not read saved source rows.",
+                            Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error)
+                        else LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(9.dp)
                         ) {
-                            item {
-                                Text(
-                                    "${displayed.size} source rows" +
-                                        (months.firstOrNull { it.key == selectedMonth }?.let { " · ${it.label}" } ?: " · All dates"),
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Text(
-                                    "These rows are sourced from the saved PDF, not SMS Activity.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            items(displayed, key = { "${it.page}:${it.row}:${it.reference}" }) { line ->
+                            if (rows.isEmpty()) item { Text("No matching statement transactions.") }
+                            items(rows, key = { it.page.toString() + ":" + it.row + ":" + it.reference }) { line ->
                                 PesaCard {
-                                    Column(
-                                        Modifier.padding(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Text(line.description, style = MaterialTheme.typography.bodyMedium)
-                                        Text(
-                                            "${timeFormatter.format(Date(line.occurredAt))} · ${line.reference} · " +
-                                                "Page ${line.page}, row ${line.row}",
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
-                                        Text(
-                                            if (line.informational) "Informational · no wallet movement"
-                                            else if (line.movementMinor > 0L)
-                                                "Money In ${money(line.movementMinor)}"
-                                            else "Money Out ${money(Math.negateExact(line.movementMinor))}"
-                                        )
-                                        Text(
-                                            "Reported balance ${money(line.balanceMinor)}",
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
+                                    Column(Modifier.padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        Text(line.description, style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.SemiBold)
+                                        Text(reportDate(line.occurredAt) + " · " + line.reference +
+                                            " · Page " + line.page + ", row " + line.row,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(when {
+                                            line.informational -> "Informational · no wallet movement"
+                                            line.movementMinor > 0 -> "Money In  " + reportMoney(line.paidInMinor)
+                                            else -> "Money Out  " + reportMoney(line.withdrawnMinor)
+                                        }, color = if (line.movementMinor > 0)
+                                            MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                                        Text("Reported balance " + reportMoney(line.balanceMinor),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else -> {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            StatementTab.entries.forEach { choice ->
+                                FilterChip(selected = tab == choice, onClick = { tab = choice },
+                                    label = { Text(choice.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                                    modifier = Modifier.weight(1f))
+                            }
+                        }
+                        if (months.isNotEmpty()) Box(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                        ) {
+                            OutlinedButton(onClick = { accountMenu = true },
+                                modifier = Modifier.fillMaxWidth()) {
+                                Text(labels[accountId] ?: "M-Pesa wallet",
+                                    Modifier.weight(1f), maxLines = 1)
+                                Icon(Icons.Rounded.ExpandMore, contentDescription = "Choose statement account")
+                            }
+                            DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
+                                ids.forEach { id ->
+                                    DropdownMenuItem(
+                                        text = { Text(labels[id] ?: "M-Pesa wallet") },
+                                        onClick = {
+                                            accountChoice = id
+                                            monthChoice = null
+                                            yearChoice = null
+                                            accountMenu = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        if (months.isEmpty()) Column(
+                            Modifier.fillMaxSize().padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Rounded.ReceiptLong, contentDescription = null,
+                                modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.primary)
+                            Text("No saved statement months", style = MaterialTheme.typography.titleLarge)
+                            Text("Save an M-Pesa PDF statement to view monthly and yearly usage.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Button(onClick = { importing = true }) { Text("Import statement") }
+                        } else when (tab) {
+                            StatementTab.MONTHLY -> {
+                                val picked = requireNotNull(selected)
+                                val index = months.indexOf(picked)
+                                val usage = picked.usage
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    item {
+                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween) {
+                                            IconButton(enabled = index < months.lastIndex,
+                                                onClick = { monthChoice = months[index + 1].key }) {
+                                                Icon(Icons.Rounded.ChevronLeft, contentDescription = "Previous imported month")
+                                            }
+                                            Text(usage.label, style = MaterialTheme.typography.titleLarge,
+                                                fontWeight = FontWeight.Bold)
+                                            IconButton(enabled = index > 0,
+                                                onClick = { monthChoice = months[index - 1].key }) {
+                                                Icon(Icons.Rounded.ChevronRight, contentDescription = "Next imported month")
+                                            }
+                                        }
+                                    }
+                                    item {
+                                        Text("Source dates " + reportDate(picked.source.firstTransactionAt) +
+                                            " – " + reportDate(picked.source.lastTransactionAt),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    item {
+                                        StatementHero("MONEY OUT · NOT NECESSARILY SPENDING",
+                                            reportMoney(usage.paidOutMinor),
+                                            "Includes transfers, savings, fees and loan movements.")
+                                    }
+                                    item {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            StatementStat("Money in", reportMoney(usage.paidInMinor),
+                                                Modifier.weight(1f))
+                                            StatementStat("Net movement", reportMoney(usage.netMinor),
+                                                Modifier.weight(1f))
+                                        }
+                                    }
+                                    item {
+                                        PesaCard {
+                                            Column(Modifier.padding(16.dp),
+                                                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                Text("Money movement", style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold)
+                                                val max = maxOf(1L, usage.paidInMinor, usage.paidOutMinor)
+                                                StatementBar("Money in", usage.paidInMinor, max,
+                                                    MaterialTheme.colorScheme.primary)
+                                                StatementBar("Money out", usage.paidOutMinor, max,
+                                                    MaterialTheme.colorScheme.tertiary)
+                                                Text(usage.financialMovements.toString() + " movements · " +
+                                                    usage.informationalRows + " informational · " +
+                                                    usage.sourceRows + " rows",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                    }
+                                    if (picked.sourceCount > 1) item {
+                                        Text(picked.sourceCount.toString() + " PDFs contain this month. " +
+                                            "Only the highest-row-coverage source is used, not their sum. " +
+                                            "Other source periods are excluded to prevent double counting.",
+                                            color = MaterialTheme.colorScheme.error,
+                                            style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    item {
+                                        Text("Months may be incomplete. These are original wallet movements, " +
+                                            "not verified expenses or a confirmed whole-month balance.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    item {
+                                        Button(onClick = { detail = picked; fullSource = false },
+                                            modifier = Modifier.fillMaxWidth()) {
+                                            Text("View " + usage.label + " transactions")
+                                            Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                                        }
+                                    }
+                                }
+                            }
+                            StatementTab.YEARLY -> {
+                                val data = requireNotNull(annual)
+                                val index = years.indexOf(data.year)
+                                val byMonth = data.months.associateBy { it.usage.month }
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    item {
+                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween) {
+                                            IconButton(enabled = index < years.lastIndex,
+                                                onClick = { yearChoice = years[index + 1] }) {
+                                                Icon(Icons.Rounded.ChevronLeft, contentDescription = "Earlier year")
+                                            }
+                                            Text(data.year.toString(), style = MaterialTheme.typography.titleLarge,
+                                                fontWeight = FontWeight.Bold)
+                                            IconButton(enabled = index > 0,
+                                                onClick = { yearChoice = years[index - 1] }) {
+                                                Icon(Icons.Rounded.ChevronRight, contentDescription = "Later year")
+                                            }
+                                        }
+                                    }
+                                    item {
+                                        Text(data.importedMonthCount.toString() + " imported months · " +
+                                            data.missingMonthCount + " missing",
+                                            color = MaterialTheme.colorScheme.primary)
+                                    }
+                                    item {
+                                        StatementHero("YEARLY MONEY OUT", reportMoney(data.paidOutMinor),
+                                            "Only imported months · not verified purchase spending")
+                                    }
+                                    item {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            StatementStat("Money in", reportMoney(data.paidInMinor),
+                                                Modifier.weight(1f))
+                                            StatementStat("Average / imported month",
+                                                reportMoney(data.averageOutMinor), Modifier.weight(1f))
+                                        }
+                                    }
+                                    item {
+                                        PesaCard {
+                                            Column(Modifier.padding(14.dp)) {
+                                                Text("Monthly usage", style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold)
+                                                Text("Tap a bar for that month · grey is missing",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Spacer(Modifier.height(16.dp))
+                                                val max = maxOf(1L,
+                                                    data.months.maxOfOrNull { it.usage.paidOutMinor } ?: 0L)
+                                                val shortMonths = listOf("J","F","M","A","M","J","J","A","S","O","N","D")
+                                                Row(Modifier.fillMaxWidth().height(170.dp),
+                                                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                                    verticalAlignment = Alignment.Bottom) {
+                                                    (1..12).forEach { number ->
+                                                        val entry = byMonth[number]
+                                                        Column(Modifier.weight(1f).fillMaxHeight(),
+                                                            horizontalAlignment = Alignment.CenterHorizontally) {
+                                                            Spacer(Modifier.weight(1f))
+                                                            val height = if (entry == null) 9.dp else
+                                                                (10 + 122 * (entry.usage.paidOutMinor.toDouble() / max)).dp
+                                                            Box(Modifier.fillMaxWidth().height(height)
+                                                                .background(
+                                                                    if (entry == null) MaterialTheme.colorScheme.surfaceVariant
+                                                                    else MaterialTheme.colorScheme.primary,
+                                                                    RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                                                .then(if (entry == null) Modifier else Modifier.clickable {
+                                                                    monthChoice = entry.key
+                                                                    tab = StatementTab.MONTHLY
+                                                                }))
+                                                            Spacer(Modifier.height(8.dp))
+                                                            Text(shortMonths[number - 1],
+                                                                style = MaterialTheme.typography.labelSmall)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (data.months.any { it.sourceCount > 1 }) item {
+                                        Text("Overlapping PDFs were not summed. One original source per month is shown.",
+                                            color = MaterialTheme.colorScheme.error,
+                                            style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    item {
+                                        Text("Missing months are excluded from averages, never counted as zero. " +
+                                            "Some imported months may contain partial statements.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    items(data.months, key = { it.key }) { entry ->
+                                        OutlinedButton(onClick = {
+                                            monthChoice = entry.key
+                                            tab = StatementTab.MONTHLY
+                                        }, modifier = Modifier.fillMaxWidth()) {
+                                            Text(entry.usage.label, Modifier.weight(1f))
+                                            Text(reportMoney(entry.usage.paidOutMinor))
+                                            Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                                        }
+                                    }
+                                }
+                            }
+                            StatementTab.BROWSE -> {
+                                val filtered = months.filter {
+                                    browseQuery.isBlank() ||
+                                        it.usage.label.contains(browseQuery.trim(), ignoreCase = true) ||
+                                        it.key.contains(browseQuery.trim())
+                                }
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    item {
+                                        Text("Browse every imported month",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold)
+                                        Text("Jump to older years or search by month",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    item {
+                                        OutlinedTextField(value = browseQuery,
+                                            onValueChange = { browseQuery = it },
+                                            label = { Text("Search month or year") }, singleLine = true,
+                                            modifier = Modifier.fillMaxWidth())
+                                    }
+                                    item {
+                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            items(years) { y ->
+                                                FilterChip(selected = browseQuery == y.toString(),
+                                                    onClick = { browseQuery =
+                                                        if (browseQuery == y.toString()) "" else y.toString() },
+                                                    label = { Text(y.toString()) })
+                                            }
+                                        }
+                                    }
+                                    if (filtered.isEmpty()) item { Text("No matching imported months.") }
+                                    filtered.groupBy { it.usage.year }
+                                        .toSortedMap(compareByDescending { it })
+                                        .forEach { (y, entries) ->
+                                            item(key = "year:" + y) {
+                                                Text(y.toString() + " · " + entries.size + " imported months",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold)
+                                            }
+                                            items(entries, key = { it.key }) { entry ->
+                                                PesaCard {
+                                                    Row(Modifier.fillMaxWidth().clickable {
+                                                        monthChoice = entry.key
+                                                        tab = StatementTab.MONTHLY
+                                                    }.padding(14.dp),
+                                                        verticalAlignment = Alignment.CenterVertically) {
+                                                        Column(Modifier.weight(1f)) {
+                                                            Text(entry.usage.label,
+                                                                style = MaterialTheme.typography.titleMedium,
+                                                                fontWeight = FontWeight.SemiBold)
+                                                            Text(entry.usage.sourceRows.toString() + " source rows" +
+                                                                if (entry.sourceCount > 1) " · Multiple PDFs"
+                                                                else " · Saved PDF",
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        }
+                                                        Text(reportMoney(entry.usage.paidOutMinor),
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            fontWeight = FontWeight.SemiBold)
+                                                        Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    item {
+                                        OutlinedButton(onClick = { importing = true },
+                                            modifier = Modifier.fillMaxWidth()) {
+                                            Icon(Icons.Rounded.Add, contentDescription = null)
+                                            Text("Import another statement")
+                                        }
                                     }
                                 }
                             }
@@ -345,6 +532,55 @@ internal fun StatementActivityDialog(onDismiss: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+    // Reuse the established review/import route and refresh when it closes.
+    if (importing) StatementImportSheet(
+        onDismiss = { importing = false; refresh++ },
+        onChanged = { refresh++ }
+    )
+}
+
+@Composable
+private fun StatementHero(title: String, value: String, note: String) {
+    Surface(color = MaterialTheme.colorScheme.primaryContainer,
+        shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text(value, style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text(note, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+    }
+}
+
+@Composable
+private fun StatementStat(title: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier, shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun StatementBar(title: String, value: Long, max: Long, color: Color) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(title, style = MaterialTheme.typography.bodyMedium)
+            Text(reportMoney(value), style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold)
+        }
+        Box(Modifier.fillMaxWidth().height(8.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(5.dp))) {
+            Box(Modifier.fillMaxWidth((value.toDouble() / max).toFloat().coerceIn(0f, 1f))
+                .fillMaxHeight().background(color, RoundedCornerShape(5.dp)))
         }
     }
 }
