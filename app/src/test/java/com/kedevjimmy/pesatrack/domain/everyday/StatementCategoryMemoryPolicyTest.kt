@@ -78,6 +78,8 @@ class StatementCategoryMemoryPolicyTest {
             "Customer Transfer to 254722000000 ELIZABETH MBIRA by - 254746***497 JAMES", memories))
         assertEquals("EATING_OUT", policy.learnedFor(
             "Send money to 0722****00 ELIZABETH MBIRA", memories))
+        assertEquals("EATING_OUT", policy.learnedFor(
+            "Customer Transfer to 0722000000ELIZABETH MBIRA", memories))
         assertTrue(policy.proposedSourceMatches(
             "Elizabeth Mbira","0722000000",
             "Customer Transfer to 0722000000 - ELIZABETH MBIRA", memories))

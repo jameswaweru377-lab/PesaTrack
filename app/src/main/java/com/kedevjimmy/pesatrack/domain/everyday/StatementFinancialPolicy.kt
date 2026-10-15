@@ -34,7 +34,7 @@ object StatementFinancialPolicy {
         "(?i)^(?:customer\\s+transfer\\s+to|send\\s+money\\s+to|transfer\\s+to|payment\\s+to|paid\\s+to)\\s+"
     )
     private val optionalPhone = Regex(
-        "^(?:\\+?254[17][0-9*]{8}|0[17][0-9*]{8}|[17][0-9*]{8})(?=\\s|\\s*-|$)"
+        "^(?:\\+?254[17][0-9*]{8}|0[17][0-9*]{8}|[17][0-9*]{8})(?=\\s|\\s*-|[A-Za-z]|$)"
     )
     private val supportedName = Regex("[A-Z][A-Z'’&.-]*(?: [A-Z][A-Z'’&.-]*){1,7}")
     private val leading = listOf(
@@ -66,7 +66,8 @@ object StatementFinancialPolicy {
     private val safaricomBundle = Regex(
         "(?i)^(?:customer\\s+bundle\\s+purchase|recharge\\s+for\\s+customer)\\b"
     )
-    private val safaricomEvidence = Regex("(?i)\\b(?:SAFARICOM|DATA\\s+BUNDLES)\\b")
+    // Safaricom may be concatenated directly to its merchant/till identifier.
+    private val safaricomEvidence = Regex("(?i)(?:SAFARICOM|\\bDATA\\s+BUNDLES\\b)")
     private val investment = Regex("(?i)\\b(?:INVESTMENT\\s+(?:DEPOSIT|PURCHASE)|SHARE\\s+PURCHASE|STOCKBROKER)\\b")
 
     /**
