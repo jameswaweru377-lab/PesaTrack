@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.chaquo.python")
 }
 
 val entityEnrichmentUrl = providers
@@ -100,6 +101,8 @@ android {
                 .replace("\"", "\\\"")}\""
         )
         minSdk = 24
+        // Trial only: 64-bit Android and emulator ABI; do not ship until tested.
+        ndk { abiFilters += listOf("arm64-v8a") }
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
@@ -160,6 +163,15 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
+    }
+}
+
+// Feasibility gate only: can the EXACT pdfplumber family be bundled on Android?
+// No production parser or private statement data is routed through Python yet.
+chaquopy {
+    defaultConfig {
+        version = "3.13"
+        pip { install("pdfplumber==0.11.9") }
     }
 }
 
