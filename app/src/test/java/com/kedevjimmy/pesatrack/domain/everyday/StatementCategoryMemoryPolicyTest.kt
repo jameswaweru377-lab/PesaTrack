@@ -21,7 +21,7 @@ class StatementCategoryMemoryPolicyTest {
     )
 
     @Test fun existingPhoneBasedActivityMemoryAppliesToNameOnlyHistoricalPdf() {
-        val remembered = listOf(policy.Memory("Elizabeth Mbira", "0722000000", "EATING_OUT"))
+        val remembered = listOf(StatementCategoryMemoryPolicy.Memory("Elizabeth Mbira", "0722000000", "EATING_OUT"))
         assertEquals("EATING_OUT", policy.learnedFor(
             "Customer Transfer to Elizabeth Mbira", remembered))
         assertEquals("EATING_OUT", policy.learnedFor(
@@ -32,8 +32,8 @@ class StatementCategoryMemoryPolicyTest {
 
     @Test fun differentPeopleWithSameNameAndDifferentPhonesDoNotAutoApply() {
         val remembered = listOf(
-            policy.Memory("Elizabeth Mbira", "0722000000", "EATING_OUT"),
-            policy.Memory("ELIZABETH MBIRA", "0711000000", "GROCERIES")
+            StatementCategoryMemoryPolicy.Memory("Elizabeth Mbira", "0722000000", "EATING_OUT"),
+            StatementCategoryMemoryPolicy.Memory("ELIZABETH MBIRA", "0711000000", "GROCERIES")
         )
         assertNull(policy.learnedFor("Customer Transfer to Elizabeth Mbira", remembered))
         assertFalse(policy.proposedSourceMatches(
@@ -41,7 +41,7 @@ class StatementCategoryMemoryPolicyTest {
     }
 
     @Test fun partialNamesAndAmbiguousNumericDescriptionsCannotLearn() {
-        val memory = listOf(policy.Memory("Elizabeth Mbira", "0722000000", "EATING_OUT"))
+        val memory = listOf(StatementCategoryMemoryPolicy.Memory("Elizabeth Mbira", "0722000000", "EATING_OUT"))
         assertNull(policy.learnedFor("Send money to Elizabeth", memory))
         assertNull(policy.learnedFor("Customer Transfer to 0722000000 Elizabeth Mbira", memory))
         assertNull(policy.learnedFor("Send money to 0722000000", memory))
@@ -63,8 +63,8 @@ class StatementCategoryMemoryPolicyTest {
 
     @Test fun conflictingMemoriesNeverSilentlyChooseCategory() {
         val memories = listOf(
-            policy.Memory("Elizabeth Mbira", "0722000000", "EATING_OUT"),
-            policy.Memory("Elizabeth Mbira", "0722000000", "GROCERIES")
+            StatementCategoryMemoryPolicy.Memory("Elizabeth Mbira", "0722000000", "EATING_OUT"),
+            StatementCategoryMemoryPolicy.Memory("Elizabeth Mbira", "0722000000", "GROCERIES")
         )
         assertNull(policy.learnedFor("Customer Transfer to Elizabeth Mbira", memories))
     }
