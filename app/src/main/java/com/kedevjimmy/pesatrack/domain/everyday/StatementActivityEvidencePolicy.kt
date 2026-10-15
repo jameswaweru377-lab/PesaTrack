@@ -42,12 +42,14 @@ object StatementActivityEvidencePolicy {
     ): StatementClassified {
         val a = verified(source.line, account, receipts) ?: return source
         val evidenced = source.copy(activityReceiptVerified = true)
+        // A user's explicit Activity tracking exclusion wins over report
+        // category choice; original source rows and debt provenance remain.
+        if (a.excluded) return evidenced.copy(
+            flow = StatementFlow.EXCLUDED, categoryId = null, economicAmountMinor = 0L,
+            evidence = "Excluded from tracked Activity • same receipt verified")
         if (source.flow in setOf(StatementFlow.DEBT, StatementFlow.FEE,
                 StatementFlow.REFUND, StatementFlow.SAVINGS, StatementFlow.INFORMATIONAL))
             return evidenced
-        if (a.excluded) return evidenced.copy(
-            flow = StatementFlow.EXCLUDED, categoryId = null, economicAmountMinor = 0L,
-            evidence = "Excluded in Activity • same receipt verified")
         if (a.direction == "TRANSFER" &&
             (a.linkedAccountId != null ||
              (a.reviewState == "USER_CLASSIFIED" && a.categoryId == "TRANSFER")))

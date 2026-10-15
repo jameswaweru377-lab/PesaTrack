@@ -483,6 +483,20 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                             Modifier.weight(1f)) { navigate(StatementPage.DEBTS) }
                                     }
                                 }
+                                if (visible.any {
+                                    it.categoryId == "MONEY_LENT" ||
+                                        it.categoryId == "RECEIVABLE_REPAYMENT" ||
+                                        (it.activityReceiptVerified && it.flow == StatementFlow.EXPENSE &&
+                                            it.reportAmountMinor < it.amountMinor)
+                                }) item {
+                                    OutlinedButton(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        onClick = { navigate(StatementPage.DEBTS) }
+                                    ) {
+                                        Text("View money lent and shared bills from Activity")
+                                        Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                                    }
+                                }
                                 if (totals.unknownOutMinor > 0L || totals.unknownInMinor > 0L) item {
                                     OutlinedButton(
                                         modifier = Modifier.fillMaxWidth(),
@@ -755,6 +769,13 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                         StatementPage.DEBTS -> {
                             val debts = visible.filter { it.debtProvider != null }
                             val providers = debts.groupBy { it.debtProvider ?: "Unknown lender" }
+                            val personalLent = visible.filter { it.categoryId == "MONEY_LENT" }
+                            val personalRepaid = visible.filter { it.categoryId == "RECEIVABLE_REPAYMENT" }
+                            val shared = visible.filter {
+                                it.flow == StatementFlow.EXPENSE &&
+                                    it.activityReceiptVerified &&
+                                    it.reportAmountMinor < it.amountMinor
+                            }
                             LazyColumn(Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(13.dp)) {
@@ -766,8 +787,50 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                if (providers.isEmpty()) item {
-                                    Text("No supported loan drawdown or repayment evidence in this period.")
+                                if (providers.isEmpty() && personalLent.isEmpty() &&
+                                    personalRepaid.isEmpty() && shared.isEmpty()) item {
+                                    Text("No supported loan or verified personal receivable evidence in this period.")
+                                }
+                                if (personalLent.isNotEmpty() || personalRepaid.isNotEmpty() ||
+                                    shared.isNotEmpty()) item {
+                                    val lent = personalLent.fold(0L) { total, row ->
+                                        Math.addExact(total, row.amountMinor)
+                                    }
+                                    val repaid = personalRepaid.fold(0L) { total, row ->
+                                        Math.addExact(total, row.amountMinor)
+                                    }
+                                    val sharedOwed = shared.fold(0L) { total, row ->
+                                        Math.addExact(total,
+                                            Math.subtractExact(row.amountMinor, row.reportAmountMinor))
+                                    }
+                                    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                        shape = RoundedCornerShape(17.dp)) {
+                                        Column(Modifier.padding(15.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text("Money owed to you · verified in Activity",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold)
+                                            Text("Money lent: " + statementMoney(lent) +
+                                                " · Repayments received: " + statementMoney(repaid),
+                                                style = MaterialTheme.typography.bodyMedium)
+                                            if (sharedOwed > 0L) Text(
+                                                "Shared bill amounts owed to you: " +
+                                                statementMoney(sharedOwed),
+                                                style = MaterialTheme.typography.bodyMedium)
+                                            Text("These are historical receipt matches, not a current " +
+                                                "outstanding balance or proof of full repayment. " +
+                                                "Manage loans and shared bills in Activity.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            (personalLent + personalRepaid + shared).forEach { record ->
+                                                HorizontalDivider()
+                                                Text(statementDate(record.line.occurredAt) +
+                                                    " · " + record.line.description,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    maxLines = 2)
+                                            }
+                                        }
+                                    }
                                 }
                                 providers.forEach { (provider, events) ->
                                     item(key = provider) {
