@@ -59,6 +59,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val store = remember(context) { StatementActivityStore(context) }
     val reader = remember(context) { StatementReportReader(context) }
+    val crossCategory = remember(context) { StatementCrossCategoryRepository(context) }
     val ledgerRevision by LedgerUpdateBus.state.collectAsState()
     val scope = rememberCoroutineScope()
     var sources by remember { mutableStateOf<List<StatementHistoryReport.SourceMonth>>(emptyList()) }
@@ -88,6 +89,11 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
     var edit by remember { mutableStateOf<StatementClassified?>(null) }
     var editCategory by remember { mutableStateOf<String?>(null) }
     var editRemember by remember { mutableStateOf(false) }
+    var editRememberBoth by remember { mutableStateOf(false) }
+    var bridgePreview by remember {
+        mutableStateOf<StatementCrossCategoryRepository.Preview?>(null)
+    }
+    var bridgeScanning by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
 
@@ -659,6 +665,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                                 edit = classified
                                                 editCategory = classified.categoryId
                                                 editRemember = false
+                                                editRememberBoth = false
                                                 saveError = null
                                             }) {
                                             Row(Modifier.padding(13.dp),
@@ -850,6 +857,28 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
         statementOnly = true
     )
 
+    // The preview is an evidence check, never an eager classification write.
+    LaunchedEffect(edit?.batchId, edit?.line?.row, editCategory, accountId) {
+        bridgePreview = null
+        editRememberBoth = false
+        val target = edit
+        val category = editCategory
+        val account = accountId
+        if (target == null || category == null || account == null ||
+            categoryKinds[category] != "EXPENSE") {
+            bridgeScanning = false
+            return@LaunchedEffect
+        }
+        bridgeScanning = true
+        try {
+            bridgePreview = withContext(Dispatchers.IO) {
+                crossCategory.preview(target, account, category)
+            }
+        } catch (e: CancellationException) { throw e }
+          catch (_: Exception) { bridgePreview = null }
+        finally { bridgeScanning = false }
+    }
+
     val editing = edit
     if (editing != null) {
         val editableCategories = categoryLabels.entries.filter {
@@ -859,7 +888,11 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
         AlertDialog(onDismissRequest = { if (!saving) edit = null },
             title = { Text("Categorize transaction") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Column(
+                    modifier = Modifier.heightIn(max = 470.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
                     Text(editing.line.description, style = MaterialTheme.typography.bodyMedium,
                         maxLines = 3)
                     Text(
@@ -891,6 +924,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                 DropdownMenuItem(text = { Text(label) }, onClick = {
                                     editCategory = id
                                     editRemember = false
+                                    editRememberBoth = false
                                     saveError = null
                                     expand = false
                                 })
@@ -900,12 +934,45 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                     val canRemember = categoryCanSave &&
                         categoryKinds[editCategory] == "EXPENSE" &&
                         StatementFinancialPolicy.merchantKey(editing.line.description) != null
-                    if (canRemember) Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = editRemember, onCheckedChange = { editRemember = it })
-                        Text("Remember for matching future statements",
-                            style = MaterialTheme.typography.bodySmall)
+                    if (canRemember && bridgeScanning) Text(
+                        "Checking the same M-Pesa receipt in Activity…",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    val canBridge = categoryCanSave && bridgePreview != null
+                    if (canBridge) {
+                        val match = requireNotNull(bridgePreview)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = editRememberBoth, onCheckedChange = {
+                                editRememberBoth = it
+                                if (it) editRemember = false
+                            })
+                            Column {
+                                Text("Remember in Activity + Statements",
+                                    style = MaterialTheme.typography.bodyMedium)
+                                Text("Exact receipt verified · " +
+                                    "${match.activityMatches} other Activity and " +
+                                    "${match.statementMatches} eligible Statement records " +
+                                    "(${match.reportMatches} in reports).",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    } else if (canRemember) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = editRemember, onCheckedChange = {
+                                editRemember = it
+                                if (it) editRememberBoth = false
+                            })
+                            Text("Remember for future Statements only",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text("To update Activity too, a matching and eligible original " +
+                            "receipt must be verified. A similar name is not enough.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text("Existing SMS Activity and debt balances are not modified.",
+                    Text("Only this record leaves other transactions unchanged. " +
+                        "The shared option requires your confirmation and does not " +
+                        "merge the Activity or Statement databases.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (saveError != null) Text(requireNotNull(saveError),
@@ -914,15 +981,26 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
             },
             confirmButton = {
                 TextButton(
-                    enabled = !saving && categoryCanSave,
+                    enabled = !saving && !bridgeScanning && categoryCanSave &&
+                        (!editRememberBoth || bridgePreview != null),
                     onClick = {
                         val category = editCategory ?: return@TextButton
                         saving = true
                         scope.launch {
                             try {
                                 withContext(Dispatchers.IO) {
-                                    store.categorize(editing.batchId, editing.line.page,
-                                        editing.line.row, category, editRemember)
+                                    if (editRememberBoth) {
+                                        val link = requireNotNull(bridgePreview) {
+                                            "A verified Activity receipt is required for both."
+                                        }
+                                        crossCategory.rememberBoth(
+                                            editing, requireNotNull(accountId), category,
+                                            link.activityTransactionId
+                                        )
+                                    } else {
+                                        store.categorize(editing.batchId, editing.line.page,
+                                            editing.line.row, category, editRemember)
+                                    }
                                 }
                                 edit = null
                                 labelsChanged++
