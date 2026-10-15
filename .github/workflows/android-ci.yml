@@ -104,8 +104,13 @@ jobs:
             cat "$report"
           fi
 
+      - name: Test offline pdfplumber against invented physical-grid PDFs
+        run: |
+          python3 -m pip install --disable-pip-version-check "pdfplumber==0.11.9" "reportlab==4.4.9"
+          PYTHONPATH="$PWD/app/src/main/python:$PWD" python3 -m unittest discover -s tools/python_lab -p 'test_mpesa_pdfplumber_android.py' -v
+
       - name: Python lab contract tests
-        run: python3 -m unittest discover -s tools/python_lab -p 'test_*.py' -v
+        run: PYTHONPATH="$PWD/app/src/main/python:$PWD" python3 -m unittest discover -s tools/python_lab -p 'test_*.py' -v
 
       - name: Evaluate reviewed fixtures against actual Kotlin outputs
         env:
