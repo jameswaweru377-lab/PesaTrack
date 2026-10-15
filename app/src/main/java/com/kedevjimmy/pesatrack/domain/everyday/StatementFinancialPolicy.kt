@@ -104,8 +104,8 @@ object StatementFinancialPolicy {
             return result(StatementFlow.SAVINGS, "SAVINGS", "Savings movement")
         if (investment.containsMatchIn(description))
             return result(StatementFlow.INVESTMENT, "INVESTMENT", "Investment movement")
-        if (transfer.containsMatchIn(description) || transferToPerson.containsMatchIn(description))
-            return result(StatementFlow.TRANSFER, "TRANSFER", "Transfer evidence")
+        if (transfer.containsMatchIn(description))
+            return result(StatementFlow.TRANSFER, "TRANSFER", "Owned-account transfer evidence")
         if (fee.containsMatchIn(description) && line.withdrawnMinor > 0L)
             return result(StatementFlow.FEE, "FEES", "Explicit transaction charge")
         if (income.containsMatchIn(description) && line.paidInMinor > 0L)
@@ -128,6 +128,8 @@ object StatementFinancialPolicy {
         if (line.withdrawnMinor > 0L && rememberedCategory != null &&
             categoryKinds[rememberedCategory] == "EXPENSE")
             return result(StatementFlow.EXPENSE, rememberedCategory, "Remembered category")
+        if (transferToPerson.containsMatchIn(description))
+            return result(StatementFlow.TRANSFER, "TRANSFER", "Person-to-person transfer")
         if (line.withdrawnMinor > 0L) {
             val category = when {
                 grocery.containsMatchIn(description) -> "GROCERIES"
