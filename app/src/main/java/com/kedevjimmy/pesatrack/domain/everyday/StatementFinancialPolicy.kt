@@ -45,7 +45,7 @@ object StatementFinancialPolicy {
     private val loanDraw = Regex("(?i)\\b(?:loan\\s+(?:disbursement|drawdown|advanced|credited)|borrowed|loan\\s+proceeds)\\b")
     private val loanFee = Regex("(?i)\\b(?:loan\\s+(?:fee|interest|penalty)|fuliza\\s+(?:fee|interest))\\b")
     private val saving = Regex("(?i)\\b(?:M[-\\s]?SHWARI\\s+LOCK|SAVINGS?\\s+(?:DEPOSIT|WITHDRAWAL|TRANSFER)|DEPOSIT\\s+TO\\s+SAVINGS?)\\b")
-    private val transfer = Regex("(?i)\\b(?:OWN\\s+(?:ACCOUNT|WALLET)|SELF[-\\s]?TRANSFER|BANK[-\\s]?TO[-\\s]?M[-\\s]?PESA|M[-\\s]?PESA[-\\s]?TO[-\\s]?BANK|TRANSFER\\s+(?:TO|FROM)\\s+(?:EQUITY|KCB|CO[-\\s]?OP)\\s+(?:BANK|ACCOUNT))\\b")
+    private val transfer = Regex("(?i)\\b(?:OWN\\s+(?:ACCOUNT|WALLET)|SELF[-\\s]?TRANSFER|BANK[-\\s]?TO[-\\s]?M[-\\s]?PESA|M[-\\s]?PESA[-\\s]?TO[-\\s]?BANK|TRANSFER\\s+(?:TO|FROM)\\s+(?:EQUITY|KCB|CO[-\\s]?OP)\\s+(?:BANK|ACCOUNT)|TRANSFER\\s+(?:TO|FROM)\\s+OWN\\s+(?:EQUITY|KCB|CO[-\\s]?OP)\\s+(?:BANK\\s+)?ACCOUNT)\\b")
     private val transferToPerson = Regex("(?i)^(?:customer\\s+transfer|send\\s+money|funds\\s+transfer|transfer\\s+to)\\b")
     private val fee = Regex("(?i)\\b(?:TRANSACTION\\s+(?:FEE|COST|CHARGE)|WITHDRAWAL\\s+CHARGE|SERVICE\\s+(?:FEE|CHARGE)|BANK\\s+CHARGE)\\b")
     private val refund = Regex("(?i)\\b(?:REFUND|REVERSAL|REVERSED)\\b")
@@ -85,6 +85,8 @@ object StatementFinancialPolicy {
             StatementClassified(batchId, line, flow, category, evidence, provider, action)
         if (line.informational) return result(StatementFlow.INFORMATIONAL, evidence = "Zero-value statement record")
         val description = line.description.trim()
+        if (saving.containsMatchIn(description))
+            return result(StatementFlow.SAVINGS, "SAVINGS", "Savings movement")
         val provider = lenders.firstOrNull { it.second.containsMatchIn(description) }?.first
         // Preserve debt financial meaning before any generic merchant/category learning.
         if (provider != null) {
@@ -100,8 +102,6 @@ object StatementFinancialPolicy {
         }
         if (refund.containsMatchIn(description))
             return result(StatementFlow.REFUND, evidence = "Refund or reversal")
-        if (saving.containsMatchIn(description))
-            return result(StatementFlow.SAVINGS, "SAVINGS", "Savings movement")
         if (investment.containsMatchIn(description))
             return result(StatementFlow.INVESTMENT, "INVESTMENT", "Investment movement")
         if (transfer.containsMatchIn(description))
