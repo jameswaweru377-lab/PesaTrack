@@ -65,6 +65,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
     var categoryLabels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var categoryKinds by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var reports by remember { mutableStateOf<List<StatementClassified>>(emptyList()) }
+    var loadedAccount by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(true) }
     var dataError by remember { mutableStateOf(false) }
     var refreshed by remember { mutableIntStateOf(0) }
@@ -121,9 +122,15 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
     // Preload all data for the currently selected account once; changing Day,
     // Week, Month, Year or page never triggers repeated PDF/database reads.
     LaunchedEffect(accountId, refreshed, labelsChanged, months) {
-        if (accountId == null) { reports = emptyList(); return@LaunchedEffect }
+        if (accountId == null) {
+            reports = emptyList()
+            loadedAccount = null
+            return@LaunchedEffect
+        }
+        loadedAccount = null
         try {
             reports = withContext(Dispatchers.IO) { reader.read(months) }
+            loadedAccount = accountId
         } catch (e: CancellationException) { throw e }
           catch (_: Exception) { dataError = true; reports = emptyList() }
     }
@@ -198,13 +205,17 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                             tint = MaterialTheme.colorScheme.primary)
                     }
                 }
-                if (busy) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                } else if (dataError) {
+                if (dataError) {
                     Column(Modifier.padding(20.dp)) {
                         Text("Could not open the saved statement report. Your financial records were not changed.",
                             color = MaterialTheme.colorScheme.error)
                         TextButton(onClick = { refreshed++ }) { Text("Try again") }
+                    }
+                } else if (busy || (accountId != null && loadedAccount != accountId)) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Preparing your saved statement report…",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium)
                     }
                 } else if (months.isEmpty()) {
                     Column(Modifier.fillMaxSize().padding(24.dp),
