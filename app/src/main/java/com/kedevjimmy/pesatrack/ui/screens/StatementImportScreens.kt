@@ -206,10 +206,8 @@ private fun readStatement(c:Context,uri:Uri):String {
          done=if(saved.added)"Saved ${data.lines.size} original rows in Statement Activity. SMS Activity remains unchanged."
           else "This statement is already saved. No duplicate was created."
          stagedPdf=null;statementPdfApproved=false
-         // Open the private archive after an atomic successful or idempotent save.
+         // Open the private archive after successful or idempotent save.
          showStatementActivity=true
-          // A completed save must lead directly to the saved statement viewer.
-          showStatementActivity=true
         }catch(e:CancellationException){throw e}
         catch(e:Exception){error=e.message ?: "Statement Activity save failed. No ledger entries changed."}
         finally{importing=false}
