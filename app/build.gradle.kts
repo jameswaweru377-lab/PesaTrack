@@ -171,7 +171,7 @@ android {
 chaquopy {
     defaultConfig {
         version = "3.13"
-        pip { install("pdfplumber==0.11.10") }
+        pip { install("pdfplumber==0.11.9") }
     }
 }
 
