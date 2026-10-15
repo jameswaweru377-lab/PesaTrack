@@ -93,7 +93,11 @@ object OfflineMpesaPdfReader {
                     description = line.getString("description"),
                     paidInMinor = line.getLong("paidInMinor"),
                     withdrawnMinor = line.getLong("withdrawnMinor"),
-                    balanceMinor = line.getLong("balanceMinor")
+                    balanceMinor = line.getLong("balanceMinor"),
+                    sourceCells = line.getJSONArray("sourceCells").let { cells ->
+                        require(cells.length() == 7) { "Every statement row must retain seven source cells." }
+                        (0 until 7).map { cell -> cells.getString(cell) }
+                    }
                 )
             }
             require(lines.count { it.informational } == informational)
