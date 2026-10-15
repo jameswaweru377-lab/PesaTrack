@@ -11,6 +11,19 @@ class RememberCategoryRepository(context: Context) {
     private val store = TransactionStore.get(this.context)
     private val learning = PersonalLearningStore.get(this.context)
 
+    data class MatchingPreview(val activity: Int, val statements: Int) {
+        val total: Int get() = activity + statements
+    }
+
+    /** Preview Activity and independent report rows before saving consent. */
+    fun matchingPreview(source: StoredTransaction, categoryId: String): MatchingPreview =
+        synchronized(CanonicalStoreLock.monitor) {
+            val activity = matchingCount(source)
+            val statements = StatementCategoryBridge(context)
+                .matchingStatementCount(source, categoryId)
+            MatchingPreview(activity, statements)
+        }
+
     fun matchingCount(source: StoredTransaction): Int = synchronized(CanonicalStoreLock.monitor) {
         store.categoryLearningCandidates().count {
             it.id != source.id && RememberedCategoryMatchPolicy.matches(

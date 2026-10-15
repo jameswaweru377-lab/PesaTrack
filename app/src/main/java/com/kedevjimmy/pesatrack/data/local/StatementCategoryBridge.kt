@@ -1,24 +1,21 @@
 package com.kedevjimmy.pesatrack.data.local
 
 import android.content.Context
+import com.kedevjimmy.pesatrack.domain.everyday.StatementCategoryMemoryPolicy
 import com.kedevjimmy.pesatrack.domain.everyday.StatementFinancialPolicy
+import com.kedevjimmy.pesatrack.domain.everyday.StatementHistoryReport
+import com.kedevjimmy.pesatrack.domain.everyday.StatementMonthlyUsage
 import com.kedevjimmy.pesatrack.domain.learning.PersonalLearningPolicy
-import com.kedevjimmy.pesatrack.domain.learning.RememberedCategoryMatchPolicy
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 
 /**
- * Only reads approved categorization preferences from the canonical Activity DB.
- * Activity and the debt ledger are NEVER updated while browsing Statements.
- *
- * Statement-side categorization and its own remembered merchant rules live in
- * StatementActivityStore, so deleting a PDF does not remove any SMS records.
+ * Only reads approved Activity category memories. Statements remain their own
+ * immutable source journal; learning never imports/updates SMS or debt entries.
  */
 class StatementCategoryBridge(context: Context) {
     private val app = context.applicationContext
 
-    data class CategoryMemory(val name: String?, val phone: String?, val categoryId: String)
-
-    fun activityMemories(): List<CategoryMemory> {
+    fun activityMemories(): List<StatementCategoryMemoryPolicy.Memory> {
         val db = PesaTrackDatabase.get(app).readableDatabase
         return db.rawQuery(
             """
@@ -32,23 +29,56 @@ class StatementCategoryBridge(context: Context) {
                 while (cursor.moveToNext()) {
                     val category = cursor.getString(2)
                     if (PersonalLearningPolicy.isLearnableCategory(category, MoneyDirection.EXPENSE)) {
-                        add(CategoryMemory(cursor.getString(0), cursor.getString(1), category))
+                        add(StatementCategoryMemoryPolicy.Memory(
+                            cursor.getString(0), cursor.getString(1), category
+                        ))
                     }
                 }
             }
         }
     }
 
+    fun learnedFor(
+        description: String,
+        memories: List<StatementCategoryMemoryPolicy.Memory>
+    ): String? = StatementCategoryMemoryPolicy.learnedFor(description, memories)
+
     /**
-     * Require the same strict counterparty policy as Activity. A statement
-     * without a phone cannot silently match a phone-specific preference.
+     * Preview only the statement rows that appear in the account-specific
+     * reports: alternative overlapping PDFs are intentionally not counted.
+     * This is a read-only scan done on Dispatchers.IO from the existing UI.
      */
-    fun learnedFor(description: String, rules: List<CategoryMemory>): String? {
-        val name = StatementFinancialPolicy.merchantKey(description) ?: return null
-        val matches = rules.filter {
-            RememberedCategoryMatchPolicy.matches(it.name, it.phone, name, null)
-        }.map { it.categoryId }.distinct()
-        return matches.singleOrNull()
+    fun matchingStatementCount(source: StoredTransaction, newCategory: String): Int {
+        val policy = StatementCategoryMemoryPolicy
+        if (source.counterparty.isNullOrBlank()) return 0
+        val store = StatementActivityStore(app)
+        val memories = activityMemories()
+        val kinds = categoryKinds()
+        if (kinds[newCategory] != "EXPENSE") return 0
+        val localRules = store.categoryRules()
+        val selected = store.sourceMonths().groupBy { it.accountId }.values.flatMap { sources ->
+            StatementHistoryReport.selectForAccount(sources, sources.first().accountId)
+        }
+        var count = 0
+        selected.groupBy { it.source.batchId }.forEach { (batchId, months) ->
+            val keys = months.map { it.key }.toSet()
+            val overrides = store.categoriesFor(batchId)
+            store.lines(batchId).forEach { row ->
+                if (row.withdrawnMinor == 0L ||
+                    StatementMonthlyUsage.monthKey(row.occurredAt) !in keys ||
+                    !policy.proposedSourceMatches(
+                        source.counterparty, source.counterpartyPhone, row.description, memories
+                    )) return@forEach
+                val key = StatementFinancialPolicy.merchantKey(row.description)
+                val currentCategory = learnedFor(row.description, memories)
+                    ?: key?.let(localRules::get)
+                if (policy.wouldChange(
+                    batchId, row, newCategory, currentCategory,
+                    row.page to row.row in overrides, kinds
+                )) count++
+            }
+        }
+        return count
     }
 
     fun categoryKinds(): Map<String, String> =

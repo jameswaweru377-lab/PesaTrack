@@ -206,6 +206,9 @@ fun TransactionDetailScreen(
     var pendingMatchCount by remember(transactionId) {
         mutableStateOf(0)
     }
+    var pendingStatementMatchCount by remember(transactionId) {
+        mutableStateOf(0)
+    }
     var learnedMessage by remember(transactionId) {
         mutableStateOf<String?>(null)
     }
@@ -345,11 +348,12 @@ fun TransactionDetailScreen(
                         current.category in setOf(TransactionCategory.OTHER.name, TransactionCategory.UNCATEGORIZED.name) &&
                         current.reviewState in setOf(ReviewState.NEEDS_REVIEW.name, ReviewState.AUTO_CLASSIFIED.name) &&
                         PersonalLearningPolicy.isLearnableCategory(canonicalId, direction) && canLearnIdentity(current)) {
-                        learningRepository.matchingCount(current)
-                    } else 0
+                        learningRepository.matchingPreview(current, canonicalId)
+                    } else RememberCategoryRepository.MatchingPreview(0, 0)
                 }
-                if (count >= 2) {
-                    pendingMatchCount = count
+                if (count.activity >= 2 || count.statements > 0) {
+                    pendingMatchCount = count.activity
+                    pendingStatementMatchCount = count.statements
                     pendingCategoryId = canonicalId
                 } else {
                     withContext(Dispatchers.IO) { classifyOnly(current, canonicalId) }
@@ -520,9 +524,14 @@ fun TransactionDetailScreen(
             onDismissRequest = { if (!learningBusy) pendingCategoryId = null },
             title = { Text("Remember this category?") },
             text = { Column {
-                Text("Use “${current.counterparty ?: current.counterpartyPhone}” as ${categoryStore.labelFor(categoryId)}? " +
-                    "This updates $pendingMatchCount other matching transactions across all imported months, " +
-                    "and remembers future matches. Your other manual categories stay unchanged.")
+                Text("Remember “${current.counterparty ?: current.counterpartyPhone}” " +
+                    "as ${categoryStore.labelFor(categoryId)}?")
+                Text("Activity: $pendingMatchCount other eligible transactions.")
+                Text("Statements: $pendingStatementMatchCount eligible source records " +
+                    "in saved monthly reports.")
+                Text("Activity categories update now. Statements will recognize the same " +
+                    "rule when viewed or imported, including older years. Original PDF " +
+                    "records and your existing manual categories stay unchanged.")
                 learningError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             dismissButton = { TextButton(enabled = !learningBusy, onClick = {
@@ -544,7 +553,8 @@ fun TransactionDetailScreen(
                 scope.launch {
                     try {
                         val changed = withContext(Dispatchers.IO) { learningRepository.remember(current.id, categoryId) }
-                        learnedMessage = "Remembered • $changed other transactions updated across imported months."
+                        learnedMessage = "Remembered • $changed other Activity entries updated. " +
+                            "Matching Statements will use this category without changing their original records."
                         pendingCategoryId = null
                         refresh()
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {

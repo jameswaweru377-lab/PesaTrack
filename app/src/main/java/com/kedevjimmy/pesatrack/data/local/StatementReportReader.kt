@@ -30,8 +30,10 @@ class StatementReportReader(context: Context) {
                 store.lines(batchId).forEach { row ->
                     if (StatementMonthlyUsage.monthKey(row.occurredAt) !in keys) return@forEach
                     val merchant = StatementFinancialPolicy.merchantKey(row.description)
-                    val remembered = merchant?.let { statementRules[it] }
-                        ?: bridge.learnedFor(row.description, memories)
+                    // Activity's latest confirmed learning applies to historical
+                    // and future PDFs; explicit per-row statement edits still win.
+                    val remembered = bridge.learnedFor(row.description, memories)
+                        ?: merchant?.let { statementRules[it] }
                     add(StatementFinancialPolicy.classify(
                         batchId = batchId, line = row,
                         assignedCategory = corrections[row.page to row.row],
