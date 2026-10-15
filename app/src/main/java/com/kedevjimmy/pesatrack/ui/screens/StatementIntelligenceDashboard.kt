@@ -849,34 +849,52 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
 
     val editing = edit
     if (editing != null) {
+        val editableCategories = categoryLabels.entries.filter {
+            StatementFinancialPolicy.canAssignCategory(editing.line, it.key, categoryKinds)
+        }
+        val categoryCanSave = editableCategories.any { it.key == editCategory }
         AlertDialog(onDismissRequest = { if (!saving) edit = null },
             title = { Text("Categorize transaction") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Text(editing.line.description, style = MaterialTheme.typography.bodyMedium,
                         maxLines = 3)
+                    Text(
+                        statementDate(editing.line.occurredAt) + " · Receipt " +
+                            editing.line.reference + " · Page " + editing.line.page,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Text("Choose a category for this statement record",
                         style = MaterialTheme.typography.bodySmall)
+                    if (editableCategories.isEmpty()) Text(
+                        "This record is informational or contains protected transfer, debt, " +
+                            "savings, fee, refund or income evidence. Its financial type " +
+                            "cannot be changed from the category selector.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     var expand by remember { mutableStateOf(false) }
                     Box {
                         OutlinedButton(onClick = { expand = true },
+                            enabled = editableCategories.isNotEmpty(),
                             modifier = Modifier.fillMaxWidth()) {
                             Text(editCategory?.let { categoryLabels[it] } ?: "Select category",
                                 modifier = Modifier.weight(1f))
                             Icon(Icons.Rounded.ExpandMore, contentDescription = null)
                         }
                         DropdownMenu(expanded = expand, onDismissRequest = { expand = false }) {
-                            categoryLabels.entries
-                                .filter { categoryKinds[it.key] != "SYSTEM" }
-                                .forEach { (id, label) ->
-                                    DropdownMenuItem(text = { Text(label) }, onClick = {
-                                        editCategory = id
-                                        expand = false
-                                    })
-                                }
+                            editableCategories.forEach { (id, label) ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    editCategory = id
+                                    editRemember = false
+                                    saveError = null
+                                    expand = false
+                                })
+                            }
                         }
                     }
-                    val canRemember = editCategory != null &&
+                    val canRemember = categoryCanSave &&
                         categoryKinds[editCategory] == "EXPENSE" &&
                         StatementFinancialPolicy.merchantKey(editing.line.description) != null
                     if (canRemember) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -893,7 +911,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
             },
             confirmButton = {
                 TextButton(
-                    enabled = !saving && editCategory != null,
+                    enabled = !saving && categoryCanSave,
                     onClick = {
                         val category = editCategory ?: return@TextButton
                         saving = true
