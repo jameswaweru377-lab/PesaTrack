@@ -34,8 +34,7 @@ internal class PdfImportState {
 
 @Composable internal fun rememberPdfImport(
     onSelected: ()->Unit, onBusy: (Boolean)->Unit, onResult: (PdfTextPreview)->Unit,
-    includePositions: Boolean = false, pdfBoxProbe: Boolean = false,
-    pdfBoxStatement: Boolean = false, pdfBoxGridProbe: Boolean = false
+    includePositions: Boolean = false
 ): PdfImportState {
     val context=LocalContext.current;val scope=rememberCoroutineScope();val state=remember {PdfImportState()}
     val selected by rememberUpdatedState(onSelected);val busy by rememberUpdatedState(onBusy);val result by rememberUpdatedState(onResult)
@@ -49,9 +48,7 @@ internal class PdfImportState {
             state.job=scope.launch {
                 try {val pdf=PdfTextReviewReader.read(
                     context,uri,secret,
-                    includePositions=includePositions,
-                    pdfBoxProbe=pdfBoxProbe,pdfBoxStatement=pdfBoxStatement,
-                    pdfBoxGridProbe=pdfBoxGridProbe
+                    includePositions=includePositions
                 );state.retry=false;result(pdf)}
                 catch(e: CancellationException){throw e}
                 catch(e: PdfReadException) {
