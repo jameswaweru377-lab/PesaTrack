@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Insights
@@ -37,6 +38,7 @@ fun MoreScreen(
     scaffoldPadding: PaddingValues,
     onProfileClick: () -> Unit,
     onImportClick: () -> Unit,
+    onStatementActivityClick: () -> Unit,
     onDataHealthClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onReportsClick: (() -> Unit)? = null,
@@ -73,6 +75,15 @@ fun MoreScreen(
             item {
                 SectionHeader("Money tools")
             }
+        }
+        item {
+            MoreRow(
+                icon = Icons.Rounded.ReceiptLong,
+                title = "Statement Activity",
+                subtitle = "View your saved M-Pesa PDF statements and all their transactions",
+                tone = "green",
+                onClick = onStatementActivityClick
+            )
         }
         if (onReportsClick != null) {
             item {
