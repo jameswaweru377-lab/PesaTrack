@@ -31,6 +31,7 @@ import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreenCache
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoreScreen
+import com.kedevjimmy.pesatrack.ui.screens.StatementActivityDialog
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
 import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
@@ -444,6 +445,9 @@ fun PesaTrackApp(
                             "historical-import"
                         )
                     },
+                    onStatementActivityClick = {
+                        navController.navigate("statement-activity") { launchSingleTop = true }
+                    },
                     onDataHealthClick = {
                         navController.navigate("data-health")
                     },
@@ -461,6 +465,11 @@ fun PesaTrackApp(
                     }
                 )
             }
+        }
+
+        composable("statement-activity") {
+            // Read-only PDF statement archive. Never invokes SMS imports or account updates.
+            StatementActivityDialog(onDismiss = { navController.popBackStack() })
         }
 
         composable("reports") {

@@ -38,6 +38,10 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import android.os.Build
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
+import com.kedevjimmy.pesatrack.documents.OfflineMpesaPdfReader
 
 private fun readStatement(c:Context,uri:Uri):String {
  val bytes=c.contentResolver.openInputStream(uri)?.use {input->val out=ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val n=input.read(buffer);if(n<0)break;require(out.size()+n<=StatementCsv.MAX_BYTES){"Choose a CSV smaller than 2 MB."};out.write(buffer,0,n)};out.toByteArray()} ?: error("Could not open the file.")
@@ -48,6 +52,10 @@ private fun readStatement(c:Context,uri:Uri):String {
  var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable {mutableStateOf("")}
  var rows by remember {mutableStateOf<List<StatementRow>>(emptyList())};var preview by remember {mutableStateOf<List<EverydayMoneyStore.Preview>>(emptyList())}
  var showStatementActivity by remember {mutableStateOf(false)}
+ var sourcePdfUri by remember {mutableStateOf<Uri?>(null)}
+ var sourcePdfPassword by remember {mutableStateOf("")}
+ var stagedPdf by remember {mutableStateOf<OfflineMpesaPdfReader.Prepared?>(null)}
+ var statementPdfApproved by remember {mutableStateOf(false)}
  val zoneId=rememberSaveable {TimeZone.getDefault().id}
  val today=remember {StatementImportDates.day(System.currentTimeMillis(),zoneId)}
  var customDates by rememberSaveable {mutableStateOf(false)}
@@ -62,7 +70,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  var reading by remember {mutableStateOf(false)};var importing by remember {mutableStateOf(false)}
  val busy=reading||importing||preparing!=null
  val selected=remember {mutableStateMapOf<Int,Boolean>()};var error by remember {mutableStateOf<String?>(null)};var dateError by remember {mutableStateOf<String?>(null)};var done by remember {mutableStateOf<String?>(null)}
- fun invalidatePreview() {previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
+ fun invalidatePreview() {stagedPdf=null;statementPdfApproved=false;previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
  LaunchedEffect(Unit){try{accounts=withContext(Dispatchers.IO){store.ownedAccounts()}.filter {it.type==AccountType.BANK||it.type==AccountType.MOBILE_WALLET}}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load accounts."}}
  LaunchedEffect(selection){
   val source=selection
@@ -92,6 +100,11 @@ private fun readStatement(c:Context,uri:Uri):String {
     catch(e:Exception){error=e.message ?: "Could not read this CSV. Check its format."}
     finally{reading=false}
    }
+  }
+ }
+ val statementPdfPicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
+  if(uri!=null&&!busy&&accountId.isNotEmpty()){
+   invalidatePreview();sourcePdfUri=uri;sourcePdfPassword=""
   }
  }
  StatementImportWorkspace(busy,onDismiss) {
@@ -134,7 +147,12 @@ private fun readStatement(c:Context,uri:Uri):String {
      Text("Choose a supported CSV. Statement PDF extraction is being replaced.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      OutlinedButton(onClick={picker.launch(arrayOf("text/csv","text/comma-separated-values","application/csv","text/plain","application/octet-stream"))},enabled=!busy&&accountId.isNotEmpty(),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.TableChart,null);Spacer(Modifier.width(8.dp));Text("Select CSV file")}
      OutlinedButton(onClick={showStatementActivity=true},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(48.dp)){Text("Open Statement Activity")}
-     Text("M-Pesa PDF import is temporarily disabled during the offline Python migration. No PDF can write financial transactions in this build.",
+     OutlinedButton(onClick={statementPdfPicker.launch(arrayOf("application/pdf"))},
+      enabled=!busy&&accounts.any{it.id==accountId&&it.type==AccountType.MOBILE_WALLET},
+      modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
+      Icon(Icons.Rounded.PictureAsPdf,null);Spacer(Modifier.width(8.dp));Text("Select M-Pesa PDF (offline Python)")
+     }
+     Text("Only a fully verified seven-column PDF may be saved to Statement Activity. Never updates SMS Activity, budgets or balances.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
    }
@@ -152,6 +170,67 @@ private fun readStatement(c:Context,uri:Uri):String {
      if(busy) {
       LinearProgressIndicator(Modifier.fillMaxWidth())
       Text("Checking your document and transactions…",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     }
+    }
+   }
+  }
+  stagedPdf?.let{ready->item{
+   PesaCard {
+    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+     Text("Local PDF verification",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
+     Text("${ready.pages} pages · ${ready.lines.size} source rows · ${ready.proof.cashRows} cash movements · ${ready.informationalRows} M-Shwari informational events.")
+     Text("Official Paid In: ${toolMoney(ready.paidInMinor)} · Paid Out: ${toolMoney(ready.paidOutMinor)}.")
+     Text("${ready.sourceCharacters} source characters checked for ownership by physical cells.",style=MaterialTheme.typography.bodySmall)
+     if(ready.categoryPaidInGapMinor!=0L||ready.categoryPaidOutGapMinor!=0L)
+      Text("Source PDF category subtotals disagree with the printed total: Paid In difference ${toolMoney(ready.categoryPaidInGapMinor)}; Paid Out difference ${toolMoney(ready.categoryPaidOutGapMinor)}. Detailed rows match the official TOTAL.",
+       color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.bodySmall)
+     Text("Exact balance sequence under ${ready.fulizaCycles} provisional Fuliza exception(s), ${ready.sharedBalanceGroups} shared ending-balance groups. No independent opening/closing balance or external receipt count.",
+      style=MaterialTheme.typography.bodySmall)
+     Text("Every original source row appears below, including zero-value events. These are not SMS Activity postings.",
+      style=MaterialTheme.typography.bodySmall)
+     Row(verticalAlignment=Alignment.CenterVertically) {
+      Checkbox(checked=statementPdfApproved,onCheckedChange={statementPdfApproved=it},enabled=!busy)
+      Text("I reviewed the PDF and amounts. Save only in Statement Activity and leave my SMS ledger unchanged.",
+       Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
+     }
+     Button(enabled=!busy&&statementPdfApproved&&accounts.any{it.id==accountId&&it.type==AccountType.MOBILE_WALLET},
+      onClick={
+       val data=ready
+       val target=accountId
+       importing=true;error=null
+       scope.launch {
+        try {
+         val saved=withContext(Dispatchers.IO){
+          StatementActivityStore(c).save(target,data.lines,data.proof)
+         }
+         done=if(saved.added)"Saved ${data.lines.size} original rows in Statement Activity. SMS Activity remains unchanged."
+          else "This statement is already saved. No duplicate was created."
+         stagedPdf=null;statementPdfApproved=false
+         // Open the private archive after successful or idempotent save.
+         showStatementActivity=true
+        }catch(e:CancellationException){throw e}
+        catch(e:Exception){error=e.message ?: "Statement Activity save failed. No ledger entries changed."}
+        finally{importing=false}
+       }
+      },modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
+      Text("Save complete PDF to Statement Activity")
+     }
+    }
+   }
+  }}
+  stagedPdf?.let { ready ->
+   items(ready.lines.size,key={it}){i->
+    val record=ready.lines[i]
+    PesaCard {
+     Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(3.dp)){
+      Text(record.description,style=MaterialTheme.typography.bodyMedium)
+      Text("Page ${record.page}, row ${record.row} · ${record.reference}",
+       style=MaterialTheme.typography.bodySmall)
+      Text(if(record.informational)"Informational only — no M-Pesa movement"
+       else if(record.movementMinor>0)"Paid In ${toolMoney(record.movementMinor)}"
+       else "Withdrawn ${toolMoney(-record.movementMinor)}",
+       style=MaterialTheme.typography.bodySmall)
+      Text("Printed balance ${toolMoney(record.balanceMinor)}",style=MaterialTheme.typography.bodySmall)
      }
     }
    }
@@ -190,6 +269,33 @@ private fun readStatement(c:Context,uri:Uri):String {
     }
    }
   }
+ }
+ sourcePdfUri?.let { uri ->
+  AlertDialog(
+   onDismissRequest={sourcePdfUri=null;sourcePdfPassword=""},
+   properties=DialogProperties(securePolicy=SecureFlagPolicy.SecureOn),
+   title={Text("Open M-Pesa statement privately")},
+   text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+    Text("The PDF and password remain on your phone. Enter its password or leave blank.")
+    OutlinedTextField(value=sourcePdfPassword,onValueChange={sourcePdfPassword=it.take(256)},
+     label={Text("PDF password (optional)")},
+     visualTransformation=PasswordVisualTransformation(),singleLine=true,
+     modifier=Modifier.fillMaxWidth())
+   }},
+   dismissButton={TextButton(onClick={sourcePdfUri=null;sourcePdfPassword=""}){Text("Cancel")}},
+   confirmButton={TextButton(onClick={
+    val secret=sourcePdfPassword
+    sourcePdfPassword="";sourcePdfUri=null;invalidatePreview();reading=true
+    scope.launch{
+     try{
+      stagedPdf=withContext(Dispatchers.IO){OfflineMpesaPdfReader.inspect(c,uri,secret)}
+      done="The full PDF passed physical extraction, official summary and provisional balance checks. Review all rows before saving."
+     }catch(e:CancellationException){throw e}
+     catch(e:Exception){error=e.message ?: "The PDF did not pass verification. No statement records were saved."}
+     finally{reading=false}
+    }
+   }){Text("Verify locally")}}
+  )
  }
  if(showStatementActivity) StatementActivityDialog(onDismiss={showStatementActivity=false})
 }

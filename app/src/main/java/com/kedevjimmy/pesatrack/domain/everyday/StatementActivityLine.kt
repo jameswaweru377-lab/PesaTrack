@@ -13,7 +13,9 @@ data class StatementActivityLine(
     val description: String,
     val paidInMinor: Long,
     val withdrawnMinor: Long,
-    val balanceMinor: Long
+    val balanceMinor: Long,
+    /** Seven original PDF cells, retaining original date, signs and wrapped details. */
+    val sourceCells: List<String> = emptyList()
 ) {
     init {
         require(page in 1..160 && row in 1..5_000 && occurredAt > 0L)
@@ -21,6 +23,8 @@ data class StatementActivityLine(
         require(description.trim().length in 1..200)
         require(paidInMinor >= 0L && withdrawnMinor >= 0L && balanceMinor >= 0L)
         require(paidInMinor == 0L || withdrawnMinor == 0L)
+        require(sourceCells.isEmpty() || (sourceCells.size == 7 &&
+            sourceCells.all { it.length <= 1200 }))
     }
 
     val movementMinor: Long get() = Math.subtractExact(paidInMinor, withdrawnMinor)
