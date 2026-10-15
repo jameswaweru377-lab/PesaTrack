@@ -54,7 +54,8 @@ object StatementFinancialPolicy {
     private val fuel = Regex("(?i)\\b(?:SHELL\\s+(?:SERVICE|PETROL|STATION)|TOTALENERGIES|RUBIS\\s+PETROL)\\b")
     private val utility = Regex("(?i)\\b(?:KPLC|KENYA\\s+POWER)\\b")
     private val restaurant = Regex("(?i)\\b(?:KFC|JAVA\\s+HOUSE|ARTCAFFE)\\b")
-    private val merchant = Regex("(?i)\\b(?:BUY\\s+GOODS|MERCHANT\\s+PAYMENT|PAY\\s+BILL|PAYBILL|TILL\\s+(?:NO|NUMBER))\\b")
+    // Generic Paybill is not evidence of consumption: it can represent a loan, savings or own transfer.
+    private val merchant = Regex("(?i)\\b(?:BUY\\s+GOODS|MERCHANT\\s+PAYMENT|TILL\\s+(?:NO|NUMBER))\\b")
     private val investment = Regex("(?i)\\b(?:INVESTMENT\\s+(?:DEPOSIT|PURCHASE)|SHARE\\s+PURCHASE|STOCKBROKER)\\b")
 
     /**
@@ -144,6 +145,25 @@ object StatementFinancialPolicy {
                 return result(StatementFlow.EXPENSE, "OTHER", "Merchant payment")
         }
         return result(StatementFlow.UNKNOWN, evidence = "Financial purpose not established")
+    }
+
+    /**
+     * A manual category is valid only when it really changes this statement's
+     * classification. Explicit debt/refund/owned-transfer/savings evidence
+     * always wins. Do not offer debt classification without lender evidence.
+     */
+    fun canAssignCategory(
+        line: StatementActivityLine, categoryId: String, categoryKinds: Map<String, String>
+    ): Boolean {
+        if (categoryId == "DEBT_LOAN") return false
+        val kind = categoryKinds[categoryId]
+        if (kind != "EXPENSE" && kind != "INCOME" &&
+            kind != "TRANSFER" && kind != "ALLOCATION") return false
+        val candidate = classify(
+            batchId = "category-review", line = line,
+            assignedCategory = categoryId, categoryKinds = categoryKinds
+        )
+        return candidate.evidence == "User category" && candidate.categoryId == categoryId
     }
 
     fun totals(items: List<StatementClassified>): StatementFinancialTotals {
