@@ -32,7 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class StatementPage { SUMMARY, CATEGORIES, TRANSACTIONS, DEBTS, BROWSE }
+private enum class StatementPage { SUMMARY, CATEGORIES, TRENDS, TRANSACTIONS, DEBTS, BROWSE }
 private val nairobiStatementZone = TimeZone.getTimeZone("Africa/Nairobi")
 
 private fun statementDate(timestamp: Long, template: String = "dd MMM yyyy"): String =
@@ -253,16 +253,18 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                         }
                     }
                     if (page != StatementPage.BROWSE && page != StatementPage.DEBTS) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            listOf(
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(listOf(
                                 "Summary" to StatementPage.SUMMARY,
                                 "Categories" to StatementPage.CATEGORIES,
+                                "Trends" to StatementPage.TRENDS,
                                 "Transactions" to StatementPage.TRANSACTIONS
-                            ).forEach { (label, target) ->
+                            )) { (label, target) ->
                                 FilterChip(selected = page == target,
-                                    onClick = { navigate(target) }, label = { Text(label) },
-                                    modifier = Modifier.weight(1f))
+                                    onClick = { navigate(target) }, label = { Text(label) })
                             }
                         }
                     }
@@ -490,6 +492,97 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                 item {
                                     Text("Categories follow PesaTrack's existing labels and remembered merchant " +
                                         "rules. Unknown movements are not invented as expenses.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                        StatementPage.TRENDS -> {
+                            val buckets = StatementTrendBuckets.build(
+                                visible, period,
+                                months.filter { it.usage.year == year }.map { it.usage.month }.toSet()
+                            )
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                item {
+                                    Text("Your spending over time",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold)
+                                    Text("See when expenses happened in imported statements, without counting transfers or loans as purchases.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                item {
+                                    StatementHeroMetric("SPENT · " + periodTitle,
+                                        totals.expenseMinor,
+                                        "Classified expenses · partial statement periods may be missing")
+                                }
+                                item {
+                                    Surface(shape = RoundedCornerShape(18.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                                        Column(Modifier.padding(14.dp),
+                                            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                            Text(when (period) {
+                                                StatementFinancialPolicy.Period.DAY -> "Every 4 hours"
+                                                StatementFinancialPolicy.Period.WEEK -> "Each day of the week"
+                                                StatementFinancialPolicy.Period.MONTH -> "Each week of the month"
+                                                StatementFinancialPolicy.Period.YEAR -> "Each month of the year"
+                                            }, style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold)
+                                            StatementTrendBars(buckets) { slot ->
+                                                when (period) {
+                                                    StatementFinancialPolicy.Period.YEAR -> {
+                                                        val chosen = months.firstOrNull {
+                                                            it.usage.year == year && it.usage.month == slot + 1
+                                                        }
+                                                        if (chosen != null) {
+                                                            monthSelection = chosen.key
+                                                            period = StatementFinancialPolicy.Period.MONTH
+                                                            dayAnchor = null
+                                                            page = StatementPage.SUMMARY
+                                                        }
+                                                    }
+                                                    StatementFinancialPolicy.Period.MONTH -> {
+                                                        val target = requireNotNull(month)
+                                                        val calendar = Calendar.getInstance(nairobiStatementZone).apply {
+                                                            timeInMillis = target.source.lastTransactionAt
+                                                            set(Calendar.DAY_OF_MONTH, minOf(slot * 7 + 1,
+                                                                getActualMaximum(Calendar.DAY_OF_MONTH)))
+                                                        }
+                                                        dayAnchor = calendar.timeInMillis
+                                                        period = StatementFinancialPolicy.Period.WEEK
+                                                        page = StatementPage.SUMMARY
+                                                    }
+                                                    StatementFinancialPolicy.Period.WEEK -> {
+                                                        val calendar = Calendar.getInstance(nairobiStatementZone).apply {
+                                                            timeInMillis = dateAnchor
+                                                            while (get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY)
+                                                                add(Calendar.DAY_OF_MONTH, -1)
+                                                            add(Calendar.DAY_OF_MONTH, slot)
+                                                        }
+                                                        dayAnchor = calendar.timeInMillis
+                                                        period = StatementFinancialPolicy.Period.DAY
+                                                        page = StatementPage.SUMMARY
+                                                    }
+                                                    StatementFinancialPolicy.Period.DAY -> {
+                                                        navigate(StatementPage.TRANSACTIONS, StatementFlow.EXPENSE)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if (breakdown.isNotEmpty()) item {
+                                    Text("Biggest category · " + breakdown.first().first +
+                                        " · " + statementMoney(breakdown.first().second),
+                                        style = MaterialTheme.typography.bodyMedium)
+                                }
+                                item {
+                                    Text("An empty or grey bucket can mean unavailable evidence, not zero usage. " +
+                                        "Only statement-originated transactions are displayed.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
