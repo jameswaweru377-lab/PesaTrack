@@ -668,7 +668,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                                         style = MaterialTheme.typography.bodyMedium,
                                                         fontWeight = FontWeight.SemiBold,
                                                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                                    Text((categoryLabels[classified.categoryId]
+                                                    Text((classified.categoryId?.let { categoryLabels[it] }
                                                         ?: statementCategoryGroup(classified.categoryId, categoryLabels)) +
                                                         " · " + statementDate(classified.line.occurredAt, "dd MMM yyyy"),
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
