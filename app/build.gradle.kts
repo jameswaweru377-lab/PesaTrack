@@ -182,11 +182,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("androidx.work:work-runtime:2.12.0")
     implementation("com.google.code.gson:gson:2.13.1")
-    // Experimental, read-only local PDF evidence probe. Do not route its
-    // output to ledger or trust it for financial import before device tests.
-    // PDFBox-Android v2.0.27.0 is an older Apache-2.0 PDFBox port;
-    // dependency/security/size review remains a release gate.
-    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
     testImplementation("junit:junit:4.13.2")
     // Local JVM HTTP tests need actual JSON behavior instead of Android's null-returning stubs.
