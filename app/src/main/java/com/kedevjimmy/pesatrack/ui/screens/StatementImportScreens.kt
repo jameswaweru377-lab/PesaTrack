@@ -268,6 +268,33 @@ private fun readStatement(c:Context,uri:Uri):String {
    }
   }
  }
+ sourcePdfUri?.let { uri ->
+  AlertDialog(
+   onDismissRequest={sourcePdfUri=null;sourcePdfPassword=""},
+   properties=DialogProperties(securePolicy=SecureFlagPolicy.SecureOn),
+   title={Text("Open M-Pesa statement privately")},
+   text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+    Text("The PDF and password remain on your phone. Enter its password or leave blank.")
+    OutlinedTextField(value=sourcePdfPassword,onValueChange={sourcePdfPassword=it.take(256)},
+     label={Text("PDF password (optional)")},
+     visualTransformation=PasswordVisualTransformation(),singleLine=true,
+     modifier=Modifier.fillMaxWidth())
+   }},
+   dismissButton={TextButton(onClick={sourcePdfUri=null;sourcePdfPassword=""}){Text("Cancel")}},
+   confirmButton={TextButton(onClick={
+    val secret=sourcePdfPassword
+    sourcePdfPassword="";sourcePdfUri=null;invalidatePreview();reading=true
+    scope.launch{
+     try{
+      stagedPdf=withContext(Dispatchers.IO){OfflineMpesaPdfReader.inspect(c,uri,secret)}
+      done="The full PDF passed physical extraction, official summary and provisional balance checks. Review all rows before saving."
+     }catch(e:CancellationException){throw e}
+     catch(e:Exception){error=e.message ?: "The PDF did not pass verification. No statement records were saved."}
+     finally{reading=false}
+    }
+   }){Text("Verify locally")}}
+  )
+ }
  if(showStatementActivity) StatementActivityDialog(onDismiss={showStatementActivity=false})
 }
 
