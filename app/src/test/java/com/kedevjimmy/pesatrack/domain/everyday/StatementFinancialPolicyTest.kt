@@ -122,4 +122,44 @@ class StatementFinancialPolicyTest {
         assertNull(StatementFinancialPolicy.merchantKey("Customer Transfer to 0722000000"))
         assertNull(StatementFinancialPolicy.merchantKey("Fuliza Repayment"))
     }
+
+    @Test fun genericPaybillIsNotAutomaticallyConsumerSpending() {
+        val row = line("Paybill payment to 123456", outbound = 250_000L)
+        val result = classify(row)
+        assertEquals(StatementFlow.UNKNOWN, result.flow)
+        val totals = StatementFinancialPolicy.totals(listOf(result))
+        assertEquals(0L, totals.expenseMinor)
+        assertEquals(250_000L, totals.unknownOutMinor)
+    }
+
+    @Test fun protectedDebtTransferAndRefundCannotBeSilentlyReclassified() {
+        val loan = line("Fuliza loan repayment", outbound = 80_000L)
+        val own = line("Transfer to own Equity account", outbound = 150_000L)
+        val reversal = line("Reversed Buy Goods Payment", inbound = 12_000L)
+        assertFalse(StatementFinancialPolicy.canAssignCategory(loan,"EATING_OUT", kinds))
+        assertFalse(StatementFinancialPolicy.canAssignCategory(own,"GROCERIES", kinds))
+        assertFalse(StatementFinancialPolicy.canAssignCategory(reversal,"INCOME", kinds))
+        assertFalse(StatementFinancialPolicy.canAssignCategory(loan,"DEBT_LOAN", kinds))
+        assertEquals("Explicit loan repayment",
+            classify(loan, assigned="EATING_OUT").evidence)
+    }
+
+    @Test fun reviewedPersonTransferCanBeCorrectedToEatingOut() {
+        val row = line("Customer Transfer to Elizabeth and Mira", outbound = 23_000L)
+        assertEquals(StatementFlow.TRANSFER, classify(row).flow)
+        assertTrue(StatementFinancialPolicy.canAssignCategory(row,"EATING_OUT",kinds))
+        val revised = classify(row,assigned="EATING_OUT")
+        assertEquals(StatementFlow.EXPENSE, revised.flow)
+        assertEquals("User category", revised.evidence)
+        assertFalse(StatementFinancialPolicy.canAssignCategory(row.copy(
+            paidInMinor = 23_000L, withdrawnMinor = 0L
+        ),"EATING_OUT", kinds))
+    }
+
+    @Test fun unsupportedManualLoanCategoryMustNotInventDebtProvenance() {
+        val row = line("Agent withdrawal", outbound = 50_000L)
+        assertFalse(StatementFinancialPolicy.canAssignCategory(row,"DEBT_LOAN",kinds))
+        assertTrue(StatementFinancialPolicy.canAssignCategory(row,"GROCERIES",kinds))
+    }
+
 }
