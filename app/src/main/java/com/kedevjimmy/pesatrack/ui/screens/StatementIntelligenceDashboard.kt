@@ -727,7 +727,8 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
     }
     if (importing) StatementImportSheet(
         onDismiss = { importing = false; refreshed++ },
-        onChanged = { refreshed++ }
+        onChanged = { refreshed++ },
+        statementOnly = true
     )
 
     val editing = edit
