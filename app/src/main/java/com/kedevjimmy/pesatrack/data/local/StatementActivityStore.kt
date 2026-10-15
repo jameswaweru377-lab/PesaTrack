@@ -348,16 +348,35 @@ class StatementActivityStore(context: Context) {
             val db = helper.writableDatabase
             db.beginTransaction()
             try {
-                val description = db.rawQuery(
-                    """SELECT description FROM statement_activity_lines
+                val sourceLine = db.rawQuery(
+                    """SELECT reference, occurred_at, description, paid_in_minor,
+                              withdrawn_minor, balance_minor
+                       FROM statement_activity_lines
                        WHERE batch_id=? AND page_number=? AND row_number=? LIMIT 1""",
                     arrayOf(batchId, page.toString(), row.toString())
                 ).use { cursor ->
                     require(cursor.moveToFirst()) { "Statement row no longer exists." }
-                    cursor.getString(0)
+                    StatementActivityLine(
+                        page = page, row = row,
+                        reference = cursor.getString(0),
+                        occurredAt = cursor.getLong(1),
+                        description = cursor.getString(2),
+                        paidInMinor = cursor.getLong(3),
+                        withdrawnMinor = cursor.getLong(4),
+                        balanceMinor = cursor.getLong(5)
+                    )
+                }
+                require(
+                    com.kedevjimmy.pesatrack.domain.everyday.StatementFinancialPolicy
+                        .canAssignCategory(
+                            sourceLine, category.id,
+                            CategoryStore.get(app).all().associate { it.id to it.kind.name }
+                        )
+                ) {
+                    "This transaction has protected financial evidence, or the chosen category conflicts with its direction."
                 }
                 val key = com.kedevjimmy.pesatrack.domain.everyday.StatementFinancialPolicy
-                    .merchantKey(description)
+                    .merchantKey(sourceLine.description)
                 require(!rememberMerchant || (key != null && category.kind == CategoryKind.EXPENSE)) {
                     "Only an identifiable merchant expense may be remembered."
                 }
