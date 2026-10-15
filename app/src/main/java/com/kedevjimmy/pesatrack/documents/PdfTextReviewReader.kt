@@ -9,9 +9,6 @@ import com.kedevjimmy.pesatrack.domain.evidence.PdfTextReviewPolicy
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.PdfPositionChunkAssembler
 import com.kedevjimmy.pesatrack.domain.evidence.PdfGeometryEvidencePolicy
-import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxProbeWire
-import com.kedevjimmy.pesatrack.domain.evidence.PdfGridProbeWire
-import com.kedevjimmy.pesatrack.domain.evidence.PdfBoxVerificationReport
 import com.kedevjimmy.pesatrack.domain.evidence.DocumentCopySession
 import com.kedevjimmy.pesatrack.domain.evidence.PdfReadException
 import com.kedevjimmy.pesatrack.domain.evidence.PdfFailure
@@ -33,8 +30,7 @@ object PdfTextReviewReader {
     }
     suspend fun read(
         context: Context, uri: Uri, password: String? = null,
-        includePositions: Boolean = false, pdfBoxProbe: Boolean = false,
-        pdfBoxStatement: Boolean = false, pdfBoxGridProbe: Boolean = false
+        includePositions: Boolean = false
     ): PdfTextPreview {
         if(Build.VERSION.SDK_INT<35)throw PdfReadException(PdfFailure.VERSION)
         val app = context.applicationContext
@@ -44,7 +40,7 @@ object PdfTextReviewReader {
                 copySource(app, uri, file)
                 withContext(Dispatchers.Main) {
                     if (Build.VERSION.SDK_INT >= 35)
-                        request(app, file, password, includePositions, pdfBoxProbe, pdfBoxStatement, pdfBoxGridProbe)
+                        request(app, file, password, includePositions)
                     else throw PdfReadException(PdfFailure.VERSION)
                 }
             }
@@ -90,13 +86,8 @@ object PdfTextReviewReader {
     @RequiresApi(35)
     private suspend fun request(
         app: Context, file: File, password: String?,
-        includePositions: Boolean, pdfBoxProbe: Boolean, pdfBoxStatement: Boolean,
-        pdfBoxGridProbe: Boolean
+        includePositions: Boolean
     ): PdfTextPreview {
-        require(listOf(pdfBoxProbe,pdfBoxStatement,pdfBoxGridProbe).count {it} <= 1 &&
-            !(includePositions && (pdfBoxStatement || pdfBoxProbe || pdfBoxGridProbe))) {
-            "Incompatible PDF extraction modes."
-        }
         var bound = false
         lateinit var connection: ServiceConnection
         try {
@@ -131,21 +122,6 @@ object PdfTextReviewReader {
                                     data.getFloatArray("geometryRight") ?: error("Missing geometry."),
                                     data.getFloatArray("geometryBottom") ?: error("Missing geometry.")
                                 )
-                            } else if(pdfBoxProbe && data.getBoolean("pdfBoxProbeDone",false)) {
-                                val report=PdfBoxProbeWire.decode(
-                                    data.getInt("pdfBoxPageCount",-1),
-                                    data.getIntArray("pdfBoxCountEvidence") ?:
-                                        error("Missing PDFBox proof counts.")
-                                )
-                                // Diagnostic-only. This cannot satisfy the
-                                // verified-candidate import pathway.
-                                continuation.resume(PdfTextPreview(emptyList(),emptyList(),pdfBoxProbe=report))
-                            } else if(pdfBoxGridProbe && data.getBoolean("pdfBoxGridProbeDone",false)) {
-                                val report=PdfGridProbeWire.decode(
-                                    data.getInt("pdfBoxGridPageCount",-1),
-                                    data.getIntArray("pdfBoxGridCountEvidence")
-                                        ?: error("Missing vector-grid proof counts."))
-                                continuation.resume(PdfTextPreview(emptyList(),emptyList(),pdfBoxGridProbe=report))
                             } else if(data.getBoolean("done",false)) {
                                 val n=data.getInt("pageCount",-1)
                                 val base=assembly.finish(n)
@@ -165,20 +141,7 @@ object PdfTextReviewReader {
                                         geometryDiagnostics=diagnostic
                                     )
                                 } else base
-                                if(pdfBoxStatement && !data.getBoolean("pdfBoxStatementReady",false))
-                                    throw PdfReadException(PdfFailure.PARSE)
-                                continuation.resume(
-                                    if(pdfBoxStatement)enriched.copy(pages=emptyList(),emptyPageNumbers=emptyList(),
-                                        pdfBoxStatementReady=true,
-                                        statementTables=com.kedevjimmy.pesatrack.domain.statements.StatementTableWire.decode(
-                                            enriched.pages.single()),
-                                        statementCurrencyReview=data.getString("pdfBoxCurrencyReview"),
-                                        statementDeclarations=com.kedevjimmy.pesatrack.domain.everyday.PdfBoxStatementDeclarations.decode(
-                                            data.getLongArray("pdfBoxDeclarations") ?: error("Missing statement declarations.")),
-                                        pdfBoxVerification=PdfBoxVerificationReport.decode(
-                                            data.getIntArray("pdfBoxVerification") ?: error("Missing statement proof.")))
-                                    else enriched
-                                )
+                                continuation.resume(enriched)
                             } else fail(PdfFailure.SERVICE)
                         } catch (e: Exception) {
                             fail((e as? PdfReadException)?.failure ?: PdfFailure.PARSE)
@@ -197,9 +160,6 @@ object PdfTextReviewReader {
                                         putParcelable("file", descriptor)
                                         putString("password",password)
                                         putBoolean("includePositions",includePositions)
-                                        putBoolean("pdfBoxProbe",pdfBoxProbe)
-                                        putBoolean("pdfBoxStatement",pdfBoxStatement)
-                                        putBoolean("pdfBoxGridProbe",pdfBoxGridProbe)
                                     }
                                 })
                                 // The isolated process now owns a duplicated descriptor; retain no named document.
