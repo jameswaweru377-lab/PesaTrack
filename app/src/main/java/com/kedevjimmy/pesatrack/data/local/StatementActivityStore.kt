@@ -9,6 +9,7 @@ import com.kedevjimmy.pesatrack.domain.everyday.StatementActivityProof
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import java.nio.ByteBuffer
 import java.security.MessageDigest
+import org.json.JSONArray
 
 /**
  * A separate, app-private PDF Statement Activity journal.
@@ -36,7 +37,7 @@ class StatementActivityStore(context: Context) {
     data class SaveResult(val added: Boolean, val batchId: String)
 
     private class Db(context: Context) :
-        SQLiteOpenHelper(context, "pesatrack_statement_activity.db", null, 1) {
+        SQLiteOpenHelper(context, "pesatrack_statement_activity.db", null, 2) {
         override fun onConfigure(db: SQLiteDatabase) {
             super.onConfigure(db)
             db.setForeignKeyConstraintsEnabled(true)
@@ -68,6 +69,7 @@ class StatementActivityStore(context: Context) {
                     paid_in_minor INTEGER NOT NULL,
                     withdrawn_minor INTEGER NOT NULL,
                     balance_minor INTEGER NOT NULL,
+                    source_cells_json TEXT NOT NULL DEFAULT '[]',
                     PRIMARY KEY(batch_id, line_number)
                 )""".trimIndent()
             )
@@ -75,7 +77,11 @@ class StatementActivityStore(context: Context) {
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-            error("Statement Activity schema upgrade requires an explicit lossless migration.")
+            if (oldVersion == 1 && newVersion == 2) {
+                db.execSQL("ALTER TABLE statement_activity_lines ADD COLUMN source_cells_json TEXT NOT NULL DEFAULT '[]'")
+            } else {
+                error("Statement Activity schema upgrade requires an explicit lossless migration.")
+            }
         }
     }
 
@@ -160,6 +166,7 @@ class StatementActivityStore(context: Context) {
                         put("paid_in_minor", line.paidInMinor)
                         put("withdrawn_minor", line.withdrawnMinor)
                         put("balance_minor", line.balanceMinor)
+                        put("source_cells_json", JSONArray(line.sourceCells).toString())
                     })
                 }
                 db.setTransactionSuccessful()
@@ -197,14 +204,17 @@ class StatementActivityStore(context: Context) {
         try {
             return helper.readableDatabase.rawQuery(
                 "SELECT page_number, row_number, reference, occurred_at, description, " +
-                    "paid_in_minor, withdrawn_minor, balance_minor " +
+                    "paid_in_minor, withdrawn_minor, balance_minor, source_cells_json " +
                     "FROM statement_activity_lines WHERE batch_id=? ORDER BY line_number",
                 arrayOf(batchId)
             ).use { c ->
                 buildList {
                     while (c.moveToNext()) add(StatementActivityLine(
                         c.getInt(0), c.getInt(1), c.getString(2), c.getLong(3),
-                        c.getString(4), c.getLong(5), c.getLong(6), c.getLong(7)
+                        c.getString(4), c.getLong(5), c.getLong(6), c.getLong(7),
+                        JSONArray(c.getString(8)).let { cells ->
+                            (0 until cells.length()).map { i -> cells.getString(i) }
+                        }
                     ))
                 }
             }
