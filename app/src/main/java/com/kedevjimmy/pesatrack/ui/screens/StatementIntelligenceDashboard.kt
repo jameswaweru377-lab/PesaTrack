@@ -350,7 +350,9 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                             }
                                         }
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            StatementSmallMetric("Debts", totals.debtMinor,
+                                            StatementSmallMetric("Debt repaid",
+                                                visible.filter { it.debtAction == StatementDebtAction.REPAID }
+                                                    .fold(0L) { a, b -> Math.addExact(a, b.amountMinor) },
                                                 statementPalette[1], Modifier.weight(1f)) {
                                                 navigate(StatementPage.DEBTS)
                                             }
@@ -421,8 +423,8 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                             Modifier.weight(1f)) {
                                             navigate(StatementPage.TRANSACTIONS, StatementFlow.SAVINGS)
                                         }
-                                        StatementHighlightCard("Debt repayments",
-                                            visible.filter { it.debtAction == StatementDebtAction.REPAID }
+                                        StatementHighlightCard("Loans received",
+                                            visible.filter { it.debtAction == StatementDebtAction.BORROWED }
                                                 .fold(0L) { a, b -> Math.addExact(a, b.amountMinor) },
                                             Modifier.weight(1f)) { navigate(StatementPage.DEBTS) }
                                     }
@@ -434,6 +436,16 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                         Text("Review unclassified movements")
                                         Icon(Icons.Rounded.ChevronRight, contentDescription = null)
                                     }
+                                }
+                                if (months.any {
+                                    it.sourceCount > 1 &&
+                                        (period == StatementFinancialPolicy.Period.YEAR && it.usage.year == year ||
+                                            period != StatementFinancialPolicy.Period.YEAR && it.key == month?.key)
+                                }) item {
+                                    Text("Some uploaded PDFs overlap. This report selects only one source per " +
+                                        "account/month; excluded sources are not silently added.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error)
                                 }
                                 item {
                                     Text("Money-out totals may include transfers, loans and refunds. " +
