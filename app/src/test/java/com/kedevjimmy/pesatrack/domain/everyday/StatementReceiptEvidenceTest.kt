@@ -83,4 +83,18 @@ class StatementReceiptEvidenceTest {
         assertEquals(StatementFlow.EXPENSE,classified.flow)
         assertEquals("EATING_OUT",classified.categoryId)
     }
+
+    @Test fun matchingReceiptCannotOverrideClearlyDifferentPrintedPerson() {
+        val otherName = line.copy(
+            description = "Customer Transfer to 0722000000 - Another Person"
+        )
+        val wrongPhone = line.copy(
+            description = "Customer Transfer to 0711000000 - Elizabeth Mbira"
+        )
+        assertNull(StatementReceiptEvidence.corroborated(
+            otherName,"wallet-a",listOf(activity())))
+        assertNull(StatementReceiptEvidence.corroborated(
+            wrongPhone,"wallet-a",listOf(activity())))
+    }
+
 }

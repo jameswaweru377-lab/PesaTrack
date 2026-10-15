@@ -540,29 +540,22 @@ fun TransactionDetailScreen(
         AlertDialog(
             onDismissRequest = { if (!learningBusy) pendingCategoryId = null },
             title = { Text("Remember this category?") },
-            text = { Column {
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text("Remember “${current.counterparty ?: current.counterpartyPhone}” " +
                     "as ${categoryStore.labelFor(categoryId)}?")
-                Text("Activity: $pendingMatchCount other eligible transactions.")
-                Text("Statements: $pendingStatementMatchCount eligible source records " +
-                    "across all saved PDFs.")
-                Text("Scanned $pendingScannedStatementRows saved rows in " +
-                    "$pendingScannedStatementPdfs PDFs; " +
-                    "$pendingNamedStatementMatches matching recipient names, and " +
-                    "$pendingReceiptStatementMatches additional verified receipt matches.")
-                Text("$pendingReportStatementMatches eligible records are included in " +
-                    "current monthly reports. Other PDFs may overlap and are " +
-                    "excluded from totals to prevent double counting.")
+                Text("Activity: $pendingMatchCount other matches.")
+                Text("Statements: $pendingStatementMatchCount eligible source rows; " +
+                    "$pendingReportStatementMatches included in current reports.")
+                Text("Scanned $pendingScannedStatementRows rows across " +
+                    "$pendingScannedStatementPdfs PDFs. " +
+                    "Matched names: $pendingNamedStatementMatches; " +
+                    "verified receipts: $pendingReceiptStatementMatches.")
                 if (pendingScannedStatementRows > 0 &&
-                    pendingStatementMatchCount == 0) {
-                    Text("No safe Statement category changes found. This may mean " +
-                        "the PDF uses a different recipient format, an identity " +
-                        "conflicts, or the rows were already categorized.")
-                }
-                Text("Choosing Remember saves one category preference across Activity " +
-                    "and Statements. Historical and newly imported PDFs use it " +
-                    "automatically when the identity matches safely. " +
-                    "The original PDF records and manual exceptions remain unchanged.")
+                    pendingStatementMatchCount == 0)
+                    Text("No safe changes found. Check the Statement recipient wording " +
+                        "if you expected matches; unrelated or already-correct records stay protected.")
+                Text("Remember applies the category to eligible historical and future " +
+                    "Statements without combining or rewriting transaction records.")
                 learningError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             dismissButton = { TextButton(enabled = !learningBusy, onClick = {

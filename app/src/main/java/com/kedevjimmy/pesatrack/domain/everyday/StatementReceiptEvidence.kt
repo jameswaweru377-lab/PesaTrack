@@ -42,6 +42,16 @@ object StatementReceiptEvidence {
         val delta = kotlin.math.abs(statement.occurredAt - activity.occurredAtEpochMs)
         if (delta > 24L * 60L * 60L * 1000L) return null
         if (activity.counterparty.isNullOrBlank()) return null
+        // A verified receipt is a fallback for missing/unparseable descriptions,
+        // never a license to ignore a DIFFERENT clearly named recipient.
+        val printedName = StatementFinancialPolicy.merchantKey(statement.description)
+        if (printedName != null && !RememberedCategoryMatchPolicy.matches(
+                activity.counterparty, null, printedName, null
+            )) return null
+        val printedPhone = StatementFinancialPolicy.recipientPhone(statement.description)
+        val activityPhone = IdentityGraphPolicy.normalizeKenyanPhone(activity.phone)
+        if (printedPhone != null && activityPhone != null && printedPhone != activityPhone)
+            return null
         return activity
     }
 
