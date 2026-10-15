@@ -41,8 +41,8 @@ object StatementFinancialPolicy {
         "Branch" to Regex("(?i)\\bBRANCH\\s+LOAN\\b"),
         "Tala" to Regex("(?i)\\bTALA\\s+LOAN\\b")
     )
-    private val loanRepay = Regex("(?i)\\b(?:loan\\s+repay(?:ment)?|repay(?:ment)?\\s+(?:of\\s+)?loan|loan\\s+payment|pay\\s+(?:your\\s+)?outstanding)\\b")
-    private val loanDraw = Regex("(?i)\\b(?:loan\\s+(?:disbursement|drawdown|advanced|credited)|borrowed|loan\\s+proceeds)\\b")
+    private val loanRepay = Regex("(?i)\\b(?:loan\\s+repay(?:ment)?|repay(?:ment)?\\s+(?:of\\s+)?loan|loan\\s+payment|pay\\s+(?:your\\s+)?outstanding|(?:fuliza|m[-\\s]?shwari)\\s+repay(?:ment)?)\\b")
+    private val loanDraw = Regex("(?i)\\b(?:loan\\s+(?:disbursement|drawdown|advanced|credited)|borrowed|loan\\s+proceeds|(?:fuliza|m[-\\s]?shwari)\\s+(?:disbursement|drawdown))\\b")
     private val loanFee = Regex("(?i)\\b(?:loan\\s+(?:fee|interest|penalty)|fuliza\\s+(?:fee|interest))\\b")
     private val saving = Regex("(?i)\\b(?:M[-\\s]?SHWARI\\s+LOCK|SAVINGS?\\s+(?:DEPOSIT|WITHDRAWAL|TRANSFER)|DEPOSIT\\s+TO\\s+SAVINGS?)\\b")
     private val transfer = Regex("(?i)\\b(?:OWN\\s+(?:ACCOUNT|WALLET)|SELF[-\\s]?TRANSFER|BANK[-\\s]?TO[-\\s]?M[-\\s]?PESA|M[-\\s]?PESA[-\\s]?TO[-\\s]?BANK|TRANSFER\\s+(?:TO|FROM)\\s+(?:EQUITY|KCB|CO[-\\s]?OP)\\s+(?:BANK|ACCOUNT)|TRANSFER\\s+(?:TO|FROM)\\s+OWN\\s+(?:EQUITY|KCB|CO[-\\s]?OP)\\s+(?:BANK\\s+)?ACCOUNT)\\b")
