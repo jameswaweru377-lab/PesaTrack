@@ -346,6 +346,40 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                                 verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 item {
+                                    val sourceWithdrawals = visible.fold(0L) { sum, row ->
+                                        Math.addExact(sum, row.line.withdrawnMinor)
+                                    }
+                                    val corroboratedCount = visible.count { it.activityReceiptVerified }
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                        shape = RoundedCornerShape(14.dp)
+                                    ) {
+                                        Column(Modifier.padding(14.dp),
+                                            verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                            Text("Why totals can differ from Activity",
+                                                style = MaterialTheme.typography.titleSmall)
+                                            Text("Statement cash out: " +
+                                                statementMoney(sourceWithdrawals) +
+                                                " · Classified spending: " +
+                                                statementMoney(totals.expenseMinor),
+                                                style = MaterialTheme.typography.bodySmall)
+                                            Text("Needs review: " +
+                                                statementMoney(totals.unknownOutMinor) +
+                                                " · Excluded by confirmed Activity evidence: " +
+                                                statementMoney(totals.excludedMinor),
+                                                style = MaterialTheme.typography.bodySmall)
+                                            Text("Exact receipt corroboration: " +
+                                                corroboratedCount + " statement rows.",
+                                                style = MaterialTheme.typography.bodySmall)
+                                            Text("Different imported dates, missing PDFs, transfers, fees, " +
+                                                "loans, savings and shared-bill shares affect the comparison. " +
+                                                "Unknown withdrawals are not automatically treated as purchases.",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                                item {
                                     StatementHeroMetric(
                                         label = if (period == StatementFinancialPolicy.Period.YEAR)
                                             "SPENT THIS YEAR" else "YOUR SPENDING",
@@ -678,14 +712,28 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                                         style = MaterialTheme.typography.bodyMedium,
                                                         fontWeight = FontWeight.SemiBold,
                                                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                                    Text((classified.categoryId?.let { categoryLabels[it] }
-                                                        ?: statementCategoryGroup(classified.categoryId, categoryLabels)) +
+                                                    Text((when (classified.flow) {
+                                                        StatementFlow.EXCLUDED -> "Excluded"
+                                                        else -> when (classified.categoryId) {
+                                                            "MONEY_LENT" -> "Money lent"
+                                                            "RECEIVABLE_REPAYMENT" -> "Loan repayment received"
+                                                            else -> classified.categoryId?.let { categoryLabels[it] }
+                                                                ?: statementCategoryGroup(classified.categoryId, categoryLabels)
+                                                        }
+                                                    }) +
                                                         " · " + statementDate(classified.line.occurredAt, "dd MMM yyyy"),
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         style = MaterialTheme.typography.bodySmall)
                                                     Text(classified.evidence,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         style = MaterialTheme.typography.labelSmall)
+                                                    if (classified.flow == StatementFlow.EXPENSE &&
+                                                        classified.reportAmountMinor != classified.amountMinor)
+                                                        Text("Your share: " +
+                                                            statementMoney(classified.reportAmountMinor) +
+                                                            " of " + statementMoney(classified.amountMinor),
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            style = MaterialTheme.typography.labelSmall)
                                                 }
                                                 Column(horizontalAlignment = Alignment.End) {
                                                     Text((if (classified.line.withdrawnMinor > 0) "−" else "+") +

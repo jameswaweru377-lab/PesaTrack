@@ -51,7 +51,9 @@ class StatementCrossCategoryRepository(context: Context) {
         val eligibleOriginal = activity.categoryLearningCandidates()
             .any { it.id == source.id }
         val eligibleExisting = source.reviewState == "USER_CLASSIFIED" &&
-            source.category == categoryId
+            source.category !in setOf(
+                "DEBT_LOAN", "SAVINGS", "INVESTMENT", "TRANSFER", "INCOME", "CASH"
+            )
         if (!eligibleOriginal && !eligibleExisting) return null
         // Confirm the receipt is not an institutional or personal debt event.
         val db = PesaTrackDatabase.get(app).readableDatabase
@@ -86,6 +88,14 @@ class StatementCrossCategoryRepository(context: Context) {
         // then resolves the same category through exact name/receipt evidence.
         // The local manual correction protects this statement row if a later
         // Activity classification rule changes or the preference is forgotten.
+        if (current.reviewState == "USER_CLASSIFIED" &&
+            current.category != categoryId) {
+            // The user explicitly requested this correction in Statements and
+            // verified the exact same cash leg. No structural events are linked.
+            activity.classifyManually(
+                current.id, categoryId, MoneyDirection.EXPENSE
+            )
+        }
         val updated = learning.remember(current.id, categoryId)
         history.categorize(row.batchId, row.line.page, row.line.row,
             categoryId, rememberMerchant = false)

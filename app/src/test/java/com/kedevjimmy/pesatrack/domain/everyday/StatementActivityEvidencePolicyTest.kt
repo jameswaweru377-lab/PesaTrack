@@ -47,7 +47,9 @@ class StatementActivityEvidencePolicyTest {
         val correct=project(activity(category="EATING_OUT"))
         assertEquals(StatementFlow.EXPENSE,correct.flow)
         assertEquals("EATING_OUT",correct.categoryId)
-        assertFalse(project(activity(category="EATING_OUT"),manual=true).activityReceiptVerified)
+        val manual = project(activity(category="EATING_OUT"),manual=true)
+        assertEquals(StatementFlow.TRANSFER,manual.flow)
+        assertTrue(manual.activityReceiptVerified)
     }
     @Test fun unsafeAccountAndDateEvidenceNeverChangeSource() {
         assertFalse(project(activity(excluded=true,account="bank-b")).activityReceiptVerified)

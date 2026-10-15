@@ -40,7 +40,6 @@ object StatementActivityEvidencePolicy {
         categoryKinds: Map<String, String>,
         manuallyCorrected: Boolean
     ): StatementClassified {
-        if (manuallyCorrected) return source
         val a = verified(source.line, account, receipts) ?: return source
         val evidenced = source.copy(activityReceiptVerified = true)
         if (source.flow in setOf(StatementFlow.DEBT, StatementFlow.FEE,
@@ -86,6 +85,10 @@ object StatementActivityEvidencePolicy {
             a.categoryId == "INVESTMENT")
             return evidenced.copy(flow = StatementFlow.INVESTMENT,
                 categoryId = "INVESTMENT", evidence = "Investment verified in Activity")
+        // A one-off Statement category retains priority over ordinary Activity
+        // merchant labels, but cannot override a separately confirmed exclusion,
+        // own transfer, investment, or receivable cash-flow adjustment above.
+        if (manuallyCorrected) return evidenced
         if (a.reviewState == "USER_CLASSIFIED" && a.direction == "EXPENSE" &&
             a.categoryId?.let { categoryKinds[it] == "EXPENSE" } == true &&
             source.line.withdrawnMinor > 0L)
