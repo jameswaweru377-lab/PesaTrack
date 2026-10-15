@@ -104,4 +104,68 @@ class StatementCategoryMemoryPolicyTest {
             "Customer Transfer to 0722000000", memories))
     }
 
+
+    @Test fun explicitlyRememberedActivityCategoryAppearsInBothPastAndFutureStatementReports() {
+        val memory = listOf(StatementCategoryMemoryPolicy.Memory(
+            "Elizabeth Mbira", "0722000000", "EATING_OUT"
+        ))
+        val kinds = mapOf("EATING_OUT" to "EXPENSE")
+        val march = row("Customer Transfer to 0722000000 - Elizabeth Mbira")
+        val october = march.copy(
+            occurredAt = requireNotNull(parser.parse("2026-10-15 13:27:00")).time,
+            reference = "QAB5678901", row = 2
+        )
+        val separatedBySource = listOf(
+            "historical-pdf" to march, "future-pdf" to october
+        )
+        val classified = separatedBySource.map { (batchId, original) ->
+            val approved = policy.learnedFor(original.description, memory)
+            StatementFinancialPolicy.classify(
+                batchId = batchId,
+                line = original,
+                rememberedCategory = approved,
+                categoryKinds = kinds
+            )
+        }
+        assertEquals(2, classified.size)
+        classified.forEach {
+            assertEquals(StatementFlow.EXPENSE, it.flow)
+            assertEquals("EATING_OUT", it.categoryId)
+            assertEquals("Remembered category", it.evidence)
+        }
+        assertEquals(
+            20_000L, StatementFinancialPolicy.totals(classified).expenseMinor
+        )
+        // This is reporting only: the original source references and
+        // immutable source descriptions remain unchanged.
+        assertEquals("historical-pdf", classified[0].batchId)
+        assertEquals("future-pdf", classified[1].batchId)
+        assertEquals("Customer Transfer to 0722000000 - Elizabeth Mbira",
+            separatedBySource[0].second.description)
+    }
+
+    @Test fun learnedExpenseCannotReclassifyProtectedTransferAndManualStatementEditWins() {
+        val memories = listOf(
+            StatementCategoryMemoryPolicy.Memory("Elizabeth Mbira", "0722000000", "EATING_OUT")
+        )
+        val kinds = mapOf(
+            "EATING_OUT" to "EXPENSE", "GROCERIES" to "EXPENSE"
+        )
+        val person = row("Customer Transfer to 0722000000 - Elizabeth Mbira")
+        val remembered = policy.learnedFor(person.description, memories)
+        val manual = StatementFinancialPolicy.classify(
+            "pdf-A", person, assignedCategory = "GROCERIES",
+            rememberedCategory = remembered, categoryKinds = kinds
+        )
+        assertEquals(StatementFlow.EXPENSE, manual.flow)
+        assertEquals("GROCERIES", manual.categoryId)
+        assertEquals("User category", manual.evidence)
+        val own = row("Transfer to own Equity account")
+        val protected = StatementFinancialPolicy.classify(
+            "pdf-B", own, rememberedCategory = "EATING_OUT", categoryKinds = kinds
+        )
+        assertEquals(StatementFlow.TRANSFER, protected.flow)
+        assertEquals(0L, StatementFinancialPolicy.totals(listOf(protected)).expenseMinor)
+    }
+
 }

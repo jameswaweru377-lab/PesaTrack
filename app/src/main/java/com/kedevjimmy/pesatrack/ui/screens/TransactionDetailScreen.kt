@@ -534,11 +534,12 @@ fun TransactionDetailScreen(
                 Text("Remember “${current.counterparty ?: current.counterpartyPhone}” " +
                     "as ${categoryStore.labelFor(categoryId)}?")
                 Text("Activity: $pendingMatchCount other eligible transactions.")
-                Text("Statements: $pendingStatementMatchCount eligible source records " +
-                    "in saved monthly reports.")
-                Text("Activity categories update now. Statements will recognize the same " +
-                    "rule when viewed or imported, including older years. Original PDF " +
-                    "records and your existing manual categories stay unchanged.")
+                Text("Statements: $pendingStatementMatchCount eligible transactions " +
+                    "in saved reports.")
+                Text("Choosing Remember saves one category preference across Activity " +
+                    "and Statements. Historical and newly imported PDFs use it " +
+                    "automatically when the identity matches safely. " +
+                    "The original PDF records and manual exceptions remain unchanged.")
                 learningError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             dismissButton = { TextButton(enabled = !learningBusy, onClick = {
@@ -560,8 +561,10 @@ fun TransactionDetailScreen(
                 scope.launch {
                     try {
                         val changed = withContext(Dispatchers.IO) { learningRepository.remember(current.id, categoryId) }
-                        learnedMessage = "Remembered • $changed other Activity entries updated. " +
-                            "Matching Statements will use this category without changing their original records."
+                        learnedMessage = "Remembered in Activity and Statements • " +
+                            "$changed other Activity entries updated. " +
+                            "Up to $pendingStatementMatchCount eligible Statement entries will " +
+                            "show this category. Original PDF transactions stay independent."
                         pendingCategoryId = null
                         refresh()
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -570,7 +573,7 @@ fun TransactionDetailScreen(
                         learningError = failure.message ?: "Could not save. Please try again."
                     } finally { learningBusy = false }
                 }
-            }) { Text(if (learningBusy) "Saving…" else "Remember") } }
+            }) { Text(if (learningBusy) "Saving…" else "Remember in both") } }
         )
     }
 
@@ -762,11 +765,12 @@ fun TransactionDetailScreen(
             item {
                 PesaCard {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Use this category in Statements too",
+                        Text("Remember in Activity + Statements",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold)
-                        Text("Already categorized this activity? Remember the confirmed recipient " +
-                            "so saved and future statements can recognize it.",
+                        Text("This Activity transaction is already categorized. " +
+                            "You can teach the category to eligible historical and future " +
+                            "Statements without combining their financial records.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         TextButton(enabled = !learningBusy, onClick = {
@@ -947,31 +951,27 @@ fun TransactionDetailScreen(
                         scope.launch {
                         try {
                             if (rememberChoice) {
-                                val changed =
-                                    withContext(
-                                        Dispatchers.IO
-                                    ) {
-                                        learningRepository
-                                            .remember(
-                                                current.id,
-                                                canonicalCategory
-                                            )
-                                    }
-                                learnedMessage =
-                                    if (changed > 0) {
-                                        "Remembered • $changed similar transactions updated."
-                                    } else {
-                                        "Remembered for future similar transactions."
-                                    }
-                            } else {
-                                personalLearningStore
-                                    .forgetPreferenceFor(
-                                        current
+                                // Same approval as the category-picker and
+                                // previously-manual classification paths.
+                                // The switch must not silently save an Activity-
+                                // only preference without a Statement preview.
+                                val preview = withContext(Dispatchers.IO) {
+                                    learningRepository.matchingPreview(
+                                        current, canonicalCategory
                                     )
+                                }
+                                pendingMatchCount = preview.activity
+                                pendingStatementMatchCount = preview.statements
+                                pendingCategoryId = canonicalCategory
+                            } else {
+                                withContext(Dispatchers.IO) {
+                                    personalLearningStore.forgetPreferenceFor(current)
+                                }
                                 learnedMessage =
-                                    "Future suggestions for this merchant were turned off."
+                                    "The remembered category was turned off for future " +
+                                    "Activity and Statement matches."
+                                refresh()
                             }
-                            refresh()
                         } catch (
                             cancelled:
                                 kotlinx.coroutines
@@ -1923,8 +1923,12 @@ private fun ClassificationCard(
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Remember category for this merchant", style = MaterialTheme.typography.bodyMedium)
-                    Text(confidenceLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Remember in Activity + Statements", style = MaterialTheme.typography.bodyMedium)
+                    Text("One saved preference for eligible SMS and statement history.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(confidenceLabel, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = learningPreferenceActive, onCheckedChange = onRememberChanged, enabled = canRemember)
             }
