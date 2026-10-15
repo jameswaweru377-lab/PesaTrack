@@ -11,8 +11,9 @@ import com.kedevjimmy.pesatrack.domain.everyday.StatementMonthlyUsage
  * Purely read-only. A source batch spanning multiple months is loaded once.
  */
 class StatementReportReader(context: Context) {
-    private val store = StatementActivityStore(context)
-    private val bridge = StatementCategoryBridge(context)
+    private val app = context.applicationContext
+    private val store = StatementActivityStore(app)
+    private val bridge = StatementCategoryBridge(app)
 
     fun read(selected: List<StatementHistoryReport.SelectedMonth>): List<StatementClassified> {
         if (selected.isEmpty()) return emptyList()
@@ -23,16 +24,26 @@ class StatementReportReader(context: Context) {
         val kinds = bridge.categoryKinds()
         val statementRules = store.categoryRules()
         val byBatch = selected.groupBy { it.source.batchId }
+        val sources = byBatch.mapValues { (_, entries) ->
+            store.lines(entries.first().source.batchId)
+        }
+        val receiptEvidence = StatementReceiptEvidenceReader(
+            context = app
+        ).read(sources.values.flatten())
         return buildList {
             byBatch.forEach { (batchId, selectedMonths) ->
                 val keys = selectedMonths.map { it.key }.toSet()
                 val corrections = store.categoriesFor(batchId)
-                store.lines(batchId).forEach { row ->
+                sources[batchId].orEmpty().forEach { row ->
                     if (StatementMonthlyUsage.monthKey(row.occurredAt) !in keys) return@forEach
                     val merchant = StatementFinancialPolicy.merchantKey(row.description)
                     // Activity's latest confirmed learning applies to historical
                     // and future PDFs; explicit per-row statement edits still win.
                     val remembered = bridge.learnedFor(row.description, memories)
+                        ?: com.kedevjimmy.pesatrack.domain.everyday.StatementReceiptEvidence.categoryFor(
+                            row, selectedMonths.first().source.accountId,
+                            receiptEvidence, memories
+                        )
                         ?: merchant?.let { statementRules[it] }
                     add(StatementFinancialPolicy.classify(
                         batchId = batchId, line = row,

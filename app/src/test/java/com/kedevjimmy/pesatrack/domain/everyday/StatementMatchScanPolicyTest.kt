@@ -19,6 +19,7 @@ class StatementMatchScanPolicyTest {
         out: Long = 10_000L
     ) = StatementMatchScanPolicy.Row(
         batchId = batch,
+        accountId = "wallet-a",
         entry = StatementActivityLine(
             1, row, "QAB1234569", requireNotNull(fmt.parse("2026-10-13 13:00:00")).time,
             description, 0L, out, 100_000L

@@ -63,13 +63,14 @@ class StatementCategoryBridge(context: Context) {
                 )
             }.groupBy { it.source.batchId }
             .mapValues { (_, entries) -> entries.map { it.key }.toSet() }
-        val allRows = buildList {
+        val allRows = buildList<com.kedevjimmy.pesatrack.domain.everyday.StatementMatchScanPolicy.Row> {
             for (batch in batches) {
                 val corrections = store.categoriesFor(batch.id)
                 val visibleKeys = visibleMonths[batch.id].orEmpty()
                 for (row in store.lines(batch.id)) {
                     add(com.kedevjimmy.pesatrack.domain.everyday.StatementMatchScanPolicy.Row(
                         batchId = batch.id,
+                        accountId = batch.accountId,
                         entry = row,
                         visibleInReport = StatementMonthlyUsage.monthKey(row.occurredAt) in visibleKeys,
                         manuallyCorrected = (row.page to row.row) in corrections
@@ -79,12 +80,13 @@ class StatementCategoryBridge(context: Context) {
         }
         if (source.counterparty.isNullOrBlank() || kinds[newCategory] != "EXPENSE") {
             return com.kedevjimmy.pesatrack.domain.everyday.StatementMatchScanPolicy.Result(
-                allRows.size, batches.size, 0, 0, 0, 0
+                allRows.size, batches.size, 0, 0, 0, 0, 0
             )
         }
         return com.kedevjimmy.pesatrack.domain.everyday.StatementMatchScanPolicy.scan(
             allRows, source.counterparty, source.counterpartyPhone,
-            newCategory, memories, kinds, store.categoryRules()
+            newCategory, memories, kinds, store.categoryRules(),
+            StatementReceiptEvidenceReader(app).read(allRows.map { it.entry })
         )
     }
 
