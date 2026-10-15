@@ -162,4 +162,18 @@ class StatementFinancialPolicyTest {
         assertTrue(StatementFinancialPolicy.canAssignCategory(row,"GROCERIES",kinds))
     }
 
+
+    @Test fun explicitSafaricomBundlesAreNotUnknownAndNotTransfers() {
+        val buy = classify(line(
+            "Customer Bundle Purchase to 826915Safaricom Offers by - 254746***497 JAMES NYAMBURA",
+            outbound = 2_000L))
+        val recharge = classify(line(
+            "Recharge for Customer to 4093441SAFARICOM DATA BUNDLES by - 254746***497 JAMES",
+            outbound = 2_000L))
+        assertEquals("PHONE_AND_DATA",buy.categoryId)
+        assertEquals(StatementFlow.EXPENSE,buy.flow)
+        assertEquals("PHONE_AND_DATA",recharge.categoryId)
+        assertEquals(StatementFlow.EXPENSE,recharge.flow)
+    }
+
 }

@@ -68,4 +68,32 @@ class StatementCategoryMemoryPolicyTest {
         )
         assertNull(policy.learnedFor("Customer Transfer to Elizabeth Mbira", memories))
     }
+
+    @Test fun phonePrefixedMpesaDescriptionMatchesFullNameAfterLearning() {
+        val memories = listOf(StatementCategoryMemoryPolicy.Memory(
+            "Elizabeth Mbira", "0722000000", "EATING_OUT"))
+        assertEquals("EATING_OUT", policy.learnedFor(
+            "Customer Transfer to 0722000000 - ELIZABETH MBIRA", memories))
+        assertEquals("EATING_OUT", policy.learnedFor(
+            "Customer Transfer to 254722000000 ELIZABETH MBIRA by - 254746***497 JAMES", memories))
+        assertEquals("EATING_OUT", policy.learnedFor(
+            "Send money to 0722****00 ELIZABETH MBIRA", memories))
+        assertTrue(policy.proposedSourceMatches(
+            "Elizabeth Mbira","0722000000",
+            "Customer Transfer to 0722000000 - ELIZABETH MBIRA", memories))
+    }
+
+    @Test fun phoneOnlyAndUnrelatedPaybillCannotInheritEatingOutMemory() {
+        val memories = listOf(StatementCategoryMemoryPolicy.Memory(
+            "Elizabeth Mbira", "0722000000", "EATING_OUT"))
+        assertNull(policy.learnedFor("Customer Transfer to 0722000000",memories))
+        assertNull(policy.learnedFor(
+            "Pay Bill to 247247 - Equity Paybill Account Acc. 0766145429", memories))
+        assertNull(policy.learnedFor(
+            "Customer Transfer to 0722000000 - ELIZABETH 0744332211",memories))
+        assertFalse(policy.proposedSourceMatches(
+            "Elizabeth Mbira","0722000000",
+            "Customer Transfer to 0722000000", memories))
+    }
+
 }

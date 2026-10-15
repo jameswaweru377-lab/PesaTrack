@@ -33,8 +33,22 @@ class RememberCategoryRepository(context: Context) {
 
     fun remember(transactionId: Long, categoryId: String): Int = synchronized(CanonicalStoreLock.monitor) {
         val source = requireNotNull(store.getById(transactionId)) { "This transaction no longer exists." }
-        require(store.categoryLearningCandidates().any { it.id == source.id }) {
-            "This entry has changed. Open it again before remembering a category."
+        val eligibleUnreviewed = store.categoryLearningCandidates().any { it.id == source.id }
+        // "Only this one" is a valid prior choice. Later explicit consent in
+        // the Classification card must be able to teach the existing category
+        // without rewriting unrelated Activity history or inventing a new type.
+        val eligibleManual = source.reviewState == "USER_CLASSIFIED" &&
+            source.direction == MoneyDirection.EXPENSE.name &&
+            source.category == categoryId &&
+            source.ruleId == null && source.relationType == null &&
+            source.type != "REVERSAL" && source.reversalOfCode == null &&
+            !PesaTrackDatabase.get(context).readableDatabase.rawQuery(
+                "SELECT 1 FROM debt_events WHERE linked_transaction_id=? " +
+                    "AND event_type='REPAYMENT' LIMIT 1",
+                arrayOf(source.id.toString())
+            ).use { it.moveToFirst() }
+        require(eligibleUnreviewed || eligibleManual) {
+            "This entry cannot be safely remembered. Review its financial type."
         }
         val direction = CategoryStore.get(context).directionFor(categoryId, MoneyDirection.EXPENSE)
         require(PersonalLearningPolicy.isLearnableCategory(categoryId, direction))

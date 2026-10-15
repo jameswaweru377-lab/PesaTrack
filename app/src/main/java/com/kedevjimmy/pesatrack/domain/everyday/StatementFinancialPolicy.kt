@@ -30,6 +30,13 @@ data class StatementFinancialTotals(
 object StatementFinancialPolicy {
     private val nairobi = TimeZone.getTimeZone("Africa/Nairobi")
     private val whitespace = Regex("\\s+")
+    private val personPrefix = Regex(
+        "(?i)^(?:customer\\s+transfer\\s+to|send\\s+money\\s+to|transfer\\s+to|payment\\s+to|paid\\s+to)\\s+"
+    )
+    private val optionalPhone = Regex(
+        "^(?:\\+?254[17][0-9*]{8}|0[17][0-9*]{8}|[17][0-9*]{8})(?=\\s|\\s*-|$)"
+    )
+    private val supportedName = Regex("[A-Z][A-Z'’&.-]*(?: [A-Z][A-Z'’&.-]*){1,7}")
     private val leading = listOf(
         Regex("(?i)^(?:customer\\s+transfer\\s+to|send\\s+money\\s+to|payment\\s+to|paid\\s+to|buy\\s+goods\\s+at|merchant\\s+payment\\s+to)\\s+"),
         Regex("(?i)^(?:received\\s+from|funds\\s+received\\s+from)\\s+")
@@ -56,6 +63,10 @@ object StatementFinancialPolicy {
     private val restaurant = Regex("(?i)\\b(?:KFC|JAVA\\s+HOUSE|ARTCAFFE)\\b")
     // Generic Paybill is not evidence of consumption: it can represent a loan, savings or own transfer.
     private val merchant = Regex("(?i)\\b(?:BUY\\s+GOODS|MERCHANT\\s+PAYMENT|TILL\\s+(?:NO|NUMBER))\\b")
+    private val safaricomBundle = Regex(
+        "(?i)^(?:customer\\s+bundle\\s+purchase|recharge\\s+for\\s+customer)\\b"
+    )
+    private val safaricomEvidence = Regex("(?i)\\b(?:SAFARICOM|DATA\\s+BUNDLES)\\b")
     private val investment = Regex("(?i)\\b(?:INVESTMENT\\s+(?:DEPOSIT|PURCHASE)|SHARE\\s+PURCHASE|STOCKBROKER)\\b")
 
     /**
@@ -66,6 +77,24 @@ object StatementFinancialPolicy {
      */
     fun merchantKey(description: String): String? {
         var key = description.trim().replace(whitespace, " ")
+        val person = personPrefix.find(key)
+        if (person != null) {
+            // Verified statement descriptions may prefix the actual recipient
+            // with a phone number and optional dash. Do not keep that ID in
+            // the identity key, and NEVER match arbitrary text substrings.
+            key = key.substring(person.range.last + 1).trimStart(' ', '-')
+            optionalPhone.find(key)?.let { phone ->
+                key = key.substring(phone.range.last + 1).trimStart(' ', '-')
+            }
+            // M-Pesa may append sender-side metadata after a named recipient.
+            key = key.split(Regex("(?i)\\s+by\\s*-\\s*"), limit = 2).first().trim()
+            val cleaned = key.uppercase(Locale.ROOT).replace(whitespace, " ")
+            if (!supportedName.matches(cleaned) || cleaned.contains("ACCOUNT") ||
+                cleaned.contains("FULIZA") || cleaned.contains("SHWARI") ||
+                cleaned.contains("REPAYMENT") || cleaned.contains("BANK"))
+                return null
+            return cleaned
+        }
         leading.firstNotNullOfOrNull { pattern ->
             pattern.find(key)?.takeIf { it.range.first == 0 }
         }?.let { key = key.substring(it.range.last + 1).trim() }
@@ -129,6 +158,10 @@ object StatementFinancialPolicy {
         if (line.withdrawnMinor > 0L && rememberedCategory != null &&
             categoryKinds[rememberedCategory] == "EXPENSE")
             return result(StatementFlow.EXPENSE, rememberedCategory, "Remembered category")
+        if (line.withdrawnMinor > 0L &&
+            safaricomBundle.containsMatchIn(description) &&
+            safaricomEvidence.containsMatchIn(description))
+            return result(StatementFlow.EXPENSE, "PHONE_AND_DATA", "Safaricom bundle purchase")
         if (transferToPerson.containsMatchIn(description))
             return result(StatementFlow.TRANSFER, "TRANSFER", "Person-to-person transfer")
         if (line.withdrawnMinor > 0L) {

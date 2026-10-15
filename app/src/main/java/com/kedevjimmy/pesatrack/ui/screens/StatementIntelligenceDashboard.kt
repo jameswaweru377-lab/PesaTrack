@@ -59,6 +59,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val store = remember(context) { StatementActivityStore(context) }
     val reader = remember(context) { StatementReportReader(context) }
+    val ledgerRevision by LedgerUpdateBus.state.collectAsState()
     val scope = rememberCoroutineScope()
     var sources by remember { mutableStateOf<List<StatementHistoryReport.SourceMonth>>(emptyList()) }
     var accountLabels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
@@ -121,7 +122,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
 
     // Preload all data for the currently selected account once; changing Day,
     // Week, Month, Year or page never triggers repeated PDF/database reads.
-    LaunchedEffect(accountId, refreshed, labelsChanged, months) {
+    LaunchedEffect(accountId, refreshed, labelsChanged, months, ledgerRevision.revision) {
         if (accountId == null) {
             reports = emptyList()
             loadedAccount = null

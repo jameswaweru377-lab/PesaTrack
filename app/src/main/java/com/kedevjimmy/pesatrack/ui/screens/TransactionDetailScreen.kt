@@ -351,7 +351,14 @@ fun TransactionDetailScreen(
                         learningRepository.matchingPreview(current, canonicalId)
                     } else RememberCategoryRepository.MatchingPreview(0, 0)
                 }
-                if (count.activity >= 2 || count.statements > 0) {
+                if (PersonalLearningPolicy.isLearnableCategory(canonicalId, direction) &&
+                    canLearnIdentity(current) && current.ruleId == null &&
+                    current.relationType == null &&
+                    current.direction == MoneyDirection.EXPENSE.name &&
+                    current.category in setOf(TransactionCategory.OTHER.name, TransactionCategory.UNCATEGORIZED.name) &&
+                    current.reviewState in setOf(ReviewState.NEEDS_REVIEW.name, ReviewState.AUTO_CLASSIFIED.name)) {
+                    // Explicit choice also matters when zero history matches:
+                    // it teaches future PDFs rather than silently changing one row.
                     pendingMatchCount = count.activity
                     pendingStatementMatchCount = count.statements
                     pendingCategoryId = canonicalId
@@ -741,6 +748,47 @@ fun TransactionDetailScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    }
+                }
+            }
+        }
+        if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
+            current.direction == MoneyDirection.EXPENSE.name &&
+            current.ruleId == null && current.relationType == null &&
+            !confirmedTransfer && canLearnIdentity(current) &&
+            PersonalLearningPolicy.isLearnableCategory(
+                categoryStore.canonicalId(current.category), MoneyDirection.EXPENSE
+            ) && personalLearningStore.preferenceFor(current) == null) {
+            item {
+                PesaCard {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Use this category in Statements too",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold)
+                        Text("Already categorized this activity? Remember the confirmed recipient " +
+                            "so saved and future statements can recognize it.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(enabled = !learningBusy, onClick = {
+                            val original = current
+                            learningBusy = true
+                            scope.launch {
+                                try {
+                                    val preview = withContext(Dispatchers.IO) {
+                                        learningRepository.matchingPreview(
+                                            original, categoryStore.canonicalId(original.category)
+                                        )
+                                    }
+                                    pendingMatchCount = preview.activity
+                                    pendingStatementMatchCount = preview.statements
+                                    pendingCategoryId = categoryStore.canonicalId(original.category)
+                                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                    throw cancelled
+                                } catch (failure: Exception) {
+                                    learningError = failure.message ?: "Unable to check remembered matches."
+                                } finally { learningBusy = false }
+                            }
+                        }) { Text("Remember across Activity and Statements") }
                     }
                 }
             }
