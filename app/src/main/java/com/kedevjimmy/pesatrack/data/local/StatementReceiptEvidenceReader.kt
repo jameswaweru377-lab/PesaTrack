@@ -27,7 +27,11 @@ class StatementReceiptEvidenceReader(context: Context) {
                 """SELECT transaction_code, account_id, amount_minor,
                    occurred_at_epoch_ms, direction, counterparty,
                    counterparty_phone, review_state, relation_type, reversal_of_code,
-                   id, category, linked_account_id
+                   id, category, linked_account_id,
+                   (SELECT COUNT(*) FROM personal_learning_applications learning
+                     WHERE learning.transaction_id=transactions.id
+                       AND learning.category_id=transactions.category
+                       AND learning.direction=transactions.direction)
                    FROM transactions WHERE transaction_code IN ($marks)""",
                 chunk.toTypedArray()
             ).use { cursor ->
@@ -53,7 +57,8 @@ class StatementReceiptEvidenceReader(context: Context) {
                         linkedAccountId = if (cursor.isNull(12)) null else cursor.getString(12),
                         lentMinor = if (event != null) share?.lentMinor ?: 0L else 0L,
                         repaidMinor = if (event != null) share?.repaidMinor ?: 0L else 0L,
-                        sharedBill = event?.sharedBill == true
+                        sharedBill = event?.sharedBill == true,
+                        approvedLearnedCategory = cursor.getInt(13) > 0
                     )
                     result.getOrPut(code) { mutableListOf() }.add(candidate)
                 }

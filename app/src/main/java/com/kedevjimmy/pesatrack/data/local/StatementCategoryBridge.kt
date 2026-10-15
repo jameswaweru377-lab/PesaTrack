@@ -78,7 +78,9 @@ class StatementCategoryBridge(context: Context) {
                 }
             }
         }
-        if (source.counterparty.isNullOrBlank() || kinds[newCategory] != "EXPENSE") {
+        if (source.counterparty.isNullOrBlank() ||
+            (kinds[newCategory] != "EXPENSE" &&
+                newCategory !in setOf("INVESTMENT", "TRANSFER"))) {
             return com.kedevjimmy.pesatrack.domain.everyday.StatementMatchScanPolicy.Result(
                 allRows.size, batches.size, 0, 0, 0, 0, 0
             )

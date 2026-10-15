@@ -51,6 +51,24 @@ class StatementActivityEvidencePolicyTest {
         assertEquals(StatementFlow.TRANSFER,manual.flow)
         assertTrue(manual.activityReceiptVerified)
     }
+    @Test fun incomingOwnedAccountTransferIsVerifiedAsTransferNotSalary() {
+        val incoming = row.copy(paidInMinor = 10_000L, withdrawnMinor = 0L)
+        val own = activity(direction = "TRANSFER",category = "TRANSFER",linked = "bank-b")
+        val projected = StatementActivityEvidencePolicy.apply(
+            StatementFinancialPolicy.classify("pdf",incoming),"wallet-a",
+            listOf(own),kinds,false
+        )
+        assertEquals(StatementFlow.TRANSFER, projected.flow)
+        assertEquals(0L,StatementFinancialPolicy.totals(listOf(projected)).incomeMinor)
+    }
+    @Test fun investmentFromApprovedActivityLearningIsStillInvestment() {
+        val automatic = activity(direction = "TRANSFER", category = "INVESTMENT")
+            .copy(reviewState = "AUTO_CLASSIFIED", approvedLearnedCategory = true)
+        val projected = project(automatic)
+        assertEquals(StatementFlow.INVESTMENT,projected.flow)
+        val unapproved = project(automatic.copy(approvedLearnedCategory = false))
+        assertNotEquals(StatementFlow.INVESTMENT,unapproved.flow)
+    }
     @Test fun unsafeAccountAndDateEvidenceNeverChangeSource() {
         assertFalse(project(activity(excluded=true,account="bank-b")).activityReceiptVerified)
         val late=row.copy(occurredAt=row.occurredAt-3*86_400_000L)

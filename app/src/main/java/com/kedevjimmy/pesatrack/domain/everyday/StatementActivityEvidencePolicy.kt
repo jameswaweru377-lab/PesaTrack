@@ -19,8 +19,11 @@ object StatementActivityEvidencePolicy {
             a.accountId != account || a.structurallyLinked ||
             kotlin.math.abs(line.occurredAt - a.occurredAtEpochMs) > 86_400_000L) return null
         val amountValid = when (a.direction) {
-            "EXPENSE", "TRANSFER" ->
+            "EXPENSE" ->
                 line.withdrawnMinor > 0L && line.withdrawnMinor == a.amountMinor
+            "TRANSFER" ->
+                (line.withdrawnMinor > 0L && line.withdrawnMinor == a.amountMinor) ||
+                (line.paidInMinor > 0L && line.paidInMinor == a.amountMinor)
             "INCOME" -> line.paidInMinor > 0L && line.paidInMinor == a.amountMinor
             else -> false
         }
@@ -83,7 +86,7 @@ object StatementActivityEvidencePolicy {
                 return evidenced.copy(economicAmountMinor = remaining,
                     evidence = "Income net of verified receivable repayment")
         }
-        if (a.reviewState == "USER_CLASSIFIED" &&
+        if ((a.reviewState == "USER_CLASSIFIED" || a.approvedLearnedCategory) &&
             a.categoryId == "INVESTMENT")
             return evidenced.copy(flow = StatementFlow.INVESTMENT,
                 categoryId = "INVESTMENT", evidence = "Investment verified in Activity")

@@ -25,7 +25,8 @@ object StatementReceiptEvidence {
         val linkedAccountId: String? = null,
         val lentMinor: Long = 0L,
         val repaidMinor: Long = 0L,
-        val sharedBill: Boolean = false
+        val sharedBill: Boolean = false,
+        val approvedLearnedCategory: Boolean = false
     )
 
     fun corroborated(

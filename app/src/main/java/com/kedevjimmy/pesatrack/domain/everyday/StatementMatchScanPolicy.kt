@@ -43,6 +43,38 @@ object StatementMatchScanPolicy {
         var report = 0
         var protected = 0
         for (row in rows) {
+            if (categoryId == "INVESTMENT" || categoryId == "TRANSFER") {
+                // Structural categories never learn from a similar name alone.
+                // Count only a uniquely verified receipt and already confirmed
+                // canonical investment/owned-transfer action.
+                val candidates = receiptEvidence[row.entry.reference].orEmpty()
+                val corroborated = StatementActivityEvidencePolicy.verified(
+                    row.entry, row.accountId, candidates
+                )
+                if (corroborated != null &&
+                    StatementReceiptEvidence.sameIdentity(name, phone, corroborated)) {
+                    receiptMatched++
+                    val current = StatementFinancialPolicy.classify(
+                        row.batchId, row.entry, categoryKinds = categoryKinds
+                    )
+                    val projected = StatementActivityEvidencePolicy.apply(
+                        current, row.accountId, candidates,
+                        categoryKinds, row.manuallyCorrected
+                    )
+                    val meaningful = when (categoryId) {
+                        "INVESTMENT" -> projected.flow == StatementFlow.INVESTMENT
+                        else -> projected.flow == StatementFlow.TRANSFER &&
+                            projected.categoryId == "TRANSFER"
+                    }
+                    if (meaningful && !row.manuallyCorrected &&
+                        (current.flow != projected.flow ||
+                            current.categoryId != projected.categoryId)) {
+                        eligible++
+                        if (row.visibleInReport) report++
+                    } else protected++
+                }
+                continue
+            }
             val extracted = StatementFinancialPolicy.merchantKey(row.entry.description)
             // Diagnostic count proves the source scan ran without exposing names,
             // and distinguishes a matching name from an eligible category edit.
