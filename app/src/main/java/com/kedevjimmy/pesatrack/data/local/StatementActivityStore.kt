@@ -37,7 +37,7 @@ class StatementActivityStore(context: Context) {
     data class SaveResult(val added: Boolean, val batchId: String)
 
     private class Db(context: Context) :
-        SQLiteOpenHelper(context, "pesatrack_statement_activity.db", null, 2) {
+        SQLiteOpenHelper(context, "pesatrack_statement_activity.db", null, 3) {
         override fun onConfigure(db: SQLiteDatabase) {
             super.onConfigure(db)
             db.setForeignKeyConstraintsEnabled(true)
@@ -74,14 +74,35 @@ class StatementActivityStore(context: Context) {
                 )""".trimIndent()
             )
             db.execSQL("CREATE INDEX statement_lines_time ON statement_activity_lines(batch_id, occurred_at DESC)")
+            createCategoryTables(db)
+        }
+
+        private fun createCategoryTables(db: SQLiteDatabase) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS statement_category_labels (
+                    batch_id TEXT NOT NULL REFERENCES statement_batches(id) ON DELETE CASCADE,
+                    page_number INTEGER NOT NULL,
+                    row_number INTEGER NOT NULL,
+                    category_id TEXT NOT NULL,
+                    PRIMARY KEY (batch_id, page_number, row_number)
+                )
+            """.trimIndent())
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS statement_category_rules (
+                    exact_merchant_key TEXT PRIMARY KEY NOT NULL,
+                    category_id TEXT NOT NULL
+                )
+            """.trimIndent())
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-            if (oldVersion == 1 && newVersion == 2) {
-                db.execSQL("ALTER TABLE statement_activity_lines ADD COLUMN source_cells_json TEXT NOT NULL DEFAULT '[]'")
-            } else {
-                error("Statement Activity schema upgrade requires an explicit lossless migration.")
+            require(oldVersion in 1..2 && newVersion == 3) {
+                "Statement Activity requires a lossless migration."
             }
+            if (oldVersion < 2) {
+                db.execSQL("ALTER TABLE statement_activity_lines ADD COLUMN source_cells_json TEXT NOT NULL DEFAULT '[]'")
+            }
+            if (oldVersion < 3) createCategoryTables(db)
         }
     }
 
@@ -272,6 +293,92 @@ class StatementActivityStore(context: Context) {
                     }
                 }
             }
+        } finally { helper.close() }
+    }
+
+
+    /** Saved per-source user corrections (never touches Activity, budgets or balances). */
+    fun categoriesFor(batchId: String): Map<Pair<Int, Int>, String> {
+        require(batchId.matches(Regex("[a-f0-9]{64}")))
+        val helper = Db(app)
+        try {
+            return helper.readableDatabase.rawQuery(
+                "SELECT page_number, row_number, category_id FROM statement_category_labels WHERE batch_id=?",
+                arrayOf(batchId)
+            ).use { cursor ->
+                buildMap {
+                    while (cursor.moveToNext()) put(
+                        cursor.getInt(0) to cursor.getInt(1), cursor.getString(2)
+                    )
+                }
+            }
+        } finally { helper.close() }
+    }
+
+    /** Explicitly remembered merchant categories for all future statement PDFs. */
+    fun categoryRules(): Map<String, String> {
+        val helper = Db(app)
+        try {
+            return helper.readableDatabase.rawQuery(
+                "SELECT exact_merchant_key, category_id FROM statement_category_rules", null
+            ).use { cursor ->
+                buildMap {
+                    while (cursor.moveToNext()) put(cursor.getString(0), cursor.getString(1))
+                }
+            }
+        } finally { helper.close() }
+    }
+
+    /**
+     * Verify the exact source row exists before saving its correction. Remember
+     * across statements is opt-in and never mutates canonical SMS transactions.
+     */
+    fun categorize(
+        batchId: String, page: Int, row: Int, categoryId: String,
+        rememberMerchant: Boolean
+    ) {
+        require(batchId.matches(Regex("[a-f0-9]{64}")))
+        require(page > 0 && row > 0)
+        val category = requireNotNull(CategoryStore.get(app).find(categoryId)) {
+            "Choose a valid PesaTrack category."
+        }
+        require(category.kind != CategoryKind.SYSTEM)
+        val helper = Db(app)
+        try {
+            val db = helper.writableDatabase
+            db.beginTransaction()
+            try {
+                val description = db.rawQuery(
+                    """SELECT description FROM statement_activity_lines
+                       WHERE batch_id=? AND page_number=? AND row_number=? LIMIT 1""",
+                    arrayOf(batchId, page.toString(), row.toString())
+                ).use { cursor ->
+                    require(cursor.moveToFirst()) { "Statement row no longer exists." }
+                    cursor.getString(0)
+                }
+                val key = com.kedevjimmy.pesatrack.domain.everyday.StatementFinancialPolicy
+                    .merchantKey(description)
+                require(!rememberMerchant || (key != null && category.kind == CategoryKind.EXPENSE)) {
+                    "Only an identifiable merchant expense may be remembered."
+                }
+                db.insertWithOnConflict(
+                    "statement_category_labels", null, ContentValues().apply {
+                        put("batch_id", batchId)
+                        put("page_number", page)
+                        put("row_number", row)
+                        put("category_id", category.id)
+                    }, SQLiteDatabase.CONFLICT_REPLACE
+                )
+                if (rememberMerchant) {
+                    db.insertWithOnConflict(
+                        "statement_category_rules", null, ContentValues().apply {
+                            put("exact_merchant_key", requireNotNull(key))
+                            put("category_id", category.id)
+                        }, SQLiteDatabase.CONFLICT_REPLACE
+                    )
+                }
+                db.setTransactionSuccessful()
+            } finally { db.endTransaction() }
         } finally { helper.close() }
     }
 
