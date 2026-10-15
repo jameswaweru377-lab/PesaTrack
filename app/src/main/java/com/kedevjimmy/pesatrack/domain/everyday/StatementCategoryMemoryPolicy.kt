@@ -24,6 +24,11 @@ object StatementCategoryMemoryPolicy {
         val extracted = StatementFinancialPolicy.merchantKey(description) ?: return null
         val matched = memories.filter { exactName(it.name, extracted) }
         if (matched.isEmpty() || matched.map(::identityKey).distinct().size != 1) return null
+        val statementPhone = StatementFinancialPolicy.recipientPhone(description)
+        if (statementPhone != null && matched.any {
+            val remembered = IdentityGraphPolicy.normalizeKenyanPhone(it.phone)
+            remembered != null && remembered != statementPhone
+        }) return null
         return matched.map { it.categoryId }.distinct().singleOrNull()
     }
 
@@ -42,6 +47,10 @@ object StatementCategoryMemoryPolicy {
         if (!exactName(sourceName, extracted)) return false
         val proposed = Memory(sourceName, sourcePhone, "PROPOSED")
         val normalizedSourcePhone = identityKey(proposed)
+        val statementPhone = StatementFinancialPolicy.recipientPhone(statementDescription)
+        if (statementPhone != null &&
+            IdentityGraphPolicy.normalizeKenyanPhone(sourcePhone)?.let { it != statementPhone } == true)
+            return false
         return existingMemories
             .filter { exactName(it.name, extracted) }
             .none { identityKey(it) != normalizedSourcePhone }

@@ -76,6 +76,19 @@ object StatementFinancialPolicy {
      * Statement PDFs normally omit counterparty phone, so phone-only memories cannot
      * be matched without explicit review.
      */
+    /**
+     * Return a verified full Kenyan phone when the PDF explicitly places it
+     * before the recipient name. Masked numbers deliberately return null.
+     */
+    fun recipientPhone(description: String): String? {
+        val clean = description.trim().replace(whitespace, " ")
+        val prefix = personPrefix.find(clean) ?: return null
+        val rest = clean.substring(prefix.range.last + 1).trimStart(' ', '-')
+        val rawPhone = optionalPhone.find(rest)?.value ?: return null
+        return com.kedevjimmy.pesatrack.domain.identity.IdentityGraphPolicy
+            .normalizeKenyanPhone(rawPhone)
+    }
+
     fun merchantKey(description: String): String? {
         var key = description.trim().replace(whitespace, " ")
         val person = personPrefix.find(key)

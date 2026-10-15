@@ -128,7 +128,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
             loadedAccount = null
             return@LaunchedEffect
         }
-        loadedAccount = null
+        if (loadedAccount != accountId) loadedAccount = null
         try {
             reports = withContext(Dispatchers.IO) { reader.read(months) }
             loadedAccount = accountId
@@ -668,7 +668,8 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                                         style = MaterialTheme.typography.bodyMedium,
                                                         fontWeight = FontWeight.SemiBold,
                                                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                                    Text(statementCategoryGroup(classified.categoryId, categoryLabels) +
+                                                    Text((categoryLabels[classified.categoryId]
+                                                        ?: statementCategoryGroup(classified.categoryId, categoryLabels)) +
                                                         " · " + statementDate(classified.line.occurredAt, "dd MMM yyyy"),
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         style = MaterialTheme.typography.bodySmall)

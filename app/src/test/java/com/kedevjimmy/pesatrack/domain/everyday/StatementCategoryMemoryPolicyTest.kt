@@ -43,8 +43,14 @@ class StatementCategoryMemoryPolicyTest {
     @Test fun partialNamesAndAmbiguousNumericDescriptionsCannotLearn() {
         val memory = listOf(StatementCategoryMemoryPolicy.Memory("Elizabeth Mbira", "0722000000", "EATING_OUT"))
         assertNull(policy.learnedFor("Send money to Elizabeth", memory))
-        assertNull(policy.learnedFor("Customer Transfer to 0722000000 Elizabeth Mbira", memory))
+        assertEquals("EATING_OUT", policy.learnedFor(
+            "Customer Transfer to 0722000000 Elizabeth Mbira", memory))
+        assertNull(policy.learnedFor(
+            "Customer Transfer to 0711000000 Elizabeth Mbira", memory))
         assertNull(policy.learnedFor("Send money to 0722000000", memory))
+        assertFalse(policy.proposedSourceMatches(
+            "Elizabeth Mbira", "0722000000",
+            "Customer Transfer to 0711000000 Elizabeth Mbira", memory))
         assertNull(policy.learnedFor("Fuliza repayment", memory))
     }
 
