@@ -101,6 +101,8 @@ android {
                 .replace("\"", "\\\"")}\""
         )
         minSdk = 24
+        // Embedded Python native dependencies were resolved for ARM64.
+        ndk { abiFilters += listOf("arm64-v8a") }
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
@@ -161,6 +163,14 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
+    }
+}
+
+// Offline statement parser, no remote processing of customer documents.
+chaquopy {
+    defaultConfig {
+        version = "3.13"
+        pip { install("pdfplumber==0.11.9") }
     }
 }
 
