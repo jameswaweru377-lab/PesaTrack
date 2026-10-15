@@ -38,6 +38,10 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import android.os.Build
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
+import com.kedevjimmy.pesatrack.documents.OfflineMpesaPdfReader
 
 private fun readStatement(c:Context,uri:Uri):String {
  val bytes=c.contentResolver.openInputStream(uri)?.use {input->val out=ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val n=input.read(buffer);if(n<0)break;require(out.size()+n<=StatementCsv.MAX_BYTES){"Choose a CSV smaller than 2 MB."};out.write(buffer,0,n)};out.toByteArray()} ?: error("Could not open the file.")
@@ -48,6 +52,10 @@ private fun readStatement(c:Context,uri:Uri):String {
  var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable {mutableStateOf("")}
  var rows by remember {mutableStateOf<List<StatementRow>>(emptyList())};var preview by remember {mutableStateOf<List<EverydayMoneyStore.Preview>>(emptyList())}
  var showStatementActivity by remember {mutableStateOf(false)}
+ var sourcePdfUri by remember {mutableStateOf<Uri?>(null)}
+ var sourcePdfPassword by remember {mutableStateOf("")}
+ var stagedPdf by remember {mutableStateOf<OfflineMpesaPdfReader.Prepared?>(null)}
+ var statementPdfApproved by remember {mutableStateOf(false)}
  val zoneId=rememberSaveable {TimeZone.getDefault().id}
  val today=remember {StatementImportDates.day(System.currentTimeMillis(),zoneId)}
  var customDates by rememberSaveable {mutableStateOf(false)}
@@ -62,7 +70,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  var reading by remember {mutableStateOf(false)};var importing by remember {mutableStateOf(false)}
  val busy=reading||importing||preparing!=null
  val selected=remember {mutableStateMapOf<Int,Boolean>()};var error by remember {mutableStateOf<String?>(null)};var dateError by remember {mutableStateOf<String?>(null)};var done by remember {mutableStateOf<String?>(null)}
- fun invalidatePreview() {previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
+ fun invalidatePreview() {stagedPdf=null;statementPdfApproved=false;previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
  LaunchedEffect(Unit){try{accounts=withContext(Dispatchers.IO){store.ownedAccounts()}.filter {it.type==AccountType.BANK||it.type==AccountType.MOBILE_WALLET}}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load accounts."}}
  LaunchedEffect(selection){
   val source=selection
@@ -92,6 +100,11 @@ private fun readStatement(c:Context,uri:Uri):String {
     catch(e:Exception){error=e.message ?: "Could not read this CSV. Check its format."}
     finally{reading=false}
    }
+  }
+ }
+ val statementPdfPicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
+  if(uri!=null&&!busy&&accountId.isNotEmpty()){
+   invalidatePreview();sourcePdfUri=uri;sourcePdfPassword=""
   }
  }
  StatementImportWorkspace(busy,onDismiss) {
@@ -134,7 +147,12 @@ private fun readStatement(c:Context,uri:Uri):String {
      Text("Choose a supported CSV. Statement PDF extraction is being replaced.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      OutlinedButton(onClick={picker.launch(arrayOf("text/csv","text/comma-separated-values","application/csv","text/plain","application/octet-stream"))},enabled=!busy&&accountId.isNotEmpty(),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.TableChart,null);Spacer(Modifier.width(8.dp));Text("Select CSV file")}
      OutlinedButton(onClick={showStatementActivity=true},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(48.dp)){Text("Open Statement Activity")}
-     Text("M-Pesa PDF import is temporarily disabled during the offline Python migration. No PDF can write financial transactions in this build.",
+     OutlinedButton(onClick={statementPdfPicker.launch(arrayOf("application/pdf"))},
+      enabled=!busy&&accounts.any{it.id==accountId&&it.type==AccountType.MOBILE_WALLET},
+      modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
+      Icon(Icons.Rounded.PictureAsPdf,null);Spacer(Modifier.width(8.dp));Text("Select M-Pesa PDF (offline Python)")
+     }
+     Text("Only a fully verified seven-column PDF may be saved to Statement Activity. Never updates SMS Activity, budgets or balances.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
    }
