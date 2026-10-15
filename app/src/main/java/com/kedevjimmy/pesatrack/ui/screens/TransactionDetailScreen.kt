@@ -212,6 +212,7 @@ fun TransactionDetailScreen(
     var pendingScannedStatementRows by remember(transactionId) { mutableStateOf(0) }
     var pendingScannedStatementPdfs by remember(transactionId) { mutableStateOf(0) }
     var pendingNamedStatementMatches by remember(transactionId) { mutableStateOf(0) }
+    var pendingReceiptStatementMatches by remember(transactionId) { mutableStateOf(0) }
     var pendingReportStatementMatches by remember(transactionId) { mutableStateOf(0) }
     var learnedMessage by remember(transactionId) {
         mutableStateOf<String?>(null)
@@ -368,6 +369,7 @@ fun TransactionDetailScreen(
                     pendingScannedStatementRows = count.scannedStatementRows
                     pendingScannedStatementPdfs = count.scannedStatementPdfs
                     pendingNamedStatementMatches = count.statementIdentityMatches
+                    pendingReceiptStatementMatches = count.statementReceiptMatches
                     pendingReportStatementMatches = count.reportStatementMatches
                     pendingCategoryId = canonicalId
                 } else {
@@ -546,7 +548,8 @@ fun TransactionDetailScreen(
                     "across all saved PDFs.")
                 Text("Scanned $pendingScannedStatementRows saved rows in " +
                     "$pendingScannedStatementPdfs PDFs; " +
-                    "$pendingNamedStatementMatches matching recipient names.")
+                    "$pendingNamedStatementMatches matching recipient names, and " +
+                    "$pendingReceiptStatementMatches additional verified receipt matches.")
                 Text("$pendingReportStatementMatches eligible records are included in " +
                     "current monthly reports. Other PDFs may overlap and are " +
                     "excluded from totals to prevent double counting.")
@@ -809,6 +812,8 @@ fun TransactionDetailScreen(
                                     pendingScannedStatementRows = preview.scannedStatementRows
                                     pendingScannedStatementPdfs = preview.scannedStatementPdfs
                                     pendingNamedStatementMatches = preview.statementIdentityMatches
+                                pendingReceiptStatementMatches = preview.statementReceiptMatches
+                                    pendingReceiptStatementMatches = preview.statementReceiptMatches
                                     pendingReportStatementMatches = preview.reportStatementMatches
                                     pendingCategoryId = categoryStore.canonicalId(original.category)
                                 } catch (cancelled: kotlinx.coroutines.CancellationException) {

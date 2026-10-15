@@ -17,6 +17,7 @@ class RememberCategoryRepository(context: Context) {
         val scannedStatementRows: Int = 0,
         val scannedStatementPdfs: Int = 0,
         val statementIdentityMatches: Int = 0,
+        val statementReceiptMatches: Int = 0,
         val reportStatementMatches: Int = 0
     ) {
         val total: Int get() = activity + statements
@@ -34,6 +35,7 @@ class RememberCategoryRepository(context: Context) {
                 scannedStatementRows = report.scannedRows,
                 scannedStatementPdfs = report.documents,
                 statementIdentityMatches = report.namedMatches,
+                statementReceiptMatches = report.receiptMatches,
                 reportStatementMatches = report.eligibleInReports
             )
         }
