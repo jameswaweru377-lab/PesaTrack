@@ -35,7 +35,7 @@ object StatementTrendBuckets {
             }
             seen[slot] = true
             if (row.flow == StatementFlow.EXPENSE)
-                total[slot] = Math.addExact(total[slot], row.amountMinor)
+                total[slot] = Math.addExact(total[slot], row.reportAmountMinor)
         }
         return titles.indices.map { index ->
             Bucket(index, titles[index], total[index],

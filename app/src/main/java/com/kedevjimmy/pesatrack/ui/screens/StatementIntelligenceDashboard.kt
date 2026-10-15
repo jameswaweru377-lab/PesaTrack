@@ -152,7 +152,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
         visible.filter { it.flow == StatementFlow.EXPENSE }
             .groupBy { statementCategoryGroup(it.categoryId, categoryLabels) }
             .mapValues { (_, group) ->
-                group.fold(0L) { s, entry -> Math.addExact(s, entry.amountMinor) }
+                group.fold(0L) { s, entry -> Math.addExact(s, entry.reportAmountMinor) }
             }.toList().sortedByDescending { it.second }
     }
     val periodTitle = when (period) {
@@ -631,6 +631,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                     horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                     val choices = listOf(
                                         null to "All", StatementFlow.EXPENSE to "Expenses",
+                                        StatementFlow.EXCLUDED to "Excluded",
                                         StatementFlow.INCOME to "Income", StatementFlow.TRANSFER to "Transfers",
                                         StatementFlow.DEBT to "Debts", StatementFlow.SAVINGS to "Savings",
                                         StatementFlow.FEE to "Fees", StatementFlow.UNKNOWN to "Needs review")

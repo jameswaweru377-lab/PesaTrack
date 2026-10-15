@@ -45,11 +45,16 @@ class StatementReportReader(context: Context) {
                             receiptEvidence, memories
                         )
                         ?: merchant?.let { statementRules[it] }
-                    add(StatementFinancialPolicy.classify(
+                    val original = StatementFinancialPolicy.classify(
                         batchId = batchId, line = row,
                         assignedCategory = corrections[row.page to row.row],
                         rememberedCategory = remembered, categoryKinds = kinds
-                    ))
+                    )
+                    add(com.kedevjimmy.pesatrack.domain.everyday.StatementActivityEvidencePolicy
+                        .apply(original, selectedMonths.first().source.accountId,
+                            receiptEvidence[row.reference].orEmpty(), kinds,
+                            manuallyCorrected = (row.page to row.row) in corrections))
+
                 }
             }
         }.sortedWith(

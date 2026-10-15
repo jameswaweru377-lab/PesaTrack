@@ -18,7 +18,14 @@ object StatementReceiptEvidence {
         val counterparty: String?,
         val phone: String?,
         val excluded: Boolean,
-        val structurallyLinked: Boolean
+        val structurallyLinked: Boolean,
+        val transactionId: Long = 0L,
+        val reviewState: String? = null,
+        val categoryId: String? = null,
+        val linkedAccountId: String? = null,
+        val lentMinor: Long = 0L,
+        val repaidMinor: Long = 0L,
+        val sharedBill: Boolean = false
     )
 
     fun corroborated(

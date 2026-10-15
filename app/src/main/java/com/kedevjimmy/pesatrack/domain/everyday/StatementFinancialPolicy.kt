@@ -5,7 +5,7 @@ import java.util.Locale
 import java.util.TimeZone
 
 /** Statement-only financial meaning. Nothing in this module writes to SMS or the debt ledger. */
-enum class StatementFlow { EXPENSE, INCOME, TRANSFER, DEBT, SAVINGS, INVESTMENT, FEE, REFUND, INFORMATIONAL, UNKNOWN }
+enum class StatementFlow { EXPENSE, INCOME, TRANSFER, DEBT, SAVINGS, INVESTMENT, FEE, REFUND, INFORMATIONAL, EXCLUDED, UNKNOWN }
 enum class StatementDebtAction { BORROWED, REPAID, CHARGE }
 
 data class StatementClassified(
@@ -15,16 +15,20 @@ data class StatementClassified(
     val categoryId: String? = null,
     val evidence: String = "Unclassified",
     val debtProvider: String? = null,
-    val debtAction: StatementDebtAction? = null
+    val debtAction: StatementDebtAction? = null,
+    val economicAmountMinor: Long? = null,
+    val activityReceiptVerified: Boolean = false
 ) {
     val amountMinor: Long get() = if (line.withdrawnMinor > 0L) line.withdrawnMinor else line.paidInMinor
+    val reportAmountMinor: Long get() = economicAmountMinor ?: amountMinor
 }
 
 data class StatementFinancialTotals(
     val expenseMinor: Long, val incomeMinor: Long, val transferMinor: Long,
     val debtMinor: Long, val savingMinor: Long, val feesMinor: Long,
     val unknownOutMinor: Long, val unknownInMinor: Long, val investmentMinor: Long,
-    val refundsMinor: Long
+    val refundsMinor: Long,
+    val excludedMinor: Long = 0L
 )
 
 object StatementFinancialPolicy {
@@ -216,7 +220,10 @@ object StatementFinancialPolicy {
     fun totals(items: List<StatementClassified>): StatementFinancialTotals {
         val sum = { flow: StatementFlow ->
             items.asSequence().filter { it.flow == flow }
-                .fold(0L) { acc, item -> Math.addExact(acc, item.amountMinor) }
+                .fold(0L) { acc, item ->
+                    Math.addExact(acc, if (flow == StatementFlow.EXPENSE ||
+                        flow == StatementFlow.INCOME) item.reportAmountMinor else item.amountMinor)
+                }
         }
         return StatementFinancialTotals(
             expenseMinor = sum(StatementFlow.EXPENSE),
@@ -230,7 +237,8 @@ object StatementFinancialPolicy {
             unknownInMinor = items.filter { it.flow == StatementFlow.UNKNOWN }
                 .fold(0L) { a, row -> Math.addExact(a, row.line.paidInMinor) },
             investmentMinor = sum(StatementFlow.INVESTMENT),
-            refundsMinor = sum(StatementFlow.REFUND)
+            refundsMinor = sum(StatementFlow.REFUND),
+            excludedMinor = sum(StatementFlow.EXCLUDED)
         )
     }
 

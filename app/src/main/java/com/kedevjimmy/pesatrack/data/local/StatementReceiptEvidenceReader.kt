@@ -19,17 +19,24 @@ class StatementReceiptEvidenceReader(context: Context) {
         if (codes.isEmpty()) return emptyMap()
         val db = PesaTrackDatabase.get(app).readableDatabase
         val result = mutableMapOf<String, MutableList<StatementReceiptEvidence.ActivityReceipt>>()
+        val receivables = PersonalReceivableStore(app)
+        val shares = receivables.linkedShares()
         codes.chunked(400).forEach { chunk ->
             val marks = chunk.joinToString(",") { "?" }
             db.rawQuery(
                 """SELECT transaction_code, account_id, amount_minor,
                    occurred_at_epoch_ms, direction, counterparty,
-                   counterparty_phone, review_state, relation_type, reversal_of_code
+                   counterparty_phone, review_state, relation_type, reversal_of_code,
+                   id, category, linked_account_id
                    FROM transactions WHERE transaction_code IN ($marks)""",
                 chunk.toTypedArray()
             ).use { cursor ->
                 while (cursor.moveToNext()) {
                     val code = cursor.getString(0)?.uppercase(Locale.ROOT) ?: continue
+                    val id = cursor.getLong(10)
+                    val share = shares[id]
+                    val event = if (share != null)
+                        receivables.eventForTransaction(id)?.takeIf { it.active } else null
                     val candidate = StatementReceiptEvidence.ActivityReceipt(
                         code = code,
                         accountId = cursor.getString(1),
@@ -39,7 +46,14 @@ class StatementReceiptEvidenceReader(context: Context) {
                         counterparty = cursor.getString(5),
                         phone = cursor.getString(6),
                         excluded = cursor.getString(7) == "EXCLUDED",
-                        structurallyLinked = !cursor.isNull(8) || !cursor.isNull(9)
+                        structurallyLinked = !cursor.isNull(8) || !cursor.isNull(9),
+                        transactionId = id,
+                        reviewState = cursor.getString(7),
+                        categoryId = cursor.getString(11),
+                        linkedAccountId = if (cursor.isNull(12)) null else cursor.getString(12),
+                        lentMinor = if (event != null) share?.lentMinor ?: 0L else 0L,
+                        repaidMinor = if (event != null) share?.repaidMinor ?: 0L else 0L,
+                        sharedBill = event?.sharedBill == true
                     )
                     result.getOrPut(code) { mutableListOf() }.add(candidate)
                 }
