@@ -102,7 +102,7 @@ android {
         )
         minSdk = 24
         // Trial only: 64-bit Android and emulator ABI; do not ship until tested.
-        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+        ndk { abiFilters += listOf("arm64-v8a") }
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
