@@ -259,7 +259,7 @@ fun PlanScreen(
         }
         item {
             Column {
-                Text("Plan your month", style = MaterialTheme.typography.headlineLarge)
+                Text("Your plan", style = MaterialTheme.typography.headlineLarge)
                 Text(
                     if (snapshot.cycle == null) {
                         "Bills, budgets and goals in one place."
@@ -279,6 +279,131 @@ fun PlanScreen(
                     planningAvailability
             )
         }
+
+        item {
+            SectionHeader("Upcoming bills")
+        }
+        if (upcomingBills.isEmpty()) {
+            item {
+                PesaCard {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(15.dp),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            Icons.Rounded.CalendarMonth,
+                            size = 42.dp,
+                            background =
+                                pesaToneContainer(
+                                    "green"
+                                ),
+                            tint =
+                                pesaToneContent(
+                                    "green"
+                                )
+                        )
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .padding(
+                                    start = 11.dp
+                                )
+                        ) {
+                            Text(
+                                "Nothing else due this month",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium
+                            )
+                            Text(
+                                "Paid bills disappear from this list until their next scheduled month.",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            items(
+                upcomingBills
+                    .take(3)
+                    .size
+            ) { index ->
+                val bill =
+                    upcomingBills[index]
+                PesaCard {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        IconBubble(
+                            Icons.Rounded.CalendarMonth,
+                            size = 42.dp,
+                            background =
+                                pesaToneContainer(
+                                    "amber"
+                                ),
+                            tint =
+                                pesaToneContent(
+                                    "amber"
+                                )
+                        )
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .padding(
+                                    start = 11.dp,
+                                    end = 10.dp
+                                )
+                        ) {
+                            Text(
+                                bill.rule
+                                    .displayLabel
+                                    ?: bill.rule.name,
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium,
+                                maxLines = 2
+                            )
+                            Text(
+                                planBillDueLabel(
+                                    bill.nextDueEpochMs
+                                ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                        BillAmountPill(
+                            formatPlanMoney(
+                                bill.remainingMinor
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
 
         if (
             snapshot.cycle == null &&
@@ -412,130 +537,6 @@ fun PlanScreen(
                                 .height(8.dp),
                             color = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            SectionHeader("Upcoming bills")
-        }
-        if (upcomingBills.isEmpty()) {
-            item {
-                PesaCard {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(15.dp),
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-                        IconBubble(
-                            Icons.Rounded.CalendarMonth,
-                            size = 42.dp,
-                            background =
-                                pesaToneContainer(
-                                    "green"
-                                ),
-                            tint =
-                                pesaToneContent(
-                                    "green"
-                                )
-                        )
-                        Column(
-                            Modifier
-                                .weight(1f)
-                                .padding(
-                                    start = 11.dp
-                                )
-                        ) {
-                            Text(
-                                "Nothing else due this month",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .titleMedium
-                            )
-                            Text(
-                                "Paid bills disappear from this list until their next scheduled month.",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        } else {
-            items(
-                upcomingBills
-                    .take(3)
-                    .size
-            ) { index ->
-                val bill =
-                    upcomingBills[index]
-                PesaCard {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-                        IconBubble(
-                            Icons.Rounded.CalendarMonth,
-                            size = 42.dp,
-                            background =
-                                pesaToneContainer(
-                                    "amber"
-                                ),
-                            tint =
-                                pesaToneContent(
-                                    "amber"
-                                )
-                        )
-                        Column(
-                            Modifier
-                                .weight(1f)
-                                .padding(
-                                    start = 11.dp,
-                                    end = 10.dp
-                                )
-                        ) {
-                            Text(
-                                bill.rule
-                                    .displayLabel
-                                    ?: bill.rule.name,
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .titleMedium,
-                                maxLines = 2
-                            )
-                            Text(
-                                planBillDueLabel(
-                                    bill.nextDueEpochMs
-                                ),
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                        }
-                        BillAmountPill(
-                            formatPlanMoney(
-                                bill.remainingMinor
-                            )
                         )
                     }
                 }
