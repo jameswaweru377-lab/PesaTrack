@@ -201,6 +201,8 @@ fun HomeScreen(
     onReportsClick: () -> Unit = {},
     stateCache: HomeScreenCache? = null
 ) {
+    var homeActionsExpanded by remember { mutableStateOf(false) }
+    var spendingExplanationExpanded by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val cycleStore = remember { PayCycleStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
@@ -1049,7 +1051,7 @@ fun HomeScreen(
         item {
             ConceptEmeraldHero(
                 artwork = false,
-                title = if (cycleSnapshot.cycle == null) "Account balances" else "After planned payments",
+                title = if (cycleSnapshot.cycle == null) "Account balances" else "Available after commitments",
                 amount =
                     if (cycleSnapshot.cycle == null) {
                         com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.totalKnown(
@@ -1107,14 +1109,122 @@ fun HomeScreen(
             }
         }
         item {
-            Text(
-                "Net spent includes tracked fees and subtracts refunds. Reports shows expenses separately.",
+            TextButton(onClick = { spendingExplanationExpanded = !spendingExplanationExpanded },
+                modifier = Modifier.fillMaxWidth()) {
+                Text(if (spendingExplanationExpanded) "Hide money calculation"
+                    else "What does net spent include?")
+            }
+            if (spendingExplanationExpanded) Text(
+                "Net spent includes tracked fees and subtracts refunds. " +
+                    "Statements may cover different accounts, dates and reviewed expenses.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
+        if (needsAttentionCount > 0) {
+            item {
+                PesaCard(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                onClick =
+                                    onAttentionClick
+                            )
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.padding(
+                                15.dp
+                            ),
+                        verticalAlignment =
+                            Alignment
+                                .CenterVertically
+                    ) {
+                        IconBubble(
+                            Icons.AutoMirrored
+                                .Rounded
+                                .FactCheck,
+                            size = 44.dp,
+                            background =
+                                MaterialTheme
+                                    .colorScheme
+                                    .tertiaryContainer,
+                            tint =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onTertiaryContainer
+                        )
+                        Column(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .padding(
+                                        start = 12.dp
+                                    )
+                        ) {
+                            Text(
+                                "Needs Attention",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .titleMedium
+                            )
+                            Text(
+                                needsAttentionCount
+                                    .toString() +
+                                    " item" +
+                                    if (
+                                        needsAttentionCount ==
+                                        1
+                                    ) {
+                                        " needs"
+                                    } else {
+                                        "s need"
+                                    } +
+                                    " your help",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Rounded
+                                .ChevronRight,
+                            contentDescription =
+                                null,
+                            tint =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+
         item {
+            HomeUpcomingBillsCard(
+                bills =
+                    upcomingBills,
+                onBillsClick =
+                    onBillsClick
+            )
+        }
+        item {
+            TextButton(onClick = { homeActionsExpanded = !homeActionsExpanded },
+                modifier = Modifier.fillMaxWidth()) {
+                Text(if (homeActionsExpanded) "Hide shortcuts" else "More money tools")
+            }
+        }
+        if (homeActionsExpanded) item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1213,92 +1323,6 @@ fun HomeScreen(
             }
         }
 
-        if (needsAttentionCount > 0) {
-            item {
-                PesaCard(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable(
-                                onClick =
-                                    onAttentionClick
-                            )
-                ) {
-                    Row(
-                        modifier =
-                            Modifier.padding(
-                                15.dp
-                            ),
-                        verticalAlignment =
-                            Alignment
-                                .CenterVertically
-                    ) {
-                        IconBubble(
-                            Icons.AutoMirrored
-                                .Rounded
-                                .FactCheck,
-                            size = 44.dp,
-                            background =
-                                MaterialTheme
-                                    .colorScheme
-                                    .tertiaryContainer,
-                            tint =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onTertiaryContainer
-                        )
-                        Column(
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .padding(
-                                        start = 12.dp
-                                    )
-                        ) {
-                            Text(
-                                "Needs Attention",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .titleMedium
-                            )
-                            Text(
-                                needsAttentionCount
-                                    .toString() +
-                                    " item" +
-                                    if (
-                                        needsAttentionCount ==
-                                        1
-                                    ) {
-                                        " needs"
-                                    } else {
-                                        "s need"
-                                    } +
-                                    " your help",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                        }
-                        Icon(
-                            Icons.Rounded
-                                .ChevronRight,
-                            contentDescription =
-                                null,
-                            tint =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
 
         if (
             cycleSnapshot
@@ -1330,14 +1354,7 @@ fun HomeScreen(
             )
         }
 
-        item {
-            HomeUpcomingBillsCard(
-                bills =
-                    upcomingBills,
-                onBillsClick =
-                    onBillsClick
-            )
-        }
+
 
         item {
             val mpesaAccount =
