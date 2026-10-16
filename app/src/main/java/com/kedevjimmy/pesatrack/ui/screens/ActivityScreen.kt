@@ -844,10 +844,10 @@ fun ActivityScreen(
                 .weight(1f)
                 .fillMaxWidth(),
             contentPadding = PaddingValues(
-                horizontal = 18.dp,
-                vertical = 10.dp
+                horizontal = 12.dp,
+                vertical = 6.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (ledgerUpdateState.isProcessing) {
                 item {
@@ -863,7 +863,7 @@ fun ActivityScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        "Every transaction, clearly organized.",
+                        "Your money, in context.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -876,24 +876,43 @@ fun ActivityScreen(
                     onPaycheckClick = onPaycheckClick
                 )
             }
-            // Own-account review remains accessible but does not push the
-            // transaction search further down on every visit.
 
-            item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search transactions") },
-                    leadingIcon = {
-                        Icon(Icons.Rounded.Search, contentDescription = null)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(18.dp)
+            val needsAttentionCount =
+                globalOverview.reviewGroups
+                    .sumOf {
+                        it.transactionCount
+                    } +
+                    globalOverview
+                        .possibleDuplicates
+                        .size +
+                    relationshipReviews.size +
+                    reviewableFinancialEntities
+                        .size +
+                    identityReviewCount
+
+            if (needsAttentionCount > 0 || selectedGlobalQueue == "Attention") item {
+                NeedsAttentionCard(
+                    count = needsAttentionCount,
+                    expanded =
+                        selectedGlobalQueue ==
+                            "Attention",
+                    onClick = {
+                        selectedGlobalQueue =
+                            if (
+                                selectedGlobalQueue ==
+                                "Attention"
+                            ) {
+                                null
+                            } else {
+                                "Attention"
+                            }
+                    }
                 )
             }
 
-            item { OwnedTransferReviewSection() }
+            // Own-account review remains accessible but does not push the
+            // transaction search further down on every visit.
+
 
             if (activityError) item {
                 Text("Activity could not load")
@@ -936,45 +955,13 @@ fun ActivityScreen(
             }
 
             item(key = "monthly-summary-toggle") {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("activity-summary-toggle")
-                        .semantics {
-                            stateDescription = if (showDetailedSummary) "Expanded" else "Collapsed"
-                        }
-                        .clickable { showDetailedSummary = !showDetailedSummary },
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 1.dp
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                "$selectedMonthLabel totals",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                "In " + formatActivityMoney(snapshot.summary.incomeMinor) +
-                                    "  •  Spent " + formatActivityMoney(snapshot.summary.spentMinor),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2
-                            )
-                        }
-                        Icon(
-                            if (showDetailedSummary) Icons.Rounded.ExpandLess
-                            else Icons.Rounded.ExpandMore,
-                            contentDescription = if (showDetailedSummary) "Hide monthly details"
-                            else "Show monthly details",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                ActivityMonthlyHero(
+                    monthLabel = selectedMonthLabel,
+                    moneyIn = snapshot.summary.incomeMinor,
+                    spent = snapshot.summary.spentMinor,
+                    expanded = showDetailedSummary,
+                    onToggle = { showDetailedSummary = !showDetailedSummary }
+                )
             }
             if (showDetailedSummary) {
                 item(key = "monthly-summary-details") {
@@ -986,37 +973,38 @@ fun ActivityScreen(
                 }
             }
 
-            val needsAttentionCount =
-                globalOverview.reviewGroups
-                    .sumOf {
-                        it.transactionCount
-                    } +
-                    globalOverview
-                        .possibleDuplicates
-                        .size +
-                    relationshipReviews.size +
-                    reviewableFinancialEntities
-                        .size +
-                    identityReviewCount
-
-            if (needsAttentionCount > 0 || selectedGlobalQueue == "Attention") item {
-                NeedsAttentionCard(
-                    count = needsAttentionCount,
-                    expanded =
-                        selectedGlobalQueue ==
-                            "Attention",
-                    onClick = {
-                        selectedGlobalQueue =
-                            if (
-                                selectedGlobalQueue ==
-                                "Attention"
-                            ) {
-                                null
-                            } else {
-                                "Attention"
-                            }
-                    }
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Search transactions") },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.Search, contentDescription = null)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(18.dp)
                 )
+            }
+
+
+            item(key = "activity-primary-filters") {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("All", "Needs review", "Spending", "Income", "Transfers",
+                        "Owed to me", "Repayments").forEach { label ->
+                        item(key = label) {
+                            FilterChip(
+                                selected = selectedFilter == label,
+                                onClick = { selectedFilter = label },
+                                label = { Text(label) },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary)
+                            )
+                        }
+                    }
+                }
             }
 
             if (
@@ -1431,61 +1419,6 @@ fun ActivityScreen(
                 }
 
                 if (isExpanded) {
-                    item(
-                        key =
-                            "filters-" +
-                                bucket
-                                    .monthStartEpochMs
-                    ) {
-                        LazyRow(
-                            horizontalArrangement =
-                                Arrangement.spacedBy(
-                                    8.dp
-                                )
-                        ) {
-                            listOf(
-                                "All",
-                                "Needs review",
-                                "Spending",
-                                "Income",
-                                "Transfers",
-                                "Owed to me",
-                                "Repayments"
-                            ).forEach { label ->
-                                item {
-                                    FilterChip(
-                                        selected =
-                                            selectedFilter ==
-                                                label,
-                                        onClick = {
-                                            selectedFilter =
-                                                label
-                                        },
-                                        label = {
-                                            Text(label)
-                                        },
-                                        shape =
-                                            RoundedCornerShape(
-                                                12.dp
-                                            ),
-                                        colors =
-                                            FilterChipDefaults
-                                                .filterChipColors(
-                                                    selectedContainerColor =
-                                                        MaterialTheme
-                                                            .colorScheme
-                                                            .primary,
-                                                    selectedLabelColor =
-                                                        MaterialTheme
-                                                            .colorScheme
-                                                            .onPrimary
-                                                )
-                                    )
-                                }
-                            }
-                        }
-                    }
-
                     if (selectedFinancialSource != null) {
                         item(
                             key =
@@ -1665,6 +1598,9 @@ fun ActivityScreen(
                         }
                     }
                 }
+            }
+            item(key = "own-account-review-more") {
+                OwnedTransferReviewSection()
             }
         }
     }
@@ -2337,6 +2273,52 @@ private fun ActivityMonthPickerDialog(
             }
         }
     )
+}
+
+@Composable
+private fun ActivityMonthlyHero(
+    monthLabel: String,
+    moneyIn: Long,
+    spent: Long,
+    expanded: Boolean,
+    onToggle: () -> Unit
+) {
+    Surface(modifier = Modifier.fillMaxWidth().testTag("activity-summary-toggle")
+            .clickable(onClick = onToggle)
+            .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .28f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .40f))) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(monthLabel, modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold)
+                Text("Money overview", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = if (expanded) "Hide monthly details" else "Show monthly details",
+                    modifier = Modifier.padding(start = 6.dp))
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("Money in", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(formatActivityMoney(moneyIn), style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Spent", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(formatActivityMoney(spent), style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold)
+                }
+            }
+            Text("Spending is separate from transfers, savings and loan movements. Tap for details.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 @Composable
@@ -4066,7 +4048,7 @@ private fun ActivityRow(
         tonalElevation = 1.dp
     ) {
         Row(
-            Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             MerchantBadge(
