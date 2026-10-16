@@ -40,14 +40,29 @@ import java.nio.charset.CodingErrorAction
 @Composable internal fun ActivityMoneyActions(onChanged:()->Unit,onPaycheckClick:()->Unit = {}) {
  var add by rememberSaveable {mutableStateOf(false)};var importing by rememberSaveable {mutableStateOf(false)}
  var viewingStatements by rememberSaveable {mutableStateOf(false)}
- Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-  FilledTonalButton(onClick={add=true},modifier=Modifier.weight(1f).heightIn(min=48.dp)){Icon(Icons.Rounded.Add,null);Spacer(Modifier.width(6.dp));Text("Add entry")}
-  OutlinedButton(onClick={importing=true},modifier=Modifier.weight(1f).heightIn(min=48.dp)){Icon(Icons.Rounded.UploadFile,null);Spacer(Modifier.width(6.dp));Text("Import")}
+ Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+   Button(onClick={add=true},modifier=Modifier.weight(1f).heightIn(min=54.dp),
+    colors=ButtonDefaults.buttonColors(containerColor=androidx.compose.ui.graphics.Color(0xFF17564B))) {
+    Icon(Icons.Rounded.Add,null);Spacer(Modifier.width(8.dp));Text("Add entry",maxLines=1)
+   }
+   OutlinedButton(onClick={importing=true},modifier=Modifier.weight(1f).heightIn(min=54.dp)) {
+    Icon(Icons.Rounded.UploadFile,null);Spacer(Modifier.width(8.dp));Text("Import",maxLines=1)
+   }
+  }
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+   OutlinedButton(onClick={viewingStatements=true},modifier=Modifier.weight(1f).heightIn(min=52.dp),
+    contentPadding=PaddingValues(horizontal=10.dp,vertical=8.dp)) {
+    Icon(Icons.Rounded.ReceiptLong,null,modifier=Modifier.size(19.dp));Spacer(Modifier.width(6.dp))
+    Text("Statements",maxLines=1)
+   }
+   OutlinedButton(onClick=onPaycheckClick,modifier=Modifier.weight(1f).heightIn(min=52.dp),
+    contentPadding=PaddingValues(horizontal=10.dp,vertical=8.dp)) {
+    Icon(Icons.Rounded.Paid,null,modifier=Modifier.size(19.dp));Spacer(Modifier.width(6.dp))
+    Text("Paycheck",maxLines=1)
+   }
+  }
  }
- OutlinedButton(onClick={viewingStatements=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
-  Icon(Icons.Rounded.ReceiptLong,null);Spacer(Modifier.width(8.dp));Text("View saved statements")
- }
- OutlinedButton(onClick=onPaycheckClick,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {Text("Paycheck Analysis")}
  if(viewingStatements) StatementActivityDialog(onDismiss={viewingStatements=false})
  if(add) ManualEntrySheet(onDismiss={add=false},onChanged=onChanged)
  if(importing) StatementImportSheet(onDismiss={importing=false},onChanged=onChanged,onPaycheckClick=onPaycheckClick)

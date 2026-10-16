@@ -115,13 +115,13 @@ private fun readStatement(c:Context,uri:Uri):String {
       Icon(Icons.Rounded.AccountBalanceWallet,null,tint=MaterialTheme.colorScheme.primary)
       Text("01 · Source account",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      }
-     Text("Choose where these transactions belong. PesaTrack won't create an account automatically.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     Text("Select the account that appears on your statement.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy){if(accountId!=it){invalidatePreview();accountId=it}}
      if(accountId.isEmpty()) Text("Choose a confirmed account before reviewing transactions.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
    }
   }
-  if(!statementOnly) item {
+  if(accountId.isNotEmpty() && !statementOnly) item {
    PesaCard {
     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
      Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -137,12 +137,12 @@ private fun readStatement(c:Context,uri:Uri):String {
     }
    }
   }
-  item {
+  if(accountId.isNotEmpty()) item {
    PesaCard {
     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
      Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
       Icon(Icons.Rounded.UploadFile,null,tint=MaterialTheme.colorScheme.primary)
-      Text("03 · Choose a document",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
+      Text(if(statementOnly)"02 · Choose your M-Pesa PDF"else"03 · Choose a document",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      }
      if(!statementOnly) {
       Text("Choose a supported CSV or verified PDF.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -152,9 +152,9 @@ private fun readStatement(c:Context,uri:Uri):String {
      OutlinedButton(onClick={statementPdfPicker.launch(arrayOf("application/pdf"))},
       enabled=!busy&&accounts.any{it.id==accountId&&it.type==AccountType.MOBILE_WALLET},
       modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
-      Icon(Icons.Rounded.PictureAsPdf,null);Spacer(Modifier.width(8.dp));Text("Select M-Pesa PDF (offline Python)")
+      Icon(Icons.Rounded.PictureAsPdf,null);Spacer(Modifier.width(8.dp));Text("Choose M-Pesa PDF")
      }
-     Text("Only a fully verified seven-column PDF may be saved to Statement Activity. Never updates SMS Activity, budgets or balances.",
+     Text("Your PDF is checked privately on this device. Only verified rows are saved to Statements; Activity balances stay separate.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
    }

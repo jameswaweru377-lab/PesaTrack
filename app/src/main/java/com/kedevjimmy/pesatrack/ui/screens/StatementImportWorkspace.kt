@@ -71,7 +71,7 @@ internal fun StatementImportWorkspace(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            "Files to verified transactions",
+                            "Import privately, review confidently",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -109,14 +109,28 @@ internal fun StatementImportWorkspace(
                                     )
                                 }
                                 Text(
-                                    "Choose an account and a file, review the extracted transactions, then decide what to import.",
+                                    "Three simple steps. Nothing is saved until you approve the reviewed entries.",
                                     style = MaterialTheme.typography.bodyMedium
                                 )
-                                Text(
-                                    "01  ACCOUNT       02  DOCUMENT       03  REVIEW       04  IMPORT",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    listOf("1  Account", "2  Document", "3  Review").forEach { step ->
+                                        Surface(
+                                            modifier = Modifier.weight(1f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                        ) {
+                                            Text(step,
+                                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                                maxLines = 1)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
