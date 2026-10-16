@@ -535,29 +535,77 @@ fun TransactionDetailScreen(
             ?.relatedTransactionId
             ?.let(store::getById)
 
+    var rememberScanExpanded by remember(transactionId) { mutableStateOf(false) }
     if (current != null && pendingCategoryId != null) {
         val categoryId = pendingCategoryId!!
         AlertDialog(
             onDismissRequest = { if (!learningBusy) pendingCategoryId = null },
             title = { Text("Remember this category?") },
-            text = { Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text("Remember “${current.counterparty ?: current.counterpartyPhone}” " +
-                    "as ${categoryStore.labelFor(categoryId)}?")
-                Text("Activity: $pendingMatchCount other matches.")
-                Text("Statements: $pendingStatementMatchCount eligible source rows; " +
-                    "$pendingReportStatementMatches included in current reports.")
-                Text("Scanned $pendingScannedStatementRows rows across " +
-                    "$pendingScannedStatementPdfs PDFs. " +
-                    "Matched names: $pendingNamedStatementMatches; " +
-                    "verified receipts: $pendingReceiptStatementMatches.")
-                if (pendingScannedStatementRows > 0 &&
-                    pendingStatementMatchCount == 0)
-                    Text("No safe changes found. Check the Statement recipient wording " +
-                        "if you expected matches; unrelated or already-correct records stay protected.")
-                Text("Remember applies the category to eligible historical and future " +
-                    "Statements without combining or rewriting transaction records.")
-                learningError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            } },
+            text = {
+                Column(
+                    Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "${current.counterparty ?: current.counterpartyPhone} → " +
+                            categoryStore.labelFor(categoryId),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text("$pendingMatchCount",
+                                    style = MaterialTheme.typography.headlineSmall)
+                                Text("Activity matches",
+                                    style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text("$pendingStatementMatchCount",
+                                    style = MaterialTheme.typography.headlineSmall)
+                                Text("Statement matches",
+                                    style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                    Text("Remember for eligible past and future matches. " +
+                        "Your source transactions remain separate.",
+                        style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { rememberScanExpanded = !rememberScanExpanded }) {
+                        Text(if (rememberScanExpanded) "Hide scan details"
+                            else "How were matches found?")
+                    }
+                    if (rememberScanExpanded) {
+                        Text(
+                            "Scanned $pendingScannedStatementRows rows in " +
+                                "$pendingScannedStatementPdfs saved PDFs. " +
+                                "$pendingNamedStatementMatches name matches, " +
+                                "$pendingReceiptStatementMatches verified receipts; " +
+                                "$pendingReportStatementMatches eligible rows in current reports.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        if (pendingScannedStatementRows > 0 &&
+                            pendingStatementMatchCount == 0)
+                            Text(
+                                "No safe Statement changes found. Rows may already be " +
+                                    "categorized or contain ambiguous recipient evidence.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                    }
+                    learningError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
             dismissButton = { TextButton(enabled = !learningBusy, onClick = {
                 learningBusy = true
                 scope.launch {

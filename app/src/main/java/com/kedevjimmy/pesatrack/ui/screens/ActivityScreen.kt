@@ -856,11 +856,18 @@ fun ActivityScreen(
             }
 
             item {
-                Text(
-                    "Activity",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        "Activity",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Every transaction, clearly organized.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             item { ActivityMoneyActions(onChanged = { refresh() }, onPaycheckClick = onPaycheckClick) }
