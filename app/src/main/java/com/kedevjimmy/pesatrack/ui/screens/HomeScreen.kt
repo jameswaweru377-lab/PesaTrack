@@ -690,13 +690,6 @@ fun HomeScreen(
                 Arrangement.spacedBy(14.dp)
         ) {
             item {
-                PesaTrackTopBar(
-                    onProfileClick =
-                        onProfileClick,
-                    showProfile = false
-                )
-            }
-            item {
                 GreetingBlock(
                     onProfileClick =
                         onProfileClick
@@ -1032,13 +1025,6 @@ fun HomeScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item {
-            PesaTrackTopBar(
-                onProfileClick = onProfileClick,
-                showProfile = false
-            )
-        }
-
         item {
             GreetingBlock(onProfileClick = onProfileClick)
         }

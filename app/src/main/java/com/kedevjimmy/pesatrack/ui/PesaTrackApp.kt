@@ -145,7 +145,7 @@ fun PesaTrackApp(
             navArgument("action") { type = NavType.StringType; defaultValue = "review" },
             navArgument("revision") { type = NavType.StringType; defaultValue = "" }
         )) { entry ->
-            AppScaffold(currentTab = MainTab.ACCOUNTS, onTabSelected = ::navigateToTab) { padding ->
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, currentTab = MainTab.ACCOUNTS, onTabSelected = ::navigateToTab) { padding ->
                 com.kedevjimmy.pesatrack.ui.screens.SmartNoticeReviewScreen(
                     padding, entry.arguments?.getString("key").orEmpty(),
                     entry.arguments?.getString("action") ?: "review",
@@ -173,7 +173,7 @@ fun PesaTrackApp(
         }
 
         composable(MainTab.HOME.route) {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.HOME,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -227,14 +227,14 @@ fun PesaTrackApp(
         }
 
         composable("salary") {
-            AppScaffold(currentTab = MainTab.HOME, onTabSelected = ::navigateToTab) { padding ->
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, currentTab = MainTab.HOME, onTabSelected = ::navigateToTab) { padding ->
                 SalaryScreen(padding, onBack = { navController.popBackStack() },
                     onPaycheckClick = { navController.navigate("paycheck-analysis") })
             }
         }
 
         composable("paycheck-analysis") {
-            AppScaffold(currentTab = MainTab.ACTIVITY, onTabSelected = ::navigateToTab) { padding ->
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, currentTab = MainTab.ACTIVITY, onTabSelected = ::navigateToTab) { padding ->
                 PayrollJournalSheet(
                     onDismiss = { navController.popBackStack() },
                     asPage = true,
@@ -244,7 +244,7 @@ fun PesaTrackApp(
         }
 
         composable(MainTab.ACCOUNTS.route) {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACCOUNTS,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -273,7 +273,7 @@ fun PesaTrackApp(
         }
 
         composable("financial-institutions") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACCOUNTS,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -287,7 +287,7 @@ fun PesaTrackApp(
         }
 
         composable("debts") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACCOUNTS,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -302,7 +302,7 @@ fun PesaTrackApp(
         }
 
         composable("budgets") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.PLAN,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -314,7 +314,7 @@ fun PesaTrackApp(
         }
 
         composable(MainTab.ACTIVITY.route) {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACTIVITY,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -344,7 +344,7 @@ fun PesaTrackApp(
         }
 
         composable("activity-attention") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACTIVITY,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -404,7 +404,7 @@ fun PesaTrackApp(
         }
 
         composable(MainTab.PLAN.route) {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.PLAN,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -431,12 +431,13 @@ fun PesaTrackApp(
         }
 
         composable(MainTab.MORE.route) {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.MORE,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 MoreScreen(
                     scaffoldPadding = padding,
+                    onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },
                     onProfileClick = {
                         navController.navigate("profile")
                     },
@@ -473,7 +474,7 @@ fun PesaTrackApp(
         }
 
         composable("reports") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.MORE,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -494,7 +495,7 @@ fun PesaTrackApp(
         }
 
         composable("bills") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.MORE,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -507,7 +508,7 @@ fun PesaTrackApp(
         }
 
         composable("saving-goals") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.PLAN,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -529,7 +530,7 @@ fun PesaTrackApp(
                 backStackEntry.arguments
                     ?.getString("accountId")
                     ?: return@composable
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACCOUNTS,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -553,7 +554,7 @@ fun PesaTrackApp(
         ) { backStackEntry ->
             val transactionId = backStackEntry.arguments?.getLong("transactionId")
                 ?: return@composable
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACTIVITY,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -578,7 +579,7 @@ fun PesaTrackApp(
         }
 
         composable("profile") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = null,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -594,7 +595,7 @@ fun PesaTrackApp(
         }
 
         composable("data-health") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.MORE,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -613,7 +614,7 @@ fun PesaTrackApp(
         }
 
         composable("identity-review") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.MORE,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -627,7 +628,7 @@ fun PesaTrackApp(
         }
 
         composable("settings") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = null,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -646,7 +647,7 @@ fun PesaTrackApp(
         }
 
         composable("smart-rules") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = null,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -660,7 +661,7 @@ fun PesaTrackApp(
         }
 
         composable("mpesa-connection") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = null,
                 onTabSelected = ::navigateToTab
             ) { padding ->
@@ -672,7 +673,7 @@ fun PesaTrackApp(
         }
 
         composable("historical-import") {
-            AppScaffold(
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = null,
                 onTabSelected = ::navigateToTab
             ) { padding ->

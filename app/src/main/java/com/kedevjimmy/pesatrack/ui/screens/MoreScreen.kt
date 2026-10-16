@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
@@ -45,6 +46,7 @@ import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 fun MoreScreen(
     scaffoldPadding: PaddingValues,
     onProfileClick: () -> Unit,
+    onAccountsClick: () -> Unit,
     onImportClick: () -> Unit,
     onStatementActivityClick: () -> Unit,
     onDataHealthClick: () -> Unit,
@@ -64,9 +66,6 @@ fun MoreScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item {
-            PesaTrackTopBar(onProfileClick = onProfileClick)
-        }
         item {
             Column {
                 Text(
@@ -135,8 +134,15 @@ fun MoreScreen(
                 )
             }
         }
+        item { SectionHeader("Account & app") }
         item {
-            SectionHeader("Account & app")
+            MoreRow(
+                icon = Icons.Rounded.AccountBalanceWallet,
+                title = "Accounts & debts",
+                subtitle = "Wallets, banks, balances and what you owe",
+                tone = "green",
+                onClick = onAccountsClick
+            )
         }
         item {
             MoreRow(
