@@ -37,6 +37,36 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 
+/**
+ * Keeps the money timeline above utilities. Legacy import/statement/payroll
+ * actions are still available, unchanged, through one explicitly labelled
+ * disclosure rather than four large buttons above every transaction.
+ */
+@Composable internal fun ActivityToolsDisclosure(
+    onChanged: () -> Unit,
+    onPaycheckClick: () -> Unit = {}
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Your transactions",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f))
+            TextButton(onClick = { expanded = !expanded },
+                modifier = Modifier.heightIn(min = 48.dp)) {
+                Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.Tune,
+                    contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(if (expanded) "Hide tools" else "Add & tools")
+            }
+        }
+        if (expanded) ActivityMoneyActions(
+            onChanged = onChanged,
+            onPaycheckClick = onPaycheckClick
+        )
+    }
+}
+
 @Composable internal fun ActivityMoneyActions(onChanged:()->Unit,onPaycheckClick:()->Unit = {}) {
  var add by rememberSaveable {mutableStateOf(false)};var importing by rememberSaveable {mutableStateOf(false)}
  var viewingStatements by rememberSaveable {mutableStateOf(false)}

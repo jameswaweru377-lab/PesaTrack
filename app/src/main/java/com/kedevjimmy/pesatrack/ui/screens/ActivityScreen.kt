@@ -870,8 +870,14 @@ fun ActivityScreen(
                 }
             }
 
-            item { ActivityMoneyActions(onChanged = { refresh() }, onPaycheckClick = onPaycheckClick) }
-            item { OwnedTransferReviewSection() }
+            item {
+                ActivityToolsDisclosure(
+                    onChanged = { refresh() },
+                    onPaycheckClick = onPaycheckClick
+                )
+            }
+            // Own-account review remains accessible but does not push the
+            // transaction search further down on every visit.
 
             item {
                 OutlinedTextField(
@@ -886,6 +892,8 @@ fun ActivityScreen(
                     shape = RoundedCornerShape(18.dp)
                 )
             }
+
+            item { OwnedTransferReviewSection() }
 
             if (activityError) item {
                 Text("Activity could not load")
