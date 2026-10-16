@@ -92,6 +92,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
     var bridgeScanning by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
+    var reconciliationExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(refreshed) {
         busy = true
@@ -336,46 +337,126 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                                 verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 item {
+                                    StatementHeroMetric(
+                                        label = if (period == StatementFinancialPolicy.Period.YEAR)
+                                            "SPENT THIS YEAR" else "YOUR SPENDING",
+                                        amount = totals.expenseMinor,
+                                        note = "Classified spending in imported statements · " + periodTitle
+                                    )
+                                }
+                                item {
+                                    val first = visible.minOfOrNull { it.line.occurredAt }
+                                    val last = visible.maxOfOrNull { it.line.occurredAt }
+                                    Surface(shape = RoundedCornerShape(14.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                                        Column(Modifier.padding(13.dp),
+                                            verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                            Text("Statement coverage", fontWeight = FontWeight.SemiBold,
+                                                style = MaterialTheme.typography.bodyMedium)
+                                            Text((accountLabels[accountId] ?: "M-Pesa wallet") +
+                                                " · " + visible.size + " recorded entries",
+                                                style = MaterialTheme.typography.bodySmall)
+                                            if (first != null && last != null)
+                                                Text("Recorded dates: " + statementDate(first) +
+                                                    " – " + statementDate(last),
+                                                    style = MaterialTheme.typography.bodySmall)
+                                            Text("Only imported dates and classified expenses. " +
+                                                "Missing dates are not counted as zero.",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                                if (totals.unknownOutMinor > 0L) item {
+                                    OutlinedButton(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        onClick = {
+                                            navigate(StatementPage.TRANSACTIONS, StatementFlow.UNKNOWN)
+                                        }
+                                    ) {
+                                        Icon(Icons.Rounded.Rule, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Review " + statementMoney(totals.unknownOutMinor) +
+                                            " of unclassified money out")
+                                    }
+                                }
+                                if (breakdown.isNotEmpty()) item {
+                                    Surface(shape = RoundedCornerShape(16.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                                        Column(Modifier.padding(14.dp),
+                                            verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                            Text("Your top expenses",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.SemiBold)
+                                            breakdown.take(3).forEach { (category, amount) ->
+                                                Row(
+                                                    Modifier.fillMaxWidth().clickable {
+                                                        navigate(StatementPage.CATEGORIES)
+                                                    },
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(category, style = MaterialTheme.typography.bodyMedium,
+                                                        modifier = Modifier.weight(1f))
+                                                    Text(statementMoney(amount),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Medium)
+                                                }
+                                            }
+                                            TextButton(onClick = { navigate(StatementPage.CATEGORIES) }) {
+                                                Text("See all categories")
+                                            }
+                                        }
+                                    }
+                                }
+                                item {
                                     val sourceWithdrawals = visible.fold(0L) { sum, row ->
                                         Math.addExact(sum, row.line.withdrawnMinor)
                                     }
                                     val corroboratedCount = visible.count { it.activityReceiptVerified }
                                     Surface(
                                         color = MaterialTheme.colorScheme.surfaceContainerLow,
-                                        shape = RoundedCornerShape(14.dp)
+                                        shape = RoundedCornerShape(14.dp),
+                                        modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Column(Modifier.padding(14.dp),
-                                            verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                            Text("Why totals can differ from Activity",
-                                                style = MaterialTheme.typography.titleSmall)
-                                            Text("Statement cash out: " +
-                                                statementMoney(sourceWithdrawals) +
-                                                " · Classified spending: " +
-                                                statementMoney(totals.expenseMinor),
-                                                style = MaterialTheme.typography.bodySmall)
-                                            Text("Needs review: " +
-                                                statementMoney(totals.unknownOutMinor) +
-                                                " · Excluded by confirmed Activity evidence: " +
-                                                statementMoney(totals.excludedMinor),
-                                                style = MaterialTheme.typography.bodySmall)
-                                            Text("Exact receipt corroboration: " +
-                                                corroboratedCount + " statement rows.",
-                                                style = MaterialTheme.typography.bodySmall)
-                                            Text("Different imported dates, missing PDFs, transfers, fees, " +
-                                                "loans, savings and shared-bill shares affect the comparison. " +
-                                                "Unknown withdrawals are not automatically treated as purchases.",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Column(Modifier.padding(13.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Row(
+                                                Modifier.fillMaxWidth().clickable {
+                                                    reconciliationExpanded = !reconciliationExpanded
+                                                }.heightIn(min = 48.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("Explain these totals",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    modifier = Modifier.weight(1f))
+                                                Icon(if (reconciliationExpanded)
+                                                    Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                                    contentDescription = if (reconciliationExpanded)
+                                                        "Hide reconciliation" else "Show reconciliation")
+                                            }
+                                            if (reconciliationExpanded) {
+                                                Text("Statement cash out: " +
+                                                    statementMoney(sourceWithdrawals) +
+                                                    " · Classified spending: " +
+                                                    statementMoney(totals.expenseMinor),
+                                                    style = MaterialTheme.typography.bodySmall)
+                                                Text("Needs review: " +
+                                                    statementMoney(totals.unknownOutMinor) +
+                                                    " · Confirmed exclusions: " +
+                                                    statementMoney(totals.excludedMinor),
+                                                    style = MaterialTheme.typography.bodySmall)
+                                                Text("Same-receipt evidence: " +
+                                                    corroboratedCount + " rows.",
+                                                    style = MaterialTheme.typography.bodySmall)
+                                                Text("Transfers, loans, savings, fees and refunds " +
+                                                    "are not ordinary spending. Account/date scope and " +
+                                                    "unreviewed withdrawals can make Activity and " +
+                                                    "Statement totals differ.",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
                                         }
                                     }
-                                }
-                                item {
-                                    StatementHeroMetric(
-                                        label = if (period == StatementFinancialPolicy.Period.YEAR)
-                                            "SPENT THIS YEAR" else "YOUR SPENDING",
-                                        amount = totals.expenseMinor,
-                                        note = "Classified expenses only · from saved statement records"
-                                    )
                                 }
                                 item {
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -452,9 +533,11 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                 }
                                 item {
                                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                                        StatementHighlightCard("Food & dining",
-                                            breakdown.firstOrNull { it.first == "Food & dining" }?.second ?: 0L,
-                                            Modifier.weight(1f)) { navigate(StatementPage.CATEGORIES) }
+                                        StatementHighlightCard(
+                                            breakdown.firstOrNull()?.first ?: "Top expense",
+                                            breakdown.firstOrNull()?.second ?: 0L,
+                                            Modifier.weight(1f)
+                                        ) { navigate(StatementPage.CATEGORIES) }
                                         StatementHighlightCard("Money received",
                                             totals.incomeMinor, Modifier.weight(1f)) {
                                             navigate(StatementPage.TRANSACTIONS, StatementFlow.INCOME)
