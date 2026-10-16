@@ -40,5 +40,53 @@
       "OUTSTANDING": "74.50",
       "FEE": "0.00"
     }
+  },
+  {
+    "id": "mshwari_full_repayment_overpayment_synth_1",
+    "title": "MPESA",
+    "body": "TSTV14F001 Confirmed. Loan of Ksh123.45 repaid from your M-PESA account on 16/10/26 at 7:30 AM. M-PESA balance is Ksh9,876.54.Your loan is repaid in full, and the overpayment has been moved to your Savings Account. New M-Shwari balance is Ksh42.37. Transaction cost Kshs 0.00",
+    "templateId": "ke.mshwari.loan.full-repayment-overpayment",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV14F001",
+      "AMOUNT": "123.45",
+      "SOURCE": "M-PESA",
+      "DATE": "16/10/26 at 7:30 AM",
+      "COMPLETION": "loan is repaid in full",
+      "SAVINGS_BALANCE": "42.37",
+      "WALLET_BALANCE": "9,876.54",
+      "FEE": "0.00"
+    }
+  },
+  {
+    "id": "mshwari_full_repayment_overpayment_synth_2",
+    "title": "MPESA",
+    "body": "TSTV14F002 Confirmed. Loan of Ksh500.00 repaid from your M-PESA account on 14/10/26 at 6:15 PM. M-PESA balance is Ksh4,200.50.Your loan is repaid in full, and the overpayment has been transferred to your Savings Account. New M-Shwari balance is Ksh110.75. Transaction cost Kshs 0.00",
+    "templateId": "ke.mshwari.loan.full-repayment-overpayment",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV14F002",
+      "AMOUNT": "500.00",
+      "SOURCE": "M-PESA",
+      "DATE": "14/10/26 at 6:15 PM",
+      "COMPLETION": "loan is repaid in full",
+      "SAVINGS_BALANCE": "110.75",
+      "WALLET_BALANCE": "4,200.50",
+      "FEE": "0.00"
+    }
+  },
+  {
+    "id": "mshwari_full_repayment_overpayment_synth_3",
+    "title": "MPESA",
+    "body": "TSTV14F003 Confirmed. Loan of Ksh90.50 repaid from your M-PESA account on 3/10/26 at 9:05 AM. M-PESA balance is Ksh7,319.20.Your loan is repaid in full, and the overpayment has been moved to your Savings Account. New M-Shwari balance is Ksh12.13. Transaction cost Kshs 0.00",
+    "templateId": "ke.mshwari.loan.full-repayment-overpayment",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV14F003",
+      "AMOUNT": "90.50",
+      "SOURCE": "M-PESA",
+      "DATE": "3/10/26 at 9:05 AM",
+      "COMPLETION": "loan is repaid in full",
+      "SAVINGS_BALANCE": "12.13",
+      "WALLET_BALANCE": "7,319.20",
+      "FEE": "0.00"
+    }
   }
 ]
