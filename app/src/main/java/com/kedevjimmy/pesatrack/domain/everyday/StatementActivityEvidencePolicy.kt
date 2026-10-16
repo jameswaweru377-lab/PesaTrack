@@ -55,10 +55,13 @@ object StatementActivityEvidencePolicy {
             return evidenced
         if (a.direction == "TRANSFER" &&
             (a.linkedAccountId != null ||
-             (a.reviewState == "USER_CLASSIFIED" && a.categoryId == "TRANSFER")))
+             ((a.reviewState == "USER_CLASSIFIED" || a.approvedLearnedCategory) &&
+                a.categoryId == "TRANSFER")))
             return evidenced.copy(
                 flow = StatementFlow.TRANSFER, categoryId = "TRANSFER",
-                evidence = "Own-account transfer confirmed in Activity")
+                evidence = if (a.linkedAccountId != null)
+                    "Own-account transfer corroborated in Activity"
+                else "Reviewed transfer category corroborated in Activity")
         if (a.lentMinor > 0L && source.line.withdrawnMinor > 0L) {
             if (a.sharedBill && a.lentMinor < source.line.withdrawnMinor) {
                 val own = Math.subtractExact(source.line.withdrawnMinor, a.lentMinor)
@@ -94,7 +97,8 @@ object StatementActivityEvidencePolicy {
         // merchant labels, but cannot override a separately confirmed exclusion,
         // own transfer, investment, or receivable cash-flow adjustment above.
         if (manuallyCorrected) return evidenced
-        if (a.reviewState == "USER_CLASSIFIED" && a.direction == "EXPENSE" &&
+        if ((a.reviewState == "USER_CLASSIFIED" || a.approvedLearnedCategory) &&
+            a.direction == "EXPENSE" &&
             a.categoryId?.let { categoryKinds[it] == "EXPENSE" } == true &&
             source.line.withdrawnMinor > 0L)
             return evidenced.copy(flow = StatementFlow.EXPENSE,

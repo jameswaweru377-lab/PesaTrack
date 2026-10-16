@@ -48,13 +48,7 @@ private fun shiftedDate(timestamp: Long, days: Int): Long =
     }.timeInMillis
 
 private fun statementCategoryGroup(id: String?, labels: Map<String, String>): String =
-    when (id) {
-        "GROCERIES", "EATING_OUT" -> "Food & dining"
-        "ELECTRICITY", "WATER", "INTERNET", "PHONE_AND_DATA" -> "Bills & utilities"
-        "FEES" -> "Fees & charges"
-        null -> "Needs review"
-        else -> labels[id] ?: id.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
-    }
+    StatementExpenseCatalog.name(id, labels)
 
 @Composable
 internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
@@ -157,11 +151,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
     }
     val totals = remember(visible) { StatementFinancialPolicy.totals(visible) }
     val breakdown = remember(visible, categoryLabels) {
-        visible.filter { it.flow == StatementFlow.EXPENSE }
-            .groupBy { statementCategoryGroup(it.categoryId, categoryLabels) }
-            .mapValues { (_, group) ->
-                group.fold(0L) { s, entry -> Math.addExact(s, entry.reportAmountMinor) }
-            }.toList().sortedByDescending { it.second }
+        StatementExpenseCatalog.breakdown(visible, categoryLabels)
     }
     val periodTitle = when (period) {
         StatementFinancialPolicy.Period.YEAR -> (year ?: "").toString()

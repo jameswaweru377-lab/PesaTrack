@@ -69,6 +69,29 @@ class StatementActivityEvidencePolicyTest {
         val unapproved = project(automatic.copy(approvedLearnedCategory = false))
         assertNotEquals(StatementFlow.INVESTMENT,unapproved.flow)
     }
+    @Test fun rememberedActivityEatingOutMustAppearInStatementExpenses() {
+        // Existing confirmed identity/category rule bulk-updated this SMS.
+        val memorized = activity(category = "EATING_OUT")
+            .copy(reviewState = "AUTO_CLASSIFIED", approvedLearnedCategory = true)
+        val result = project(memorized)
+        assertEquals(StatementFlow.EXPENSE, result.flow)
+        assertEquals("EATING_OUT", result.categoryId)
+        assertEquals(10_000L, StatementFinancialPolicy.totals(listOf(result)).expenseMinor)
+        val unapproved = project(memorized.copy(approvedLearnedCategory = false))
+        assertEquals(StatementFlow.TRANSFER, unapproved.flow)
+    }
+
+    @Test fun approvedTransferRequiresMatchingCashLegAndNoInventedOwnership() {
+        val approved = activity(direction = "TRANSFER", category = "TRANSFER")
+            .copy(reviewState = "AUTO_CLASSIFIED", approvedLearnedCategory = true)
+        val result = project(approved)
+        assertEquals(StatementFlow.TRANSFER, result.flow)
+        assertEquals("TRANSFER", result.categoryId)
+        assertEquals("Reviewed transfer category corroborated in Activity", result.evidence)
+        val badAccount = project(approved.copy(accountId = "wallet-b"))
+        assertFalse(badAccount.activityReceiptVerified)
+    }
+
     @Test fun unsafeAccountAndDateEvidenceNeverChangeSource() {
         assertFalse(project(activity(excluded=true,account="bank-b")).activityReceiptVerified)
         val late=row.copy(occurredAt=row.occurredAt-3*86_400_000L)
