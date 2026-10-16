@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -22,6 +23,12 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +52,7 @@ fun MoreScreen(
     onBillsClick: (() -> Unit)? = null,
     onGoalsClick: (() -> Unit)? = null
 ) {
+    var expandedMoneyTools by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
@@ -71,21 +79,29 @@ fun MoreScreen(
                 )
             }
         }
-        if (onReportsClick != null || onBillsClick != null || onGoalsClick != null) {
-            item {
-                SectionHeader("Money tools")
-            }
-        }
         item {
             MoreRow(
                 icon = Icons.Rounded.ReceiptLong,
-                title = "Statement Activity",
-                subtitle = "View your saved M-Pesa PDF statements and all their transactions",
+                title = "Saved statements",
+                subtitle = "Explore records and statement history",
                 tone = "green",
                 onClick = onStatementActivityClick
             )
         }
-        if (onReportsClick != null) {
+        if (onReportsClick != null || onBillsClick != null || onGoalsClick != null) {
+            item {
+                TextButton(onClick = { expandedMoneyTools = !expandedMoneyTools },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Text(if (expandedMoneyTools) "Hide additional money tools"
+                        else "More money tools")
+                    Icon(if (expandedMoneyTools)
+                        androidx.compose.material.icons.rounded.ExpandLess
+                        else androidx.compose.material.icons.rounded.ExpandMore,
+                        contentDescription = null)
+                }
+            }
+        }
+        if (expandedMoneyTools && onReportsClick != null) {
             item {
                 MoreRow(
                     icon = Icons.Rounded.Insights,
@@ -96,7 +112,7 @@ fun MoreScreen(
                 )
             }
         }
-        if (onGoalsClick != null) {
+        if (expandedMoneyTools && onGoalsClick != null) {
             item {
                 MoreRow(
                     icon = Icons.Rounded.Savings,
@@ -107,7 +123,7 @@ fun MoreScreen(
                 )
             }
         }
-        if (onBillsClick != null) {
+        if (expandedMoneyTools && onBillsClick != null) {
             item {
                 MoreRow(
                     icon = Icons.Rounded.NotificationsActive,
