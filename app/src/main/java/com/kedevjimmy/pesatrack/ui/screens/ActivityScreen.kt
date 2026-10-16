@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -208,11 +211,6 @@ fun ActivityScreen(
     stateCache: ActivityScreenCache? = null
 ) {
     var payCycleMode by rememberSaveable { mutableStateOf(false) }
-    if (payCycleMode) {
-        PayCycleActivityScreen(scaffoldPadding, onCalendar = { payCycleMode = false },
-            onSalaryClick = onSalaryClick, onTransactionClick = onTransactionClick)
-        return
-    }
     val context = LocalContext.current
     val activityScope =
         rememberCoroutineScope()
@@ -324,6 +322,51 @@ fun ActivityScreen(
     }
     var selectedFilter by remember {
         mutableStateOf("All")
+    }
+    var cycles by remember { mutableStateOf<List<com.kedevjimmy.pesatrack.data.local.PayCycle>>(emptyList()) }
+    var cycleSelection by rememberSaveable { mutableStateOf<Long?>(null) }
+    var cycleSnapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
+    var cyclePrevious by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
+    var loadedCycleStart by remember { mutableStateOf<Long?>(null) }
+    var cycleLoading by remember { mutableStateOf(false) }
+    var cycleError by remember { mutableStateOf(false) }
+    var showCyclePicker by remember { mutableStateOf(false) }
+    var showExtraFilters by remember { mutableStateOf(false) }
+    var explainNetFlow by remember { mutableStateOf(false) }
+    LaunchedEffect(ledgerUpdateState.revision) {
+        try {
+            cycles = withContext(Dispatchers.IO) {
+                com.kedevjimmy.pesatrack.data.local.PayCycleStore.get(context).listCycles()
+            }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { cycles = emptyList() }
+    }
+    val chosenCycle = cycles.firstOrNull { it.startTransactionId == cycleSelection }
+        ?: cycles.firstOrNull()
+    LaunchedEffect(payCycleMode, chosenCycle?.startTransactionId, ledgerUpdateState.revision) {
+        if(!payCycleMode || chosenCycle == null) return@LaunchedEffect
+        cycleLoading = true
+        cycleError = false
+        try {
+            val loaded = withContext(Dispatchers.IO) {
+                val store = TransactionStore.get(context)
+                val idx = cycles.indexOfFirst { it.startTransactionId == chosenCycle.startTransactionId }
+                val prior = cycles.getOrNull(idx + 1)
+                val now = System.currentTimeMillis()
+                store.activitySnapshotBetween(chosenCycle.startEpochMs,
+                    chosenCycle.endEpochMs ?: (now + 1L), performMaintenance = false) to
+                    prior?.let { store.activitySnapshotBetween(it.startEpochMs,
+                        it.endEpochMs ?: (now + 1L), performMaintenance = false) }
+            }
+            cycleSnapshot = loaded.first
+            cyclePrevious = loaded.second
+            loadedCycleStart = chosenCycle.startTransactionId
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) {
+            cycleError = true
+            cycleSnapshot = null
+            cyclePrevious = null
+        } finally { cycleLoading = false }
     }
     var searchQuery by rememberSaveable {
         mutableStateOf("")
@@ -673,7 +716,7 @@ fun ActivityScreen(
         reloadActivityData(selectedMonthEpochMs)
     }
 
-    if (loadedMonthEpochMs != selectedMonthEpochMs) {
+    if (loadedMonthEpochMs != selectedMonthEpochMs && !payCycleMode) {
         LazyColumn(modifier = Modifier.padding(scaffoldPadding), contentPadding = PaddingValues(16.dp)) {
             item {
                 Text(if (activityError) "Activity could not load" else "Loading activity…")
@@ -689,6 +732,14 @@ fun ActivityScreen(
 
     val selectedMonthLabel =
         monthLabel(selectedMonthEpochMs)
+    val displaySnapshot = if (payCycleMode) cycleSnapshot else snapshot
+    val displayPrevious = if (payCycleMode) cyclePrevious else previousSnapshot
+    val periodReady = !payCycleMode ||
+        (chosenCycle != null && loadedCycleStart == chosenCycle.startTransactionId &&
+            !cycleLoading && !cycleError)
+    val periodLabel = if (payCycleMode && chosenCycle != null)
+        "Salary cycle " + monthLabel(chosenCycle.startEpochMs) else selectedMonthLabel
+    val currentReviewCount = displaySnapshot?.summary?.needsReviewCount ?: 0
     val nextMonthEpochMs =
         shiftMonth(selectedMonthEpochMs, 1)
     val monthDiagnostics =
@@ -774,10 +825,10 @@ fun ActivityScreen(
             .sortedByDescending {
                 it.receivedAtEpochMs
             }
-    val possibleDuplicateIds = snapshot.possibleDuplicates
+    val possibleDuplicateIds = (displaySnapshot ?: snapshot).possibleDuplicates
         .flatMap { listOf(it.first.id, it.second.id) }
         .toSet()
-    val filtered = snapshot.transactions.filter { item ->
+    val filtered = (if (payCycleMode && !periodReady) emptyList() else (displaySnapshot ?: snapshot).transactions).filter { item ->
         if (item.reviewState == ReviewState.EXCLUDED.name) {
             return@filter false
         }
@@ -789,9 +840,12 @@ fun ActivityScreen(
             when (selectedFilter) {
                 "Owed to me" -> receivableLinks[item.id]?.let { it.active && it.kind == "LENT" } == true
                 "Repayments" -> receivableLinks[item.id]?.let { it.active && it.kind == "REPAID" } == true
-                "Needs review" ->
+                "Reviews" ->
                     item.reviewState ==
                         ReviewState.NEEDS_REVIEW.name
+                "Pending" ->
+                    item.reviewState == ReviewState.NEEDS_REVIEW.name &&
+                        item.direction == MoneyDirection.TRANSFER.name
                 "Spending" ->
                     item.direction == MoneyDirection.EXPENSE.name
                 "Income" ->
@@ -826,19 +880,6 @@ fun ActivityScreen(
             .padding(scaffoldPadding)
             .background(MaterialTheme.colorScheme.background)
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.background,
-            tonalElevation = 1.dp
-        ) {
-            PesaTrackTopBar(
-                onProfileClick = onProfileClick,
-                modifier = Modifier.padding(
-                    horizontal = 18.dp,
-                    vertical = 12.dp
-                )
-            )
-        }
-
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
@@ -847,7 +888,7 @@ fun ActivityScreen(
                 horizontal = 12.dp,
                 vertical = 6.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             if (ledgerUpdateState.isProcessing) {
                 item {
@@ -870,13 +911,6 @@ fun ActivityScreen(
                 }
             }
 
-            item {
-                ActivityToolsDisclosure(
-                    onChanged = { refresh() },
-                    onPaycheckClick = onPaycheckClick
-                )
-            }
-
             val needsAttentionCount =
                 globalOverview.reviewGroups
                     .sumOf {
@@ -890,24 +924,10 @@ fun ActivityScreen(
                         .size +
                     identityReviewCount
 
-            if (needsAttentionCount > 0 || selectedGlobalQueue == "Attention") item {
-                NeedsAttentionCard(
-                    count = needsAttentionCount,
-                    expanded =
-                        selectedGlobalQueue ==
-                            "Attention",
-                    onClick = {
-                        selectedGlobalQueue =
-                            if (
-                                selectedGlobalQueue ==
-                                "Attention"
-                            ) {
-                                null
-                            } else {
-                                "Attention"
-                            }
-                    }
-                )
+            if (needsAttentionCount > 0) item {
+                ActivityAttentionHero(needsAttentionCount) {
+                    selectedGlobalQueue = if(selectedGlobalQueue == "Attention") null else "Attention"
+                }
             }
 
             // Own-account review remains accessible but does not push the
@@ -919,92 +939,68 @@ fun ActivityScreen(
                 Text("Showing your last successfully loaded activity.")
                 TextButton(onClick = { refresh() }) { Text("Try again") }
             }
-            item { SpendingPeriodSelector(false, {}, { payCycleMode = true }) }
-
-            item {
-                ActivityMonthNavigator(
-                    selectedMonthEpochMs =
-                        selectedMonthEpochMs,
-                    currentMonthEpochMs =
-                        currentMonthEpochMs,
-                    onPrevious = {
-                        selectMonth(
-                            shiftMonth(
-                                selectedMonthEpochMs,
-                                -1
-                            )
-                        )
-                    },
-                    onNext = {
-                        if (
-                            selectedMonthEpochMs <
-                            currentMonthEpochMs
-                        ) {
-                            selectMonth(
-                                shiftMonth(
-                                    selectedMonthEpochMs,
-                                    1
-                                )
-                            )
-                        }
-                    },
-                    onPickMonth = {
-                        showMonthPicker = true
-                    }
-                )
-            }
-
-            item(key = "monthly-summary-toggle") {
-                ActivityMonthlyHero(
+            item(key = "premium-period-selectors") {
+                ActivityPeriodSelectors(
                     monthLabel = selectedMonthLabel,
-                    moneyIn = snapshot.summary.incomeMinor,
-                    spent = snapshot.summary.spentMinor,
-                    expanded = showDetailedSummary,
-                    onToggle = { showDetailedSummary = !showDetailedSummary }
+                    cycleLabel = chosenCycle?.let { monthLabel(it.startEpochMs) + " cycle" }
+                        ?: "Add salary",
+                    salaryMode = payCycleMode,
+                    onMonth = { payCycleMode = false; showMonthPicker = true },
+                    onCycle = { showCyclePicker = true }
                 )
             }
-            if (showDetailedSummary) {
-                item(key = "monthly-summary-details") {
-                    ActivitySummaryCard(
-                        snapshot = snapshot,
-                        previousSnapshot = previousSnapshot,
-                        monthLabel = selectedMonthLabel
+            item(key = "premium-period-money") {
+                val badge = if (payCycleMode) {
+                    if (chosenCycle == null) "No salary cycle"
+                    else if(chosenCycle.endEpochMs == null) "Cycle in progress"
+                    else "Completed cycle"
+                } else monthDaysRemaining(selectedMonthEpochMs, System.currentTimeMillis())
+                    ?.let { it.toString() + " days left" } ?: "Past month"
+                ActivityPremiumMoneyHero(
+                    snapshot = if(periodReady) displaySnapshot else null,
+                    previous = displayPrevious,
+                    badge = badge, waiting = !periodReady,
+                    onExplain = { explainNetFlow = true }
+                )
+            }
+            item(key = "premium-search") {
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
+                    horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.weight(1f).heightIn(min=48.dp),
+                        placeholder = { Text("Search transactions") },
+                        leadingIcon = { Icon(Icons.Rounded.Search,null,Modifier.size(18.dp)) },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        shape = RoundedCornerShape(16.dp)
                     )
+                    IconButton(onClick = { showExtraFilters = !showExtraFilters },
+                        modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Rounded.Tune,"More filters")
+                    }
                 }
             }
-
-            item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search transactions") },
-                    leadingIcon = {
-                        Icon(Icons.Rounded.Search, contentDescription = null)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(18.dp)
-                )
+            item(key = "premium-filters") {
+                ActivityCompactFilters(selectedFilter,currentReviewCount) {
+                    selectedFilter = it
+                }
             }
-
-
-            item(key = "activity-primary-filters") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("All", "Needs review", "Spending", "Income", "Transfers",
-                        "Owed to me", "Repayments").forEach { label ->
-                        item(key = label) {
-                            FilterChip(
-                                selected = selectedFilter == label,
-                                onClick = { selectedFilter = label },
-                                label = { Text(label) },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary)
-                            )
+            if(showExtraFilters) item(key = "additional-filters") {
+                LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                    listOf("Spending","Income","Owed to me","Repayments").forEach { name ->
+                        item(key=name) {
+                            FilterChip(selected=selectedFilter==name,
+                                onClick={selectedFilter=name},
+                                label={Text(name)})
                         }
                     }
                 }
+            }
+            if(cycleError && payCycleMode) item {
+                Text("Salary cycle could not load. No records were changed.")
+                TextButton(onClick={payCycleMode=false}) { Text("Show calendar month") }
             }
 
             if (
@@ -1387,10 +1383,11 @@ fun ActivityScreen(
                 }
             }
 
-            monthBuckets.forEach { bucket ->
-                val isExpanded =
-                    expandedMonthEpochMs ==
-                        bucket.monthStartEpochMs
+            (if(payCycleMode) listOf(ActivityMonthBucket(
+                monthStartEpochMs=chosenCycle?.startEpochMs ?: selectedMonthEpochMs,
+                transactionCount=displaySnapshot?.transactions?.size ?: 0))
+              else monthBuckets).forEach { bucket ->
+                val isExpanded = if(payCycleMode) true else expandedMonthEpochMs == bucket.monthStartEpochMs
 
                 item(
                     key =
@@ -1398,14 +1395,12 @@ fun ActivityScreen(
                             bucket.monthStartEpochMs
                 ) {
                     ActivityMonthSectionHeader(
-                        monthLabel = monthLabel(
-                            bucket.monthStartEpochMs
-                        ),
-                        transactionCount =
-                            bucket.transactionCount,
+                        monthLabel = if(payCycleMode) periodLabel else monthLabel(bucket.monthStartEpochMs),
+                        transactionCount = if(payCycleMode) filtered.size else bucket.transactionCount,
                         expanded = isExpanded,
                         onClick = {
-                            if (isExpanded) {
+                            if (payCycleMode) { /* salary period stays expanded */ }
+                            else if (isExpanded) {
                                 expandedMonthEpochMs =
                                     null
                             } else {
@@ -1605,6 +1600,38 @@ fun ActivityScreen(
         }
     }
 
+    if (showCyclePicker) {
+        AlertDialog(
+            onDismissRequest={showCyclePicker=false},
+            title={Text("Choose salary cycle")},
+            text={
+                Column(Modifier.heightIn(max=390.dp)
+                    .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                    verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    Text("One confirmed salary receipt to the next.",
+                        style=MaterialTheme.typography.bodySmall)
+                    if(cycles.isEmpty()) Text("No confirmed salary cycle. Add salary from Plan.")
+                    cycles.forEach { cycle ->
+                        TextButton(onClick={
+                            cycleSelection=cycle.startTransactionId
+                            payCycleMode=true
+                            selectedFilter="All"
+                            showCyclePicker=false
+                        },modifier=Modifier.fillMaxWidth()) {
+                            Text(monthLabel(cycle.startEpochMs)+" salary cycle")
+                        }
+                    }
+                }
+            },
+            confirmButton={TextButton(onClick={showCyclePicker=false}){Text("Close")}}
+        )
+    }
+    if (explainNetFlow) {
+        AlertDialog(onDismissRequest={explainNetFlow=false},
+            title={Text("About net flow")},
+            text={Text("Money in minus spending for the selected period. This is not a wallet balance or money available after bills. Transfers, savings movements and loan principal are tracked separately. The ring is illustrative and does not represent a verified account balance.")},
+            confirmButton={TextButton(onClick={explainNetFlow=false}){Text("Got it")}})
+    }
     if (showMonthPicker) {
         ActivityMonthPickerDialog(
             selectedMonthEpochMs =
@@ -2757,51 +2784,22 @@ private fun EmptyGlobalDuplicateState() {
 
 @Composable
 private fun ActivityMonthSectionHeader(
-    monthLabel: String,
-    transactionCount: Int,
-    expanded: Boolean,
-    onClick: () -> Unit
+    monthLabel: String, transactionCount: Int, expanded: Boolean, onClick: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = if (expanded) 2.dp else 0.dp
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick=onClick)
+            .padding(horizontal=2.dp,vertical=5.dp),
+        verticalAlignment=Alignment.CenterVertically
     ) {
-        Row(
-            Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    monthLabel + " activity",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    transactionCount.toString() +
-                        " transaction" +
-                        if (transactionCount == 1) "" else "s",
-                    modifier = Modifier.padding(top = 2.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Icon(
-                if (expanded) {
-                    Icons.Rounded.ExpandLess
-                } else {
-                    Icons.Rounded.ExpandMore
-                },
-                contentDescription = if (expanded) {
-                    "Collapse month"
-                } else {
-                    "Expand month"
-                }
-            )
-        }
+        Text(monthLabel,Modifier.weight(1f),
+            style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
+        Text(transactionCount.toString() +
+            if(transactionCount==1)" transaction" else " transactions",
+            style=MaterialTheme.typography.labelSmall,
+            color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(if(expanded)Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+            if(expanded)"Collapse period" else "Expand period",
+            Modifier.padding(start=6.dp).size(18.dp))
     }
 }
 
@@ -4048,9 +4046,15 @@ private fun ActivityRow(
         tonalElevation = 1.dp
     ) {
         Row(
-            Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if(needsReview) {
+                Surface(Modifier.size(width=4.dp,height=48.dp),
+                    color=pesaToneContent("violet"),
+                    shape=RoundedCornerShape(4.dp)) {}
+                Spacer(Modifier.size(width=5.dp,height=1.dp))
+            }
             MerchantBadge(
                 item = item,
                 categoryId = categoryId,
@@ -4189,6 +4193,9 @@ private fun ActivityRow(
                         else -> MaterialTheme.colorScheme.onSurface
                     }
                 )
+                if (needsReview) {
+                    SmallStatusPill("Needs review","violet")
+                }
                 Icon(
                     Icons.Rounded.ChevronRight,
                     contentDescription = null,
