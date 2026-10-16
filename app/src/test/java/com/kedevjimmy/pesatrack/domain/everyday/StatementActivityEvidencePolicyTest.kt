@@ -34,6 +34,28 @@ class StatementActivityEvidencePolicyTest {
         assertEquals(StatementFlow.TRANSFER,result.flow)
         assertEquals(0L,StatementFinancialPolicy.totals(listOf(result)).expenseMinor)
     }
+    @Test fun ownedAccountMirrorExcludedInActivityStillShowsInStatementTransfers() {
+        // Canonical Activity excludes the incoming mirror to avoid double counting.
+        // The separately imported bank/wallet statement still contains that cash leg.
+        val inbound = row.copy(paidInMinor = 10_000L, withdrawnMinor = 0L)
+        val original = StatementFinancialPolicy.classify("pdf", inbound, categoryKinds = kinds)
+        val mirror = activity(direction = "INCOME", excluded = true)
+            .copy(confirmedOwnedTransferMirror = true)
+        val corrected = StatementActivityEvidencePolicy.apply(
+            original, "wallet-a", listOf(mirror), kinds, false
+        )
+        assertEquals(StatementFlow.TRANSFER, corrected.flow)
+        assertEquals("TRANSFER", corrected.categoryId)
+        assertEquals(0L, StatementFinancialPolicy.totals(listOf(corrected)).incomeMinor)
+        assertEquals(10_000L, StatementFinancialPolicy.totals(listOf(corrected)).transferMinor)
+        assertEquals(0L, StatementFinancialPolicy.totals(listOf(corrected)).excludedMinor)
+    }
+
+    @Test fun ordinaryUserExclusionRemainsExcludedRatherThanTransfer() {
+        val ordinary = project(activity(excluded = true))
+        assertEquals(StatementFlow.EXCLUDED, ordinary.flow)
+    }
+
     @Test fun confirmedPersonalLoanAndSharedBillUseCorrectEconomics() {
         val lent=project(activity(lent=10_000L))
         assertEquals(StatementFlow.TRANSFER,lent.flow)

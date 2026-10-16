@@ -26,7 +26,8 @@ object StatementReceiptEvidence {
         val lentMinor: Long = 0L,
         val repaidMinor: Long = 0L,
         val sharedBill: Boolean = false,
-        val approvedLearnedCategory: Boolean = false
+        val approvedLearnedCategory: Boolean = false,
+        val confirmedOwnedTransferMirror: Boolean = false
     )
 
     fun corroborated(

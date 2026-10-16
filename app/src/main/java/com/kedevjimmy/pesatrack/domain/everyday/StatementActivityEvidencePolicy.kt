@@ -47,6 +47,16 @@ object StatementActivityEvidencePolicy {
         val evidenced = source.copy(activityReceiptVerified = true)
         // A user's explicit Activity tracking exclusion wins over report
         // category choice; original source rows and debt provenance remain.
+        // A confirmed mirror leg is excluded only from the canonical Activity
+        // totals to avoid counting both sides; in the independently imported
+        // statement it is still a real transfer, not a user tracking exclusion.
+        // Never let a mirror classification override independent loan/fee/refund evidence.
+        if (a.confirmedOwnedTransferMirror &&
+            source.flow !in setOf(StatementFlow.DEBT, StatementFlow.FEE,
+                StatementFlow.REFUND, StatementFlow.SAVINGS, StatementFlow.INFORMATIONAL))
+            return evidenced.copy(
+                flow = StatementFlow.TRANSFER, categoryId = "TRANSFER",
+                evidence = "Confirmed own-account mirror transfer • same receipt")
         if (a.excluded) return evidenced.copy(
             flow = StatementFlow.EXCLUDED, categoryId = null, economicAmountMinor = 0L,
             evidence = "Excluded from tracked Activity • same receipt verified")

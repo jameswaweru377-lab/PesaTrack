@@ -31,7 +31,8 @@ class StatementReceiptEvidenceReader(context: Context) {
                    (SELECT COUNT(*) FROM personal_learning_applications learning
                      WHERE learning.transaction_id=transactions.id
                        AND learning.category_id=transactions.category
-                       AND learning.direction=transactions.direction)
+                       AND learning.direction=transactions.direction),
+                   evidence_source
                    FROM transactions WHERE transaction_code IN ($marks)""",
                 chunk.toTypedArray()
             ).use { cursor ->
@@ -58,7 +59,9 @@ class StatementReceiptEvidenceReader(context: Context) {
                         lentMinor = if (event != null) share?.lentMinor ?: 0L else 0L,
                         repaidMinor = if (event != null) share?.repaidMinor ?: 0L else 0L,
                         sharedBill = event?.sharedBill == true,
-                        approvedLearnedCategory = cursor.getInt(13) > 0
+                        approvedLearnedCategory = cursor.getInt(13) > 0,
+                        confirmedOwnedTransferMirror =
+                            cursor.getString(14) == "user_confirmed_owned_transfer_mirror"
                     )
                     result.getOrPut(code) { mutableListOf() }.add(candidate)
                 }
