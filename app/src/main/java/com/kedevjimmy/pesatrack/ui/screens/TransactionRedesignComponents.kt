@@ -71,6 +71,7 @@ internal fun TransactionRedesignHeader(
     onBack: () -> Unit,
     onMore: () -> Unit
 ) {
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val sent = item.direction == MoneyDirection.EXPENSE.name ||
         item.direction == MoneyDirection.TRANSFER.name
     val title = item.counterparty?.takeIf(String::isNotBlank)
@@ -100,7 +101,7 @@ internal fun TransactionRedesignHeader(
                 Text(category, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(SimpleDateFormat("d MMM yyyy · HH:mm", Locale.getDefault())
+                Text(SimpleDateFormat("d MMM yyyy · HH:mm", locale)
                     .format(Date(item.occurredAtEpochMs)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
