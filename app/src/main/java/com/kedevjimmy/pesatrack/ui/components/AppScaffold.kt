@@ -33,6 +33,7 @@ enum class MainTab(
  * tools sheet, never a dead-end FAB. Top bar belongs to the scaffold, not a
  * scrolling screen, so it stays anchored during long Activity lists.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppScaffold(
     currentTab: MainTab?,
