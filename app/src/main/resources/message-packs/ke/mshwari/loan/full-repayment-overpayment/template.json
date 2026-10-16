@@ -7,7 +7,7 @@
   ],
   "requiredAnchors": [
     "Loan of",
-    "repaid from M-PESA",
+    "repaid from",
     "Your loan is repaid in full"
   ],
   "anyAnchors": [
@@ -32,13 +32,13 @@
     },
     {
       "field": "SOURCE",
-      "pattern": "repaid from[ ]+(M-PESA)",
+      "pattern": "repaid from[ ]+(?:your[ ]+)?(M-PESA)",
       "group": 1,
       "required": true
     },
     {
       "field": "DATE",
-      "pattern": "repaid from[ ]+M-PESA[ ]+account[ ]+on[ ]+([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}[ ]+at[ ]+[0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?[ ]*(?:AM|PM))",
+      "pattern": "repaid from[ ]+(?:your[ ]+)?M-PESA[ ]+account[ ]+on[ ]+([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}[ ]+at[ ]+[0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?[ ]*(?:AM|PM))",
       "group": 1
     },
     {

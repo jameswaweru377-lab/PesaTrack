@@ -122,7 +122,7 @@ class MessagePackDebtBridgeTest {
 
     @Test
     fun mshwariFullRepaymentWithOverpaymentToSavingsClosesDebtOnly() {
-        val message = "UJGFTRANSF2 Confirmed. Loan of Ksh108.00 repaid from your M-PESA " +
+        val message = "UJGFTANSF2 Confirmed. Loan of Ksh108.00 repaid from your M-PESA " +
             "account on 16/10/26 at 7:30 AM. M-PESA balance is Ksh3,763.22." +
             "Your loan is repaid in full, and the overpayment has been moved to " +
             "your Savings Account. New M-Shwari balance is Ksh25.02. " +
@@ -134,7 +134,7 @@ class MessagePackDebtBridgeTest {
         assertEquals("SAFARICOM_MPESA", event.fundingAccount?.providerKey)
         assertEquals(DebtCompletion.FULL, event.completion)
         assertEquals(0L, event.outstandingAfterMinor)
-        assertEquals("UJGFTRANSF2", interpretation.transactionCode)
+        assertEquals("UJGFTANSF2", interpretation.transactionCode)
         assertEquals(376_322L, event.walletBalanceAfterMinor)
         val savings = interpretation.balances.firstOrNull {
             it.account.providerKey == "NCBA_MSHWARI_SAVINGS"
@@ -145,7 +145,7 @@ class MessagePackDebtBridgeTest {
 
     @Test
     fun mshwariSavingsBalanceIsNotAssumedToBeOverpayment() {
-        val message = "UJGFTRANSF3 Confirmed. Loan of Ksh108.00 repaid from your M-PESA " +
+        val message = "UJGFTANSF3 Confirmed. Loan of Ksh108.00 repaid from your M-PESA " +
             "account on 16/10/26 at 7:30 AM. Your loan is repaid in full, " +
             "and the overpayment has been moved to your Savings Account. " +
             "New M-Shwari balance is Ksh25.02."
