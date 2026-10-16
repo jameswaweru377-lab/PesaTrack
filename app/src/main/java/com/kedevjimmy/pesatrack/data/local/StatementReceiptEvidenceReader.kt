@@ -54,7 +54,9 @@ class StatementReceiptEvidenceReader(context: Context) {
                         structurallyLinked = !cursor.isNull(8) || !cursor.isNull(9),
                         transactionId = id,
                         reviewState = cursor.getString(7),
-                        categoryId = cursor.getString(11),
+                        categoryId = cursor.getString(11)?.let {
+                            CategoryStore.get(app).canonicalId(it)
+                        },
                         linkedAccountId = if (cursor.isNull(12)) null else cursor.getString(12),
                         lentMinor = if (event != null) share?.lentMinor ?: 0L else 0L,
                         repaidMinor = if (event != null) share?.repaidMinor ?: 0L else 0L,

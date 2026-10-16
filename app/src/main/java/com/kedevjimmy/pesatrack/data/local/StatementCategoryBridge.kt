@@ -27,7 +27,9 @@ class StatementCategoryBridge(context: Context) {
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
-                    val category = cursor.getString(2)
+                    // Historical 'LUNCH' labels use EATING_OUT in current
+                    // Activity, budgets and Statement report groupings.
+                    val category = CategoryStore.get(app).canonicalId(cursor.getString(2))
                     if (PersonalLearningPolicy.isLearnableCategory(category, MoneyDirection.EXPENSE)) {
                         add(StatementCategoryMemoryPolicy.Memory(
                             cursor.getString(0), cursor.getString(1), category
