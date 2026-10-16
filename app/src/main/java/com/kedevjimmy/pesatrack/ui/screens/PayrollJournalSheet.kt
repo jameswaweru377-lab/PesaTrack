@@ -77,7 +77,10 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
         gross=s.grossMinor?.let {PayrollJournalPolicy.money(it)} ?: ""
         net=s.netMinor?.let {PayrollJournalPolicy.money(it)} ?: ""
         lines=s.lines.map {PayrollLineInput(label=it.label,amount=PayrollJournalPolicy.money(it.amountMinor),type=it.type,role=it.role)}
-        expandedLineKey=null;previewDetailsExpanded=false;source=PayrollSource.PDF_TEXT;reviewed=false;reviewForm=true
+        // Review genuine exceptions first. Recognized PAYE/NSSF/AHL/SHIF/
+        // HELB and explicit rounding stay collapsed until opened.
+        expandedLineKey=lines.firstOrNull { it.type==PayrollLineType.OTHER }?.key
+        previewDetailsExpanded=false;source=PayrollSource.PDF_TEXT;reviewed=false;reviewForm=true
     }
     val pdfImport=rememberPdfImport(
         onSelected={
@@ -165,6 +168,22 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
                     }
                     Text("${s.lines.size} deduction and contribution lines found.",
                         style = MaterialTheme.typography.bodySmall)
+                    val unresolved = s.lines.count {
+                        it.type == PayrollLineType.OTHER
+                    }
+                    if (unresolved > 0) Text(
+                        "$unresolved unclassified line(s) need your review.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    if (s.employer == null || s.period == null) Text(
+                        "Please confirm " +
+                            listOfNotNull(if (s.employer == null) "employer" else null,
+                                if (s.period == null) "payroll month" else null)
+                                .joinToString(" and ") + " below.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     s.reportedDeductionsMinor?.let {
                         Text("Payslip deductions: KES " + PayrollJournalPolicy.money(it),
                             style = MaterialTheme.typography.bodySmall)
