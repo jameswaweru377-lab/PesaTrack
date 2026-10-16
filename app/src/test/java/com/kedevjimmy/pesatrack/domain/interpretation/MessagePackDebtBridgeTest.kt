@@ -121,6 +121,42 @@ class MessagePackDebtBridgeTest {
     }
 
     @Test
+    fun mshwariFullRepaymentWithOverpaymentToSavingsClosesDebtOnly() {
+        val message = "UJGFTANSF2 Confirmed. Loan of Ksh108.00 repaid from your M-PESA " +
+            "account on 16/10/26 at 7:30 AM. M-PESA balance is Ksh3,763.22." +
+            "Your loan is repaid in full, and the overpayment has been moved to " +
+            "your Savings Account. New M-Shwari balance is Ksh25.02. " +
+            "Transaction cost Kshs 0.00"
+        val interpretation = FinancialMessageInterpreter.interpret("MPESA", message)
+        val event = interpretation.events.filterIsInstance<DebtRepaymentEventFact>().single()
+        assertEquals(10_800L, event.amountMinor)
+        assertEquals("NCBA_MSHWARI_LOAN", event.liability.providerKey)
+        assertEquals("SAFARICOM_MPESA", event.fundingAccount?.providerKey)
+        assertEquals(DebtCompletion.FULL, event.completion)
+        assertEquals(0L, event.outstandingAfterMinor)
+        assertEquals("UJGFTANSF2", interpretation.transactionCode)
+        assertEquals(376_322L, event.walletBalanceAfterMinor)
+        val savings = interpretation.balances.firstOrNull {
+            it.account.providerKey == "NCBA_MSHWARI_SAVINGS"
+        }
+        assertEquals(2_502L, savings?.balanceMinor)
+        assertEquals(1, interpretation.events.size)
+    }
+
+    @Test
+    fun mshwariSavingsBalanceIsNotAssumedToBeOverpayment() {
+        val message = "UJGFTANSF3 Confirmed. Loan of Ksh108.00 repaid from your M-PESA " +
+            "account on 16/10/26 at 7:30 AM. Your loan is repaid in full, " +
+            "and the overpayment has been moved to your Savings Account. " +
+            "New M-Shwari balance is Ksh25.02."
+        val interpretation = FinancialMessageInterpreter.interpret("MPESA", message)
+        val repayment = interpretation.events.single() as DebtRepaymentEventFact
+        assertEquals(10_800L, repayment.amountMinor)
+        assertEquals(DebtCompletion.FULL, repayment.completion)
+        assertTrue(interpretation.events.none { it is TransferEventFact })
+    }
+
+    @Test
     fun realMshwariRepaymentShapeUsesObservedBalanceAndMessageDate() {
         val interpretation =
             FinancialMessageInterpreter
