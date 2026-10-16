@@ -41,6 +41,12 @@ class PayslipOutflowsColumnsTest {
         assertEquals(2,review.lines.count {it.type==PayrollLineType.NSSF})
         assertEquals(1,review.lines.count {it.type==PayrollLineType.HEALTH})
         assertEquals(1,review.lines.count {it.type==PayrollLineType.TAX})
+        assertEquals(1,review.lines.count {it.type==PayrollLineType.HOUSING_LEVY})
+        assertEquals(1,review.lines.count {it.type==PayrollLineType.STUDENT_LOAN})
+        assertEquals(1,review.lines.count {it.type==PayrollLineType.ROUNDING_ADJUSTMENT})
+        assertEquals(1L,review.lines.first {
+            it.type==PayrollLineType.ROUNDING_ADJUSTMENT
+        }.amountMinor)
         assertFalse(review.lines.any{it.label.contains("Computed",true) || it.label.contains("Relief",true)})
         assertTrue(review.warnings.any{it.contains("Rounding adjustment")})
         val draft=PayrollDraft("Example Schools Ltd","2026-09",review.grossMinor!!,review.netMinor!!,

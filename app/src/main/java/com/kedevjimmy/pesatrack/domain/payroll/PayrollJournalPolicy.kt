@@ -8,7 +8,9 @@ import java.text.Normalizer
 enum class PayrollLineType(val title: String) {
     TAX("Tax / PAYE"), HEALTH("Health contribution"), NSSF("NSSF"), PENSION("Pension"),
     SACCO_SHARES("SACCO shares"), SACCO_DEPOSIT("SACCO deposit"), INSURANCE("Insurance"),
-    LOAN_PRINCIPAL("Loan principal"), LOAN_INTEREST("Loan interest"), OTHER("Other / unclassified")
+    LOAN_PRINCIPAL("Loan principal"), LOAN_INTEREST("Loan interest"),
+    HOUSING_LEVY("Affordable housing levy"), STUDENT_LOAN("Student loan / HELB"),
+    ROUNDING_ADJUSTMENT("Payroll rounding"), OTHER("Other / unclassified")
 }
 enum class PayrollLineRole(val title: String) { EMPLOYEE_DEDUCTION("Employee deduction"), EMPLOYER_CONTRIBUTION("Employer contribution") }
 enum class PayrollSource { MANUAL, PDF_TEXT }

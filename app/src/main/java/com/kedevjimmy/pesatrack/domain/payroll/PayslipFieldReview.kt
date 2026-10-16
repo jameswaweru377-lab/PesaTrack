@@ -41,10 +41,13 @@ object PayslipFieldReview {
         deduction(PayrollLineType.INSURANCE,"INSURANCE","INSURANCE PREMIUM")
         deduction(PayrollLineType.LOAN_PRINCIPAL,"LOAN PRINCIPAL","LOAN REPAYMENT PRINCIPAL")
         deduction(PayrollLineType.LOAN_INTEREST,"LOAN INTEREST")
-        deduction(PayrollLineType.OTHER,"AFFORDABLE HOUSING LEVY","HOUSING LEVY",
-            "AHL","A H L","ROUNDING","ROUNDING CFWD","ROUNDING CFWD KES",
-            "ROUNDING C FWD","UNION DUES","H E L B","HELB",
-            "HIGHER EDUCATION LOANS BOARD")
+        deduction(PayrollLineType.HOUSING_LEVY,
+            "AFFORDABLE HOUSING LEVY","HOUSING LEVY","AHL","A H L")
+        deduction(PayrollLineType.STUDENT_LOAN,
+            "H E L B","HELB","HIGHER EDUCATION LOANS BOARD")
+        deduction(PayrollLineType.ROUNDING_ADJUSTMENT,
+            "ROUNDING","ROUNDING CFWD","ROUNDING CFWD KES","ROUNDING C FWD")
+        deduction(PayrollLineType.OTHER,"UNION DUES")
         put("EMPLOYER PENSION",Field("EMPLOYER:PENSION",PayrollLineType.PENSION,true))
         put("EMPLOYER NSSF",Field("EMPLOYER:NSSF",PayrollLineType.NSSF,true))
     }
