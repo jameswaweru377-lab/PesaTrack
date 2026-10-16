@@ -20,6 +20,10 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.School
@@ -390,7 +394,12 @@ fun TransactionDetailScreen(
     var correctionBusy by remember(transactionId) { mutableStateOf(false) }
     var correctionError by remember(transactionId) { mutableStateOf<String?>(null) }
     var correctionResult by remember(transactionId) { mutableStateOf<String?>(null) }
-    var messageExpanded by remember(transactionId) { mutableStateOf(true) }
+    var messageExpanded by remember(transactionId) { mutableStateOf(false) }
+    var factsExpanded by remember(transactionId) { mutableStateOf(true) }
+    var evidenceExpanded by remember(transactionId) { mutableStateOf(true) }
+    var correctionsExpanded by remember(transactionId) { mutableStateOf(true) }
+    var advancedExpanded by remember(transactionId) { mutableStateOf(false) }
+    var sharedBillCategory by remember(transactionId) { mutableStateOf(false) }
     var messageEvidence by remember(transactionId) { mutableStateOf<TransactionMessageEvidenceResult?>(null) }
     var evidenceRefresh by remember(transactionId) { mutableStateOf(0) }
     val current = transaction
@@ -494,33 +503,68 @@ fun TransactionDetailScreen(
         )
     }
 
+    fun openPersonalLedger(shared: Boolean) {
+        val selected = transaction ?: return
+        showCategoryPicker = false
+        if (!canMakePersonalDebtLink(selected)) {
+            learningError = "This money movement cannot be recorded as a personal loan or shared bill."
+            return
+        }
+        scope.launch {
+            try {
+                val eligible = withContext(Dispatchers.IO) {
+                    val splits = com.kedevjimmy.pesatrack.data.local.EverydayMoneyStore(context)
+                        .allocations(selected.id)
+                    val existing = com.kedevjimmy.pesatrack.data.local.PersonalReceivableStore(context)
+                        .eventForTransaction(selected.id)
+                    splits.isEmpty() && existing == null
+                }
+                if (eligible) {
+                    sharedBillCategory = shared
+                    debtCategoryOpen = true
+                } else {
+                    learningError = "This payment already has a saved category split or lending link. Review that record before changing it."
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                learningError = "Could not check existing split or lending history. Nothing was changed."
+            }
+        }
+    }
     if (showCategoryPicker && current != null) {
-        AlertDialog(
-            onDismissRequest = { showCategoryPicker = false },
-            title = { Text("Choose a category") },
-            text = {
-                Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                if (current.direction in setOf("EXPENSE","INCOME") && receivableLinks[current.id] == null) {
-                    OutlinedButton(onClick = { showCategoryPicker = false; debtCategoryOpen = true },
-                        modifier = Modifier.fillMaxWidth()) {
-                        Text(if (current.direction == "EXPENSE") "Debts → Owed to me" else "Debts → Repayment received")
+        TransactionCategoryChooser(
+            item = current,
+            initialCategoryId = categoryStore.canonicalId(current.category),
+            busy = learningBusy,
+            onDismiss = { showCategoryPicker = false },
+            onSave = { id, rememberSimilar ->
+                showCategoryPicker = false
+                if (rememberSimilar) applyCategory(id)
+                else {
+                    learningBusy = true
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) { classifyOnly(current, id) }
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                        catch (_: Exception) { learningError = "Could not save this category." }
+                        finally { learningBusy = false }
                     }
                 }
-                CategoryGrid(
-                    currentCategoryId = categoryStore.canonicalId(current.category),
-                    onSelected = { category -> showCategoryPicker = false; applyCategory(category) }
-                )
-                }
             },
-            confirmButton = { TextButton(onClick = { showCategoryPicker = false }) { Text("Close") } }
+            onMoneyLent = { openPersonalLedger(shared = false) },
+            onSharedBill = { openPersonalLedger(shared = true) },
+            allowSpecial = receivableLinks[current.id] == null
         )
     }
     if (debtCategoryOpen && current != null) ReceivableEntryDialog(
-        people = receivablePeople,initialPersonId = null,
+        people = receivablePeople,
+        initialPersonId = null,
         kind = if (current.direction == "EXPENSE") "LENT" else "REPAID",
         linkedTransaction = current,
+        sharedBill = sharedBillCategory,
         onDismiss = { debtCategoryOpen = false },
-        onSaved = { debtCategoryOpen = false; refresh() })
+        onSaved = { debtCategoryOpen = false; refresh() }
+    )
     val appliedRule =
         current?.ruleId
             ?.let(
@@ -708,580 +752,277 @@ fun TransactionDetailScreen(
         )
     }
 
+    val availableSources = remember(current?.id, evidenceRefresh) {
+        current?.let { EvidenceJournalStore.sourcesFor(context, it.id) }.orEmpty()
+    }
+    val receiptLinked = availableSources.any { it.reason == "REFERENCE" && !it.needsReview }
+    val accountLabel = current?.accountId?.let { id ->
+        accountStore.listAccounts(enabledOnly = false).firstOrNull { it.id == id }?.name
+    } ?: "Not identified"
+    val categoryLabel = current?.let {
+        receivableLinks[it.id]?.description
+            ?: categoryStore.labelFor(categoryStore.canonicalId(it.category))
+    } ?: "Needs review"
+
     LazyColumn(
         modifier = Modifier.testTag("transaction-details-list")
             .padding(scaffoldPadding)
-            .background(
-                MaterialTheme
-                    .colorScheme
-                    .background
-            ),
-        contentPadding =
-            PaddingValues(
-                horizontal = 16.dp,
-                vertical = 12.dp
-            ),
-        verticalArrangement =
-            Arrangement.spacedBy(
-                16.dp
-            )
+            .background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        item {
-            Row(
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onBack
-                ) {
-                    Icon(
-                        Icons.AutoMirrored
-                            .Rounded
-                            .ArrowBack,
-                        contentDescription =
-                            "Back"
-                    )
-                }
-                Text(
-                    "Transaction details",
-                    modifier =
-                        Modifier.weight(1f),
-                    style =
-                        MaterialTheme
-                            .typography
-                            .headlineMedium,
-                    fontWeight =
-                        FontWeight.Bold
-                )
-                IconButton(
-                    onClick = { refresh(); evidenceRefresh++ }
-                ) {
-                    Icon(
-                        Icons.Rounded.Refresh,
-                        contentDescription =
-                            "Refresh transaction"
-                    )
-                }
-            }
-        }
-
         if (current == null) {
             item {
-                PesaCard {
-                    Text(
-                        "This transaction is no longer available.",
-                        modifier =
-                            Modifier.padding(
-                                20.dp
-                            ),
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .onSurfaceVariant
-                    )
-                }
+                TextButton(onClick = onBack) { Text("Back") }
+                Text("This transaction is no longer available.",
+                    style = MaterialTheme.typography.bodyLarge)
             }
             return@LazyColumn
         }
-
-        item {
-            TransactionDetailSummary(current, categoryVisual(categoryStore.canonicalId(current.category)).icon)
+        item(key = "transaction-header") {
+            TransactionRedesignHeader(
+                item = current,
+                category = categoryLabel,
+                account = accountLabel,
+                onBack = onBack,
+                onMore = { advancedExpanded = !advancedExpanded }
+            )
         }
-        if (confirmedTransfer) item { OwnedTransferUndoAction(current.id, onChanged = { refresh() }) }
-        if (!confirmedTransfer) item { SplitPaymentAction(current, onChanged = { refresh() }) }
-        if (!confirmedTransfer) item { PersonalReceivableTransactionAction(current, onChanged = { refresh() }) }
-        item(key = "transaction-provenance") {
-            val linkedSources = remember(current, evidenceRefresh) {
-                EvidenceJournalStore.sourcesFor(context, current.id)
+        item(key = "transaction-verified") {
+            TransactionVerificationStatus(current, receiptLinked)
+        }
+        if (current.fulizaFinancedMinor > 0L) {
+            item { FulizaFundingCard(current) }
+        }
+        if (current.relationType == TransactionStore.RELATION_REFUND) {
+            item { RefundLinkCard(current, linkedRefundOriginal) }
+        }
+        if (!confirmedTransfer && current.direction == MoneyDirection.EXPENSE.name &&
+            current.relationType == null &&
+            current.reviewState != ReviewState.EXCLUDED.name &&
+            receivableLinks[current.id] == null) {
+            item(key = "category-decision") {
+                TransactionDecisionCard(
+                    suggested = categoryStore.labelFor(categoryStore.canonicalId(current.category)),
+                    isBusy = learningBusy,
+                    onKeep = {
+                        val id = categoryStore.canonicalId(current.category)
+                        if (id in setOf(TransactionCategory.OTHER.name,
+                                TransactionCategory.UNCATEGORIZED.name)) showCategoryPicker = true
+                        else applyCategory(id)
+                    },
+                    onChoose = { showCategoryPicker = true }
+                )
             }
-            if (linkedSources.isNotEmpty()) {
-                SectionHeader("Linked evidence")
-                PesaCard {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        linkedSources.forEach { source ->
-                            val label = when (source.sourceKind) {
-                                "STATEMENT" -> "Statement"
-                                "MANUAL" -> "Manual entry"
-                                "NOTIFICATION" -> "Notification"
-                                else -> "SMS"
-                            }
-                            Text(
-                                if (source.needsReview) label + " • Recheck after editing this transaction"
-                                else if (source.reason == "REFERENCE") label + " • Matched to an existing transaction" 
-                                else label + " • Source recorded for this transaction",
+        }
+        item(key = "transaction-facts") {
+            RedesignDetailAccordion(
+                title = "Transaction facts",
+                icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+                expanded = factsExpanded,
+                onToggle = { factsExpanded = !factsExpanded }
+            ) {
+                TransactionDetailFacts(
+                    item = current,
+                    accountLabel = accountLabel,
+                    categoryLabel = categoryLabel,
+                    onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
+                    onCategory = if (!confirmedTransfer &&
+                        current.relationType != TransactionStore.RELATION_REFUND)
+                        ({ showCategoryPicker = true }) else null
+                )
+                current.transactionCode?.takeIf { it.isNotBlank() }?.let { code ->
+                    Text("Reference: " + code,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                }
+            }
+        }
+        item(key = "transaction-original-message") {
+            RedesignDetailAccordion(
+                title = "Original message",
+                icon = Icons.Rounded.Sms,
+                expanded = messageExpanded,
+                onToggle = { messageExpanded = !messageExpanded },
+                supporting = "Tap to read the source message"
+            ) {
+                TransactionOriginalMessage(messageEvidence, current.sourceKind)
+            }
+        }
+        item(key = "transaction-linked-evidence") {
+            RedesignDetailAccordion(
+                title = "Linked evidence",
+                icon = Icons.Rounded.AttachFile,
+                expanded = evidenceExpanded,
+                onToggle = { evidenceExpanded = !evidenceExpanded },
+                supporting = availableSources.size.toString() + " connected source(s)"
+            ) {
+                if (availableSources.isEmpty()) {
+                    Text("No additional transaction source has been matched.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else availableSources.forEach { source ->
+                    val name = when(source.sourceKind) {
+                        "STATEMENT" -> "Statement record"
+                        "NOTIFICATION" -> "Notification"
+                        "MANUAL" -> "Manual entry"
+                        else -> "SMS record"
+                    }
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Link, null, Modifier.size(18.dp))
+                        Column {
+                            Text(name, style = MaterialTheme.typography.bodyMedium)
+                            Text(if (source.needsReview) "Needs recheck after correction"
+                                else if (source.reason == "REFERENCE") "Matched by reference"
+                                else "Source evidence recorded",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                TextButton(onClick = { showAnnotationDialog = true }) {
+                    Icon(Icons.Rounded.Add, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (annotation.receiptUri == null && annotation.note.isBlank())
+                        "Add note or receipt" else "View note and receipt")
+                }
+            }
+        }
+        if (!confirmedTransfer) {
+            item(key = "transaction-correction-actions") {
+                RedesignDetailAccordion(
+                    title = "Corrections",
+                    icon = Icons.Rounded.Edit,
+                    expanded = correctionsExpanded,
+                    onToggle = { correctionsExpanded = !correctionsExpanded }
+                ) {
+                    Column(Modifier.testTag("transaction-corrections"),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Review the original message before changing the financial meaning.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        correctionResult?.let {
+                            Text(it, color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (current.counterparty.isNullOrBlank() &&
+                            !current.evidenceLabel.isNullOrBlank()) {
+                            ActionRow(Icons.Rounded.CheckCircle, "Use suggested identity",
+                                onClick = {
+                                    pendingCorrection = TransactionCorrectionAction.ACCEPT_IDENTITY
+                                })
+                        }
+                        if (current.relationType == TransactionStore.RELATION_REFUND) {
+                            ActionRow(Icons.Rounded.SwapHoriz, "This was not a refund",
+                                onClick = {
+                                    pendingCorrection = TransactionCorrectionAction.REMOVE_REFUND_LINK
+                                })
+                        } else if (current.relationType == null &&
+                            current.direction != MoneyDirection.TRANSFER.name &&
+                            current.reviewState != ReviewState.EXCLUDED.name) {
+                            ActionRow(Icons.Rounded.SwapHoriz, "Mark as own-account transfer",
+                                onClick = {
+                                    pendingCorrection = TransactionCorrectionAction.MARK_OWN_TRANSFER
+                                })
+                        }
+                        if (current.reviewState != ReviewState.EXCLUDED.name) {
+                            ActionRow(Icons.Rounded.Block, "Exclude from tracked activity",
+                                tintError = true, onClick = {
+                                    pendingCorrection = TransactionCorrectionAction.EXCLUDE_ENTRY
+                                })
+                        }
+                        TextButton(onClick = { showCategoryPicker = true }) {
+                            Text("Suggest a category correction")
                         }
                     }
                 }
             }
         }
-        if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
-            current.direction == MoneyDirection.EXPENSE.name &&
-            current.ruleId == null && current.relationType == null &&
-            !confirmedTransfer && canLearnIdentity(current) &&
-            PersonalLearningPolicy.isLearnableCategory(
-                categoryStore.canonicalId(current.category), MoneyDirection.EXPENSE
-            ) && personalLearningStore.preferenceFor(current) == null) {
-            item {
-                PesaCard {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Remember in Activity + Statements",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold)
-                        Text("This Activity transaction is already categorized. " +
-                            "You can teach the category to eligible historical and future " +
-                            "Statements without combining their financial records.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(enabled = !learningBusy, onClick = {
-                            val original = current
-                            learningBusy = true
-                            scope.launch {
-                                try {
-                                    val preview = withContext(Dispatchers.IO) {
-                                        learningRepository.matchingPreview(
-                                            original, categoryStore.canonicalId(original.category)
-                                        )
-                                    }
-                                    pendingMatchCount = preview.activity
-                                    pendingStatementMatchCount = preview.statements
-                                    pendingScannedStatementRows = preview.scannedStatementRows
-                                    pendingScannedStatementPdfs = preview.scannedStatementPdfs
-                                    pendingNamedStatementMatches = preview.statementIdentityMatches
-                                pendingReceiptStatementMatches = preview.statementReceiptMatches
-                                    pendingReceiptStatementMatches = preview.statementReceiptMatches
-                                    pendingReportStatementMatches = preview.reportStatementMatches
-                                    pendingCategoryId = categoryStore.canonicalId(original.category)
-                                } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                                    throw cancelled
-                                } catch (failure: Exception) {
-                                    learningError = failure.message ?: "Unable to check remembered matches."
-                                } finally { learningBusy = false }
-                            }
-                        }) { Text("Remember across Activity and Statements") }
-                    }
-                }
+        item(key = "transaction-more-actions") {
+            OutlinedButton(onClick = { advancedExpanded = !advancedExpanded },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)) {
+                Icon(if (advancedExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.MoreHoriz, null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (advancedExpanded) "Hide additional actions" else "More transaction actions")
             }
         }
-        item {
-            TransactionDetailFacts(
-                item = current,
-                accountLabel = current.accountId?.let { id -> accountStore.listAccounts(enabledOnly = false).firstOrNull { it.id == id }?.name } ?: "Not identified",
-                categoryLabel = receivableLinks[current.id]?.description ?: categoryStore.labelFor(categoryStore.canonicalId(current.category)),
-                onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
-                onCategory = if (!confirmedTransfer && current.relationType != TransactionStore.RELATION_REFUND) ({ showCategoryPicker = true }) else null
-            )
-        }
-        if (!confirmedTransfer) item(key = "transaction-correction-actions") {
-            SectionHeader("Correct transaction")
-            PesaCard(Modifier.testTag("transaction-corrections")) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        "Check the original message evidence before correcting money movements. " +
-                            "Changes here can affect your financial summaries.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    correctionResult?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary)
-                    }
-                    if (current.counterparty.isNullOrBlank() &&
-                        !current.evidenceLabel.isNullOrBlank()
-                    ) {
-                        ActionRow(
-                            icon = Icons.Rounded.CheckCircle,
-                            label = "Use suggested identity",
-                            onClick = {
-                                correctionError = null
-                                pendingCorrection = TransactionCorrectionAction.ACCEPT_IDENTITY
-                            }
-                        )
-                    }
-                    if (current.relationType == TransactionStore.RELATION_REFUND) {
-                        ActionRow(
-                            icon = Icons.Rounded.SwapHoriz,
-                            label = "This was not a refund",
-                            onClick = {
-                                correctionError = null
-                                pendingCorrection = TransactionCorrectionAction.REMOVE_REFUND_LINK
-                            }
-                        )
-                    } else if (current.relationType == null &&
-                        current.direction != MoneyDirection.TRANSFER.name &&
-                        current.reviewState != ReviewState.EXCLUDED.name
-                    ) {
-                        ActionRow(
-                            icon = Icons.Rounded.SwapHoriz,
-                            label = "Mark as own-account transfer",
-                            onClick = {
-                                correctionError = null
-                                pendingCorrection = TransactionCorrectionAction.MARK_OWN_TRANSFER
-                            }
-                        )
-                    }
-                    if (current.reviewState != ReviewState.EXCLUDED.name) {
-                        ActionRow(
-                            icon = Icons.Rounded.Block,
-                            label = "Exclude from tracked activity",
-                            tintError = true,
-                            onClick = {
-                                correctionError = null
-                                pendingCorrection = TransactionCorrectionAction.EXCLUDE_ENTRY
-                            }
-                        )
-                    }
-                }
+        if (advancedExpanded) {
+            if (confirmedTransfer) item {
+                OwnedTransferUndoAction(current.id, onChanged = { refresh() })
             }
-        }
-
-        if (
-            current.fulizaFinancedMinor > 0L
-        ) {
-            item {
-                FulizaFundingCard(current)
+            if (!confirmedTransfer) {
+                item { SplitPaymentAction(current, onChanged = { refresh() }) }
+                item { PersonalReceivableTransactionAction(current, onChanged = { refresh() }) }
             }
-        }
-
-        if (
-            current.relationType ==
-            TransactionStore.RELATION_REFUND
-        ) {
             item {
-                RefundLinkCard(
-                    item = current,
-                    original =
-                        linkedRefundOriginal
+                TransactionQuickActions(
+                    merchant = current.counterparty ?: pretty(current.type),
+                    annotation = annotation,
+                    accountLabel = accountLabel,
+                    hasAccount = current.accountId != null,
+                    onMerchantHistory = { showMerchantHistory = true },
+                    onAnnotation = { showAnnotationDialog = true },
+                    onAccount = { current.accountId?.let(onAccountClick) }
                 )
             }
-        }
-
-        item {
-            val canonicalCategory =
-                categoryStore.canonicalId(
-                    current.category
-                )
-            val categoryDirection =
-                categoryStore.directionFor(
-                    canonicalCategory,
-                    runCatching {
-                        MoneyDirection
-                            .valueOf(
-                                current.direction
-                            )
-                    }.getOrDefault(
-                        MoneyDirection.NEUTRAL
-                    )
-                )
-            val canRemember =
-                canLearnIdentity(current) &&
-                    PersonalLearningPolicy
-                        .isLearnableCategory(
-                            canonicalCategory,
-                            categoryDirection
-                        )
-
-            TransactionDetailMessage(
-                item = current,
-                evidence = messageEvidence,
-                expanded = messageExpanded,
-                onExpanded = { messageExpanded = !messageExpanded },
-                hasAnnotation = annotation.note.isNotBlank() || annotation.receiptUri != null,
-                onAnnotation = { showAnnotationDialog = true }
-            ) {
-            if (!confirmedTransfer) ClassificationCard(
-                item = current,
-                appliedRule =
-                    appliedRule,
-                learningPreferenceActive =
-                    learningPreference != null,
-                canRemember =
-                    canRemember,
-                confidenceLabel =
-                    classificationConfidenceLabel(
-                        current,
-                        learningExplanation,
-                        appliedRule
-                    ),
-                onRememberChanged = {
-                        rememberChoice ->
-                    if (
-                        !learningBusy &&
-                        canRemember
-                    ) {
+            if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
+                current.direction == MoneyDirection.EXPENSE.name &&
+                current.ruleId == null && current.relationType == null &&
+                !confirmedTransfer && canLearnIdentity(current) &&
+                PersonalLearningPolicy.isLearnableCategory(
+                    categoryStore.canonicalId(current.category), MoneyDirection.EXPENSE
+                ) && personalLearningStore.preferenceFor(current) == null) {
+                item {
+                    Button(enabled = !learningBusy, onClick = {
+                        val original = current
                         learningBusy = true
-                        learningError = null
                         scope.launch {
-                        try {
-                            if (rememberChoice) {
-                                // Same approval as the category-picker and
-                                // previously-manual classification paths.
-                                // The switch must not silently save an Activity-
-                                // only preference without a Statement preview.
+                            try {
                                 val preview = withContext(Dispatchers.IO) {
                                     learningRepository.matchingPreview(
-                                        current, canonicalCategory
-                                    )
+                                        original, categoryStore.canonicalId(original.category))
                                 }
                                 pendingMatchCount = preview.activity
                                 pendingStatementMatchCount = preview.statements
                                 pendingScannedStatementRows = preview.scannedStatementRows
                                 pendingScannedStatementPdfs = preview.scannedStatementPdfs
                                 pendingNamedStatementMatches = preview.statementIdentityMatches
+                                pendingReceiptStatementMatches = preview.statementReceiptMatches
                                 pendingReportStatementMatches = preview.reportStatementMatches
-                                pendingCategoryId = canonicalCategory
-                            } else {
-                                withContext(Dispatchers.IO) {
-                                    personalLearningStore.forgetPreferenceFor(current)
-                                }
-                                learnedMessage =
-                                    "The remembered category was turned off for future " +
-                                    "Activity and Statement matches."
-                                refresh()
-                            }
-                        } catch (
-                            cancelled:
-                                kotlinx.coroutines
-                                    .CancellationException
-                        ) {
-                            throw cancelled
-                        } catch (
-                            failure: Exception
-                        ) {
-                            learningError =
-                                failure.message
-                                    ?: "Could not update learning."
-                        } finally {
-                            learningBusy =
-                                false
+                                pendingCategoryId = categoryStore.canonicalId(original.category)
+                            } catch (cancelled: CancellationException) { throw cancelled }
+                            catch (_: Exception) { learningError = "Could not check category matches." }
+                            finally { learningBusy = false }
                         }
-                    }
-                    }
-                },
-                onDisableRule = {
-                        rule ->
-                    if (
-                        ruleStore.setEnabled(
-                            id = rule.id,
-                            enabled = false
-                        )
-                    ) {
-                        learnedMessage =
-                            "Smart rule disabled for future transactions."
+                    }) { Text("Remember category in Activity and Statements") }
+                }
+            }
+            if (appliedRule != null) {
+                item {
+                    TextButton(onClick = {
+                        ruleStore.setEnabled(appliedRule.id, false)
                         refresh()
-                    }
-                }
-            )
-            }
-        }
-
-        learnedMessage?.let {
-                message ->
-            item {
-                Surface(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-                    shape =
-                        RoundedCornerShape(
-                            16.dp
-                        ),
-                    color =
-                        pesaToneContainer(
-                            "green"
-                        )
-                ) {
-                    Row(
-                        modifier =
-                            Modifier.padding(
-                                12.dp
-                            ),
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Rounded
-                                .CheckCircle,
-                            contentDescription =
-                                null,
-                            tint =
-                                pesaToneContent(
-                                    "green"
-                                )
-                        )
-                        Text(
-                            message,
-                            modifier =
-                                Modifier.padding(
-                                    start = 10.dp
-                                ),
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .bodySmall
-                        )
-                    }
+                    }) { Text("Disable applied smart rule") }
                 }
             }
-        }
-
-        if (
-            pendingCategoryId == null
-        ) {
-            learningError?.let {
-                    message ->
+            learningSuggestion?.takeIf { it.action == PersonalLearningAction.SUGGEST }?.let { suggestion ->
                 item {
-                    Text(
-                        message,
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .error
-                    )
+                    TextButton(onClick = {
+                        classifyOnly(current, suggestion.categoryId)
+                        learningSuggestion = null
+                    }) { Text("Use suggested " + categoryStore.labelFor(suggestion.categoryId)) }
                 }
             }
         }
-
-        item {
-            TransactionQuickActions(
-                merchant =
-                    current.counterparty
-                        ?: pretty(
-                            current.type
-                        ),
-                annotation =
-                    annotation,
-                accountLabel =
-                    current.accountId
-                        ?.let {
-                                accountId ->
-                            accountStore
-                                .listAccounts(
-                                    enabledOnly =
-                                        false
-                                )
-                                .firstOrNull {
-                                    it.id ==
-                                        accountId
-                                }
-                                ?.name
-                        }
-                        ?: "Account",
-                hasAccount =
-                    !current.accountId
-                        .isNullOrBlank(),
-                onMerchantHistory = {
-                    showMerchantHistory =
-                        true
-                },
-                onAnnotation = {
-                    showAnnotationDialog =
-                        true
-                },
-                onAccount = {
-                    current.accountId
-                        ?.let(
-                            onAccountClick
-                        )
-                }
-            )
+        learnedMessage?.let { message ->
+            item { Text(message, color = MaterialTheme.colorScheme.primary) }
         }
-
-        learningSuggestion
-            ?.takeIf {
-                it.action ==
-                    PersonalLearningAction
-                        .SUGGEST
-            }
-            ?.let {
-                    suggestion ->
-                item {
-                    PesaCard {
-                        Column(
-                            Modifier.padding(
-                                16.dp
-                            )
-                        ) {
-                            Row(
-                                verticalAlignment =
-                                    Alignment
-                                        .CenterVertically
-                            ) {
-                                Text(
-                                    "PesaTrack suggestion",
-                                    modifier =
-                                        Modifier.weight(
-                                            1f
-                                        ),
-                                    style =
-                                        MaterialTheme
-                                            .typography
-                                            .titleMedium
-                                )
-                                SmallStatusPill(
-                                    "Needs confirmation",
-                                    "amber"
-                                )
-                            }
-                            Text(
-                                "You previously taught " +
-                                    suggestion.identityLabel +
-                                    " as " +
-                                    categoryStore
-                                        .labelFor(
-                                            suggestion.categoryId
-                                        ) +
-                                    ". Confirm before PesaTrack changes this transaction.",
-                                modifier =
-                                    Modifier.padding(
-                                        top = 6.dp
-                                    ),
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                            Button(
-                                onClick = {
-                                    classifyOnly(
-                                        current,
-                                        suggestion
-                                            .categoryId
-                                    )
-                                    learningSuggestion =
-                                        null
-                                },
-                                modifier =
-                                    Modifier.padding(
-                                        top = 12.dp
-                                    )
-                            ) {
-                                Text(
-                                    "Use " +
-                                        categoryStore
-                                            .labelFor(
-                                                suggestion
-                                                    .categoryId
-                                            )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-
-
-
-    }
-}
+        if (pendingCategoryId == null) learningError?.let { message ->
+            item { Text(message, color = MaterialTheme.colorScheme.error) }
+        }
+    }}
 
 @Composable
 private fun TransactionHero(
