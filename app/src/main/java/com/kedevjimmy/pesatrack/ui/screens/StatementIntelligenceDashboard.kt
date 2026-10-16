@@ -374,7 +374,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                             navigate(StatementPage.TRANSACTIONS, StatementFlow.UNKNOWN)
                                         }
                                     ) {
-                                        Icon(Icons.Rounded.FactCheck, contentDescription = null)
+                                        Icon(Icons.Rounded.Rule, contentDescription = null)
                                         Spacer(Modifier.width(8.dp))
                                         Text("Review " + statementMoney(totals.unknownOutMinor) +
                                             " of unclassified money out")
@@ -533,9 +533,11 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                 }
                                 item {
                                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                                        StatementHighlightCard("Food & dining",
-                                            breakdown.firstOrNull { it.first == "Food & dining" }?.second ?: 0L,
-                                            Modifier.weight(1f)) { navigate(StatementPage.CATEGORIES) }
+                                        StatementHighlightCard(
+                                            breakdown.firstOrNull()?.first ?: "Top expense",
+                                            breakdown.firstOrNull()?.second ?: 0L,
+                                            Modifier.weight(1f)
+                                        ) { navigate(StatementPage.CATEGORIES) }
                                         StatementHighlightCard("Money received",
                                             totals.incomeMinor, Modifier.weight(1f)) {
                                             navigate(StatementPage.TRANSACTIONS, StatementFlow.INCOME)
