@@ -308,10 +308,46 @@ internal fun TransactionCategoryChooser(
 ) {
     val context = LocalContext.current
     val categoryStore = remember { CategoryStore.get(context) }
-    val categories = remember { categoryStore.activityCategories() }
+    var categories by remember(item.id) {
+        mutableStateOf(categoryStore.activityCategories())
+    }
     var selectedId by remember(item.id) { mutableStateOf(initialCategoryId) }
     var query by remember(item.id) { mutableStateOf("") }
     var onlyThis by remember(item.id) { mutableStateOf(false) }
+    var addingCategory by remember(item.id) { mutableStateOf(false) }
+    var newCategoryName by remember(item.id) { mutableStateOf("") }
+    var customError by remember(item.id) { mutableStateOf<String?>(null) }
+    if (addingCategory) {
+        AlertDialog(
+            onDismissRequest = { addingCategory = false },
+            title = { Text("Add category") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("This category will also be available in your budgets.",
+                        style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(newCategoryName, { newCategoryName = it },
+                        label = { Text("Category name") },
+                        singleLine = true)
+                    customError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    runCatching { categoryStore.addCustom(newCategoryName) }
+                        .onSuccess { added ->
+                            categories = categoryStore.activityCategories()
+                            selectedId = added.id
+                            customError = null
+                            addingCategory = false
+                        }
+                        .onFailure { customError = "Choose a valid, unique category name." }
+                }) { Text("Add category") }
+            },
+            dismissButton = {
+                TextButton(onClick = { addingCategory = false }) { Text("Cancel") }
+            }
+        )
+    }
     val suggested = categories.firstOrNull { it.id == initialCategoryId }
         ?: categories.firstOrNull { it.id == TransactionCategory.EATING_OUT.name }
     Dialog(onDismissRequest = onDismiss,
@@ -400,6 +436,13 @@ internal fun TransactionCategoryChooser(
                     }
                     if(matching.isEmpty()) item {
                         Text("No categories match your search.")
+                    }
+                    item {
+                        TextButton(onClick = { addingCategory = true }) {
+                            Icon(Icons.Rounded.Add, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Add custom category")
+                        }
                     }
                     item {
                         Text("Remembering similar payments is optional. Source transactions remain separate.",
