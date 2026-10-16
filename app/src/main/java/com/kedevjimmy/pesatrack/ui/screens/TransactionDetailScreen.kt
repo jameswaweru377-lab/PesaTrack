@@ -503,6 +503,34 @@ fun TransactionDetailScreen(
         )
     }
 
+    fun openPersonalLedger(shared: Boolean) {
+        val selected = transaction ?: return
+        showCategoryPicker = false
+        if (!canMakePersonalDebtLink(selected)) {
+            learningError = "This money movement cannot be recorded as a personal loan or shared bill."
+            return
+        }
+        scope.launch {
+            try {
+                val eligible = withContext(Dispatchers.IO) {
+                    val splits = com.kedevjimmy.pesatrack.data.local.EverydayMoneyStore(context)
+                        .allocations(selected.id)
+                    val existing = com.kedevjimmy.pesatrack.data.local.PersonalReceivableStore(context)
+                        .eventForTransaction(selected.id)
+                    splits.isEmpty() && existing == null
+                }
+                if (eligible) {
+                    sharedBillCategory = shared
+                    debtCategoryOpen = true
+                } else {
+                    learningError = "This payment already has a saved category split or lending link. Review that record before changing it."
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                learningError = "Could not check existing split or lending history. Nothing was changed."
+            }
+        }
+    }
     if (showCategoryPicker && current != null) {
         TransactionCategoryChooser(
             item = current,
@@ -523,16 +551,9 @@ fun TransactionDetailScreen(
                     }
                 }
             },
-            onMoneyLent = {
-                showCategoryPicker = false
-                sharedBillCategory = false
-                debtCategoryOpen = true
-            },
-            onSharedBill = {
-                showCategoryPicker = false
-                sharedBillCategory = true
-                debtCategoryOpen = true
-            }
+            onMoneyLent = { openPersonalLedger(shared = false) },
+            onSharedBill = { openPersonalLedger(shared = true) },
+            allowSpecial = receivableLinks[current.id] == null
         )
     }
     if (debtCategoryOpen && current != null) ReceivableEntryDialog(

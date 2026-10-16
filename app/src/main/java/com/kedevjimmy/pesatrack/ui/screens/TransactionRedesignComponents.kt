@@ -46,12 +46,22 @@ private val deepCard = Color(0xFF142039)
 private val baseNavy = Color(0xFF0A1223)
 private val borderNavy = Color(0xFF324164)
 
+internal fun canMakePersonalDebtLink(
+    direction: String,
+    relationType: String?,
+    reversalCode: String?,
+    reviewState: String
+): Boolean =
+    direction == MoneyDirection.EXPENSE.name &&
+        relationType == null &&
+        reversalCode == null &&
+        reviewState != ReviewState.EXCLUDED.name &&
+        reviewState != ReviewState.NEEDS_REVIEW.name
+
 internal fun canMakePersonalDebtLink(item: StoredTransaction): Boolean =
-    item.direction == MoneyDirection.EXPENSE.name &&
-        item.relationType == null &&
-        item.reversalOfCode == null &&
-        item.reviewState != ReviewState.EXCLUDED.name &&
-        item.reviewState != ReviewState.NEEDS_REVIEW.name
+    canMakePersonalDebtLink(
+        item.direction, item.relationType, item.reversalOfCode, item.reviewState
+    )
 
 @Composable
 internal fun TransactionRedesignHeader(
@@ -304,7 +314,8 @@ internal fun TransactionCategoryChooser(
     onDismiss: () -> Unit,
     onSave: (String, Boolean) -> Unit,
     onMoneyLent: () -> Unit,
-    onSharedBill: () -> Unit
+    onSharedBill: () -> Unit,
+    allowSpecial: Boolean = true
 ) {
     val context = LocalContext.current
     val categoryStore = remember { CategoryStore.get(context) }
@@ -404,7 +415,7 @@ internal fun TransactionCategoryChooser(
                                     selectedId == suggested?.id,
                                     onClick={if(suggested!=null) selectedId=suggested.id},
                                     modifier=Modifier.weight(1f))
-                                if(canMakePersonalDebtLink(item)) {
+                                if(allowSpecial && canMakePersonalDebtLink(item)) {
                                     CategoryOption("Money lent", "Loan to a person",
                                         Icons.Rounded.VolunteerActivism, false,
                                         onClick=onMoneyLent, modifier=Modifier.weight(1f))
