@@ -206,6 +206,14 @@ fun TransactionDetailScreen(
     var pendingMatchCount by remember(transactionId) {
         mutableStateOf(0)
     }
+    var pendingStatementMatchCount by remember(transactionId) {
+        mutableStateOf(0)
+    }
+    var pendingScannedStatementRows by remember(transactionId) { mutableStateOf(0) }
+    var pendingScannedStatementPdfs by remember(transactionId) { mutableStateOf(0) }
+    var pendingNamedStatementMatches by remember(transactionId) { mutableStateOf(0) }
+    var pendingReceiptStatementMatches by remember(transactionId) { mutableStateOf(0) }
+    var pendingReportStatementMatches by remember(transactionId) { mutableStateOf(0) }
     var learnedMessage by remember(transactionId) {
         mutableStateOf<String?>(null)
     }
@@ -345,11 +353,24 @@ fun TransactionDetailScreen(
                         current.category in setOf(TransactionCategory.OTHER.name, TransactionCategory.UNCATEGORIZED.name) &&
                         current.reviewState in setOf(ReviewState.NEEDS_REVIEW.name, ReviewState.AUTO_CLASSIFIED.name) &&
                         PersonalLearningPolicy.isLearnableCategory(canonicalId, direction) && canLearnIdentity(current)) {
-                        learningRepository.matchingCount(current)
-                    } else 0
+                        learningRepository.matchingPreview(current, canonicalId)
+                    } else RememberCategoryRepository.MatchingPreview(0, 0)
                 }
-                if (count >= 2) {
-                    pendingMatchCount = count
+                if (PersonalLearningPolicy.isLearnableCategory(canonicalId, direction) &&
+                    canLearnIdentity(current) && current.ruleId == null &&
+                    current.relationType == null &&
+                    current.direction == MoneyDirection.EXPENSE.name &&
+                    current.category in setOf(TransactionCategory.OTHER.name, TransactionCategory.UNCATEGORIZED.name) &&
+                    current.reviewState in setOf(ReviewState.NEEDS_REVIEW.name, ReviewState.AUTO_CLASSIFIED.name)) {
+                    // Explicit choice also matters when zero history matches:
+                    // it teaches future PDFs rather than silently changing one row.
+                    pendingMatchCount = count.activity
+                    pendingStatementMatchCount = count.statements
+                    pendingScannedStatementRows = count.scannedStatementRows
+                    pendingScannedStatementPdfs = count.scannedStatementPdfs
+                    pendingNamedStatementMatches = count.statementIdentityMatches
+                    pendingReceiptStatementMatches = count.statementReceiptMatches
+                    pendingReportStatementMatches = count.reportStatementMatches
                     pendingCategoryId = canonicalId
                 } else {
                     withContext(Dispatchers.IO) { classifyOnly(current, canonicalId) }
@@ -519,10 +540,22 @@ fun TransactionDetailScreen(
         AlertDialog(
             onDismissRequest = { if (!learningBusy) pendingCategoryId = null },
             title = { Text("Remember this category?") },
-            text = { Column {
-                Text("Use “${current.counterparty ?: current.counterpartyPhone}” as ${categoryStore.labelFor(categoryId)}? " +
-                    "This updates $pendingMatchCount other matching transactions across all imported months, " +
-                    "and remembers future matches. Your other manual categories stay unchanged.")
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("Remember “${current.counterparty ?: current.counterpartyPhone}” " +
+                    "as ${categoryStore.labelFor(categoryId)}?")
+                Text("Activity: $pendingMatchCount other matches.")
+                Text("Statements: $pendingStatementMatchCount eligible source rows; " +
+                    "$pendingReportStatementMatches included in current reports.")
+                Text("Scanned $pendingScannedStatementRows rows across " +
+                    "$pendingScannedStatementPdfs PDFs. " +
+                    "Matched names: $pendingNamedStatementMatches; " +
+                    "verified receipts: $pendingReceiptStatementMatches.")
+                if (pendingScannedStatementRows > 0 &&
+                    pendingStatementMatchCount == 0)
+                    Text("No safe changes found. Check the Statement recipient wording " +
+                        "if you expected matches; unrelated or already-correct records stay protected.")
+                Text("Remember applies the category to eligible historical and future " +
+                    "Statements without combining or rewriting transaction records.")
                 learningError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             dismissButton = { TextButton(enabled = !learningBusy, onClick = {
@@ -544,7 +577,11 @@ fun TransactionDetailScreen(
                 scope.launch {
                     try {
                         val changed = withContext(Dispatchers.IO) { learningRepository.remember(current.id, categoryId) }
-                        learnedMessage = "Remembered • $changed other transactions updated across imported months."
+                        learnedMessage = "Remembered in Activity and Statements • " +
+                            "$changed other Activity entries updated. " +
+                            "$pendingReportStatementMatches eligible report-visible " +
+                            "Statement entries will use this category. Other saved PDF " +
+                            "records remain independent and are never duplicated in totals."
                         pendingCategoryId = null
                         refresh()
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -553,7 +590,7 @@ fun TransactionDetailScreen(
                         learningError = failure.message ?: "Could not save. Please try again."
                     } finally { learningBusy = false }
                 }
-            }) { Text(if (learningBusy) "Saving…" else "Remember") } }
+            }) { Text(if (learningBusy) "Saving…" else "Remember in both") } }
         )
     }
 
@@ -735,6 +772,54 @@ fun TransactionDetailScreen(
                 }
             }
         }
+        if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
+            current.direction == MoneyDirection.EXPENSE.name &&
+            current.ruleId == null && current.relationType == null &&
+            !confirmedTransfer && canLearnIdentity(current) &&
+            PersonalLearningPolicy.isLearnableCategory(
+                categoryStore.canonicalId(current.category), MoneyDirection.EXPENSE
+            ) && personalLearningStore.preferenceFor(current) == null) {
+            item {
+                PesaCard {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Remember in Activity + Statements",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold)
+                        Text("This Activity transaction is already categorized. " +
+                            "You can teach the category to eligible historical and future " +
+                            "Statements without combining their financial records.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(enabled = !learningBusy, onClick = {
+                            val original = current
+                            learningBusy = true
+                            scope.launch {
+                                try {
+                                    val preview = withContext(Dispatchers.IO) {
+                                        learningRepository.matchingPreview(
+                                            original, categoryStore.canonicalId(original.category)
+                                        )
+                                    }
+                                    pendingMatchCount = preview.activity
+                                    pendingStatementMatchCount = preview.statements
+                                    pendingScannedStatementRows = preview.scannedStatementRows
+                                    pendingScannedStatementPdfs = preview.scannedStatementPdfs
+                                    pendingNamedStatementMatches = preview.statementIdentityMatches
+                                pendingReceiptStatementMatches = preview.statementReceiptMatches
+                                    pendingReceiptStatementMatches = preview.statementReceiptMatches
+                                    pendingReportStatementMatches = preview.reportStatementMatches
+                                    pendingCategoryId = categoryStore.canonicalId(original.category)
+                                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                    throw cancelled
+                                } catch (failure: Exception) {
+                                    learningError = failure.message ?: "Unable to check remembered matches."
+                                } finally { learningBusy = false }
+                            }
+                        }) { Text("Remember across Activity and Statements") }
+                    }
+                }
+            }
+        }
         item {
             TransactionDetailFacts(
                 item = current,
@@ -889,31 +974,31 @@ fun TransactionDetailScreen(
                         scope.launch {
                         try {
                             if (rememberChoice) {
-                                val changed =
-                                    withContext(
-                                        Dispatchers.IO
-                                    ) {
-                                        learningRepository
-                                            .remember(
-                                                current.id,
-                                                canonicalCategory
-                                            )
-                                    }
-                                learnedMessage =
-                                    if (changed > 0) {
-                                        "Remembered • $changed similar transactions updated."
-                                    } else {
-                                        "Remembered for future similar transactions."
-                                    }
-                            } else {
-                                personalLearningStore
-                                    .forgetPreferenceFor(
-                                        current
+                                // Same approval as the category-picker and
+                                // previously-manual classification paths.
+                                // The switch must not silently save an Activity-
+                                // only preference without a Statement preview.
+                                val preview = withContext(Dispatchers.IO) {
+                                    learningRepository.matchingPreview(
+                                        current, canonicalCategory
                                     )
+                                }
+                                pendingMatchCount = preview.activity
+                                pendingStatementMatchCount = preview.statements
+                                pendingScannedStatementRows = preview.scannedStatementRows
+                                pendingScannedStatementPdfs = preview.scannedStatementPdfs
+                                pendingNamedStatementMatches = preview.statementIdentityMatches
+                                pendingReportStatementMatches = preview.reportStatementMatches
+                                pendingCategoryId = canonicalCategory
+                            } else {
+                                withContext(Dispatchers.IO) {
+                                    personalLearningStore.forgetPreferenceFor(current)
+                                }
                                 learnedMessage =
-                                    "Future suggestions for this merchant were turned off."
+                                    "The remembered category was turned off for future " +
+                                    "Activity and Statement matches."
+                                refresh()
                             }
-                            refresh()
                         } catch (
                             cancelled:
                                 kotlinx.coroutines
@@ -1865,8 +1950,12 @@ private fun ClassificationCard(
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Remember category for this merchant", style = MaterialTheme.typography.bodyMedium)
-                    Text(confidenceLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Remember in Activity + Statements", style = MaterialTheme.typography.bodyMedium)
+                    Text("One saved preference for eligible SMS and statement history.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(confidenceLabel, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = learningPreferenceActive, onCheckedChange = onRememberChanged, enabled = canRemember)
             }

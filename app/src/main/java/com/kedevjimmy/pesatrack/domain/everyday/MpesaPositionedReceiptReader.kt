@@ -12,8 +12,7 @@ import kotlin.math.abs
 sealed class MpesaPositionedRows {
     data class Ready(
         val pages: List<String>,
-        /** Populated only by the PDFBox adapter; never persisted or logged. */
-        val pdfBoxProof: PdfBoxStatementProof? = null,
+        /** Legacy, native-Android-only text candidate; not financial proof. */
         val tables: List<com.kedevjimmy.pesatrack.domain.statements.StatementTablePage> = emptyList()
     ) : MpesaPositionedRows()
     data class Unsupported(val page: Int, val reason: Reason,val row:Int?=null,

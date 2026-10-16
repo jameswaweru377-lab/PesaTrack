@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.chaquo.python")
 }
 
 val entityEnrichmentUrl = providers
@@ -100,6 +101,8 @@ android {
                 .replace("\"", "\\\"")}\""
         )
         minSdk = 24
+        // Embedded Python native dependencies were resolved for ARM64.
+        ndk { abiFilters += listOf("arm64-v8a") }
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
@@ -163,6 +166,14 @@ android {
     }
 }
 
+// Offline statement parser, no remote processing of customer documents.
+chaquopy {
+    defaultConfig {
+        version = "3.13"
+        pip { install("pdfplumber==0.11.9") }
+    }
+}
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2026.04.01")
     implementation(composeBom)
@@ -182,11 +193,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("androidx.work:work-runtime:2.12.0")
     implementation("com.google.code.gson:gson:2.13.1")
-    // Experimental, read-only local PDF evidence probe. Do not route its
-    // output to ledger or trust it for financial import before device tests.
-    // PDFBox-Android v2.0.27.0 is an older Apache-2.0 PDFBox port;
-    // dependency/security/size review remains a release gate.
-    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
     testImplementation("junit:junit:4.13.2")
     // Local JVM HTTP tests need actual JSON behavior instead of Android's null-returning stubs.

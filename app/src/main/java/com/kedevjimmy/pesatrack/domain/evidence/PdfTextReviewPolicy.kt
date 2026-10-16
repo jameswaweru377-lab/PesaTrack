@@ -9,16 +9,7 @@ data class PdfTextPreview(
     val positionedComplete: List<Boolean> = emptyList(),
     /** Fixed count-based reasons; no document text or financial values included. */
     val geometryDiagnostics: List<PdfGeometryDiagnostics> = emptyList(),
-    /** Opt-in, count-only independent extraction comparison. Never financial evidence. */
-    val pdfBoxProbe: PdfBoxProbeReport? = null,
-    /** Geometry-reconstructed by local PDFBox. NOT a verified money import. */
-    val pdfBoxStatementReady: Boolean = false,
-    /** Count-only financial proof; missing boundary/summary proof stays explicit. */
-    val pdfBoxVerification: PdfBoxVerificationReport? = null,
-    val statementTables: List<com.kedevjimmy.pesatrack.domain.statements.StatementTablePage> = emptyList(),
-    /** Fixed validation notice; never customer metadata or financial values. */
-    val statementCurrencyReview: String? = null,
-    val statementDeclarations:com.kedevjimmy.pesatrack.domain.everyday.PdfBoxStatementDeclarations?=null
+
 )
 
 /** Text availability is not a claim that a statement table or payroll was understood. */
