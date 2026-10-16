@@ -96,8 +96,8 @@ fun MoreScreen(
                     Text(if (expandedMoneyTools) "Hide additional money tools"
                         else "More money tools")
                     Icon(if (expandedMoneyTools)
-                        androidx.compose.material.icons.rounded.ExpandLess
-                        else androidx.compose.material.icons.rounded.ExpandMore,
+                        Icons.Rounded.ExpandLess
+                        else Icons.Rounded.ExpandMore,
                         contentDescription = null)
                 }
             }
