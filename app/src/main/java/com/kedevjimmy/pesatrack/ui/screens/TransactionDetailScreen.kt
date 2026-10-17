@@ -825,17 +825,10 @@ fun TransactionDetailScreen(
                 TransactionDetailFacts(
                     item = current,
                     accountLabel = accountLabel,
-                    categoryLabel = categoryLabel,
+                    note = annotation.note,
                     onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
-                    onCategory = if (!confirmedTransfer &&
-                        current.relationType != TransactionStore.RELATION_REFUND)
-                        ({ showCategoryPicker = true }) else null
+                    onNote = { showAnnotationDialog = true }
                 )
-                current.transactionCode?.takeIf { it.isNotBlank() }?.let { code ->
-                    Text("Reference: " + code,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                }
             }
         }
         item(key = "transaction-original-message") {

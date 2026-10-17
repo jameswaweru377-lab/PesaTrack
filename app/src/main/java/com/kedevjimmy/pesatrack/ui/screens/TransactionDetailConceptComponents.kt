@@ -1,6 +1,10 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -54,28 +58,219 @@ internal fun TransactionDetailSummary(item: StoredTransaction, icon: ImageVector
     }
 }
 
+/**
+ * Approved Transaction Facts card. Category lives exclusively in the
+ * categorization flow above; the facts are read-only source-backed details.
+ */
 @Composable
 internal fun TransactionDetailFacts(
-    item: StoredTransaction, accountLabel: String, categoryLabel: String,
-    onAccount: (() -> Unit)?, onCategory: (() -> Unit)?
+    item: StoredTransaction,
+    accountLabel: String,
+    note: String,
+    onAccount: (() -> Unit)?,
+    onNote: () -> Unit
 ) {
-    val direction = runCatching { MoneyDirection.valueOf(item.direction) }.getOrDefault(MoneyDirection.NEUTRAL)
+    val direction = runCatching { MoneyDirection.valueOf(item.direction) }
+        .getOrDefault(MoneyDirection.NEUTRAL)
     val incomingAdjustment = transactionDetailIsIncoming(item.type, item.relationType)
-    val amounts = transactionDetailAmounts(item.amountMinor, item.feeMinor, item.fulizaAccessFeeMinor, direction, incomingAdjustment)
+    val amounts = transactionDetailAmounts(
+        item.amountMinor, item.feeMinor, item.fulizaAccessFeeMinor,
+        direction, incomingAdjustment
+    )
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    val clipboard = LocalClipboardManager.current
+    val payee = transactionFactsPayee(item.counterparty)
+    val reference = item.transactionCode?.trim()?.takeIf { it.isNotBlank() }
+    val recordedNote = note.trim()
     PesaCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            DetailConceptRow("Account", accountLabel, onAccount)
-            HorizontalDivider()
-            DetailConceptRow("Category", categoryLabel, onCategory, "Change")
-            HorizontalDivider()
-            DetailConceptRow(if (direction == MoneyDirection.EXPENSE && !incomingAdjustment) "Payment" else "Amount", formatTransactionDetailMoney(item.amountMinor))
-            DetailConceptRow("Transaction fee", amounts.feesMinor?.let(::formatTransactionDetailMoney) ?: "Amount unavailable")
-            if (amounts.feesMinor == null || (direction in listOf(MoneyDirection.EXPENSE, MoneyDirection.TRANSFER) && !incomingAdjustment)) {
-                HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                DetailConceptRow("Total outflow", amounts.outflowMinor?.let(::formatTransactionDetailMoney) ?: "Amount unavailable", emphasized = true)
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)
+                .testTag("transaction-facts-approved"),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            Text(
+                "Here are the key details about this transaction.",
+                modifier = Modifier.padding(start = 4.dp, bottom = 10.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.AccountBalance,
+                title = "Account",
+                help = "The account this transaction came from.",
+                value = accountLabel,
+                onClick = onAccount,
+                showChevron = onAccount != null
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.Storefront,
+                title = "Merchant / Payee",
+                help = "Name recorded for this payment.",
+                value = payee
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.CalendarMonth,
+                title = "Date & time",
+                help = "When this transaction happened.",
+                value = transactionFactsDate(item.occurredAtEpochMs, locale)
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.SwapHoriz,
+                title = "Transaction type",
+                help = "Nature of this transaction.",
+                value = transactionFactsKind(item.type, item.relationType),
+                valueTone = TransactionFactValueTone.ACCENT
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.CreditCard,
+                title = transactionFactsAmountTitle(item.direction, incomingAdjustment),
+                help = "Recorded amount before transaction fees.",
+                value = formatTransactionDetailMoney(item.amountMinor)
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.Payments,
+                title = "Transaction fee",
+                help = "Recorded fee including eligible access fees.",
+                value = amounts.feesMinor?.let(::formatTransactionDetailMoney)
+                    ?: "Amount unavailable"
+            )
+            val isOutgoing = !incomingAdjustment &&
+                direction in listOf(MoneyDirection.EXPENSE, MoneyDirection.TRANSFER)
+            if (isOutgoing || amounts.feesMinor == null) {
+                TransactionFactSeparator()
+                TransactionFactVisualRow(
+                    icon = Icons.Rounded.NorthEast,
+                    title = "Total outflow",
+                    help = "Payment plus recorded fees.",
+                    value = amounts.outflowMinor?.let(::formatTransactionDetailMoney)
+                        ?: "Amount unavailable",
+                    valueTone = TransactionFactValueTone.EMPHASIS
+                )
             }
-            DetailConceptRow("Balance after", formatTransactionDetailBalance(item.balanceMinor))
-            Text("Balance from the recorded message; may not be current.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.AccountBalanceWallet,
+                title = "Balance after",
+                help = transactionFactsBalanceHelp(item.balanceMinor),
+                value = formatTransactionDetailBalance(item.balanceMinor)
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.Tag,
+                title = "Reference",
+                help = "Transaction receipt or ID.",
+                value = reference ?: "Not provided",
+                onClick = reference?.let { receipt ->
+                    { clipboard.setText(AnnotatedString(receipt)) }
+                },
+                showCopy = reference != null
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.Smartphone,
+                title = "Channel",
+                help = "Recorded account or import source.",
+                value = transactionFactsChannel(accountLabel, item.sourceKind)
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.StickyNote2,
+                title = "Note",
+                help = if (recordedNote.isNotEmpty()) "Edit your saved note."
+                    else "Add your own note (optional).",
+                value = if (recordedNote.isEmpty()) "Add note" else "View note",
+                onClick = onNote,
+                valueTone = TransactionFactValueTone.ACCENT
+            )
+        }
+    }
+}
+
+private enum class TransactionFactValueTone { NORMAL, ACCENT, EMPHASIS }
+
+@Composable
+private fun TransactionFactSeparator() {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 47.dp, end = 2.dp),
+        thickness = .5.dp,
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .46f)
+    )
+}
+
+@Composable
+private fun TransactionFactVisualRow(
+    icon: ImageVector,
+    title: String,
+    help: String,
+    value: String,
+    onClick: (() -> Unit)? = null,
+    showChevron: Boolean = false,
+    showCopy: Boolean = false,
+    valueTone: TransactionFactValueTone = TransactionFactValueTone.NORMAL
+) {
+    val tint = when (valueTone) {
+        TransactionFactValueTone.NORMAL -> MaterialTheme.colorScheme.primary
+        TransactionFactValueTone.ACCENT -> MaterialTheme.colorScheme.tertiary
+        TransactionFactValueTone.EMPHASIS -> MaterialTheme.colorScheme.error
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .heightIn(min = 58.dp)
+            .padding(horizontal = 4.dp, vertical = 7.dp),
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(39.dp),
+            color = tint.copy(alpha = .13f),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, null, modifier = Modifier.size(21.dp), tint = tint)
+            }
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                title, fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                help, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 10.sp, lineHeight = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Text(
+            value, modifier = Modifier.weight(.78f),
+            color = if (valueTone == TransactionFactValueTone.NORMAL)
+                MaterialTheme.colorScheme.onSurface else tint,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (valueTone == TransactionFactValueTone.EMPHASIS)
+                FontWeight.Bold else FontWeight.Medium,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (showCopy) {
+            Icon(
+                Icons.Rounded.ContentCopy,
+                contentDescription = "Copy transaction reference",
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else if (showChevron) {
+            Icon(
+                Icons.Rounded.ChevronRight, contentDescription = "Open account",
+                modifier = Modifier.size(17.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
