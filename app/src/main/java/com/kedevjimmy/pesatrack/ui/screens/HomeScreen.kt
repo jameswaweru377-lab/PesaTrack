@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddCircle
@@ -61,6 +63,7 @@ import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.CycleProtectionStore
 import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
 import com.kedevjimmy.pesatrack.data.local.DebtStore
+import com.kedevjimmy.pesatrack.data.local.FinancialHealthEvidenceStore
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
 import com.kedevjimmy.pesatrack.data.local.LedgerSnapshot
@@ -668,6 +671,12 @@ fun HomeScreen(
     }
     var showInvestments by remember { mutableStateOf(false) }
     var showHomeHealthInfo by remember { mutableStateOf(false) }
+    var showHealthEvidenceEditor by remember { mutableStateOf(false) }
+    var healthEvidenceRevision by remember { mutableStateOf(0) }
+    val healthEvidenceStore = remember(context) { FinancialHealthEvidenceStore(context) }
+    val healthEvidence = remember(healthEvidenceRevision,ledgerUpdateState.revision) {
+        healthEvidenceStore.snapshot()
+    }
     var showNetFlowExplanation by remember { mutableStateOf(false) }
     var showHomeMonthPicker by remember { mutableStateOf(false) }
     var selectedHomeMonthOffset by remember { mutableStateOf(0) }
@@ -1167,7 +1176,21 @@ fun HomeScreen(
                 else chosenActivity?.summary?.needsReviewCount ?: 0,
             confirmedAccountCount = visibleAccountGroups.size,
             hasConfirmedSalaryCycle = selectedHomeMonthOffset==0 &&
-                cycleSnapshot.cycle != null
+                cycleSnapshot.cycle != null,
+            debtAccountCount = activeDebtAccounts.size,
+            remainingCommitmentsMinor = if(selectedHomeMonthOffset==0 &&
+                cycleSnapshot.cycle!=null) cycleSnapshot.remainingCommitmentsMinor else null,
+            // Emergency reserves and required debt repayment schedules are not
+            // proven by account balances, transfer labels or last repayments.
+            confirmedEmergencyReserveMinor = healthEvidence.emergencyReserveMinor,
+            confirmedEssentialCostsMinor = healthEvidence.essentialMonthlyMinor,
+            confirmedMonthlyDebtPaymentsMinor = healthEvidence.requiredDebtPaymentsMinor,
+            elapsedMonthFraction = if(selectedHomeMonthOffset==0) {
+                val today=Calendar.getInstance()
+                today.get(Calendar.DAY_OF_MONTH).toDouble() /
+                    today.getActualMaximum(Calendar.DAY_OF_MONTH).toDouble()
+            } else null,
+            isCurrentMonth = selectedHomeMonthOffset==0
         )
     )
     val monthTransactions = if (selectedHomeMonthOffset == 0)
@@ -1196,28 +1219,85 @@ fun HomeScreen(
     )
     if(showHomeHealthInfo) AlertDialog(
         onDismissRequest={showHomeHealthInfo=false},
-        title={Text("Your financial snapshot")},
+        title={Text("Your financial guidance")},
         text={
-            Column(verticalArrangement=Arrangement.spacedBy(7.dp)) {
-                Text("PesaTrack estimates four local indicators using recorded activity. This is not a credit score, a prediction of insolvency, or a standardized financial well-being assessment.",
-                    style=MaterialTheme.typography.bodySmall)
-                Text(financialHealth.explanation,
-                    style=MaterialTheme.typography.bodyMedium)
-                financialHealth.indicators.forEach {
-                    Text(it.title+": "+(it.score?.let { n -> n.toString()+"/100" }?:"Not available"),
-                        fontWeight=FontWeight.SemiBold)
-                    Text(it.reason,style=MaterialTheme.typography.labelSmall,
-                        color=MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyColumn(modifier=Modifier.heightIn(max=510.dp),
+                verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                item {
+                    Text("Based only on saved, reviewed local financial records. This is not a credit score, a licensed financial assessment, or a live balance.",
+                        style=MaterialTheme.typography.bodySmall)
+                    Text(financialHealth.explanation,
+                        style=MaterialTheme.typography.bodyMedium)
                 }
-                Text("Missing bank imports, uncategorized transactions, or an unconfirmed salary can limit this assessment.",
-                    style=MaterialTheme.typography.bodySmall)
+                items(financialHealth.indicators.size) { index ->
+                    val indicator=financialHealth.indicators[index]
+                    Column(verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                        Text(indicator.title+" • "+(indicator.score?.let { it.toString()+"/100" }
+                            ?:"Evidence needed"),fontWeight=FontWeight.SemiBold)
+                        Text(indicator.reason,style=MaterialTheme.typography.bodySmall,
+                            color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                item {
+                    Text("Data confidence • "+(financialHealth.confidence.score?.let {
+                        it.toString()+"/100" }?:"Unknown"),
+                        fontWeight=FontWeight.SemiBold)
+                    Text(financialHealth.confidence.reason,
+                        style=MaterialTheme.typography.bodySmall)
+                }
+                if(financialHealth.actions.isNotEmpty()) {
+                    item {
+                        Text("Useful next steps",
+                            style=MaterialTheme.typography.titleSmall,
+                            fontWeight=FontWeight.Bold)
+                    }
+                    items(financialHealth.actions.size) { index ->
+                        val action=financialHealth.actions[index]
+                        Column(verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                            Text(action.title,fontWeight=FontWeight.SemiBold)
+                            Text(action.detail,style=MaterialTheme.typography.bodySmall,
+                                color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            TextButton(onClick={
+                                showHomeHealthInfo=false
+                                when(action.destination) {
+                                    "activity" -> onActivityClick()
+                                    "debts" -> onDebtsClick()
+                                    "accounts" -> onAccountsClick()
+                                    "salary" -> onSalaryClick()
+                                    else -> onPlanClick()
+                                }
+                            }) {
+                                Text("Open "+when(action.destination) {
+                                    "activity" -> "Activity"
+                                    "debts" -> "Debts"
+                                    "accounts" -> "Accounts"
+                                    "salary" -> "Salary"
+                                    else -> "Plan"
+                                })
+                            }
+                        }
+                    }
+                }
+                item {
+                    Text("Why no overall rating? PesaTrack does not assume missing emergency savings or loan repayments are zero. Confirmed balances and repayment schedules are required for a complete assessment.",
+                        style=MaterialTheme.typography.labelSmall)
+                }
             }
         },
-        confirmButton={TextButton(onClick={showHomeHealthInfo=false}){Text("Close")}},
-        dismissButton={TextButton(onClick={
+        dismissButton={TextButton(onClick={showHomeHealthInfo=false}){Text("Close")}},
+        confirmButton={TextButton(onClick={
             showHomeHealthInfo=false
-            onPlanClick()
-        }){Text("Review plan")}}
+            showHealthEvidenceEditor=true
+        }){Text("Update amounts")}}
+    )
+    if(showHealthEvidenceEditor) FinancialHealthEvidenceDialog(
+        store=healthEvidenceStore,
+        onDismiss={showHealthEvidenceEditor=false},
+        onSaved={
+            showHealthEvidenceEditor=false
+            healthEvidenceRevision++
+            showHomeHealthInfo=true
+        }
     )
     if(showNetFlowExplanation) AlertDialog(
         onDismissRequest={showNetFlowExplanation=false},

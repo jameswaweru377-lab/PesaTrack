@@ -93,20 +93,31 @@ internal fun HomeBPeriod(month:String,daysLeft:Int?,onClick:()->Unit) {
 }
 
 @Composable
-internal fun HomeBHealth(health:HomeFinancialSignals,onDetails:()->Unit) {
-    DesignBCard {
-        Text("Financial health",style=MaterialTheme.typography.titleSmall,
-            fontWeight=FontWeight.Bold)
+internal fun HomeBHealth(health: HomeFinancialSignals, onDetails: () -> Unit) {
+    DesignBCard(accent=violet) {
+        Row(verticalAlignment=Alignment.CenterVertically) {
+            Text("Financial health", modifier=Modifier.weight(1f),
+                style=MaterialTheme.typography.titleSmall,
+                fontWeight=FontWeight.Bold)
+            Surface(onClick=onDetails,shape=RoundedCornerShape(10.dp),
+                color=violet.copy(alpha=.12f)) {
+                Row(Modifier.padding(horizontal=9.dp,vertical=6.dp),
+                    verticalAlignment=Alignment.CenterVertically) {
+                    Text("Guidance",fontSize=11.sp,color=violet,fontWeight=FontWeight.Bold)
+                    Icon(Icons.Rounded.ChevronRight,null,Modifier.size(15.dp),tint=violet)
+                }
+            }
+        }
         Row(Modifier.fillMaxWidth().clickable(onClick=onDetails),
             horizontalArrangement=Arrangement.spacedBy(12.dp),
             verticalAlignment=Alignment.CenterVertically) {
             val stateColor=when(health.status) {
-                "At risk"->danger
-                "Watch closely"->amber
+                "Needs attention"->amber
+                "Worth reviewing"->amber
                 "On track"->turquoise
                 else->violet
             }
-            Box(Modifier.size(110.dp),contentAlignment=Alignment.Center) {
+            Box(Modifier.size(100.dp),contentAlignment=Alignment.Center) {
                 Canvas(Modifier.matchParentSize()) {
                     val stroke=8.dp.toPx()
                     drawArc(stateColor.copy(alpha=.19f),130f,280f,false,
@@ -120,8 +131,8 @@ internal fun HomeBHealth(health:HomeFinancialSignals,onDetails:()->Unit) {
                 Column(horizontalAlignment=Alignment.CenterHorizontally) {
                     Text(health.score?.toString()?:"—",fontSize=29.sp,
                         color=stateColor,fontWeight=FontWeight.Bold)
-                    Text(if(health.score==null) "Pending" else "/100",
-                        fontSize=11.sp,color=stateColor)
+                    Text(if(health.score==null) "No full score" else "/100",
+                        fontSize=10.sp,color=stateColor)
                 }
             }
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)) {
@@ -131,7 +142,7 @@ internal fun HomeBHealth(health:HomeFinancialSignals,onDetails:()->Unit) {
                     Text(health.status,color=stateColor,
                         style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,
                         modifier=Modifier.weight(1f))
-                    Icon(Icons.Rounded.ChevronRight,"Explain indicators",
+                    Icon(Icons.Rounded.ChevronRight,"Explain financial indicators",
                         Modifier.size(18.dp))
                 }
                 Text(health.explanation,style=MaterialTheme.typography.bodySmall,
@@ -139,29 +150,64 @@ internal fun HomeBHealth(health:HomeFinancialSignals,onDetails:()->Unit) {
                     maxLines=3,overflow=TextOverflow.Ellipsis)
             }
         }
-        val tints=listOf(danger,amber,turquoise,turquoise)
-        val icons=listOf(Icons.Rounded.CalendarMonth,Icons.Rounded.Timeline,
-            Icons.Rounded.LockOpen,Icons.Rounded.Payments)
-        Row(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-            health.indicators.forEachIndexed { i,signal ->
-                Surface(onClick=onDetails,modifier=Modifier.weight(1f),
-                    shape=RoundedCornerShape(11.dp),
-                    color=tints[i].copy(alpha=.075f),
-                    border=BorderStroke(1.dp,tints[i].copy(alpha=.26f))) {
-                    Column(Modifier.padding(6.dp),
-                        verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                        Icon(icons[i],null,Modifier.size(18.dp),tint=tints[i])
-                        Text(signal.title,fontSize=10.sp,maxLines=1)
-                        Text(signal.score?.let { it.toString()+"/100" }?:"—",
-                            color=tints[i],fontWeight=FontWeight.Bold,fontSize=12.sp)
-                        LinearProgressIndicator(
-                            progress={ (signal.score?:0)/100f },
-                            modifier=Modifier.fillMaxWidth().height(3.dp),
-                            color=tints[i],trackColor=tints[i].copy(alpha=.17f),
-                            drawStopIndicator={}
-                        )
+        val tints=listOf(turquoise,blue,amber,violet)
+        val icons=listOf(Icons.Rounded.AccountBalanceWallet,Icons.Rounded.Savings,
+            Icons.Rounded.AccountBalance,Icons.Rounded.Timeline)
+        health.indicators.chunked(2).forEachIndexed { rowIndex, pair ->
+            Row(horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+                pair.forEachIndexed { index, signal ->
+                    val i=rowIndex*2+index
+                    Surface(onClick=onDetails,modifier=Modifier.weight(1f),
+                        shape=RoundedCornerShape(12.dp),
+                        color=tints[i].copy(alpha=.07f),
+                        border=BorderStroke(1.dp,tints[i].copy(alpha=.23f))) {
+                        Column(Modifier.padding(9.dp),
+                            verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                            Row(verticalAlignment=Alignment.CenterVertically) {
+                                Icon(icons[i],null,Modifier.size(18.dp),tint=tints[i])
+                                Spacer(Modifier.width(6.dp))
+                                Text(signal.title,style=MaterialTheme.typography.labelMedium,
+                                    fontWeight=FontWeight.SemiBold,maxLines=1)
+                            }
+                            Text(signal.score?.let { it.toString()+"/100" }?:"More evidence needed",
+                                color=tints[i],fontWeight=FontWeight.Bold,fontSize=12.sp,
+                                maxLines=1)
+                            signal.score?.let { value ->
+                                LinearProgressIndicator(progress={value/100f},
+                                    modifier=Modifier.fillMaxWidth().height(3.dp),
+                                    color=tints[i],trackColor=tints[i].copy(alpha=.18f),
+                                    drawStopIndicator={})
+                            }
+                        }
                     }
                 }
+            }
+        }
+        Surface(onClick=onDetails,shape=RoundedCornerShape(11.dp),
+            color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.45f)) {
+            Column(Modifier.fillMaxWidth().padding(10.dp),
+                verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.CheckCircle,null,Modifier.size(17.dp),tint=violet)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Data confidence",style=MaterialTheme.typography.labelMedium,
+                        fontWeight=FontWeight.SemiBold,modifier=Modifier.weight(1f))
+                    Text(health.confidence.score?.let { it.toString()+"/100" }?:"Unknown",
+                        color=violet,style=MaterialTheme.typography.labelSmall)
+                }
+                Text(health.confidence.reason,style=MaterialTheme.typography.bodySmall,
+                    color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,
+                    overflow=TextOverflow.Ellipsis)
+            }
+        }
+        health.actions.firstOrNull()?.let { action ->
+            Row(Modifier.fillMaxWidth().clickable(onClick=onDetails),
+                verticalAlignment=Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Lightbulb,null,Modifier.size(17.dp),tint=amber)
+                Spacer(Modifier.width(7.dp))
+                Text(action.title,style=MaterialTheme.typography.labelMedium,
+                    modifier=Modifier.weight(1f),maxLines=2)
+                Icon(Icons.Rounded.ChevronRight,null,Modifier.size(17.dp))
             }
         }
     }

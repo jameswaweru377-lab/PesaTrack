@@ -3,73 +3,135 @@ package com.kedevjimmy.pesatrack.ui.screens
 import org.junit.Assert.*
 import org.junit.Test
 
+/** Entirely invented minor-unit amounts, no personal financial fixtures. */
 class HomeFinancialSignalPolicyTest {
-    private fun example() = HomeFinancialSignalsInput(
-        budgetLimitMinor = 1_000_000,
-        budgetSpentMinor = 700_000,
-        uncategorizedShare = .05,
-        currentSpentMinor = 800_000,
-        previousAlignedSpentMinor = 900_000,
-        incomeMinor = 2_000_000,
-        debtOutstandingMinor = 100_000,
-        unknownDebtBalances = false,
-        feesMinor = 10_000,
-        currentTrustedRows = 35,
-        previousTrustedRows = 30,
-        pendingReviews = 0,
-        confirmedAccountCount = 2,
-        hasConfirmedSalaryCycle = true
+    private fun complete() = HomeFinancialSignalsInput(
+        budgetLimitMinor=1_000_000L,
+        budgetSpentMinor=450_000L,
+        uncategorizedShare=.05,
+        currentSpentMinor=800_000L,
+        previousAlignedSpentMinor=900_000L,
+        incomeMinor=2_000_000L,
+        debtOutstandingMinor=1_000_000L,
+        unknownDebtBalances=false,
+        feesMinor=10_000L,
+        currentTrustedRows=35,
+        previousTrustedRows=30,
+        pendingReviews=0,
+        confirmedAccountCount=2,
+        hasConfirmedSalaryCycle=true,
+        debtAccountCount=1,
+        remainingCommitmentsMinor=100_000L,
+        confirmedEmergencyReserveMinor=900_000L,
+        confirmedEssentialCostsMinor=300_000L,
+        confirmedMonthlyDebtPaymentsMinor=100_000L,
+        elapsedMonthFraction=.60,
+        isCurrentMonth=true
     )
 
-    @Test fun healthySufficientDataCanBeRated() {
-        val result = evaluateHomeFinancialSignals(example())
+    @Test fun fullEvidenceOffersAQualifiedSummaryAndFourPillars() {
+        val result=evaluateHomeFinancialSignals(complete())
         assertTrue(result.dataSufficient)
-        assertNotNull(result.score)
         assertEquals("On track",result.status)
-        assertEquals(4,result.indicators.size)
+        assertNotNull(result.score)
+        assertEquals(listOf("Cash flow","Savings","Debt","Spending"),
+            result.indicators.map { it.title })
+        assertEquals(100,result.confidence.score)
+        assertTrue(result.actions.any { it.title.contains("commitments") })
     }
 
-    @Test fun missingSalaryNeverProducesAtRisk() {
-        val result = evaluateHomeFinancialSignals(
-            example().copy(hasConfirmedSalaryCycle=false,currentSpentMinor=9_000_000))
+    @Test fun aMissingEmergencyReserveCannotBecomeHealthyZero() {
+        val result=evaluateHomeFinancialSignals(
+            complete().copy(confirmedEmergencyReserveMinor=null))
+        assertFalse(result.dataSufficient)
         assertNull(result.score)
-        assertEquals("Limited data",result.status)
+        assertNull(result.indicators[1].score)
+        assertTrue(result.actions.any { it.title=="Review emergency savings" })
     }
 
-    @Test fun emptyOrUntrustedCoverageSuppressesRiskClassification() {
-        val inputs = listOf(
-            example().copy(uncategorizedShare=.9),
-            example().copy(pendingReviews=8),
-            example().copy(unknownDebtBalances=true),
-            example().copy(previousTrustedRows=0),
-            example().copy(confirmedAccountCount=0),
-            example().copy(budgetLimitMinor=null)
-        )
-        inputs.forEach {
-            val result=evaluateHomeFinancialSignals(it)
+    @Test fun transfersAndUnverifiedBankBalancesCannotBeEmergencySavings() {
+        val result=evaluateHomeFinancialSignals(
+            complete().copy(confirmedEssentialCostsMinor=null,
+                confirmedEmergencyReserveMinor=5_000_000L))
+        assertNull(result.indicators[1].score)
+        assertNull(result.score)
+    }
+
+    @Test fun debtPrincipalIsNotAProxyForMonthlyRepayments() {
+        val samePayments=evaluateHomeFinancialSignals(complete())
+        val hugePrincipal=evaluateHomeFinancialSignals(
+            complete().copy(debtOutstandingMinor=90_000_000L))
+        assertEquals(samePayments.indicators[2].score, hugePrincipal.indicators[2].score)
+        assertNotNull(samePayments.indicators[2].score)
+    }
+
+    @Test fun existingDebtWithZeroOrUnknownRequiredPaymentsCannotLookAffordable() {
+        listOf<Long?>(null,0L).forEach { payment ->
+            val result=evaluateHomeFinancialSignals(
+                complete().copy(confirmedMonthlyDebtPaymentsMinor=payment))
+            assertNull(result.indicators[2].score)
             assertNull(result.score)
-            assertEquals("Limited data",result.status)
+            assertTrue(result.actions.any { it.destination=="debts" })
         }
     }
 
-    @Test fun corroboratedBudgetAndSpendingPressureMayShowAtRisk() {
-        val result=evaluateHomeFinancialSignals(
-            example().copy(budgetSpentMinor=2_400_000,
-                currentSpentMinor=2_400_000,
-                previousAlignedSpentMinor=900_000,
-                incomeMinor=2_000_000,
-                debtOutstandingMinor=2_000_000,
-                feesMinor=120_000))
-        assertTrue(result.dataSufficient)
-        assertEquals("At risk",result.status)
-        assertTrue(result.indicators.count { (it.score?:100)<40 }>=2)
+    @Test fun explicitlyNoRepaymentsAndNoRecordedActiveDebtIsNotInferredAutomatically() {
+        val unknown=evaluateHomeFinancialSignals(
+            complete().copy(debtAccountCount=0,confirmedMonthlyDebtPaymentsMinor=null))
+        assertNull(unknown.indicators[2].score)
+        val reported=evaluateHomeFinancialSignals(
+            complete().copy(debtAccountCount=0,confirmedMonthlyDebtPaymentsMinor=0L))
+        assertNotNull(reported.indicators[2].score)
+        assertTrue(reported.indicators[2].reason.contains("Unrecorded"))
     }
 
-    @Test fun negativeAndZeroAmountsDoNotCauseInvalidScores() {
+    @Test fun limitedOrUnreviewedActivityCannotProduceAFullRating() {
+        listOf(
+            complete().copy(currentTrustedRows=0),
+            complete().copy(previousTrustedRows=0),
+            complete().copy(pendingReviews=1),
+            complete().copy(confirmedAccountCount=0),
+            complete().copy(hasConfirmedSalaryCycle=false),
+            complete().copy(uncategorizedShare=.80)
+        ).forEach { input ->
+            val result=evaluateHomeFinancialSignals(input)
+            assertNull(result.score)
+            assertFalse(result.dataSufficient)
+        }
+    }
+
+    @Test fun spendingIsAssessedAgainstElapsedMonthNotJustAbsoluteBudget() {
+        val mid=evaluateHomeFinancialSignals(complete())
+        val quick=evaluateHomeFinancialSignals(complete().copy(elapsedMonthFraction=.30))
+        assertTrue(quick.indicators[3].score!! < mid.indicators[3].score!!)
+        val early=evaluateHomeFinancialSignals(complete().copy(elapsedMonthFraction=.10))
+        assertNull(early.indicators[3].score)
+        assertNull(early.score)
+    }
+
+    @Test fun risingSpendingAloneDoesNotImplyStressWhenIncomeCanCoverIt() {
+        val high=evaluateHomeFinancialSignals(
+            complete().copy(currentSpentMinor=1_200_000L,incomeMinor=4_000_000L))
+        assertTrue(high.indicators[0].score!! >= 80)
+    }
+
+    @Test fun actualExpenseAboveRecordedIncomeTriggersActionNotGuesswork() {
         val result=evaluateHomeFinancialSignals(
-            example().copy(currentSpentMinor=-1, feesMinor=-1,
-                budgetLimitMinor=0, debtOutstandingMinor=-1))
-        assertEquals("Limited data",result.status)
-        assertNull(result.score)
+            complete().copy(currentSpentMinor=3_000_000L))
+        assertTrue(result.actions.any { it.title=="Recheck outgoing costs" })
+        assertTrue(result.indicators[0].score!! < 65)
+    }
+
+    @Test fun corruptedMoneyOrUnknownPeriodsDoNotProduceFinancialRatings() {
+        val invalid=evaluateHomeFinancialSignals(
+            complete().copy(budgetLimitMinor=0L, confirmedEssentialCostsMinor=-1L,
+                confirmedMonthlyDebtPaymentsMinor=-1L,elapsedMonthFraction=Double.NaN))
+        assertNull(invalid.score)
+        assertNull(invalid.indicators[1].score)
+        assertNull(invalid.indicators[2].score)
+        assertNull(invalid.indicators[3].score)
+        val historical=evaluateHomeFinancialSignals(complete().copy(isCurrentMonth=false))
+        assertNull(historical.score)
+        assertNull(historical.indicators[3].score)
     }
 }
