@@ -1,6 +1,9 @@
 package com.kedevjimmy.pesatrack.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -43,12 +46,14 @@ fun AppScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     var toolsOpen by remember { mutableStateOf(false) }
-    val mainTabs = listOf(MainTab.HOME, MainTab.ACTIVITY, MainTab.PLAN, MainTab.MORE)
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             if (currentTab != null) {
-                Surface(color = MaterialTheme.colorScheme.background) {
+                Surface(
+                    modifier = Modifier.statusBarsPadding(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     PesaTrackTopBar(
                         onProfileClick = onProfileClick,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
@@ -57,53 +62,69 @@ fun AppScaffold(
             }
         },
         bottomBar = {
-            NavigationBar(
-                modifier = Modifier.height(78.dp),
-                containerColor = MaterialTheme.colorScheme.surface,
+            Surface(
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
+                color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 0.dp
             ) {
-                @Composable
-                fun androidx.compose.foundation.layout.RowScope.tabItem(tab: MainTab) {
-                    val selected = currentTab == tab ||
-                        (tab == MainTab.MORE && currentTab == MainTab.ACCOUNTS)
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { onTabSelected(tab) },
-                        icon = {
-                            Icon(tab.icon, contentDescription = tab.label,
-                                modifier = Modifier.size(22.dp))
-                        },
-                        label = {
-                            Text(tab.label, style = MaterialTheme.typography.labelSmall)
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = .12f),
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                }
-                tabItem(MainTab.HOME)
-                tabItem(MainTab.ACTIVITY)
-                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                    Surface(
-                        onClick = { toolsOpen = true },
-                        modifier = Modifier.size(58.dp),
-                        shape = CircleShape,
-                        color = Color(0xFF06393A),
-                        border = BorderStroke(2.dp, Color(0xFF47E7D2)),
-                        shadowElevation = 7.dp
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.Add, contentDescription = "Add & import tools",
-                                modifier = Modifier.size(33.dp), tint = Color(0xFF57F0DD))
+                Row(
+                    Modifier.fillMaxWidth().height(76.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    @Composable
+                    fun androidx.compose.foundation.layout.RowScope.tabItem(tab: MainTab) {
+                        val selected = currentTab == tab ||
+                            (tab == MainTab.MORE && currentTab == MainTab.ACCOUNTS)
+                        val tint = if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        Column(
+                            Modifier.weight(1f).fillMaxHeight().clickable {
+                                onTabSelected(tab)
+                            }.padding(vertical = 9.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp,
+                                Alignment.CenterVertically),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                tab.icon, contentDescription = tab.label,
+                                modifier = Modifier.size(25.dp), tint = tint
+                            )
+                            Text(tab.label, color = tint,
+                                style = MaterialTheme.typography.labelSmall)
                         }
                     }
+                    tabItem(MainTab.HOME)
+                    tabItem(MainTab.ACTIVITY)
+                    Box(
+                        Modifier.weight(1f).fillMaxHeight()
+                            .testTag("bottom-add-tool-button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(Modifier.requiredSize(72.dp)) {
+                            drawCircle(Color(0xFF52E5D3).copy(alpha = .10f))
+                        }
+                        Surface(
+                            onClick = { toolsOpen = true },
+                            modifier = Modifier.requiredSize(58.dp),
+                            shape = CircleShape,
+                            color = Color(0xFF06393A),
+                            border = BorderStroke(2.dp, Color(0xFF52E5D3)),
+                            shadowElevation = 10.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Rounded.Add,
+                                    contentDescription = "Add & import tools",
+                                    modifier = Modifier.size(33.dp),
+                                    tint = Color(0xFF57F0DD)
+                                )
+                            }
+                        }
+                    }
+                    tabItem(MainTab.PLAN)
+                    tabItem(MainTab.MORE)
                 }
-                tabItem(MainTab.PLAN)
-                tabItem(MainTab.MORE)
             }
         },
         content = content
