@@ -96,8 +96,8 @@ internal fun evaluateHomeFinancialSignals(input: HomeFinancialSignalsInput): Hom
 
     // Cash flow is observed income minus tracked outflow for this calendar
     // window, not the amount available after future bills and not bank balance.
-    val cashRatio = if (input.currentTrustedRows >= 5 &&
-        input.hasConfirmedSalaryCycle)
+    val cashRatio = if (input.isCurrentMonth &&
+        input.currentTrustedRows >= 5 && input.hasConfirmedSalaryCycle)
         share(input.currentSpentMinor, input.incomeMinor) else null
     val cashFlow = HomeSignal(
         "Cash flow",
@@ -109,7 +109,9 @@ internal fun evaluateHomeFinancialSignals(input: HomeFinancialSignalsInput): Hom
                 else -> (65 - (ratio - 1.0) * 130).roundToInt().coerceIn(0, 100)
             }
         },
-        if (cashRatio == null)
+        if (!input.isCurrentMonth)
+            "Historical months show recorded cash flow in Money In/Out; a current-period health rating is not inferred."
+        else if (cashRatio == null)
             "Recorded income and reviewed outflow are needed. Missing income is not zero."
         else (if (input.pendingReviews > 0) "Provisional while transactions need review. " else "") +
             "Tracked outflow is ${percentage(cashRatio)} of this period's income. This excludes unpaid future bills."
