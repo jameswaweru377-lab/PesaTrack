@@ -26,13 +26,15 @@ import javax.crypto.spec.SecretKeySpec
 data class BackupSummary(
     val tableCount: Int,
     val rowCount: Int,
-    val preferenceFileCount: Int
+    val preferenceFileCount: Int,
+    val statementRows: Int = 0
 )
 
 data class RestoreSummary(
     val tableCount: Int,
     val rowCount: Int,
-    val preferenceFileCount: Int
+    val preferenceFileCount: Int,
+    val statementRows: Int = 0
 )
 
 data class BackupPreview(
@@ -40,7 +42,9 @@ data class BackupPreview(
     val schemaVersion: Int,
     val tableCount: Int,
     val rowCount: Int,
-    val preferenceFileCount: Int
+    val preferenceFileCount: Int,
+    val statementRows: Int = 0,
+    val statementHistoryIncluded: Boolean = false
 )
 
 class PesaBackupManager(
@@ -111,7 +115,8 @@ class PesaBackupManager(
                     .getAsJsonObject(
                         "preferences"
                     )
-                    .size()
+                    .size(),
+            statementRows = statementRowCount(payload)
         )
     }
 
@@ -292,8 +297,7 @@ class PesaBackupManager(
                 ?.asInt
                 ?: 0
         require(
-            formatVersion ==
-                FORMAT_VERSION
+            formatVersion in 1..FORMAT_VERSION
         ) {
             "This backup format is not supported."
         }
@@ -346,9 +350,58 @@ class PesaBackupManager(
                 tables.size(),
             rowCount = rows,
             preferenceFileCount =
-                preferences.size()
+                preferences.size(),
+            statementRows = statementRowCount(payload),
+            statementHistoryIncluded = statementTables(payload) != null
         )
     }
+
+    /**
+     * Format v1 contained only the primary ledger and preferences. Format v2
+     * requires the complete independent statement journal (including personal
+     * category decisions), with an explicit schema version.
+     */
+    private fun statementTables(root: JsonObject): JsonObject? {
+        val format = root.get("formatVersion")?.asInt ?: 0
+        if (format == 1) return null
+        require(format == FORMAT_VERSION) { "Unsupported backup format." }
+        val section = root.get("statementArchive")
+        require(section != null && section.isJsonObject) {
+            "This backup is missing saved statement history."
+        }
+        val archive = section.asJsonObject
+        require(archive.get("schemaVersion")?.asInt == StatementBackupArchive.SCHEMA_VERSION) {
+            "Unsupported saved statement history schema."
+        }
+        val tableElement = archive.get("tables")
+        require(tableElement != null && tableElement.isJsonObject) {
+            "This backup is missing statement history tables."
+        }
+        val tables = tableElement.asJsonObject
+        require(tables.keySet() == StatementBackupArchive.columns.keys) {
+            "This backup does not contain complete statement history."
+        }
+        StatementBackupArchive.columns.forEach { (table, expectedColumns) ->
+            val entries = tables.get(table)
+            require(entries != null && entries.isJsonArray) {
+                "Statement history rows are damaged."
+            }
+            entries.asJsonArray.forEach { element ->
+                require(element.isJsonObject && element.asJsonObject.keySet() == expectedColumns) {
+                    "Statement history columns are damaged."
+                }
+                element.asJsonObject.entrySet().forEach { (column, cellElement) ->
+                    require(column in expectedColumns && cellElement.isJsonObject)
+                    validateCell(cellElement.asJsonObject)
+                    putCell(ContentValues(), column, cellElement.asJsonObject)
+                }
+            }
+        }
+        return tables
+    }
+
+    private fun statementRowCount(root: JsonObject): Int =
+        statementTables(root)?.getAsJsonArray("statement_activity_lines")?.size() ?: 0
 
     private fun validateBackupSchema(
         payload: JsonObject
@@ -382,50 +435,49 @@ class PesaBackupManager(
     }
 
     private fun buildPayload(): JsonObject {
-        val database =
-            PesaTrackDatabase
-                .get(app)
-                .readableDatabase
+        val database = PesaTrackDatabase.get(app).readableDatabase
         BackupRestoreJournal(app).recover(database)
-        val root =
-            JsonObject().apply {
-                addProperty(
-                    "formatVersion",
-                    FORMAT_VERSION
-                )
-                addProperty(
-                    "schemaVersion",
-                    database.version
-                )
-                addProperty(
-                    "createdAtEpochMs",
-                    System
-                        .currentTimeMillis()
+        StatementBackupArchive.prepare(app)
+        // The same pinned SQLite connection takes a consistent snapshot of
+        // the canonical ledger and attached local statement journal.
+        database.beginTransaction()
+        var attached = false
+        try {
+            StatementBackupArchive.attach(app, database)
+            attached = true
+            StatementBackupArchive.assertSchema(database)
+
+            val root = JsonObject().apply {
+                addProperty("formatVersion", FORMAT_VERSION)
+                addProperty("schemaVersion", database.version)
+                addProperty("createdAtEpochMs", System.currentTimeMillis())
+            }
+            val tables = JsonObject()
+            userTableNames(database).forEach { table ->
+                tables.add(table, dumpTable(database, table))
+            }
+            root.add("tables", tables)
+            root.add("preferences", dumpPreferences())
+
+            val statementTables = JsonObject()
+            StatementBackupArchive.tablesInRestoreOrder.forEach { table ->
+                statementTables.add(
+                    table, dumpTable(database, StatementBackupArchive.qualified(table))
                 )
             }
-
-        val tables =
-            JsonObject()
-        userTableNames(
-            database
-        ).forEach { table ->
-            tables.add(
-                table,
-                dumpTable(
-                    database,
-                    table
-                )
-            )
+            root.add("statementArchive", JsonObject().apply {
+                addProperty("schemaVersion", StatementBackupArchive.SCHEMA_VERSION)
+                add("tables", statementTables)
+            })
+            database.setTransactionSuccessful()
+            return root
+        } finally {
+            try {
+                database.endTransaction()
+            } finally {
+                if (attached) StatementBackupArchive.detach(database)
+            }
         }
-        root.add(
-            "tables",
-            tables
-        )
-        root.add(
-            "preferences",
-            dumpPreferences()
-        )
-        return root
     }
 
     private fun validatePayload(root: JsonObject, database: SQLiteDatabase) {
@@ -453,6 +505,7 @@ class PesaBackupManager(
         }
         PayrollBackupValidation.validate(backupTables)
         EvidenceBackupValidation.validate(backupTables)
+        statementTables(root) // Validate all archived cells before touching either database.
         val preferences = root.getAsJsonObject("preferences")
             ?: throw IllegalArgumentException("This backup is missing its settings.")
         BackupPreferences.decode(preferences)
@@ -487,15 +540,30 @@ class PesaBackupManager(
             ) ?: JsonObject()
 
         validatePayload(root, database)
+        val archiveRows = statementTables(root)
+        // Format v1 never saved statements. Refuse to overwrite an existing
+        // history-bearing installation with an incomplete legacy backup.
+        if (archiveRows == null) {
+            require(!StatementBackupArchive.hasExistingData(app)) {
+                "This older backup excludes Statement Activity. Save a new complete backup before replacing your ledger."
+            }
+        }
+        StatementBackupArchive.prepare(app)
         val preferences = root.getAsJsonObject("preferences")
         val journal = BackupRestoreJournal(app)
         val operationId = journal.stage(database, preferences)
 
         var restoredRows = 0
         var restoredTables = 0
+        var restoredStatementRows = 0
 
         database.beginTransaction()
+        var attached = false
         try {
+            StatementBackupArchive.attach(app, database)
+            attached = true
+            StatementBackupArchive.assertSchema(database)
+            if (archiveRows != null) StatementBackupArchive.requireAtomicRestoreJournals(database)
             currentTables
                 .forEach { table ->
                     database.delete(
@@ -556,10 +624,33 @@ class PesaBackupManager(
                     restoredTables++
                 }
 
+            if (archiveRows != null) {
+                // Both database files participate in the same SQLite rollback-
+                // journal transaction. Deleting children first avoids FK errors.
+                StatementBackupArchive.tablesInRestoreOrder.asReversed().forEach { table ->
+                    database.delete(StatementBackupArchive.qualified(table), null, null)
+                }
+                StatementBackupArchive.tablesInRestoreOrder.forEach { table ->
+                    archiveRows.getAsJsonArray(table).forEach { rowElement ->
+                        val values = ContentValues()
+                        rowElement.asJsonObject.entrySet().forEach { (column, element) ->
+                            putCell(values, column, element.asJsonObject)
+                        }
+                        database.insertOrThrow(StatementBackupArchive.qualified(table), null, values)
+                        if (table == "statement_activity_lines") restoredStatementRows++
+                    }
+                }
+                StatementBackupArchive.requireNoOrphans(database)
+            }
+
             journal.markCommitted(database, operationId)
             database.setTransactionSuccessful()
         } finally {
-            database.endTransaction()
+            try {
+                database.endTransaction()
+            } finally {
+                if (attached) StatementBackupArchive.detach(database)
+            }
         }
 
         try {
@@ -582,7 +673,8 @@ class PesaBackupManager(
             rowCount =
                 restoredRows,
             preferenceFileCount =
-                preferences.size()
+                preferences.size(),
+            statementRows = restoredStatementRows
         )
     }
 
@@ -594,9 +686,7 @@ class PesaBackupManager(
             JsonArray()
         database.rawQuery(
             "SELECT * FROM " +
-                quoteIdentifier(
-                    table
-                ),
+                (if (table.startsWith("statement_backup.")) table else quoteIdentifier(table)),
             null
         ).use { cursor ->
             while (
@@ -1161,7 +1251,7 @@ class PesaBackupManager(
 
     companion object {
         private const val FORMAT_VERSION =
-            1
+            2
         private const val PBKDF_ITERATIONS =
             180_000
         private const val KEY_BITS =
