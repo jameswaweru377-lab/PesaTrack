@@ -121,8 +121,23 @@ internal fun netFlowRingProgress(incomeMinor: Long, spentMinor: Long): Float? {
     return (spentMinor.toDouble() / incomeMinor.toDouble()).toFloat().coerceIn(0f, 1f)
 }
 
+/**
+ * The approved reference image is 1,277 x 620 pixels, so the visible card
+ * keeps a 2.06:1 landscape ratio on a phone. These coordinates are normalized
+ * to the content canvas to keep the same wave on other Android densities.
+ */
+internal const val APPROVED_MONEY_CARD_ASPECT_RATIO = 2.06f
+
+internal fun approvedMoneyCardHeight(widthDp: Float): Float =
+    (widthDp / APPROVED_MONEY_CARD_ASPECT_RATIO).coerceIn(166f, 206f)
+
+/** One read-only period label; the clickable selectors remain above this card. */
+internal fun approvedMoneyCardPeriodLabel(monthLabel: String, salaryMode: Boolean): String =
+    if (salaryMode) "$monthLabel salary cycle" else monthLabel
+
 @Composable
 internal fun ActivityPremiumMoneyHero(
+    periodLabel: String,
     snapshot: ActivityLedgerSnapshot?,
     previous: ActivityLedgerSnapshot?,
     badge: String,
@@ -130,167 +145,311 @@ internal fun ActivityPremiumMoneyHero(
     onExplain: () -> Unit
 ) {
     val dark = MaterialTheme.colorScheme.background.red < 0.4f
-    val surface = MaterialTheme.colorScheme.surface
+    val foreground = MaterialTheme.colorScheme.onSurface
+    val secondary = MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(19.dp),
-        color = surface,
-        border = BorderStroke(1.dp, aqua.copy(alpha = .72f))
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, Color(0xFF36D9D1).copy(alpha = .90f))
     ) {
-        Box(Modifier.fillMaxWidth().height(181.dp)) {
-            Canvas(Modifier.matchParentSize()) {
-                val w = size.width
-                val h = size.height
-                drawRect(
-                    brush = Brush.linearGradient(
-                        listOf(
-                            aqua.copy(alpha = if (dark) .24f else .16f),
-                            aqua.copy(alpha = .07f),
-                            Color.Transparent
-                        ),
-                        start = Offset(0f, 0f), end = Offset(w, h * .95f)
-                    )
-                )
-                // The wave is a decorative, fixed shape. It never pretends to be
-                // an actual monthly trend chart or financial projection.
-                val wave = Path().apply {
-                    moveTo(0f, h * .84f)
-                    cubicTo(w * .08f, h * .79f, w * .15f, h * .72f, w * .24f, h * .79f)
-                    cubicTo(w * .35f, h * .91f, w * .42f, h * .88f, w * .52f, h * .79f)
-                    cubicTo(w * .64f, h * .67f, w * .70f, h * .79f, w * .81f, h * .85f)
-                    cubicTo(w * .88f, h * .89f, w * .95f, h * .81f, w, h * .78f)
-                }
-                val area = Path().apply {
-                    addPath(wave)
-                    lineTo(w, h)
-                    lineTo(0f, h)
-                    close()
-                }
-                drawPath(
-                    area,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(aqua.copy(alpha = .23f), aqua.copy(alpha = .015f)),
-                        startY = h * .72f,
-                        endY = h
-                    )
-                )
-                drawPath(wave, color = aqua.copy(alpha = .12f),
-                    style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round))
-                drawPath(wave, color = aqua.copy(alpha = .92f),
-                    style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round))
-            }
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val cardHeight = approvedMoneyCardHeight(maxWidth.value).dp
+            val compact = maxWidth < 350.dp
+            // Correct placement rather than oversized drawings: left 66% of
+            // the card holds figures, right 34% holds the ring.
+            val gaugeSize = (maxWidth * .305f).coerceIn(100.dp, 120.dp)
+            val headingTextSize = if (periodLabel.contains("salary cycle", true)) 12.sp
+                else if (compact) 13.sp else 15.sp
+            val metricSize = if (compact) 14.sp else 15.sp
 
-            Row(
-                Modifier.align(Alignment.TopEnd).padding(end = 12.dp, top = 11.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = aqua.copy(alpha = .13f),
-                    border = BorderStroke(1.dp, aqua.copy(alpha = .36f))
+            Box(Modifier.fillMaxWidth().height(cardHeight)) {
+                Canvas(Modifier.matchParentSize()) {
+                    val w = size.width
+                    val h = size.height
+                    val dim = if (dark) 1f else .64f
+                    // Reference: deep indigo interior; brighter upper-left
+                    // teal atmosphere; cooler upper-right and a thin aqua rim.
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF04766E).copy(alpha = .30f * dim),
+                                Color(0xFF063B4B).copy(alpha = .13f * dim),
+                                Color.Transparent
+                            ),
+                            start = Offset(w * .01f, 0f),
+                            end = Offset(w * .96f, h * .77f)
+                        )
+                    )
+                    // Background waves are very soft and stay behind the true
+                    // bright wave, as on the approved reference.
+                    val rearWave = Path().apply {
+                        moveTo(0f, h * .70f)
+                        cubicTo(w * .13f, h * .65f, w * .16f, h * .63f, w * .23f, h * .70f)
+                        cubicTo(w * .35f, h * .79f, w * .39f, h * .67f, w * .49f, h * .70f)
+                        cubicTo(w * .59f, h * .65f, w * .68f, h * .69f, w * .77f, h * .83f)
+                        cubicTo(w * .88f, h * .91f, w * .94f, h * .82f, w, h * .69f)
+                        lineTo(w, h)
+                        lineTo(0f, h)
+                        close()
+                    }
+                    drawPath(
+                        path = rearWave,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(aqua.copy(alpha = .06f * dim),
+                                aqua.copy(alpha = .12f * dim),
+                                aqua.copy(alpha = .015f)),
+                            startY = h * .61f, endY = h
+                        )
+                    )
+                    // Coordinates taken from the APPROVED card rather than
+                    // the earlier generic wavy line:
+                    // peak 1 ~ (0.16, 0.69), valley ~ (0.35, 0.83),
+                    // peak 2 ~ (0.60, 0.70), deep valley next to ring
+                    // ~ (0.82, 0.88), rising toward the bottom-right edge.
+                    val wave = Path().apply {
+                        moveTo(0f, h * .80f)
+                        cubicTo(w * .07f, h * .77f, w * .11f, h * .65f, w * .17f, h * .69f)
+                        cubicTo(w * .25f, h * .68f, w * .27f, h * .83f, w * .35f, h * .83f)
+                        cubicTo(w * .45f, h * .85f, w * .51f, h * .68f, w * .60f, h * .71f)
+                        cubicTo(w * .69f, h * .73f, w * .72f, h * .90f, w * .83f, h * .88f)
+                        cubicTo(w * .90f, h * .88f, w * .95f, h * .78f, w, h * .73f)
+                    }
+                    val filled = Path().apply {
+                        addPath(wave)
+                        lineTo(w, h)
+                        lineTo(0f, h)
+                        close()
+                    }
+                    drawPath(
+                        filled,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                aqua.copy(alpha = .40f * dim),
+                                Color(0xFF068F84).copy(alpha = .22f * dim),
+                                Color(0xFF03766B).copy(alpha = .05f)
+                            ),
+                            startY = h * .67f,
+                            endY = h
+                        )
+                    )
+                    // Broad + narrow strokes simulate the approved luminous
+                    // line while remaining GPU-friendly vector primitives.
+                    drawPath(wave, color = aqua.copy(alpha = .085f * dim),
+                        style = Stroke(width = 13.dp.toPx(), cap = StrokeCap.Round))
+                    drawPath(wave, color = aqua.copy(alpha = .26f * dim),
+                        style = Stroke(width = 6.5.dp.toPx(), cap = StrokeCap.Round))
+                    drawPath(wave, color = Color(0xFF36F5E2),
+                        style = Stroke(width = 2.3.dp.toPx(), cap = StrokeCap.Round))
+                    // Subtle reference-image vertical dotted guides and the
+                    // highlighted second crest; decorative, not a trend chart.
+                    val guideStroke = Stroke(
+                        width = 0.7.dp.toPx(),
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
+                            floatArrayOf(2.5.dp.toPx(), 5.dp.toPx())
+                        )
+                    )
+                    listOf(
+                        .17f to .69f, .35f to .83f,
+                        .60f to .71f, .83f to .88f
+                    ).forEach { (x, y) ->
+                        drawLine(
+                            color = aqua.copy(alpha = .18f * dim),
+                            start = Offset(w * x, h * y),
+                            end = Offset(w * x, h * .97f),
+                            strokeWidth = guideStroke.width,
+                            pathEffect = guideStroke.pathEffect
+                        )
+                    }
+                    drawCircle(
+                        aqua.copy(alpha = .16f), radius = 14.dp.toPx(),
+                        center = Offset(w * .60f, h * .71f)
+                    )
+                    drawCircle(
+                        aqua.copy(alpha = .48f), radius = 8.dp.toPx(),
+                        center = Offset(w * .60f, h * .71f)
+                    )
+                    drawCircle(
+                        Color(0xFF71FFF1), radius = 3.dp.toPx(),
+                        center = Offset(w * .60f, h * .71f)
+                    )
+                }
+
+                // The month belongs to the upper period selector. It is
+                // deliberately NOT clickable or decorated with a dropdown.
+                Row(
+                    modifier = Modifier.align(Alignment.TopStart)
+                        .fillMaxWidth().padding(start = 12.dp, end = 11.dp, top = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = aqua.copy(alpha = .11f),
+                        border = BorderStroke(1.dp, aqua.copy(alpha = .30f))
+                    ) {
+                        Icon(
+                            Icons.Rounded.CalendarMonth,
+                            contentDescription = null,
+                            modifier = Modifier.padding(8.dp).size(20.dp),
+                            tint = aqua
+                        )
+                    }
+                    Text(
+                        periodLabel,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontSize = headingTextSize,
+                        lineHeight = 16.sp,
+                        maxLines = 2,
+                        fontWeight = FontWeight.Bold,
+                        color = foreground,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = aqua.copy(alpha = .12f),
+                        border = BorderStroke(1.dp, aqua.copy(alpha = .38f))
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Rounded.CalendarMonth, null,
+                                Modifier.size(13.dp), tint = aqua)
+                            Text(badge, style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp, maxLines = 1, color = aqua)
+                        }
+                    }
+                }
+
+                if (waiting || snapshot == null) {
+                    Text(
+                        "Updating period…",
+                        modifier = Modifier.align(Alignment.CenterStart)
+                            .padding(horizontal = 14.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    val income = snapshot.summary.incomeMinor
+                    val spent = snapshot.summary.spentMinor
+                    val net = CheckedMoney.orNull { CheckedMoney.subtract(income, spent) }
+                    val progress = netFlowRingProgress(income, spent)
                     Row(
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                        modifier = Modifier.fillMaxWidth().align(Alignment.Center)
+                            .padding(start = 13.dp, end = 11.dp, top = 15.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        Icon(Icons.Rounded.CalendarMonth, null, Modifier.size(13.dp), tint = aqua)
-                        Text(badge, style = MaterialTheme.typography.labelSmall, color = aqua)
-                    }
-                }
-            }
-
-            if (waiting || snapshot == null) {
-                Text(
-                    "Updating this period…",
-                    modifier = Modifier.align(Alignment.CenterStart)
-                        .padding(horizontal = 16.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            } else {
-                val income = snapshot.summary.incomeMinor
-                val spent = snapshot.summary.spentMinor
-                val net = CheckedMoney.orNull { CheckedMoney.subtract(income, spent) }
-                val progress = netFlowRingProgress(income, spent)
-                Row(
-                    Modifier.fillMaxWidth().align(Alignment.Center)
-                        .padding(start = 14.dp, end = 11.dp, top = 19.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
-                ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Money in", style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(formatActivityMoney(income),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold, maxLines = 1,
-                            overflow = TextOverflow.Ellipsis)
-                        PercentChange(periodPercentChange(
-                            income, previous?.summary?.incomeMinor ?: 0L))
-                    }
-                    Column(Modifier.weight(1.19f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Money out", style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(formatActivityMoney(spent),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold, maxLines = 1,
-                            overflow = TextOverflow.Ellipsis)
-                        PercentChange(periodPercentChange(
-                            spent, previous?.summary?.spentMinor ?: 0L))
-                    }
-                    Box(Modifier.size(115.dp), contentAlignment = Alignment.Center) {
-                        Canvas(Modifier.fillMaxSize()) {
-                            val ringWidth = 10.dp.toPx()
-                            val padding = ringWidth * .60f
-                            val topLeft = Offset(padding, padding)
-                            val ringSize = androidx.compose.ui.geometry.Size(
-                                size.width - padding * 2,
-                                size.height - padding * 2
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text("Money in", style = MaterialTheme.typography.labelSmall,
+                                fontSize = 11.sp, color = secondary)
+                            Text(
+                                formatActivityMoney(income),
+                                fontSize = metricSize,
+                                lineHeight = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                color = foreground
                             )
-                            drawArc(
-                                color = Color(0xFF37495C), startAngle = 128f, sweepAngle = 284f,
-                                useCenter = false, topLeft = topLeft, size = ringSize,
-                                style = Stroke(width = ringWidth, cap = StrokeCap.Round)
-                            )
-                            if (progress != null && progress > 0f) {
-                                drawArc(
-                                    color = aqua.copy(alpha = .18f), startAngle = 128f,
-                                    sweepAngle = 284f * progress,
-                                    useCenter = false, topLeft = topLeft, size = ringSize,
-                                    style = Stroke(width = ringWidth + 5.dp.toPx(),
-                                        cap = StrokeCap.Round)
-                                )
-                                drawArc(
-                                    brush = Brush.sweepGradient(
-                                        listOf(aqua.copy(alpha = .78f), aqua, aqua.copy(alpha = .94f))
-                                    ), startAngle = 128f,
-                                    sweepAngle = 284f * progress,
-                                    useCenter = false, topLeft = topLeft, size = ringSize,
-                                    style = Stroke(width = ringWidth, cap = StrokeCap.Round)
-                                )
-                            }
+                            PercentChange(periodPercentChange(
+                                income, previous?.summary?.incomeMinor ?: 0L))
                         }
                         Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(1.dp),
-                            modifier = Modifier.padding(horizontal = 13.dp)
+                            modifier = Modifier.weight(1.20f),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
-                            Text("Net flow", style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1)
-                            Text(net?.let(::formatActivityMoney) ?: "Unavailable",
-                                fontSize = 10.sp, lineHeight = 12.sp,
-                                fontWeight = FontWeight.Bold, maxLines = 2,
-                                color = if ((net ?: 0L) < 0L)
-                                    MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurface,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                            IconButton(
-                                onClick = onExplain,
-                                modifier = Modifier.size(27.dp)
+                            Text("Money out", style = MaterialTheme.typography.labelSmall,
+                                fontSize = 11.sp, color = secondary)
+                            Text(
+                                formatActivityMoney(spent),
+                                fontSize = metricSize,
+                                lineHeight = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                color = foreground
+                            )
+                            PercentChange(periodPercentChange(
+                                spent, previous?.summary?.spentMinor ?: 0L))
+                        }
+
+                        // The ring is 30.5% of card width, matching the source.
+                        // It is drawn ABOVE the wave; its center never clips.
+                        Box(
+                            Modifier.size(gaugeSize).offset(y = 9.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Canvas(Modifier.matchParentSize()) {
+                                val strokeWidth = 8.5.dp.toPx()
+                                val pad = strokeWidth * .95f
+                                val arcSize = androidx.compose.ui.geometry.Size(
+                                    size.width - pad * 2, size.height - pad * 2
+                                )
+                                val top = Offset(pad, pad)
+                                drawCircle(
+                                    color = aqua.copy(alpha = .035f),
+                                    radius = size.minDimension * .485f
+                                )
+                                drawArc(
+                                    color = Color(0xFF304355),
+                                    startAngle = 135f, sweepAngle = 270f,
+                                    useCenter = false, topLeft = top, size = arcSize,
+                                    style = Stroke(width = strokeWidth,
+                                        cap = StrokeCap.Round)
+                                )
+                                if (progress != null && progress > 0f) {
+                                    drawArc(
+                                        color = aqua.copy(alpha = .18f),
+                                        startAngle = 135f, sweepAngle = 270f * progress,
+                                        useCenter = false, topLeft = top, size = arcSize,
+                                        style = Stroke(width = strokeWidth + 5.dp.toPx(),
+                                            cap = StrokeCap.Round)
+                                    )
+                                    drawArc(
+                                        brush = Brush.sweepGradient(
+                                            listOf(aqua.copy(alpha = .70f),
+                                                Color(0xFF32F6E5), aqua)
+                                        ),
+                                        startAngle = 135f, sweepAngle = 270f * progress,
+                                        useCenter = false, topLeft = top, size = arcSize,
+                                        style = Stroke(width = strokeWidth,
+                                            cap = StrokeCap.Round)
+                                    )
+                                }
+                            }
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(1.dp),
+                                modifier = Modifier.padding(horizontal = 9.dp)
                             ) {
-                                Icon(Icons.Rounded.Info, "Explain net flow",
-                                    Modifier.size(16.dp), tint = aqua)
+                                Text(
+                                    "Net flow",
+                                    fontSize = 10.sp, lineHeight = 12.sp,
+                                    color = secondary, maxLines = 1
+                                )
+                                Text(
+                                    net?.let(::formatActivityMoney) ?: "Unavailable",
+                                    fontSize = if (compact) 8.sp else 9.sp,
+                                    lineHeight = 10.sp,
+                                    maxLines = 2,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (net != null && net < 0L)
+                                        MaterialTheme.colorScheme.error else foreground,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                IconButton(
+                                    onClick = onExplain,
+                                    modifier = Modifier.size(25.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Info, "Explain net flow",
+                                        Modifier.size(15.dp), tint = aqua
+                                    )
+                                }
                             }
                         }
                     }

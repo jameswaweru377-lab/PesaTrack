@@ -739,8 +739,11 @@ fun ActivityScreen(
     val periodReady = !payCycleMode ||
         (chosenCycle != null && loadedCycleStart == chosenCycle.startTransactionId &&
             !cycleLoading && !cycleError)
-    val periodLabel = if (payCycleMode && chosenCycle != null)
-        "Salary cycle " + monthLabel(chosenCycle.startEpochMs) else selectedMonthLabel
+    val periodLabel = when {
+        !payCycleMode -> selectedMonthLabel
+        chosenCycle == null -> "Salary cycle"
+        else -> approvedMoneyCardPeriodLabel(monthLabel(chosenCycle.startEpochMs), salaryMode = true)
+    }
     val currentReviewCount = displaySnapshot?.summary?.needsReviewCount ?: 0
     val nextMonthEpochMs =
         shiftMonth(selectedMonthEpochMs, 1)
@@ -961,6 +964,7 @@ fun ActivityScreen(
                 } else monthDaysRemaining(selectedMonthEpochMs, System.currentTimeMillis())
                     ?.let { it.toString() + " days left" } ?: "Past month"
                 Box(Modifier.padding(bottom = 9.dp)) { ActivityPremiumMoneyHero(
+                    periodLabel = periodLabel,
                     snapshot = if(periodReady) displaySnapshot else null,
                     previous = displayPrevious,
                     badge = badge, waiting = !periodReady,
