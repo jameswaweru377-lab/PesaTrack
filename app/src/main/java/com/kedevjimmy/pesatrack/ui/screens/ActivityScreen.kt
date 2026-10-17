@@ -68,7 +68,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -297,7 +296,6 @@ fun ActivityScreen(
                 ?: emptyActivityLedgerSnapshot()
         )
     }
-    var activityLoading by remember { mutableStateOf(warmData == null) }
     var activityError by remember { mutableStateOf(false) }
     var loadedMonthEpochMs by remember { mutableStateOf<Long?>(if (warmData != null) warmMonth else null) }
     var globalOverview by remember {
@@ -604,7 +602,6 @@ fun ActivityScreen(
     suspend fun reloadActivityData(
         requestedMonth: Long
     ) {
-        activityLoading = true
         activityError = false
         val started = android.os.SystemClock.elapsedRealtime()
         try {
@@ -624,9 +621,8 @@ fun ActivityScreen(
         // holding the transaction list behind slower secondary stores.
         applyActivityCoreData(core)
         loadedMonthEpochMs = requestedMonth
-        // Activity becomes usable as soon as the selected month's cash ledger
-        // is loaded. Slow diagnostics continue without a blocking spinner.
-        activityLoading = false
+        // The monthly ledger becomes available immediately; slow diagnostics
+        // continue in the background without any top loading indicator.
         val coreMs = android.os.SystemClock.elapsedRealtime() - started
 
         val supplemental =
@@ -660,8 +656,6 @@ fun ActivityScreen(
                 android.util.Log.e("PesaTrackActivity", "Activity could not load", failure)
                 activityError = true
             }
-        } finally {
-            if (selectedMonthEpochMs == requestedMonth) activityLoading = false
         }
     }
 
@@ -724,15 +718,30 @@ fun ActivityScreen(
         reloadActivityData(selectedMonthEpochMs)
     }
 
+    // Avoid an intrusive spinner or transient zero-amount ledger while a
+    // cold-start/month-switch snapshot is being read on Dispatchers.IO.
+    // This stable shell displays no fabricated totals. Existing error retry
+    // remains accessible when a real load failure occurs.
     if (loadedMonthEpochMs != selectedMonthEpochMs && !payCycleMode) {
-        LazyColumn(modifier = Modifier.padding(scaffoldPadding), contentPadding = PaddingValues(16.dp)) {
-            item {
-                Text(if (activityError) "Activity could not load" else "Loading activity…")
-                if (activityLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-                if (activityError) {
-                    Text("Your saved data is unchanged. Try loading this month again.")
-                    TextButton(onClick = { refresh() }) { Text("Try again") }
-                }
+        Column(
+            modifier = Modifier.padding(scaffoldPadding)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Text(
+                "Activity",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Your money, in context.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (activityError) {
+                Text("Activity could not load. Your saved data is unchanged.")
+                TextButton(onClick = { refresh() }) { Text("Try again") }
             }
         }
         return
@@ -936,12 +945,6 @@ fun ActivityScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            if (ledgerUpdateState.isProcessing) {
-                item {
-                    LiveActivityUpdateStatus()
-                }
-            }
-
             item {
                 Column(Modifier.padding(bottom = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
@@ -2856,34 +2859,6 @@ private fun ActivityMonthSectionHeader(
         Icon(if(expanded)Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
             if(expanded)"Collapse period" else "Expand period",
             Modifier.padding(start=6.dp).size(18.dp))
-    }
-}
-
-@Composable
-private fun LiveActivityUpdateStatus() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.primaryContainer
-    ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
-            Text(
-                "Updating activity…",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Text(
-                "A financial notification is being checked and reconciled.",
-                modifier = Modifier.padding(top = 2.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-            )
-        }
     }
 }
 
