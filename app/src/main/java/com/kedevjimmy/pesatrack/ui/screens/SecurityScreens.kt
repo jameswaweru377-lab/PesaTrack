@@ -726,7 +726,9 @@ fun BackupRestoreSheet(
                     message =
                         "Encrypted backup created • " +
                             it.rowCount +
-                            " financial records."
+                            " ledger-table rows and " +
+                            it.statementRows +
+                            " saved statement rows."
                     error = null
                 }.onFailure {
                     error =
@@ -815,9 +817,13 @@ fun BackupRestoreSheet(
                                 created +
                                 "\nSchema: v" +
                                 preview.schemaVersion +
-                                "\nRecords: " +
+                                "\nLedger-table rows: " +
                                 preview.rowCount +
-                                "\n\nRestoring replaces the current local PesaTrack database and backed-up preferences. Your app-lock PIN stays on this device."
+                                "\nSaved statement rows: " +
+                                preview.statementRows +
+                                (if (preview.statementHistoryIncluded) "" else
+                                    "\n\nOlder backup: it contains no Statement Activity. If this phone has saved statements, restore will be refused to protect them.") +
+                                "\n\nRestoring replaces the backed-up local ledger, statement archive (when included), and preferences. Your app-lock PIN stays on this device."
                         )
                     },
                     confirmButton = {
@@ -846,7 +852,9 @@ fun BackupRestoreSheet(
                                         message =
                                             "Restore complete • " +
                                                 it.rowCount +
-                                                " financial records restored."
+                                                " ledger-table rows and " +
+                                                it.statementRows +
+                                                " saved statement rows restored."
                                         error = null
                                         delay(450)
                                         (
