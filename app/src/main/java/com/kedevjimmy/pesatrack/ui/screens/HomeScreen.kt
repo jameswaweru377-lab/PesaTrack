@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.SouthWest
 import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.TrackChanges
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.automirrored.rounded.FactCheck
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
@@ -660,6 +661,79 @@ fun HomeScreen(
                     it.name.lowercase()
                 }
             )
+    // Design B uses the confirmed local ledger; no remote score provider.
+    val investmentStore = remember { com.kedevjimmy.pesatrack.data.local.InvestmentStore.get(context) }
+    var observedPositions by remember {
+        mutableStateOf<List<com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition>?>(null)
+    }
+    var showInvestments by remember { mutableStateOf(false) }
+    var showHomeHealthInfo by remember { mutableStateOf(false) }
+    var showNetFlowExplanation by remember { mutableStateOf(false) }
+    var showHomeMonthPicker by remember { mutableStateOf(false) }
+    var selectedHomeMonthOffset by remember { mutableStateOf(0) }
+    var pastMonthSnapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
+    var priorAlignedSnapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
+    var finishedMonthOffset by remember { mutableStateOf<Int?>(null) }
+    var historicalLoadFailed by remember { mutableStateOf(false) }
+    LaunchedEffect(ledgerUpdateState.revision) {
+        observedPositions = try {
+            withContext(Dispatchers.IO) { investmentStore.observedPositions() }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { null }
+    }
+    LaunchedEffect(selectedHomeMonthOffset, ledgerUpdateState.revision) {
+        finishedMonthOffset = null
+        historicalLoadFailed = false
+        try {
+            val historical = withContext(Dispatchers.IO) {
+                val today = java.util.Calendar.getInstance()
+                val monthStart = (today.clone() as java.util.Calendar).apply {
+                    set(java.util.Calendar.DAY_OF_MONTH, 1)
+                    set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    set(java.util.Calendar.MINUTE, 0)
+                    set(java.util.Calendar.SECOND, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                    add(java.util.Calendar.MONTH, -selectedHomeMonthOffset)
+                }
+                val next = (monthStart.clone() as java.util.Calendar).apply {
+                    add(java.util.Calendar.MONTH, 1)
+                }
+                val end = if (selectedHomeMonthOffset == 0)
+                    today.timeInMillis + 1L else next.timeInMillis
+                val priorStart = (monthStart.clone() as java.util.Calendar).apply {
+                    add(java.util.Calendar.MONTH, -1)
+                }
+                val priorEnd = if (selectedHomeMonthOffset == 0) {
+                    (priorStart.clone() as java.util.Calendar).apply {
+                        set(java.util.Calendar.DAY_OF_MONTH,
+                            minOf(today.get(java.util.Calendar.DAY_OF_MONTH),
+                                getActualMaximum(java.util.Calendar.DAY_OF_MONTH)))
+                        set(java.util.Calendar.HOUR_OF_DAY,
+                            today.get(java.util.Calendar.HOUR_OF_DAY))
+                        set(java.util.Calendar.MINUTE, today.get(java.util.Calendar.MINUTE))
+                        set(java.util.Calendar.SECOND, today.get(java.util.Calendar.SECOND))
+                    }.timeInMillis + 1L
+                } else monthStart.timeInMillis
+                val previous = transactionStore.activitySnapshotBetween(
+                    priorStart.timeInMillis, priorEnd, performMaintenance = false
+                )
+                val selected = if (selectedHomeMonthOffset == 0) null
+                else transactionStore.activitySnapshotBetween(
+                    monthStart.timeInMillis, end, performMaintenance = false
+                )
+                selected to previous
+            }
+            pastMonthSnapshot = historical.first
+            priorAlignedSnapshot = historical.second
+            finishedMonthOffset = selectedHomeMonthOffset
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) {
+            pastMonthSnapshot = null
+            priorAlignedSnapshot = null
+            historicalLoadFailed = true
+        }
+    }
+
     val expectedSalaryPrompt = remember(
         cycleSnapshot,
         salaryRule,
@@ -1018,419 +1092,273 @@ fun HomeScreen(
         )
     }
 
+    val selectedCalendar = remember(selectedHomeMonthOffset) {
+        Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            add(Calendar.MONTH, -selectedHomeMonthOffset)
+        }
+    }
+    val selectedMonthText = monthLabel(selectedCalendar.timeInMillis)
+    val chosenActivity = if(selectedHomeMonthOffset == 0) activitySnapshot
+        else if(finishedMonthOffset == selectedHomeMonthOffset) pastMonthSnapshot
+        else null
+    val priorActivity = if(finishedMonthOffset == selectedHomeMonthOffset)
+        priorAlignedSnapshot else null
+    val selectedMoneyIn = chosenActivity?.summary?.incomeMinor
+    val selectedSpending = chosenActivity?.summary?.let { summary ->
+        CheckedMoney.orNull {
+            maxOf(0L, CheckedMoney.total(summary.spentMinor,summary.feesMinor,
+                CheckedMoney.negate(summary.refundMinor)))
+        }
+    }
+    val selectedNetFlow = if(selectedMoneyIn != null && selectedSpending != null)
+        CheckedMoney.orNull { CheckedMoney.subtract(selectedMoneyIn,selectedSpending) }
+        else null
+    val daysRemaining = if(selectedHomeMonthOffset == 0)
+        monthDaysRemaining(selectedCalendar.timeInMillis, System.currentTimeMillis())
+        else null
+    val selectedTrusted = chosenActivity?.trustedTransactions.orEmpty()
+        .filter { it.reviewState != ReviewState.EXCLUDED.name }
+    val uncategorizedFraction = chosenActivity?.let {
+        val all = CheckedMoney.orNull {
+            selectedTrusted.filter { row ->
+                row.direction == MoneyDirection.EXPENSE.name &&
+                    row.reviewState != ReviewState.NEEDS_REVIEW.name
+            }.checkedMoneySumOf { row -> row.amountMinor }
+        }
+        val unknown = CheckedMoney.orNull {
+            selectedTrusted.filter { row ->
+                row.direction == MoneyDirection.EXPENSE.name &&
+                    row.reviewState != ReviewState.NEEDS_REVIEW.name &&
+                    categoryStore.canonicalId(row.category) in setOf("OTHER","UNCATEGORIZED")
+            }.checkedMoneySumOf { row -> row.amountMinor }
+        }
+        if(all != null && all > 0L && unknown != null) unknown.toDouble()/all.toDouble()
+        else null
+    }
+    val trustedRows = chosenActivity?.trustedTransactions?.count {
+        it.reviewState != ReviewState.EXCLUDED.name &&
+            it.reviewState != ReviewState.NEEDS_REVIEW.name
+    } ?: 0
+    val financialHealth = evaluateHomeFinancialSignals(
+        HomeFinancialSignalsInput(
+            budgetLimitMinor = if(selectedHomeMonthOffset==0) monthlyBudgetTotalMinor else null,
+            budgetSpentMinor = if(selectedHomeMonthOffset==0) monthlyBudgetSpentMinor else null,
+            uncategorizedShare = uncategorizedFraction,
+            currentSpentMinor = selectedSpending,
+            previousAlignedSpentMinor = priorActivity?.summary?.spentMinor,
+            incomeMinor = selectedMoneyIn,
+            debtOutstandingMinor = if(selectedHomeMonthOffset==0)
+                activeDebtOutstandingMinor else null,
+            unknownDebtBalances = activeDebtAccounts.any {
+                it.balanceQuality == com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality.UNKNOWN
+            },
+            feesMinor = chosenActivity?.summary?.feesMinor,
+            currentTrustedRows = trustedRows,
+            previousTrustedRows = priorActivity?.trustedTransactions?.size ?: 0,
+            pendingReviews = if(selectedHomeMonthOffset==0) needsAttentionCount
+                else chosenActivity?.summary?.needsReviewCount ?: 0,
+            confirmedAccountCount = visibleAccountGroups.size,
+            hasConfirmedSalaryCycle = selectedHomeMonthOffset==0 &&
+                cycleSnapshot.cycle != null
+        )
+    )
+    val monthTransactions = if (selectedHomeMonthOffset == 0)
+        recentCanonicalTransactions.take(3)
+    else selectedTrusted.sortedByDescending { it.occurredAtEpochMs }.take(3)
+    if(showHomeMonthPicker) AlertDialog(
+        onDismissRequest={showHomeMonthPicker=false},
+        title={Text("Choose month")},
+        text={
+            Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                (0..8).forEach { offset ->
+                    val c=Calendar.getInstance().apply {
+                        set(Calendar.DAY_OF_MONTH,1)
+                        add(Calendar.MONTH,-offset)
+                    }
+                    TextButton(onClick={
+                        selectedHomeMonthOffset=offset
+                        showHomeMonthPicker=false
+                    },modifier=Modifier.fillMaxWidth()){
+                        Text(monthLabel(c.timeInMillis))
+                    }
+                }
+            }
+        },
+        confirmButton={TextButton(onClick={showHomeMonthPicker=false}){Text("Close")}}
+    )
+    if(showHomeHealthInfo) AlertDialog(
+        onDismissRequest={showHomeHealthInfo=false},
+        title={Text("Your financial snapshot")},
+        text={
+            Column(verticalArrangement=Arrangement.spacedBy(7.dp)) {
+                Text("PesaTrack estimates four local indicators using recorded activity. This is not a credit score, a prediction of insolvency, or a standardized financial well-being assessment.",
+                    style=MaterialTheme.typography.bodySmall)
+                Text(financialHealth.explanation,
+                    style=MaterialTheme.typography.bodyMedium)
+                financialHealth.indicators.forEach {
+                    Text(it.title+": "+(it.score?.let { n -> n.toString()+"/100" }?:"Not available"),
+                        fontWeight=FontWeight.SemiBold)
+                    Text(it.reason,style=MaterialTheme.typography.labelSmall,
+                        color=MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text("Missing bank imports, uncategorized transactions, or an unconfirmed salary can limit this assessment.",
+                    style=MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton={TextButton(onClick={showHomeHealthInfo=false}){Text("Close")}},
+        dismissButton={TextButton(onClick={
+            showHomeHealthInfo=false
+            onPlanClick()
+        }){Text("Review plan")}}
+    )
+    if(showNetFlowExplanation) AlertDialog(
+        onDismissRequest={showNetFlowExplanation=false},
+        title={Text("About net flow")},
+        text={Text("Net flow is recorded income minus trusted spending and recorded fees, adjusted for refunds. It is NOT your live bank balance or spendable money after bills. Transfers and loan principal should remain separate.")},
+        confirmButton={TextButton(onClick={showNetFlowExplanation=false}){Text("Close")}}
+    )
+    if(showInvestments) HomeBInvestmentsDialog(
+        positions=observedPositions.orEmpty(),
+        onDismiss={showInvestments=false}
+    )
+
     LazyColumn(
-        modifier = Modifier
-            .padding(scaffoldPadding)
+        modifier = Modifier.padding(scaffoldPadding)
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        contentPadding = PaddingValues(horizontal=13.dp,vertical=11.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
-        item {
-            GreetingBlock(onProfileClick = onProfileClick)
-        }
-        if (homeError) item {
-            Text("Your money picture could not load")
-            Text("Showing your last successfully loaded money picture.")
-            TextButton(onClick = { refresh() }) { Text("Try again") }
-        }
-
-        item {
-            ConceptEmeraldHero(
-                artwork = false,
-                title = if (cycleSnapshot.cycle == null) "Account balances" else "Available after commitments",
-                amount =
-                    if (cycleSnapshot.cycle == null) {
-                        com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.totalKnown(
-                            accountBalanceSnapshots.filter { snapshot -> trackedAccounts.any { it.id == snapshot.accountId && AccountDisplayPolicy.isConfirmedOwned(it, confirmedAccountIds, includeCash = true) } }.map { snapshot ->
-                                val account = trackedAccounts.first { it.id == snapshot.accountId }
-                                com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy.savingsBalance(snapshot.balanceMinor, account.type == AccountType.SAVINGS, snapshot.quality == com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality.RECONSTRUCTED)
-                            }
-                        )?.let(::formatMoney) ?: "Balance unavailable"
-                    } else if (planningAvailability == null) {
-                        "Amount unavailable"
-                    } else {
-                        formatMoney(planningAvailability.availableMinor)
-                    },
-                subtitle =
-                    if (planningAvailability == null) {
-                        "The planning amount cannot be represented safely."
-                    } else if (planningAvailability.shortfallMinor > 0L) {
-                        "Planning shortfall " + formatMoney(planningAvailability.shortfallMinor)
-                    } else if (cycleSnapshot.cycle != null) {
-                        "Available after commitments • updated from your real activity"
-                    } else {
-                        "Based on available account records • not a live bank balance"
-                    },
-                eyebrow = visibleAccountGroups.size.toString() + " tracked account" +
-                    if (visibleAccountGroups.size == 1) "" else "s"
+        item(key="b-greeting") {
+            HomeBGreeting(
+                preferences.getString("profile_name","").orEmpty()
+                    .trim().split(Regex("\\s+")).firstOrNull().orEmpty()
             )
         }
-
-        item {
-            Text(
-                "This calendar month · " + monthLabel(System.currentTimeMillis()),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        if(homeError) item(key="b-error") {
+            Text("Showing the most recently recorded money data.",
+                color=MaterialTheme.colorScheme.error,
+                style=MaterialTheme.typography.bodySmall)
+            TextButton(onClick={refresh()}){Text("Retry")}
+        }
+        item(key="b-period") {
+            HomeBPeriod(selectedMonthText, daysRemaining) {
+                showHomeMonthPicker=true
+            }
+        }
+        item(key="b-health") {
+            HomeBHealth(financialHealth) { showHomeHealthInfo=true }
+        }
+        item(key="b-money") {
+            HomeBMonthly(
+                month=SimpleDateFormat("MMMM",Locale.getDefault())
+                    .format(selectedCalendar.time),
+                daysLeft=daysRemaining,
+                moneyIn=selectedMoneyIn?.let(::formatMoney)?:"Updating…",
+                moneyOut=selectedSpending?.let(::formatMoney)?:"Updating…",
+                netFlow=selectedNetFlow?.let(::formatMoney)?:"Unavailable",
+                negative=(selectedNetFlow?:0L)<0L,
+                inComparison=if(priorActivity==null || selectedMoneyIn==null)
+                    null else periodPercentChange(selectedMoneyIn,
+                        priorActivity.summary.incomeMinor),
+                outComparison=if(priorActivity==null || selectedSpending==null)
+                    null else periodPercentChange(selectedSpending,
+                        priorActivity.summary.spentMinor),
+                progress=if(selectedMoneyIn==null || selectedSpending==null)null
+                    else netFlowRingProgress(selectedMoneyIn,selectedSpending),
+                onExplain={showNetFlowExplanation=true}
             )
         }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                ConceptMetricTile(
-                    icon = Icons.Rounded.SouthWest,
-                    label = "Money in",
-                    value = formatMoney(activitySnapshot.summary.incomeMinor),
-                    modifier = Modifier.weight(1f),
-                    positive = true
-                )
-                ConceptMetricTile(
-                    icon = Icons.Rounded.NorthEast,
-                    label = "Net spent",
-                    value = formatMoney(totalTrustedSpendingMinor),
-                    modifier = Modifier.weight(1f),
-                    positive = false
+        if(historicalLoadFailed && selectedHomeMonthOffset != 0) item {
+            Text("This month could not be loaded. No figures were estimated.",
+                style=MaterialTheme.typography.bodySmall,
+                color=MaterialTheme.colorScheme.error)
+        }
+        if(selectedHomeMonthOffset==0 && !recordedSpendingInsight.isNullOrBlank()) {
+            item(key="b-insight") {
+                HomeBInsight(recordedSpendingInsight.orEmpty(),onClick=onActivityClick)
+            }
+        } else if(selectedHomeMonthOffset==0 && needsAttentionCount>0) {
+            item(key="b-attention-insight") {
+                HomeBInsight(
+                    needsAttentionCount.toString()+
+                        " transactions or relationships need review.",
+                    onClick=onAttentionClick
                 )
             }
         }
-        item {
-            TextButton(onClick = { spendingExplanationExpanded = !spendingExplanationExpanded },
-                modifier = Modifier.fillMaxWidth()) {
-                Text(if (spendingExplanationExpanded) "Hide money calculation"
-                    else "What does net spent include?")
-            }
-            if (spendingExplanationExpanded) Text(
-                "Net spent includes tracked fees and subtracts refunds. " +
-                    "Statements may cover different accounts, dates and reviewed expenses.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        if (needsAttentionCount > 0) {
-            item {
-                PesaCard(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable(
-                                onClick =
-                                    onAttentionClick
-                            )
-                ) {
-                    Row(
-                        modifier =
-                            Modifier.padding(
-                                15.dp
-                            ),
-                        verticalAlignment =
-                            Alignment
-                                .CenterVertically
-                    ) {
-                        IconBubble(
-                            Icons.AutoMirrored
-                                .Rounded
-                                .FactCheck,
-                            size = 44.dp,
-                            background =
-                                MaterialTheme
-                                    .colorScheme
-                                    .tertiaryContainer,
-                            tint =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onTertiaryContainer
-                        )
-                        Column(
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .padding(
-                                        start = 12.dp
-                                    )
-                        ) {
-                            Text(
-                                "Needs Attention",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .titleMedium
-                            )
-                            Text(
-                                needsAttentionCount
-                                    .toString() +
-                                    " item" +
-                                    if (
-                                        needsAttentionCount ==
-                                        1
-                                    ) {
-                                        " needs"
-                                    } else {
-                                        "s need"
-                                    } +
-                                    " your help",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                        }
-                        Icon(
-                            Icons.Rounded
-                                .ChevronRight,
-                            contentDescription =
-                                null,
-                            tint =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-
-
-        item {
-            HomeUpcomingBillsCard(
-                bills =
-                    upcomingBills,
-                onBillsClick =
-                    onBillsClick
-            )
-        }
-        item {
-            TextButton(onClick = { homeActionsExpanded = !homeActionsExpanded },
-                modifier = Modifier.fillMaxWidth()) {
-                Text(if (homeActionsExpanded) "Hide shortcuts" else "More money tools")
-            }
-        }
-        if (homeActionsExpanded) item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                HomeConceptAction(
-                    icon = Icons.Rounded.AddCircle,
-                    label = "Add salary",
-                    modifier = Modifier.weight(1f),
-                    onClick = onSalaryClick
+        item(key="b-accounts-pair") {
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                HomeBTile(
+                    "Debts & loans",
+                    activeDebtOutstandingMinor?.let(::formatMoney)?:"Amount unavailable",
+                    activeDebtAccounts.size.toString()+
+                        if(activeDebtAccounts.size==1)" active debt" else " active debts",
+                    androidx.compose.material.icons.Icons.Rounded.AccountBalance,
+                    androidx.compose.ui.graphics.Color(0xFFB7A4FF),
+                    onClick=onDebtsClick,modifier=Modifier.weight(1f)
                 )
-                HomeConceptAction(
-                    icon = Icons.Rounded.ReceiptLong,
-                    label = "Bills",
-                    modifier = Modifier.weight(1f),
-                    onClick = onBillsClick
-                )
-                HomeConceptAction(
-                    icon = Icons.Rounded.TrackChanges,
-                    label = "Goals",
-                    modifier = Modifier.weight(1f),
-                    onClick = onGoalsClick
-                )
-                HomeConceptAction(
-                    icon = Icons.Rounded.Insights,
-                    label = "Reports",
-                    modifier = Modifier.weight(1f),
-                    onClick = onReportsClick
+                HomeBTile(
+                    "Investments",
+                    "Value unavailable",
+                    observedPositions?.size?.let { n ->
+                        n.toString()+if(n==1)" observed position" else " observed positions"
+                    }?:"Checking records",
+                    androidx.compose.material.icons.Icons.Rounded.TrendingUp,
+                    androidx.compose.ui.graphics.Color(0xFF42E5D2),
+                    onClick={showInvestments=true},modifier=Modifier.weight(1f)
                 )
             }
         }
-
-        if (monthlyBudgetTotalMinor == null || monthlyBudgetSpentMinor == null) item {
-            Text("Monthly plan total unavailable")
-        }
-        if (monthlyBudgetTotalMinor != null && monthlyBudgetTotalMinor > 0L && monthlyBudgetSpentMinor != null) {
-            item {
-                ConceptProgressCard(
-                    title = "Monthly plan",
-                    amount = formatMoney(
-                        CheckedMoney.subtract(monthlyBudgetTotalMinor, monthlyBudgetSpentMinor)
-                            .coerceAtLeast(0L)
-                    ) + " left",
-                    helper =
-                        formatMoney(monthlyBudgetSpentMinor) + " of " +
-                            formatMoney(monthlyBudgetTotalMinor) + " used",
-                    progress =
-                        (monthlyBudgetSpentMinor.toFloat() /
-                            monthlyBudgetTotalMinor.toFloat())
-                            .coerceIn(0f, 1f),
-                    modifier = Modifier.clickable(onClick = onPlanClick),
-                    icon = Icons.Rounded.TrackChanges
+        item(key="b-tools-pair") {
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                HomeBTile(
+                    "Upcoming bills",
+                    if(upcomingBills.isEmpty())"None due"
+                    else upcomingBills.size.toString() + " due",
+                    if(upcomingBills.isEmpty())"Nothing due this month"
+                    else "View due dates",
+                    androidx.compose.material.icons.Icons.Rounded.CalendarMonth,
+                    androidx.compose.ui.graphics.Color(0xFFFFC55C),
+                    onClick=onBillsClick,modifier=Modifier.weight(1f)
+                )
+                HomeBTile(
+                    "Enter salary",
+                    if(cycleSnapshot.cycle==null)"Set up pay"
+                    else "Pay cycle active",
+                    if(cycleSnapshot.pendingSalary!=null)
+                        "Salary needs confirmation" else "Review salary details",
+                    androidx.compose.material.icons.Icons.Rounded.Paid,
+                    androidx.compose.ui.graphics.Color(0xFF39BDF5),
+                    onClick=onSalaryClick,modifier=Modifier.weight(1f)
                 )
             }
         }
-
-        cycleSnapshot.pendingSalary?.let {
-                candidate ->
-            item {
-                PendingSalaryCard(
-                    candidate = candidate,
-                    onStartCycle = {
-                        cycleStore
-                            .confirmNewCycle(
-                                candidate
-                                    .transactionId
-                            )
-                        refresh()
-                    },
-                    onKeepAsIncome = {
-                        cycleStore
-                            .keepAsAdditionalIncome(
-                                candidate
-                                    .transactionId
-                            )
-                        refresh()
-                    }
-                )
-            }
-        }
-
-        if (
-            cycleSnapshot.pendingSalary ==
-            null &&
-            expectedSalaryPrompt != null
-        ) {
-            item {
-                ExpectedSalaryCard(
-                    prompt =
-                        expectedSalaryPrompt,
-                    onAddSalary = onSalaryClick,
-                    onNotPaidYet = {
-                        com.kedevjimmy.pesatrack.salary.SalaryReminders.defer(context)
-                        salaryPromptDeferredUntil = preferences.getLong("salary_prompt_deferred_until", 0L)
-                    }
-                )
-            }
-        }
-
-
-        if (
-            cycleSnapshot
-                .unexplainedFundingGapMinor >
-            0L
-        ) {
-            item {
-                FundingGapCard(
-                    cycleSnapshot
-                        .unexplainedFundingGapMinor
-                )
-            }
-        }
-
-        item {
-            HomeTodayCard(
-                spentTodayMinor =
-                    spentTodayMinor,
-                safeTodayMinor =
-                    cycleSnapshot
-                        .safeTodayMinor,
-                activeCycle =
-                    cycleSnapshot.cycle !=
-                        null,
-                onProtectMoney = {
-                    showProtectionDialog =
-                        true
-                }
-            )
-        }
-
-
-
-        item {
-            val mpesaAccount =
-                trackedAccounts
-                    .firstOrNull {
-                        it.id ==
-                            AccountStore
-                                .DEFAULT_MPESA_ID
-                    }
-            HomeMoneyPictureCard(
-                walletLabel =
-                    mpesaAccount
-                        ?.let {
-                            AccountIdentityPresentation
-                                .title(it)
-                        }
-                        ?: "M-Pesa",
-                knownBalanceMinor =
-                    accountBalanceSnapshots
-                        .firstOrNull {
-                            it.accountId ==
-                                AccountStore
-                                    .DEFAULT_MPESA_ID
-                        }
-                        ?.balanceMinor,
-                balanceObservedAtEpochMs =
-                    accountBalanceSnapshots
-                        .firstOrNull {
-                            it.accountId ==
-                                AccountStore
-                                    .DEFAULT_MPESA_ID
-                        }
-                        ?.referenceEpochMs,
-                accountCount =
-                    visibleAccountGroups.size,
-                confidenceScore =
-                    moneyPictureHealth.score,
-                confidenceLabel =
-                    moneyPictureHealth.label,
-                debtOutstandingMinor =
-                    activeDebtOutstandingMinor,
-                debtAccountCount =
-                    activeDebtAccounts.size,
-                onAccountsClick =
-                    onAccountsClick,
-                onDebtsClick =
-                    onDebtsClick
-            )
-        }
-
-        item {
-            HomeWhereMoneyWentCard(
-                items =
-                    homeSpendingItems,
-                totalMinor =
-                    totalTrustedSpendingMinor,
-                onPlanClick =
-                    onPlanClick,
-                onReviewClick =
-                    onActivityClick
-            )
-        }
-
-        item {
-            HomeRecentActivityCard(
-                transactions =
-                    recentCanonicalTransactions,
-                categoryLabel = {
-                    categoryStore
-                        .labelFor(it)
+        if(cycleSnapshot.pendingSalary != null) item(key="b-confirm-salary") {
+            PendingSalaryCard(
+                candidate=requireNotNull(cycleSnapshot.pendingSalary),
+                onStartCycle={
+                    cycleStore.confirmNewCycle(requireNotNull(cycleSnapshot.pendingSalary).transactionId)
+                    refresh()
                 },
-                onTransactionClick =
-                    onTransactionClick,
-                onSeeAll =
-                    onActivityClick
+                onKeepAsIncome={
+                    cycleStore.keepAsAdditionalIncome(requireNotNull(cycleSnapshot.pendingSalary).transactionId)
+                    refresh()
+                }
             )
         }
-
-        item {
-            SmartInsightCard(
-                title =
-                    "One useful insight",
-                body =
-                    homeInsight(
-                        cycleSnapshot =
-                            cycleSnapshot,
-                        needsReviewCount =
-                            needsAttentionCount,
-                        recordedSpendingInsight = recordedSpendingInsight
-                    )
+        if(cycleSnapshot.unexplainedFundingGapMinor > 0L) item(key="b-gap") {
+            FundingGapCard(cycleSnapshot.unexplainedFundingGapMinor)
+        }
+        item(key="b-recent") {
+            HomeBRecent(
+                rows=monthTransactions,
+                category={categoryStore.labelFor(it)},
+                money={formatMoney(it)},
+                onOpen=onTransactionClick,
+                onAll=onActivityClick
             )
         }
     }

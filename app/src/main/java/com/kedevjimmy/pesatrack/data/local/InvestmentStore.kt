@@ -13,6 +13,13 @@ enum class InvestmentEventType {
     SELL_EXECUTED
 }
 
+/** Observed execution deltas, not authoritative balances or market valuations. */
+data class ObservedInvestmentPosition(
+    val label: String,
+    val quantityMicrounits: Long,
+    val quality: String
+)
+
 data class InvestmentWriteResult(
     val inserted: Boolean,
     val linkedTransactionId: Long?,
@@ -39,6 +46,29 @@ class InvestmentStore private constructor(
     private val database = PesaTrackDatabase.get(appContext)
     private val transactionStore =
         TransactionStore.get(appContext)
+
+    fun observedPositions(): List<ObservedInvestmentPosition> =
+        synchronized(CanonicalStoreLock.monitor) {
+            database.readableDatabase.rawQuery(
+                """
+                SELECT instrument_label, net_observed_quantity_microunits, quality
+                FROM investment_positions
+                WHERE net_observed_quantity_microunits != 0
+                ORDER BY instrument_label COLLATE NOCASE
+                """.trimIndent(),
+                null
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) add(
+                        ObservedInvestmentPosition(
+                            label = cursor.getString(0),
+                            quantityMicrounits = cursor.getLong(1),
+                            quality = cursor.getString(2)
+                        )
+                    )
+                }
+            }
+        }
 
     fun record(
         fact: SemanticInvestmentFact,
