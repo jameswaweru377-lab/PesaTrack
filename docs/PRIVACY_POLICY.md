@@ -11,9 +11,17 @@ Depending on the features you choose to enable, PesaTrack can process:
 - financial notifications you explicitly allow the notification-listener service to access;
 - transaction, account, debt, salary, budget, bill and saving-goal information derived from that evidence;
 - manual corrections, categories and settings you enter;
+- optional financial-health context that you enter yourself, including accessible
+  emergency savings, essential monthly costs and required debt repayments;
 - app-lock and encrypted-backup settings.
 
 The local PesaTrack database on your device is the primary source of truth.
+
+Financial-health context is saved in app-private local preferences, included in
+user-created encrypted backups, and never added to the transaction ledger. Those
+user-entered amounts need reconfirmation after 30 days to influence an assessment.
+PesaTrack's financial-health guidance is an indicative local calculation, not
+a credit score or a standardized assessment.
 
 ## SMS permission
 
