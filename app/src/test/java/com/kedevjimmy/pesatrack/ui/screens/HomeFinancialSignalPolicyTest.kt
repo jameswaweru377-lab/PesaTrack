@@ -100,6 +100,15 @@ class HomeFinancialSignalPolicyTest {
         }
     }
 
+    @Test fun aSingleFinancialReviewMakesOverallProvisionalButKeepsUsefulSignals() {
+        val result=evaluateHomeFinancialSignals(complete().copy(pendingReviews=1))
+        assertNull(result.score)
+        assertNotNull(result.indicators[0].score)
+        assertNotNull(result.indicators[3].score)
+        assertTrue(result.indicators[0].reason.contains("Provisional"))
+        assertTrue(result.actions.any { it.destination=="activity" })
+    }
+
     @Test fun spendingIsAssessedAgainstElapsedMonthNotJustAbsoluteBudget() {
         val mid=evaluateHomeFinancialSignals(complete())
         val quick=evaluateHomeFinancialSignals(complete().copy(elapsedMonthFraction=.30))
@@ -132,6 +141,6 @@ class HomeFinancialSignalPolicyTest {
         assertNull(invalid.indicators[3].score)
         val historical=evaluateHomeFinancialSignals(complete().copy(isCurrentMonth=false))
         assertNull(historical.score)
-        assertNull(historical.indicators[3].score)
+        assertTrue(historical.indicators.all { it.score == null })
     }
 }

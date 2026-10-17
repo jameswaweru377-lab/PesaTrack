@@ -1172,8 +1172,10 @@ fun HomeScreen(
             feesMinor = chosenActivity?.summary?.feesMinor,
             currentTrustedRows = trustedRows,
             previousTrustedRows = priorActivity?.trustedTransactions?.size ?: 0,
-            pendingReviews = if(selectedHomeMonthOffset==0) needsAttentionCount
-                else chosenActivity?.summary?.needsReviewCount ?: 0,
+            // Only actual financial transaction reviews restrict score trust.
+            // Optional identity or relationship prompts remain actionable, but
+            // they are not proof that every trusted cash flow is inaccurate.
+            pendingReviews = chosenActivity?.summary?.needsReviewCount ?: 0,
             confirmedAccountCount = visibleAccountGroups.size,
             hasConfirmedSalaryCycle = selectedHomeMonthOffset==0 &&
                 cycleSnapshot.cycle != null,

@@ -59,9 +59,13 @@ States must not be benchmarked against US consumer survey norms.
    coverage is also needed for an optional overall score.
 
 Overall score is **suppressed** unless the current month and each of the four
-real-money pillars has enough supporting data, and previous-month records are
-adequate. Missing evidence is not scored as healthy zero. A full score is
-neither promised nor required to see helpful observations.
+real-money pillars has enough supporting data, there are no pending financial
+transaction reviews, and previous-month records are adequate. Individual
+cash-flow and spending observations may still be shown as **provisional** from
+trusted activity when there are outstanding reviews; unrelated optional
+identity questions must not hide those observations. Missing evidence is
+not scored as healthy zero. A full score is neither promised nor required
+to see helpful observations.
 
 ## User-controlled context
 

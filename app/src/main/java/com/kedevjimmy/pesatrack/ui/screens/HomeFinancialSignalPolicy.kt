@@ -97,7 +97,7 @@ internal fun evaluateHomeFinancialSignals(input: HomeFinancialSignalsInput): Hom
     // Cash flow is observed income minus tracked outflow for this calendar
     // window, not the amount available after future bills and not bank balance.
     val cashRatio = if (input.currentTrustedRows >= 5 &&
-        input.hasConfirmedSalaryCycle && input.pendingReviews == 0)
+        input.hasConfirmedSalaryCycle)
         share(input.currentSpentMinor, input.incomeMinor) else null
     val cashFlow = HomeSignal(
         "Cash flow",
@@ -111,15 +111,16 @@ internal fun evaluateHomeFinancialSignals(input: HomeFinancialSignalsInput): Hom
         },
         if (cashRatio == null)
             "Recorded income and reviewed outflow are needed. Missing income is not zero."
-        else "Tracked outflow is ${percentage(cashRatio)} of this period's income. This excludes unpaid future bills."
+        else (if (input.pendingReviews > 0) "Provisional while transactions need review. " else "") +
+            "Tracked outflow is ${percentage(cashRatio)} of this period's income. This excludes unpaid future bills."
     )
 
     // Savings resilience requires actual earmarked liquid reserves and
     // essential costs. A transfer, goal or protected budget is not a reserve.
-    val reserveMonths = share(
+    val reserveMonths = if (input.isCurrentMonth) share(
         input.confirmedEmergencyReserveMinor,
         input.confirmedEssentialCostsMinor
-    )
+    ) else null
     val savings = HomeSignal(
         "Savings",
         reserveMonths?.let { months ->
@@ -130,7 +131,9 @@ internal fun evaluateHomeFinancialSignals(input: HomeFinancialSignalsInput): Hom
                 else -> 95
             }
         },
-        if (reserveMonths == null)
+        if (!input.isCurrentMonth)
+            "Verified historical emergency savings are not available for this past month."
+        else if (reserveMonths == null)
             "Emergency savings and monthly essentials are unconfirmed. Transfers are not proof of a cash reserve."
         else "Confirmed emergency reserve covers about ${(reserveMonths * 10).roundToInt() / 10.0} months of essentials."
     )
@@ -141,7 +144,7 @@ internal fun evaluateHomeFinancialSignals(input: HomeFinancialSignalsInput): Hom
     val hasConfirmedRepayments =
         (input.debtAccountCount > 0 && repaymentEvidence != null && repaymentEvidence > 0L) ||
         (input.debtAccountCount == 0 && repaymentEvidence == 0L)
-    val repaymentRatio = if (!input.unknownDebtBalances &&
+    val repaymentRatio = if (input.isCurrentMonth && !input.unknownDebtBalances &&
         hasConfirmedRepayments && input.hasConfirmedSalaryCycle)
         share(repaymentEvidence, input.incomeMinor) else null
     val debt = HomeSignal(
@@ -155,6 +158,7 @@ internal fun evaluateHomeFinancialSignals(input: HomeFinancialSignalsInput): Hom
             }
         },
         when {
+            !input.isCurrentMonth -> "Historical required debt repayments are not verified for this month."
             input.unknownDebtBalances -> "One or more debt balances are unknown; affordability cannot be assessed."
             input.debtAccountCount == 0 && repaymentRatio != null ->
                 "You entered no repayments due and no active debt is recorded. Unrecorded debts may still exist."
@@ -170,7 +174,7 @@ internal fun evaluateHomeFinancialSignals(input: HomeFinancialSignalsInput): Hom
         it.isFinite() && it in .25..1.0
     }
     val budgetRatio = if (input.isCurrentMonth && validCategoryCoverage &&
-        input.currentTrustedRows >= 5 && input.pendingReviews == 0 && progress != null)
+        input.currentTrustedRows >= 5 && progress != null)
         share(input.budgetSpentMinor, input.budgetLimitMinor) else null
     val paceRatio = if (budgetRatio != null) budgetRatio / progress!! else null
     val spending = HomeSignal(
@@ -190,7 +194,8 @@ internal fun evaluateHomeFinancialSignals(input: HomeFinancialSignalsInput): Hom
             !input.isCurrentMonth -> "Historical month: review actual results, not a current-month pace projection."
             progress == null -> "Early month or unavailable calendar progress; spending pace is not yet reliable."
             paceRatio == null -> "More trusted spending activity is needed."
-            else -> "At the current rate, spending pace is about ${percentage(paceRatio)} of the budget allowance for this point in the month."
+            else -> (if (input.pendingReviews > 0) "Provisional while transactions need review. " else "") +
+                "At the current rate, spending pace is about ${percentage(paceRatio)} of the budget allowance for this point in the month."
         }
     )
 

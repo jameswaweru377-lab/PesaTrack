@@ -1,4 +1,12 @@
-# Home Design B: financial snapshot contract
+# Home Design B: financial snapshot contract (historical)
+
+> **Historical v1 specification, superseded.** The implementation in
+> [Financial Health Guidance V2](financial-health-guidance-v2.md) replaces
+> this four-signal Budget/Spending/Debt/Fees formula with evidence-aware
+> Cash flow/Savings/Debt/Spending guidance plus separate Data confidence.
+> Keep the notes below only as an audit trail for the original design;
+> V2 is authoritative for current behavior and validation.
+>
 
 This screen is a *PesaTrack activity-derived indicator*, not the CFPB
 Financial Well-Being Scale, Financial Health Network FinHealth Score,
