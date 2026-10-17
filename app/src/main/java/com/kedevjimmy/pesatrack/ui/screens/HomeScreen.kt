@@ -1092,6 +1092,7 @@ fun HomeScreen(
         )
     }
 
+    val homeConfigurationLocale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val selectedCalendar = remember(selectedHomeMonthOffset) {
         Calendar.getInstance().apply {
             set(Calendar.DAY_OF_MONTH, 1)
@@ -1114,6 +1115,12 @@ fun HomeScreen(
     val selectedNetFlow = if(selectedMoneyIn != null && selectedSpending != null)
         CheckedMoney.orNull { CheckedMoney.subtract(selectedMoneyIn,selectedSpending) }
         else null
+    val comparablePriorSpending = priorActivity?.summary?.let { summary ->
+        CheckedMoney.orNull {
+            maxOf(0L, CheckedMoney.total(summary.spentMinor,summary.feesMinor,
+                CheckedMoney.negate(summary.refundMinor)))
+        }
+    }
     val daysRemaining = if(selectedHomeMonthOffset == 0)
         monthDaysRemaining(selectedCalendar.timeInMillis, System.currentTimeMillis())
         else null
@@ -1146,7 +1153,7 @@ fun HomeScreen(
             budgetSpentMinor = if(selectedHomeMonthOffset==0) monthlyBudgetSpentMinor else null,
             uncategorizedShare = uncategorizedFraction,
             currentSpentMinor = selectedSpending,
-            previousAlignedSpentMinor = priorActivity?.summary?.spentMinor,
+            previousAlignedSpentMinor = comparablePriorSpending,
             incomeMinor = selectedMoneyIn,
             debtOutstandingMinor = if(selectedHomeMonthOffset==0)
                 activeDebtOutstandingMinor else null,
@@ -1251,7 +1258,8 @@ fun HomeScreen(
         }
         item(key="b-money") {
             HomeBMonthly(
-                month=SimpleDateFormat("MMMM",Locale.getDefault())
+                isCurrent=selectedHomeMonthOffset==0,
+                month=SimpleDateFormat("MMMM",homeConfigurationLocale)
                     .format(selectedCalendar.time),
                 daysLeft=daysRemaining,
                 moneyIn=selectedMoneyIn?.let(::formatMoney)?:"Updating…",
@@ -1261,9 +1269,9 @@ fun HomeScreen(
                 inComparison=if(priorActivity==null || selectedMoneyIn==null)
                     null else periodPercentChange(selectedMoneyIn,
                         priorActivity.summary.incomeMinor),
-                outComparison=if(priorActivity==null || selectedSpending==null)
+                outComparison=if(comparablePriorSpending==null || selectedSpending==null)
                     null else periodPercentChange(selectedSpending,
-                        priorActivity.summary.spentMinor),
+                        comparablePriorSpending),
                 progress=if(selectedMoneyIn==null || selectedSpending==null)null
                     else netFlowRingProgress(selectedMoneyIn,selectedSpending),
                 onExplain={showNetFlowExplanation=true}

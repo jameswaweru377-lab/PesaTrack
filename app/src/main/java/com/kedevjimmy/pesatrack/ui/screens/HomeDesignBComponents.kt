@@ -169,13 +169,14 @@ internal fun HomeBHealth(health:HomeFinancialSignals,onDetails:()->Unit) {
 
 @Composable
 internal fun HomeBMonthly(
-    month:String,daysLeft:Int?,moneyIn:String,moneyOut:String,
+    isCurrent:Boolean,month:String,daysLeft:Int?,moneyIn:String,moneyOut:String,
     netFlow:String,negative:Boolean,inComparison:Int?,outComparison:Int?,
     progress:Float?,onExplain:()->Unit
 ) {
     DesignBCard {
         Row(verticalAlignment=Alignment.CenterVertically) {
-            Text("This month ("+month+")",Modifier.weight(1f),
+            Text(if(isCurrent) "This month ("+month+")" else month,
+                Modifier.weight(1f),
                 style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.Bold)
             if(daysLeft!=null) Text(daysLeft.toString()+" days left",
                 style=MaterialTheme.typography.labelSmall,color=turquoise)
@@ -205,15 +206,26 @@ internal fun HomeBMonthly(
                 }
             }
         }
-        Canvas(Modifier.fillMaxWidth().height(17.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(22.dp)) {
             val w=size.width;val h=size.height
             val p=androidx.compose.ui.graphics.Path().apply {
-                moveTo(0f,h*.58f)
-                cubicTo(w*.15f,-h*.2f,w*.31f,h*1.6f,w*.46f,h*.48f)
-                cubicTo(w*.61f,-h*.1f,w*.76f,h*1.6f,w,h*.45f)
+                moveTo(0f,h*.59f)
+                cubicTo(w*.14f,-h*.2f,w*.26f,h*1.40f,w*.42f,h*.55f)
+                cubicTo(w*.59f,-h*.23f,w*.73f,h*1.69f,w,h*.46f)
             }
-            drawPath(p,turquoise.copy(alpha=.7f),
-                style=Stroke(1.7.dp.toPx(),cap=StrokeCap.Round))
+            val area=androidx.compose.ui.graphics.Path().apply {
+                addPath(p)
+                lineTo(w,h)
+                lineTo(0f,h)
+                close()
+            }
+            drawPath(area,brush=Brush.verticalGradient(
+                listOf(turquoise.copy(alpha=.38f),turquoise.copy(alpha=.08f)),
+                startY=0f,endY=h))
+            drawPath(p,turquoise.copy(alpha=.12f),
+                style=Stroke(6.dp.toPx(),cap=StrokeCap.Round))
+            drawPath(p,turquoise.copy(alpha=.93f),
+                style=Stroke(2.dp.toPx(),cap=StrokeCap.Round))
         }
     }
 }
