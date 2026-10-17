@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -61,6 +62,7 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -888,7 +890,7 @@ fun ActivityScreen(
                 horizontal = 12.dp,
                 vertical = 6.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             if (ledgerUpdateState.isProcessing) {
                 item {
@@ -897,7 +899,7 @@ fun ActivityScreen(
             }
 
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Column(Modifier.padding(bottom = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
                         "Activity",
                         style = MaterialTheme.typography.headlineLarge,
@@ -925,8 +927,10 @@ fun ActivityScreen(
                     identityReviewCount
 
             if (needsAttentionCount > 0) item {
-                ActivityAttentionHero(needsAttentionCount) {
-                    selectedGlobalQueue = if(selectedGlobalQueue == "Attention") null else "Attention"
+                Box(Modifier.padding(bottom = 10.dp)) {
+                    ActivityAttentionHero(needsAttentionCount) {
+                        selectedGlobalQueue = if(selectedGlobalQueue == "Attention") null else "Attention"
+                    }
                 }
             }
 
@@ -940,14 +944,14 @@ fun ActivityScreen(
                 TextButton(onClick = { refresh() }) { Text("Try again") }
             }
             item(key = "premium-period-selectors") {
-                ActivityPeriodSelectors(
+                Box(Modifier.padding(bottom = 7.dp)) { ActivityPeriodSelectors(
                     monthLabel = selectedMonthLabel,
                     cycleLabel = chosenCycle?.let { monthLabel(it.startEpochMs) + " cycle" }
                         ?: "Add salary",
                     salaryMode = payCycleMode,
                     onMonth = { payCycleMode = false; showMonthPicker = true },
                     onCycle = { showCyclePicker = true }
-                )
+                ) }
             }
             item(key = "premium-period-money") {
                 val badge = if (payCycleMode) {
@@ -956,15 +960,16 @@ fun ActivityScreen(
                     else "Completed cycle"
                 } else monthDaysRemaining(selectedMonthEpochMs, System.currentTimeMillis())
                     ?.let { it.toString() + " days left" } ?: "Past month"
-                ActivityPremiumMoneyHero(
+                Box(Modifier.padding(bottom = 9.dp)) { ActivityPremiumMoneyHero(
                     snapshot = if(periodReady) displaySnapshot else null,
                     previous = displayPrevious,
                     badge = badge, waiting = !periodReady,
                     onExplain = { explainNetFlow = true }
-                )
+                ) }
             }
             item(key = "premium-search") {
-                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
+                Row(Modifier.fillMaxWidth().padding(bottom = 7.dp),
+                    verticalAlignment=Alignment.CenterVertically,
                     horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                     OutlinedTextField(
                         value = searchQuery,
@@ -983,8 +988,10 @@ fun ActivityScreen(
                 }
             }
             item(key = "premium-filters") {
-                ActivityCompactFilters(selectedFilter,currentReviewCount) {
-                    selectedFilter = it
+                Box(Modifier.padding(bottom = 8.dp)) {
+                    ActivityCompactFilters(selectedFilter,currentReviewCount) {
+                        selectedFilter = it
+                    }
                 }
             }
             if(showExtraFilters) item(key = "additional-filters") {
@@ -1530,9 +1537,9 @@ fun ActivityScreen(
                                         transactions
                                 )
                             }
-                            items(
+                            itemsIndexed(
                                 items = transactions,
-                                key = { transaction ->
+                                key = { _, transaction ->
                                     buildString {
                                         append(transaction.id)
                                         append(':')
@@ -1543,9 +1550,10 @@ fun ActivityScreen(
                                         append(transaction.reviewState)
                                     }
                                 }
-                            ) { transaction ->
+                            ) { index, transaction ->
                                 ActivityRow(
                                     item = transaction,
+                                    position = activityGroupPosition(index, transactions.size),
                                     debtLink = receivableLinks[transaction.id],
                                     accountName =
                                         transaction
@@ -3986,7 +3994,7 @@ private fun ActivityDateHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 2.dp),
+            .padding(top = 13.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -4005,9 +4013,22 @@ private fun ActivityDateHeader(
     }
 }
 
+internal enum class ActivityGroupPosition { ONLY, FIRST, MIDDLE, LAST }
+
+internal fun activityGroupPosition(index: Int, count: Int): ActivityGroupPosition {
+    require(count > 0 && index in 0 until count)
+    return when {
+        count == 1 -> ActivityGroupPosition.ONLY
+        index == 0 -> ActivityGroupPosition.FIRST
+        index == count - 1 -> ActivityGroupPosition.LAST
+        else -> ActivityGroupPosition.MIDDLE
+    }
+}
+
 @Composable
 private fun ActivityRow(
     item: StoredTransaction,
+    position: ActivityGroupPosition = ActivityGroupPosition.ONLY,
     debtLink: ReceivableActivityLink? = null,
     accountName: String?,
     linkedAccountName: String?,
@@ -4037,14 +4058,22 @@ private fun ActivityRow(
         else -> "green"
     }
 
+    val groupShape = when (position) {
+        ActivityGroupPosition.ONLY -> RoundedCornerShape(16.dp)
+        ActivityGroupPosition.FIRST -> RoundedCornerShape(
+            topStart = 16.dp, topEnd = 16.dp, bottomStart = 0.dp, bottomEnd = 0.dp
+        )
+        ActivityGroupPosition.MIDDLE -> RoundedCornerShape(0.dp)
+        ActivityGroupPosition.LAST -> RoundedCornerShape(
+            topStart = 0.dp, topEnd = 0.dp, bottomStart = 16.dp, bottomEnd = 16.dp
+        )
+    }
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = groupShape,
+        color = MaterialTheme.colorScheme.surface
     ) {
+        Column {
         Row(
             Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -4205,6 +4234,15 @@ private fun ActivityRow(
                         .size(18.dp)
                 )
             }
+        }
+        if (position == ActivityGroupPosition.FIRST ||
+            position == ActivityGroupPosition.MIDDLE) {
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 66.dp, end = 10.dp),
+                thickness = .5.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .50f)
+            )
+        }
         }
     }
 }
