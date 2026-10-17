@@ -17,10 +17,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -78,6 +80,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -94,6 +98,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivityMonthBucket
 import com.kedevjimmy.pesatrack.data.local.ActivityReviewOverview
@@ -146,6 +151,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 
@@ -874,11 +880,45 @@ fun ActivityScreen(
         matchesFilter && matchesSearch
     }
 
-    val groupedFiltered = filtered
-        .sortedByDescending { it.occurredAtEpochMs }
+    // Progressive UI materialization. The complete monthly ledger still owns
+    // money totals, classification, reviews and duplicate exclusion.
+    var visibleActivityCount by remember(
+        selectedMonthEpochMs, payCycleMode, chosenCycle?.startTransactionId,
+        selectedFilter, searchQuery, selectedGlobalQueue, selectedFinancialSource,
+        ledgerUpdateState.revision
+    ) { mutableIntStateOf(ACTIVITY_FIRST_BATCH) }
+    val activityListState = rememberLazyListState()
+    val sortedFiltered = filtered.sortedWith(
+        compareByDescending<StoredTransaction> { it.occurredAtEpochMs }
+            .thenByDescending { it.id }
+    )
+    val visibleFiltered = activityVisibleRows(sortedFiltered, visibleActivityCount)
+    val allTransactionsByDay = sortedFiltered.groupBy { dayStart(it.occurredAtEpochMs) }
+    val groupedFiltered = visibleFiltered
         .groupBy { dayStart(it.occurredAtEpochMs) }
         .toList()
         .sortedByDescending { it.first }
+
+    LaunchedEffect(
+        activityListState, visibleActivityCount, sortedFiltered.size,
+        selectedMonthEpochMs, selectedFinancialSource, payCycleMode,
+        chosenCycle?.startTransactionId
+    ) {
+        if (selectedFinancialSource != null ||
+            visibleActivityCount >= sortedFiltered.size) return@LaunchedEffect
+        snapshotFlow {
+            activityListState.layoutInfo.visibleItemsInfo.any {
+                it.key == "activity-load-more"
+            }
+        }.first { it }
+        val next = withContext(Dispatchers.Default) {
+            activityVisibleCount(visibleActivityCount, sortedFiltered.size)
+        }
+        visibleActivityCount = next
+    }
+    LaunchedEffect(selectedMonthEpochMs, payCycleMode, chosenCycle?.startTransactionId) {
+        activityListState.scrollToItem(0)
+    }
 
     Column(
         modifier = Modifier
@@ -886,6 +926,7 @@ fun ActivityScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         LazyColumn(
+            state = activityListState,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
@@ -1535,10 +1576,8 @@ fun ActivityScreen(
                                     dayEpochMs
                             ) {
                                 ActivityDateHeader(
-                                    dayEpochMs =
-                                        dayEpochMs,
-                                    transactions =
-                                        transactions
+                                    dayEpochMs = dayEpochMs,
+                                    transactions = allTransactionsByDay[dayEpochMs].orEmpty()
                                 )
                             }
                             itemsIndexed(
@@ -1601,6 +1640,11 @@ fun ActivityScreen(
                                         )
                                     }
                                 )
+                            }
+                        }
+                        if (visibleActivityCount < sortedFiltered.size) {
+                            item(key = "activity-load-more") {
+                                ActivityLoadingMoreRows()
                             }
                         }
                     }
@@ -3986,33 +4030,108 @@ private fun ReviewGroupRow(
     }
 }
 
+/**
+ * Read-only daily spending, not a balance. Uses all filtered records for the
+ * day, even when only the first page of rows has been materialized.
+ */
 @Composable
 private fun ActivityDateHeader(
     dayEpochMs: Long,
     transactions: List<StoredTransaction>
 ) {
-    val expenseTotal = CheckedMoney.orNull { transactions
-        .filter { it.direction == MoneyDirection.EXPENSE.name }
-        .checkedMoneySumOf { CheckedMoney.add(it.amountMinor, it.feeMinor) } }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 13.dp, bottom = 7.dp),
-        verticalAlignment = Alignment.CenterVertically
+    val expenseTotal = CheckedMoney.orNull {
+        transactions
+            .filter {
+                it.direction == MoneyDirection.EXPENSE.name &&
+                    it.relationType != TransactionStore.RELATION_REFUND
+            }
+            .checkedMoneySumOf { CheckedMoney.add(it.amountMinor, it.feeMinor) }
+    }
+    val dark = isPesaDarkTheme()
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        shape = RoundedCornerShape(topStart = 17.dp, topEnd = 17.dp,
+            bottomStart = 3.dp, bottomEnd = 3.dp),
+        color = if (dark) Color(0xFF1A243A)
+            else MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .47f))
     ) {
-        Text(
-            dayLabel(dayEpochMs),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        if (expenseTotal == null || expenseTotal > 0L) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
             Text(
-                expenseTotal?.let(::formatActivityMoney) ?: "Total unavailable",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                dayLabel(dayEpochMs), modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
             )
+            if (expenseTotal == null || expenseTotal > 0L) {
+                Text(
+                    expenseTotal?.let(::formatActivityMoney) ?: "Total unavailable",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.semantics {
+                        stateDescription = "Recorded spending for this day"
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActivityLoadingMoreRows() {
+    val base = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .16f)
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 8.dp)
+            .testTag("activity-loading-more"),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            repeat(3) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(11.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Surface(modifier = Modifier.size(34.dp),
+                        shape = CircleShape, color = base) {}
+                    Column(Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Surface(Modifier.fillMaxWidth(.69f).height(9.dp),
+                            color = base, shape = RoundedCornerShape(9.dp)) {}
+                        Surface(Modifier.fillMaxWidth(.48f).height(7.dp),
+                            color = base.copy(alpha = .72f),
+                            shape = RoundedCornerShape(9.dp)) {}
+                    }
+                    Surface(Modifier.size(width = 70.dp, height = 9.dp),
+                        color = base, shape = RoundedCornerShape(9.dp)) {}
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = MaterialTheme.colorScheme.tertiary,
+                    strokeWidth = 2.dp
+                )
+                Spacer(Modifier.size(width = 10.dp, height = 1.dp))
+                Text(
+                    "Loading more transactions…",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -4041,215 +4160,155 @@ private fun ActivityRow(
     val context = LocalContext.current
     val categoryStore = remember { CategoryStore.get(context) }
     val categoryId = categoryStore.canonicalId(item.category)
-    val categoryLabel = categoryStore.labelFor(categoryId)
-    val needsReview =
-        item.reviewState == ReviewState.NEEDS_REVIEW.name
-    val isRefund =
-        item.relationType ==
-            TransactionStore.RELATION_REFUND
-    val direction = runCatching {
-        MoneyDirection.valueOf(item.direction)
-    }.getOrDefault(MoneyDirection.NEUTRAL)
-
-    val tone = when {
-        needsReview -> "amber"
-        isRefund -> "green"
-        direction == MoneyDirection.INCOME -> "green"
-        direction == MoneyDirection.TRANSFER -> "blue"
-        categoryId == TransactionCategory.SHOPPING.name -> "violet"
-        categoryId == TransactionCategory.ELECTRICITY.name ||
-            categoryId == TransactionCategory.RENT.name -> "amber"
-        else -> "green"
+    val categoryName = categoryStore.labelFor(categoryId)
+    val needsReview = item.reviewState == ReviewState.NEEDS_REVIEW.name
+    val refund = item.relationType == TransactionStore.RELATION_REFUND
+    val direction = runCatching { MoneyDirection.valueOf(item.direction) }
+        .getOrDefault(MoneyDirection.NEUTRAL)
+    val pill = when {
+        needsReview -> "Needs review"
+        debtLink?.active == true && debtLink.kind == "LENT" -> "Money lent"
+        debtLink?.active == true && debtLink.kind == "REPAID" -> "Repayment"
+        refund -> "Refund"
+        direction == MoneyDirection.TRANSFER -> "Transfer"
+        else -> categoryName
     }
-
-    val groupShape = when (position) {
-        ActivityGroupPosition.ONLY -> RoundedCornerShape(16.dp)
-        ActivityGroupPosition.FIRST -> RoundedCornerShape(
-            topStart = 16.dp, topEnd = 16.dp, bottomStart = 0.dp, bottomEnd = 0.dp
+    val pillColor = when {
+        needsReview -> Color(0xFFE1A5F8)
+        refund || direction == MoneyDirection.INCOME -> Color(0xFF51E0C6)
+        debtLink?.active == true -> Color(0xFF8CC8F5)
+        direction == MoneyDirection.TRANSFER -> Color(0xFF80B5FF)
+        categoryId == TransactionCategory.GROCERIES.name -> Color(0xFF62DBC3)
+        else -> Color(0xFFC4B0FB)
+    }
+    val amountColor = when {
+        refund || direction == MoneyDirection.INCOME ||
+            item.type == MpesaTransactionType.REVERSAL.name -> Color(0xFF57E6C5)
+        direction == MoneyDirection.EXPENSE -> Color(0xFFFF6285)
+        direction == MoneyDirection.TRANSFER -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val name = financialActivityDisplayName(
+        item = item,
+        rawDisplayName = item.evidenceLabel?.takeIf {
+            item.evidenceSource?.startsWith("entity_intelligence:") == true
+        } ?: item.counterparty ?: humanize(item.type),
+        accountName = accountName
+    )
+    val source = financialActivityRouteLabel(
+        item = item,
+        accountName = accountName,
+        linkedAccountName = linkedAccountName
+    ) ?: "Source unknown"
+    val dayShape = when (position) {
+        ActivityGroupPosition.ONLY -> RoundedCornerShape(
+            topStart = 2.dp, topEnd = 2.dp, bottomStart = 17.dp, bottomEnd = 17.dp
         )
-        ActivityGroupPosition.MIDDLE -> RoundedCornerShape(0.dp)
+        ActivityGroupPosition.FIRST, ActivityGroupPosition.MIDDLE ->
+            RoundedCornerShape(2.dp)
         ActivityGroupPosition.LAST -> RoundedCornerShape(
-            topStart = 0.dp, topEnd = 0.dp, bottomStart = 16.dp, bottomEnd = 16.dp
+            topStart = 2.dp, topEnd = 2.dp, bottomStart = 17.dp, bottomEnd = 17.dp
         )
     }
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = groupShape,
-        color = MaterialTheme.colorScheme.surface
+        shape = dayShape,
+        color = if (isPesaDarkTheme()) Color(0xFF101B2C)
+            else MaterialTheme.colorScheme.surface
     ) {
         Column {
-        Row(
-            Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if(needsReview) {
-                Surface(Modifier.size(width=4.dp,height=48.dp),
-                    color=pesaToneContent("violet"),
-                    shape=RoundedCornerShape(4.dp)) {}
-                Spacer(Modifier.size(width=5.dp,height=1.dp))
-            }
-            MerchantBadge(
-                item = item,
-                categoryId = categoryId,
-                tone = tone
-            )
-            Column(
-                Modifier
-                    .weight(1f)
-                    .padding(horizontal = 11.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 67.dp)
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val rawDisplayName =
-                    item.evidenceLabel
-                        ?.takeIf {
-                            item.evidenceSource
-                                ?.startsWith(
-                                    "entity_intelligence:"
-                                ) == true
-                        }
-                        ?: item.counterparty
-                        ?: humanize(item.type)
-                val displayName =
-                    financialActivityDisplayName(
-                        item = item,
-                        rawDisplayName =
-                            rawDisplayName,
-                        accountName =
-                            accountName
-                    )
-
-                Text(
-                    displayName,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                )
-                Row(
-                    modifier = Modifier.padding(top = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Box {
+                    MerchantBadge(item = item, categoryId = categoryId, tone = "violet")
+                    if (needsReview) {
+                        Surface(
+                            modifier = Modifier.align(Alignment.BottomEnd).size(8.dp),
+                            shape = CircleShape,
+                            color = pillColor,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.surface)
+                        ) {}
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        formatTime(item.occurredAtEpochMs),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
-                    Text(
-                        "  •  ",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    val activityLabel =
-                        when {
-                            debtLink != null -> debtLink.description
-                            needsReview ->
-                                "Needs review"
-                            isRefund ->
-                                "Refund • " +
-                                    categoryLabel
-                            else ->
-                                financialActivityEventLabel(
-                                    item = item,
-                                    categoryLabel =
-                                        categoryLabel,
-                                    rawDisplayName =
-                                        rawDisplayName,
-                                    accountName =
-                                        accountName
-                                )
-                        }
-                    val routeLabel =
-                        financialActivityRouteLabel(
-                            item = item,
-                            accountName =
-                                accountName,
-                            linkedAccountName =
-                                linkedAccountName
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            SimpleDateFormat("HH:mm",
+                                androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
+                                .format(Date(item.occurredAtEpochMs)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
                         )
-                    Text(
-                        listOfNotNull(
-                            routeLabel,
-                            activityLabel
-                        ).joinToString(
-                            " • "
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = pesaToneContent(tone),
-                        maxLines = if (debtLink != null) 2 else 1,
-                        overflow =
-                            androidx.compose.ui.text
-                                .style.TextOverflow
-                                .Ellipsis
-                    )
+                        Text("·", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            source,
+                            modifier = Modifier.weight(1f, fill = false),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(9.dp),
+                            color = pillColor.copy(alpha = .13f)
+                        ) {
+                            Text(
+                                pill,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                    .widthIn(max = 96.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp,
+                                lineHeight = 12.sp,
+                                color = pillColor,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
-                if (
-                    item.counterparty.isNullOrBlank() &&
-                    !item.evidenceLabel.isNullOrBlank()
-                ) {
-                    Text(
-                        "Possible match: " + item.evidenceLabel,
-                        modifier = Modifier.padding(top = 3.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (item.fulizaFinancedMinor > 0L) {
-                    Text(
-                        "Fuliza financed " +
-                            formatActivityMoney(item.fulizaFinancedMinor) +
-                            if (item.fulizaAccessFeeMinor > 0L) {
-                                " • access fee " +
-                                    formatActivityMoney(
-                                        item.fulizaAccessFeeMinor
-                                    )
-                            } else {
-                                ""
-                            },
-                        modifier = Modifier.padding(top = 3.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Column(horizontalAlignment = Alignment.End) {
                 Text(
                     amountLabel(item, direction),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = when {
-                        direction == MoneyDirection.INCOME ||
-                            item.type ==
-                            MpesaTransactionType.REVERSAL.name ->
-                            MaterialTheme.colorScheme.primary
-                        direction == MoneyDirection.EXPENSE ->
-                            MaterialTheme.colorScheme.error
-                        needsReview ||
-                            direction == MoneyDirection.NEUTRAL ->
-                            pesaToneContent("amber")
-                        else -> MaterialTheme.colorScheme.onSurface
-                    }
+                    color = amountColor,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    modifier = Modifier.widthIn(max = 118.dp)
                 )
-                if (needsReview) {
-                    SmallStatusPill("Needs review","violet")
-                }
                 Icon(
                     Icons.Rounded.ChevronRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .padding(top = 4.dp)
-                        .size(18.dp)
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+            if (position == ActivityGroupPosition.FIRST ||
+                position == ActivityGroupPosition.MIDDLE) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 58.dp, end = 10.dp),
+                    thickness = .5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .42f)
                 )
             }
         }
-        if (position == ActivityGroupPosition.FIRST ||
-            position == ActivityGroupPosition.MIDDLE) {
-            HorizontalDivider(
-                modifier = Modifier.padding(start = 66.dp, end = 10.dp),
-                thickness = .5.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .50f)
-            )
-        }
-        }
     }
 }
-
-
 
