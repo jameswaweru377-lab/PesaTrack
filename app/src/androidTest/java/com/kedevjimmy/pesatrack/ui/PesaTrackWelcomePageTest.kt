@@ -23,7 +23,9 @@ class PesaTrackWelcomePageTest {
                 PesaTrackWelcomePage(onGetStarted = { events++ }, onSkip = {})
             }
         }
-        compose.onNodeWithText("Welcome to", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Welcome to PesaTrack").assertIsDisplayed()
+        compose.onNodeWithText("Welcome to Home").assertDoesNotExist()
+        compose.onNodeWithText("Bring in M-Pesa and bank activity").assertIsDisplayed()
         compose.onNodeWithText("Get started").performClick()
         compose.runOnIdle { assertEquals(1, events) }
     }
