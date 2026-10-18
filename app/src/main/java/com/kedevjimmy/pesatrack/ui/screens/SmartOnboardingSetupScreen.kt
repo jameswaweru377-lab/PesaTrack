@@ -148,6 +148,7 @@ private enum class SmartSetupStage {
     SMS_PERMISSION,
     ANALYZE,
     REVIEW,
+    MPESA_SERVICES,
     SALARY_OPTIONAL,
     SALARY_MANUAL,
     MPESA_CONFIRM,
@@ -293,6 +294,9 @@ fun SmartOnboardingSetupScreen(
     }
     // Explicit selections only; detecting a message never checks a box.
     var selectedOwnedKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var manualInstitutionReferences by remember {
+        mutableStateOf<Map<String, com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference>>(emptyMap())
+    }
     var chooseInstitutions by rememberSaveable { mutableStateOf(false) }
     var reviewSaving by remember {
         mutableStateOf(false)
@@ -315,6 +319,8 @@ fun SmartOnboardingSetupScreen(
     var salaryConfirmationSaving by remember { mutableStateOf(false) }
     var salaryConfirmationError by remember { mutableStateOf<String?>(null) }
     var linkedSavingsChoices by remember { mutableStateOf<Map<String, OnboardingOwnershipChoice>>(emptyMap()) }
+    var mpesaServiceQuery by rememberSaveable { mutableStateOf("") }
+    var mpesaSuggestedNumberAccepted by rememberSaveable { mutableStateOf(false) }
     var mpesaWasSelected by rememberSaveable { mutableStateOf(false) }
     var linkedSavingsSaving by remember { mutableStateOf(false) }
     var linkedSavingsError by remember { mutableStateOf<String?>(null) }
@@ -323,12 +329,11 @@ fun SmartOnboardingSetupScreen(
             it.reference.providerKey in LinkedSavingsOnboardingPolicy.providerKeys
         }
     }
-    var profileName by rememberSaveable {
-        mutableStateOf(context.getSharedPreferences("pesatrack_preferences", Context.MODE_PRIVATE)
-            .getString("profile_name", "").orEmpty())
-    }
     var bankReferenceEdits by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var bankLastFourHints by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var accountLabels by remember {
+        mutableStateOf<Map<String, String>>(emptyMap())
+    }
     var identitySaving by remember { mutableStateOf(false) }
     var identityError by remember { mutableStateOf<String?>(null) }
     var phoneError by remember {
@@ -661,10 +666,7 @@ fun SmartOnboardingSetupScreen(
             withContext(
                 Dispatchers.IO
             ) {
-                onboardingOwnershipCandidates(
-                    financialUnderstandingStore
-                        .pendingEntities()
-                )
+                financialUnderstandingStore.pendingEntities()
             }
         selectedOwnedKeys = emptySet()
         if (
@@ -1336,9 +1338,8 @@ fun SmartOnboardingSetupScreen(
         try {
             val selectedKeys = selectedOwnedKeys
             val pendingKeys = pendingOwnershipEntities.map { it.entityKey }.toSet()
-            val directSources = detectedSources.map { it.reference }
+            val directSources = (detectedSources.map { it.reference } + manualInstitutionReferences.values)
                 .filter { it.entityKey in selectedKeys && it.entityKey !in pendingKeys }
-                .filterNot { it.providerKey == "SAFARICOM_MPESA" }
                 .distinctBy { it.entityKey }
             withContext(Dispatchers.IO) {
                 pendingOwnershipEntities.filter { it.entityKey in selectedKeys }.forEach { entity ->
@@ -1373,10 +1374,7 @@ fun SmartOnboardingSetupScreen(
                         financialUnderstandingStore
                 )
             pendingOwnershipEntities =
-                onboardingOwnershipCandidates(
-                    financialUnderstandingStore
-                        .pendingEntities()
-                )
+                financialUnderstandingStore.pendingEntities()
             selectedOwnedKeys = emptySet()
 
             if (
@@ -1529,6 +1527,12 @@ fun SmartOnboardingSetupScreen(
         }
     }
 
+    fun detectedMpesaServices() = linkedSavingsOptions.filter { option ->
+        val detectedKeys = pendingOwnershipEntities.map { it.entityKey }.toSet() +
+            detectedSources.map { it.reference.entityKey }
+        option.reference.entityKey in detectedKeys
+    }
+
     fun saveAccountDetails() {
         if (identitySaving) return
         val validation = OnboardingAccountDetailsPolicy.validate(
@@ -1550,6 +1554,12 @@ fun SmartOnboardingSetupScreen(
         identitySaving = true
         setupScope.launch {
             try {
+                if (mpesaWasSelected && mpesaSuggestedNumberAccepted &&
+                    !confirmMpesaPhone(mpesaPhoneSuggestion.orEmpty())
+                ) {
+                    identityError = phoneError ?: "Could not confirm this M-Pesa number."
+                    return@launch
+                }
                 withContext(Dispatchers.IO) {
                     validation.entries.forEach { (id, ref) ->
                         accountStore.updateIdentifier(id, ref)
@@ -1561,11 +1571,15 @@ fun SmartOnboardingSetupScreen(
                         hintsEditor.putString(accountId, digits)
                     }
                     require(hintsEditor.commit())
-                    require(context.getSharedPreferences(
+                    val labels = context.getSharedPreferences(
                         "pesatrack_preferences", Context.MODE_PRIVATE
-                    ).edit().putString("profile_name", profileName.trim()).commit())
+                    ).edit()
+                    accountLabels.forEach { (accountId, label) ->
+                        labels.putString("account_label_$accountId", label.trim())
+                    }
+                    require(labels.commit())
                 }
-                stage = SmartSetupStage.SALARY_OPTIONAL
+                stage = SmartSetupStage.COMPLETE
             } catch (_: Exception) {
                 identityError = "Could not save your account details. Try again or skip."
             } finally {
@@ -1619,6 +1633,8 @@ fun SmartOnboardingSetupScreen(
                     SmartSetupStage.ANALYZE
                 }
 
+                SmartSetupStage.MPESA_SERVICES -> SmartSetupStage.REVIEW
+
                 SmartSetupStage.SALARY_OPTIONAL ->
                     SmartSetupStage.ACCOUNT_DETAILS
 
@@ -1631,7 +1647,7 @@ fun SmartOnboardingSetupScreen(
                     SmartSetupStage.REVIEW
 
                 SmartSetupStage.ACCOUNT_DETAILS ->
-                    if (mpesaWasSelected) SmartSetupStage.MPESA_CONFIRM
+                    if (mpesaWasSelected) SmartSetupStage.MPESA_SERVICES
                     else SmartSetupStage.REVIEW
 
                 SmartSetupStage
@@ -1648,7 +1664,7 @@ fun SmartOnboardingSetupScreen(
 
                 SmartSetupStage
                     .COMPLETE ->
-                    SmartSetupStage.SALARY_OPTIONAL
+                    SmartSetupStage.ACCOUNT_DETAILS
 
                 SmartSetupStage.IMPORT ->
                     SmartSetupStage.WELCOME
@@ -1851,28 +1867,30 @@ fun SmartOnboardingSetupScreen(
                     ReviewDiscoveryPage(
                         sources =
                             detectedSources,
-                        ownershipCandidates =
-                            pendingOwnershipEntities,
                         selectedOwnedKeys = selectedOwnedKeys,
+                        mpesaIdentifierHint = mpesaPhoneSuggestion,
                         importResult = importResult,
                         applying = reviewSaving,
                         onToggleAccount = { key, checked ->
                             selectedOwnedKeys = if (checked) selectedOwnedKeys + key
                             else selectedOwnedKeys - key
                         },
-                        onAddMissingInstitution = { chooseInstitutions = true },
+                        onSelectInstitution = { reference, checked ->
+                            manualInstitutionReferences = if (checked) {
+                                manualInstitutionReferences + (reference.entityKey to reference)
+                            } else manualInstitutionReferences - reference.entityKey
+                            selectedOwnedKeys = if (checked) selectedOwnedKeys + reference.entityKey
+                            else selectedOwnedKeys - reference.entityKey
+                        },
                         onContinue = {
                             setupScope.launch {
-                                val wantsMpesa = detectedSources.any {
-                                    it.reference.providerKey == "SAFARICOM_MPESA" &&
-                                        it.reference.entityKey in selectedOwnedKeys
+                                val wantsMpesa = (detectedSources.map { it.reference } + manualInstitutionReferences.values).any {
+                                    it.providerKey == "SAFARICOM_MPESA" &&
+                                        it.entityKey in selectedOwnedKeys
                                 }
                                 mpesaWasSelected = wantsMpesa
                                 applySelectedAccountOwnership()
-                                if (wantsMpesa && mpesaPhoneSuggestion.isNullOrBlank()) {
-                                    manualPhoneMode = true
-                                }
-                                stage = if (wantsMpesa) SmartSetupStage.MPESA_CONFIRM
+                                stage = if (wantsMpesa) SmartSetupStage.MPESA_SERVICES
                                 else nextAfterIdentitySetup()
                             }
                         }
@@ -2133,16 +2151,76 @@ fun SmartOnboardingSetupScreen(
                 }
             }
 
+            SmartSetupStage.MPESA_SERVICES -> {
+                item {
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("M-Pesa services", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("We found these services in your messages. Choose only the ones you use; a message alone doesn’t prove ownership.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val detectedServices = detectedMpesaServices()
+                        val detectedServiceKeys = detectedServices.map { it.reference.entityKey }.toSet()
+                        val searchedServices = if (mpesaServiceQuery.isBlank()) emptyList() else linkedSavingsOptions.filter {
+                            it.reference.entityKey !in detectedServiceKeys &&
+                                it.reference.displayName.contains(mpesaServiceQuery, ignoreCase = true)
+                        }
+                        val services = (detectedServices + searchedServices).distinctBy { it.reference.entityKey }
+                        OutlinedTextField(
+                            value = mpesaServiceQuery,
+                            onValueChange = { mpesaServiceQuery = it.take(50) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("Search supported Safaricom services") }
+                        )
+                        if (detectedServices.isEmpty() && mpesaServiceQuery.isBlank()) {
+                            PesaCard { Text("No supported M-Pesa savings services were identified. You can add services later.", Modifier.padding(15.dp)) }
+                        }
+                        if (mpesaServiceQuery.isNotBlank() && searchedServices.isEmpty() && detectedServiceKeys.none { key -> services.any { it.reference.entityKey == key && it.reference.displayName.contains(mpesaServiceQuery, true) } }) {
+                            Text("No supported service matches that search. You can add other accounts later.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        services.forEach { option ->
+                            val key = option.reference.entityKey
+                            DetectedAccountCheckRow(
+                                key = key,
+                                name = option.reference.displayName,
+                                type = "Savings",
+                                checked = linkedSavingsChoices[option.reference.providerKey] == OnboardingOwnershipChoice.MINE,
+                                enabled = !linkedSavingsSaving,
+                                onChecked = { checked ->
+                                    val provider = option.reference.providerKey ?: return@DetectedAccountCheckRow
+                                    linkedSavingsChoices = if (checked) linkedSavingsChoices + (provider to OnboardingOwnershipChoice.MINE) else linkedSavingsChoices - provider
+                                }
+                            )
+                        }
+                        linkedSavingsError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        Button(
+                            enabled = !linkedSavingsSaving,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+                            onClick = {
+                                setupScope.launch {
+                                    if (applyLinkedSavingsChoices()) stage = SmartSetupStage.ACCOUNT_DETAILS
+                                }
+                            }
+                        ) { Text(if (linkedSavingsSaving) "Saving…" else "Continue") }
+                        TextButton(onClick = { stage = SmartSetupStage.ACCOUNT_DETAILS }, enabled = !linkedSavingsSaving) { Text("Skip for now") }
+                    }
+                }
+            }
+
             SmartSetupStage.ACCOUNT_DETAILS -> {
                 item {
                     PesaTrackAccountDetailsPage(
                         accounts = availableAccounts,
-                        profileName = profileName,
+                        labels = accountLabels,
                         editedReferences = bankReferenceEdits,
                         lastFourHints = bankLastFourHints,
+                        mpesaSelected = mpesaWasSelected,
+                        suggestedMpesaNumber = mpesaPhoneSuggestion,
+                        mpesaNumberAccepted = mpesaSuggestedNumberAccepted,
                         saving = identitySaving,
                         error = identityError,
-                        onNameChanged = { profileName = it },
+                        onLabelChanged = { id, label ->
+                            accountLabels = accountLabels + (id to label)
+                            identityError = null
+                        },
                         onReferenceChanged = { id, ref ->
                             bankReferenceEdits = bankReferenceEdits + (id to ref)
                             identityError = null
@@ -2151,8 +2229,9 @@ fun SmartOnboardingSetupScreen(
                             bankLastFourHints = bankLastFourHints + (id to suffix)
                             identityError = null
                         },
+                        onMpesaAcceptedChanged = { mpesaSuggestedNumberAccepted = it },
                         onSaveAndContinue = { saveAccountDetails() },
-                        onSkip = { stage = SmartSetupStage.SALARY_OPTIONAL }
+                        onSkip = { stage = SmartSetupStage.COMPLETE }
                     )
                 }
             }
@@ -2279,6 +2358,7 @@ fun SmartOnboardingSetupScreen(
             SmartSetupStage.COMPLETE -> {
                 item {
                     SetupCompletePage(
+                        confirmedAccountCount = availableAccounts.size,
                         navigating = completionNavigating,
                         onHome = {
                             if (!completionNavigating) {
@@ -2299,18 +2379,17 @@ private fun StageProgress(
     stage: SmartSetupStage
 ) {
     val steps = listOf(
-        "Welcome", "Scan messages", "Review accounts", "M-Pesa identity",
-        "Bank details", "Salary (optional)", "Ready"
+        "Welcome", "Scan messages", "Understanding your money", "Choose institutions",
+        "M-Pesa services", "Account details", "Ready"
     )
     val visibleIndex = when (stage) {
         SmartSetupStage.WELCOME -> 0
-        SmartSetupStage.IMPORT, SmartSetupStage.SMS_PERMISSION,
-        SmartSetupStage.ANALYZE -> 1
-        SmartSetupStage.REVIEW -> 2
-        SmartSetupStage.MPESA_CONFIRM -> 3
-        SmartSetupStage.ACCOUNT_DETAILS -> 4
-        SmartSetupStage.SALARY_OPTIONAL, SmartSetupStage.SALARY_MANUAL -> 5
-        SmartSetupStage.LIVE_CAPTURE -> 5
+        SmartSetupStage.IMPORT, SmartSetupStage.SMS_PERMISSION -> 1
+        SmartSetupStage.ANALYZE -> 2
+        SmartSetupStage.REVIEW -> 3
+        SmartSetupStage.MPESA_SERVICES -> 4
+        SmartSetupStage.MPESA_CONFIRM, SmartSetupStage.ACCOUNT_DETAILS -> 5
+        SmartSetupStage.SALARY_OPTIONAL, SmartSetupStage.SALARY_MANUAL, SmartSetupStage.LIVE_CAPTURE -> 5
         SmartSetupStage.COMPLETE -> 6
     }
     Text(
@@ -3400,6 +3479,7 @@ internal fun MpesaConfirmationPage(
 
 @Composable
 private fun SetupCompletePage(
+    confirmedAccountCount: Int,
     navigating: Boolean,
     onHome: () -> Unit
 ) {
@@ -3419,11 +3499,11 @@ private fun SetupCompletePage(
                     modifier = Modifier.size(64.dp))
             }
         }
-        Text("You're all set!",
+        Text("Your money picture is ready",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center)
-        Text("We've set up your accounts and are ready to start tracking your financial data.",
+        Text("Your selected accounts are ready to track. You can review or update them any time.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center)
@@ -3435,10 +3515,10 @@ private fun SetupCompletePage(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary)
                 listOf(
-                    "Import your transactions",
-                    "Automatically categorise your income and expenses",
-                    "Track balances, debts and savings",
-                    "You can always add or edit accounts later"
+                    "$confirmedAccountCount account${if (confirmedAccountCount == 1) "" else "s"} selected",
+                    "Review activity and spending as messages are processed",
+                    "Add salary details later from Plan",
+                    "Edit your accounts any time in Settings"
                 ).forEach { label ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.CheckCircle, contentDescription = null,
@@ -3455,7 +3535,7 @@ private fun SetupCompletePage(
             onClick = onHome, enabled = !navigating,
             modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
             shape = RoundedCornerShape(12.dp)
-        ) { Text(if (navigating) "Opening…" else "Go to dashboard") }
+        ) { Text(if (navigating) "Opening…" else "Open my dashboard") }
     }
 }
 

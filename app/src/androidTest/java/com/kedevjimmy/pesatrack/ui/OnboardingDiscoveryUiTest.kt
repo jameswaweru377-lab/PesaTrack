@@ -47,33 +47,31 @@ class OnboardingDiscoveryUiTest {
         compose.setContent {
             PesaTrackTheme(darkTheme = true) {
                 ReviewDiscoveryPage(
-                    sources = emptyList(), ownershipCandidates = emptyList(),
-                    selectedOwnedKeys = emptySet(), importResult = null, applying = false,
+                    sources = emptyList(),
+                    selectedOwnedKeys = emptySet(), mpesaIdentifierHint = null, importResult = null, applying = false,
                     onToggleAccount = { _, _ -> },
+                    onSelectInstitution = { _, _ -> },
                     onContinue = { continued = true }
                 )
             }
         }
-        compose.onNodeWithText("We found these financial sources").assertExists()
-        compose.onNodeWithText("+  Add another bank or service").assertExists()
-        compose.onNodeWithText("Continue").performClick()
+        compose.onNodeWithText("Which accounts are yours?").assertExists()
+        compose.onNodeWithText("Continue with selected").performClick()
         compose.runOnIdle { assertTrue(continued) }
     }
 
     @Test fun missingBankDirectoryOpensOnlyWhenRequested() {
-        var openCount = 0
         compose.setContent {
             PesaTrackTheme(darkTheme = true) {
                 ReviewDiscoveryPage(
-                    sources = emptyList(), ownershipCandidates = emptyList(),
-                    selectedOwnedKeys = emptySet(), importResult = null, applying = false,
-                    onToggleAccount = { _, _ -> }, onContinue = {},
-                    onAddMissingInstitution = { openCount++ }
+                    sources = emptyList(),
+                    selectedOwnedKeys = emptySet(), mpesaIdentifierHint = null, importResult = null, applying = false,
+                    onToggleAccount = { _, _ -> }, onSelectInstitution = { _, _ -> }, onContinue = {}
                 )
             }
         }
-        compose.onNodeWithText("+  Add another bank or service").performClick()
-        compose.runOnIdle { assertTrue(openCount == 1) }
+        compose.onNodeWithTag("onboarding-institution-search").performTextInput("Equity")
+        compose.onNodeWithText("Equity Bank").assertExists()
     }
 
     @Test fun optionalSalaryRemainsUnconfirmedUntilRadioChoiceAndContinue() {

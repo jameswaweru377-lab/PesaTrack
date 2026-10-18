@@ -21,14 +21,18 @@ import com.kedevjimmy.pesatrack.ui.components.PesaCard
 @Composable
 internal fun PesaTrackAccountDetailsPage(
     accounts: List<MoneyAccount>,
-    profileName: String,
+    labels: Map<String, String>,
     editedReferences: Map<String, String>,
     lastFourHints: Map<String, String>,
+    mpesaSelected: Boolean,
+    suggestedMpesaNumber: String?,
+    mpesaNumberAccepted: Boolean,
     saving: Boolean,
     error: String?,
-    onNameChanged: (String) -> Unit,
+    onLabelChanged: (String, String) -> Unit,
     onReferenceChanged: (String, String) -> Unit,
     onLastFourChanged: (String, String) -> Unit,
+    onMpesaAcceptedChanged: (Boolean) -> Unit,
     onSaveAndContinue: () -> Unit,
     onSkip: () -> Unit
 ) {
@@ -36,14 +40,34 @@ internal fun PesaTrackAccountDetailsPage(
     var multipleAccounts by rememberSaveable { mutableStateOf(banks.size > 1) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         Text(
-            if (banks.size == 1) "${banks.first().name} account"
-            else "Your bank accounts",
+            when {
+                banks.size == 1 -> "${banks.first().name} account"
+                banks.isEmpty() -> "Account details"
+                else -> "Your bank accounts"
+            },
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
         Text("Help us identify your bank transactions.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (mpesaSelected) {
+            PesaCard {
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("M-Pesa number", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            suggestedMpesaNumber?.filter(Char::isDigit)?.takeLast(3)?.let { "Suggested number ending $it" }
+                                ?: "No number was confidently identified. You can add it later in Accounts.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text("Confirm only if this is your number.", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(checked = mpesaNumberAccepted, enabled = !suggestedMpesaNumber.isNullOrBlank(), onCheckedChange = onMpesaAcceptedChanged)
+                }
+            }
+        }
         if (banks.isEmpty()) {
             PesaCard {
                 Text("No banks confirmed yet. You can add a bank later.",
@@ -61,13 +85,13 @@ internal fun PesaTrackAccountDetailsPage(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(
-                            value = profileName,
-                            onValueChange = { onNameChanged(it.take(60)) },
-                            label = { Text("Your name (as used in bank)") },
+                            value = labels[account.id].orEmpty(),
+                            onValueChange = { onLabelChanged(account.id, it.take(60)) },
+                            label = { Text("Account label (optional)") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
-                        Text("Use the same name you use with the bank.",
+                        Text("For example, personal or salary account. This stays on your device.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(

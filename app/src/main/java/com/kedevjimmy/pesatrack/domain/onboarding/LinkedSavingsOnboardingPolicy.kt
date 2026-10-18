@@ -6,6 +6,7 @@ package com.kedevjimmy.pesatrack.domain.onboarding
  */
 object LinkedSavingsOnboardingPolicy {
     val providerKeys: Set<String> = setOf(
+        "KCB_MPESA_SAVINGS",
         "NCBA_MSHWARI_SAVINGS",
         "NCBA_MSHWARI_LOCK_SAVINGS"
     )
