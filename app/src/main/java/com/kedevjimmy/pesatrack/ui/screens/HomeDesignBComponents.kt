@@ -123,9 +123,13 @@ internal fun HomeBHealth(health: HomeFinancialSignals, onDetails: () -> Unit) {
                         )
                     }
                 }
-                Text(health.status, color = stateColor,
+                Text(
+                    health.status + (health.score?.let { " · $it/100" } ?: ""),
+                    color = stateColor,
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold)
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2
+                )
             }
             TextButton(onClick = onDetails) {
                 Text("View", style = MaterialTheme.typography.labelMedium)
