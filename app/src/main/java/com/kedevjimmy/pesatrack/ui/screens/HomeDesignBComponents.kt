@@ -338,7 +338,7 @@ internal fun HomeBInsight(
         ) {
             Surface(shape = CircleShape, color = accent.copy(alpha = .16f)) {
                 Icon(
-                    if (actionNeeded) Icons.Rounded.FactCheck else Icons.Rounded.Lightbulb,
+                    if (actionNeeded) Icons.Rounded.ReceiptLong else Icons.Rounded.Lightbulb,
                     null, Modifier.padding(10.dp).size(21.dp), tint = accent
                 )
             }
@@ -478,8 +478,8 @@ internal fun HomeBRecent(
                 val incoming=row.direction==MoneyDirection.INCOME.name
                 Text((if(incoming)"+" else if(row.direction==MoneyDirection.EXPENSE.name)"−" else "")+
                     money(row.amountMinor),fontSize=11.sp,fontWeight=FontWeight.Bold,
-                    color=if(incoming)turquoise else if(row.direction==MoneyDirection.EXPENSE.name)
-                        danger else MaterialTheme.colorScheme.onSurface,
+                    color=if(incoming)MaterialTheme.colorScheme.secondary else if(row.direction==MoneyDirection.EXPENSE.name)
+                        homeNegativeColor() else MaterialTheme.colorScheme.onSurface,
                     maxLines=1)
             }
             if(index<rows.take(3).lastIndex)
