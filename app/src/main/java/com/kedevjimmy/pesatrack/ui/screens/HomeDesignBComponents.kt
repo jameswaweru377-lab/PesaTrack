@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -36,178 +37,176 @@ private val blue = Color(0xFF399CFF)
 
 @Composable
 private fun DesignBCard(
-    modifier:Modifier=Modifier,
-    accent:Color=turquoise,
-    content:@Composable ColumnScope.()->Unit
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
 ) {
-    Surface(modifier=modifier, shape=RoundedCornerShape(18.dp),
-        color=MaterialTheme.colorScheme.surface,
-        border=BorderStroke(1.dp,accent.copy(alpha=.43f))) {
-        Column(Modifier.padding(11.dp),
-            verticalArrangement=Arrangement.spacedBy(8.dp),content=content)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .58f))
+    ) {
+        Column(
+            Modifier.padding(13.dp),
+            verticalArrangement = Arrangement.spacedBy(11.dp),
+            content = content
+        )
     }
 }
 
+/** The home palette follows the actual Material theme, including the user's in-app theme choice. */
 @Composable
-internal fun HomeBGreeting(name:String) {
-    val hour=java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-    val greeting=when(hour) {
+private fun homeAccentColor(): Color = MaterialTheme.colorScheme.primary
+
+@Composable
+private fun homeNegativeColor(): Color =
+    if (MaterialTheme.colorScheme.background.luminance() > .5f) Color(0xFFB4233D)
+    else MaterialTheme.colorScheme.error
+
+@Composable
+internal fun HomeBGreeting(name: String) {
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    val greeting = when (hour) {
         in 5..11 -> "Good morning"
         in 12..16 -> "Good afternoon"
         else -> "Good evening"
     }
-    Column(verticalArrangement=Arrangement.spacedBy(3.dp)) {
-        Text(greeting+name.takeIf(String::isNotBlank)?.let { ", "+it }.orEmpty(),
-            style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
-        Text("Here's what's happening with your money.",
-            color=MaterialTheme.colorScheme.onSurfaceVariant,
-            style=MaterialTheme.typography.bodySmall)
-    }
-}
-
-@Composable
-internal fun HomeBPeriod(month:String,daysLeft:Int?,onClick:()->Unit) {
-    Row(horizontalArrangement=Arrangement.spacedBy(8.dp),
-        verticalAlignment=Alignment.CenterVertically) {
-        Surface(onClick=onClick, modifier=Modifier.weight(1f).height(40.dp),
-            color=MaterialTheme.colorScheme.surface,
-            shape=RoundedCornerShape(13.dp),
-            border=BorderStroke(1.dp,blue.copy(alpha=.7f))) {
-            Row(Modifier.padding(horizontal=10.dp),verticalAlignment=Alignment.CenterVertically) {
-                Icon(Icons.Rounded.CalendarMonth,null,Modifier.size(18.dp),tint=turquoise)
-                Spacer(Modifier.width(7.dp))
-                Text(month,Modifier.weight(1f),maxLines=1,
-                    style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.SemiBold)
-                Icon(Icons.Rounded.ChevronRight,"Choose month",Modifier.size(18.dp))
-            }
-        }
-        if(daysLeft!=null) Surface(
-            color=turquoise.copy(alpha=.12f),
-            shape=RoundedCornerShape(13.dp),
-            border=BorderStroke(1.dp,turquoise.copy(alpha=.5f))) {
-            Text(daysLeft.toString()+" days left",
-                Modifier.padding(horizontal=9.dp,vertical=11.dp),
-                color=turquoise,style=MaterialTheme.typography.labelSmall)
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            greeting + name.takeIf(String::isNotBlank)?.let { ", $it" }.orEmpty(),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "Here's your money at a glance.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }
 
 @Composable
 internal fun HomeBHealth(health: HomeFinancialSignals, onDetails: () -> Unit) {
-    DesignBCard(accent=violet) {
-        Row(verticalAlignment=Alignment.CenterVertically) {
-            Text("Financial health", modifier=Modifier.weight(1f),
-                style=MaterialTheme.typography.titleSmall,
-                fontWeight=FontWeight.Bold)
-            Surface(onClick=onDetails,shape=RoundedCornerShape(10.dp),
-                color=violet.copy(alpha=.12f)) {
-                Row(Modifier.padding(horizontal=9.dp,vertical=6.dp),
-                    verticalAlignment=Alignment.CenterVertically) {
-                    Text("Guidance",fontSize=11.sp,color=violet,fontWeight=FontWeight.Bold)
-                    Icon(Icons.Rounded.ChevronRight,null,Modifier.size(15.dp),tint=violet)
-                }
+    val accent = homeAccentColor()
+    val stateColor = when (health.status) {
+        "Needs attention", "Worth reviewing" -> MaterialTheme.colorScheme.tertiary
+        "On track" -> MaterialTheme.colorScheme.secondary
+        else -> accent
+    }
+    DesignBCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                shape = CircleShape, color = accent.copy(alpha = .13f),
+                modifier = Modifier.size(42.dp)
+            ) {
+                Icon(
+                    Icons.Rounded.Favorite, null,
+                    modifier = Modifier.padding(10.dp), tint = accent
+                )
             }
-        }
-        Row(Modifier.fillMaxWidth().clickable(onClick=onDetails),
-            horizontalArrangement=Arrangement.spacedBy(12.dp),
-            verticalAlignment=Alignment.CenterVertically) {
-            val stateColor=when(health.status) {
-                "Needs attention"->amber
-                "Worth reviewing"->amber
-                "On track"->turquoise
-                else->violet
-            }
-            Box(Modifier.size(100.dp),contentAlignment=Alignment.Center) {
-                Canvas(Modifier.matchParentSize()) {
-                    val stroke=8.dp.toPx()
-                    drawArc(stateColor.copy(alpha=.19f),130f,280f,false,
-                        style=Stroke(stroke,cap=StrokeCap.Round))
-                    health.score?.let { score ->
-                        drawArc(Brush.sweepGradient(listOf(stateColor.copy(alpha=.7f),
-                            stateColor,stateColor)),130f,280f*score/100f,false,
-                            style=Stroke(stroke,cap=StrokeCap.Round))
-                    }
-                }
-                Column(horizontalAlignment=Alignment.CenterHorizontally) {
-                    Text(health.score?.toString()?:"—",fontSize=29.sp,
-                        color=stateColor,fontWeight=FontWeight.Bold)
-                    Text(if(health.score==null) "No full score" else "/100",
-                        fontSize=10.sp,color=stateColor)
-                }
-            }
-            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                Row(verticalAlignment=Alignment.CenterVertically) {
-                    Surface(Modifier.size(9.dp),shape=CircleShape,color=stateColor){}
-                    Spacer(Modifier.width(7.dp))
-                    Text(health.status,color=stateColor,
-                        style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,
-                        modifier=Modifier.weight(1f))
-                    Icon(Icons.Rounded.ChevronRight,"Explain financial indicators",
-                        Modifier.size(18.dp))
-                }
-                Text(health.explanation,style=MaterialTheme.typography.bodySmall,
-                    color=MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines=3,overflow=TextOverflow.Ellipsis)
-            }
-        }
-        val tints=listOf(turquoise,blue,amber,violet)
-        val icons=listOf(Icons.Rounded.AccountBalanceWallet,Icons.Rounded.Savings,
-            Icons.Rounded.AccountBalance,Icons.Rounded.Timeline)
-        health.indicators.chunked(2).forEachIndexed { rowIndex, pair ->
-            Row(horizontalArrangement=Arrangement.spacedBy(7.dp)) {
-                pair.forEachIndexed { index, signal ->
-                    val i=rowIndex*2+index
-                    Surface(onClick=onDetails,modifier=Modifier.weight(1f),
-                        shape=RoundedCornerShape(12.dp),
-                        color=tints[i].copy(alpha=.07f),
-                        border=BorderStroke(1.dp,tints[i].copy(alpha=.23f))) {
-                        Column(Modifier.padding(9.dp),
-                            verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                            Row(verticalAlignment=Alignment.CenterVertically) {
-                                Icon(icons[i],null,Modifier.size(18.dp),tint=tints[i])
-                                Spacer(Modifier.width(6.dp))
-                                Text(signal.title,style=MaterialTheme.typography.labelMedium,
-                                    fontWeight=FontWeight.SemiBold,maxLines=1)
-                            }
-                            Text(signal.score?.let { it.toString()+"/100" }?:"More evidence needed",
-                                color=tints[i],fontWeight=FontWeight.Bold,fontSize=12.sp,
-                                maxLines=1)
-                            signal.score?.let { value ->
-                                LinearProgressIndicator(progress={value/100f},
-                                    modifier=Modifier.fillMaxWidth().height(3.dp),
-                                    color=tints[i],trackColor=tints[i].copy(alpha=.18f),
-                                    drawStopIndicator={})
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Surface(onClick=onDetails,shape=RoundedCornerShape(11.dp),
-            color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.45f)) {
-            Column(Modifier.fillMaxWidth().padding(10.dp),
-                verticalArrangement=Arrangement.spacedBy(3.dp)) {
-                Row(verticalAlignment=Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.CheckCircle,null,Modifier.size(17.dp),tint=violet)
+            Spacer(Modifier.width(9.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Financial health", fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall
+                    )
                     Spacer(Modifier.width(6.dp))
-                    Text("Data confidence",style=MaterialTheme.typography.labelMedium,
-                        fontWeight=FontWeight.SemiBold,modifier=Modifier.weight(1f))
-                    Text(health.confidence.score?.let { it.toString()+"/100" }?:"Unknown",
-                        color=violet,style=MaterialTheme.typography.labelSmall)
+                    Surface(
+                        color = accent.copy(alpha = .10f),
+                        shape = RoundedCornerShape(7.dp)
+                    ) {
+                        Text(
+                            "Beta", Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            fontSize = 10.sp, color = accent
+                        )
+                    }
                 }
-                Text(health.confidence.reason,style=MaterialTheme.typography.bodySmall,
-                    color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,
-                    overflow=TextOverflow.Ellipsis)
+                Text(health.status, color = stateColor,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold)
+            }
+            TextButton(onClick = onDetails) {
+                Text("View", style = MaterialTheme.typography.labelMedium)
+                Icon(Icons.Rounded.ChevronRight, null, Modifier.size(16.dp))
             }
         }
-        health.actions.firstOrNull()?.let { action ->
-            Row(Modifier.fillMaxWidth().clickable(onClick=onDetails),
-                verticalAlignment=Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Lightbulb,null,Modifier.size(17.dp),tint=amber)
-                Spacer(Modifier.width(7.dp))
-                Text(action.title,style=MaterialTheme.typography.labelMedium,
-                    modifier=Modifier.weight(1f),maxLines=2)
-                Icon(Icons.Rounded.ChevronRight,null,Modifier.size(17.dp))
+        Text(
+            health.explanation,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2, overflow = TextOverflow.Ellipsis
+        )
+        val icons = listOf(
+            Icons.Rounded.AccountBalanceWallet, Icons.Rounded.Savings,
+            Icons.Rounded.AccountBalance, Icons.Rounded.Timeline
+        )
+        val tints = listOf(
+            MaterialTheme.colorScheme.secondary,
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.tertiary,
+            MaterialTheme.colorScheme.primary
+        )
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(
+                .5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .38f)
+            )
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 11.dp, horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                health.indicators.take(4).forEachIndexed { index, signal ->
+                    Column(
+                        modifier = Modifier.weight(1f).clickable(onClick = onDetails),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = tints[index].copy(alpha = .12f),
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                icons[index], null,
+                                Modifier.padding(9.dp), tint = tints[index]
+                            )
+                        }
+                        Text(
+                            signal.title, fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            signal.score?.let { "$it/100" } ?: "More data",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth().clickable(onClick = onDetails),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Rounded.Info, null, Modifier.size(15.dp), tint = accent)
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "Data confidence: " +
+                    (health.confidence.score?.let { "$it/100" } ?: "Unknown"),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.weight(1f)
+            )
+            if (health.actions.isNotEmpty()) {
+                Text("Next steps", style = MaterialTheme.typography.labelSmall, color = accent)
+                Icon(Icons.Rounded.ChevronRight, null,
+                    Modifier.size(15.dp), tint = accent)
             }
         }
     }
@@ -215,127 +214,200 @@ internal fun HomeBHealth(health: HomeFinancialSignals, onDetails: () -> Unit) {
 
 @Composable
 internal fun HomeBMonthly(
-    isCurrent:Boolean,month:String,daysLeft:Int?,moneyIn:String,moneyOut:String,
-    netFlow:String,negative:Boolean,inComparison:Int?,outComparison:Int?,
-    progress:Float?,onExplain:()->Unit
+    isCurrent: Boolean, month: String, daysLeft: Int?, moneyIn: String, moneyOut: String,
+    netFlow: String, negative: Boolean, inComparison: Int?, outComparison: Int?,
+    progress: Float?, onExplain: () -> Unit, onChooseMonth: () -> Unit
 ) {
+    val dangerColor = homeNegativeColor()
     DesignBCard {
-        Row(verticalAlignment=Alignment.CenterVertically) {
-            Text(if(isCurrent) "This month ("+month+")" else month,
-                Modifier.weight(1f),
-                style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.Bold)
-            if(daysLeft!=null) Text(daysLeft.toString()+" days left",
-                style=MaterialTheme.typography.labelSmall,color=turquoise)
-        }
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
-            horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-            HomeBMoneyFigure("Money in",moneyIn,inComparison,Modifier.weight(1f))
-            HomeBMoneyFigure("Money out",moneyOut,outComparison,Modifier.weight(1.15f))
-            Box(Modifier.size(100.dp),contentAlignment=Alignment.Center) {
-                Canvas(Modifier.matchParentSize()) {
-                    drawArc(Color(0xFF314658),125f,290f,false,
-                        style=Stroke(7.dp.toPx(),cap=StrokeCap.Round))
-                    if(progress!=null)drawArc(
-                        Brush.sweepGradient(listOf(turquoise,blue,turquoise)),
-                        125f,290f*progress.coerceIn(0f,1f),false,
-                        style=Stroke(7.dp.toPx(),cap=StrokeCap.Round))
-                }
-                Column(horizontalAlignment=Alignment.CenterHorizontally) {
-                    Text("Net flow",fontSize=9.sp)
-                    Text(netFlow,fontSize=9.sp,lineHeight=10.sp,maxLines=2,
-                        fontWeight=FontWeight.Bold,color=if(negative)danger else turquoise,
-                        textAlign=androidx.compose.ui.text.style.TextAlign.Center)
-                    IconButton(onClick=onExplain,modifier=Modifier.size(24.dp)){
-                        Icon(Icons.Rounded.Info,"About net flow",
-                            Modifier.size(15.dp),tint=turquoise)
-                    }
-                }
-            }
-        }
-        Canvas(Modifier.fillMaxWidth().height(22.dp)) {
-            val w=size.width;val h=size.height
-            val p=androidx.compose.ui.graphics.Path().apply {
-                moveTo(0f,h*.59f)
-                cubicTo(w*.14f,-h*.2f,w*.26f,h*1.40f,w*.42f,h*.55f)
-                cubicTo(w*.59f,-h*.23f,w*.73f,h*1.69f,w,h*.46f)
-            }
-            val area=androidx.compose.ui.graphics.Path().apply {
-                addPath(p)
-                lineTo(w,h)
-                lineTo(0f,h)
-                close()
-            }
-            drawPath(area,brush=Brush.verticalGradient(
-                listOf(turquoise.copy(alpha=.38f),turquoise.copy(alpha=.08f)),
-                startY=0f,endY=h))
-            drawPath(p,turquoise.copy(alpha=.12f),
-                style=Stroke(6.dp.toPx(),cap=StrokeCap.Round))
-            drawPath(p,turquoise.copy(alpha=.93f),
-                style=Stroke(2.dp.toPx(),cap=StrokeCap.Round))
-        }
-    }
-}
-
-@Composable
-private fun HomeBMoneyFigure(title:String,amount:String,change:Int?,modifier:Modifier) {
-    Column(modifier,verticalArrangement=Arrangement.spacedBy(5.dp)) {
-        Text(title,color=MaterialTheme.colorScheme.onSurfaceVariant,
-            style=MaterialTheme.typography.labelSmall)
-        Text(amount,style=MaterialTheme.typography.labelLarge,
-            fontWeight=FontWeight.Bold,maxLines=2,lineHeight=16.sp)
-        Text(change?.let { (if(it>0)"+" else "")+it.toString()+"% vs prior" }
-            ?:"No prior data",fontSize=10.sp,lineHeight=11.sp,maxLines=2,
-            color=if((change?:0)>0)danger else
-                MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-internal fun HomeBInsight(text:String,onClick:()->Unit) {
-    Surface(onClick=onClick,
-        shape=RoundedCornerShape(17.dp),
-        color=Color(0xFF3B2A13),
-        border=BorderStroke(1.dp,amber.copy(alpha=.58f))) {
-        Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically,
-            horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-            Surface(shape=CircleShape,color=amber.copy(alpha=.18f)) {
-                Icon(Icons.Rounded.Lightbulb,null,Modifier.padding(10.dp).size(22.dp),
-                    tint=amber)
-            }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Spending insight",fontWeight=FontWeight.Bold,color=Color.White)
-                Text(text,style=MaterialTheme.typography.bodySmall,
-                    color=Color(0xFFF6E8C7),maxLines=2)
+                Text(
+                    if (isCurrent) "This month ($month)" else month,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                if (daysLeft != null) {
+                    Text(
+                        "$daysLeft days left",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            Icon(Icons.Rounded.ChevronRight,"Review spending",tint=amber)
+            TextButton(onClick = onChooseMonth) {
+                Text("Choose month", style = MaterialTheme.typography.labelMedium)
+                Icon(Icons.Rounded.CalendarMonth, "Choose month", Modifier.size(16.dp))
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            HomeBMoneyFigure(
+                "Recorded income", moneyIn, inComparison, false, Modifier.weight(1f)
+            )
+            androidx.compose.material3.VerticalDivider(
+                modifier = Modifier.height(62.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f)
+            )
+            HomeBMoneyFigure(
+                "Recorded expenses", moneyOut, outComparison, true, Modifier.weight(1f)
+            )
+        }
+        Surface(
+            shape = RoundedCornerShape(13.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Net flow", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        netFlow, style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (negative) dangerColor else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2
+                    )
+                }
+                IconButton(onClick = onExplain, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Rounded.Info, "About recorded net flow",
+                        tint = homeAccentColor())
+                }
+            }
+        }
+        Row(verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Rounded.Info, null, Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "Recorded transactions only. Some income or transfers may be missing. " +
+                    "Net flow is not your bank balance.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeBMoneyFigure(
+    title: String, amount: String, change: Int?, isOutflow: Boolean, modifier: Modifier
+) {
+    val positiveChange = change != null && if (isOutflow) change < 0 else change > 0
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            title, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall, maxLines = 2
+        )
+        Text(
+            amount, style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold, maxLines = 2, lineHeight = 21.sp
+        )
+        Text(
+            change?.let { (if (it > 0) "+" else "") + it.toString() + "% vs prior" }
+                ?: "No prior comparison",
+            fontSize = 11.sp, maxLines = 2,
+            color = if (change == null || change == 0) MaterialTheme.colorScheme.onSurfaceVariant
+            else if (positiveChange) MaterialTheme.colorScheme.secondary else homeNegativeColor()
+        )
+    }
+}
+
+@Composable
+internal fun HomeBInsight(
+    text: String, onClick: () -> Unit, actionNeeded: Boolean = true
+) {
+    val accent = if (actionNeeded) MaterialTheme.colorScheme.tertiary
+                 else MaterialTheme.colorScheme.primary
+    Surface(
+        onClick = onClick, shape = RoundedCornerShape(17.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, accent.copy(alpha = .58f))
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(11.dp)
+        ) {
+            Surface(shape = CircleShape, color = accent.copy(alpha = .16f)) {
+                Icon(
+                    if (actionNeeded) Icons.Rounded.FactCheck else Icons.Rounded.Lightbulb,
+                    null, Modifier.padding(10.dp).size(21.dp), tint = accent
+                )
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    if (actionNeeded) "Action needed" else "Spending insight",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Text(
+                    text, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2
+                )
+            }
+            Icon(Icons.Rounded.ChevronRight, "Open review", tint = accent)
         }
     }
 }
 
 @Composable
 internal fun HomeBTile(
-    title:String,amount:String,help:String,icon:ImageVector,
-    tint:Color,onClick:()->Unit,modifier:Modifier=Modifier
+    title: String, amount: String, help: String, icon: ImageVector,
+    tint: Color, onClick: () -> Unit, modifier: Modifier = Modifier
 ) {
-    Surface(onClick=onClick,
-        modifier=modifier.heightIn(min=94.dp),
-        shape=RoundedCornerShape(16.dp),
-        color=MaterialTheme.colorScheme.surface,
-        border=BorderStroke(1.dp,tint.copy(alpha=.33f))) {
-        Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
-            Row(verticalAlignment=Alignment.CenterVertically,
-                horizontalArrangement=Arrangement.spacedBy(7.dp)) {
-                Surface(shape=RoundedCornerShape(10.dp),color=tint.copy(alpha=.16f)) {
-                    Icon(icon,null,Modifier.padding(5.dp).size(20.dp),tint=tint)
+    val isLight = MaterialTheme.colorScheme.background.luminance() > .5f
+    val iconColor = if (isLight) when (title) {
+        "Upcoming bills" -> Color(0xFF9A5B0A)
+        "Investments" -> Color(0xFF087E73)
+        "Enter salary" -> Color(0xFF2454B8)
+        else -> MaterialTheme.colorScheme.primary
+    } else tint
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 105.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        border = BorderStroke(
+            1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .60f)
+        )
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                Surface(shape = CircleShape, color = iconColor.copy(alpha = .13f)) {
+                    Icon(icon, null, Modifier.padding(8.dp).size(20.dp), tint = iconColor)
                 }
-                Text(title,style=MaterialTheme.typography.labelMedium,
-                    maxLines=2,lineHeight=13.sp)
+                Text(
+                    title, style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold, maxLines = 2, lineHeight = 15.sp,
+                    modifier = Modifier.weight(1f), overflow = TextOverflow.Ellipsis
+                )
+                Icon(Icons.Rounded.ChevronRight, null, Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(amount,style=MaterialTheme.typography.titleSmall,
-                fontWeight=FontWeight.Bold,maxLines=1,
-                overflow=TextOverflow.Ellipsis)
-            Text(help,color=MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize=10.sp,maxLines=2,lineHeight=12.sp)
+            Text(
+                amount, style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold, maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                help, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 2, overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -372,12 +444,12 @@ internal fun HomeBRecent(
     rows:List<StoredTransaction>, category:(String)->String,
     money:(Long)->String,onOpen:(Long)->Unit,onAll:()->Unit
 ) {
-    DesignBCard(accent=violet) {
+    DesignBCard {
         Row(verticalAlignment=Alignment.CenterVertically) {
             Text("Recent activity",Modifier.weight(1f),
                 style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.Bold)
             TextButton(onClick=onAll,contentPadding=PaddingValues(2.dp)){
-                Text("See all",color=blue,style=MaterialTheme.typography.labelMedium)
+                Text("See all",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelMedium)
             }
         }
         if(rows.isEmpty()) Text("No transactions for this month.",
@@ -388,9 +460,9 @@ internal fun HomeBRecent(
                 .padding(vertical=4.dp),
                 verticalAlignment=Alignment.CenterVertically,
                 horizontalArrangement=Arrangement.spacedBy(7.dp)) {
-                Surface(shape=CircleShape,color=violet.copy(alpha=.18f)) {
+                Surface(shape=CircleShape,color=MaterialTheme.colorScheme.primary.copy(alpha=.12f)) {
                     Icon(Icons.Rounded.ReceiptLong,null,
-                        Modifier.padding(8.dp).size(19.dp),tint=violet)
+                        Modifier.padding(8.dp).size(19.dp),tint=MaterialTheme.colorScheme.primary)
                 }
                 Column(Modifier.weight(1f)) {
                     Text(row.counterparty?.takeIf(String::isNotBlank)?:"Transaction",
