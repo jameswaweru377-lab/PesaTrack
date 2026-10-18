@@ -1330,18 +1330,13 @@ fun HomeScreen(
                 style=MaterialTheme.typography.bodySmall)
             TextButton(onClick={refresh()}){Text("Retry")}
         }
-        item(key="b-period") {
-            HomeBPeriod(selectedMonthText, daysRemaining) {
-                showHomeMonthPicker=true
-            }
-        }
         item(key="b-health") {
             HomeBHealth(financialHealth) { showHomeHealthInfo=true }
         }
         item(key="b-money") {
             HomeBMonthly(
                 isCurrent=selectedHomeMonthOffset==0,
-                month=SimpleDateFormat("MMMM",homeConfigurationLocale)
+                month=SimpleDateFormat("MMMM yyyy",homeConfigurationLocale)
                     .format(selectedCalendar.time),
                 daysLeft=daysRemaining,
                 moneyIn=selectedMoneyIn?.let(::formatMoney)?:"Updating…",
@@ -1356,7 +1351,8 @@ fun HomeScreen(
                         comparablePriorSpending),
                 progress=if(selectedMoneyIn==null || selectedSpending==null)null
                     else netFlowRingProgress(selectedMoneyIn,selectedSpending),
-                onExplain={showNetFlowExplanation=true}
+                onExplain={showNetFlowExplanation=true},
+                onChooseMonth={showHomeMonthPicker=true}
             )
         }
         if(historicalLoadFailed && selectedHomeMonthOffset != 0) item {
@@ -1364,16 +1360,23 @@ fun HomeScreen(
                 style=MaterialTheme.typography.bodySmall,
                 color=MaterialTheme.colorScheme.error)
         }
-        if(selectedHomeMonthOffset==0 && !recordedSpendingInsight.isNullOrBlank()) {
-            item(key="b-insight") {
-                HomeBInsight(recordedSpendingInsight.orEmpty(),onClick=onActivityClick)
-            }
-        } else if(selectedHomeMonthOffset==0 && needsAttentionCount>0) {
-            item(key="b-attention-insight") {
+        if (selectedHomeMonthOffset == 0 && needsAttentionCount > 0) {
+            item(key = "b-attention-insight") {
                 HomeBInsight(
-                    needsAttentionCount.toString()+
+                    needsAttentionCount.toString() +
                         " transactions or relationships need review.",
-                    onClick=onAttentionClick
+                    onClick = onAttentionClick,
+                    actionNeeded = true
+                )
+            }
+        } else if (selectedHomeMonthOffset == 0 &&
+            !recordedSpendingInsight.isNullOrBlank()
+        ) {
+            item(key = "b-insight") {
+                HomeBInsight(
+                    recordedSpendingInsight.orEmpty(),
+                    onClick = onActivityClick,
+                    actionNeeded = false
                 )
             }
         }
@@ -1390,21 +1393,6 @@ fun HomeScreen(
                     onClick=onDebtsClick,modifier=Modifier.weight(1f)
                 )
                 HomeBTile(
-                    "Investments",
-                    "Value unavailable",
-                    observedPositions?.size?.let { n ->
-                        n.toString()+if(n==1)" observed position" else " observed positions"
-                    }?:"Checking records",
-                    androidx.compose.material.icons.Icons.Rounded.TrendingUp,
-                    androidx.compose.ui.graphics.Color(0xFF42E5D2),
-                    onClick={showInvestments=true},modifier=Modifier.weight(1f)
-                )
-            }
-        }
-        item(key="b-tools-pair") {
-            Row(Modifier.fillMaxWidth(),
-                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                HomeBTile(
                     "Upcoming bills",
                     if(upcomingBills.isEmpty())"None due"
                     else upcomingBills.size.toString() + " due",
@@ -1413,6 +1401,21 @@ fun HomeScreen(
                     androidx.compose.material.icons.Icons.Rounded.CalendarMonth,
                     androidx.compose.ui.graphics.Color(0xFFFFC55C),
                     onClick=onBillsClick,modifier=Modifier.weight(1f)
+                )
+            }
+        }
+        item(key="b-tools-pair") {
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                HomeBTile(
+                    "Investments",
+                    "Value unavailable",
+                    observedPositions?.size?.let { n ->
+                        n.toString()+if(n==1)" observed position" else " observed positions"
+                    }?:"Checking records",
+                    androidx.compose.material.icons.Icons.Rounded.TrendingUp,
+                    androidx.compose.ui.graphics.Color(0xFF42E5D2),
+                    onClick={showInvestments=true},modifier=Modifier.weight(1f)
                 )
                 HomeBTile(
                     "Enter salary",

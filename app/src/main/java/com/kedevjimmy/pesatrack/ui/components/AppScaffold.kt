@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.ui.screens.ActivityMoneyActions
@@ -101,15 +102,21 @@ fun AppScaffold(
                             .testTag("bottom-add-tool-button"),
                         contentAlignment = Alignment.Center
                     ) {
+                        val isLight = MaterialTheme.colorScheme.background.luminance() > .5f
+                        val addAccent = if (isLight) MaterialTheme.colorScheme.primary
+                            else Color(0xFF52E5D3)
+                        val addFill = if (isLight) addAccent else Color(0xFF06393A)
+                        val addIcon = if (isLight) MaterialTheme.colorScheme.onPrimary
+                            else Color(0xFF57F0DD)
                         Canvas(Modifier.requiredSize(72.dp)) {
-                            drawCircle(Color(0xFF52E5D3).copy(alpha = .10f))
+                            drawCircle(addAccent.copy(alpha = .10f))
                         }
                         Surface(
                             onClick = { toolsOpen = true },
                             modifier = Modifier.requiredSize(58.dp),
                             shape = CircleShape,
-                            color = Color(0xFF06393A),
-                            border = BorderStroke(2.dp, Color(0xFF52E5D3)),
+                            color = addFill,
+                            border = BorderStroke(2.dp, addAccent),
                             shadowElevation = 10.dp
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -117,7 +124,7 @@ fun AppScaffold(
                                     Icons.Rounded.Add,
                                     contentDescription = "Add & import tools",
                                     modifier = Modifier.size(33.dp),
-                                    tint = Color(0xFF57F0DD)
+                                    tint = addIcon
                                 )
                             }
                         }
