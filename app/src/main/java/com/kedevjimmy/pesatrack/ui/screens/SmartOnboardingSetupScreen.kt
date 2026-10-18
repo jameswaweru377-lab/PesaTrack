@@ -2435,7 +2435,10 @@ private fun ImportChoicePage(
                             selected.get(Calendar.MONTH),
                             selected.get(Calendar.DAY_OF_MONTH)
                         ).apply {
-                            datePicker.maxDate = minOf(customEndDateEpochMs, today)
+                            datePicker.maxDate = minOf(
+                                endOfLocalDayEpochMs(customEndDateEpochMs),
+                                endOfLocalDayEpochMs(today)
+                            )
                         }.show()
                     },
                     modifier = Modifier.weight(1f).heightIn(min = 52.dp)
@@ -2457,8 +2460,8 @@ private fun ImportChoicePage(
                             selected.get(Calendar.MONTH),
                             selected.get(Calendar.DAY_OF_MONTH)
                         ).apply {
-                            datePicker.minDate = customStartDateEpochMs
-                            datePicker.maxDate = System.currentTimeMillis()
+                            datePicker.minDate = startOfLocalDayEpochMs(customStartDateEpochMs)
+                            datePicker.maxDate = endOfLocalDayEpochMs(today)
                         }.show()
                     },
                     modifier = Modifier.weight(1f).heightIn(min = 52.dp)
@@ -3696,6 +3699,13 @@ private fun startOfLocalDayEpochMs(epochMs: Long): Long =
         set(Calendar.MINUTE, 0)
         set(Calendar.SECOND, 0)
         set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+private fun endOfLocalDayEpochMs(epochMs: Long): Long =
+    Calendar.getInstance().apply {
+        timeInMillis = startOfLocalDayEpochMs(epochMs)
+        add(Calendar.DAY_OF_MONTH, 1)
+        add(Calendar.MILLISECOND, -1)
     }.timeInMillis
 
 private fun defaultCustomImportStartDateEpochMs(): Long =
