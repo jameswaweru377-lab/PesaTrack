@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material3.*
