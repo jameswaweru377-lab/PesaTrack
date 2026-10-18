@@ -76,4 +76,65 @@ class OnboardingHistoryWindowTest {
             OnboardingHistoryWindow.importStartEpochMs(3, now, nairobi)
         )
     }
+
+    @Test fun customRangeIncludesSelectedDaysAndAllowsMoreThanThreeMonths() {
+        val now = epoch(nairobi, 2026, Calendar.OCTOBER, 18, 12)
+
+        val range = OnboardingHistoryWindow.customRange(
+            startDateEpochMs = epoch(nairobi, 2026, Calendar.APRIL, 12, 17),
+            endDateEpochMs = epoch(nairobi, 2026, Calendar.OCTOBER, 18, 9),
+            nowEpochMs = now,
+            timeZone = nairobi
+        )
+
+        assertEquals(epoch(nairobi, 2026, Calendar.APRIL, 12), range?.startEpochMs)
+        assertEquals(epoch(nairobi, 2026, Calendar.OCTOBER, 19), range?.endExclusiveEpochMs)
+        assertEquals(7, range?.calendarMonths)
+    }
+
+    @Test fun customRangeRejectsReversedDates() {
+        assertNull(
+            OnboardingHistoryWindow.customRange(
+                startDateEpochMs = epoch(nairobi, 2026, Calendar.OCTOBER, 2),
+                endDateEpochMs = epoch(nairobi, 2026, Calendar.OCTOBER, 1),
+                timeZone = nairobi
+            )
+        )
+    }
+
+    @Test fun customRangeRejectsFutureEndDate() {
+        val now = epoch(nairobi, 2026, Calendar.OCTOBER, 18, 12)
+        assertNull(
+            OnboardingHistoryWindow.customRange(
+                startDateEpochMs = epoch(nairobi, 2026, Calendar.OCTOBER, 1),
+                endDateEpochMs = epoch(nairobi, 2026, Calendar.OCTOBER, 19),
+                nowEpochMs = now,
+                timeZone = nairobi
+            )
+        )
+    }
+
+    @Test fun customRangeNormalizesPickerTimesToSelectedLocalCalendarDays() {
+        val now = epoch(nairobi, 2026, Calendar.OCTOBER, 18, 20)
+        val range = OnboardingHistoryWindow.customRange(
+            startDateEpochMs = epoch(nairobi, 2026, Calendar.OCTOBER, 1, 15),
+            endDateEpochMs = epoch(nairobi, 2026, Calendar.OCTOBER, 18, 11),
+            nowEpochMs = now,
+            timeZone = nairobi
+        )
+
+        assertEquals(epoch(nairobi, 2026, Calendar.OCTOBER, 1), range?.startEpochMs)
+        assertEquals(epoch(nairobi, 2026, Calendar.OCTOBER, 19), range?.endExclusiveEpochMs)
+    }
+
+    @Test fun customRangeRejectsStartBeyondToday() {
+        assertNull(
+            OnboardingHistoryWindow.customRange(
+                startDateEpochMs = epoch(nairobi, 2026, Calendar.OCTOBER, 19),
+                endDateEpochMs = epoch(nairobi, 2026, Calendar.OCTOBER, 19),
+                nowEpochMs = epoch(nairobi, 2026, Calendar.OCTOBER, 18, 12),
+                timeZone = nairobi
+            )
+        )
+    }
 }

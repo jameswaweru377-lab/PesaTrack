@@ -5,9 +5,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material3.*
@@ -72,7 +70,7 @@ internal fun PesaTrackWelcomePage(onGetStarted: () -> Unit, onSkip: () -> Unit) 
             textAlign = TextAlign.Center
         )
         Text(
-            "We'll help you track your income, expenses, debts and savings.",
+            "A clearer view of your money, from the accounts you already use.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -81,10 +79,9 @@ internal fun PesaTrackWelcomePage(onGetStarted: () -> Unit, onSkip: () -> Unit) 
             Modifier.fillMaxWidth().padding(top = 6.dp),
             verticalArrangement = Arrangement.spacedBy(11.dp)
         ) {
-            WelcomeFeature(Icons.AutoMirrored.Rounded.Message, "Scan your SMS (with your permission)")
-            WelcomeFeature(Icons.Rounded.AccountBalance, "Find your banks and M-Pesa accounts")
-            WelcomeFeature(Icons.Rounded.Search, "Identify your accounts")
-            WelcomeFeature(Icons.Rounded.Savings, "Optionally set up salary tracking")
+            WelcomeFeature(Icons.AutoMirrored.Rounded.Message, "Bring in M-Pesa and bank activity")
+            WelcomeFeature(Icons.Rounded.AccountBalance, "See spending, income and debts together")
+            WelcomeFeature(Icons.Rounded.Savings, "Set up savings and salary tracking when ready")
         }
         Spacer(Modifier.height(4.dp))
         Button(

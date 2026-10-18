@@ -35,6 +35,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +61,7 @@ internal fun SmartSmsPermissionPage(
     denied: Boolean,
     restrictedHelp: Boolean,
     consentError: String? = null,
+    selectedRangeDescription: String? = null,
     onAccepted: (Boolean) -> Unit,
     onOpenAppInfo: () -> Unit,
     onTryAgain: () -> Unit,
@@ -67,6 +72,7 @@ internal fun SmartSmsPermissionPage(
     val compact = maxHeight < 600.dp
     val constrained = maxHeight < 480.dp || LocalDensity.current.fontScale > 1.3f
     val disclosureScroll = rememberScrollState()
+    var showMoreDetails by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(denied) { if (denied) disclosureScroll.scrollTo(0) }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)) {
         if (!constrained) MessageAccessIntroduction(compact)
@@ -85,28 +91,81 @@ internal fun SmartSmsPermissionPage(
                 TextButton(onClick = onTryAgain) { Text("Try SMS again") }
             }
         }
-                Text("Your messages, your choice", style = MaterialTheme.typography.titleMedium,
+                Text("Your messages. Your choice.", style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold)
-                Text("If you agree, PesaTrack reads money messages on this phone to track what comes in, what you spend, your savings and your debts.",
-                    style = MaterialTheme.typography.bodySmall)
-                Text("Your messages are processed on this phone. We do not upload their full text. You can separately choose online help to identify business names.",
-                    style = MaterialTheme.typography.bodySmall)
-                Text("You choose how far back to read and which apps to read money updates from. Newer SMS can be added when you reopen PesaTrack. Other messages are not added as transactions.",
-                    style = MaterialTheme.typography.bodySmall)
-                Text("Android will ask for permission to read SMS and app notifications. You can say no or stop access later. If Android blocks access, you may need to allow restricted settings yourself.",
-                    style = MaterialTheme.typography.bodySmall)
+                Text("Before Android asks for SMS access, here's exactly what PesaTrack will do.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                selectedRangeDescription?.let {
+                    Text("Selected scan range: $it",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary)
+                }
+                MessageAccessDisclosureItem(
+                    icon = Icons.AutoMirrored.Rounded.Message,
+                    title = "What we check",
+                    body = "SMS on this phone, within your chosen range, for financial activity. Other messages aren't added as transactions."
+                )
+                MessageAccessDisclosureItem(
+                    icon = Icons.Rounded.Shield,
+                    title = "Private by default",
+                    body = "Full message text is processed on this device and isn't uploaded. Online business-name lookup is optional."
+                )
+                MessageAccessDisclosureItem(
+                    icon = Icons.Rounded.Notifications,
+                    title = "You stay in control",
+                    body = "Android requests SMS access next. Notification access is a separate setting later. You can decline or revoke access."
+                )
+                TextButton(onClick = { showMoreDetails = !showMoreDetails }) {
+                    Text(if (showMoreDetails) "− Show less" else "+ More about how your data is used")
+                }
+                if (showMoreDetails) {
+                    Text("PesaTrack uses matching financial messages to build your income, spending, savings and debt picture. Newer SMS can be checked when you reopen the app. If Android blocks access, you may need to allow restricted settings yourself.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Optional online business-name lookup sends only a sanitized business descriptor. It does not send your full message, amount, balance, account number or transaction code.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 if (constrained) MessageAccessAgreement(accepted, busy, onAccepted)
             }
         }
         if (!constrained) MessageAccessAgreement(accepted, busy, onAccepted)
         Button(onClick = onContinue, enabled = accepted && !busy,
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-            Text(if (busy) "Waiting for Android…" else "Continue")
+            Text(if (busy) "Waiting for Android…" else "Continue to SMS access")
         }
         TextButton(onClick = onContinueWithout, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-            Text("Continue without access")
+            Text("Continue without SMS access")
         }
     }
+    }
+}
+
+@Composable
+private fun MessageAccessDisclosureItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    body: String
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Row(
+            Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold)
+                Text(body, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 
@@ -115,7 +174,7 @@ private fun MessageAccessIntroduction(compact: Boolean) {
     Text("Build your money picture privately",
         style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.Bold)
-    Text("PesaTrack understands financial messages on this device.",
+    Text("PesaTrack checks financial SMS on this device to build your money picture.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
     FinancialMessagesIllustration(compact = compact)
@@ -126,7 +185,8 @@ private fun MessageAccessAgreement(accepted: Boolean, busy: Boolean, onAccepted:
     Row(Modifier.fillMaxWidth().toggleable(value = accepted, enabled = !busy,
         role = Role.Checkbox, onValueChange = onAccepted), verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = accepted, onCheckedChange = null, enabled = !busy)
-        Text("I agree to this use of my financial messages", style = MaterialTheme.typography.bodySmall)
+        Text("I agree to let PesaTrack read financial messages in my selected range to organize my money activity.",
+            style = MaterialTheme.typography.bodySmall)
     }
 }
 

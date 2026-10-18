@@ -58,7 +58,7 @@ fun FinancialMessagesIllustration(modifier: Modifier = Modifier, compact: Boolea
                 }
             }
         }
-        Text("Illustrative messages", Modifier.align(Alignment.CenterHorizontally),
+        Text("Illustrative examples — not your transaction history", Modifier.align(Alignment.CenterHorizontally),
             style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
     }
 }
