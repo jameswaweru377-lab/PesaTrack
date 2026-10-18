@@ -54,8 +54,12 @@ class HistoricalSmsImporter(
             ((HistoricalImportProgress) -> Unit)? =
             null,
         isCancelled: () -> Boolean = { false },
-        resumeKey: String? = null
+        resumeKey: String? = null,
+        untilEpochMsExclusive: Long? = null
     ): HistoricalImportResult {
+        require(untilEpochMsExclusive == null || untilEpochMsExclusive > sinceEpochMs) {
+            "The import end must be after its start."
+        }
         // Only completed consented imports may arm smart alerts. This wrapper does
         // not change parsing, checkpoints, financial writes or replay identity.
         SmsAccessConsentStore.requireRead(context)
@@ -65,7 +69,15 @@ class HistoricalSmsImporter(
         var success = false
         var changed = false
         try {
-            val result = performImport(sinceEpochMs,rebuildPayCycles,mode,onProgress,isCancelled,resumeKey)
+            val result = performImport(
+                sinceEpochMs,
+                rebuildPayCycles,
+                mode,
+                onProgress,
+                isCancelled,
+                resumeKey,
+                untilEpochMsExclusive
+            )
             success = !result.cancelled
             changed = success && (result.inserted > 0 || result.stateRefreshed > 0 || result.pendingReview > 0)
             return result
@@ -81,7 +93,8 @@ class HistoricalSmsImporter(
         mode: HistoricalImportMode,
         onProgress: ((HistoricalImportProgress) -> Unit)?,
         isCancelled: () -> Boolean,
-        resumeKey: String?
+        resumeKey: String?,
+        untilEpochMsExclusive: Long?
     ): HistoricalImportResult {
         SmsAccessConsentStore.requireRead(context)
         val rules = RuleStore.get(context).listRules(enabledOnly = true)
@@ -134,7 +147,7 @@ class HistoricalSmsImporter(
         val selectionArgs: Array<String>
 
         if (checkpoint != null) {
-            selection =
+            val afterCheckpoint =
                 "(" +
                     Telephony.Sms.DATE +
                     " > ?) OR (" +
@@ -142,18 +155,24 @@ class HistoricalSmsImporter(
                     " = ? AND " +
                     BaseColumns._ID +
                     " > ?)"
-            selectionArgs =
-                arrayOf(
-                    checkpoint
-                        .lastSmsDateEpochMs
-                        .toString(),
-                    checkpoint
-                        .lastSmsDateEpochMs
-                        .toString(),
-                    checkpoint
-                        .lastSmsId
-                        .toString()
-                )
+            val checkpointArgs = arrayOf(
+                checkpoint.lastSmsDateEpochMs.toString(),
+                checkpoint.lastSmsDateEpochMs.toString(),
+                checkpoint.lastSmsId.toString()
+            )
+            if (untilEpochMsExclusive == null) {
+                selection = afterCheckpoint
+                selectionArgs = checkpointArgs
+            } else {
+                selection = "($afterCheckpoint) AND ${Telephony.Sms.DATE} < ?"
+                selectionArgs = checkpointArgs + untilEpochMsExclusive.toString()
+            }
+        } else if (untilEpochMsExclusive != null) {
+            selection = "${Telephony.Sms.DATE} >= ? AND ${Telephony.Sms.DATE} < ?"
+            selectionArgs = arrayOf(
+                effectiveSinceEpochMs.toString(),
+                untilEpochMsExclusive.toString()
+            )
         } else {
             selection =
                 Telephony.Sms.DATE +

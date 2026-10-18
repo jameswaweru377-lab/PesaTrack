@@ -1,6 +1,6 @@
 # PesaTrack Current State
 
-_Last refreshed: 13 October 2026_
+_Last refreshed: 18 October 2026_
 
 This file is the short engineering source of truth. Historical audits, design explorations and `PROJECT_CONTEXT.md` are useful background, but they must not override current code or this snapshot when they conflict.
 
@@ -9,6 +9,10 @@ This file is the short engineering source of truth. Historical audits, design ex
 PesaTrack is feature-complete enough for private/internal beta use, but it is still in a release-hardening phase before external/public distribution.
 
 The current product includes the canonical ledger, provider-neutral financial interpretation, transfers/refunds/debts, salary cycles, budgets, saving goals, bills, reports, app lock, encrypted backup/restore, historical SMS import, notification capture, Data Health and Message Lab.
+
+## Onboarding
+
+- SMS setup offers one- and two-completed-month presets (each also includes this month to date) and an inclusive custom from/to date range. Custom selection is not capped at three months; both boundaries are enforced by the local SMS query. SMS consent shows the chosen range and separates the later notification-access setting. Full message text remains on device; optional online business-name lookup remains separate.
 
 ## Data and accounting
 

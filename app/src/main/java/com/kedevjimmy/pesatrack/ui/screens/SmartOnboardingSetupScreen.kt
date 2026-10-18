@@ -152,6 +152,8 @@ private enum class SmartSetupStage {
     COMPLETE
 }
 
+private const val CUSTOM_IMPORT_SELECTION = 3
+
 private enum class AnalysisStep {
     SCANNING,
     ACCOUNTS,
@@ -234,8 +236,35 @@ fun SmartOnboardingSetupScreen(
     var smsHandled by rememberSaveable { mutableStateOf(false) }
     var notificationsHandled by rememberSaveable { mutableStateOf(false) }
     var importMonths by rememberSaveable {
-        mutableStateOf(3)
+        mutableStateOf(2)
     }
+    var customImportStartDateEpochMs by rememberSaveable {
+        mutableStateOf(defaultCustomImportStartDateEpochMs())
+    }
+    var customImportEndDateEpochMs by rememberSaveable {
+        mutableStateOf(startOfLocalDayEpochMs(System.currentTimeMillis()))
+    }
+    val customImportRange = remember(
+        importMonths,
+        customImportStartDateEpochMs,
+        customImportEndDateEpochMs
+    ) {
+        if (importMonths == CUSTOM_IMPORT_SELECTION) {
+            OnboardingHistoryWindow.customRange(
+                customImportStartDateEpochMs,
+                customImportEndDateEpochMs
+            )
+        } else null
+    }
+    val selectedImportStartEpochMs = when (importMonths) {
+        1, 2 -> OnboardingHistoryWindow.importStartEpochMs(importMonths)
+        CUSTOM_IMPORT_SELECTION -> customImportRange?.startEpochMs
+        else -> null
+    }
+    val selectedImportEndExclusiveEpochMs = customImportRange?.endExclusiveEpochMs
+        .takeIf { importMonths == CUSTOM_IMPORT_SELECTION }
+    val selectedHistoryMonths = customImportRange?.calendarMonths ?: importMonths
+    val importSelectionValid = importMonths == 0 || selectedImportStartEpochMs != null
     var smsGranted by remember {
         mutableStateOf(smartHasSmsPermission(context))
     }
@@ -483,6 +512,8 @@ fun SmartOnboardingSetupScreen(
     LaunchedEffect(
         stage,
         importMonths,
+        selectedImportStartEpochMs,
+        selectedImportEndExclusiveEpochMs,
         smsGranted,
         analysisReviewMode
     ) {
@@ -494,11 +525,7 @@ fun SmartOnboardingSetupScreen(
             return@LaunchedEffect
         }
 
-        val startEpochMs =
-            OnboardingHistoryWindow
-                .importStartEpochMs(
-                    importMonths
-                )
+        val startEpochMs = selectedImportStartEpochMs
         val cutoff =
             startEpochMs
                 ?: (
@@ -511,6 +538,7 @@ fun SmartOnboardingSetupScreen(
         importResult =
             withContext(Dispatchers.IO) {
                 if (
+                    importSelectionValid &&
                     MessageAccessPolicy.canImport(disclosureAccepted, smsGranted, importMonths) &&
                     startEpochMs != null
                 ) {
@@ -518,7 +546,8 @@ fun SmartOnboardingSetupScreen(
                         HistoricalSmsImporter(
                             context.applicationContext
                         ).importSince(
-                            startEpochMs
+                            sinceEpochMs = startEpochMs,
+                            untilEpochMsExclusive = selectedImportEndExclusiveEpochMs
                         )
                     }.getOrNull()
                 } else {
@@ -750,7 +779,8 @@ fun SmartOnboardingSetupScreen(
         withContext(Dispatchers.IO) {
             transactionStore
                 .onboardingDuplicateCandidateCount(
-                    cutoff
+                    cutoff,
+                    selectedImportEndExclusiveEpochMs
                 )
         }
         delay(MIN_PROGRESS_STEP_MS)
@@ -764,7 +794,9 @@ fun SmartOnboardingSetupScreen(
 
     LaunchedEffect(
         stage,
-        importMonths
+        importMonths,
+        selectedHistoryMonths,
+        selectedImportStartEpochMs
     ) {
         if (
             stage ==
@@ -777,8 +809,7 @@ fun SmartOnboardingSetupScreen(
                 ) {
                     1
                 } else {
-                    importMonths
-                        .coerceAtLeast(1)
+                    selectedHistoryMonths.coerceIn(1, 3)
                 }
             if (
                 manualSalaryDrafts.size !=
@@ -801,12 +832,7 @@ fun SmartOnboardingSetupScreen(
             return
         }
 
-        val startEpochMs =
-            OnboardingHistoryWindow
-                .importStartEpochMs(
-                    importMonths
-                        .coerceAtLeast(1)
-                )
+        val startEpochMs = selectedImportStartEpochMs
                 ?: (
                     System.currentTimeMillis() -
                         31L * 24L * 60L *
@@ -828,6 +854,10 @@ fun SmartOnboardingSetupScreen(
                                     it.isNotBlank()
                                 }
                     )
+                    .filter {
+                        selectedImportEndExclusiveEpochMs == null ||
+                            it.occurredAtEpochMs < selectedImportEndExclusiveEpochMs
+                    }
             }
 
         if (candidates.isEmpty()) {
@@ -858,8 +888,7 @@ fun SmartOnboardingSetupScreen(
             ) {
                 1
             } else {
-                importMonths
-                    .coerceAtLeast(1)
+                selectedHistoryMonths.coerceIn(1, 3)
             }
 
         val baseDrafts =
@@ -1320,10 +1349,12 @@ fun SmartOnboardingSetupScreen(
                         entityKey = reference.entityKey, rebuildPayCycles = false
                     )
                 }
-                if (selectedKeys.isNotEmpty() && smsGranted && importMonths > 0) {
-                    OnboardingHistoryWindow.importStartEpochMs(importMonths)?.let { startEpochMs ->
+                if (selectedKeys.isNotEmpty() && smsGranted && selectedImportStartEpochMs != null) {
+                    selectedImportStartEpochMs?.let { startEpochMs ->
                         HistoricalSmsImporter(context.applicationContext).importSince(
-                            sinceEpochMs = startEpochMs, rebuildPayCycles = false
+                            sinceEpochMs = startEpochMs,
+                            rebuildPayCycles = false,
+                            untilEpochMsExclusive = selectedImportEndExclusiveEpochMs
                         )
                     }
                 }
@@ -1370,12 +1401,7 @@ fun SmartOnboardingSetupScreen(
                             .orEmpty()
             }
 
-            val cutoff =
-                OnboardingHistoryWindow
-                    .importStartEpochMs(
-                        importMonths
-                            .coerceAtLeast(1)
-                    )
+            val cutoff = selectedImportStartEpochMs
                     ?: (
                         System.currentTimeMillis() -
                             31L * ONE_DAY_MS
@@ -1389,7 +1415,9 @@ fun SmartOnboardingSetupScreen(
                             .recent(500)
                             .filter {
                                 it.receivedAtEpochMs >=
-                                    cutoff
+                                    cutoff &&
+                                    (selectedImportEndExclusiveEpochMs == null ||
+                                        it.receivedAtEpochMs < selectedImportEndExclusiveEpochMs)
                             }
                             .map { item ->
                                 OnboardingTransactionObservation(
@@ -1639,6 +1667,14 @@ fun SmartOnboardingSetupScreen(
             StageProgress(stage)
             SmartSmsPermissionPage(
                 accepted = disclosureAccepted, busy = accessStarted, denied = smsDenied, consentError = consentError,
+                selectedRangeDescription = when (importMonths) {
+                    1 -> "1 completed month plus this month to date"
+                    2 -> "2 completed months plus this month to date"
+                    CUSTOM_IMPORT_SELECTION -> customImportRange?.let {
+                        "${formatOnboardingDate(it.startEpochMs)} – ${formatOnboardingDate(customImportEndDateEpochMs)}"
+                    }
+                    else -> null
+                },
                 restrictedHelp = smsDenied && smartIsLikelySideloaded(context),
                 onAccepted = {
                     val revoked = if (it) true else {
@@ -1732,8 +1768,21 @@ fun SmartOnboardingSetupScreen(
                     ImportChoicePage(
                         selectedMonths =
                             importMonths,
+                        customStartDateEpochMs = customImportStartDateEpochMs,
+                        customEndDateEpochMs = customImportEndDateEpochMs,
+                        canContinue = importSelectionValid,
                         onSelected = {
                             importMonths = it
+                            smsDenied = false
+                        },
+                        onCustomStartDateSelected = {
+                            customImportStartDateEpochMs = it
+                            importMonths = CUSTOM_IMPORT_SELECTION
+                            smsDenied = false
+                        },
+                        onCustomEndDateSelected = {
+                            customImportEndDateEpochMs = it
+                            importMonths = CUSTOM_IMPORT_SELECTION
                             smsDenied = false
                         },
                         onLater = {
@@ -1744,7 +1793,9 @@ fun SmartOnboardingSetupScreen(
                         onContinue = {
                             if (
                                 importMonths == 0 ||
-                                MessageAccessPolicy.canImport(disclosureAccepted, smsGranted, importMonths)
+                                (importSelectionValid && MessageAccessPolicy.canImport(
+                                    disclosureAccepted, smsGranted, importMonths
+                                ))
                             ) {
                                 stage =
                                     SmartSetupStage
@@ -1767,7 +1818,9 @@ fun SmartOnboardingSetupScreen(
                 item {
                     AnalysisPage(
                         importing =
-                            MessageAccessPolicy.canImport(disclosureAccepted, smsGranted, importMonths),
+                            importSelectionValid && MessageAccessPolicy.canImport(
+                                disclosureAccepted, smsGranted, importMonths
+                            ),
                         step = analysisStep,
                         reviewMode =
                             analysisReviewMode,
@@ -1834,7 +1887,7 @@ fun SmartOnboardingSetupScreen(
                         payer =
                             manualSalaryPayer,
                         importMonths =
-                            importMonths,
+                            selectedHistoryMonths.coerceIn(0, 3),
                         historyMode =
                             manualSalaryHistoryMode,
                         drafts =
@@ -2286,10 +2339,22 @@ private fun StageProgress(
 @Composable
 private fun ImportChoicePage(
     selectedMonths: Int,
+    customStartDateEpochMs: Long,
+    customEndDateEpochMs: Long,
+    canContinue: Boolean,
     onSelected: (Int) -> Unit,
+    onCustomStartDateSelected: (Long) -> Unit,
+    onCustomEndDateSelected: (Long) -> Unit,
     onLater: () -> Unit,
     onContinue: () -> Unit
 ) {
+    val context = LocalContext.current
+    val today = startOfLocalDayEpochMs(System.currentTimeMillis())
+    val customRange = OnboardingHistoryWindow.customRange(
+        customStartDateEpochMs,
+        customEndDateEpochMs
+    )
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -2307,12 +2372,12 @@ private fun ImportChoicePage(
                 }
             }
         }
-        Text("Scan SMS messages",
+        Text("Choose your SMS history",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center)
         Text(
-            "We'll look for messages from your banks, M-Pesa and other financial services.",
+            "We'll look for financial activity in messages from M-Pesa, banks and other services.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -2325,34 +2390,105 @@ private fun ImportChoicePage(
             Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Lock, contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary)
-                Text("All scanning happens on your phone. Your messages are never uploaded.",
+                Text("Scanning runs on this phone. Full message text stays here. Optional online business-name lookup is separate.",
                     modifier = Modifier.padding(start = 10.dp),
                     style = MaterialTheme.typography.bodySmall)
             }
         }
-        Text("Choose how far back to scan",
+        Text("How far back should we check?",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()) {
-            listOf(1, 2, 3).forEach { n ->
+            listOf(1, 2).forEach { n ->
                 FilterChip(
                     selected = selectedMonths == n,
                     onClick = { onSelected(n) },
-                    label = { Text(if (n == 1) "1 month" else "$n months") },
+                    label = { Text(if (n == 1) "1 month" else "2 months") },
                     modifier = Modifier.weight(1f)
                 )
             }
+            FilterChip(
+                selected = selectedMonths == CUSTOM_IMPORT_SELECTION,
+                onClick = { onSelected(CUSTOM_IMPORT_SELECTION) },
+                label = { Text("Custom") },
+                modifier = Modifier.weight(1f)
+            )
         }
-        Text(
-            "Your selection covers completed previous months plus this month to date.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+
+        if (selectedMonths == CUSTOM_IMPORT_SELECTION) {
+            Text("Choose your dates", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = {
+                        val selected = Calendar.getInstance().apply {
+                            timeInMillis = customStartDateEpochMs
+                        }
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, day ->
+                                onCustomStartDateSelected(pickerDateEpochMs(year, month, day))
+                            },
+                            selected.get(Calendar.YEAR),
+                            selected.get(Calendar.MONTH),
+                            selected.get(Calendar.DAY_OF_MONTH)
+                        ).apply {
+                            datePicker.maxDate = minOf(
+                                endOfLocalDayEpochMs(customEndDateEpochMs),
+                                endOfLocalDayEpochMs(today)
+                            )
+                        }.show()
+                    },
+                    modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+                ) {
+                    Text("From\n${formatOnboardingDate(customStartDateEpochMs)}",
+                        textAlign = TextAlign.Center)
+                }
+                OutlinedButton(
+                    onClick = {
+                        val selected = Calendar.getInstance().apply {
+                            timeInMillis = customEndDateEpochMs
+                        }
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, day ->
+                                onCustomEndDateSelected(pickerDateEpochMs(year, month, day))
+                            },
+                            selected.get(Calendar.YEAR),
+                            selected.get(Calendar.MONTH),
+                            selected.get(Calendar.DAY_OF_MONTH)
+                        ).apply {
+                            datePicker.minDate = startOfLocalDayEpochMs(customStartDateEpochMs)
+                            datePicker.maxDate = endOfLocalDayEpochMs(today)
+                        }.show()
+                    },
+                    modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+                ) {
+                    Text("To\n${formatOnboardingDate(customEndDateEpochMs)}",
+                        textAlign = TextAlign.Center)
+                }
+            }
+            Text(
+                if (customRange != null) "Any past date range can be selected, including five or six months."
+                else "Choose a valid past date range. Future dates aren't available.",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (customRange == null) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Text(
+                "Includes completed previous months plus this month to date. You can change the range later.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Button(onClick = onContinue,
+            enabled = canContinue,
             modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
             shape = RoundedCornerShape(12.dp)) {
-            Text(if (selectedMonths == 0) "Continue" else "Scan messages")
+            Text(if (selectedMonths == 0) "Continue" else "Review privacy & continue")
         }
         TextButton(onClick = onLater, modifier = Modifier.fillMaxWidth()) {
             Text("Maybe later")
@@ -3555,3 +3691,36 @@ private const val MIN_PROGRESS_STEP_MS =
 
 private const val SEVEN_DAYS_MS =
     7L * 24L * 60L * 60L * 1000L
+
+private fun startOfLocalDayEpochMs(epochMs: Long): Long =
+    Calendar.getInstance().apply {
+        timeInMillis = epochMs
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+private fun endOfLocalDayEpochMs(epochMs: Long): Long =
+    Calendar.getInstance().apply {
+        timeInMillis = startOfLocalDayEpochMs(epochMs)
+        add(Calendar.DAY_OF_MONTH, 1)
+        add(Calendar.MILLISECOND, -1)
+    }.timeInMillis
+
+private fun defaultCustomImportStartDateEpochMs(): Long =
+    startOfLocalDayEpochMs(
+        Calendar.getInstance().apply {
+            add(Calendar.MONTH, -6)
+        }.timeInMillis
+    )
+
+private fun pickerDateEpochMs(year: Int, month: Int, day: Int): Long =
+    Calendar.getInstance().apply {
+        clear()
+        set(year, month, day, 12, 0, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+private fun formatOnboardingDate(epochMs: Long): String =
+    SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(epochMs))

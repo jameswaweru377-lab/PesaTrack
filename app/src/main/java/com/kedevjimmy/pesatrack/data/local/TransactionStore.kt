@@ -1309,13 +1309,16 @@ class TransactionStore private constructor(context: Context) {
     }
 
     fun onboardingDuplicateCandidateCount(
-        sinceEpochMs: Long
+        sinceEpochMs: Long,
+        untilEpochMsExclusive: Long? = null
     ): Int {
         synchronized(CanonicalStoreLock.monitor) {
         val recentTransactions =
             recent(500).filter {
                 it.receivedAtEpochMs >=
                     sinceEpochMs &&
+                    (untilEpochMsExclusive == null ||
+                        it.receivedAtEpochMs < untilEpochMsExclusive) &&
                     it.reviewState !=
                     ReviewState.EXCLUDED.name
             }
