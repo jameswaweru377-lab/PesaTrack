@@ -1336,7 +1336,7 @@ fun HomeScreen(
         item(key="b-money") {
             HomeBMonthly(
                 isCurrent=selectedHomeMonthOffset==0,
-                month=SimpleDateFormat("MMMM",homeConfigurationLocale)
+                month=SimpleDateFormat("MMMM yyyy",homeConfigurationLocale)
                     .format(selectedCalendar.time),
                 daysLeft=daysRemaining,
                 moneyIn=selectedMoneyIn?.let(::formatMoney)?:"Updating…",
