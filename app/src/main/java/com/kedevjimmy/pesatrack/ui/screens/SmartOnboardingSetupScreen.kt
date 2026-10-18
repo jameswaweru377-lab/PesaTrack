@@ -13,6 +13,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,7 +52,6 @@ import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Wallet
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.CircularProgressIndicator
@@ -78,7 +79,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -2326,7 +2330,7 @@ private fun StageProgress(
                     .padding(horizontal = 3.dp)
                     .size(width = if (index == visibleIndex) 25.dp else 7.dp, height = 7.dp),
                 shape = CircleShape,
-                color = if (index <= visibleIndex) {
+                color = if (index == visibleIndex) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.outlineVariant
@@ -2354,71 +2358,84 @@ private fun ImportChoicePage(
         customStartDateEpochMs,
         customEndDateEpochMs
     )
+    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.45f
+    val selectedRangeBackground = if (darkTheme) Color(0xFF0C403B) else Color(0xFFDAF5EF)
+    val selectedRangeContent = if (darkTheme) Color(0xFFA8F1E4) else Color(0xFF075F54)
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(Modifier.fillMaxWidth().height(142.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().height(91.dp), contentAlignment = Alignment.Center) {
             Surface(
-                modifier = Modifier.size(112.dp), shape = CircleShape,
+                modifier = Modifier.size(78.dp), shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(Icons.AutoMirrored.Rounded.Message, null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(62.dp))
+                        modifier = Modifier.size(45.dp))
                 }
             }
         }
         Text("Choose your SMS history",
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, lineHeight = 27.sp),
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center)
         Text(
             "We'll look for financial activity in messages from M-Pesa, banks and other services.",
-            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.widthIn(max = 310.dp),
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 21.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
         Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(15.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
                 Icon(Icons.Rounded.Lock, contentDescription = null,
+                    modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.primary)
                 Text("Scanning runs on this phone. Full message text stays here. Optional online business-name lookup is separate.",
                     modifier = Modifier.padding(start = 10.dp),
-                    style = MaterialTheme.typography.bodySmall)
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 17.sp),
+                    color = MaterialTheme.colorScheme.onSurface)
             }
         }
         Text("How far back should we check?",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()) {
             listOf(1, 2).forEach { n ->
-                FilterChip(
+                ImportRangeChoice(
+                    label = if (n == 1) "1 month" else "2 months",
                     selected = selectedMonths == n,
+                    selectedBackground = selectedRangeBackground,
+                    selectedContent = selectedRangeContent,
                     onClick = { onSelected(n) },
-                    label = { Text(if (n == 1) "1 month" else "2 months") },
                     modifier = Modifier.weight(1f)
                 )
             }
-            FilterChip(
+            ImportRangeChoice(
+                label = "Custom",
                 selected = selectedMonths == CUSTOM_IMPORT_SELECTION,
+                selectedBackground = selectedRangeBackground,
+                selectedContent = selectedRangeContent,
                 onClick = { onSelected(CUSTOM_IMPORT_SELECTION) },
-                label = { Text("Custom") },
                 modifier = Modifier.weight(1f)
             )
         }
 
         if (selectedMonths == CUSTOM_IMPORT_SELECTION) {
-            Text("Choose your dates", style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface)
+            Text("Choose your dates", modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(
@@ -2479,19 +2496,50 @@ private fun ImportChoicePage(
             )
         } else {
             Text(
-                "Includes completed previous months plus this month to date. You can change the range later.",
-                style = MaterialTheme.typography.bodySmall,
+                "Includes completed previous months and this month to date. You can change the range later.",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 15.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Button(onClick = onContinue,
             enabled = canContinue,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
-            shape = RoundedCornerShape(12.dp)) {
+            modifier = Modifier.fillMaxWidth().heightIn(min = 49.dp),
+            shape = RoundedCornerShape(15.dp)) {
             Text(if (selectedMonths == 0) "Continue" else "Review privacy & continue")
         }
         TextButton(onClick = onLater, modifier = Modifier.fillMaxWidth()) {
             Text("Maybe later")
+        }
+    }
+}
+
+@Composable
+private fun ImportRangeChoice(
+    label: String,
+    selected: Boolean,
+    selectedBackground: Color,
+    selectedContent: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.heightIn(min = 42.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(13.dp),
+        color = if (selected) selectedBackground else Color.Transparent,
+        border = BorderStroke(
+            1.dp,
+            if (selected) MaterialTheme.colorScheme.secondary
+            else MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 4.dp)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+                fontWeight = FontWeight.Bold,
+                color = if (selected) selectedContent else MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
