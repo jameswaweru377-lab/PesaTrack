@@ -177,6 +177,23 @@ class RecurringPatternPolicyTest {
     }
 
     @Test
+    fun extremeAmountVarianceCannotOverflowIntoARecurringSuggestion() {
+        val observations =
+            listOf(
+                observation(id = 1, day = 0, amount = 1L),
+                observation(id = 2, day = 30, amount = 1L),
+                observation(id = 3, day = 60, amount = Long.MAX_VALUE)
+            )
+
+        assertTrue(
+            RecurringPatternPolicy.detect(
+                observations = observations,
+                nowEpochMs = 70L * dayMs
+            ).isEmpty()
+        )
+    }
+
+    @Test
     fun stalePatternDoesNotKeepNaggingTheUser() {
         val observations =
             listOf(
