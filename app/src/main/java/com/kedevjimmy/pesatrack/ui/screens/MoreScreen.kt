@@ -118,7 +118,7 @@ fun MoreScreen(
         item { SectionHeader("History & help") }
         item { MoreGroup {
             MoreGroupRow(Icons.Rounded.CalendarMonth, "Add past transactions", "Read older money messages from this phone", "green", onImportClick)
-            MoreGroupRow(Icons.Rounded.Info, "Help & feedback", "Message tests, repair tools and app help", "amber", onDataHealthClick)
+            MoreGroupRow(Icons.Rounded.Info, "Advanced troubleshooting", "Message tests and repair tools", "amber", onDataHealthClick)
         } }
     }
 }
