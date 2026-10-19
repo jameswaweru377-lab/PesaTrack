@@ -30,7 +30,7 @@ internal val statementPalette = listOf(
 )
 
 internal fun statementMoney(minor: Long): String =
-    "KSh " + NumberFormat.getNumberInstance(Locale.US).apply {
+    "KES " + NumberFormat.getNumberInstance(Locale.US).apply {
         minimumFractionDigits = 0
         maximumFractionDigits = 2
     }.format(BigDecimal.valueOf(minor, 2))
