@@ -64,7 +64,6 @@ import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
 import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
-import com.kedevjimmy.pesatrack.ui.components.premiumCategoryColor
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -278,10 +277,9 @@ fun AccountsScreen(
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Your accounts",
-                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                }
+                Text("Accounts",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box {
                         TextButton(onClick = { accountFilterOpen = true }) {
@@ -297,12 +295,6 @@ fun AccountsScreen(
                             }
                         }
                     }
-                    if (onManageInstitutions != null) {
-                        TextButton(onClick = onManageInstitutions) {
-                            Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
-                            Text("Add account")
-                        }
-                    }
                 }
             }
         }
@@ -314,7 +306,7 @@ fun AccountsScreen(
             } }
         }
         items(shown.size, key = { shown[it].group.key }) { index ->
-            AccountBalanceCard(shown[index], index, onAccountClick?.let { callback ->
+            AccountBalanceCard(shown[index], onAccountClick?.let { callback ->
                 { shown[index].group.accounts.firstOrNull()?.id?.let(callback); Unit }
             })
         }
@@ -333,7 +325,7 @@ fun AccountsScreen(
                 }
             }
             items(activeDebts.size, key = { "debt:" + activeDebts[it].id }) { index ->
-                DebtAccountCard(activeDebts[index], index)
+                DebtAccountCard(activeDebts[index])
             }
             item { Text("Borrowing is tracked separately from income. Repayment principal is not treated as a new purchase.",
                 modifier = Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.bodySmall,
@@ -354,13 +346,18 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
             if (onBack != null) IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
             }
-            Text("Accounts & debts", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium,
+            Text(if (selected == 3) "Debts" else "Accounts", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold)
-            if (onManage != null) IconButton(onClick = onManage) {
-                Icon(Icons.Rounded.Add, contentDescription = "Add or confirm accounts")
+            if (onManage != null && selected != 3) {
+                Button(onClick = onManage, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
+                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Add account")
+                }
             }
         }
-        Text("Wallets, banks and what you owe.", style = MaterialTheme.typography.bodyMedium,
+        Text(if (selected == 3) "Borrowing and repayment balances." else "Your money sources",
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 10.dp))
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
             Row(Modifier.fillMaxWidth().padding(4.dp)) {
@@ -663,11 +660,7 @@ fun DebtsScreen(
                     activeDebts[index].id
                 }
             ) { index ->
-                DebtAccountCard(
-                    debt =
-                        activeDebts[index],
-                    tone = index
-                )
+                DebtAccountCard(debt = activeDebts[index])
             }
         }
         if (settledDebts.isNotEmpty()) {
@@ -675,7 +668,7 @@ fun DebtsScreen(
                 Text(if (showSettled) "Hide settled debts" else "Settled debts (${settledDebts.size})")
             } }
             if (showSettled) items(settledDebts.size) { index ->
-                DebtAccountCard(settledDebts[index], index)
+                DebtAccountCard(settledDebts[index])
             }
         }
         if (onReviewRelationships != null) item { RelationshipReviewCard(onReviewRelationships) }
@@ -744,15 +737,13 @@ internal fun DetailPageHeader(
 private fun AccountBalanceCard(
     presentation:
         AccountBalancePresentation,
-    tone: Int,
     onClick: (() -> Unit)? = null
 ) {
     val group =
         presentation.group
-    val accent =
-        premiumCategoryColor(tone)
+    val accent = MaterialTheme.colorScheme.primary
 
-    PesaCard(
+    Surface(
         modifier =
             Modifier
                 .fillMaxWidth()
@@ -762,7 +753,10 @@ private fun AccountBalanceCard(
                     } else {
                         Modifier
                     }
-                )
+                ),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier =
@@ -783,8 +777,7 @@ private fun AccountBalanceCard(
                             Icons.Rounded.Savings
                     },
                 size = 38.dp,
-                background =
-                    accent.copy(alpha = .16f),
+                background = MaterialTheme.colorScheme.primaryContainer,
                 tint = accent
             )
             Column(
@@ -836,59 +829,27 @@ private fun AccountBalanceCard(
                         MaterialTheme.colorScheme
                             .onSurfaceVariant
                 )
-                Text(
-                    presentation
-                        .observedAtEpochMs
-                        ?.let { epoch ->
-                            when (
-                                presentation.quality
-                            ) {
-                                PaydayBalanceQuality.OBSERVED ->
-                                    "Balance from " +
-                                        formatDetailDateTime(
-                                            epoch
-                                        )
-                                PaydayBalanceQuality.RECONSTRUCTED ->
-                                    "Estimate from " +
-                                        formatDetailDateTime(
-                                            epoch
-                                        )
-                                PaydayBalanceQuality.USER_ENTERED ->
-                                    "Entered " +
-                                        formatDetailDateTime(
-                                            epoch
-                                        )
-                                else ->
-                                    "Balance evidence " +
-                                        formatDetailDateTime(
-                                            epoch
-                                        )
-                            }
-                        }
-                        ?: "Balance not available",
-                    modifier =
-                        Modifier.padding(top = 3.dp),
-                    style =
-                        MaterialTheme.typography
-                            .labelSmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
             }
-
-            Text(
-                presentation.balanceMinor
-                    ?.let(
-                        ::formatDetailMoney
-                    )
-                    ?: "—",
-                style =
-                    MaterialTheme.typography
-                        .titleMedium,
-                fontWeight =
-                    FontWeight.Bold
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(presentation.balanceMinor?.let(::formatDetailMoney) ?: "—",
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(when (presentation.quality) {
+                    PaydayBalanceQuality.OBSERVED -> "Updated"
+                    PaydayBalanceQuality.RECONSTRUCTED -> "Estimated"
+                    PaydayBalanceQuality.USER_ENTERED -> "Entered"
+                    else -> "Unavailable"
+                }, modifier = Modifier.padding(top = 3.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(presentation.observedAtEpochMs?.let(::formatDetailDateTime) ?: "No balance record",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (onClick != null) {
+                Icon(Icons.Rounded.ChevronRight, contentDescription = "Account details",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 5.dp).size(18.dp))
+            }
         }
 
         if (
@@ -965,10 +926,11 @@ private fun AccountBalanceCard(
 }
 
 @Composable
-private fun DebtAccountCard(debt: DebtAccountSnapshot, tone: Int) {
+private fun DebtAccountCard(debt: DebtAccountSnapshot) {
     val unknown = hasUnknownDebtBalance(debt)
-    val accent = premiumCategoryColor(tone)
-    PesaCard {
+    val accent = MaterialTheme.colorScheme.primary
+    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconBubble(Icons.Rounded.CreditCard, size = 42.dp,
@@ -985,12 +947,11 @@ private fun DebtAccountCard(debt: DebtAccountSnapshot, tone: Int) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Surface(shape = RoundedCornerShape(12.dp), color = if (unknown)
-                MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.errorContainer) {
+            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Text(if (unknown) "Outstanding unknown" else formatDetailMoney(debt.outstandingMinor),
                     modifier = Modifier.fillMaxWidth().padding(14.dp),
                     style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
-                    color = if (unknown) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onErrorContainer)
+                    color = MaterialTheme.colorScheme.onSurface)
             }
             Text(when {
                 unknown -> "Loan activity recorded; balance evidence needed."

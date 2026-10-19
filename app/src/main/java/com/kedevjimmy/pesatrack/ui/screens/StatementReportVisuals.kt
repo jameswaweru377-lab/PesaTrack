@@ -25,8 +25,8 @@ import java.text.NumberFormat
 import java.util.Locale
 
 internal val statementPalette = listOf(
-    Color(0xFF36DBA2), Color(0xFFFFAB57), Color(0xFF63ADFF),
-    Color(0xFFAA8CF4), Color(0xFFEF809C), Color(0xFF97A9B5)
+    Color(0xFF5B55E7), Color(0xFF786FF0), Color(0xFF9188F4),
+    Color(0xFFA69CFF), Color(0xFFB7AEFF), Color(0xFFC9C2FF)
 )
 
 internal fun statementMoney(minor: Long): String =
@@ -56,7 +56,7 @@ internal fun StatementHeroMetric(label: String, amount: Long, note: String) {
 @Composable
 internal fun StatementSmallMetric(
     name: String, amount: Long, color: Color,
-    modifier: Modifier = Modifier, onClick: () -> Unit
+    modifier: Modifier = Modifier, detail: String? = null, onClick: () -> Unit
 ) {
     Surface(
         modifier = modifier.clickable(onClick = onClick),
@@ -69,6 +69,9 @@ internal fun StatementSmallMetric(
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             Text(statementMoney(amount), style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold, color = color,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (detail != null) Text(detail, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
@@ -107,13 +110,14 @@ internal fun StatementDonut(
     total: Long,
     modifier: Modifier = Modifier
 ) {
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = 24.dp.toPx()
             val diameter = minOf(size.width, size.height) - stroke
             val origin = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
             drawArc(
-                color = Color(0xFF35514B), startAngle = 0f, sweepAngle = 360f,
+                color = trackColor, startAngle = 0f, sweepAngle = 360f,
                 useCenter = false, topLeft = origin, size = Size(diameter, diameter),
                 style = Stroke(width = stroke)
             )
