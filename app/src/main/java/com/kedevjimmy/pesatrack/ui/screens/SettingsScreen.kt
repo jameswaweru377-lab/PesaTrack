@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
-import com.kedevjimmy.pesatrack.security.AppLockManager
 
 @Composable
 fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit,
@@ -44,19 +43,77 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
             item { Text("Balances reflect the messages and entries available to PesaTrack. Check your bank or M-Pesa app for the latest balance.") }
         }
         else -> EverydayPage("Settings", scaffoldPadding, onBack) {
-            item { EverydayRow(Icons.Rounded.Person, context.getSharedPreferences("pesatrack_preferences", 0).getString("profile_name", "").orEmpty().ifBlank { "Your profile" }, "Personal details and money progress", onProfileClick) }
-            item { Text("Make it yours", style = MaterialTheme.typography.titleMedium) }
-            item { EverydayRow(Icons.Rounded.Palette, "Appearance", "Light, dark or your phone's setting") { page = "appearance" } }
-            item { EverydayRow(Icons.Rounded.Notifications, "Reminders", "Bills, budgets and savings") { page = "reminders" } }
-            item { Text("Privacy and data", style = MaterialTheme.typography.titleMedium) }
-            item { EverydayRow(Icons.Rounded.Security, "Privacy", "Your data and your choices") { page = "privacy" } }
-            item { EverydayRow(Icons.Rounded.Message, "Money message access", "SMS history and bank-app updates") { page = "access" } }
-            item { EverydayRow(Icons.Rounded.Lock, "App lock", "Protect PesaTrack with a PIN") { lock = true } }
-            item { EverydayRow(Icons.Rounded.Backup, "Backup and restore", "Save a protected copy of your data") { backup = true } }
-            item { Text("Help and more", style = MaterialTheme.typography.titleMedium) }
-            item { EverydayRow(Icons.Rounded.Tune, "Automatic sorting", "Salary, regular payments and transfers", onSmartRulesClick) }
-            item { EverydayRow(Icons.Rounded.HelpOutline, "Help", "Answers and troubleshooting") { page = "help" } }
-            item { EverydayRow(Icons.Rounded.Info, "About PesaTrack", "App information") { page = "about" } }
+            item {
+                PesaCard(Modifier.fillMaxWidth().clickable(onClick = onProfileClick)) {
+                    Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(44.dp)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Rounded.Person, null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                            Text(context.getSharedPreferences("pesatrack_preferences", 0).getString("profile_name", "").orEmpty().ifBlank { "Your profile" },
+                                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Personal details and money progress", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            item { Text("Preferences", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+            item { SettingsGroup {
+                SettingsCompactRow(Icons.Rounded.Palette, "Appearance", "Light, dark or your phone's setting") { page = "appearance" }
+                SettingsCompactRow(Icons.Rounded.Notifications, "Reminders", "Bills, budgets and savings") { page = "reminders" }
+            } }
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Privacy & data", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Stored on this phone", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            item { SettingsGroup {
+                SettingsCompactRow(Icons.Rounded.Security, "Privacy", "Your data and your choices") { page = "privacy" }
+                SettingsCompactRow(Icons.Rounded.Message, "Money message access", "SMS history and bank-app updates") { page = "access" }
+                SettingsCompactRow(Icons.Rounded.Lock, "App lock", "Protect PesaTrack with a PIN") { lock = true }
+                SettingsCompactRow(Icons.Rounded.Backup, "Backup & restore", "Encrypted backup stored where you choose") { backup = true }
+            } }
+            item {
+                Text("Help & more", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
+            item { SettingsGroup {
+                SettingsCompactRow(Icons.Rounded.Tune, "Automatic sorting", "Salary, regular payments and transfers", onSmartRulesClick)
+                SettingsCompactRow(Icons.Rounded.HelpOutline, "Help", "Answers and troubleshooting") { page = "help" }
+                SettingsCompactRow(Icons.Rounded.Info, "About PesaTrack", "App information") { page = "about" }
+            } }
+            item { Text("Each setting opens a focused page. Sensitive actions explain what changes before you confirm.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)) }
         }
     }
+}
+
+@Composable
+private fun SettingsGroup(content: @Composable () -> Unit) {
+    PesaCard(Modifier.fillMaxWidth()) { Column { content() } }
+}
+
+@Composable
+private fun SettingsCompactRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    onClick: () -> Unit
+) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 64.dp).padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .45f), thickness = .7.dp)
 }

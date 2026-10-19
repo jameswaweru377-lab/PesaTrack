@@ -276,8 +276,8 @@ fun AccountsScreen(
             it.balanceMinor != null
         }
     LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) }
         if (onDiscoverReceivables != null) item { SmartDiscoveryCard(onDiscoverReceivables) }
         // An already-visible balance list must not jump down for an
@@ -286,23 +286,37 @@ fun AccountsScreen(
             FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
         }
         item {
-            PesaCard {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Last known account balances", style = MaterialTheme.typography.titleMedium)
-                    Text(if (knownBalanceCount == 0) "No balance yet" else formatDetailMoney(knownTotalMinor),
-                        style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(if (selectedTab == 3) "Debt overview" else "Your accounts",
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("Snapshots for $knownBalanceCount of ${visible.size} accounts · not a monthly total",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (onManageInstitutions != null && selectedTab != 3) {
+                    TextButton(onClick = onManageInstitutions) {
+                        Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
+                        Text("Add")
+                    }
+                }
+            }
+            if (knownBalanceCount > 0) PesaCard(Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Last observed total", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(formatDetailMoney(knownTotalMinor), style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold)
                 }
             }
         }
         item { AccountBalanceCheckAction() }
         item { TransferOwnershipConsentAction() }
         if (visible.isEmpty()) item {
-            PesaCard { Column(Modifier.padding(18.dp)) {
+            PesaCard { Column(Modifier.padding(16.dp)) {
                 Text("No confirmed accounts here yet", style = MaterialTheme.typography.titleMedium)
                 Text("Accounts appear after their ownership is confirmed. Missing balances are never guessed.",
-                    style = MaterialTheme.typography.bodySmall)
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } }
         }
         items(shown.size, key = { shown[it].group.key }) { index ->
@@ -329,15 +343,35 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
             if (onBack != null) IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
             }
-            Text("Accounts", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall,
+            Text("Accounts & debts", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold)
             if (onManage != null) IconButton(onClick = onManage) {
                 Icon(Icons.Rounded.Add, contentDescription = "Add or confirm accounts")
             }
         }
-        ScrollableTabRow(selectedTabIndex = selected, edgePadding = 0.dp) {
-            listOf("All", "Banks", "Mobile", "Debts").forEachIndexed { index, label ->
-                Tab(selected = selected == index, onClick = { onSelected(index) }, text = { Text(label) })
+        Text("Wallets, banks and what you owe.", style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 10.dp))
+        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+            Row(Modifier.fillMaxWidth().padding(4.dp)) {
+                listOf(0 to "Accounts", 3 to "Debts").forEach { (index, label) ->
+                    val selectedPage = if (selected == 3) 3 else 0
+                    Surface(onClick = { onSelected(index) }, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selectedPage == index) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
+                        shadowElevation = if (selectedPage == index) 1.dp else 0.dp) {
+                        Text(label, Modifier.padding(vertical = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (selectedPage == index) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        if (selected != 3) {
+            ScrollableTabRow(selectedTabIndex = selected, edgePadding = 0.dp, containerColor = MaterialTheme.colorScheme.background,
+                divider = {}) {
+                listOf("All", "Banks", "Mobile").forEachIndexed { index, label ->
+                    Tab(selected = selected == index, onClick = { onSelected(index) }, text = { Text(label) })
+                }
             }
         }
     }
@@ -729,7 +763,7 @@ private fun AccountBalanceCard(
     ) {
         Row(
             modifier =
-                Modifier.padding(15.dp),
+                Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
@@ -745,7 +779,7 @@ private fun AccountBalanceCard(
                         else ->
                             Icons.Rounded.Savings
                     },
-                size = 44.dp,
+                size = 38.dp,
                 background =
                     accent.copy(alpha = .16f),
                 tint = accent
@@ -760,7 +794,7 @@ private fun AccountBalanceCard(
                         .title(group),
                     style =
                         MaterialTheme.typography
-                            .titleMedium,
+                            .titleSmall,
                     fontWeight =
                         FontWeight.SemiBold
                 )
