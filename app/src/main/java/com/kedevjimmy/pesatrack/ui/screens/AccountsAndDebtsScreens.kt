@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,8 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.Icons
@@ -22,6 +21,7 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
@@ -31,6 +31,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -54,7 +56,6 @@ import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
 import com.kedevjimmy.pesatrack.data.local.PaydaySnapshotStore
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
-import com.kedevjimmy.pesatrack.domain.model.checkedMoneySum
 import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialProviderRegistry
@@ -120,6 +121,7 @@ fun AccountsScreen(
     onDiscoverReceivables: (() -> Unit)? = null
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
+    var accountFilterOpen by rememberSaveable { mutableStateOf(false) }
     if (selectedTab == 3) {
         DebtsScreen(scaffoldPadding, onBack = { selectedTab = 0 },
             header = { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) },
@@ -264,45 +266,51 @@ fun AccountsScreen(
     }
     val hasMpesa = visible.any { it.group.accounts.any { account -> account.id == AccountStore.DEFAULT_MPESA_ID } }
     val shown = visible.filterNot { hasMpesa && (it.group.displayName.contains("M-Shwari", true) || it.group.displayName.contains("KCB M-Pesa", true)) }
-    val knownTotalMinor = CheckedMoney.orNull {
-        visible
-            .mapNotNull {
-                it.balanceMinor
-            }
-            .checkedMoneySum()
-    }
-    val knownBalanceCount =
-        visible.count {
-            it.balanceMinor != null
-        }
     LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) }
-        if (onDiscoverReceivables != null) item { SmartDiscoveryCard(onDiscoverReceivables) }
         // An already-visible balance list must not jump down for an
         // intermittent loading banner on every background refresh.
         if (accountsError) item {
             FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
         }
         item {
-            PesaCard {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Last known account balances", style = MaterialTheme.typography.titleMedium)
-                    Text(if (knownBalanceCount == 0) "No balance yet" else formatDetailMoney(knownTotalMinor),
-                        style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text("Snapshots for $knownBalanceCount of ${visible.size} accounts · not a monthly total",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Your accounts",
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box {
+                        TextButton(onClick = { accountFilterOpen = true }) {
+                            Icon(Icons.Rounded.FilterList, null, modifier = Modifier.size(18.dp))
+                            Text(when (selectedTab) { 1 -> "Banks"; 2 -> "Mobile"; else -> "Filter" })
+                        }
+                        DropdownMenu(expanded = accountFilterOpen, onDismissRequest = { accountFilterOpen = false }) {
+                            listOf("All", "Banks", "Mobile").forEachIndexed { index, label ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    selectedTab = index
+                                    accountFilterOpen = false
+                                })
+                            }
+                        }
+                    }
+                    if (onManageInstitutions != null) {
+                        TextButton(onClick = onManageInstitutions) {
+                            Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
+                            Text("Add account")
+                        }
+                    }
                 }
             }
         }
-        item { AccountBalanceCheckAction() }
-        item { TransferOwnershipConsentAction() }
         if (visible.isEmpty()) item {
-            PesaCard { Column(Modifier.padding(18.dp)) {
+            PesaCard { Column(Modifier.padding(16.dp)) {
                 Text("No confirmed accounts here yet", style = MaterialTheme.typography.titleMedium)
                 Text("Accounts appear after their ownership is confirmed. Missing balances are never guessed.",
-                    style = MaterialTheme.typography.bodySmall)
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } }
         }
         items(shown.size, key = { shown[it].group.key }) { index ->
@@ -310,14 +318,31 @@ fun AccountsScreen(
                 { shown[index].group.accounts.firstOrNull()?.id?.let(callback); Unit }
             })
         }
+        if (shown.isNotEmpty()) item {
+            Text("Only observed balances appear here. A dash means PesaTrack has no confirmed balance for that account.",
+                modifier = Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         if (selectedTab == 0 && activeDebts.isNotEmpty()) {
-            item { Text("Debts", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+            item {
+                Row(Modifier.fillMaxWidth().clickable { selectedTab = 3 }, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Debt overview", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold)
+                    Text("See debts", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.primary)
+                }
+            }
             items(activeDebts.size, key = { "debt:" + activeDebts[it].id }) { index ->
                 DebtAccountCard(activeDebts[index], index)
             }
-            item { TextButton(onClick = { selectedTab = 3 }) { Text("View all debts") } }
+            item { Text("Borrowing is tracked separately from income. Repayment principal is not treated as a new purchase.",
+                modifier = Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         if (onManageInstitutions != null) item { RelationshipReviewCard(onManageInstitutions) }
+        if (onDiscoverReceivables != null) item { SmartDiscoveryCard(onDiscoverReceivables) }
+        item { AccountBalanceCheckAction() }
+        item { TransferOwnershipConsentAction() }
     }
 }
 
@@ -329,15 +354,27 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
             if (onBack != null) IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
             }
-            Text("Accounts", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall,
+            Text("Accounts & debts", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold)
             if (onManage != null) IconButton(onClick = onManage) {
                 Icon(Icons.Rounded.Add, contentDescription = "Add or confirm accounts")
             }
         }
-        ScrollableTabRow(selectedTabIndex = selected, edgePadding = 0.dp) {
-            listOf("All", "Banks", "Mobile", "Debts").forEachIndexed { index, label ->
-                Tab(selected = selected == index, onClick = { onSelected(index) }, text = { Text(label) })
+        Text("Wallets, banks and what you owe.", style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 10.dp))
+        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+            Row(Modifier.fillMaxWidth().padding(4.dp)) {
+                listOf(0 to "Accounts", 3 to "Debts").forEach { (index, label) ->
+                    val selectedPage = if (selected == 3) 3 else 0
+                    Surface(onClick = { onSelected(index) }, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selectedPage == index) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
+                        shadowElevation = if (selectedPage == index) 1.dp else 0.dp) {
+                        Text(label, Modifier.padding(vertical = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (selectedPage == index) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         }
     }
@@ -729,7 +766,7 @@ private fun AccountBalanceCard(
     ) {
         Row(
             modifier =
-                Modifier.padding(15.dp),
+                Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
@@ -745,7 +782,7 @@ private fun AccountBalanceCard(
                         else ->
                             Icons.Rounded.Savings
                     },
-                size = 44.dp,
+                size = 38.dp,
                 background =
                     accent.copy(alpha = .16f),
                 tint = accent
@@ -760,7 +797,7 @@ private fun AccountBalanceCard(
                         .title(group),
                     style =
                         MaterialTheme.typography
-                            .titleMedium,
+                            .titleSmall,
                     fontWeight =
                         FontWeight.SemiBold
                 )

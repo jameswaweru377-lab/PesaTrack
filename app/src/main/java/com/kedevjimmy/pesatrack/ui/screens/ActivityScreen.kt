@@ -139,7 +139,6 @@ import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.PesaTrackTopBar
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
-import com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import java.text.NumberFormat
@@ -2874,18 +2873,8 @@ private fun ActivitySummaryCard(
     val savingsMinor = monthSavings(snapshot)
     val previousSavingsMinor =
         monthSavings(previousSnapshot)
-    val dark = isPesaDarkTheme()
-    val gradient = if (dark) {
-        listOf(
-            Color(0xFF24213F),
-            Color(0xFF3933A8)
-        )
-    } else {
-        listOf(
-            Color(0xFF4F46D8),
-            Color(0xFF6F63F2)
-        )
-    }
+    val colors = MaterialTheme.colorScheme
+    val gradient = listOf(colors.primary, colors.primary)
 
     Box(
         modifier = Modifier
@@ -2905,14 +2894,14 @@ private fun ActivitySummaryCard(
                 Surface(
                     modifier = Modifier.size(36.dp),
                     shape = RoundedCornerShape(11.dp),
-                    color = Color.White.copy(alpha = .14f)
+                    color = colors.onPrimary.copy(alpha = .14f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Rounded.BarChart,
                             contentDescription = null,
                             modifier = Modifier.size(21.dp),
-                            tint = Color(0xFFF4C768)
+                            tint = colors.tertiary
                         )
                     }
                 }
@@ -2921,7 +2910,7 @@ private fun ActivitySummaryCard(
                     modifier = Modifier.padding(start = 10.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = colors.onPrimary
                 )
             }
 
@@ -2940,6 +2929,7 @@ private fun ActivitySummaryCard(
                     positiveWhenUp = true,
                     zeroComparisonLabel =
                         "No income recorded this month",
+                    foreground = colors.onPrimary,
                     modifier = Modifier.weight(1f)
                 )
                 SummaryAmountWithChange(
@@ -2950,6 +2940,7 @@ private fun ActivitySummaryCard(
                     current = summary.spentMinor,
                     previous = previous.spentMinor,
                     positiveWhenUp = false,
+                    foreground = colors.onPrimary,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -2959,11 +2950,7 @@ private fun ActivitySummaryCard(
                     .fillMaxWidth()
                     .padding(top = 15.dp),
                 shape = RoundedCornerShape(15.dp),
-                color = if (dark) {
-                    Color(0xFF3A2E1C)
-                } else {
-                    Color(0xFFFFE8AC)
-                }
+                color = colors.tertiaryContainer
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
@@ -3010,7 +2997,7 @@ private fun ActivitySummaryCard(
                             color =
                                 MaterialTheme
                                     .colorScheme
-                                    .onSurfaceVariant
+                                    .onTertiaryContainer
                         )
                         Text(
                             savingsMinor?.let(::formatActivityMoney) ?: "Amount unavailable",
@@ -3041,6 +3028,7 @@ private fun SummaryAmountWithChange(
     current: Long,
     previous: Long,
     positiveWhenUp: Boolean,
+    foreground: Color,
     zeroComparisonLabel: String? = null,
     modifier: Modifier = Modifier
 ) {
@@ -3048,14 +3036,14 @@ private fun SummaryAmountWithChange(
         Text(
             label,
             style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = .72f)
+            color = foreground.copy(alpha = .72f)
         )
         Text(
             value,
             modifier = Modifier.padding(top = 2.dp),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = foreground,
             maxLines = 1
         )
         SummaryComparison(
@@ -3063,7 +3051,8 @@ private fun SummaryAmountWithChange(
             previous = previous,
             positiveWhenUp = positiveWhenUp,
             zeroComparisonLabel =
-                zeroComparisonLabel
+                zeroComparisonLabel,
+            foreground = foreground
         )
     }
 }
@@ -3073,6 +3062,7 @@ private fun SummaryComparison(
     current: Long,
     previous: Long,
     positiveWhenUp: Boolean,
+    foreground: Color,
     zeroComparisonLabel: String? = null
 ) {
     if (
@@ -3089,10 +3079,7 @@ private fun SummaryComparison(
                 MaterialTheme
                     .typography
                     .labelSmall,
-            color =
-                Color.White.copy(
-                    alpha = .68f
-                )
+            color = foreground.copy(alpha = .68f)
         )
         return
     }
@@ -3111,7 +3098,7 @@ private fun SummaryComparison(
             },
             modifier = Modifier.padding(top = 4.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = .68f)
+            color = foreground.copy(alpha = .68f)
         )
         return
     }
@@ -3120,11 +3107,11 @@ private fun SummaryComparison(
     val favorable =
         if (positiveWhenUp) up else !up
     val tint = if (percent == 0) {
-        Color.White.copy(alpha = .66f)
+        foreground.copy(alpha = .66f)
     } else if (favorable) {
-        Color(0xFF55E6D1)
+        MaterialTheme.colorScheme.secondary
     } else {
-        Color(0xFFFF92A3)
+        MaterialTheme.colorScheme.error
     }
 
     Row(
@@ -4023,13 +4010,11 @@ private fun ActivityDateHeader(
             }
             .checkedMoneySumOf { CheckedMoney.add(it.amountMinor, it.feeMinor) }
     }
-    val dark = isPesaDarkTheme()
     Surface(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         shape = RoundedCornerShape(topStart = 17.dp, topEnd = 17.dp,
             bottomStart = 3.dp, bottomEnd = 3.dp),
-        color = if (dark) Color(0xFF1A243A)
-            else MaterialTheme.colorScheme.surfaceVariant,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .47f))
     ) {
         Row(
@@ -4189,8 +4174,7 @@ private fun ActivityRow(
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = dayShape,
-        color = if (isPesaDarkTheme()) Color(0xFF101B2C)
-            else MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column {
             Row(

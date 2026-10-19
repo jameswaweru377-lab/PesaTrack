@@ -248,8 +248,8 @@ fun PlanScreen(
         modifier = Modifier
             .padding(scaffoldPadding)
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         if (loadError != null) item {
             Column {
@@ -259,14 +259,10 @@ fun PlanScreen(
         }
         item {
             Column {
-                Text("Your plan", style = MaterialTheme.typography.headlineLarge)
+                Text("Your plan", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    if (snapshot.cycle == null) {
-                        "Bills, budgets and goals in one place."
-                    } else {
-                        "Budget, commitments and goals for your current pay cycle."
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
+                    "Bills, budgets and goals in one place.",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -320,7 +316,7 @@ fun PlanScreen(
                                         .titleMedium
                             )
                             Text(
-                                "Paid bills disappear from this list until their next scheduled month.",
+                                "Paid bills return on their next scheduled date.",
                                 style =
                                     MaterialTheme
                                         .typography
@@ -434,6 +430,8 @@ fun PlanScreen(
             }
         }
 
+        item { SectionHeader("Plan tools") }
+
         if (monthlyBudgets.isNotEmpty()) {
             item {
                 val totalBudget = monthlyBudgets.sumOf { it.limitMinor }
@@ -442,7 +440,7 @@ fun PlanScreen(
                 }
                 val left = (totalBudget - totalSpent).coerceAtLeast(0L)
                 PesaCard {
-                    Column(Modifier.padding(16.dp)) {
+                    Column(Modifier.padding(14.dp)) {
                         Row(
                             Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
@@ -493,9 +491,7 @@ fun PlanScreen(
                 }
             }
 
-            item {
-                SectionHeader("Category budgets")
-            }
+            item { SectionHeader("Category budgets") }
 
             items(monthlyBudgets.take(5).size) { index ->
                 val budget = monthlyBudgets[index]
