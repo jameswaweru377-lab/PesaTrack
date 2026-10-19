@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -71,7 +72,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -91,6 +91,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -991,7 +992,7 @@ fun ActivityScreen(
                 TextButton(onClick = { refresh() }) { Text("Try again") }
             }
             item(key = "premium-period-selectors") {
-                Box(Modifier.padding(bottom = 7.dp)) { ActivityPeriodSelectors(
+                Box(Modifier.padding(bottom = 8.dp)) { ActivityPeriodSelectors(
                     monthLabel = selectedMonthLabel,
                     cycleLabel = chosenCycle?.let { monthLabel(it.startEpochMs) + " cycle" }
                         ?: "Add salary",
@@ -1007,7 +1008,7 @@ fun ActivityScreen(
                     else "Completed cycle"
                 } else monthDaysRemaining(selectedMonthEpochMs, System.currentTimeMillis())
                     ?.let { it.toString() + " days left" } ?: "Past month"
-                Box(Modifier.padding(bottom = 9.dp)) { ActivityPremiumMoneyHero(
+                Box(Modifier.padding(bottom = 8.dp)) { ActivityPremiumMoneyHero(
                     periodLabel = periodLabel,
                     snapshot = if(periodReady) displaySnapshot else null,
                     previous = displayPrevious,
@@ -1016,19 +1017,51 @@ fun ActivityScreen(
                 ) }
             }
             item(key = "premium-search") {
-                Row(Modifier.fillMaxWidth().padding(bottom = 7.dp),
+                val colors = MaterialTheme.colorScheme
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     verticalAlignment=Alignment.CenterVertically,
                     horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier.weight(1f).heightIn(min=48.dp),
-                        placeholder = { Text("Search transactions") },
-                        leadingIcon = { Icon(Icons.Rounded.Search,null,Modifier.size(18.dp)) },
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyMedium,
-                        shape = RoundedCornerShape(16.dp)
-                    )
+                    Surface(
+                        modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        color = colors.background,
+                        border = BorderStroke(1.dp, colors.outlineVariant)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                Icons.Rounded.Search,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = colors.onSurfaceVariant
+                            )
+                            BasicTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    color = colors.onSurface
+                                ),
+                                cursorBrush = SolidColor(colors.primary),
+                                decorationBox = { innerTextField ->
+                                    Box(contentAlignment = Alignment.CenterStart) {
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                "Search transactions",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = colors.onSurfaceVariant
+                                            )
+                                        }
+                                        innerTextField()
+                                    }
+                                }
+                            )
+                        }
+                    }
                     IconButton(onClick = { showExtraFilters = !showExtraFilters },
                         modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Rounded.Tune,"More filters")
@@ -1122,7 +1155,7 @@ fun ActivityScreen(
                                     },
                             subtitle =
                                 "Review names and phone numbers linked to possible own-account transfers.",
-                            tone = "blue",
+                            tone = "violet",
                             onClick =
                                 onIdentityReviewClick
                         )
@@ -1874,9 +1907,9 @@ private fun FinancialAccountDiscoveryCard(
                             .AccountBalance,
                     size = 44.dp,
                     background =
-                        pesaToneContainer("blue"),
+                        pesaToneContainer("violet"),
                     tint =
-                        pesaToneContent("blue")
+                        pesaToneContent("violet")
                 )
                 Column(
                     modifier = Modifier
@@ -2845,20 +2878,48 @@ private fun EmptyGlobalDuplicateState() {
 private fun ActivityMonthSectionHeader(
     monthLabel: String, transactionCount: Int, expanded: Boolean, onClick: () -> Unit
 ) {
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick=onClick)
-            .padding(horizontal=2.dp,vertical=5.dp),
-        verticalAlignment=Alignment.CenterVertically
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().semantics {
+            stateDescription = if (expanded) "Expanded" else "Collapsed"
+        },
+        shape = RoundedCornerShape(16.dp),
+        color = colors.surface,
+        border = BorderStroke(1.dp, colors.outlineVariant)
     ) {
-        Text(monthLabel,Modifier.weight(1f),
-            style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
-        Text(transactionCount.toString() +
-            if(transactionCount==1)" transaction" else " transactions",
-            style=MaterialTheme.typography.labelSmall,
-            color=MaterialTheme.colorScheme.onSurfaceVariant)
-        Icon(if(expanded)Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-            if(expanded)"Collapse period" else "Expand period",
-            Modifier.padding(start=6.dp).size(18.dp))
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                monthLabel,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = colors.surfaceVariant
+            ) {
+                Text(
+                    transactionCount.toString() +
+                        if (transactionCount == 1) " transaction" else " transactions",
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+            Icon(
+                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = colors.primary
+            )
+        }
     }
 }
 
@@ -3309,7 +3370,7 @@ private fun ResponsiveActivityMetrics(
                         formatSignedMoney(summary.netMinor),
                         "Cash flow",
                         Icons.Rounded.AccountBalance,
-                        "blue",
+                        "violet",
                         Modifier.weight(1f)
                     )
                 }
@@ -3317,9 +3378,9 @@ private fun ResponsiveActivityMetrics(
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 ActivityMetric("Spent", formatActivityMoney(summary.spentMinor), "$monthLabel", Icons.Rounded.Paid, "red", Modifier.weight(1f))
-                ActivityMetric("Income", formatActivityMoney(summary.incomeMinor), "$monthLabel", Icons.AutoMirrored.Rounded.CallReceived, "green", Modifier.weight(1f))
+                ActivityMetric("Income", formatActivityMoney(summary.incomeMinor), "$monthLabel", Icons.AutoMirrored.Rounded.CallReceived, "violet", Modifier.weight(1f))
                 ActivityMetric("Fees", formatActivityMoney(summary.feesMinor), "M-Pesa fees", Icons.AutoMirrored.Rounded.ReceiptLong, "amber", Modifier.weight(1f))
-                ActivityMetric("Net", formatSignedMoney(summary.netMinor), "Cash flow", Icons.Rounded.AccountBalance, "blue", Modifier.weight(1f))
+                ActivityMetric("Net", formatSignedMoney(summary.netMinor), "Cash flow", Icons.Rounded.AccountBalance, "violet", Modifier.weight(1f))
             }
         }
     }
@@ -4083,7 +4144,7 @@ private fun ActivityLoadingMoreRows() {
             ) {
                 androidx.compose.material3.CircularProgressIndicator(
                     modifier = Modifier.size(18.dp),
-                    color = MaterialTheme.colorScheme.tertiary,
+                    color = MaterialTheme.colorScheme.primary,
                     strokeWidth = 2.dp
                 )
                 Spacer(Modifier.size(width = 10.dp, height = 1.dp))
@@ -4134,17 +4195,10 @@ private fun ActivityRow(
         direction == MoneyDirection.TRANSFER -> "Transfer"
         else -> categoryName
     }
-    val pillColor = when {
-        needsReview -> Color(0xFFE1A5F8)
-        refund || direction == MoneyDirection.INCOME -> Color(0xFF51E0C6)
-        debtLink?.active == true -> Color(0xFF8CC8F5)
-        direction == MoneyDirection.TRANSFER -> Color(0xFF80B5FF)
-        categoryId == TransactionCategory.GROCERIES.name -> Color(0xFF62DBC3)
-        else -> Color(0xFFC4B0FB)
-    }
+    val pillColor = MaterialTheme.colorScheme.primary
     val amountColor = when {
         refund || direction == MoneyDirection.INCOME ||
-            item.type == MpesaTransactionType.REVERSAL.name -> Color(0xFF57E6C5)
+            item.type == MpesaTransactionType.REVERSAL.name -> MaterialTheme.colorScheme.primary
         direction == MoneyDirection.EXPENSE -> Color(0xFFFF6285)
         direction == MoneyDirection.TRANSFER -> MaterialTheme.colorScheme.onSurface
         else -> MaterialTheme.colorScheme.onSurfaceVariant

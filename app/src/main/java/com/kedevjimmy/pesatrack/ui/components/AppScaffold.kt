@@ -13,8 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.ui.screens.ActivityMoneyActions
@@ -102,12 +100,9 @@ fun AppScaffold(
                             .testTag("bottom-add-tool-button"),
                         contentAlignment = Alignment.Center
                     ) {
-                        val isLight = MaterialTheme.colorScheme.background.luminance() > .5f
-                        val addAccent = if (isLight) MaterialTheme.colorScheme.primary
-                            else Color(0xFF52E5D3)
-                        val addFill = if (isLight) addAccent else Color(0xFF06393A)
-                        val addIcon = if (isLight) MaterialTheme.colorScheme.onPrimary
-                            else Color(0xFF57F0DD)
+                        val addAccent = MaterialTheme.colorScheme.primary
+                        val addFill = addAccent
+                        val addIcon = MaterialTheme.colorScheme.onPrimary
                         Canvas(Modifier.requiredSize(72.dp)) {
                             drawCircle(addAccent.copy(alpha = .10f))
                         }
