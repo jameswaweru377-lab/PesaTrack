@@ -26,7 +26,7 @@ class PlanCacheUiTest {
         // re-read data. The previously visible plan stays on screen on error.
         compose.runOnIdle { LedgerUpdateBus.notifyChanged() }
         waitFor("Showing your last loaded plan. Could not load your plan. Try again.")
-        compose.onNodeWithText("Plan your month").assertIsDisplayed()
+        compose.onNodeWithText("Your plan").assertIsDisplayed()
         android.util.Log.i("PesaTrackMeasurement", "{\"scenario\":\"cached_plan_failed_refresh\",\"content_and_error_ms\":${android.os.SystemClock.elapsedRealtime() - started}}")
         compose.onNodeWithText("Retry").assertIsDisplayed()
     }
@@ -36,7 +36,7 @@ class PlanCacheUiTest {
         PesaTrackDatabase.get(context).writableDatabase.execSQL("DROP TABLE transactions")
         compose.setContent { PesaTrackTheme { PlanScreen(PaddingValues(), stateCache = cache) } }
         compose.waitForIdle()
-        compose.onNodeWithText("Plan your month").assertIsDisplayed()
+        compose.onNodeWithText("Your plan").assertIsDisplayed()
         compose.onNodeWithText("Refreshing your plan…").assertDoesNotExist()
         compose.onNodeWithText("Retry").assertDoesNotExist()
     }
@@ -46,13 +46,15 @@ class PlanCacheUiTest {
         PesaTrackDatabase.get(context).writableDatabase.execSQL("DROP TABLE transactions")
         compose.setContent { PesaTrackTheme { PlanScreen(PaddingValues(), stateCache = cache) } }
         waitFor("Could not load your plan. Try again.")
-        compose.onNodeWithText("Plan your month").assertDoesNotExist()
+        compose.onNodeWithText("Your plan").assertDoesNotExist()
     }
 
     private fun cachedPlan(revision: Long) = PlanScreenCache().apply {
         this.revision = revision
-        data = PlanReferenceData(PayCycleSnapshot(null, 0, 0, 0, 0, 0, 0, 0, null, null, emptyList(), null),
-            emptyList(), emptyList(), emptyMap(), emptyList(), emptyList())
+        data = PlanReferenceData(
+            PayCycleSnapshot(null, 0, 0, 0, 0, 0, 0, 0, null, null, emptyList(), null),
+            emptyList(), emptyList(), emptyList(), emptyList()
+        )
     }
     private fun waitFor(text: String) {
         try {

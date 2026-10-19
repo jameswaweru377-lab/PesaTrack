@@ -435,7 +435,8 @@ fun PesaTrackApp(
                         navController.navigate(
                             "salary"
                         )
-                    }
+                    },
+                    onBillsClick = { navController.navigate("bills") }
                 )
             }
         }
