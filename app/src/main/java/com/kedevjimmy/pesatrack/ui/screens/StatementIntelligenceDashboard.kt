@@ -151,6 +151,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
         }
     }
     val totals = remember(visible) { StatementFinancialPolicy.totals(visible) }
+    val sourceCashFlow = remember(visible) { StatementFinancialPolicy.sourceCashFlow(visible) }
     val breakdown = remember(visible, categoryLabels) {
         StatementExpenseCatalog.breakdown(visible, categoryLabels)
     }
@@ -337,34 +338,83 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                                 verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 item {
-                                    StatementHeroMetric(
-                                        label = if (period == StatementFinancialPolicy.Period.YEAR)
-                                            "SPENT THIS YEAR" else "YOUR SPENDING",
-                                        amount = totals.expenseMinor,
-                                        note = "Classified spending in imported statements · " + periodTitle
-                                    )
-                                }
-                                item {
                                     val first = visible.minOfOrNull { it.line.occurredAt }
                                     val last = visible.maxOfOrNull { it.line.occurredAt }
-                                    Surface(shape = RoundedCornerShape(14.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                                    Surface(shape = RoundedCornerShape(16.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer) {
                                         Column(Modifier.padding(13.dp),
                                             verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                            Text("Statement coverage", fontWeight = FontWeight.SemiBold,
-                                                style = MaterialTheme.typography.bodyMedium)
+                                            Text("STATEMENT COVERAGE", fontWeight = FontWeight.SemiBold,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer)
                                             Text((accountLabels[accountId] ?: "M-Pesa wallet") +
                                                 " · " + visible.size + " recorded entries",
-                                                style = MaterialTheme.typography.bodySmall)
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer)
                                             if (first != null && last != null)
                                                 Text("Recorded dates: " + statementDate(first) +
                                                     " – " + statementDate(last),
-                                                    style = MaterialTheme.typography.bodySmall)
-                                            Text("Only imported dates and classified expenses. " +
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            Text("Coverage reflects imported statement rows only. " +
                                                 "Missing dates are not counted as zero.",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer)
                                         }
+                                    }
+                                }
+                                item {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        StatementSmallMetric("Money in", sourceCashFlow.moneyInMinor,
+                                            MaterialTheme.colorScheme.primary, Modifier.weight(1f),
+                                            detail = "${visible.count { it.line.paidInMinor > 0L }} entries") {
+                                            navigate(StatementPage.TRANSACTIONS)
+                                        }
+                                        StatementSmallMetric("Money out", sourceCashFlow.moneyOutMinor,
+                                            MaterialTheme.colorScheme.primary, Modifier.weight(1f),
+                                            detail = "${visible.count { it.line.withdrawnMinor > 0L }} entries") {
+                                            navigate(StatementPage.TRANSACTIONS)
+                                        }
+                                        StatementSmallMetric("Net flow", sourceCashFlow.netFlowMinor,
+                                            MaterialTheme.colorScheme.primary, Modifier.weight(1f),
+                                            detail = "Money in − money out") {
+                                            navigate(StatementPage.TRANSACTIONS)
+                                        }
+                                    }
+                                }
+                                item {
+                                    Text("Money out can include transfers, savings, fees and loans. " +
+                                        "Classified expenses show recognized purchases.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                if (breakdown.isNotEmpty()) item {
+                                    val (category, amount) = breakdown.first()
+                                    Surface(shape = RoundedCornerShape(17.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        modifier = Modifier.fillMaxWidth().clickable {
+                                            navigate(StatementPage.CATEGORIES)
+                                        }) {
+                                        Column(Modifier.padding(15.dp),
+                                            verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                            Text("INSIGHT", style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            Text("$category is your largest expense category",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            Text("${statementMoney(amount)} in classified spending · $periodTitle",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        }
+                                    }
+                                }
+                                item {
+                                    Button(onClick = { importing = true }, modifier = Modifier.fillMaxWidth()) {
+                                        Icon(Icons.Rounded.Add, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Import statement")
                                     }
                                 }
                                 if (totals.unknownOutMinor > 0L) item {
@@ -409,9 +459,6 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                     }
                                 }
                                 item {
-                                    val sourceWithdrawals = visible.fold(0L) { sum, row ->
-                                        Math.addExact(sum, row.line.withdrawnMinor)
-                                    }
                                     val corroboratedCount = visible.count { it.activityReceiptVerified }
                                     Surface(
                                         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -436,7 +483,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                             }
                                             if (reconciliationExpanded) {
                                                 Text("Statement cash out: " +
-                                                    statementMoney(sourceWithdrawals) +
+                                                    statementMoney(sourceCashFlow.moneyOutMinor) +
                                                     " · Classified spending: " +
                                                     statementMoney(totals.expenseMinor),
                                                     style = MaterialTheme.typography.bodySmall)
@@ -462,15 +509,15 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             StatementSmallMetric("Expenses", totals.expenseMinor,
-                                                statementPalette[4], Modifier.weight(1f)) {
+                                                MaterialTheme.colorScheme.primary, Modifier.weight(1f)) {
                                                 navigate(StatementPage.TRANSACTIONS, StatementFlow.EXPENSE)
                                             }
                                             StatementSmallMetric("Income", totals.incomeMinor,
-                                                statementPalette[0], Modifier.weight(1f)) {
+                                                MaterialTheme.colorScheme.primary, Modifier.weight(1f)) {
                                                 navigate(StatementPage.TRANSACTIONS, StatementFlow.INCOME)
                                             }
                                             StatementSmallMetric("Transfers", totals.transferMinor,
-                                                statementPalette[2], Modifier.weight(1f)) {
+                                                MaterialTheme.colorScheme.primary, Modifier.weight(1f)) {
                                                 navigate(StatementPage.TRANSACTIONS, StatementFlow.TRANSFER)
                                             }
                                         }
@@ -478,15 +525,15 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                                             StatementSmallMetric("Debt repaid",
                                                 visible.filter { it.debtAction == StatementDebtAction.REPAID }
                                                     .fold(0L) { a, b -> Math.addExact(a, b.amountMinor) },
-                                                statementPalette[1], Modifier.weight(1f)) {
+                                                MaterialTheme.colorScheme.primary, Modifier.weight(1f)) {
                                                 navigate(StatementPage.DEBTS)
                                             }
                                             StatementSmallMetric("Savings", totals.savingMinor,
-                                                statementPalette[3], Modifier.weight(1f)) {
+                                                MaterialTheme.colorScheme.primary, Modifier.weight(1f)) {
                                                 navigate(StatementPage.TRANSACTIONS, StatementFlow.SAVINGS)
                                             }
                                             StatementSmallMetric("Fees", totals.feesMinor,
-                                                statementPalette[5], Modifier.weight(1f)) {
+                                                MaterialTheme.colorScheme.primary, Modifier.weight(1f)) {
                                                 navigate(StatementPage.TRANSACTIONS, StatementFlow.FEE)
                                             }
                                         }

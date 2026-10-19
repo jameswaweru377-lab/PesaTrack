@@ -44,6 +44,21 @@ class StatementFinancialPolicyTest {
         assertEquals(250_000L, totals.unknownOutMinor)
     }
 
+    @Test fun statementCashFlowUsesOriginalRowsAcrossDifferentClassifications() {
+        val expense = classify(line("Naivas Supermarket", outbound = 25_000L))
+        val unknownOut = classify(line("Cash withdrawal agent 1102", outbound = 10_000L))
+        val transfer = classify(line("Transfer to own Equity account", outbound = 7_000L))
+        val refund = classify(line("Reversed Buy Goods Payment", inbound = 5_000L))
+
+        val cashFlow = StatementFinancialPolicy.sourceCashFlow(
+            listOf(expense, unknownOut, transfer, refund)
+        )
+
+        assertEquals(5_000L, cashFlow.moneyInMinor)
+        assertEquals(42_000L, cashFlow.moneyOutMinor)
+        assertEquals(-37_000L, cashFlow.netFlowMinor)
+    }
+
     @Test fun exactRememberedRecipientCanBeClassifiedWithoutOverridingOwnTransfer() {
         val out = classify(line("Customer Transfer to Elizabeth and Mira", outbound=120_000L),
             learned="EATING_OUT")

@@ -31,6 +31,13 @@ data class StatementFinancialTotals(
     val excludedMinor: Long = 0L
 )
 
+/** Cash movement totals from the statement source rows, independent of classification. */
+data class StatementCashFlowTotals(
+    val moneyInMinor: Long,
+    val moneyOutMinor: Long,
+    val netFlowMinor: Long
+)
+
 object StatementFinancialPolicy {
     private val nairobi = TimeZone.getTimeZone("Africa/Nairobi")
     private val whitespace = Regex("\\s+")
@@ -239,6 +246,25 @@ object StatementFinancialPolicy {
             investmentMinor = sum(StatementFlow.INVESTMENT),
             refundsMinor = sum(StatementFlow.REFUND),
             excludedMinor = sum(StatementFlow.EXCLUDED)
+        )
+    }
+
+    /**
+     * Summarizes original statement cash movements. This must not be derived
+     * from expense categories, because outflows can include transfers, debts,
+     * savings and fees, and inbound funds can include refunds or reversals.
+     */
+    fun sourceCashFlow(items: List<StatementClassified>): StatementCashFlowTotals {
+        val moneyIn = items.fold(0L) { sum, item ->
+            Math.addExact(sum, item.line.paidInMinor)
+        }
+        val moneyOut = items.fold(0L) { sum, item ->
+            Math.addExact(sum, item.line.withdrawnMinor)
+        }
+        return StatementCashFlowTotals(
+            moneyInMinor = moneyIn,
+            moneyOutMinor = moneyOut,
+            netFlowMinor = Math.subtractExact(moneyIn, moneyOut)
         )
     }
 
