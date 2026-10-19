@@ -81,6 +81,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
@@ -294,6 +295,9 @@ fun SmartOnboardingSetupScreen(
     }
     // Explicit selections only; detecting a message never checks a box.
     var selectedOwnedKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var completedInstitutionKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var completionInstitutionCount by remember { mutableStateOf(0) }
+    var completionServiceCount by remember { mutableStateOf(0) }
     var manualInstitutionReferences by remember {
         mutableStateOf<Map<String, com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference>>(emptyMap())
     }
@@ -310,6 +314,7 @@ fun SmartOnboardingSetupScreen(
     var mpesaPhoneSuggestion by remember {
         mutableStateOf<String?>(null)
     }
+    var mpesaPhoneInput by rememberSaveable { mutableStateOf("") }
     var manualPhoneMode by rememberSaveable {
         mutableStateOf(false)
     }
@@ -319,7 +324,6 @@ fun SmartOnboardingSetupScreen(
     var salaryConfirmationSaving by remember { mutableStateOf(false) }
     var salaryConfirmationError by remember { mutableStateOf<String?>(null) }
     var linkedSavingsChoices by remember { mutableStateOf<Map<String, OnboardingOwnershipChoice>>(emptyMap()) }
-    var mpesaServiceQuery by rememberSaveable { mutableStateOf("") }
     var mpesaSuggestedNumberAccepted by rememberSaveable { mutableStateOf(false) }
     var mpesaWasSelected by rememberSaveable { mutableStateOf(false) }
     var linkedSavingsSaving by remember { mutableStateOf(false) }
@@ -1554,8 +1558,10 @@ fun SmartOnboardingSetupScreen(
         identitySaving = true
         setupScope.launch {
             try {
+                val selectedMpesaPhone = mpesaPhoneInput.takeIf { it.isNotBlank() }
+                    ?: mpesaPhoneSuggestion
                 if (mpesaWasSelected && mpesaSuggestedNumberAccepted &&
-                    !confirmMpesaPhone(mpesaPhoneSuggestion.orEmpty())
+                    !confirmMpesaPhone(selectedMpesaPhone.orEmpty())
                 ) {
                     identityError = phoneError ?: "Could not confirm this M-Pesa number."
                     return@launch
@@ -1836,28 +1842,18 @@ fun SmartOnboardingSetupScreen(
 
             SmartSetupStage.ANALYZE -> {
                 item {
-                    AnalysisPage(
+                    ApprovedAnalysisPage(
                         importing =
                             importSelectionValid && MessageAccessPolicy.canImport(
                                 disclosureAccepted, smsGranted, importMonths
                             ),
-                        step = analysisStep,
+                        progressStep = analysisStep.ordinal,
                         reviewMode =
                             analysisReviewMode,
-                        onContinue =
-                            if (
-                                analysisReviewMode
-                            ) {
-                                {
-                                    analysisReviewMode =
-                                        false
-                                    stage =
-                                        SmartSetupStage
-                                            .REVIEW
-                                }
-                            } else {
-                                null
-                            }
+                        onContinue = {
+                            analysisReviewMode = false
+                            stage = SmartSetupStage.REVIEW
+                        }
                     )
                 }
             }
@@ -1889,6 +1885,8 @@ fun SmartOnboardingSetupScreen(
                                         it.entityKey in selectedOwnedKeys
                                 }
                                 mpesaWasSelected = wantsMpesa
+                                completedInstitutionKeys = selectedOwnedKeys
+                                completionInstitutionCount = selectedOwnedKeys.size
                                 applySelectedAccountOwnership()
                                 stage = if (wantsMpesa) SmartSetupStage.MPESA_SERVICES
                                 else nextAfterIdentitySetup()
@@ -2153,55 +2151,31 @@ fun SmartOnboardingSetupScreen(
 
             SmartSetupStage.MPESA_SERVICES -> {
                 item {
-                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("M-Pesa services", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("We found these services in your messages. Choose only the ones you use; a message alone doesn’t prove ownership.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        val detectedServices = detectedMpesaServices()
-                        val detectedServiceKeys = detectedServices.map { it.reference.entityKey }.toSet()
-                        val searchedServices = if (mpesaServiceQuery.isBlank()) emptyList() else linkedSavingsOptions.filter {
-                            it.reference.entityKey !in detectedServiceKeys &&
-                                it.reference.displayName.contains(mpesaServiceQuery, ignoreCase = true)
-                        }
-                        val services = (detectedServices + searchedServices).distinctBy { it.reference.entityKey }
-                        OutlinedTextField(
-                            value = mpesaServiceQuery,
-                            onValueChange = { mpesaServiceQuery = it.take(50) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            label = { Text("Search supported Safaricom services") }
-                        )
-                        if (detectedServices.isEmpty() && mpesaServiceQuery.isBlank()) {
-                            PesaCard { Text("No supported M-Pesa savings services were identified. You can add services later.", Modifier.padding(15.dp)) }
-                        }
-                        if (mpesaServiceQuery.isNotBlank() && searchedServices.isEmpty() && detectedServiceKeys.none { key -> services.any { it.reference.entityKey == key && it.reference.displayName.contains(mpesaServiceQuery, true) } }) {
-                            Text("No supported service matches that search. You can add other accounts later.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        services.forEach { option ->
-                            val key = option.reference.entityKey
-                            DetectedAccountCheckRow(
-                                key = key,
-                                name = option.reference.displayName,
-                                type = "Savings",
-                                checked = linkedSavingsChoices[option.reference.providerKey] == OnboardingOwnershipChoice.MINE,
-                                enabled = !linkedSavingsSaving,
-                                onChecked = { checked ->
-                                    val provider = option.reference.providerKey ?: return@DetectedAccountCheckRow
-                                    linkedSavingsChoices = if (checked) linkedSavingsChoices + (provider to OnboardingOwnershipChoice.MINE) else linkedSavingsChoices - provider
-                                }
-                            )
-                        }
-                        linkedSavingsError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                        Button(
-                            enabled = !linkedSavingsSaving,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
-                            onClick = {
-                                setupScope.launch {
-                                    if (applyLinkedSavingsChoices()) stage = SmartSetupStage.ACCOUNT_DETAILS
+                    ApprovedMpesaServicesPage(
+                        detectedServices = detectedMpesaServices(),
+                        allSupportedServices = linkedSavingsOptions,
+                        activityCounts = detectedSources.associate { source -> source.reference.entityKey to source.messageCount },
+                        selectedProviderKeys = linkedSavingsChoices.filterValues { it == OnboardingOwnershipChoice.MINE }.keys,
+                        saving = linkedSavingsSaving,
+                        error = linkedSavingsError,
+                        onToggle = { provider, selected ->
+                            linkedSavingsChoices = if (selected) linkedSavingsChoices + (provider to OnboardingOwnershipChoice.MINE)
+                            else linkedSavingsChoices - provider
+                        },
+                        onContinue = {
+                            setupScope.launch {
+                                if (applyLinkedSavingsChoices()) {
+                                    completionServiceCount = linkedSavingsChoices.count { it.value == OnboardingOwnershipChoice.MINE }
+                                    stage = SmartSetupStage.ACCOUNT_DETAILS
                                 }
                             }
-                        ) { Text(if (linkedSavingsSaving) "Saving…" else "Continue") }
-                        TextButton(onClick = { stage = SmartSetupStage.ACCOUNT_DETAILS }, enabled = !linkedSavingsSaving) { Text("Skip for now") }
-                    }
+                        },
+                        onSkip = {
+                            linkedSavingsChoices = emptyMap()
+                            completionServiceCount = 0
+                            stage = SmartSetupStage.ACCOUNT_DETAILS
+                        }
+                    )
                 }
             }
 
@@ -2210,26 +2184,23 @@ fun SmartOnboardingSetupScreen(
                     PesaTrackAccountDetailsPage(
                         accounts = availableAccounts,
                         labels = accountLabels,
-                        editedReferences = bankReferenceEdits,
                         lastFourHints = bankLastFourHints,
                         mpesaSelected = mpesaWasSelected,
                         suggestedMpesaNumber = mpesaPhoneSuggestion,
                         mpesaNumberAccepted = mpesaSuggestedNumberAccepted,
+                        mpesaPhoneInput = mpesaPhoneInput,
                         saving = identitySaving,
                         error = identityError,
                         onLabelChanged = { id, label ->
                             accountLabels = accountLabels + (id to label)
                             identityError = null
                         },
-                        onReferenceChanged = { id, ref ->
-                            bankReferenceEdits = bankReferenceEdits + (id to ref)
-                            identityError = null
-                        },
                         onLastFourChanged = { id, suffix ->
                             bankLastFourHints = bankLastFourHints + (id to suffix)
                             identityError = null
                         },
-                        onMpesaAcceptedChanged = { mpesaSuggestedNumberAccepted = it },
+                        onMpesaNumberAccepted = { mpesaSuggestedNumberAccepted = it },
+                        onMpesaPhoneChanged = { mpesaPhoneInput = it.filter { char -> char.isDigit() || char == '+' }.take(16) },
                         onSaveAndContinue = { saveAccountDetails() },
                         onSkip = { stage = SmartSetupStage.COMPLETE }
                     )
@@ -2358,7 +2329,8 @@ fun SmartOnboardingSetupScreen(
             SmartSetupStage.COMPLETE -> {
                 item {
                     SetupCompletePage(
-                        confirmedAccountCount = availableAccounts.size,
+                        institutionCount = completionInstitutionCount,
+                        serviceCount = completionServiceCount,
                         navigating = completionNavigating,
                         onHome = {
                             if (!completionNavigating) {
@@ -2366,6 +2338,10 @@ fun SmartOnboardingSetupScreen(
                                     true
                                 onDone()
                             }
+                        },
+                        onReview = {
+                            selectedOwnedKeys = completedInstitutionKeys
+                            stage = SmartSetupStage.REVIEW
                         }
                     )
                 }
@@ -3479,63 +3455,51 @@ internal fun MpesaConfirmationPage(
 
 @Composable
 private fun SetupCompletePage(
-    confirmedAccountCount: Int,
+    institutionCount: Int,
+    serviceCount: Int,
     navigating: Boolean,
-    onHome: () -> Unit
+    onHome: () -> Unit,
+    onReview: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(15.dp)
-    ) {
-        Surface(
-            modifier = Modifier.size(112.dp),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.CheckCircle, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(64.dp))
-            }
-        }
-        Text("Your money picture is ready",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center)
-        Text("Your selected accounts are ready to track. You can review or update them any time.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center)
-        PesaCard {
-            Column(Modifier.fillMaxWidth().padding(15.dp),
-                verticalArrangement = Arrangement.spacedBy(13.dp)) {
-                Text("What happens next?",
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary)
-                listOf(
-                    "$confirmedAccountCount account${if (confirmedAccountCount == 1) "" else "s"} selected",
-                    "Review activity and spending as messages are processed",
-                    "Add salary details later from Plan",
-                    "Edit your accounts any time in Settings"
-                ).forEach { label ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.CheckCircle, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(19.dp))
-                        Text(label,
-                            modifier = Modifier.padding(start = 10.dp),
-                            style = MaterialTheme.typography.bodyMedium)
-                    }
+    Column(Modifier.fillMaxWidth().padding(top = 1.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Box(Modifier.fillMaxWidth().height(170.dp), contentAlignment = Alignment.Center) {
+            Surface(Modifier.align(Alignment.TopStart).padding(start = 60.dp, top = 28.dp).size(12.dp, 19.dp).rotate(25f), shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.tertiary) {}
+            Surface(Modifier.align(Alignment.TopEnd).padding(end = 61.dp, top = 41.dp).size(12.dp, 19.dp).rotate(-22f), shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.secondary) {}
+            Surface(Modifier.align(Alignment.BottomStart).padding(start = 83.dp, bottom = 18.dp).size(12.dp, 19.dp).rotate(-34f), shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.error) {}
+            Surface(Modifier.align(Alignment.BottomEnd).padding(end = 76.dp, bottom = 19.dp).size(12.dp, 19.dp).rotate(22f), shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.primary) {}
+            Surface(Modifier.size(106.dp), shape = RoundedCornerShape(36.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(55.dp))
                 }
             }
         }
-        Button(
-            onClick = onHome, enabled = !navigating,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
-            shape = RoundedCornerShape(12.dp)
-        ) { Text(if (navigating) "Opening…" else "Open my dashboard") }
+        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+            Text("You’re in control", Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        }
+        Text("Your money picture is ready", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
+        Text("PesaTrack has a clearer starting point. Review your activity and update your accounts whenever you need.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+        PesaCard(Modifier.padding(top = 5.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                CompletionSummaryRow("Institutions to review", "$institutionCount selected")
+                CompletionSummaryRow("Safaricom services", "$serviceCount selected")
+                CompletionSummaryRow("Account details", "Optional · editable")
+            }
+        }
+        Surface(shape = RoundedCornerShape(13.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f), modifier = Modifier.padding(top = 3.dp)) {
+            Text("Want to add your salary later? Find salary setup in Plan. Your dashboard is ready now.", Modifier.fillMaxWidth().padding(12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Button(onClick = onHome, enabled = !navigating, modifier = Modifier.fillMaxWidth().padding(top = 6.dp).heightIn(min = 50.dp), shape = RoundedCornerShape(15.dp)) {
+            Text(if (navigating) "Opening…" else "Open my dashboard")
+        }
+        TextButton(onClick = onReview, enabled = !navigating, modifier = Modifier.fillMaxWidth()) { Text("Review my choices") }
+    }
+}
+
+@Composable
+private fun CompletionSummaryRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+        Text(value, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
