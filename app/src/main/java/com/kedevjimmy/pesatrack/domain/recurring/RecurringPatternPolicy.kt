@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.domain.recurring
 
+import java.math.BigInteger
 import kotlin.math.abs
 
 object RecurringPatternPolicy {
@@ -126,17 +127,15 @@ object RecurringPatternPolicy {
             amounts.maxOf {
                 abs(it - typicalAmount)
             }
-        val maximumDeviationPercent =
-            (
-                maximumAmountDeviation *
-                    100L /
-                    typicalAmount
-            ).coerceAtMost(1000L)
-
         // A recurring commitment should be useful for
         // planning. Very volatile amounts remain ordinary
         // history instead of becoming a guessed budget.
-        if (maximumDeviationPercent > 35L) {
+        if (!withinDeviationPercent(
+                maximumAmountDeviation,
+                typicalAmount,
+                35L
+            )
+        ) {
             return null
         }
 
@@ -164,8 +163,11 @@ object RecurringPatternPolicy {
         val confidence =
             if (
                 ordered.size >= 4 &&
-                maximumDeviationPercent <=
-                    10L &&
+                withinDeviationPercent(
+                    maximumAmountDeviation,
+                    typicalAmount,
+                    10L
+                ) &&
                 medianIntervalDays in
                     27..33 &&
                 intervalSpread <= 6
@@ -243,6 +245,16 @@ object RecurringPatternPolicy {
             ) / 2L
         }
     }
+
+    private fun withinDeviationPercent(
+        deviation: Long,
+        typicalAmount: Long,
+        percent: Long
+    ): Boolean =
+        BigInteger.valueOf(deviation)
+            .multiply(BigInteger.valueOf(100L)) <=
+            BigInteger.valueOf(typicalAmount)
+                .multiply(BigInteger.valueOf(percent))
 
     private fun confidenceRank(
         value: RecurringPatternConfidence
