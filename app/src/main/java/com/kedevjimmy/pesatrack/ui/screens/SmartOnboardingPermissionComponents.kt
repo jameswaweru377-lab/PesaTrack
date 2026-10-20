@@ -72,114 +72,19 @@ internal fun SmartSmsPermissionPage(
     onContinue: () -> Unit,
     onContinueWithout: () -> Unit
 ) {
-    var showMoreDetails by rememberSaveable { mutableStateOf(false) }
-    val disclosureScroll = rememberScrollState()
-    LaunchedEffect(denied) { if (denied) disclosureScroll.scrollTo(0) }
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(disclosureScroll),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            consentError?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            }
-            if (denied) {
-                Surface(shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.errorContainer) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(
-                            if (restrictedHelp) "Android blocked SMS access. Open App info → ⋮ → Allow restricted settings, then return."
-                            else "SMS access was not allowed. You can try again or continue without scanning.",
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Row {
-                            if (restrictedHelp) TextButton(onClick = onOpenAppInfo) { Text("Open App info") }
-                            TextButton(onClick = onTryAgain) { Text("Try SMS again") }
-                        }
-                    }
-                }
-            }
-            Text(
-                "Your messages. Your choice.",
-                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 27.sp, lineHeight = 32.sp),
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                "Give access only if you want PesaTrack to organize your financial SMS.",
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 21.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            PremiumOnboardingHero("permission", Modifier.heightIn(max = 164.dp))
-            PremiumInfoPanel(
-                Icons.AutoMirrored.Rounded.Message,
-                "Checks M-Pesa and bank transaction messages",
-                "Looks for financial activity like income, spending, transfers and account activity."
-            )
-            PremiumInfoPanel(
-                Icons.Rounded.Shield,
-                "Processes full SMS text on this device",
-                "Full message text stays on this phone and is not uploaded."
-            )
-            PremiumInfoPanel(
-                Icons.Rounded.AccountBalance,
-                "Optional business-name lookup is separate",
-                "Used to identify merchant names. You can keep this off."
-            )
-            Surface(shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant) {
-                Text(
-                    "Android grants SMS access. PesaTrack limits its scan to " +
-                        (selectedRangeDescription ?: "your chosen dates") +
-                        ". You can revoke access in Android settings.",
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            MessageAccessAgreement(accepted, busy, onAccepted)
-            TextButton(
-                onClick = { showMoreDetails = !showMoreDetails },
-                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    if (showMoreDetails) "− Show less" else "Learn how my data is used  ›",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            if (showMoreDetails) {
-                Text(
-                    "PesaTrack uses matching financial messages to build your income, spending, savings and debt picture. New SMS can be checked when you reopen the app. Notification access is a separate permission. You can decline or revoke either permission.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "Optional online business-name lookup sends only a sanitized business descriptor, not full SMS text, transaction amounts, balances, account numbers or transaction codes.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        Button(
-            onClick = onContinue,
-            enabled = accepted && !busy,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Text(if (busy) "Waiting for Android…" else "Allow SMS access",
-                fontWeight = FontWeight.Bold)
-        }
-        TextButton(
-            onClick = onContinueWithout, enabled = !busy,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-        ) {
-            Text("Continue without SMS access", fontWeight = FontWeight.SemiBold)
-        }
-    }
+    ApprovedPrivacyConsentPage(
+        accepted = accepted,
+        busy = busy,
+        denied = denied,
+        restrictedHelp = restrictedHelp,
+        consentError = consentError,
+        selectedRangeDescription = selectedRangeDescription,
+        onAccepted = onAccepted,
+        onOpenAppInfo = onOpenAppInfo,
+        onTryAgain = onTryAgain,
+        onContinue = onContinue,
+        onContinueWithout = onContinueWithout
+    )
 }
 
 @Composable
