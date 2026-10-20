@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
+import java.util.Calendar
 
 /** One local review session. Paging never selects unseen rows. */
 @Composable
@@ -53,6 +55,9 @@ internal fun ReceivableHistoryReview(
     var preview by remember { mutableStateOf<BatchTotals?>(null) }
     var confirming by remember { mutableStateOf(false) }
     var showRepayments by remember { mutableStateOf(false) }
+    var sourceFilter by remember { mutableStateOf(ReceivableHistorySourceFilter.ALL) }
+    var dateFrom by remember { mutableStateOf<Long?>(null) }
+    var dateThrough by remember { mutableStateOf<Long?>(null) }
     var sessionName by remember { mutableStateOf("") }
     var sessionPhone by remember { mutableStateOf("") }
     var sessionQuery by remember { mutableStateOf("") }
@@ -77,15 +82,32 @@ internal fun ReceivableHistoryReview(
     fun load(page: Int, fresh: Boolean) {
         if (busy) return
         if (fresh) {
-            resetChoices(); sessionName = name; sessionPhone = phone; sessionQuery = query
+            resetChoices()
+            sessionName = when {
+                personId != null -> name
+                name.isNotBlank() -> name
+                query.any(Char::isLetter) -> query.trim()
+                else -> ""
+            }
+            sessionPhone = phone.ifBlank {
+                query.takeIf { ReceivableHistoryPolicy.normalizedPhone(it) != null }.orEmpty()
+            }
+            sessionQuery = query
         }
         busy = true; error = null
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    repository.search(sessionQuery,personId,sessionName,sessionPhone,50,page)
+                    repository.search(sessionQuery,personId,sessionName,sessionPhone,50,page,sourceFilter,dateFrom,dateThrough)
                 }
                 rows = result; offset = page; searched = true
+                if (personId == null && name.isBlank()) {
+                    result.firstNotNullOfOrNull {
+                        it.row.counterparty?.takeIf { candidate ->
+                            candidate.isNotBlank() && ReceivableHistoryPolicy.normalizedPhone(candidate) == null
+                        }
+                    }?.let { name = it }
+                }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) { error = failure.message ?: "Could not search imported transactions." }
             finally { busy = false }
@@ -106,6 +128,26 @@ internal fun ReceivableHistoryReview(
             }
             else -> { gifts = gifts - row.row.id; selected = selected - row.row.id }
         }
+    }
+    fun pickDate(isStart: Boolean) {
+        val current = if (isStart) dateFrom else dateThrough
+        val calendar = Calendar.getInstance().apply { timeInMillis = current ?: System.currentTimeMillis() }
+        DatePickerDialog(context,{ _, year, month, day ->
+            val chosen = Calendar.getInstance().apply {
+                set(year,month,day,if (isStart) 0 else 23,if (isStart) 0 else 59,if (isStart) 0 else 59)
+                set(Calendar.MILLISECOND,if (isStart) 0 else 999)
+            }.timeInMillis
+            if (isStart) {
+                dateFrom = chosen
+                if (dateThrough != null && chosen > dateThrough!!) dateThrough = null
+            } else {
+                dateThrough = chosen
+                if (dateFrom != null && chosen < dateFrom!!) dateFrom = null
+            }
+            if (searched) load(0,false)
+        },calendar.get(Calendar.YEAR),calendar.get(Calendar.MONTH),calendar.get(Calendar.DAY_OF_MONTH)).apply {
+            datePicker.maxDate = System.currentTimeMillis()
+        }.show()
     }
 
     Dialog(onDismissRequest = { if (!busy) onDismiss() },
@@ -144,19 +186,49 @@ internal fun ReceivableHistoryReview(
                             }
                             if (personId == null) {
                                 OutlinedTextField(name,{ name = it; resetChoices() },enabled = !busy,
-                                    label = { Text("Person's full name") },singleLine = true,modifier = Modifier.fillMaxWidth())
+                                    label = { Text("Name to save as") },singleLine = true,modifier = Modifier.fillMaxWidth())
                                 OutlinedTextField(phone,{ phone = it; resetChoices() },enabled = !busy,
                                     label = { Text("Phone number (optional)") },singleLine = true,modifier = Modifier.fillMaxWidth())
                             }
                             OutlinedTextField(query,{ query = it },enabled = !busy,
-                                label = { Text("Search name or phone") },singleLine = true,modifier = Modifier.fillMaxWidth())
-                            Button(enabled = !busy && name.trim().length in 2..100 && query.trim().length in 2..100,
+                                label = { Text("Find by name or phone") },singleLine = true,
+                                modifier = Modifier.fillMaxWidth().testTag("history-query"))
+                            Text("Include sources",style = MaterialTheme.typography.labelLarge)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(selected = sourceFilter == ReceivableHistorySourceFilter.ALL,
+                                    onClick = { sourceFilter = ReceivableHistorySourceFilter.ALL },label = { Text("All sources") })
+                                FilterChip(selected = sourceFilter == ReceivableHistorySourceFilter.MESSAGES,
+                                    onClick = { sourceFilter = ReceivableHistorySourceFilter.MESSAGES },label = { Text("Messages") })
+                                FilterChip(selected = sourceFilter == ReceivableHistorySourceFilter.STATEMENTS,
+                                    onClick = { sourceFilter = ReceivableHistorySourceFilter.STATEMENTS },label = { Text("Statements") })
+                            }
+                            Column {
+                                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                    Text("Date range",modifier = Modifier.weight(1f),style = MaterialTheme.typography.labelLarge)
+                                    if (dateFrom != null || dateThrough != null) TextButton(enabled = !busy,onClick = {
+                                        dateFrom = null; dateThrough = null
+                                        if (searched) load(0,false)
+                                    }) { Text("Clear") }
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(enabled = !busy,onClick = { pickDate(true) },modifier = Modifier.weight(1f)) {
+                                        Text(dateFrom?.let { "From " + SimpleDateFormat("d MMM yyyy",locale).format(it) } ?: "All imported dates")
+                                    }
+                                    if (dateFrom != null) OutlinedButton(enabled = !busy,onClick = { pickDate(false) },
+                                        modifier = Modifier.weight(1f)) {
+                                        Text(dateThrough?.let { "To " + SimpleDateFormat("d MMM yyyy",locale).format(it) } ?: "Set end date")
+                                    }
+                                }
+                            }
+                            Button(enabled = !busy && query.trim().length in 2..100,
                                 onClick = { load(0,true) }) { Text("Search transactions") }
                         }
                         if (searched) {
                             item {
-                                Text("Results from all imported months. Names can belong to different people.",
+                                Text("Search covers imported history. Statement files must be imported into Activity first; similar names can belong to different people.",
                                     style = MaterialTheme.typography.bodySmall)
+                                Text(if (dateFrom == null && dateThrough == null) "All imported dates" else "Filtered by the selected dates",
+                                    style = MaterialTheme.typography.labelSmall)
                                 Row {
                                     FilterChip(selected = !showRepayments,onClick = { showRepayments = false },
                                         label = { Text("Money sent") })
@@ -176,7 +248,7 @@ internal fun ReceivableHistoryReview(
                             }
                             val visible = rows.filter { if (showRepayments) it.row.direction == "INCOME" else it.row.direction != "INCOME" }
                             if (visible.isEmpty()) item {
-                                Text(if (rows.isEmpty()) "No matching imported transactions. If history is missing, use Activity's existing SMS import, then search again."
+                                Text(if (rows.isEmpty()) "No matching imported transactions. Import a statement or message history in Activity, then search again."
                                     else "No records in this section on this page.")
                             }
                             items(visible,key = { it.row.id }) { candidate ->
@@ -185,6 +257,8 @@ internal fun ReceivableHistoryReview(
                                 Card(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(12.dp),verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                         Text(row.counterparty ?: "Unknown person",fontWeight = FontWeight.SemiBold)
+                                        Text(candidate.sourceLabel,style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.primary)
                                         Text((row.counterpartyPhone?.let { it + " • " } ?: "") + candidate.accountName +
                                             " • " + SimpleDateFormat("d MMM yyyy",locale).format(row.occurredAtEpochMs),
                                             style = MaterialTheme.typography.bodySmall)

@@ -308,6 +308,47 @@ class PersonalReceivableIntegrationTest {
         assertEquals(1,repo.search("Sample Borrower",null,"Sample Borrower",null,2,2).size)
     }
 
+    @Test fun statementAndMessageHistoryCanBeFilteredWithoutCreatingDuplicateRows() {
+        val statementId = transaction(133, 80000, "EXPENSE")
+        val messageId = transaction(134, 30000, "EXPENSE")
+        db.update("transactions",ContentValues().apply {
+            put("source_kind","statement_import")
+            put("occurred_at_epoch_ms",1_735_689_600_000L) // 2025-01-01 synthetic historical statement row
+        },"id = ?",arrayOf(statementId.toString()))
+        db.update("transactions",ContentValues().apply {
+            put("source_kind","historical_sms")
+        },"id = ?",arrayOf(messageId.toString()))
+        val message = transactions.getById(messageId)!!
+        synchronized(CanonicalStoreLock.monitor) {
+            db.beginTransaction()
+            try {
+                EvidenceJournalStore.observe(db,"STATEMENT","synthetic-statement","row-134",
+                    AccountStore.DEFAULT_MPESA_ID,-message.amountMinor,message.occurredAtEpochMs,
+                    message.transactionCode,messageId,"REFERENCE")
+                db.setTransactionSuccessful()
+            } finally { db.endTransaction() }
+        }
+
+        val repository = ReceivableHistoryRepository(context)
+        val all = repository.search("Sample Borrower",null,"Sample Borrower",null)
+        assertEquals(setOf(statementId,messageId),all.map { it.row.id }.toSet())
+        assertEquals("Statements",all.single { it.row.id == statementId }.sourceLabel)
+        assertEquals("Messages · Statements",all.single { it.row.id == messageId }.sourceLabel)
+        assertEquals(setOf(statementId,messageId),repository.search("Sample Borrower",null,"Sample Borrower",null,
+            sourceFilter = ReceivableHistorySourceFilter.STATEMENTS).map { it.row.id })
+        assertEquals(listOf(messageId),repository.search("Sample Borrower",null,"Sample Borrower",null,
+            sourceFilter = ReceivableHistorySourceFilter.MESSAGES).map { it.row.id })
+        assertEquals(listOf(statementId),repository.search("Sample Borrower",null,"Sample Borrower",null,
+            sourceFilter = ReceivableHistorySourceFilter.STATEMENTS,
+            fromEpochMs = 1_735_689_600_000L,throughEpochMs = 1_735_776_000_000L).map { it.row.id })
+        db.update("transactions",ContentValues().apply { put("amount_minor",31000L) },
+            "id = ?",arrayOf(messageId.toString()))
+        assertEquals("Messages",repository.search("Sample Borrower",null,"Sample Borrower",null)
+            .single { it.row.id == messageId }.sourceLabel)
+        assertEquals(listOf(statementId),repository.search("Sample Borrower",null,"Sample Borrower",null,
+            sourceFilter = ReceivableHistorySourceFilter.STATEMENTS).map { it.row.id })
+    }
+
     @Test fun schema36AndEncryptedRestorePreserveLoansThenGiftDecisions() {
         val outgoing = transaction(140,80000,"EXPENSE")
         val gift = transaction(141,10000,"EXPENSE")

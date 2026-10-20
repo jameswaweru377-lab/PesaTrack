@@ -129,16 +129,30 @@ internal object EvidenceJournalStore {
         synchronized(CanonicalStoreLock.monitor) {
             val db=PesaTrackDatabase.get(context.applicationContext).readableDatabase
             val row=canonical(db,transactionId) ?: return@synchronized emptyList()
-            val currentHash=snapshot(row)
+            sourcesFor(context,listOf(transactionId to row))[transactionId].orEmpty()
+        }
+
+    /** Bounded batch lookup used by history result pages; stale links are never presented as corroboration. */
+    fun sourcesFor(context: Context, rows: List<Pair<Long,EvidenceCanonicalFact>>): Map<Long,List<EvidenceSourceSummary>> =
+        synchronized(CanonicalStoreLock.monitor) {
+            if (rows.isEmpty()) return@synchronized emptyMap()
+            val db=PesaTrackDatabase.get(context.applicationContext).readableDatabase
+            val currentHashes=rows.associate { it.first to snapshot(it.second) }
+            val placeholders=rows.joinToString(",") { "?" }
+            val ids=rows.map { it.first.toString() }.toTypedArray()
             db.rawQuery("""
-                SELECT o.source_kind,l.reason,l.transaction_snapshot_hash
+                SELECT l.transaction_id,o.source_kind,l.reason,l.transaction_snapshot_hash
                 FROM evidence_links l JOIN evidence_observations o ON o.id=l.observation_id
-                WHERE l.transaction_id=? AND o.status='LINKED'
-                ORDER BY o.created_at_epoch_ms DESC LIMIT 12
-            """.trimIndent(),arrayOf(transactionId.toString())).use {c->
-                buildList {
-                    while(c.moveToNext()) add(EvidenceSourceSummary(
-                        c.getString(0),c.getString(1),c.getString(2)!=currentHash))
+                WHERE l.transaction_id IN ($placeholders) AND o.status='LINKED'
+                ORDER BY o.created_at_epoch_ms DESC
+            """.trimIndent(),ids).use { c ->
+                buildMap {
+                    while(c.moveToNext()) {
+                        val id=c.getLong(0)
+                        val prior=get(id).orEmpty()
+                        if(prior.size<12) put(id,prior+EvidenceSourceSummary(
+                            c.getString(1),c.getString(2),c.getString(3)!=currentHashes[id]))
+                    }
                 }
             }
         }

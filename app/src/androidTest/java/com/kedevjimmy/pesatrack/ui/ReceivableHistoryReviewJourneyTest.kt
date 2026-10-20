@@ -61,6 +61,33 @@ class ReceivableHistoryReviewJourneyTest {
         assertTrue(PersonalReceivableStore(context).people().isEmpty())
     }
 
+    @Test fun searchingByNameDoesNotRequireASecondIdentityField() {
+        row(20,"EXPENSE")
+        compose.setContent {
+            PesaTrackTheme {
+                ReceivableHistoryReview(null,"","",{}, {})
+            }
+        }
+        compose.onNodeWithTag("history-query").performTextInput("Sample Borrower")
+        compose.onNodeWithText("Search transactions").assertIsEnabled().performClick()
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("Search covers imported history. Statement files must be imported into Activity first; similar names can belong to different people.")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Matching full name — confirm identity").assertIsDisplayed()
+    }
+
+    @Test fun searchingByPhoneWithoutPersonNameReturnsHistoryForReview() {
+        row(21,"EXPENSE")
+        compose.setContent { PesaTrackTheme { ReceivableHistoryReview(null,"","",{}, {}) } }
+        compose.onNodeWithTag("history-query").performTextInput("0712000000")
+        compose.onNodeWithText("Search transactions").assertIsEnabled().performClick()
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("Matching phone number").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Matching phone number").assertIsDisplayed()
+    }
+
     @Test fun editedLoanGiftAndReceiptRequirePreviewBeforeSaving() {
         val loan = row(1,"EXPENSE",160000)
         val gift = row(2,"EXPENSE",10000)

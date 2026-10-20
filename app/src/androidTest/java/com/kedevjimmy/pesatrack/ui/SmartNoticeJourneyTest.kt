@@ -42,7 +42,7 @@ class SmartNoticeJourneyTest {
         } }
         compose.waitUntil(5000) { compose.onAllNodesWithText("Record money lent").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Record money lent").assertIsDisplayed()
-        compose.onNodeWithText("Find in transactions").assertIsDisplayed()
+        compose.onNodeWithText("Find payments").assertIsDisplayed()
         assertFalse(SmartNoticePreferences(context).discoveryPending())
     }
     @Test fun inlinePaymentReviewIsAvailableWithoutPostingAndRequiresExplicitFinancialSave() {

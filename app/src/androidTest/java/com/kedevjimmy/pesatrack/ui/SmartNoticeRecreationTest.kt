@@ -39,7 +39,7 @@ class SmartNoticeRecreationTest {
             compose.onNodeWithText("Unlock").performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Record money lent").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Record money lent").assertIsDisplayed()
-            compose.onNodeWithText("Find in transactions").assertIsDisplayed()
+            compose.onNodeWithText("Find payments").assertIsDisplayed()
         }
     }
 }
