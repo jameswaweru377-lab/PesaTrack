@@ -122,6 +122,7 @@ data class HomeCoreState(
     val debtAccounts: List<DebtAccountSnapshot>,
     val trackedAccounts: List<MoneyAccount>,
     val monthlyBudgets: List<MonthlyBudget>,
+    val budgetSpendingByCategory: Map<String, Long>?,
     val confirmedAccountIds: Set<String>,
     val salaryRule: SmartRule?,
     val upcomingBills: List<ScheduledBill>,
@@ -144,6 +145,7 @@ data class HomeLoadedState(
     val debtAccounts: List<DebtAccountSnapshot>,
     val trackedAccounts: List<MoneyAccount>,
     val monthlyBudgets: List<MonthlyBudget>,
+    val budgetSpendingByCategory: Map<String, Long>?,
     val confirmedAccountIds: Set<String>,
     val salaryRule: SmartRule?,
     val upcomingBills: List<ScheduledBill>,
@@ -321,6 +323,9 @@ fun HomeScreen(
                 ?: emptyList()
         )
     }
+    var budgetSpendingByCategory by remember {
+        mutableStateOf<Map<String, Long>?>(warmHome?.budgetSpendingByCategory)
+    }
     var confirmedAccountIds by remember {
         mutableStateOf<Set<String>>(
             warmHome?.confirmedAccountIds
@@ -388,12 +393,31 @@ fun HomeScreen(
                 )
             }
 
-            val activityAndShares = traceFinancialRead("home.activityAndReceivables") {
+            val activityData = traceFinancialRead("home.activityAndBudgetEvidence") {
                 synchronized(CanonicalStoreLock.monitor) {
                     val activity = transactionStore.activitySnapshot(nowEpochMs = referenceEpochMs)
-                    activity to PersonalReceivableStore(context).linkedShares()
+                    val shares = PersonalReceivableStore(context).linkedShares()
+                    val allocations = com.kedevjimmy.pesatrack.data.local
+                        .EverydayMoneyStore(context).allAllocations()
+                    val categoryStore = CategoryStore.get(context)
+                    val spendingByCategory = try {
+                        com.kedevjimmy.pesatrack.data.local
+                            .BudgetSpendingProjection.calculate(
+                                trustedRows = activity.trustedTransactions,
+                                trustedOriginal = transactionStore::trustedRefundOriginal,
+                                canonicalCategoryId = categoryStore::canonicalId,
+                                receivableLent = { shares[it]?.lentMinor ?: 0L },
+                                allocations = { allocations[it].orEmpty() }
+                            )
+                    } catch (_: ArithmeticException) {
+                        null
+                    } catch (_: IllegalStateException) {
+                        null
+                    }
+                    Triple(activity, shares, spendingByCategory)
                 }
             }
+            val budgets = budgetStore.list()
             HomeCoreState(
                 cycleSnapshot = traceFinancialRead("home.payCycleSnapshot") {
                     cycleStore.snapshot()
@@ -401,14 +425,14 @@ fun HomeScreen(
                 ledgerSnapshot = traceFinancialRead("home.ledgerSummary") {
                     transactionStore.snapshot()
                 },
-                activitySnapshot = activityAndShares.first,
-                receivableShares = activityAndShares.second,
+                activitySnapshot = activityData.first,
+                receivableShares = activityData.second,
                 debtAccounts =
                     debtStore.accounts(),
                 trackedAccounts =
                     accounts,
-                monthlyBudgets =
-                    budgetStore.list(),
+                monthlyBudgets = budgets,
+                budgetSpendingByCategory = activityData.third,
                 confirmedAccountIds =
                     financialStore
                         .confirmedAccountIds(),
@@ -486,6 +510,8 @@ fun HomeScreen(
             core.trackedAccounts
         monthlyBudgets =
             core.monthlyBudgets
+        budgetSpendingByCategory =
+            core.budgetSpendingByCategory
         confirmedAccountIds =
             core.confirmedAccountIds
         salaryRule =
@@ -526,6 +552,8 @@ fun HomeScreen(
                     core.trackedAccounts,
                 monthlyBudgets =
                     core.monthlyBudgets,
+                budgetSpendingByCategory =
+                    core.budgetSpendingByCategory,
                 confirmedAccountIds =
                     core.confirmedAccountIds,
                 salaryRule =
@@ -592,6 +620,8 @@ fun HomeScreen(
                                         core.trackedAccounts,
                                     monthlyBudgets =
                                         core.monthlyBudgets,
+                                    budgetSpendingByCategory =
+                                        core.budgetSpendingByCategory,
                                     confirmedAccountIds =
                                         core.confirmedAccountIds,
                                     salaryRule =
@@ -996,22 +1026,15 @@ fun HomeScreen(
             }
             .take(5)
             .toList()
-    val monthlyBudgetTotalMinor =
-        CheckedMoney.orNull { monthlyBudgets.checkedMoneySumOf { it.limitMinor } }
-    val monthlyBudgetCategoryIds =
-        monthlyBudgets.map { it.categoryId }.toSet()
-    val monthlyBudgetSpentMinor = CheckedMoney.orNull {
-        activitySnapshot.trustedTransactions
-            .filter {
-                it.direction == MoneyDirection.EXPENSE.name &&
-                    it.reviewState != ReviewState.EXCLUDED.name &&
-                    it.reviewState != ReviewState.NEEDS_REVIEW.name &&
-                    categoryStore.canonicalId(it.category) in monthlyBudgetCategoryIds
-            }
-            .checkedMoneySumOf { CheckedMoney.add(CheckedMoney.subtract(it.amountMinor, receivableShares[it.id]?.lentMinor ?: 0L), it.feeMinor) }
-            .coerceAtLeast(0L)
-
+    val healthBudgetTotals = remember(monthlyBudgets, budgetSpendingByCategory) {
+        financialHealthBudgetTotals(
+            budgets = monthlyBudgets,
+            spendingByCategory = budgetSpendingByCategory,
+            canonicalCategoryId = categoryStore::canonicalId
+        )
     }
+    val monthlyBudgetTotalMinor = healthBudgetTotals.limitMinor
+    val monthlyBudgetSpentMinor = healthBudgetTotals.spentMinor
     val activeDebtOutstandingMinor =
         if (activeDebtAccounts.any { it.balanceQuality == com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality.UNKNOWN }) null
         else CheckedMoney.orNull { activeDebtAccounts.checkedMoneySumOf { it.outstandingMinor } }

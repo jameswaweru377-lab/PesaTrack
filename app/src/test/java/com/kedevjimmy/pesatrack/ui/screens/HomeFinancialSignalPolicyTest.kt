@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -28,6 +29,56 @@ class HomeFinancialSignalPolicyTest {
         elapsedMonthFraction=.60,
         isCurrentMonth=true
     )
+
+    @Test fun financialHealthTotalsUseOnlyMonthAlignedBudgets() {
+        val totals = financialHealthBudgetTotals(
+            budgets = listOf(
+                MonthlyBudget("transport", 100_000L, periodLabel = "This week"),
+                MonthlyBudget("FOOD", 500_000L, periodLabel = "This month")
+            ),
+            spendingByCategory = mapOf("TRANSPORT" to 40_000L, "FOOD" to 250_000L),
+            canonicalCategoryId = { it.uppercase() }
+        )
+
+        assertEquals(500_000L, totals.limitMinor)
+        assertEquals(250_000L, totals.spentMinor)
+    }
+
+    @Test fun weeklyBudgetAloneCannotCreateAMonthlySpendingPaceRating() {
+        val totals = financialHealthBudgetTotals(
+            budgets = listOf(MonthlyBudget("TRANSPORT", 100_000L, periodLabel = "This week")),
+            spendingByCategory = mapOf("TRANSPORT" to 40_000L),
+            canonicalCategoryId = { it }
+        )
+
+        assertNull(totals.limitMinor)
+        assertNull(totals.spentMinor)
+        val health = evaluateHomeFinancialSignals(
+            complete().copy(
+                budgetLimitMinor = totals.limitMinor,
+                budgetSpentMinor = totals.spentMinor
+            )
+        )
+        assertNull(health.indicators[3].score)
+    }
+
+    @Test fun unavailableBudgetSpendingEvidenceIsNotTreatedAsZero() {
+        val totals = financialHealthBudgetTotals(
+            budgets = listOf(MonthlyBudget("FOOD", 500_000L, periodLabel = "This month")),
+            spendingByCategory = null,
+            canonicalCategoryId = { it }
+        )
+
+        assertEquals(500_000L, totals.limitMinor)
+        assertNull(totals.spentMinor)
+        val health = evaluateHomeFinancialSignals(
+            complete().copy(
+                budgetLimitMinor = totals.limitMinor,
+                budgetSpentMinor = totals.spentMinor
+            )
+        )
+        assertNull(health.indicators[3].score)
+    }
 
     @Test fun fullEvidenceOffersAQualifiedSummaryAndFourPillars() {
         val result=evaluateHomeFinancialSignals(complete())
