@@ -1,9 +1,12 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +42,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.Role
@@ -46,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.FinancialInstitutionOption
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -71,7 +77,19 @@ internal fun ApprovedAnalysisPage(
         verticalArrangement = Arrangement.spacedBy(11.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        PremiumOnboardingHero("analysis")
+        // The artwork is a standalone transparent asset, not a flattened screen capture.
+        // Preserve its intrinsic 800:474 ratio while the progress UI below stays interactive.
+        Box(
+            modifier = Modifier.fillMaxWidth().height(176.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(R.drawable.onboarding_analysis_hero),
+                contentDescription = "Financial SMS and bank accounts being analyzed on a phone",
+                modifier = Modifier.fillMaxHeight().aspectRatio(800f / 474f),
+                contentScale = ContentScale.Fit
+            )
+        }
         Text(
             "Building your money picture",
             style = MaterialTheme.typography.headlineSmall,
