@@ -133,7 +133,7 @@ fun PersonalReceivablesScreen(
         item {
             if (selected == null) {
                 header?.invoke() ?: DetailPageHeader(
-                    title = "Debts", subtitle = "Track borrowing in both directions.", onBack = onLiabilities)
+                    title = "Owed to you", subtitle = "Keep track of money lent and repayments you confirm.", onBack = onLiabilities)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(onClick = onLiabilities, modifier = Modifier.weight(1f)) { Text("I owe") }
                     Spacer(Modifier.width(8.dp))
@@ -208,16 +208,17 @@ fun PersonalReceivablesScreen(
                     }
                 }
                 item {
-                    Button(onClick = { createKind = PersonalReceivableStore.LENT },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                        Icon(Icons.Rounded.Add, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Record money lent")
-                    }
-                }
-                item {
-                    OutlinedButton(onClick = { reviewHistory = true },modifier = Modifier.fillMaxWidth()) {
-                        Text("Find in transactions")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { createKind = PersonalReceivableStore.LENT },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                            Icon(Icons.Rounded.Add, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Record money lent",style = MaterialTheme.typography.labelMedium)
+                        }
+                        OutlinedButton(onClick = { reviewHistory = true },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                            Text("Find payments",style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                 }
                 if (people.isEmpty()) item {
