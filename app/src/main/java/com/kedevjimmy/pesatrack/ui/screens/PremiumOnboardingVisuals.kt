@@ -175,7 +175,7 @@ internal fun PremiumInfoPanel(icon: ImageVector, title: String, detail: String) 
 internal fun PremiumHistoryTimeline() {
     val labels = (2 downTo 0).map { ago ->
         val calendar = Calendar.getInstance().apply { add(Calendar.MONTH, -ago) }
-        val label = SimpleDateFormat("MMM", Locale.getDefault()).format(calendar.time)
+        val label = SimpleDateFormat("MMM", Locale.ENGLISH).format(calendar.time)
         Pair(label, calendar.get(Calendar.YEAR).toString())
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
