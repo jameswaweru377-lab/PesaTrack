@@ -1,10 +1,11 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -12,41 +13,46 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.shape.RoundedCornerShape
 
-/** Approved first onboarding page. The parent owns step navigation and the real skip path. */
+/**
+ * Approved welcome layout. Its illustrated transactions are explicitly examples:
+ * actual data access still starts only after informed consent and Android permission.
+ */
 @Composable
 internal fun PesaTrackWelcomePage(onGetStarted: () -> Unit, onSkip: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp),
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
         horizontalAlignment = Alignment.Start
     ) {
         Text(
             "Your money,",
-            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 33.sp, lineHeight = 36.sp),
+            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 33.sp, lineHeight = 39.sp),
             fontWeight = FontWeight.Bold
         )
         Text(
             "clearer.",
-            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 33.sp, lineHeight = 36.sp),
+            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 33.sp, lineHeight = 39.sp),
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold
         )
+        Spacer(Modifier.height(5.dp))
         Text(
             "Bring M-Pesa and bank activity together in one private space.",
             style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        PremiumOnboardingHero("welcome")
+        Spacer(Modifier.height(3.dp))
+        ApprovedReferenceHero(privacy = false)
+        Spacer(Modifier.height(2.dp))
         Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(15.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(13.dp)
         ) {
             PremiumFeatureRow(
-                Icons.Rounded.AccountBalance,
+                Icons.Rounded.TrendingUp,
                 "Track money in and out",
-                "See your income and spending in one place."
+                "See all your income and spending in one place."
             )
             PremiumFeatureRow(
                 Icons.Rounded.Savings,
@@ -59,15 +65,18 @@ internal fun PesaTrackWelcomePage(onGetStarted: () -> Unit, onSkip: () -> Unit) 
                 "Set up savings and track your goals when ready."
             )
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(7.dp))
         Button(
             onClick = onGetStarted,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 55.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
             Text("Get started  →", fontWeight = FontWeight.Bold)
         }
-        TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+        TextButton(
+            onClick = onSkip,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        ) {
             Text("Set up later", fontWeight = FontWeight.SemiBold)
         }
     }

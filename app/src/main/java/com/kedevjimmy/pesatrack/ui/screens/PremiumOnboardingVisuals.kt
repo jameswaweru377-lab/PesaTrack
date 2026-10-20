@@ -5,6 +5,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.luminance
+import com.kedevjimmy.pesatrack.R
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -224,4 +233,29 @@ internal fun PremiumRangeOption(
             }
         }
     }
+}
+
+/** Art is cropped directly from the two approved reference mockups, not a generic icon substitute. */
+@Composable
+internal fun ApprovedReferenceHero(
+    privacy: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val dark = MaterialTheme.colorScheme.background.luminance() < .45f
+    val source = ImageBitmap.imageResource(id = R.drawable.onboarding_art_sprite)
+    val x = if (privacy) 192 else 0
+    val y = if (dark) 0 else 99
+    val width = if (privacy) 179 else 192
+    val height = if (privacy) 66 else 99
+    val painter = androidx.compose.runtime.remember(source, x, y) {
+        BitmapPainter(source, srcOffset = IntOffset(x, y), srcSize = IntSize(width, height))
+    }
+    Image(
+        painter = painter,
+        contentDescription = if (privacy)
+            "Financial messages are protected on this phone, with links to M-Pesa and bank services"
+        else "M-Pesa and Equity Bank example transactions beside a phone showing a money chart",
+        contentScale = ContentScale.FillBounds,
+        modifier = modifier.fillMaxWidth().height(if (privacy) 115.dp else 169.dp)
+    )
 }
