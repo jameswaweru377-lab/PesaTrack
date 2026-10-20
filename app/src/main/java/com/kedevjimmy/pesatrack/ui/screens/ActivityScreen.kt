@@ -1075,6 +1075,12 @@ fun ActivityScreen(
                     }
                 }
             }
+            item(key = "activity-tools") {
+                ActivityToolsDisclosure(
+                    onChanged = { refresh() },
+                    onPaycheckClick = onPaycheckClick
+                )
+            }
             if(showExtraFilters) item(key = "additional-filters") {
                 LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
                     listOf("Spending","Income","Owed to me","Repayments").forEach { name ->
