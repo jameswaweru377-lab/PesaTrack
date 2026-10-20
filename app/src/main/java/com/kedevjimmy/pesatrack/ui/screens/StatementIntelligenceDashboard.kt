@@ -2,7 +2,6 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -16,10 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -27,7 +23,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.everyday.*
-import com.kedevjimmy.pesatrack.R
+import com.kedevjimmy.pesatrack.ui.components.MainTab
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -55,7 +51,10 @@ private fun statementCategoryGroup(id: String?, labels: Map<String, String>): St
     StatementExpenseCatalog.name(id, labels)
 
 @Composable
-internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
+internal fun StatementIntelligenceDashboard(
+    onDismiss: () -> Unit,
+    onTabSelected: ((MainTab) -> Unit)? = null
+) {
     val context = LocalContext.current
     val store = remember(context) { StatementActivityStore(context) }
     val reader = remember(context) { StatementReportReader(context) }
@@ -78,6 +77,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
     var allHistory by remember { mutableStateOf(true) }
     var dateMenu by remember { mutableStateOf(false) }
     var moreMenu by remember { mutableStateOf(false) }
+    var showReviewHelp by remember { mutableStateOf(false) }
     var monthSelection by remember { mutableStateOf<String?>(null) }
     var yearSelection by remember { mutableStateOf<Int?>(null) }
     var dayAnchor by remember { mutableStateOf<Long?>(null) }
@@ -125,6 +125,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
     val months = remember(sources, accountId) {
         StatementHistoryReport.selectForAccount(sources, accountId.orEmpty())
     }
+    val statementFileCount = remember(sources) { sources.map { it.batchId }.distinct().size }
     val years = remember(months) { StatementHistoryReport.years(months) }
     val month = months.firstOrNull { it.key == monthSelection } ?: months.firstOrNull()
     val year = yearSelection?.takeIf { it in years } ?: years.firstOrNull()
@@ -185,6 +186,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
     }
     fun back() {
         when {
+            showReviewHelp -> showReviewHelp = false
             importing -> importing = false
             edit != null -> edit = null
             page == StatementPage.DEBTS || page == StatementPage.BROWSE ->
@@ -200,45 +202,51 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().systemBarsPadding()) {
                 if (page == StatementPage.SUMMARY) {
-                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, end = 8.dp),
+                    Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp, end = 8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        Image(painterResource(R.drawable.ic_pesatrack_logo),
-                            contentDescription = null, modifier = Modifier.size(26.dp),
-                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary))
-                        Spacer(Modifier.width(8.dp))
-                        Text("PesaTrack", style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Box {
-                            IconButton(onClick = { moreMenu = true }) {
-                                Icon(Icons.Rounded.MoreVert, contentDescription = "More statement options")
-                            }
-                            DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
-                                listOf(
-                                    "Categories" to StatementPage.CATEGORIES,
-                                    "Trends" to StatementPage.TRENDS,
-                                    "Transactions" to StatementPage.TRANSACTIONS,
-                                    "Debts" to StatementPage.DEBTS,
-                                    "Statement archive" to StatementPage.BROWSE
-                                ).forEach { (label, destination) ->
-                                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                        IconButton(onClick = { back() }) {
+                            Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text("Statements", style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold)
+                            Text("Your imported records, in one place",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { navigate(StatementPage.BROWSE) },
+                            enabled = months.isNotEmpty()) {
+                            Icon(Icons.Rounded.Search, contentDescription = "Search statements",
+                                tint = MaterialTheme.colorScheme.primary)
+                        }
+                        if (months.isNotEmpty()) {
+                            Box {
+                                IconButton(onClick = { moreMenu = true }) {
+                                    Icon(Icons.Rounded.MoreVert,
+                                        contentDescription = "More statement options")
+                                }
+                                DropdownMenu(expanded = moreMenu,
+                                    onDismissRequest = { moreMenu = false }) {
+                                    listOf(
+                                        "Categories" to StatementPage.CATEGORIES,
+                                        "Trends" to StatementPage.TRENDS,
+                                        "Transactions" to StatementPage.TRANSACTIONS,
+                                        "Debts" to StatementPage.DEBTS,
+                                        "Statement archive" to StatementPage.BROWSE
+                                    ).forEach { (label, destination) ->
+                                        DropdownMenuItem(text = { Text(label) }, onClick = {
+                                            moreMenu = false
+                                            navigate(destination)
+                                        })
+                                    }
+                                    HorizontalDivider()
+                                    DropdownMenuItem(text = { Text("Import statement") }, onClick = {
                                         moreMenu = false
-                                        navigate(destination)
+                                        importing = true
                                     })
                                 }
-                                HorizontalDivider()
-                                DropdownMenuItem(text = { Text("Import statement") }, onClick = {
-                                    moreMenu = false
-                                    importing = true
-                                })
                             }
                         }
-                    }
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 3.dp)) {
-                        Text("Statements", style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold)
-                        Text("Import and analyse your bank statements",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
                     Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp, end = 8.dp),
@@ -262,6 +270,7 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                         }
                     }
                 }
+                Box(Modifier.fillMaxWidth().weight(1f)) {
                 if (dataError) {
                     Column(Modifier.padding(20.dp)) {
                         Text("Could not open the saved statement report. Your financial records were not changed.",
@@ -275,18 +284,13 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                             style = MaterialTheme.typography.bodyMedium)
                     }
                 } else if (months.isEmpty()) {
-                    Column(Modifier.fillMaxSize().padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(15.dp)) {
-                        Icon(Icons.Rounded.ReceiptLong, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(54.dp))
-                        Text("Your statement story starts here",
-                            style = MaterialTheme.typography.titleLarge)
-                        Text("Save an M-Pesa statement to explore spending, transfers, debts and past years. " +
-                            "Other banks will appear as they become supported.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Button(onClick = { importing = true }) { Text("Import statement") }
-                    }
+                    StatementEmptyLanding(
+                        statementFileCount = statementFileCount,
+                        onImport = { importing = true },
+                        onExplainReview = { showReviewHelp = true },
+                        onBankCsv = { onTabSelected?.invoke(MainTab.ACTIVITY) },
+                        bankCsvImportEnabled = onTabSelected != null
+                    )
                 } else {
                     if (page == StatementPage.SUMMARY) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -928,8 +932,24 @@ internal fun StatementIntelligenceDashboard(onDismiss: () -> Unit) {
                         }
                     }
                 }
+                }
+                if (onTabSelected != null) {
+                    StatementBottomNavigation(onTabSelected)
+                }
             }
         }
+    }
+    if (showReviewHelp) {
+        AlertDialog(
+            onDismissRequest = { showReviewHelp = false },
+            title = { Text("Review before saving") },
+            text = {
+                Text("Statements are checked on this device. Review the extracted rows and totals, then confirm before saving them to Statements. They do not change Activity balances.")
+            },
+            confirmButton = {
+                TextButton(onClick = { showReviewHelp = false }) { Text("Got it") }
+            }
+        )
     }
     if (importing) StatementImportSheet(
         onDismiss = { importing = false; refreshed++ },

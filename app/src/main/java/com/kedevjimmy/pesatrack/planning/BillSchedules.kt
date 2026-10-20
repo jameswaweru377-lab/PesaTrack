@@ -135,7 +135,7 @@ class BillSchedules(private val context: Context) {
                 .activitySnapshot(now)
                 .trustedTransactions
 
-        return RuleStore.get(context)
+        val explicitBillRules = RuleStore.get(context)
             .listRules(true)
             .filter {
                 it.direction == MoneyDirection.EXPENSE &&
@@ -143,11 +143,13 @@ class BillSchedules(private val context: Context) {
                     (it.plannedAmountMinor ?: 0L) > 0L &&
                     isExplicitBill(it.id)
             }
+        return explicitBillRules
             .map { rule ->
                 buildScheduledBill(
                     rule = rule,
                     trusted = trusted,
-                    monthReference = now
+                    monthReference = now,
+                    candidateBillRules = explicitBillRules
                 )
             }
             .sortedWith(
@@ -457,7 +459,8 @@ class BillSchedules(private val context: Context) {
         rule: SmartRule,
         trusted:
             List<StoredTransaction>,
-        monthReference: Long
+        monthReference: Long,
+        candidateBillRules: List<SmartRule>
     ): ScheduledBill {
         val config = config(rule.id)
         val occurrenceDates =
@@ -476,22 +479,14 @@ class BillSchedules(private val context: Context) {
                 .filter {
                     it.direction ==
                         MoneyDirection.EXPENSE.name &&
-                        (
-                            it.ruleId == rule.id ||
-                                SmartRuleEngine
-                                    .matchTransaction(
-                                        counterparty =
-                                            it.counterparty,
-                                        counterpartyPhone =
-                                            it.counterpartyPhone,
-                                        amountMinor =
-                                            it.amountMinor,
-                                        rules =
-                                            listOf(rule)
-                                    )
-                                    ?.id ==
-                                rule.id
-                            )
+                        BillPaymentMatchingPolicy.matches(
+                            transactionRuleId = it.ruleId,
+                            rule = rule,
+                            counterparty = it.counterparty,
+                            counterpartyPhone = it.counterpartyPhone,
+                            amountMinor = it.amountMinor,
+                            candidateBills = candidateBillRules
+                        )
                 }
                 .sumOf {
                     it.amountMinor

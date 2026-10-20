@@ -3,6 +3,7 @@ import io
 import unittest
 from datetime import datetime
 from decimal import Decimal
+from unittest.mock import patch
 
 from reportlab.pdfgen import canvas
 from mpesa_pdf_engine import extract_bytes
@@ -44,6 +45,48 @@ def draw_pdf(wrong_total=False):
 
 
 class OfflineMpesaPdfTest(unittest.TestCase):
+    def test_physical_table_cells_are_extracted_once(self):
+        import mpesa_pdf_engine
+
+        original = mpesa_pdf_engine._cell
+        calls = 0
+
+        def counted(page, rect):
+            nonlocal calls
+            calls += 1
+            return original(page, rect)
+
+        with patch.object(mpesa_pdf_engine, "_cell", counted):
+            result = extract_bytes(draw_pdf())
+
+        self.assertEqual("ready_for_separate_activity_review", result["status"])
+        # Only the summary table uses per-cell crops; the physical table uses one
+        # page-wide character assignment and retains the exact ownership checks.
+        self.assertEqual(18, calls)
+
+    def test_review_deadline_fails_closed(self):
+        import mpesa_pdf_engine
+
+        with patch.object(mpesa_pdf_engine, "MAX_REVIEW_SECONDS", 0):
+            with self.assertRaisesRegex(ValueError, "local_review_timeout"):
+                extract_bytes(draw_pdf())
+    def test_unusual_grid_text_uses_crop_fallback(self):
+        import mpesa_pdf_engine
+
+        original = mpesa_pdf_engine._extract_table_grid_once
+
+        def altered_header(page, rectangles):
+            result = original(page, rectangles)
+            if result is not None and result[0]:
+                result[0][0][0] = "UNEXPECTED"
+            return result
+
+        with patch.object(mpesa_pdf_engine, "_extract_table_grid_once", altered_header):
+            result = extract_bytes(draw_pdf())
+
+        self.assertEqual("ready_for_separate_activity_review", result["status"])
+        self.assertEqual(4, len(result["lines"]))
+
     def test_physical_table_and_fuliza_review(self):
         result=extract_bytes(draw_pdf())
         self.assertEqual("ready_for_separate_activity_review",result["status"])

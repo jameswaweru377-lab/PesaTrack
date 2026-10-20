@@ -621,19 +621,23 @@ fun SmartOnboardingSetupScreen(
                             ) {
                                 null
                             } else {
-                                Triple(name, type, resolved)
+                                item to Triple(name, type, resolved)
                             }
                         }
-                        .groupBy { it.third.entityKey }
+                        .groupBy { it.second.third.entityKey }
                         .values
                         .map { entries ->
                             val latest =
                                 entries.first()
                             DetectedSetupSource(
-                                name = latest.first,
-                                type = latest.second,
-                                messageCount = entries.size,
-                                reference = latest.third
+                                name = latest.second.first,
+                                type = latest.second.second,
+                                messageCount =
+                                    OnboardingInstitutionPresentationPolicy
+                                        .uniqueObservationCount(
+                                            entries.map { it.first }
+                                        ),
+                                reference = latest.second.third
                             )
                         }
                         .sortedWith(
