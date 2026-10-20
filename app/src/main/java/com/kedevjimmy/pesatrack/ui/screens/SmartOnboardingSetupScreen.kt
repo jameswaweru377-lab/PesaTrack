@@ -1695,6 +1695,7 @@ fun SmartOnboardingSetupScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             BrandWordmark(compact = true)
             StageProgress(stage)
+            Box(Modifier.fillMaxWidth().weight(1f)) {
             SmartSmsPermissionPage(
                 accepted = disclosureAccepted, busy = accessStarted, denied = smsDenied, consentError = consentError,
                 selectedRangeDescription = when (importMonths) {
@@ -1746,7 +1747,8 @@ fun SmartOnboardingSetupScreen(
                         stage = SmartSetupStage.ANALYZE
                     } else consentError = "Your choice could not be saved. Please try again."
                 }
-            )
+            )
+            }
         }
         return
     }
