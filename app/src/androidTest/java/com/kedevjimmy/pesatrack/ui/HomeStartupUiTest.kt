@@ -58,6 +58,22 @@ class HomeStartupUiTest {
         compose.onNodeWithText("Your money picture could not load").assertDoesNotExist()
     }
 
+    @Test fun homeShowsBillDetailsAndKeepsSecondaryToolsCollapsed() {
+        showHome()
+        waitForText("Still due this month")
+
+        val list = compose.onNode(hasScrollAction())
+        list.performScrollToNode(hasText("Still due this month"))
+        compose.onNodeWithText("Nothing else is due this month.").assertExists()
+        list.performScrollToNode(hasText("More money tools"))
+        compose.onNodeWithText("Investments").assertDoesNotExist()
+        compose.onNodeWithText("Debts & loans").assertDoesNotExist()
+
+        compose.onNodeWithText("More money tools").performClick()
+        compose.onNodeWithText("Investments").assertExists()
+        compose.onNodeWithText("Debts & loans").assertExists()
+    }
+
 
     @Test fun partialLoanKeepsCashOutflowButProjectsPersonalSpending() {
         val now = System.currentTimeMillis()
