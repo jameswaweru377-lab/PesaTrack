@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
 import kotlin.math.roundToInt
 
 /**
@@ -56,6 +57,36 @@ internal data class HomeFinancialSignals(
     val confidence: HomeSignal,
     val actions: List<HomeGuidanceAction>
 )
+
+internal data class HomeHealthBudgetTotals(
+    val limitMinor: Long?,
+    val spentMinor: Long?
+)
+
+/** The Financial Health pace pillar compares calendar-month budget windows only. */
+internal fun financialHealthBudgetTotals(
+    budgets: List<MonthlyBudget>,
+    spendingByCategory: Map<String, Long>?,
+    canonicalCategoryId: (String) -> String
+): HomeHealthBudgetTotals {
+    val monthlyBudgets = budgets
+        .filter { it.periodLabel == "This month" }
+        .distinctBy { canonicalCategoryId(it.categoryId) }
+    if (monthlyBudgets.isEmpty()) return HomeHealthBudgetTotals(null, null)
+
+    fun checkedTotal(amount: (MonthlyBudget) -> Long): Long? = try {
+        monthlyBudgets.fold(0L) { total, budget -> Math.addExact(total, amount(budget)) }
+    } catch (_: ArithmeticException) {
+        null
+    }
+
+    return HomeHealthBudgetTotals(
+        limitMinor = checkedTotal { it.limitMinor },
+        spentMinor = spendingByCategory?.let { spending ->
+            checkedTotal { spending[canonicalCategoryId(it.categoryId)] ?: 0L }
+        }
+    )
+}
 
 /** Safe, bounded arithmetic for trusted nonnegative financial amounts. */
 private fun share(numerator: Long?, denominator: Long?): Double? {
