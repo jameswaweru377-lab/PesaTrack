@@ -2414,160 +2414,140 @@ private fun ImportChoicePage(
     val context = LocalContext.current
     val today = startOfLocalDayEpochMs(System.currentTimeMillis())
     val customRange = OnboardingHistoryWindow.customRange(
-        customStartDateEpochMs,
-        customEndDateEpochMs
+        customStartDateEpochMs, customEndDateEpochMs
     )
-    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.45f
-    val selectedRangeBackground = if (darkTheme) Color(0xFF0C403B) else Color(0xFFDAF5EF)
-    val selectedRangeContent = if (darkTheme) Color(0xFFA8F1E4) else Color(0xFF075F54)
-
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Box(Modifier.fillMaxWidth().height(91.dp), contentAlignment = Alignment.Center) {
-            Surface(
-                modifier = Modifier.size(78.dp), shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.AutoMirrored.Rounded.Message, null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(45.dp))
-                }
-            }
-        }
-        Text("Choose your SMS history",
-            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, lineHeight = 27.sp),
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center)
         Text(
-            "We'll look for financial activity in messages from M-Pesa, banks and other services.",
-            modifier = Modifier.widthIn(max = 310.dp),
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 21.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            "Choose your SMS history",
+            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 26.sp, lineHeight = 31.sp),
+            fontWeight = FontWeight.Bold
         )
+        Text(
+            "Select how far back to find financial activity in your messages.",
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 21.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        PremiumHistoryTimeline()
         Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(15.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
-                Icon(Icons.Rounded.Lock, contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.primary)
-                Text("Scanning runs on this phone. Full message text stays here. Optional online business-name lookup is separate.",
-                    modifier = Modifier.padding(start = 10.dp),
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 17.sp),
-                    color = MaterialTheme.colorScheme.onSurface)
-            }
-        }
-        Text("How far back should we check?",
             modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()) {
-            listOf(1, 2).forEach { n ->
-                ImportRangeChoice(
-                    label = if (n == 1) "1 month" else "2 months",
-                    selected = selectedMonths == n,
-                    selectedBackground = selectedRangeBackground,
-                    selectedContent = selectedRangeContent,
-                    onClick = { onSelected(n) },
-                    modifier = Modifier.weight(1f)
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(20.dp))
+                Text(
+                    "Scanning runs on this phone. Your full messages stay private.",
+                    modifier = Modifier.padding(start = 10.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            ImportRangeChoice(
-                label = "Custom",
-                selected = selectedMonths == CUSTOM_IMPORT_SELECTION,
-                selectedBackground = selectedRangeBackground,
-                selectedContent = selectedRangeContent,
-                onClick = { onSelected(CUSTOM_IMPORT_SELECTION) },
-                modifier = Modifier.weight(1f)
-            )
         }
+        Text(
+            "How far back should we check?",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold
+        )
+        PremiumRangeOption(
+            "1 month", "1 completed previous month + this month to date",
+            selectedMonths == 1, { onSelected(1) }
+        )
+        PremiumRangeOption(
+            "2 months", "2 completed previous months + this month to date",
+            selectedMonths == 2, { onSelected(2) }
+        )
+        PremiumRangeOption(
+            "Custom dates", "Choose a specific date range",
+            selectedMonths == CUSTOM_IMPORT_SELECTION, { onSelected(CUSTOM_IMPORT_SELECTION) }
+        )
+        if (selectedMonths == CUSTOM_IMPORT_SELECTION) {
+            Text("Choose your dates", modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = {
+                        val selected = Calendar.getInstance().apply {
+                            timeInMillis = customStartDateEpochMs
+                        }
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, day ->
+                                onCustomStartDateSelected(pickerDateEpochMs(year, month, day))
+                            },
+                            selected.get(Calendar.YEAR),
+                            selected.get(Calendar.MONTH),
+                            selected.get(Calendar.DAY_OF_MONTH)
+                        ).apply {
+                            datePicker.maxDate = minOf(
+                                endOfLocalDayEpochMs(customEndDateEpochMs),
+                                endOfLocalDayEpochMs(today)
+                            )
+                        }.show()
+                    },
+                    modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+                ) {
+                    Text("From\n${formatOnboardingDate(customStartDateEpochMs)}",
+                        textAlign = TextAlign.Center)
+                }
+                OutlinedButton(
+                    onClick = {
+                        val selected = Calendar.getInstance().apply {
+                            timeInMillis = customEndDateEpochMs
+                        }
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, day ->
+                                onCustomEndDateSelected(pickerDateEpochMs(year, month, day))
+                            },
+                            selected.get(Calendar.YEAR),
+                            selected.get(Calendar.MONTH),
+                            selected.get(Calendar.DAY_OF_MONTH)
+                        ).apply {
+                            datePicker.minDate = startOfLocalDayEpochMs(customStartDateEpochMs)
+                            datePicker.maxDate = endOfLocalDayEpochMs(today)
+                        }.show()
+                    },
+                    modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+                ) {
+                    Text("To\n${formatOnboardingDate(customEndDateEpochMs)}",
+                        textAlign = TextAlign.Center)
+                }
+            }
+            Text(
+                if (customRange != null) "Any past date range can be selected, including five or six months."
+                else "Choose a valid past date range. Future dates aren't available.",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (customRange == null) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Text(
+                "Includes completed previous months and this month to date. You can change the range later.",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 15.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
-        if (selectedMonths == CUSTOM_IMPORT_SELECTION) {
-            Text("Choose your dates", modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
-                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = {
-                        val selected = Calendar.getInstance().apply {
-                            timeInMillis = customStartDateEpochMs
-                        }
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, day ->
-                                onCustomStartDateSelected(pickerDateEpochMs(year, month, day))
-                            },
-                            selected.get(Calendar.YEAR),
-                            selected.get(Calendar.MONTH),
-                            selected.get(Calendar.DAY_OF_MONTH)
-                        ).apply {
-                            datePicker.maxDate = minOf(
-                                endOfLocalDayEpochMs(customEndDateEpochMs),
-                                endOfLocalDayEpochMs(today)
-                            )
-                        }.show()
-                    },
-                    modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-                ) {
-                    Text("From\n${formatOnboardingDate(customStartDateEpochMs)}",
-                        textAlign = TextAlign.Center)
-                }
-                OutlinedButton(
-                    onClick = {
-                        val selected = Calendar.getInstance().apply {
-                            timeInMillis = customEndDateEpochMs
-                        }
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, day ->
-                                onCustomEndDateSelected(pickerDateEpochMs(year, month, day))
-                            },
-                            selected.get(Calendar.YEAR),
-                            selected.get(Calendar.MONTH),
-                            selected.get(Calendar.DAY_OF_MONTH)
-                        ).apply {
-                            datePicker.minDate = startOfLocalDayEpochMs(customStartDateEpochMs)
-                            datePicker.maxDate = endOfLocalDayEpochMs(today)
-                        }.show()
-                    },
-                    modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-                ) {
-                    Text("To\n${formatOnboardingDate(customEndDateEpochMs)}",
-                        textAlign = TextAlign.Center)
-                }
-            }
-            Text(
-                if (customRange != null) "Any past date range can be selected, including five or six months."
-                else "Choose a valid past date range. Future dates aren't available.",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (customRange == null) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            Text(
-                "Includes completed previous months and this month to date. You can change the range later.",
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 15.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        Text(
+            "You can change your import range later in settings.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Button(
+            onClick = onContinue, enabled = canContinue,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text("Continue  →", fontWeight = FontWeight.Bold)
         }
-        Button(onClick = onContinue,
-            enabled = canContinue,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 49.dp),
-            shape = RoundedCornerShape(15.dp)) {
-            Text(if (selectedMonths == 0) "Continue" else "Review privacy & continue")
-        }
-        TextButton(onClick = onLater, modifier = Modifier.fillMaxWidth()) {
-            Text("Maybe later")
+        TextButton(onClick = onLater, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text("Maybe later", fontWeight = FontWeight.SemiBold)
         }
     }
 }

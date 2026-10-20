@@ -23,10 +23,10 @@ class PesaTrackWelcomePageTest {
                 PesaTrackWelcomePage(onGetStarted = { events++ }, onSkip = {})
             }
         }
-        compose.onNodeWithText("Welcome to PesaTrack").assertIsDisplayed()
+        compose.onNodeWithText("Your money,").assertIsDisplayed()
         compose.onNodeWithText("Welcome to Home").assertDoesNotExist()
-        compose.onNodeWithText("Bring in M-Pesa and bank activity").assertIsDisplayed()
-        compose.onNodeWithText("Get started").performClick()
+        compose.onNodeWithText("Track money in and out").assertIsDisplayed()
+        compose.onNodeWithText("Get started", substring = true).performClick()
         compose.runOnIdle { assertEquals(1, events) }
     }
 
@@ -37,7 +37,7 @@ class PesaTrackWelcomePageTest {
                 PesaTrackWelcomePage(onGetStarted = {}, onSkip = { skipped = true })
             }
         }
-        compose.onNodeWithText("Skip for now").performClick()
+        compose.onNodeWithText("Set up later").performClick()
         compose.runOnIdle { assertEquals(true, skipped) }
     }
 }
